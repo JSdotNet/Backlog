@@ -1,13 +1,13 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or devbook tooling. Eleven skills: one for each direction of a plan,
+general-purpose or devbook tooling. Twelve skills: one for each direction of a plan,
 one for running a whole plan, one for checking it once it has run, one for closing the entries
 whose pull request merged, one for bringing another tool's items into the Inbox, one for the
 remarks a person leaves while reading, one that dispatches the session requests the app
-queues, one that tends a person's Brain, one that reports what the week's runs cost, and one
-that levels a devbook and its code in the direction Backlog keeps — and a pane that follows a
-running plan.
+queues, one that tends a person's Brain, one that runs the weekly review, one that reports what
+the week's runs cost, and one that levels a devbook and its code in the direction Backlog
+keeps — and a pane that follows a running plan.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -212,6 +212,25 @@ running plan.
   reject it; neither comes back. It never edits the rule files, and writes no state file, index
   or log into the folder. Model-invoked as well — "tend my second brain" runs one tick — and no
   flow.
+- **`weekly-review`** — the GTD weekly review of local ADR 0054 §8
+  (`.devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md`), over the
+  three homes: the Inbox, the Brain and the backlog. It reads them through the `backlog` MCP
+  server — `list_inbox_items` (unprocessed and deferred), `list_entries`, `get_roadmap` and
+  `get_plan_items`, `list_goals`, `list_brain_reviews`, and `read_knowledge_chapter` under
+  `#brain` for each note's `tasks` and `roadmap` fields. The server says whether a Brain is set
+  but never where it is, so the skill lists an area's notes from the folder given as
+  `brain:<path>`, or from the working directory when it holds a `CONVENTIONS.md`. Without either,
+  the note-listing lines say so, and the review dates still come from `list_brain_reviews`. It reports three sections. **Get clear** covers the
+  open Inbox items, the notes in the Brain's inbox area and the deferred items. **Get current**
+  covers each plan with open entries but no next action (an entry ready or in progress, not
+  waiting, not marked blocked, every `after:` done), each roadmap plan with no entry at all, each `projects/` note no plan gathers, each
+  finished plan's project note still to archive, each waiting-for past its follow-up date, each
+  overdue due date, and each goal with open items past its due date or blocked. **Get creative**
+  covers the `someday` area, the notes whose `review` date has come (and a `review` value that is
+  no date), and each `areas/` note with no linked entry created, started or completed in 30 days.
+  Every line names the entry or note and the action to take. Two answers are proxies, and the
+  report says so: the Inbox answer carries no deferred item's review day, and the goals answer
+  carries no forecast. Model- and user-invoked. It writes nothing anywhere, so it is no flow.
 - **`weekly-cost-analysis`** — reports what the delivery runs on this machine cost in tokens
   over a window — 7 days, or an ISO range — across every repository, grouped by repository
   first, with the changes that would save the most. It reads the `backlog` server's
@@ -237,7 +256,7 @@ running plan.
   it is the target of the routine below, and run by hand the same way.
 
 `import-plan`, `import-inbox`, `run-plan-item`, `execute-plan`, `final-check`, `close-merged`,
-`handle-remarks` and `tend-brain` open what they hand back with the `show-me` skill's
+`handle-remarks`, `tend-brain` and `weekly-review` open what they hand back with the `show-me` skill's
 orientation card when it has one, and read as before without it. `devbook-sweep` and
 `dispatch-sessions` run with nobody present and `weekly-cost-analysis` keeps its fixed shape, so
 those three skip it.
@@ -248,7 +267,7 @@ Claude Desktop session with an icon and an ALL CAPS name (`📡 SESSION DISPATCH
 `🧠 BRAIN TENDER`), file it under the `Agents` sidebar section and pin it, skipping any step the
 host lacks. `tests/loop-skills.test.mjs` holds every `/loop`-started skill to it.
 
-`resources/chat-reports.md` is the one statement of how short a skill's chat report is. Nine
+`resources/chat-reports.md` is the one statement of how short a skill's chat report is. Ten
 skills point to it from their report step; `devbook-sweep` and `dispatch-sessions` run with
 nobody present, so they do not.
 

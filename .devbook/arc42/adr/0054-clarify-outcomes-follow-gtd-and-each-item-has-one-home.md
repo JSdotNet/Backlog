@@ -16,9 +16,10 @@ never copies.
 ```
 
 Proposed, 2026-11-11. §4 is built: the task's waiting-for, its two tokens and the
-Tasks pane's Waiting slice. The rest is not yet built. The repository owner
-settled every point below on 2026-11-09, from the GTD and PARA exploration of
-2026-10-29.
+Tasks pane's Waiting slice. §8 is read by the `weekly-review` skill in
+`backlog-tools`, which reports the review in chat. The rest is not yet built.
+The repository owner settled every point below on 2026-11-09, from the GTD and
+PARA exploration of 2026-10-29.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. Numbered 0054 because 0052 is taken twice on the open
@@ -266,6 +267,7 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | §8 read by the `weekly-review` skill: get clear, get current and get creative over the `backlog` MCP server, changing nothing. | Plan item `weekly-review-skill` landed. |
 | 2026-11-11 | §5 built: `#@pc` parses as the tag `@pc` and survives the canonical rewrite; the Tasks pane's Next actions slice groups by context and leaves a waiting task out. | Plan item `next-actions` landed. |
 | 2026-11-11 | §4 built: the waiting-for, its two tokens and the Waiting slice. | Plan item `waiting-for` landed. |
 | 2026-11-11 | Proposed: Inbox decisions follow the GTD clarify tree, each item has one home, and the Brain gains a `someday` area. | The owner settled the outcomes, keys and fields on 2026-11-09. |
