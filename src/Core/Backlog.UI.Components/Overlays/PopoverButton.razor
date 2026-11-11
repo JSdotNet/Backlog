@@ -13,7 +13,8 @@
     covers the trigger too, which is how a second press closes the panel. Like
     the context menu's, it takes the click it catches: a click on a control
     outside only closes the panel, and focus is left where the click put it.
-    Only Escape hands the focus back to the trigger.
+    Only Escape hands the focus back to the trigger. A host whose control moves
+    the reader elsewhere closes it through CloseAsync, by reference.
 *@
 
 <span class="@ClassValue" data-testid="@TestId" @onkeydown="OnKeyDownAsync" @attributes="AdditionalAttributes">
@@ -125,18 +126,31 @@
         return OpenChanged.InvokeAsync(true);
     }
 
-    private Task CloseAsync()
+    /// <summary>
+    /// Closes the panel from the host, for a control inside it that moves the reader's
+    /// attention elsewhere — a row that jumps to what it names — the way a link that
+    /// leaves the page closes it by leaving. The focus is left where the host puts it.
+    /// Does nothing while the panel is closed.
+    /// </summary>
+    public Task CloseAsync()
     {
+        if (!_open) return Task.CompletedTask;
+
         _open = false;
+
+        // The press that asked was handled by the host's component, not this one,
+        // so nothing would redraw the panel away.
+        StateHasChanged();
         return OpenChanged.InvokeAsync(false);
     }
 
-    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    /// <summary>
+    /// Puts the focus on the trigger, the panel left as it is — for a host whose panel
+    /// has just lost the control that held the focus and has none left to give it,
+    /// so the focus stays inside the popover, where Escape still closes it.
+    /// </summary>
+    public async Task FocusAsync()
     {
-        if (e.Key != "Escape" || !_open) return;
-
-        await CloseAsync();
-
         try
         {
             await _trigger.FocusAsync();
@@ -147,5 +161,13 @@
         catch (InvalidOperationException)
         {
         }
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Escape" || !_open) return;
+
+        await CloseAsync();
+        await FocusAsync();
     }
 }
