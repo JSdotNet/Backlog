@@ -178,10 +178,17 @@ public interface IInboxItems
     /// <c>inbox.route.unknown_entry_type</c> before the backlog is asked. The
     /// captures archived as the item's duplicates go with it, title and link,
     /// written on every entry it becomes.
+    /// </para>
+    /// <para>
+    /// <paramref name="schedule"/>, when it sets anything, gives every entry
+    /// the due date it names and puts every entry in today's My Day when it
+    /// asks; null or empty leaves the entries exactly as a plain route makes
+    /// them.
     /// </para></summary>
     Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
         Guid id,
         string? entryType = null,
+        InboxRouteScheduleDto? schedule = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>To Brain: writes the item into the person's Brain as a new note

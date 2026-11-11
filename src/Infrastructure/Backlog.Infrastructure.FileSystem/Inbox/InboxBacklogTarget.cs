@@ -402,6 +402,11 @@ internal sealed partial class InboxBacklogTarget(
     /// go ahead of the notes, one line each with their title and link, through
     /// Tasks' prose writer as the sibling lines do.
     /// </para>
+    /// <para>
+    /// A due date and a My Day date on the request become the <c>due:</c> and
+    /// <c>myday:</c> tokens, on every entry the request makes; without them the
+    /// metadata line is the plain route's.
+    /// </para>
     /// </summary>
     internal static string Compose(
         InboxRouteRequestDto request,
@@ -435,6 +440,11 @@ internal sealed partial class InboxBacklogTarget(
         if (!string.IsNullOrWhiteSpace(repo)) text.Append(" `repo:").Append(repo.Trim()).Append('`');
         if (!string.IsNullOrWhiteSpace(importItemId)) text.Append(" `id:").Append(importItemId).Append('`');
         foreach (var value in after ?? []) text.Append(" `after:").Append(value).Append('`');
+
+        // A single route's schedule, in the grammar's own date spelling: the
+        // due date, and the day the entry was picked for in My Day.
+        if (request.DueOn is { } dueOn) text.Append(" `due:").Append(EntryTextParser.DateToken(dueOn)).Append('`');
+        if (request.InMyDayOn is { } inMyDayOn) text.Append(" `myday:").Append(EntryTextParser.DateToken(inMyDayOn)).Append('`');
 
         text.Append('\n');
 

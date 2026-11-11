@@ -381,6 +381,9 @@
                         </div>
                     }
                     <p class="inbox-pane__hint inbox-triage__footnote">More than one repository makes one entry per repository, linked to each other.</p>
+                    <InboxRouteSchedule State="State"
+                                        Disabled="@(!open || Busy)"
+                                        TestId="inbox-triage-route-schedule" />
                 </section>
 
                 @* The decisions, each naming its key and doing what it does. To

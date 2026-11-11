@@ -239,8 +239,9 @@ actionable, and the backlog holds every commitment.
 | Create plan | — | A plan |
 | Merge | — | A comment on a task already tracked |
 
-Someday, Done now and Waiting for, the destination picker, and the due date or
-My Day on Move to backlog are decided in local ADR 0054 and not yet built.
+Someday, Done now and Waiting for, and the destination picker are decided in
+local ADR 0054 and not yet built. The due date or My Day on Move to backlog is
+built ([Route to Tasks](#route-to-tasks)).
 
 The decisions sit in a bar fixed at the foot of the detail, each naming its
 key: **Move to backlog**, **To Brain**, **Move to list**, **Defer** and
@@ -377,8 +378,11 @@ From the top down the screen holds:
   More than one makes one linked task per repository ([Route to Tasks](#route-to-tasks)).
 - **The decisions** as large buttons, each naming its key: Move to
   backlog (**r**), To Brain (**b**), Move to list (**l**), Defer (**d**) and Archive (**a**).
-  Local ADR 0054 adds Someday (**s**), Done now (**n**) and Waiting for (**w**),
-  and a due date or My Day beside Move to backlog; they are not yet built.
+  Local ADR 0054 adds Someday (**s**), Done now (**n**) and Waiting for (**w**);
+  they are not yet built.
+- **Due** and **Add to My Day**, under the repository picker, beside Move to
+  backlog: the date and the My Day choice **r** gives every task it makes
+  ([Route to Tasks](#route-to-tasks)).
 
 Beside the item an **Up next** list shows the next four items in the order
 triage will show them. Under it, **Just decided** shows the session's last
@@ -739,7 +743,7 @@ Routing is the terminal outcome of triage and happens exactly once.
 ```meta
 type: sub-feature
 related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/domain/inbox/requirements.md#route-to-tasks, .devbook/domain/tasks/domain.md#waiting-for, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
 ```
 
 Create one draft task per repository assigned to the item, or a single
@@ -757,12 +761,18 @@ task needs neither. The lines come before the item's notes, so notes ending in a
 chapter or an open code block cannot take them in. A batch links the siblings of
 each of its items the same way.
 
-Local ADR 0054 adds three variants of this route, not yet built. Each routes the
-item once, and a failure on the Tasks side leaves it open:
+Beside **Move to backlog**, in the item's detail and in triage mode, two optional
+choices go with the route. **Due** gives every task it makes a
+[due date](../tasks/domain.md#due-date): today, tomorrow, next week (seven days
+on) or a date typed in. **Add to My Day** puts every task in today's
+[My Day](../tasks/domain.md#my-day), dated by the reader's own calendar when the
+route runs. The choice is held per item until it routes, so **r** takes it too.
+Without either, the route makes exactly the tasks it always did. A
+[batch route](#route-a-batch-to-tasks) offers neither.
 
-- **Move to backlog with a date.** Triage may set the task's
-  [due date](../tasks/domain.md#due-date) or put it in
-  [My Day](../tasks/domain.md#my-day) in the same step.
+Local ADR 0054 adds two more variants of this route, not yet built. Each routes
+the item once, and a failure on the Tasks side leaves it open:
+
 - **Done now (n).** The task is created already ticked, `completed:` today: the
   two-minute rule.
 - **Waiting for (w).** The task is created with a

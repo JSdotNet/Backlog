@@ -13,8 +13,9 @@ namespace Backlog.Modules.Inbox.Features.RouteToBacklog;
 /// <see cref="IInboxBacklogTarget"/> rather than an event.
 /// <paramref name="EntryType"/> is the kind of entry to make, one of
 /// <see cref="InboxTriagePassDto.EntryTypes"/> compared case-insensitively, or
-/// null for a task.</summary>
-public sealed record RouteToBacklogCommand(Guid Id, string? EntryType = null);
+/// null for a task. <paramref name="Schedule"/> is the due date and My Day
+/// chosen beside Move to backlog, given to every entry; null for neither.</summary>
+public sealed record RouteToBacklogCommand(Guid Id, string? EntryType = null, InboxRouteScheduleDto? Schedule = null);
 
 /// <summary>
 /// The order of the two writes is the decision here. Tasks is asked first and
@@ -74,6 +75,12 @@ public sealed class RouteToBacklogCommandHandler(
         {
             EntryType = entryType,
             Attached = await AttachedAsync(item, cancellationToken).ConfigureAwait(false),
+            DueOn = command.Schedule?.DueOn,
+            // My Day is today's choice, so it is dated here, on the reader's
+            // local calendar, rather than by whoever asked.
+            InMyDayOn = command.Schedule is { AddToMyDay: true }
+                ? DateOnly.FromDateTime(clock.GetLocalNow().DateTime)
+                : null,
         };
 
         var created = await target.CreateTasksAsync(request, cancellationToken).ConfigureAwait(false);

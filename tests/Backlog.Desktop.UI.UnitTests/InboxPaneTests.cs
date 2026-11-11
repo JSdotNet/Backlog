@@ -777,6 +777,86 @@ public sealed class InboxPaneTests
         Assert.NotEqual("Configure Azure Foundry in Settings to create plans.", enabled.GetAttribute("title"));
     }
 
+    /// <summary>Beside Move to backlog the detail offers a due date and Add to
+    /// My Day, and the route asks for exactly what was chosen (local ADR 0054).</summary>
+    [Fact]
+    public async Task Move_to_backlog_from_the_detail_carries_the_due_date_and_my_day_chosen_beside_it()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Route me");
+        harness.Inbox.Seed("Still waiting");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        var due = pane.Find("[data-testid='inbox-detail-route-schedule-due'] select");
+        Assert.Equal(
+            ["", "today", "tomorrow", "next-week", "date"],
+            due.QuerySelectorAll("option").Select(option => option.GetAttribute("value") ?? string.Empty));
+        await due.ChangeAsync(new ChangeEventArgs { Value = "tomorrow" });
+        await pane.Find("[data-testid='inbox-detail-route-schedule-my-day'] input").ChangeAsync(new ChangeEventArgs { Value = true });
+
+        await pane.Find("[data-testid='inbox-move-to-backlog']").ClickAsync(new());
+
+        var schedule = Assert.Single(harness.Inbox.SingleRouteSchedules);
+        Assert.Equal(new InboxRouteScheduleDto(harness.State.Today.AddDays(1), AddToMyDay: true), schedule);
+    }
+
+    /// <summary>"On a date…" opens a date field, and the date typed is the one
+    /// the route asks for.</summary>
+    [Fact]
+    public async Task On_a_date_opens_a_date_field_whose_date_the_route_carries()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Route me");
+        harness.Inbox.Seed("Still waiting");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-detail-route-schedule-date']"));
+        await pane.Find("[data-testid='inbox-detail-route-schedule-due'] select").ChangeAsync(new ChangeEventArgs { Value = "date" });
+        await pane.Find("[data-testid='inbox-detail-route-schedule-date'] input").InputAsync(new ChangeEventArgs { Value = "2027-01-15" });
+
+        await pane.Find("[data-testid='inbox-move-to-backlog']").ClickAsync(new());
+
+        Assert.Equal(new InboxRouteScheduleDto(new DateOnly(2027, 1, 15)), Assert.Single(harness.Inbox.SingleRouteSchedules));
+    }
+
+    /// <summary>Without either choice the route is the plain one: no schedule
+    /// is sent at all.</summary>
+    [Fact]
+    public async Task Move_to_backlog_without_a_choice_sends_no_schedule()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Route me");
+        harness.Inbox.Seed("Still waiting");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        await pane.Find("[data-testid='inbox-move-to-backlog']").ClickAsync(new());
+
+        Assert.Null(Assert.Single(harness.Inbox.SingleRouteSchedules));
+    }
+
+    /// <summary>A batch route offers neither a due date nor My Day: the
+    /// selection bar's Move to backlog stands alone.</summary>
+    [Fact]
+    public async Task The_selection_bar_offers_no_due_date_or_my_day()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two");
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+        await PickAsync(pane, items[0].Id);
+        await PickAsync(pane, items[1].Id);
+
+        var bar = pane.Find("[data-testid='inbox-bulk-bar']");
+        Assert.Empty(bar.QuerySelectorAll("[data-testid*='route-schedule']"));
+        Assert.DoesNotContain("My Day", bar.TextContent, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Move_to_backlog_raises_routed_and_the_row_says_where_it_went()
     {

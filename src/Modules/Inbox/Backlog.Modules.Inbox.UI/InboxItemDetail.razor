@@ -436,6 +436,14 @@
             </div>
         </article>
 
+        @* Beside Move to backlog: the due date and My Day its tasks may get. *@
+        @if (open)
+        {
+            <InboxRouteSchedule State="State"
+                                Disabled="@Busy"
+                                TestId="inbox-detail-route-schedule" />
+        }
+
         @* The decisions, fixed at the foot of the column, each naming its
            key. A decided item keeps only Move to list, which is allowed in
            every state. *@
