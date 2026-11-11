@@ -15,8 +15,10 @@ import { fileURLToPath } from "node:url";
 
 import {
     endpointFrom,
+    failureReport,
     finishReport,
     firstPrompt,
+    heldByOf,
     lastAssistantText,
     needsYouRows,
     promptedAfterStart,
@@ -182,16 +184,69 @@ test("a final message opening with Skipped: is a skip; anything else is a finish
     assert.deepEqual(finishReport("s", "id", null), { scheduleId: "s", sessionId: "id", event: "finished", verdict: null, needsYou: [] });
 });
 
+test("a skip that names the earlier run's session sends it as heldBy; the pickup gate's own line names none", () => {
+    const id = "local_1f0c8e2a-5b7d-4c3e-9a10-2b4d6f8a0c1e";
+    assert.deepEqual(finishReport("s", "id", `Skipped: the run started 2026-11-10T02:00 is not archived yet (session ${id})`), {
+        scheduleId: "s",
+        sessionId: "id",
+        event: "skipped",
+        verdict: `Skipped: the run started 2026-11-10T02:00 is not archived yet (session ${id})`,
+        heldBy: id,
+    });
+    // The line delivery-schedule's pickup gate writes names the run by its start time alone.
+    assert.equal("heldBy" in finishReport("s", "id", "Skipped: the run started 2026-11-10T02:00 is not archived yet"), false);
+
+    assert.equal(heldByOf(`Skipped: session \`${id}\` is not archived`), id);
+    assert.equal(heldByOf("Skipped: session id: 0a1b2c3d-1111-2222-3333-444455556666 waits"), "0a1b2c3d-1111-2222-3333-444455556666");
+    assert.equal(heldByOf(`Skipped: ${id} is not archived`), id);
+    assert.equal(heldByOf("Skipped: the run 0a1b2c3d-1111-2222-3333-444455556666 is not archived"), "0a1b2c3d-1111-2222-3333-444455556666");
+    assert.equal(heldByOf("Skipped: Friday's session 7f3a9b21c is not archived"), "7f3a9b21c");
+    // Words after `session`, and a start time, are no session id.
+    assert.equal(heldByOf("Skipped: the earlier session is not archived yet"), null);
+    assert.equal(heldByOf("Skipped: the session started 2026-11-10T02:00 is not archived"), null);
+    assert.equal(heldByOf(undefined), null);
+});
+
+test("a final message opening with Failed: is a failure, the error after it its verdict", () => {
+    assert.deepEqual(finishReport("s", "id", "Failed: git fetch was refused: the token expired\n\nNothing was changed."), {
+        scheduleId: "s",
+        sessionId: "id",
+        event: "failed",
+        verdict: "git fetch was refused: the token expired",
+    });
+    assert.deepEqual(finishReport("s", "id", "Failed:"), { scheduleId: "s", sessionId: "id", event: "failed", verdict: null });
+    // A report that only mentions a failure further down is a finish.
+    assert.equal(finishReport("s", "id", "**Two jobs ran.**\n\nFailed: none").event, "finished");
+});
+
+test("a turn that ended on an API error is a failure, its shown error line the verdict", () => {
+    assert.deepEqual(
+        failureReport("s", "id", { error: "rate_limit", error_details: "429 Too Many Requests", last_assistant_message: "API Error: Rate limit reached\n" }),
+        { scheduleId: "s", sessionId: "id", event: "failed", verdict: "API Error: Rate limit reached" },
+    );
+    assert.equal(failureReport("s", "id", { error: "server_error", error_details: "500 Internal Server Error" }).verdict, "500 Internal Server Error");
+    assert.equal(failureReport("s", "id", { error: "overloaded" }).verdict, "API error: overloaded");
+    assert.equal(failureReport("s", "id", {}).verdict, "API error");
+});
+
+test("the start context asks a skip to name the holding run's session and an error to end on Failed:", () => {
+    const text = startContext("merge-review", "sess-1");
+    assert.match(text, /\(session <session_id>\)/);
+    assert.match(text, /`Failed:`/);
+});
+
 test("the endpoint is the environment's, then settings.json's, then the default port, on /schedule-runs", () => {
     assert.deepEqual(endpointFrom({ BACKLOG_MCP_PORT: "6000", BACKLOG_MCP_TOKEN: "t" }, null), { url: "http://127.0.0.1:6000/schedule-runs", token: "t" });
     assert.deepEqual(endpointFrom({}, JSON.stringify({ mcpServer: { port: 6001, token: "s" } })), { url: "http://127.0.0.1:6001/schedule-runs", token: "s" });
     assert.deepEqual(endpointFrom({}, "{half"), { url: "http://127.0.0.1:5757/schedule-runs", token: null });
 });
 
-test("hooks.json runs the report script on SessionStart, UserPromptSubmit and Stop", () => {
+test("hooks.json runs the report script on SessionStart, UserPromptSubmit, Stop and StopFailure", () => {
     const hooks = JSON.parse(fs.readFileSync(path.join(HOOKS, "hooks.json"), "utf8")).hooks;
     const commands = (event) => hooks[event].flatMap((group) => group.hooks.map((hook) => hook.command));
-    for (const event of ["SessionStart", "UserPromptSubmit", "Stop"]) {
+    // StopFailure takes no matcher here: a run that ends on any API error is a failed run.
+    assert.ok(hooks.StopFailure.every((group) => group.matcher === undefined));
+    for (const event of ["SessionStart", "UserPromptSubmit", "Stop", "StopFailure"]) {
         assert.ok(
             commands(event).some((command) => command.includes("hooks/schedule-run-report.mjs")),
             `${event} does not run schedule-run-report.mjs`,
@@ -330,6 +385,94 @@ test("Stop reads the final message from the transcript when the payload has none
     }
 });
 
+test("Stop posts a skip that names its holding session with heldBy", async () => {
+    const app = await standIn();
+    try {
+        const sessionId = randomUUID();
+        const holder = "local_1f0c8e2a-5b7d-4c3e-9a10-2b4d6f8a0c1e";
+        const line = `Skipped: the run started 2026-11-04T07:00 is not archived yet (session ${holder})`;
+        const file = transcript([{ type: "user", message: { content: scheduledPrompt("issue-sweep") } }]);
+        await runHook(
+            { hook_event_name: "Stop", session_id: sessionId, transcript_path: file, last_assistant_message: line },
+            { BACKLOG_MCP_PORT: String(app.port), BACKLOG_MCP_TOKEN: "t" },
+        );
+        assert.deepEqual(app.received.map((request) => request.body), [
+            { scheduleId: "issue-sweep", sessionId, event: "skipped", verdict: line, heldBy: holder },
+        ]);
+    } finally {
+        await app.close();
+    }
+});
+
+test("StopFailure posts the run as failed with the error line, behind the token", async () => {
+    const app = await standIn();
+    try {
+        const sessionId = randomUUID();
+        const file = transcript([
+            { type: "queue-operation", operation: "enqueue", content: scheduledPrompt("weekly-update") },
+            { type: "user", message: { content: scheduledPrompt("weekly-update") } },
+        ]);
+        const run = await runHook(
+            {
+                hook_event_name: "StopFailure",
+                session_id: sessionId,
+                transcript_path: file,
+                error: "rate_limit",
+                error_details: "429 Too Many Requests",
+                last_assistant_message: "API Error: Rate limit reached",
+            },
+            { BACKLOG_MCP_PORT: String(app.port), BACKLOG_MCP_TOKEN: "t0k" },
+        );
+        assert.deepEqual({ code: run.code, stdout: run.stdout, stderr: run.stderr }, { code: 0, stdout: "", stderr: "" });
+        assert.deepEqual(app.received, [
+            {
+                method: "POST",
+                url: "/schedule-runs",
+                authorization: "Bearer t0k",
+                body: { scheduleId: "weekly-update", sessionId, event: "failed", verdict: "API Error: Rate limit reached" },
+            },
+        ]);
+    } finally {
+        await app.close();
+    }
+});
+
+test("Stop posts a run that ends on a Failed: line as failed", async () => {
+    const app = await standIn();
+    try {
+        const sessionId = randomUUID();
+        const file = transcript([{ type: "user", message: { content: scheduledPrompt("tech-update") } }]);
+        await runHook(
+            { hook_event_name: "Stop", session_id: sessionId, transcript_path: file, last_assistant_message: "Failed: dotnet restore could not reach nuget.org" },
+            { BACKLOG_MCP_PORT: String(app.port), BACKLOG_MCP_TOKEN: "t" },
+        );
+        assert.deepEqual(app.received.map((request) => request.body), [
+            { scheduleId: "tech-update", sessionId, event: "failed", verdict: "dotnet restore could not reach nuget.org" },
+        ]);
+    } finally {
+        await app.close();
+    }
+});
+
+test("StopFailure posts nothing for a session no schedule started, or once a person replied", async () => {
+    const app = await standIn();
+    try {
+        const env = { BACKLOG_MCP_PORT: String(app.port), BACKLOG_MCP_TOKEN: "t" };
+        const failure = { hook_event_name: "StopFailure", error: "overloaded", last_assistant_message: "API Error: Overloaded" };
+        const plain = transcript([{ type: "user", message: { content: "Fix the build." } }]);
+        await runHook({ ...failure, session_id: randomUUID(), transcript_path: plain }, env);
+        const replied = transcript([
+            { type: "user", message: { content: scheduledPrompt("merge-review") } },
+            { type: "assistant", message: { id: "m1", content: [{ type: "text", text: report }] } },
+            { type: "user", message: { content: "Merge #12 for me." } },
+        ]);
+        await runHook({ ...failure, session_id: randomUUID(), transcript_path: replied }, env);
+        assert.deepEqual(app.received, []);
+    } finally {
+        await app.close();
+    }
+});
+
 test("Stop posts nothing once a person has replied in the run's session", async () => {
     const app = await standIn();
     try {
@@ -378,6 +521,11 @@ test("Stop exits quietly when Backlog is closed, refuses the report, or the inpu
     const closed = await runHook(payload, { BACKLOG_MCP_PORT: String(closedPort), BACKLOG_MCP_TOKEN: "t" });
     assert.deepEqual({ code: closed.code, stdout: closed.stdout, stderr: closed.stderr }, { code: 0, stdout: "", stderr: "" });
     assert.ok(closed.ms < 4000, `took ${closed.ms} ms`);
+
+    const failure = { hook_event_name: "StopFailure", session_id: randomUUID(), transcript_path: file, error: "server_error" };
+    const failedClosed = await runHook(failure, { BACKLOG_MCP_PORT: String(closedPort), BACKLOG_MCP_TOKEN: "t" });
+    assert.deepEqual({ code: failedClosed.code, stdout: failedClosed.stdout, stderr: failedClosed.stderr }, { code: 0, stdout: "", stderr: "" });
+    assert.ok(failedClosed.ms < 4000, `took ${failedClosed.ms} ms`);
 
     for (const status of [404, 503]) {
         const app = await standIn(status);

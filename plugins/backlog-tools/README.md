@@ -330,10 +330,25 @@ Schedules page (local ADR 0051 §1). Such a run's first prompt opens with
   shell lets only a prompt carrying `<scheduled-task` through to Node, and a marker per session
   in the temp folder keeps the context to once.
 - **Stop** posts the finish to `POST /schedule-runs` on the same port and token as `/telemetry`:
-  `skipped`, with the line, when the final message opens with `Skipped:`; else `finished` with
-  the report's bold verdict line (its first line of prose when it has none) and the rows under
-  every *Needs you* heading, each as its cells joined by ` · `. The final message is the Stop
-  payload's `last_assistant_message`, else the transcript's last assistant text.
+  `skipped`, with the line, when the final message opens with `Skipped:`, and the session id
+  the line names as `heldBy`; `failed`, with the error after it, when it opens with `Failed:`;
+  else `finished` with the report's bold verdict line (its first line of prose when it has
+  none) and the rows under every *Needs you* heading, each as its cells joined by ` · `. The
+  final message is the Stop payload's `last_assistant_message`, else the transcript's last
+  assistant text.
+- **StopFailure** fires instead of Stop when the turn ends on an API error — a rate limit, an
+  overloaded or failing server, a billing or authentication error — and posts `failed` with the
+  error line the session shows as the verdict.
+
+`delivery-schedule`'s skills write no closing line of their own on failure, and its pickup gate's
+`Skipped:` line names the earlier run only by its start time. So the start context also asks the
+run to end a skip with `(session <session_id>)`, the holding run's id from the scheduler's run
+list, and to end on a `Failed: <the error>` line when an error stops it. A run that does neither
+still reports: a skip without `heldBy`, an error as its finish. The app resolves a `local_` id to
+the session that run reported under.
+
+The posts carry the MCP server's own token from `settings.json`. The question hook's token of its
+own (plan `zero-trust-auth`) has not landed, so the route has no narrower token to take yet.
 
 A session no schedule started reports nothing. Like the forwarder, the script gives up after
 two seconds and exits 0 with nothing printed on any error, so a closed app, the `sessions` flag

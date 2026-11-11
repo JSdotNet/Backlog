@@ -59,7 +59,7 @@ public sealed class ScheduleTools(
         string? verdict = null,
         [Description("With 'finished', the Needs-you lines of the run's summary, in order; omit or send none when it lists none.")]
         string[]? needsYou = null,
-        [Description("With 'skipped', the session id of the earlier, unarchived run that held this one, where known.")]
+        [Description("With 'skipped', the session id of the earlier, unarchived run that held this one, where known: the id it reported under, or the Claude desktop app's local_ id the scheduler's run list gives it.")]
         string? heldBy = null,
         CancellationToken cancellationToken = default)
     {
@@ -147,9 +147,11 @@ public static class ScheduleRunReporting
 
         if (normalised is null) return new Outcome(null, refusal);
 
+        var catalog = await CatalogAsync(sessions, cancellationToken).ConfigureAwait(false);
+        normalised = normalised with { HeldBy = RunSessionId(normalised.HeldBy, catalog) };
+
         var now = clock.GetUtcNow();
         var record = await register.RecordAsync(normalised, now, cancellationToken).ConfigureAwait(false);
-        var catalog = await CatalogAsync(sessions, cancellationToken).ConfigureAwait(false);
         var reading = ScheduleReading.Read(record, ScheduleReading.ArchivedIn(catalog), now, zone);
         var run = reading.Runs.First(candidate => candidate.Run.SessionId == normalised.SessionId);
 
@@ -169,9 +171,25 @@ public static class ScheduleRunReporting
     }
 
     /// <summary>
-    /// The session list, or null where it cannot be read. The report is already recorded
-    /// by then, so a list that fails to read answers with no run Handled rather than
-    /// failing a report the hook would only send again.
+    /// The id a run is keyed by for <paramref name="heldBy"/>: where a skip named the holding
+    /// run by the Claude desktop app's <c>local_</c> id — the id the scheduler's run list gives
+    /// it — the id of the session that record belongs to, which is the one that run reported
+    /// under; otherwise <paramref name="heldBy"/> as sent.
+    /// </summary>
+    private static string? RunSessionId(string? heldBy, AgentSessionCatalog? catalog)
+    {
+        if (heldBy is null || catalog is null) return heldBy;
+
+        var session = catalog.Sessions.FirstOrDefault(candidate =>
+            string.Equals(candidate.DesktopSessionId, heldBy, StringComparison.Ordinal));
+
+        return session?.Id ?? heldBy;
+    }
+
+    /// <summary>
+    /// The session list, or null where it cannot be read. It is read before the report is
+    /// recorded, and a list that fails to read records the report all the same and answers
+    /// with no run Handled, rather than failing a report the hook would only send again.
     /// </summary>
     private static async Task<AgentSessionCatalog?> CatalogAsync(IAgentSessionSource? sessions, CancellationToken cancellationToken)
     {
