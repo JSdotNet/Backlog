@@ -44,6 +44,11 @@ The file is the note. What the app derives from it stays out of the folder ([Not
 
 As any devbook chapter, a note may also carry the two [planning fields](../devbook/domain.md#shared-value-objects), an Effort and a `roadmap` list. Devbook registers and owns them; the Brain only writes them.
 
+The person and their agent write the note, and the pane saves the person's own edits. Of its own accord, the app changes an existing note in two ways only (local ADR 0052):
+
+- **A link.** [Cross-Linking](#cross-linking) appends a task id to the `tasks` field, or a [Roadmap Tag](../tasks/domain.md#roadmap-tag) to the `roadmap` list, and changes nothing else in the file.
+- **An archive move.** When the plan a project note names in its `roadmap` list is done, the person may press to move the note's file into the Brain's archive area. The move changes no byte inside the file, and a Brain without an archive area gets no offer.
+
 The aggregate has no independently identified child entities; `Project Ref`, `Tag` and `Task Link` are value objects owned by the root.
 
 ### Project Ref
@@ -65,6 +70,8 @@ aliases: [TaskLink, task_id]
 A link from a note to one Task, by the task's stored id. A note writes it as one value of its `tasks` field, and the id is a GUID. [A task link is the task's id](requirements.md#requirement-a-task-link-is-the-tasks-id) says how it is read. A value that is no GUID links no task, and the note lists it as written.
 
 A Task Link is not an address and not an edge. The Brain's database keeps a note's `tasks` values on the note's own node, as written. The app reads them from there both ways: the tasks a note names, and the notes that name a task. A task's record carries no note.
+
+A Task Link is written into the note, either by the person or their agent, or by [Cross-Linking](#cross-linking) when the app makes a task from the note. The app only appends an id the list does not already hold (local ADR 0052).
 
 ### Tag
 
@@ -123,12 +130,16 @@ Origin of the note: `inbox` (routed **To Brain** from triage), `manual` (written
 
 ```meta
 type: domain-service
-related: [.devbook/domain/tasks/domain.md#task]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/arc42/adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md, .devbook/domain/brain/domain.invariants.md#cross-linking]
 ```
 
-Cross-Linking maintains bi-directional links between Knowledge Notes and Tasks. It also supports queries that span both: searching the backlog and knowledge together, and embedding knowledge snippets into backlog details. It is a service because a link has two owners in different contexts and must stay consistent from both sides.
+Cross-Linking writes a link from a Knowledge Note to a Task or a plan into the note. When the app makes a task from a note, the service appends the task's id to the note's `tasks` field. For a plan, it appends the plan's [Roadmap Tag](../tasks/domain.md#roadmap-tag) to the `roadmap` list (local ADR 0052). It is a service because the link crosses two contexts: the note is the Brain's, and the task or plan it names is not.
 
-Invocation semantics: consistency policy invoked when note/backlog links are created, removed, or reconciled.
+The service only appends, and only to those two lists in the note's top `meta` block. It never removes, reorders or rewrites a value. A missing field is added as the last line of the block. Its rules are in [its invariants](domain.invariants.md#cross-linking).
+
+It is a second writer beside capture's `IBrainNoteWriter`, which only creates notes. Removing or reordering a link stays the person's edit to the note.
+
+Invocation semantics: invoked when the app makes a task or a plan from a note. A note whose top `meta` block is missing or does not parse is refused, and the caller is told why.
 
 ## Ubiquitous Language
 

@@ -128,3 +128,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0044 — A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container](adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md) (proposed)
 - [ADR 0046 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md) (proposed)
 - [ADR 0047 — The Domain view reads by unit](adr/0047-the-domain-view-reads-by-unit.md)
+- [ADR 0052 — The app may write links into a Brain note and move a finished project note to the archive](adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md) (proposed; amends ADR 0026 §3 and ADR 0040 §3 and §4)

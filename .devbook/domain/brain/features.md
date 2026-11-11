@@ -63,7 +63,7 @@ These discovery tags are the context's own `#keyword`s, not a chapter's [Roadmap
 
 ```meta
 type: feature
-related: [.devbook/domain/brain/requirements.md#bi-directional-linking, .devbook/domain/brain/domain.md#task-link, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize]
+related: [.devbook/domain/brain/requirements.md#bi-directional-linking, .devbook/domain/brain/domain.md#task-link, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/arc42/adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md, .devbook/domain/brain/domain.invariants.md#cross-linking, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
 Link a Brain note to the tasks it is about, and see the link from both ends. A note names its tasks in its `tasks` field, one [Task Link](domain.md#task-link) per task, by the task's stored id. The Brain's database carries the field, and the app reads it both ways:
@@ -71,7 +71,7 @@ Link a Brain note to the tasks it is about, and see the link from both ends. A n
 - **From the note.** Under its links into devbooks, the note shows a **Tasks** section. Each task this backlog holds is a gold chip reading its title, which opens the task in the task list. An id this backlog does not hold is a dashed chip reading *not in this backlog*. It is never an error, because one Brain is read beside more than one backlog.
 - **From the task.** A task row, in the Brain scope and a repository scope, carries a teal **◆ n note** badge counting the Brain notes that name it. With one note, pressing it opens the Devbook on the Brain side at that note; with several, it lists them to pick from. Where the Devbook is off or has no Brain to read, the press shows a *not available* toast and opens nothing.
 
-The reverse is read, never written: a task's record carries no note. The badge is drawn only for the Brain's owner, from their own Brain (local ADR 0027 §6), so another reader of the same backlog sees none. Embedding a note's content in a task's details is not built.
+The link is written into the note only: a task's record carries no note. When the app makes a task from a note, it may append the task's id to the note's `tasks` field. For a plan, it may append the plan's [Roadmap Tag](../tasks/domain.md#roadmap-tag) to the `roadmap` field. It changes nothing else in the file and adds no value the list already holds. It refuses a note whose top `meta` block it cannot parse (local ADR 0052). The badge is drawn only for the Brain's owner, from their own Brain (local ADR 0027 §6), so another reader of the same backlog sees none. Embedding a note's content in a task's details is not built.
 
 ## Brain scope
 
@@ -343,7 +343,7 @@ Get a thought into the Brain without leaving what is on screen. In Brain mode th
 
 Whatever the person typed stays text. A heading, fence or meta block typed into a capture gets a zero-width space just before its marker. The space is invisible when read, and no reader takes the line for structure.
 
-The note's file is named after its title (`Ideas for the sync` is `ideas-for-the-sync.md`). A name already taken gets `-2`, `-3` and on, so nothing in the Brain is ever overwritten. Its `meta` block says `type: note` and its [source](domain.md#note-source), `manual` from Capture and `inbox` from To Brain. Once written, the pane opens it. An assistant calls the capture tool over MCP ([MCP Brain scope](#mcp-brain-scope)).
+The note's file is named after its title (`Ideas for the sync` is `ideas-for-the-sync.md`). A name already taken gets `-2`, `-3` and on, so capture never overwrites a note already in the Brain. Capture only creates notes; appending a link to an existing note is [Cross-Linking](domain.md#cross-linking)'s job, beside it ([Bi-directional linking](#bi-directional-linking), local ADR 0052). Its `meta` block says `type: note` and its [source](domain.md#note-source), `manual` from Capture and `inbox` from To Brain. Once written, the pane opens it. An assistant calls the capture tool over MCP ([MCP Brain scope](#mcp-brain-scope)).
 
 ## MCP Brain scope
 
