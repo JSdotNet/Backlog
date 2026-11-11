@@ -91,6 +91,18 @@
          after the fact. ILoggingBuilder and its per-provider filters live here
          rather than in Abstractions. -->
     <PackageReference Include="Microsoft.Extensions.Logging" />
+    <!-- DPAPI, for the linked SecretEnvelope below (local ADR 0030): each MCP grant's
+         secret in mcp-grants.json is sealed under the signed-in Windows user. Named
+         rather than left to arrive through the GitHub adapter, which would stop
+         bringing it the day that adapter stops sealing anything. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The one envelope every stored secret is sealed in (local ADR 0030), compiled in
+         the way the Claude and Azure Foundry adapters do: it is internal to the GitHub
+         adapter, and one copy of the rule is the point. -->
+    <Compile Include="..\Backlog.Infrastructure.GitHub\SecretEnvelope.cs" Link="SecretEnvelope.cs" />
   </ItemGroup>
 
 </Project>

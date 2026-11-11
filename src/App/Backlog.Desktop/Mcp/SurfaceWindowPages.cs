@@ -94,8 +94,9 @@ internal static class SurfaceWindowPages
     /// <summary>The head's own plumbing, which a page has no business resolving: the
     /// listener itself, whose disposal would take the page down with it, the
     /// snapshot it forwards from, and the link tokens, which a page that could mint
-    /// one could hand out.</summary>
-    private static readonly Type[] HostOnlyTypes = [typeof(McpServerWorker), typeof(DesktopServiceRegistrations), typeof(WindowLinkTokens)];
+    /// one could hand out — and the grant tokens and their broker, for the same reason.</summary>
+    private static readonly Type[] HostOnlyTypes =
+        [typeof(McpServerWorker), typeof(DesktopServiceRegistrations), typeof(WindowLinkTokens), typeof(McpGrantTokens), typeof(McpTokenBroker)];
 
     /// <summary>The names a request for a page may arrive under: loopback, as the
     /// listener is bound.</summary>

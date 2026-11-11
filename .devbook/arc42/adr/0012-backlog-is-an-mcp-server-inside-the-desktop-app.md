@@ -160,6 +160,19 @@ kept 30 days. The MCP server's Settings page shows the latest 200 on its **Activ
 A request the listener turns away before any tool is named — a foreign `Origin`, a missing
 or wrong token — is a warning in the app's log, not an audit record.
 
+**The token broker and grants are built (2026-11-11, plan `zero-trust-auth` entry 7),
+beside the shared token.** The desktop app keeps grants in `mcp-grants.json` in its app-data folder, each with a
+`dpapi:`-sealed secret (local ADR 0030). `McpTokenBroker` serves the named pipe
+`backlog-mcp-broker-<user>` (`backlog-debug-…` for a Debug build), whose one access rule
+is the person's SID, and also refuses a client whose SID differs. It answers a grant id
+with a 15-minute HS256 JWT signed by a key held in memory. The listener accepts that token
+when no static token matched, and refuses an expired one, one from another key, and one
+whose `ver` is below the stored grant's version or whose grant is revoked.
+`tools/mcp/backlog-mcp-headers.mjs --grant <id>` asks the pipe for the header. Scopes are
+carried, not yet enforced, and the audit still names the caller `shared token`: both are
+entry 8. Nothing creates a grant at runtime yet; entries 9 to 11 do. The web harness
+composes neither (ADR 0052 §9).
+
 ### 2. The host code: a framework reference in `Backlog.Desktop` only, started the way `TaskSyncWorker` is
 
 - `<FrameworkReference Include="Microsoft.AspNetCore.App" />` goes into
@@ -425,6 +438,7 @@ day this record was accepted. A row marked **Built** is one the plan has closed.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | Built §1's token broker and grants beside the shared token: a named pipe for the person's SID alone mints 15-minute JWTs for grants in `mcp-grants.json`, and the listener refuses an expired token or one older than its grant's version. | Plan `zero-trust-auth` entry 7, ADR 0052 Phase 1. |
 | 2026-11-11 | The decision group drops `devbook_approve` and `devbook_accept` (local ADR 0052 §7): five operations, `devbook_set_state` to `draft` alone. | Plan `zero-trust-auth`: an agent could approve its own change under the person's name. |
 | 2026-11-11 | Built §1's audit log: one record per tool call, in a per-installation `mcp-audit.db`, kept 30 days and shown on the MCP server Settings page's **Activity** card. | Plan `zero-trust-auth` entry 5, ADR 0052 Phase 0. |
 | 2026-11-11 | Amended §1 by local ADR 0052: the shared bearer token becomes a per-registration grant whose broker mints 15-minute scoped tokens, checked by scope policies behind the `Origin` check. Not built yet. | Plan `zero-trust-auth`: the one plaintext token never expired and opened every tool to every caller. |

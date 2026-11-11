@@ -235,14 +235,34 @@ public static class McpLoopbackGuard
     }
 
     /// <summary>
+    /// The bearer value of <paramref name="authorization"/> when it has the shape of a JWT —
+    /// three base64url segments, the last of which may be empty — or null. The listener asks
+    /// this only after <see cref="Identify"/> matched none of its static tokens, and hands what
+    /// it returns to <see cref="McpGrantTokens.ValidateAsync"/>; a static token, which has no
+    /// dot, is never parsed as a JWT.
+    /// </summary>
+    public static string? GrantTokenCandidate(string? authorization)
+    {
+        if (authorization is null) return null;
+        if (!authorization.StartsWith(BearerScheme, StringComparison.OrdinalIgnoreCase)) return null;
+
+        var presented = authorization[BearerScheme.Length..].Trim();
+        var segments = presented.Split('.');
+
+        return segments.Length == 3 && segments[0].Length > 0 && segments[1].Length > 0 ? presented : null;
+    }
+
+    /// <summary>
     /// Whether a credential reaches <paramref name="path"/> with <paramref name="method"/> at
     /// all. The MCP token reaches every path but <see cref="TelemetryPath"/>; the telemetry
     /// token only a <c>POST</c> to it; the question-hook token only a <c>POST</c> to
     /// <see cref="McpPath"/>, where <see cref="IsQuestionHookCall"/> then reads which tool.
+    /// A grant token reaches what the MCP token does: its scopes are not enforced until the
+    /// per-group policies of local ADR 0052 §4 exist.
     /// </summary>
     public static bool Reaches(McpCredential credential, string method, string path) => credential switch
     {
-        McpCredential.Mcp => !IsPath(path, TelemetryPath),
+        McpCredential.Mcp or McpCredential.Grant => !IsPath(path, TelemetryPath),
         McpCredential.Telemetry => IsPost(method) && IsPath(path, TelemetryPath),
         McpCredential.QuestionHook => IsPost(method) && IsPath(path, McpPath),
         _ => false
@@ -341,5 +361,11 @@ public enum McpCredential
     QuestionHook,
 
     /// <summary>Claude Code's OpenTelemetry exporter's token.</summary>
-    Telemetry
+    Telemetry,
+
+    /// <summary>A grant token the broker minted (local ADR 0052 §3), validated by
+    /// <see cref="McpGrantTokens"/> rather than by <see cref="McpLoopbackGuard.Identify"/>:
+    /// it is checked only once none of the three static tokens matched, so a static token
+    /// is never parsed as a JWT and its fixed-time comparison stays as it was.</summary>
+    Grant
 }

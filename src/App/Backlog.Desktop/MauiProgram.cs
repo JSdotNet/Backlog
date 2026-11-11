@@ -5,6 +5,7 @@ using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
@@ -183,6 +184,15 @@ public static class MauiProgram
         // (local ADR 0043 §7): one set for the app's life, so a token minted by an
         // MCP tool is the one the listener redeems.
         builder.Services.TryAddSingleton<WindowLinkTokens>();
+        // The MCP grants and the broker that mints their tokens (local ADR 0052 §3). This
+        // head's alone: the web harness composes no store and no broker (§9), so its /mcp
+        // has no grant path. mcp-grants.json sits in the head's app-data folder, Backlog.Debug
+        // for a debug head. One McpGrantTokens for the app's life, because it holds the
+        // signing key in memory: the broker mints with it and the listener validates with
+        // it, and a second instance would refuse every token the first one signed.
+        builder.Services.TryAddSingleton<IMcpGrantStore>(_ => new FileMcpGrantStore(Path.Combine(appData, FileMcpGrantStore.FileName)));
+        builder.Services.TryAddSingleton(sp => new McpGrantTokens(sp.GetRequiredService<IMcpGrantStore>(), TimeProvider.System));
+        builder.Services.TryAddSingleton<McpTokenBroker>();
         // The head's windows (local ADR 0043 §4): the main one App asks for, and every
         // surface popped out beside it. Twice over, so App reaches the concrete type
         // that makes the main window while every caller sees the port.
@@ -356,6 +366,11 @@ public static class MauiProgram
         // There is no switch in front of it: the MCP server is always on while
         // the app runs.
         _ = app.Services.GetRequiredService<McpServerWorker>();
+
+        // And the token broker beside it, on the same terms: its pipe outlives the window as
+        // the listener does (local ADR 0043 §5), and the container disposes it with the app.
+        // Start only queues the pipe onto the thread pool.
+        app.Services.GetRequiredService<McpTokenBroker>().Start();
 
         // And the question relay's hook script (local ADR 0041), written to <app data>\hooks
         // on every start so the installed hook is always this app's own. On the thread pool,

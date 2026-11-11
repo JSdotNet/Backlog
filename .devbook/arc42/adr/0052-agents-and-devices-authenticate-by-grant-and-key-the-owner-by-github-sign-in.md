@@ -165,6 +165,10 @@ sequenceDiagram
   `settings.json`. `BACKLOG_MCP_TOKEN` stays only as a development and CI escape
   hatch, off by default. This retires the exception in ADR 0030 §6.
 
+*Broker and grants built 2026-11-11 by entry 7 (`token-broker`), beside the shared
+token.* ADR 0012 §1 records how. A process of another user that takes the pipe name
+first keeps the broker down, and it then learns only the grant ids clients send it.
+
 Grants are created, listed and revoked on the MCP server's own Settings page. The
 **Agents** card replaces the **Bearer token** card there, by the rules of
 `.devbook/design/settings-pages.md`. Nothing in the Dev PC catalog or the Tools
@@ -385,4 +389,5 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | Built §3's token broker and grants beside the shared token: a named pipe for the person's SID alone mints 15-minute JWTs, and the listener refuses one older than its grant's version. Scopes are not enforced yet. | Plan `zero-trust-auth` entry 7, Phase 1. |
 | 2026-11-11 | Proposed: the owner is one GitHub account matched by numeric id, devices hold hardware-bound keys, agents hold grants with 15-minute scoped tokens, Windows Hello confirms what is hard to undo, devbook decisions are human-only, and remote MCP goes through OAuth 2.1 on the sync service. Amends ADR 0012 §1, 0043 §7 and 0044 §6, and retires ADR 0030 §6's exception. | The always-on listener's one plaintext token opened every tool, including approving an agent's own devbook change. |

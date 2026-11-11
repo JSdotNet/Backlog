@@ -161,6 +161,12 @@ public sealed class McpServerWorker : IDisposable
     /// return without waiting on the head's container.</summary>
     private volatile WindowLinkTokens? _windowLinkTokens;
 
+    /// <summary>The grant tokens the broker mints (local ADR 0052 §3), or null in a container
+    /// that composed none — the web harness — whose listener then has no grant path. The head's
+    /// own instance, never a second one: a token is signed with a key that instance alone holds.
+    /// Resolved where the listener is built, as <see cref="_windowLinkTokens"/> is.</summary>
+    private volatile McpGrantTokens? _grantTokens;
+
     public McpServerWorker(
         IServiceProvider services,
         WorkspaceSettingsStore settings,
@@ -584,7 +590,8 @@ public sealed class McpServerWorker : IDisposable
             if (Socket.OSSupportsIPv6) options.Listen(IPAddress.IPv6Loopback, port);
         });
 
-        // Every call this listener admits carries the one shared bearer token (§1).
+        // The audit names the shared bearer token (§1) as the caller of every call, grant
+        // tokens included, until the audit names the grant (local ADR 0052 §3, a later step).
         builder.Services.AddBacklogMcpServer(McpAudit.SharedTokenCaller).WithHttpTransport();
 
         // The pop-out pages' own services, before the bridge: what the listener
@@ -601,6 +608,7 @@ public sealed class McpServerWorker : IDisposable
         BridgeToDesktopContainer(builder.Services);
 
         _windowLinkTokens ??= _services.GetService<WindowLinkTokens>();
+        _grantTokens ??= _services.GetService<McpGrantTokens>();
 
         var app = builder.Build();
 
@@ -839,6 +847,20 @@ public sealed class McpServerWorker : IDisposable
                 _settings.QuestionHookToken,
                 _settings.TelemetryToken);
 
+        // A grant token only when no static token matched, so the static ones keep their
+        // fixed-time comparison and are never parsed as a JWT (local ADR 0052 §3).
+        McpGrantValidation? grant = null;
+
+        if (credential == McpCredential.None
+            && authorization.Count == 1
+            && _grantTokens is { } grantTokens
+            && McpLoopbackGuard.GrantTokenCandidate(authorization[0]) is { } candidate)
+        {
+            grant = await grantTokens.ValidateAsync(candidate, context.RequestAborted).ConfigureAwait(false);
+
+            if (grant.Principal is not null) credential = McpCredential.Grant;
+        }
+
         if (!McpLoopbackGuard.Reaches(credential, context.Request.Method, context.Request.Path.Value ?? string.Empty)
             || (credential == McpCredential.QuestionHook && !await IsQuestionHookCallAsync(context.Request).ConfigureAwait(false)))
         {
@@ -854,6 +876,14 @@ public sealed class McpServerWorker : IDisposable
                 return;
             }
 
+            if (grant is { Refusal: { } refusal })
+            {
+                // The refusal and nothing else: the token is a credential, and a refused one
+                // names no grant this listener has checked.
+                _log.LogWarning("An MCP request was refused: its grant token was refused ({Refusal}).", refusal);
+                return;
+            }
+
             _log.LogWarning(
                 credential == McpCredential.None
                     ? "An MCP request was refused: no valid bearer token."
@@ -861,6 +891,10 @@ public sealed class McpServerWorker : IDisposable
                 context.Request.Path.Value);
             return;
         }
+
+        // Who the call is, for what reads the request after the guard. The audit still names
+        // the shared token as the caller; naming the grant there is a later step.
+        if (credential == McpCredential.Grant && grant?.Principal is { } principal) context.User = principal;
 
         await next(context).ConfigureAwait(false);
     }

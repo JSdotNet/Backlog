@@ -569,6 +569,8 @@ each item below says where the code stands.
   Until that is built, the listener takes the one bearer token of local ADR 0012 §1.
   The audit is built already: one record per tool call the listener admits, in a per-installation
   `mcp-audit.db`, kept 30 days, the latest 200 on the MCP server Settings page.
+  The token broker is built beside the shared token: a named pipe for the person's SID
+  mints a grant's 15-minute JWT, and the listener refuses one older than its grant's version.
 - **Windows Hello confirms what is hard to undo:** a `tasks:admin` tool, revoking a
   device, minting a pairing code, allowing an agent's grant, and switching
   `agents:grant` on. A transition to Done asks for none.
