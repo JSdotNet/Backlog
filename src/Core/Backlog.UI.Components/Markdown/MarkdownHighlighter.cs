@@ -86,7 +86,7 @@ public static class MarkdownHighlighter
         @"|(?<strong>\*\*[^*\n]+\*\*)" +
         @"|(?<strike>~~[^~\n]+~~)" +
         @"|(?<em>(?<!\*)\*[^*\n]+\*(?!\*))" +
-        @"|(?<tag>(?<!\S)#[A-Za-z][\w-]*)",
+        @"|(?<tag>(?<!\S)#@?[A-Za-z][\w-]*)",
         RegexOptions.Compiled);
 
     /// <summary>

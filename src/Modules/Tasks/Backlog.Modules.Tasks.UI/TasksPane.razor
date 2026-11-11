@@ -191,7 +191,41 @@
                                       PressedChanged="State.SetWaitingForFilter">
                             <HourglassIcon CssClass="chip__icon" /><span class="sr-only">Waiting</span><span class="chip__count">@WaitingForCount</span>
                         </ToggleButton>
+
+                        @* The Next actions slice: the open tasks that can be picked up
+                           now, grouped by context — see
+                           TasksDesktopState.NextActionsOnly. *@
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@State.NextActionsOnly"
+                                      TestId="nextactions-filter-option"
+                                      Title="@(State.NextActionsOnly ? "Show everything again" : "Show only the next actions, grouped by context")"
+                                      PressedChanged="State.SetNextActionsFilter">
+                            <ListTodoIcon CssClass="chip__icon" /><span class="sr-only">Next actions</span><span class="chip__count">@NextActionsCount</span>
+                        </ToggleButton>
                     </div>
+
+                    @* The areas the Next actions slice holds, while it is on: the type
+                       group's shape and for its reason — a task is filed under one
+                       area, so pressing another lets go of the first, and with
+                       nothing pressed the slice is every area. *@
+                    @if (State.AreaFilters.Count > 0)
+                    {
+                        <div class="filter-group filter-group--area" role="group" aria-label="Filter by area">
+                            @foreach (var area in State.AreaFilters)
+                            {
+                                <ToggleButton BaseClass="chip chip--filter"
+                                              PressedCssClass="chip--active"
+                                              Pressed="@(State.SelectedArea == area.Value)"
+                                              TestId="area-filter-option"
+                                              data-area="@(area.Value == TasksDesktopState.NoArea ? string.Empty : area.Value)"
+                                              Title="@(State.SelectedArea == area.Value ? "Show every area again" : $"Show only the next actions in {area.Label}")"
+                                              PressedChanged="pressed => State.SetAreaFilter(pressed ? area.Value : null)">
+                                    @area.Label<span class="chip__count">@area.Count</span>
+                                </ToggleButton>
+                            }
+                        </div>
+                    }
 
                     @* Where a task came from, and whose it is there. Nothing at all
                        until a connector is installed or a task is linked, so a
@@ -671,7 +705,8 @@
                                       OnSelected="OnEntrySelectedAsync"
                                       OnToggle="OnEntryToggledAsync"
                                       OnRename="OnEntryRenamedAsync"
-                                      Reorderable="@(!State.WaitingForOnly)"
+                                      Reorderable="@(!State.InGroupedSlice)"
+                                      SectionOf="@NextActionSection"
                                       OnReorder="OnEntryReorderedAsync"
                                       OnLink="OnEntryLinkedAsync"
                                       OnTagSelected="OnRowTagSelected"
@@ -970,7 +1005,8 @@
         Attachment,
         Devbook,
         WaitingFor,
-        FollowUpOn
+        FollowUpOn,
+        Area
     }
 
     /// <summary>The row a right-click asked for a menu on. Held from the gesture
@@ -1019,6 +1055,7 @@
 
         _calendarPlans = Services.GetService(typeof(ICalendarPlans)) as ICalendarPlans;
         if (_calendarPlans is not null) _calendarPlans.Changed += HandleCalendarPlansChanged;
+        _brainAreaNames = Services.GetService(typeof(IBrainAreaNames)) as IBrainAreaNames;
 
         _calendarCapacity = Services.GetService(typeof(ICalendarCapacity)) as ICalendarCapacity;
         if (_calendarCapacity is not null) _calendarCapacity.Changed += HandleCalendarCapacityChanged;
@@ -3303,9 +3340,9 @@
             new(RowMenuDuePick, "Pick a date", "🗓"),
             new(RowMenuDueClear, "Remove due date", "🗓", Disabled: row.PreviewDueOn is null),
             MenuItem.Divider("order"),
-            new(RowMenuMoveTop, "Move to top", "⤒", Disabled: above is null || State.WaitingForOnly),
-            new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null || State.WaitingForOnly),
-            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null || State.WaitingForOnly)
+            new(RowMenuMoveTop, "Move to top", "⤒", Disabled: above is null || State.InGroupedSlice),
+            new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null || State.InGroupedSlice),
+            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null || State.InGroupedSlice)
         ];
 
         // Where the work went, after where the row sits and before the act that
@@ -3612,6 +3649,31 @@
     /// <c>TasksDesktopState.IsWaitingForSomeone</c>, which leaves finished rows
     /// out.</summary>
     private int WaitingForCount => State.ScopedRows.Count(State.IsWaitingForSomeone);
+
+    /// <summary>How many of those same rows are next actions — see
+    /// <c>TasksDesktopState.IsNextAction</c>.</summary>
+    private int NextActionsCount => State.ScopedRows.Count(State.IsNextAction);
+
+    /// <summary>The context heading a row is listed under while the Next actions
+    /// slice is on, and none otherwise: the list draws a heading where it changes.
+    /// Null for the list when the slice is off, so no other view pays for it.</summary>
+    private Func<TaskRow, string?>? NextActionSection
+    {
+        get
+        {
+            if (!State.NextActionsOnly) return null;
+
+            // Once per render over the rows in view, rather than a search of every
+            // row for each one the list draws.
+            var groups = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var row in State.FilteredRows)
+            {
+                groups.TryAdd(EntryTaskId(row), TasksDesktopState.NextActionGroupOf(row));
+            }
+
+            return task => groups.GetValueOrDefault(task.Id);
+        }
+    }
 
     // --- The open-work summary and its report --------------------------------
 
@@ -4570,6 +4632,35 @@
                     }
                 </TaskActionGroup>
 
+                @* The pile the task is filed under, in the person's own words
+                   (.devbook/domain/tasks/domain.md#area). A combobox rather than a
+                   select: the suggestions are the Brain's area names first, then the
+                   areas already used, and what is typed stands as typed — the
+                   taxonomy is the person's. Across the width with the other trailing
+                   groups, after the two that say why a task is not moving. *@
+                <TaskActionGroup Label="Area" TestId="entry-schedule-area">
+                    <TaskAction Icon="🗂"
+                                Label="@(string.IsNullOrWhiteSpace(row.PreviewArea) ? "File under an area" : "Area")"
+                                Value="@row.PreviewArea"
+                                Set="@(!string.IsNullOrWhiteSpace(row.PreviewArea))"
+                                OnSet="() => ToggleAreaPickerAsync()"
+                                OnClear="() => State.ChangeAreaAsync(row, null)"
+                                TestId="entry-action-area" />
+
+                    @if (IsPickerOpen(SchedulePicker.Area))
+                    {
+                        <Combobox Options="@AreaOptions()"
+                                  Value="@(row.PreviewArea ?? string.Empty)"
+                                  AriaLabel="Area"
+                                  ListAriaLabel="Suggested areas"
+                                  Placeholder="An area, or a new one"
+                                  Compact="true"
+                                  CssClass="entry-doc__area-picker"
+                                  TestId="entry-area-input"
+                                  OnCommit="commit => OnAreaCommittedAsync(row, commit)" />
+                    }
+                </TaskActionGroup>
+
                 @* Under Dependencies and across the full width for the same reason:
                    its value is a list of names. A row the store has never seen has
                    nowhere to keep a reference — the field is the entry's own, not a
@@ -5226,6 +5317,68 @@
         await State.ChangeWaitingForAsync(
             row,
             value.Length == 0 ? null : new WaitingFor(value, row.PreviewWaitingFor?.FollowUpOn));
+    }
+
+    /// <summary>The Brain's area names, read when the Area picker opens; empty in a
+    /// host that composes no Brain.</summary>
+    private IReadOnlyList<string> _brainAreas = [];
+
+    /// <summary>Where the Brain's area names come from, or null in a host that
+    /// composes no Brain.</summary>
+    private IBrainAreaNames? _brainAreaNames;
+
+    /// <summary>Opens the Area picker, or closes it; opening reads the Brain's area
+    /// names again, off the render thread, so an area added in the Brain since is
+    /// offered.</summary>
+    private async Task ToggleAreaPickerAsync()
+    {
+        TogglePicker(SchedulePicker.Area);
+        if (!IsPickerOpen(SchedulePicker.Area)) return;
+
+        if (_brainAreaNames is { } brain)
+        {
+            try
+            {
+                _brainAreas = await brain.ListAsync();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A Brain folder that cannot be read is no area to suggest; the areas
+                // in use still are, and typing still files.
+                _brainAreas = [];
+            }
+        }
+    }
+
+    /// <summary>What the Area picker suggests: the Brain's areas, then those in use —
+    /// see <c>TasksDesktopState.AreaSuggestions</c> — each grouped by where it came
+    /// from.</summary>
+    private IReadOnlyList<SelectorOption> AreaOptions()
+    {
+        var brain = new HashSet<string>(_brainAreas, StringComparer.OrdinalIgnoreCase);
+
+        return
+        [
+            .. State.AreaSuggestions(_brainAreas)
+                .Select(area => new SelectorOption(area, area, Hint: null, Group: brain.Contains(area) ? "Brain" : "In use"))
+        ];
+    }
+
+    /// <summary>The area, from its field: a suggestion taken or what was typed. Blank
+    /// clears it, the same gesture as the ✕. A backtick cannot sit inside a token, so
+    /// an area holding one is refused and the field goes back.</summary>
+    private async Task OnAreaCommittedAsync(EntryRow row, ComboboxCommit commit)
+    {
+        var value = commit.Value.Trim();
+
+        if (value.Contains('`', StringComparison.Ordinal))
+        {
+            commit.Refuse();
+            return;
+        }
+
+        ClosePicker();
+        await State.ChangeAreaAsync(row, value.Length == 0 ? null : value);
     }
 
     /// <summary>The follow-up date, from its field. Clearing the native field clears

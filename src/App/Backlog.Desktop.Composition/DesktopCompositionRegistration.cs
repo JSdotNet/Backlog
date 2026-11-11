@@ -394,6 +394,8 @@ public static class DesktopCompositionRegistration
             options.WindowStateLifetime));
         services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
         services.Add(new ServiceDescriptor(typeof(ISurfaceNavigator), typeof(SurfaceNavigator), options.WindowStateLifetime));
+        // The Brain's area names the open task's Area picker suggests first.
+        services.AddSingleton<IBrainAreaNames>(sp => new ShellBrainAreaNames(sp.GetService<IBrainFolderSource>()));
         // The titles a Brain note's Tasks section draws, from the window's own task list.
         services.Add(new ServiceDescriptor(
             typeof(IDevbookTaskTitles),

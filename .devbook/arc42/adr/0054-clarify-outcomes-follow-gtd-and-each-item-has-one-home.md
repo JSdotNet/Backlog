@@ -266,5 +266,6 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | §5 built: `#@pc` parses as the tag `@pc` and survives the canonical rewrite; the Tasks pane's Next actions slice groups by context and leaves a waiting task out. | Plan item `next-actions` landed. |
 | 2026-11-11 | §4 built: the waiting-for, its two tokens and the Waiting slice. | Plan item `waiting-for` landed. |
 | 2026-11-11 | Proposed: Inbox decisions follow the GTD clarify tree, each item has one home, and the Brain gains a `someday` area. | The owner settled the outcomes, keys and fields on 2026-11-09. |

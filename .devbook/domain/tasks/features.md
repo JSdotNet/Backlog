@@ -852,6 +852,34 @@ Hand-sequence tasks within the backlog by dragging them into a preferred
 order, independent of recency or priority. Where a task nobody ranked lands is
 [a requirement](requirements.md#requirement-unranked-tasks-fall-back-to-recency).
 
+### Next actions
+
+```meta
+type: sub-feature
+related: [.devbook/domain/tasks/domain.md#readiness, .devbook/domain/tasks/domain.md#context, .devbook/domain/tasks/domain.md#area, .devbook/domain/tasks/domain.md#waiting-for, .devbook/domain/brain/domain.md#para-category, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_slice_keeps_the_next_actions_grouped_by_context_then_no_context, unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_area_chips_narrow_the_slice_and_name_the_unfiled_tasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_slice_composes_with_the_repository_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_area_picker_suggests_the_brain_areas_first_then_the_areas_in_use, unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryContextTagTests.A_context_on_the_metadata_line_survives_the_canonical_rewrite]
+```
+
+The filter bar's **Next actions** scope lists what can be picked up now:
+
+- an open task whose [Readiness](domain.md#readiness) is ready;
+- that waits on nobody, with no [Waiting For](domain.md#waiting-for);
+- and that is not [marked blocked](#marking-a-task-blocked).
+
+The tasks are grouped by [Context](domain.md#context), the tags starting `@`, by
+name. The tasks with no context come last, under *No context*. A task with two
+contexts is listed once, under the first by name. Rank decides the order within
+a group. Reordering is off while the scope is on, because that order is not the
+rank.
+
+The scope composes with the repository scope, the Brain chip and the other scope
+chips, as My Day does. While it is on, the area chips narrow it to one
+[Area](domain.md#area), or to *No area*.
+
+The open task's **Area** picker files the task under an area. It suggests the
+Brain's area names first, then the areas already used on a task, and takes
+whatever is typed.
+
 ### Board view
 
 ```meta

@@ -267,8 +267,10 @@ The `effort:` value is a non-negative whole number and is not honoured on a `pla
 `waiting:` takes free text up to the closing backtick, spaces included, and
 `followup:` a calendar date. A `followup:` with no `waiting:` beside it is
 unreadable, as `for:` is without `at:`. A follow-up date that has passed reads
-overdue, and deleting `waiting:` clears the waiting-for and its date. A context is not a token: it is a tag
-written in the body, `#@pc` (`.devbook/domain/tasks/domain.md#context`).
+overdue, and deleting `waiting:` clears the waiting-for and its date. A context is not a named token: it is a tag,
+`#@pc`, written in the body, on the title or as a `#` tag token on this line
+(`.devbook/domain/tasks/domain.md#context`). The canonical rewrite keeps it as
+`` `#@pc` ``, never as the bare `` `@pc` `` this line reads as an area.
 
 A full metadata line mixes both forms, sigils first:
 

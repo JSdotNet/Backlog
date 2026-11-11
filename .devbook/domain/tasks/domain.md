@@ -842,13 +842,17 @@ took.
 ```meta
 type: term
 aliases: [area]
-related: [.devbook/domain/tasks/domain.md#task]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/brain/domain.md#para-category, .devbook/domain/tasks/features.md#next-actions]
 ```
 
 A self-chosen grouping the person files a task under, in whatever vocabulary they
 actually use, such as "repos", "projects" or "inbox". It is deliberately a
 free-form string rather than an enum: the taxonomy belongs to the person, not the
 product. A task with no area is unfiled.
+
+The open task's Area picker suggests the
+[Brain's area names](../brain/domain.md#para-category) first, then the areas
+already used on a task. They are suggestions: what the person types stands.
 
 ### Waiting For
 
@@ -868,23 +872,25 @@ It is not an [Impediment](../progress/domain.md#impediment): an Impediment
 holds back a goal and has its own lifecycle in Progress, and a waiting-for
 creates none. The Inbox's **Waiting for** decision makes a task with one.
 Decided in local ADR 0054. The task stores it and the Tasks pane's
-[Waiting slice](features.md#waiting-for-someone) lists it; the other views still
-list a waiting task among the next actions.
+[Waiting slice](features.md#waiting-for-someone) lists it. The
+[Next actions slice](features.md#next-actions) leaves it out.
 
 ### Context
 
 ```meta
 type: term
 aliases: [context tag]
-related: [.devbook/domain/tasks/domain.md#area, .devbook/design/content-editing.md#structured-metadata-sigils, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+related: [.devbook/domain/tasks/domain.md#area, .devbook/design/content-editing.md#structured-metadata-sigils, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md, .devbook/domain/tasks/features.md#next-actions]
 ```
 
 Where or with what a task can be done, in GTD's sense: at the computer, on the
-phone, out on errands. A context is a tag whose name starts with `@`, written in
-the body as `#@pc` or `#@calls`. It is a convention on tags, not a field, and a
+phone, out on errands. A context is a tag whose name starts with `@`, written
+`#@pc` or `#@calls` in the body, on the title or as a metadata-line tag token. It
+is stored as the tag `@pc`, as a person tag on the title is, so an `@carol` on
+the title reads as a context too. It is a convention on tags, not a field, and a
 person who uses no contexts sees nothing of it. It is not an [Area](#area),
-which files the task, nor the `@` sigil of the metadata line. Decided in local
-ADR 0054; the tag grammar does not take `#@` yet.
+which files the task, nor the bare `@` token of the metadata line. Decided in
+local ADR 0054. The [Next actions slice](features.md#next-actions) groups by it.
 
 ### Due Date
 
