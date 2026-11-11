@@ -8,13 +8,13 @@ argument-hint: "[path to the Brain folder; default the working directory]"
 
 Open the reply with `backlog-tools@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled.
 
-The Brain is the argument's folder, else the working directory; its own files are the only rules.
-**Human input** is every file this skill did not write: copy it, never change its words. A
-**copy** carries `source:`, a relative link to its input, in the metadata block its template uses.
+The Brain is the argument's folder, else the working directory; its own files are the only rules. **Human input**
+is every file this skill did not write: copy it, never change its words. A **copy** is step 4's filed version of one.
 
 ## Each tick
 
-0. **Mark.** Under `/loop`, first turn only: mark this session per `../../resources/standing-session.md`.
+0. **Check in.** Under `/loop` only, per `../../resources/standing-session.md#check-in`, `sessionId`
+   `${CLAUDE_SESSION_ID}`; no interval → pace ticks at 30 min. First unpaused turn: mark it per its `#mark`.
 1. **Rules.** Read, at the root, `AGENTS.md` — else `CLAUDE.md` — and `CONVENTIONS.md`, and the
    files they point at that the work needs; in a session that read them, again only when one
    changed since. Neither instruction file → stop. Rules disagree → the one detailing a folder governs it.
@@ -24,11 +24,11 @@ The Brain is the argument's folder, else the working directory; its own files ar
    conflict (`<name>-<MACHINE>.md`) or duplicate (`<name> copy.md`). The folders are the state.
 3. **Decide** from the input and the rules alone: each fact a filing needs — a customer, a year,
    a product — is in the input or its path, never guessed. Unclear → it waits in the inbox.
-4. **Act.** Write the copy where the rules file it: their metadata plus `source:`, their
-   template's structure, the person's words verbatim. Stamp the input — the date in the field or
-   filename form the rules name, else `filed: <ISO date>` in its metadata — and move it to their
-   folder for processed input, else `archive/processed/`, where `source:` points. Append the
-   copy's remarks, linked to it, under the running file's undecided heading — once, no repeats.
+4. **Act.** Write the copy where the rules file it: their metadata plus `source:`, a relative link to the input,
+   in the block their template uses; their template's structure, the person's words verbatim. Stamp the input — the
+   date in the field or filename form the rules name, else `filed: <ISO date>` in its metadata — and move it to their
+   folder for processed input, else `archive/processed/`, where `source:` points. Append the copy's remarks, linked
+   to it, under the running file's undecided heading — once, no repeats.
 5. **Follow up.** Each task line, with a `backlog` tool server present: `find_item` by its text
    — no checkbox, `@who` or arrow — as title; none → `create_item` `task` with that title and a
    link to the line's file; two → report. Report each new id for the person to fill in.

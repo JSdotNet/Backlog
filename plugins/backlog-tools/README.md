@@ -243,7 +243,13 @@ those three skip it.
 as a long-running agent: on its first turn `dispatch-sessions` and `tend-brain` title their own
 Claude Desktop session with an icon and an ALL CAPS name (`📡 SESSION DISPATCHER`,
 `🧠 BRAIN TENDER`), file it under the `Agents` sidebar section and pin it, skipping any step the
-host lacks. `tests/loop-skills.test.mjs` holds every `/loop`-started skill to it.
+host lacks. Every tick then opens with the `backlog` server's `check_in` (local ADR 0051 §3),
+which passes the session's own id (`${CLAUDE_SESSION_ID}`), its state and its heartbeat, and
+whose answer carries the person's last command: `pause` does no work and keeps checking in at
+the heartbeat, `resume` carries on, and `stop` ends the loop and says so. A loop that cannot
+check in — the `sessions` flag off, the app closed — carries on as before. `tend-brain` checks
+in only under `/loop`, so a one-off tick never reads as a loop. `tests/loop-skills.test.mjs`
+holds every `/loop`-started skill to all of it, and to the 40-line body budget.
 
 `resources/chat-reports.md` is the one statement of how short a skill's chat report is. Nine
 skills point to it from their report step; `devbook-sweep` and `dispatch-sessions` run with
