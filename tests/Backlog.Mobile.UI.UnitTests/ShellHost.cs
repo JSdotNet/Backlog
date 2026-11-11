@@ -30,12 +30,14 @@ internal sealed class ShellHost : IDisposable
         ScriptedTaskService? tasks = null,
         ITaskViewStore? taskView = null,
         IAppUpdateService? updates = null,
-        ScriptedNotificationService? notifications = null)
+        ScriptedNotificationService? notifications = null,
+        ScriptedEventService? events = null)
     {
         Inbox = inbox ?? new ScriptedInboxService();
         Tasks = tasks ?? new ScriptedTaskService();
         Notifications = notifications ?? new ScriptedNotificationService();
-        _handler = new ScriptedSyncHandler(pair, Inbox, Tasks, Notifications);
+        Events = events ?? new ScriptedEventService();
+        _handler = new ScriptedSyncHandler(pair, Inbox, Tasks, Notifications, Events);
         Credentials = credentials;
 
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -91,6 +93,9 @@ internal sealed class ShellHost : IDisposable
     /// <summary>The service's side of the notification feed and its replies.</summary>
     public ScriptedNotificationService Notifications { get; }
 
+    /// <summary>The service's side of the knowledge event feed.</summary>
+    public ScriptedEventService Events { get; }
+
     public NavigationManager Navigation => _context.Services.GetRequiredService<NavigationManager>();
 
     /// <summary>The JavaScript calls the app made, such as moving the focus.</summary>
@@ -124,8 +129,9 @@ internal sealed class ShellHost : IDisposable
         ScriptedTaskService? tasks = null,
         ITaskViewStore? taskView = null,
         IAppUpdateService? updates = null,
-        ScriptedNotificationService? notifications = null) =>
-        new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView, updates, notifications);
+        ScriptedNotificationService? notifications = null,
+        ScriptedEventService? events = null) =>
+        new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView, updates, notifications, events);
 
     /// <summary>Renders the app opened on <paramref name="route"/>, relative to
     /// the base address — "" is Today, and the default is the Inbox, which most
@@ -142,7 +148,8 @@ internal sealed class ShellHost : IDisposable
         Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>>? pair,
         ScriptedInboxService inbox,
         ScriptedTaskService tasks,
-        ScriptedNotificationService notifications) : HttpMessageHandler
+        ScriptedNotificationService notifications,
+        ScriptedEventService events) : HttpMessageHandler
     {
         private int _pairAttempts;
 
@@ -168,6 +175,11 @@ internal sealed class ShellHost : IDisposable
             if (path.StartsWith("/api/sync/notifications", StringComparison.Ordinal))
             {
                 return await notifications.AnswerAsync(request, cancellationToken);
+            }
+
+            if (path.StartsWith("/api/sync/knowledge-events", StringComparison.Ordinal))
+            {
+                return await events.AnswerAsync(request, cancellationToken);
             }
 
             if (path.EndsWith("/api/sync/tasks", StringComparison.Ordinal))

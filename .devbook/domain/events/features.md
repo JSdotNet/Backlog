@@ -6,8 +6,8 @@ type: features
 
 > What Events lets the person do, in the context's own language. What each feature
 > guarantees is in [`requirements.md`](requirements.md). The Events pane, prep tasks,
-> the To Event route, the Calendar's events layer and the harvest task are built; the
-> phone is not yet. Every feature
+> the To Event route, the Calendar's events layer, the harvest task and Events on the
+> phone are built. Every feature
 > sits behind the [Events area](context.md#events-area) flag.
 
 ## Events pane
@@ -153,19 +153,29 @@ feature-flag: .devbook/domain/events/context.md#events-area
 related: [.devbook/domain/events/requirements.md#events-on-the-phone, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md]
 ```
 
-At the venue the person opens the event on the phone: its dates, place, link, key
-dates, what they wanted to learn, and its notes. The phone changes nothing on the
-event. A Brain note link reads as its title only, because the phone cannot see the
-Brain.
+An **Events** tab appears once the phone holds an event. It lists the upcoming
+events, soonest first, then the undated ones. Skipped events and those whose last
+day has passed stay off the list.
+
+At the venue the person opens the event on the phone: its state, series, dates,
+place, link, key dates, what they wanted to learn, and its notes. The phone changes
+nothing on the event. A Talk note the phone holds opens from the event. A Brain note
+link reads as its title only, because the phone cannot see the Brain.
 
 ### Attach a Talk note
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/capture/features.md#talk-note, .devbook/domain/events/domain.md#attachment-request]
+related: [.devbook/domain/capture/features.md#talk-note, .devbook/domain/events/domain.md#attachment-request, .devbook/domain/events/requirements.md#requirement-a-talk-note-is-attached-through-a-desktop]
 ```
 
-From the event the person attaches a [Talk note](../capture/features.md#talk-note)
-from the Notes tab. The phone sends an
-[Attachment Request](domain.md#attachment-request), and the note shows on the event
-once a desktop applies it.
+From a [Talk note](../capture/features.md#talk-note) in the Notes tab, the person
+picks one event the phone holds and attaches the note to it. The picker offers the
+upcoming events first, then the past ones. Skipped events and events the note is
+already attached to are left off. With no event held, the note shows no event
+section.
+
+The phone sends an [Attachment Request](domain.md#attachment-request). Until a
+desktop applies it, the note says whether the request is waiting to send, sent, not
+sent with the reason and a retry, or refused. Once a desktop applies it, the event
+lists the note, and the note names each event it is attached to.

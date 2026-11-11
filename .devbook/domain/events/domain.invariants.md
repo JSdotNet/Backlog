@@ -225,6 +225,7 @@ related: [.devbook/domain/events/domain.md#attachment-request]
 
 ```meta
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.AttachmentRequestInvariantTests.A_request_without_an_event_is_refused, unit:dotnet:Backlog.Modules.Events.UnitTests.AttachmentRequestInvariantTests.A_request_without_a_note_is_refused, unit:dotnet:Backlog.Modules.Events.UnitTests.AttachmentRequestInvariantTests.A_request_naming_one_event_and_one_note_keeps_both_and_the_title_trimmed]
 ```
 
 An attachment request names exactly one knowledge event and one Inbox note (`attachment_request.incomplete`).

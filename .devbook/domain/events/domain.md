@@ -231,17 +231,23 @@ targets, and the series keeps only its link.
 ```meta
 type: aggregate
 related: [.devbook/domain/events/domain.invariants.md#attachment-request, .devbook/domain/events/features.md#attach-a-talk-note]
-aliases: [AttachmentRequest]
+aliases: [AttachmentRequest, event-attachment-request]
 ```
 
 What the phone sends to attach a Talk note to a knowledge event. It names the event
-and the Inbox note, and carries no file: unlike an Inbox
-[Attachment](../inbox/domain.md#attachment), it is a request, not content.
+and the Inbox note, and carries the note's title as the phone showed it. It carries
+no file: unlike an Inbox [Attachment](../inbox/domain.md#attachment), it is a
+request, not content.
 
 The phone writes it once through its device outbox, so a request made offline is
-kept. A desktop applies it by adding a [Note Link](#note-link) to the event, then
-deletes it. A request for a note the event already links changes nothing, so a
-second desktop applying it does no harm.
+kept. It rides the person's task feed as a kind of its own. A desktop applies it by
+adding a [Note Link](#note-link) to the event, which keeps that title, then retires
+it with a tombstone. A request for a note the event already links changes nothing,
+so a second desktop applying it does no harm.
+
+A desktop that does not hold the event yet keeps the request and tries again after
+its next pull. A desktop without Events, or with the `events` flag off, leaves the
+request untouched until the flag is on.
 
 ## Harvest Task Policy
 

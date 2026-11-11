@@ -1,4 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Events.Abstractions;
+using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Progress.Abstractions.Services;
@@ -11,6 +13,7 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Services;
+using Backlog.SharedKernel;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -145,6 +148,12 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// Progress's iteration settings port on the same terms (local ADR 0036, §4), and is
 /// Skipped on a head without the port.
 /// </para>
+/// <para>
+/// <b>Nor is an attachment request.</b> An <c>event-attachment-request</c> the phone wrote goes
+/// to Events' attachment port (<c>.devbook/domain/events/domain.md#attachment-request</c>) and is
+/// retired like an impediment edit once Events has answered it. A head without the port, or with
+/// the <c>events</c> area off, holds it on the replica for a desktop that applies it.
+/// </para>
 /// </summary>
 public sealed class TaskReplicaMerge(
     ITaskRepository tasks,
@@ -161,7 +170,9 @@ public sealed class TaskReplicaMerge(
     IImpedimentEditIntake? impedimentEdits = null,
     ImpedimentEditRetirements? retirements = null,
     TimeProvider? time = null,
-    IIterationSettingsReplication? iteration = null)
+    IIterationSettingsReplication? iteration = null,
+    IEventAttachmentRequests? eventAttachments = null,
+    IAppFeatureSettings? features = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -215,6 +226,14 @@ public sealed class TaskReplicaMerge(
     /// on a head that sends none — the edit then stays on the replica, and the next desktop
     /// refuses it as stale.</summary>
     private readonly ImpedimentEditRetirements? _retirements = retirements;
+
+    /// <summary>Where an attachment request the phone wrote is applied, or null on a head
+    /// without Events, which leaves the request on the replica for one that has it.</summary>
+    private readonly IEventAttachmentRequests? _eventAttachments = eventAttachments;
+
+    /// <summary>The switches the <c>events</c> area answers to. A head that keeps none applies
+    /// no attachment request, since it cannot say the area is on.</summary>
+    private readonly IAppFeatureSettings? _features = features;
 
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
@@ -698,6 +717,11 @@ public sealed class TaskReplicaMerge(
             return await ApplyImpedimentEditAsync(record, moved, cancellationToken).ConfigureAwait(false);
         }
 
+        if (EventAttachmentReplicaDocuments.Is(record.Change))
+        {
+            return await ApplyEventAttachmentAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
         var local = await _tasks
             .GetIncludingDeletedAsync(record.Change.Id, cancellationToken)
             .ConfigureAwait(false);
@@ -971,9 +995,12 @@ public sealed class TaskReplicaMerge(
     /// Offers again every impediment edit a pull deferred because this desktop did not hold
     /// its impediment yet — the session calls it once a pull has finished, when the
     /// impediment may have arrived. One still unknown is deferred again, for the life of the
-    /// process; one Progress answers is retired as any other.
+    /// process; one Progress answers is retired as any other. An attachment request deferred
+    /// for an event this desktop did not hold yet, or met while the <c>events</c> area was off,
+    /// is offered again the same way: the event arrives on its own feed and the area may be
+    /// switched on later, so a later cycle's retry is the one that finds it.
     /// </summary>
-    public async Task<int> RetryDeferredEditsAsync(CancellationToken cancellationToken = default)
+    public async Task<int> RetryDeferredRequestsAsync(CancellationToken cancellationToken = default)
     {
         if (_retirements?.TakeDeferred() is not { Count: > 0 } deferred) return 0;
 
@@ -985,7 +1012,11 @@ public sealed class TaskReplicaMerge(
             foreach (var change in deferred)
             {
                 var record = new TaskChangeRecord(change, Guid.Empty, 0);
-                if (await ApplyImpedimentEditAsync(record, moved, cancellationToken).ConfigureAwait(false) == ApplyOutcome.Written) applied++;
+                var outcome = EventAttachmentReplicaDocuments.Is(change)
+                    ? await ApplyEventAttachmentAsync(record, moved, cancellationToken).ConfigureAwait(false)
+                    : await ApplyImpedimentEditAsync(record, moved, cancellationToken).ConfigureAwait(false);
+
+                if (outcome == ApplyOutcome.Written) applied++;
             }
         }
         finally
@@ -1024,7 +1055,7 @@ public sealed class TaskReplicaMerge(
         var outcome = await _impedimentEdits.ApplyAsync(edit, cancellationToken).ConfigureAwait(false);
 
         // An impediment this desktop has not got yet may arrive later in the same pull: the
-        // edit is kept and offered again once the pull is done (RetryDeferredEditsAsync).
+        // edit is kept and offered again once the pull is done (RetryDeferredRequestsAsync).
         if (outcome == ImpedimentEditOutcome.Unknown)
         {
             _log.LogInformation(
@@ -1049,6 +1080,70 @@ public sealed class TaskReplicaMerge(
         }
 
         Moved(moved, SyncDirection.Received, SyncItemKind.Impediment, edit.ImpedimentId.ToString("D"), record.Change.Task.Title, "edited on the phone");
+        return ApplyOutcome.Written;
+    }
+
+    /// <summary>
+    /// Hands an attachment request the phone wrote to Events, which links the Talk note to the
+    /// event, and queues the request's tombstone once Events has answered it — attached, already
+    /// attached or incomplete alike, since none of those answers changes on a second asking
+    /// (<c>.devbook/domain/events/domain.md#attachment-request</c>). A retired request and one on
+    /// a head without Events are left alone: another desktop may still apply them. One met while
+    /// the <c>events</c> area is off is deferred, since the task cursor moves past it and the area
+    /// may be switched on again in this process.
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyEventAttachmentAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        if (record.Change.DeletedAt is not null || _eventAttachments is null) return ApplyOutcome.Held;
+
+        if (_features?.IsEnabled(EventsFeatures.Events) != true)
+        {
+            _retirements?.Defer(record.Change);
+            return ApplyOutcome.Held;
+        }
+
+        if (EventAttachmentReplicaDocuments.ToRequest(record.Change) is not { } request)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this build cannot read the request. "
+                + "It is left on the replica.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _eventAttachments.ApplyAsync(request, cancellationToken).ConfigureAwait(false);
+
+        // The event may reach this desktop on its own feed later: the request is kept and
+        // offered again after each pull (RetryDeferredRequestsAsync).
+        if (outcome == EventAttachmentOutcome.UnknownEvent)
+        {
+            _log.LogInformation(
+                "Deferring attachment request {DocumentId}: this desktop holds no knowledge event {EventId} yet.",
+                record.Change.Id,
+                request.EventId);
+
+            _retirements?.Defer(record.Change);
+            return ApplyOutcome.Held;
+        }
+
+        _retirements?.Add(EventAttachmentReplicaDocuments.Retire(record.Change, _time.GetUtcNow()));
+
+        if (outcome != EventAttachmentOutcome.Attached)
+        {
+            _log.LogInformation(
+                "Attachment request {DocumentId} from the phone attached nothing ({Outcome}).",
+                record.Change.Id,
+                outcome);
+
+            return ApplyOutcome.Held;
+        }
+
+        Moved(moved, SyncDirection.Received, SyncItemKind.Note, request.NoteId.ToString("D"), record.Change.Task.Title, "attached to an event");
         return ApplyOutcome.Written;
     }
 

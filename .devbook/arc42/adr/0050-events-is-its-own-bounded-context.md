@@ -1,7 +1,7 @@
 # ADR 0050: Events is its own bounded context
 
 ```meta
-date: 2026-11-10
+date: 2026-11-11
 related: [".devbook/domain/events/context.md", ".devbook/domain/events/context.md#events-area", ".devbook/domain/events/domain.md#knowledge-event", ".devbook/domain/events/domain.md#event-series", ".devbook/domain/events/domain.md#harvest-task-policy", ".devbook/domain/events/features.md#harvest-task", ".devbook/domain/events/features.md#events-on-the-phone", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md"]
 ```
 
@@ -280,4 +280,5 @@ Look for these in the specification and, once built, in the code:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | The code names the container `knowledgeEvents`, the route `/api/sync/knowledge-events`, and the kinds `knowledge-event` and `event-series`. The phone's attachment request rides the task feed as `event-attachment-request`. | §2 left the name to the code, and the task feed already carries the phone's impediment edit ([ADR 0035 §8](0035-goals-and-impediments-replace-sprints.md#8-the-phone-reads-and-edits-impediments-only)). |
 | 2026-11-10 | Proposed: Events is a bounded context for knowledge events, its documents on their own replica container, linking notes and tasks by id, one way. | No context held an event's dates and decision together, and the phone needs it where the Brain is out of reach. |

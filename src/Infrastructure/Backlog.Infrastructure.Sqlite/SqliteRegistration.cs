@@ -95,11 +95,16 @@ public static class SqliteRegistration
 
         // Events' own documents (local ADR 0050 §2): one row per knowledge event in
         // events_knowledge_events and one per series in events_series, each its own table
-        // under its own stamp.
-        services.AddSingleton<IKnowledgeEventRepository>(sp =>
+        // under its own stamp. The same instance answers the replication port beside each
+        // repository, so the knowledge event exchange reads and writes the rows the module does.
+        services.AddSingleton(sp =>
             new RootedSqliteKnowledgeEventRepository(() => rootDirectory(sp)));
-        services.AddSingleton<IEventSeriesRepository>(sp =>
+        services.AddSingleton<IKnowledgeEventRepository>(sp => sp.GetRequiredService<RootedSqliteKnowledgeEventRepository>());
+        services.AddSingleton<IKnowledgeEventReplicaStore>(sp => sp.GetRequiredService<RootedSqliteKnowledgeEventRepository>());
+        services.AddSingleton(sp =>
             new RootedSqliteEventSeriesRepository(() => rootDirectory(sp)));
+        services.AddSingleton<IEventSeriesRepository>(sp => sp.GetRequiredService<RootedSqliteEventSeriesRepository>());
+        services.AddSingleton<IEventSeriesReplicaStore>(sp => sp.GetRequiredService<RootedSqliteEventSeriesRepository>());
 
         // The Claude Code api_request events the /v1/logs endpoint keeps (local ADR
         // 0024): the Sessions context's table, in the same file and following the

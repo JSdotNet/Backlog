@@ -8,7 +8,8 @@ namespace Backlog.Infrastructure.Sqlite.Events;
 /// <c>backlog.db</c> does: the root is asked per call, because somebody can move their backlog
 /// while the app is open and the database follows the folder.
 /// </summary>
-public sealed class RootedSqliteEventSeriesRepository(Func<string> currentRootDirectory, TimeProvider? clock = null) : IEventSeriesRepository
+public sealed class RootedSqliteEventSeriesRepository(Func<string> currentRootDirectory, TimeProvider? clock = null)
+    : IEventSeriesRepository, IEventSeriesReplicaStore
 {
     private readonly Func<string> _currentRootDirectory =
         currentRootDirectory ?? throw new ArgumentNullException(nameof(currentRootDirectory));
@@ -46,4 +47,10 @@ public sealed class RootedSqliteEventSeriesRepository(Func<string> currentRootDi
 
     public Task SaveAsync(EventSeries series, CancellationToken cancellationToken = default) =>
         Current.SaveAsync(series, cancellationToken);
+
+    public Task<IReadOnlyList<StoredEventSeries>> ListChangedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken = default) =>
+        Current.ListChangedSinceAsync(since, cancellationToken);
+
+    public Task<bool> SaveReplicatedAsync(EventSeries series, DateTimeOffset updatedAt, CancellationToken cancellationToken = default) =>
+        Current.SaveReplicatedAsync(series, updatedAt, cancellationToken);
 }

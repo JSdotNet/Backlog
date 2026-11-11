@@ -7,8 +7,8 @@ related: [.devbook/domain/events/features.md]
 
 > What Events guarantees, one chapter per feature. Each requirement is one SHALL
 > sentence with the scenarios that prove it, and names its tests once it is built.
-> The Events pane, prep tasks, the To Event route, the Calendar's events layer and
-> the harvest task are built.
+> The Events pane, prep tasks, the To Event route, the Calendar's events layer, the
+> harvest task and Events on the phone are built.
 
 ## Events pane
 
@@ -446,6 +446,7 @@ related: [.devbook/domain/events/features.md#events-on-the-phone]
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_detail_shows_every_field_and_nothing_that_edits, integration:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_list_shows_upcoming_events_soonest_first_and_leaves_skipped_and_past_ones_off]
 ```
 
 The system SHALL show the person's knowledge events on the phone without offering any change to them.
@@ -460,6 +461,7 @@ The system SHALL show the person's knowledge events on the phone without offerin
 
 ```meta
 type: requirement
+tests: integration:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.A_talk_note_the_phone_holds_opens_and_a_brain_note_shows_its_title_only
 ```
 
 The system SHALL show a Brain note linked to an event on the phone by its title only.
@@ -474,6 +476,7 @@ The system SHALL show a Brain note linked to an event on the phone by its title 
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.Attaching_a_note_queues_one_request_waits_then_reads_attached_once_the_desktop_links_it, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.EventAttachmentRequestSyncTests.A_request_from_the_phone_goes_to_events_and_its_tombstone_waits_for_the_push, integration:dotnet:Backlog.HostComposition.UnitTests.MauiDesktopCompositionTests.The_maui_head_attaches_a_talk_note_the_phone_asked_for_while_the_events_area_is_on, integration:dotnet:Backlog.Modules.Events.UnitTests.EventAttachmentRequestsTests.Attached_twice_the_event_holds_one_link_and_is_not_saved_again, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.EventAttachmentRequestSyncTests.A_request_met_while_the_events_area_is_off_is_applied_once_the_area_is_on_again]
 ```
 
 The system SHALL attach a Talk note chosen on the phone to the event once one of the person's desktops applies the request.
@@ -489,6 +492,12 @@ The system SHALL attach a Talk note chosen on the phone to the event once one of
 - **Given** an event already linking the Talk note "Keynote"
 - **When** a second request for the same note is applied
 - **Then** the event still links "Keynote" once
+
+#### Scenario: Held while the area is off
+
+- **Given** a request from the phone, and a desktop with the `events` flag off
+- **When** the desktop syncs, and the person later turns the flag on
+- **Then** the desktop keeps the request until then, and the event links the note once the flag is on
 
 ### Requirement: No Events screen while the area is off
 

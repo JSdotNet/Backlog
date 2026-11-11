@@ -4,7 +4,7 @@
 index: root
 type: context
 deployment: module
-related: [.devbook/arc42/adr/0050-events-is-its-own-bounded-context.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md, .devbook/domain/context-map.md]
+related: [.devbook/arc42/adr/0050-events-is-its-own-bounded-context.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md, .devbook/domain/context-map.md]
 ```
 
 Events keeps the knowledge events a person attends to learn something: what they
@@ -49,8 +49,8 @@ The Knowledge Event and Event Series aggregates and the Events pane are built in
 aggregates as documents in a store of its own. The Inbox's To Event route makes Spotted events
 through `IKnowledgeEvents`, and the Calendar's events layer reads the decided ones through the
 read contract. The Harvest Task Policy files and completes the harvest task, checked when a
-desktop starts and when its local day turns. The phone and sync are not built yet. These
-chapters are the
+desktop starts and when its local day turns. Sync carries the events between devices, and
+the phone shows them and sends attachment requests. These chapters are the
 model those changes build, decided in local
 [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md).
 
@@ -66,17 +66,17 @@ adapter in Infrastructure.
 
 Events owns its documents the way Notifications does
 ([ADR 0039 §3](../../arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md#3-notifications-get-their-own-replica-containers)).
-A knowledge event is a document kind of its own, on a replica container of its own,
-whose name is still open. An event series is a document of its own beside it.
+A knowledge event is a document of kind `knowledge-event` on a replica container of
+its own, `knowledgeEvents`. An event series rides the same container as kind `event-series`.
 Sync stores and carries the documents and reads none of their fields. Each desktop keeps the person's events in its own store and pushes
 its changes.
 
 - **Writers.** Every desktop of the person may change an event. The latest write
   wins, as for tasks ([Change Precedence](../sync/domain.md#change-precedence)).
 - **The phone.** It reads the events and writes none. To attach a Talk note it
-  sends an [Attachment Request](domain.md#attachment-request), which a desktop
-  applies. A reply reaches a notification's owner the same way
-  ([ADR 0039 §2](../../arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md#2-a-viewer-replies-by-writing-a-reply-document-and-the-owner-decides)).
+  sends an [Attachment Request](domain.md#attachment-request) on the task feed,
+  which a desktop applies. The phone's impediment edit travels the same way
+  ([ADR 0035 §8](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md#8-the-phone-reads-and-edits-impediments-only)).
 
 **Why:** the phone does not see the Brain (local
 [ADR 0026](../../arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md)),
@@ -107,8 +107,9 @@ It ships off and marked `DEV`, the settings screen's mark for a feature still un
 construction
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
 The key joins the feature catalog in `AppFeatures.cs`, and a person's choice is kept
-in `features.json` beside the app's other per-device choices. The phone honours the
-same flag. The flag is retired when the Events area leaves `DEV`.
+in `features.json` beside the app's other per-device choices. The phone keeps no flag
+of its own: it shows the Events screen while it holds an event, and a desktop pushes
+events only while its `events` flag is on. The flag is retired when the Events area leaves `DEV`.
 
 ## Desktop clock
 
@@ -137,11 +138,11 @@ form no cycle of modules.
 | [Tasks](../tasks/domain.md#task) | Customer/Supplier (Events = customer) | `IEventTaskTarget` in Events' abstractions, answered by `EventsTaskTarget` in `Backlog.Infrastructure.FileSystem` over `ITaskItems` and `ITaskChangeSignal` | `Backlog.Modules.Tasks.Abstractions` | Files a prep or harvest task under the Brain scope, reads a linked task's title and status by id, and completes one by id. |
 | [Brain](../brain/context.md) | One-way reference | A Brain note's path from the Brain's root, held on the event. The pane reads whether the note is there, its title and the notes to pick through `IEventBrainNotes`, answered by `EventsBrainNotes` in `Backlog.Infrastructure.Brain` | The path `ItemTriaged.note_path` uses | The takeaways stay Brain notes. Brain knows no event. |
 | [Inbox](../inbox/domain.md#note), notes | One-way reference | An Inbox note id, held on the event | [Note](../inbox/domain.md#note) | A Talk note is attached to its event. |
-| [Sync](../sync/context.md) | Conformist (Events = conformist) | An exchange in `Backlog.Infrastructure.Sync`, and the phone's device outbox | The replica protocol in `Backlog.Modules.Sync.Abstractions`; local ADR 0050 | Events and attachment requests reach every paired device. |
+| [Sync](../sync/context.md) | Conformist (Events = conformist) | `KnowledgeEventSyncWorker` over `/api/sync/knowledge-events`; attachment requests on the task feed | `KnowledgeEventChange` in `Backlog.Modules.Sync.Abstractions`; local ADR 0050 | Events and attachment requests reach every paired device. |
 
 ### Inbound dependents (known)
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
 | [Tasks](../tasks/features.md#calendar-view) | Customer/Supplier (Events = supplier) | Tasks' `ICalendarEvents`, answered by `EventsCalendarEvents` under `Infrastructure.FileSystem/Events/` | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions` | The decided events and their key dates, for the Calendar's events layer. |
-| The phone (`Backlog.Mobile.UI`) | Conformist, through Sync | Pulls the event documents and posts attachment requests | The Events replica container; local ADR 0050 | A read-only view of the person's events at the venue. |
+| The phone (`Backlog.Mobile.UI`) | Conformist, through Sync | Pulls the `knowledgeEvents` feed, and posts attachment requests on the task feed | `KnowledgeEventChange`, and the task feed; local ADR 0050 | A read-only view of the person's events at the venue. |

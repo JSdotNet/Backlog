@@ -48,6 +48,26 @@ a, .btn-link {
 
 .app-tabs .tab-bar__tab { line-height: var(--line-height-normal); }
 
+/*
+  The sum above holds only while every word stays on one line. Five tabs share a
+  360px screen at 72px each, and the library's --spacing-sm inline padding left
+  "Stand-up" too little room, so it broke at its hyphen and the bar outgrew the
+  dock. The tabs give up most of that padding, and a word that still does not fit
+  (Notifications, when it makes a sixth tab) ends in an ellipsis instead of
+  wrapping. The link keeps its whole word as its name; only the ink is cut.
+*/
+.app-tabs .tab-bar__tab {
+    min-width: 0;
+    padding-inline: var(--spacing-2xs);
+}
+
+.app-tabs .tab-bar__label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 #app {
     display: flex;
     flex-direction: column;
@@ -296,6 +316,57 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 
 /* The editor's dictation and attach buttons, and what they leave under the body. */
 .note-page__attached { display: grid; gap: .5rem; }
+
+/* The note's event: what it is attached to, where a request stands, and the picker. */
+.note-page__event {
+    display: grid;
+    gap: .5rem;
+    padding-top: .75rem;
+    border-top: var(--border-width) solid var(--color-border);
+}
+.note-page__event-title {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+.note-page__event-link {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    min-height: 44px;
+    color: var(--color-text-link);
+}
+.note-page__event-pick { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem; }
+.note-page__event-select { flex: 1 1 12rem; min-width: 0; }
+
+/*
+  Events. The library draws the rows, the state badge and the empty and loading
+  shapes; this file lays the list out under its heading and the detail's facts,
+  key dates and notes. Colours are the library's tokens.
+*/
+.events-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.events-heading__lede { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+
+.events__list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+
+.event-page { display: grid; gap: 1rem; }
+.event-page__facts {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: .375rem 1rem;
+    margin: 0;
+}
+.event-page__facts dt { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.event-page__facts dd { margin: 0; overflow-wrap: anywhere; }
+.event-page__link { color: var(--color-text-link); }
+.event-page__list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.event-page__key-date { display: grid; gap: .125rem; }
+.event-page__key-day { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.event-page__prose { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.event-page__note { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem; min-height: 44px; }
+.event-page__note a { display: inline-flex; align-items: center; min-height: 44px; }
+.event-page__note-kind { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 
 /*
   The Stand-up, a goal's page and an impediment's page. The library draws the

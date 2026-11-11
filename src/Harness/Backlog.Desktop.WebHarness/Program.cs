@@ -262,6 +262,9 @@ _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 // And devbook subject state's loop, the annotations' sibling, on the same terms.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
 
+// And knowledge event replication's loop (local ADR 0050 §2), on the same terms.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.KnowledgeEventSyncWorker>();
+
 // And the one-time devbook import, on the same terms and for the same reason the
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<Backlog.Desktop.UI.Devbook.DevbookImportWorker>();

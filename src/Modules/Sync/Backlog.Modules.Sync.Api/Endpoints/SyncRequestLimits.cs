@@ -249,6 +249,19 @@ internal static class SyncRequestLimits
     internal const long DevbookSubjectPushBodyBytes = 4L * 1024 * 1024;
 
     /// <summary>
+    /// The most knowledge event changes one push may carry. Lower than the subject cap
+    /// because one event document may weigh up to
+    /// <see cref="KnowledgeEventRecordLimits.DocumentBytes"/>: this many at that size still
+    /// fits <see cref="KnowledgeEventPushBodyBytes"/>. The desktop batches below it.
+    /// </summary>
+    internal const int MaximumPushKnowledgeEvents = 50;
+
+    /// <summary>The most a knowledge event push body may weigh: 8 MB, which is
+    /// <see cref="MaximumPushKnowledgeEvents"/> documents at their bound with room for the
+    /// envelopes.</summary>
+    internal const long KnowledgeEventPushBodyBytes = 8L * 1024 * 1024;
+
+    /// <summary>
     /// The most notifications one push may carry. Lower than the other containers'
     /// cap because one notification may weigh up to
     /// <see cref="NotificationRecordLimits.DocumentBytes"/>: this many at that size

@@ -44,8 +44,10 @@ classDiagram
 
     class AttachmentRequest {
         <<aggregate root>>
-        +KnowledgeEventId Event
-        +string InboxNoteId
+        +Guid Id
+        +Guid EventId
+        +Guid NoteId
+        +string NoteTitle
     }
 
     class EventDate {
@@ -127,7 +129,7 @@ classDiagram
 - A Knowledge Event names its Event Series by id. Each is its own aggregate, so
   editing a series never rewrites its editions.
 - An Attachment Request names its event by id. The phone writes it once, and a
-  desktop turns it into a Note Link and deletes it.
+  desktop turns it into a Note Link and retires it.
 - A Note Link names a Brain note by its path from the Brain's root, or an Inbox
   note by its id. An Event Task Link names a task by its id. The links run one way:
   Tasks, the Brain and the Inbox hold nothing of the event.

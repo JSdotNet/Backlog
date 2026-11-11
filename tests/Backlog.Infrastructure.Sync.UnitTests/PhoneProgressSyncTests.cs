@@ -132,15 +132,15 @@ public sealed class PhoneProgressSyncTests
         var change = ImpedimentEditReplicaDocuments.ToChange(Guid.NewGuid(), Edit());
 
         await merge.ApplyAsync([TaskChanges.Record(change, Phone, 100)], Cancellation);
-        Assert.Equal(0, await merge.RetryDeferredEditsAsync(Cancellation));
+        Assert.Equal(0, await merge.RetryDeferredRequestsAsync(Cancellation));
         Assert.Empty(retirements.Waiting());
 
         edits.Answer = ImpedimentEditOutcome.Applied;
-        Assert.Equal(1, await merge.RetryDeferredEditsAsync(Cancellation));
+        Assert.Equal(1, await merge.RetryDeferredRequestsAsync(Cancellation));
 
         Assert.Equal(3, edits.Offered.Count);
         Assert.Equal(change.Id, Assert.Single(retirements.Waiting()).Id);
-        Assert.Equal(0, await merge.RetryDeferredEditsAsync(Cancellation));
+        Assert.Equal(0, await merge.RetryDeferredRequestsAsync(Cancellation));
     }
 
     /// <summary>

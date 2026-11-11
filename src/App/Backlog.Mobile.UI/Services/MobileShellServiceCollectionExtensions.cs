@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Sync;
 using Backlog.Mobile.UI.AppUpdate;
+using Backlog.Mobile.UI.Events;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Notifications;
 using Backlog.Mobile.UI.Outbox;
@@ -168,6 +169,14 @@ public static class MobileShellServiceCollectionExtensions
         services.AddSingleton<INotificationViewStore>(_ => new SqliteNotificationViewStore(databasePath));
         services.AddSingleton<NotificationViewProjection>();
         services.AddSingleton<IOutboxKind, ReplyOutboxKind>();
+
+        // Knowledge events as a reader (local ADR 0050 §2): the owner's knowledge event feed
+        // folded into its own view and cursor, and the one thing the phone asks about an event —
+        // attaching a Talk note — queued as its own outbox kind on the task feed.
+        services.AddSingleton<IEventViewStore>(_ => new SqliteEventViewStore(databasePath));
+        services.AddSingleton<EventViewProjection>();
+        services.AddSingleton<EventNoteAttachments>();
+        services.AddSingleton<IOutboxKind, EventAttachmentRequestOutboxKind>();
 
         return services;
     }
