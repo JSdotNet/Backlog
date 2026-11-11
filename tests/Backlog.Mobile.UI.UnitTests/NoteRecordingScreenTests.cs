@@ -3,6 +3,7 @@ using Backlog.Mobile.UI.Components.Pages;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Recordings;
 using Backlog.Mobile.UI.Services;
+using Backlog.Mobile.UI.TalkNotes;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 using Microsoft.Extensions.Time.Testing;
@@ -107,6 +108,47 @@ public sealed class NoteRecordingScreenTests
 
         app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='note-attachments'] [data-testid='attachment-tile']")));
         Assert.Single(Assert.Single(host.Service<NoteViewProjection>().Notes()).Attachments);
+    }
+
+    [Fact]
+    public void A_stopped_recording_plays_on_its_tile_while_its_bytes_are_on_the_phone()
+    {
+        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now));
+        host.JSInterop.Setup<string?>("backlogAudio.open", _ => true).SetResult("blob:recording");
+        var app = OpenEditor(host, "notes/new");
+
+        PressRecord(app);
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='note-recording']")));
+        app.Find("[data-testid='note-recording-stop']").Click();
+
+        app.WaitForAssertion(() => Assert.Equal("blob:recording",
+            app.Find("[data-testid='note-attachments'] [data-testid='attachment-tile-player']").GetAttribute("src")));
+        var tile = app.Find("[data-testid='note-attachments'] [data-testid='attachment-tile']");
+        Assert.NotNull(tile.QuerySelector("[data-glyph='audio']"));
+        Assert.StartsWith("AAC audio · ", tile.QuerySelector("[data-testid='attachment-tile-facts']")!.TextContent, StringComparison.Ordinal);
+        Assert.StartsWith("Play Recording · ", tile.QuerySelector("[data-testid='attachment-tile-player']")!.GetAttribute("aria-label"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_delivered_recording_keeps_its_tile_without_a_player()
+    {
+        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now));
+        var app = OpenEditor(host, "notes/new");
+        PressRecord(app);
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='note-recording']")));
+        app.Find("[data-testid='note-recording-stop']").Click();
+        app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='note-attachments'] [data-testid='attachment-tile']")));
+        var note = Assert.Single(host.Service<NoteViewProjection>().Notes());
+
+        // Delivered: the service holds the bytes now, and the phone let its copy go.
+        host.Service<TalkNoteFiles>().Release(Assert.Single(note.Attachments).Id);
+        host.Navigation.NavigateTo("notes");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='note-row']")));
+        host.Navigation.NavigateTo($"notes/{note.Id}");
+
+        app.WaitForAssertion(() => Assert.NotNull(
+            app.Find("[data-testid='note-attachments'] [data-testid='attachment-tile'] [data-glyph='audio']")));
+        Assert.Empty(app.FindAll("[data-testid='attachment-tile-player']"));
     }
 
     [Fact]

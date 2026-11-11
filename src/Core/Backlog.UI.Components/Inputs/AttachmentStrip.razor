@@ -2,7 +2,8 @@
     The files attached to something being written — a talk note's slide photos
     and handouts. One tile per file with its name, type and size; a tile the
     caller refused says why on the tile itself, so the person sees the reason
-    beside the file rather than in a message that has scrolled away.
+    beside the file rather than in a message that has scrolled away. A
+    recording whose bytes the caller can read plays on its own tile.
 *@
 
 @if (Tiles.Count > 0)
@@ -12,7 +13,15 @@
         {
             <li class="@TileClass(tile)" data-testid="attachment-tile" data-refused="@(tile.Refusal is null ? "false" : "true")" @key="tile.Key">
                 <span class="attachment-tile__glyph" aria-hidden="true">
-                    @if (tile.IsPicture)
+                    @if (tile.IsAudio)
+                    {
+                        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                             stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"
+                             data-glyph="audio">
+                            <path d="M2.25 6.5v3M5.25 4v8M8.25 2.25v11.5M11.25 4.75v6.5M14.25 6.5v3" />
+                        </svg>
+                    }
+                    else if (tile.IsPicture)
                     {
                         <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
                              stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" focusable="false">
@@ -36,6 +45,11 @@
                     @if (tile.Refusal is not null)
                     {
                         <span class="attachment-tile__refusal" data-testid="attachment-tile-refusal">@tile.Refusal</span>
+                    }
+                    @if (tile.Audio is { } audio && tile.Refusal is null)
+                    {
+                        <AudioPlayer Source="audio" AriaLabel="@($"Play {tile.Name}")" CssClass="attachment-tile__player"
+                                     TestId="attachment-tile-player" MissingTestId="attachment-tile-player-missing" />
                     }
                 </span>
                 @if (OnRemove.HasDelegate)

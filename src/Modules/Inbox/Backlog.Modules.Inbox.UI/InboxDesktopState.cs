@@ -1176,6 +1176,28 @@ public sealed class InboxDesktopState : IDisposable
         if (loaded) Changed?.Invoke();
     }
 
+    /// <summary>Whether a file plays in its row: a sound file on this machine. One
+    /// still waiting or failed keeps its row's state and Retry instead.</summary>
+    public static bool PlaysInPlace(InboxAttachmentDto attachment) =>
+        attachment.IsAudio && attachment.Downloaded;
+
+    /// <summary>Reads one of an item's files for its player. Null when the file is no
+    /// longer on this machine — removed since the list was drawn — and an
+    /// <see cref="IOException"/> for any other failure, so the player does not say a
+    /// file was removed when it was only unreadable. The player turns the bytes into
+    /// a blob URL, not a data URI, so a 24 MB recording does not cross the web
+    /// harness's circuit as one string.</summary>
+    public async Task<Stream?> OpenAttachmentStreamAsync(Guid itemId, Guid attachmentId, CancellationToken cancellationToken)
+    {
+        var read = await _inbox.ReadAttachmentAsync(itemId, attachmentId, cancellationToken);
+
+        if (read.IsSuccess) return new MemoryStream(read.Value, writable: false);
+
+        return read.Error.Code == InboxErrors.AttachmentNotDownloaded.Code || read.Error.Code == InboxErrors.AttachmentNotFound.Code
+            ? null
+            : throw new IOException(read.Error.Message);
+    }
+
     /// <summary>Opens one of the selected item's files with the machine's own
     /// application for it.</summary>
     public async Task OpenAttachmentAsync(Guid attachmentId)

@@ -41,9 +41,9 @@ public static class AttachmentRules
     };
 
     /// <summary>The meeting recordings of local ADR 0048: AAC in an ADTS stream from the
-    /// phone, and in MPEG-4 from a browser or a file picked from the phone. Kept here,
-    /// beside the shared check, until the sync service's own defaults take them; until then
-    /// the service sets an uploaded recording aside, as the ADR warns.</summary>
+    /// phone, and in MPEG-4 from a browser or a file picked from the phone. Whether one may
+    /// go up is the shared list's call, as for every other file; this only names the
+    /// recordings, for the recorder's own files and the tile's player.</summary>
     private static readonly HashSet<string> Audio = new(StringComparer.OrdinalIgnoreCase)
     {
         "audio/aac",
@@ -91,7 +91,7 @@ public static class AttachmentRules
     /// tile — or null when it would.</summary>
     public static string? RefusalOf(string name, string contentType, long sizeBytes)
     {
-        if (!SyncAttachmentLimits.AllowsByDefault(contentType) && !IsAudio(contentType))
+        if (!SyncAttachmentLimits.AllowsByDefault(contentType))
         {
             var extension = Path.GetExtension(name);
             var what = extension.Length > 0 ? extension.ToLowerInvariant() : contentType;

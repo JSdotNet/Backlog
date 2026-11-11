@@ -842,7 +842,8 @@
 
     /// <summary>One row per file that is not drawn as a thumbnail: its name and
     /// size, Open when it is on this machine, and Retry with the reason when its
-    /// download failed. A file still waiting for its first fetch says so.</summary>
+    /// download failed. A file still waiting for its first fetch says so. A
+    /// recording on this machine plays in its row, under its name.</summary>
     private RenderFragment FileRows(InboxItemDto item) => @<text>
         @{ var files = item.Attachments.Where(attachment => !InboxDesktopState.ShowsAsThumbnail(attachment)).ToList(); }
         @if (files.Count > 0)
@@ -858,6 +859,18 @@
                             <AppButton Size="ButtonSize.Small"
                                        OnClick="() => State.OpenAttachmentAsync(file.Id)"
                                        TestId="@($"inbox-attachment-open-{file.Id:N}")">Open</AppButton>
+                            @if (InboxDesktopState.PlaysInPlace(file))
+                            {
+                                var itemId = item.Id;
+                                var fileId = file.Id;
+                                <AudioPlayer @key="file.Id"
+                                             Source="@(new AudioSource(file.ContentType, cancellation => State.OpenAttachmentStreamAsync(itemId, fileId, cancellation)))"
+                                             AriaLabel="@($"Play {file.Name}")"
+                                             MissingText="This recording is not on this machine any more."
+                                             CssClass="inbox-pane__file-player"
+                                             TestId="@($"inbox-attachment-player-{file.Id:N}")"
+                                             MissingTestId="@($"inbox-attachment-player-missing-{file.Id:N}")" />
+                            }
                         }
                         else if (file.LastError is { } error)
                         {

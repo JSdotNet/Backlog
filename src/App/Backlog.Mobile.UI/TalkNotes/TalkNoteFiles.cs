@@ -62,6 +62,25 @@ public sealed class TalkNoteFiles
     /// <summary>Where a saved note's attachment waits for its upload.</summary>
     public string OutboxPath(Guid attachmentId) => Path.Combine(OutboxFolder, attachmentId.ToString("N"));
 
+    /// <summary>
+    /// Opens a file still waiting on the device — on the strip or in the outbox —
+    /// to play it, or answers null once it has gone. Shared for deleting, so a
+    /// delivery that releases the file while it is being read is not held up.
+    /// </summary>
+    public static Stream? OpenIfPresent(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return null;
+
+        try
+        {
+            return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 81920, useAsync: true);
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Takes a file off the strip.</summary>
     public static void Discard(DraftAttachment attachment)
     {

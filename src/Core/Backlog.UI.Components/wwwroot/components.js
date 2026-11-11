@@ -8106,4 +8106,18 @@
         },
         true
     );
+
+    // An audio file the host holds, handed over as a stream and played from a
+    // blob URL. Not a data: URI: a recording runs to 24 MB, which as base64 would
+    // cross the Blazor Server circuit as one string and sit in the DOM. The URL
+    // lives until the player that asked for it is disposed and releases it.
+    window.backlogAudio = {
+        open: async (streamRef, contentType) => {
+            const bytes = await streamRef.arrayBuffer();
+            return URL.createObjectURL(new Blob([bytes], { type: contentType }));
+        },
+        release: url => {
+            if (url) URL.revokeObjectURL(url);
+        }
+    };
 })();

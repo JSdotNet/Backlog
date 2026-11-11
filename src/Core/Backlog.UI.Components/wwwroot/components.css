@@ -21973,6 +21973,24 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     min-height: 2.75rem;
 }
 
+/* A recording plays on its own tile, under its name: the browser's player at the
+   tile's full width, tall enough for the 44px touch minimum. */
+.attachment-tile__player {
+    width: 100%;
+    margin-top: var(--spacing-xs);
+}
+
+.audio-player {
+    display: block;
+    max-width: 100%;
+    min-height: 2.75rem;
+}
+
+.audio-player__missing {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
 
 /* ===== Slider (per-lane pace) =============================================== */
 

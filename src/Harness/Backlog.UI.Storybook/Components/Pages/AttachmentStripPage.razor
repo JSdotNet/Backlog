@@ -3,7 +3,7 @@
 <PageTitle>Attachment strip — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Attachment strip"
-           Summary="AttachmentStrip: the files attached to something being written, one tile each with its name, type and size — and, on a tile the host refused, the reason. The phone's talk note is its first host."
+           Summary="AttachmentStrip: the files attached to something being written, one tile each with its name, type and size — and, on a tile the host refused, the reason; a recording the host can read plays on its own tile. The phone's talk note is its first host."
            Guidelines="@Rules">
 
     <Story Name="Picked files"
@@ -26,6 +26,16 @@
         </div>
     </Story>
 
+    <Story Name="Recording"
+           Description="A meeting recording on a note: a sound glyph, the name the recorder gave it and its type and size. While its bytes are on the device the host hands the tile an AudioSource and it plays in place, under its name, from a blob URL it releases when the tile goes. Once delivered the phone keeps no copy, so the tile only describes it.
+
+The sample is a second of tone, generated here; a real recording is AAC."
+           Code="@RecordingCode">
+        <div class="sb-phone">
+            <AttachmentStrip Tiles="Recordings" AriaLabel="Attached to this note" TestId="attachment-strip-recording" />
+        </div>
+    </Story>
+
     <Story Name="Read only"
            Description="Without OnRemove the strip only shows — a note that has left the phone, say, whose files are no longer the person's to take back. A long name ends in an ellipsis and keeps its full text as the tooltip."
            Code="@ReadOnlyCode">
@@ -42,6 +52,12 @@
         new("accessibility.md#target-sizes-and-text", "Why each tile and its remove control keep the 44 px touch minimum."),
         new("accessibility.md#iconography-accessibility", "Why the picture and page glyphs are hidden from a screen reader and the remove control is named for its file."),
         new("interaction-guidelines.md#error-states", "Why a refusal sits on the tile it is about, in words.")
+    ];
+
+    private static readonly IReadOnlyList<AttachmentTile> Recordings =
+    [
+        new("recording", "Recording · 0:01", "AAC audio", "16 KB", IsAudio: true, Audio: AudioFixtures.Tone),
+        new("delivered", "Recording · 47:12", "AAC audio", "21.6 MB", IsAudio: true)
     ];
 
     private List<AttachmentTile> _picked =
@@ -92,6 +108,20 @@
                     Refusal: "Not a type cloud sync takes (.exe). Pictures, audio, PDF, text and Office files only."),
                 new("recording", "keynote-recording.pdf", "PDF", "31.4 MB",
                     Refusal: "Too large: 31.4 MB, and the limit is 25 MB.")
+            ];
+        }
+        """;
+
+    private const string RecordingCode = """
+        <AttachmentStrip Tiles="Recordings" AriaLabel="Attached to this note" />
+
+        @code {
+            // Played while the bytes are on the device; described only once delivered.
+            private IReadOnlyList<AttachmentTile> Recordings =>
+            [
+                new("recording", "Recording · 0:01", "AAC audio", "16 KB", IsAudio: true,
+                    Audio: new AudioSource("audio/aac", _ => Task.FromResult(OpenIfPresent(path)))),
+                new("delivered", "Recording · 47:12", "AAC audio", "21.6 MB", IsAudio: true)
             ];
         }
         """;
