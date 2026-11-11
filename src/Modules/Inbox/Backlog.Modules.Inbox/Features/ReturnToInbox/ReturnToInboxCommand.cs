@@ -11,8 +11,10 @@ namespace Backlog.Modules.Inbox.Features.ReturnToInbox;
 /// it went. With <paramref name="DeleteTasks"/> — "Move to backlog" and "Create
 /// plan", which made the entries — those entries are deleted first; without it —
 /// "Link to task…", which made none — the task it named is left alone.
+/// <paramref name="MadeDone"/> is Done now's undo: its one entry was born Done
+/// and ticked, so Done does not count as started.
 /// </summary>
-public sealed record ReturnToInboxCommand(Guid Id, bool DeleteTasks);
+public sealed record ReturnToInboxCommand(Guid Id, bool DeleteTasks, bool MadeDone = false);
 
 /// <summary>
 /// Settles the backlog first and the item second, so a refusal changes
@@ -41,7 +43,7 @@ public sealed class ReturnToInboxCommandHandler(
 
         if (command.DeleteTasks && routing.TaskIds.Count > 0)
         {
-            var deleted = await target.DeleteRoutedTasksAsync(routing.TaskIds, cancellationToken).ConfigureAwait(false);
+            var deleted = await target.DeleteRoutedTasksAsync(routing.TaskIds, command.MadeDone, cancellationToken).ConfigureAwait(false);
             if (deleted.IsFailure) return deleted;
         }
 

@@ -79,7 +79,14 @@ internal static class InboxTriageContext
             if (members.Count >= 2) plan = grouping with { Title = grouping.Title.Trim(), ItemIds = members };
         }
 
-        return new InboxTriageAdviceDto(item.Id, duplicate, plan, Repositories(advice.Repositories, context, item.RepoIds));
+        // An outcome names nothing outside the item, so it stands as read —
+        // only one the vocabulary knows.
+        var outcome = advice.Outcome is { } clarified && Enum.IsDefined(clarified.Outcome) ? clarified : null;
+
+        return new InboxTriageAdviceDto(item.Id, duplicate, plan, Repositories(advice.Repositories, context, item.RepoIds))
+        {
+            Outcome = outcome,
+        };
     }
 
     /// <summary>The pass, held to its items and the context. Each item is
@@ -194,7 +201,19 @@ internal static class InboxTriageContext
             archives.Add(archive with { Confidence = Clamp(archive.Confidence) });
         }
 
-        return new InboxTriagePassDto(plans, duplicates, routes, filings, archives, [.. batch.Where(id => !placed.Contains(id))]);
+        var outcomes = new List<InboxTriageOutcomeProposalDto>();
+        foreach (var outcome in pass.Outcomes)
+        {
+            if (!inBatch.Contains(outcome.ItemId) || placed.Contains(outcome.ItemId) || !Enum.IsDefined(outcome.Outcome)) continue;
+
+            placed.Add(outcome.ItemId);
+            outcomes.Add(outcome with { Confidence = Clamp(outcome.Confidence) });
+        }
+
+        return new InboxTriagePassDto(plans, duplicates, routes, filings, archives, [.. batch.Where(id => !placed.Contains(id))])
+        {
+            Outcomes = outcomes,
+        };
     }
 
     private static InboxTriageDuplicateDto? HoldDuplicate(InboxTriageDuplicateDto duplicate, InboxTriageItemDto item, InboxTriageContextDto context)

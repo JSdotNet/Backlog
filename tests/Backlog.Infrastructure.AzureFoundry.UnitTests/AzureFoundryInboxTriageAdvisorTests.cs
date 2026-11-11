@@ -160,6 +160,61 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
         Assert.False(result.Value.HasCards);
     }
 
+    [Theory]
+    [InlineData("someday", InboxClarifyOutcome.Someday)]
+    [InlineData("done-now", InboxClarifyOutcome.DoneNow)]
+    public async Task An_outcome_card_is_read_for_someday_and_done_now(string word, InboxClarifyOutcome outcome)
+    {
+        var client = new StubTriageClient { Answer = $$"""{ "outcome": { "outcome": "{{word}}", "reason": "It reads that way." } }""" };
+
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+
+        Assert.Equal(new InboxTriageOutcomeDto(outcome, "It reads that way."), advice.Outcome);
+        Assert.True(advice.HasCards);
+    }
+
+    [Fact]
+    public async Task An_outcome_with_an_unknown_word_is_dropped_and_the_prompts_name_both_words()
+    {
+        var client = new StubTriageClient { Answer = """{ "outcome": { "outcome": "waiting-for", "reason": "x" } }""" };
+
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+
+        Assert.Null(advice.Outcome);
+        foreach (var prompt in new[] { AzureFoundryTriagePrompt.AdviceText, AzureFoundryTriagePrompt.PassText })
+        {
+            Assert.Contains("\"someday\"", prompt, StringComparison.Ordinal);
+            Assert.Contains("\"done-now\"", prompt, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task The_pass_reads_its_outcome_proposals()
+    {
+        var client = new StubTriageClient
+        {
+            Answer = $$"""
+                {
+                  "outcomes": [
+                    { "itemId": "{{ItemId}}", "outcome": "done-now", "reason": "Two minutes.", "confidence": 0.8 },
+                    { "itemId": "{{OtherId}}", "outcome": "someday", "reason": "One day.", "confidence": 0.7 },
+                    { "itemId": "{{OtherId}}", "outcome": "later", "reason": "x", "confidence": 0.7 },
+                    { "itemId": "not-a-guid", "outcome": "someday", "reason": "x", "confidence": 0.7 }
+                  ]
+                }
+                """,
+        };
+
+        var pass = (await Advisor(client).ProposePassAsync([Item(), Item(OtherId, "Other")], Context(), TestContext.Current.CancellationToken)).Value;
+
+        Assert.Equal(
+            [
+                new InboxTriageOutcomeProposalDto(ItemId, InboxClarifyOutcome.DoneNow, "Two minutes.", 0.8),
+                new InboxTriageOutcomeProposalDto(OtherId, InboxClarifyOutcome.Someday, "One day.", 0.7),
+            ],
+            pass.Outcomes);
+    }
+
     [Fact]
     public async Task A_duplicate_with_an_unknown_kind_is_dropped()
     {

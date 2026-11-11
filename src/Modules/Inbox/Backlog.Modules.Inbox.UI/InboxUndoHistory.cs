@@ -73,7 +73,12 @@ internal sealed record InboxRouteUndoStep(
     bool DeleteTasks,
     InboxDeferral? Deferred = null,
     IReadOnlyList<string>? PreviousRepoIds = null)
-    : InboxUndoStep(Kind, Label);
+    : InboxUndoStep(Kind, Label)
+{
+    /// <summary>Done now's route: its one entry was born Done and ticked, so the
+    /// undo deletes it while it is still Done rather than calling it started.</summary>
+    public bool MadeDone { get; init; }
+}
 
 /// <summary>One gesture's decisions over several items — a bulk archive, a bulk
 /// move, a batch route and the duplicates it merged — taken back together.

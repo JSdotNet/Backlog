@@ -138,7 +138,13 @@ public sealed class AzureFoundryInboxTriageAdvisor(IAzureFoundryTriageClient cli
             plan = new InboxTriagePlanGroupingDto(planTitle, Ids(grouping, "itemIds"), String(grouping, "reason") ?? string.Empty);
         }
 
-        return new InboxTriageAdviceDto(item.Id, duplicate, plan, Strings(root, "repositories"));
+        InboxTriageOutcomeDto? outcome = null;
+        if (Object(root, "outcome") is { } clarified && Outcome(String(clarified, "outcome")) is { } kindOfOutcome)
+        {
+            outcome = new InboxTriageOutcomeDto(kindOfOutcome, String(clarified, "reason") ?? string.Empty);
+        }
+
+        return new InboxTriageAdviceDto(item.Id, duplicate, plan, Strings(root, "repositories")) { Outcome = outcome };
     }
 
     internal static InboxTriagePassDto ReadPass(JsonElement root)
@@ -183,13 +189,27 @@ public sealed class AzureFoundryInboxTriageAdvisor(IAzureFoundryTriageClient cli
             .OfType<InboxTriageArchiveDto>()
             .ToList();
 
+        var outcomes = Array(root, "outcomes")
+            .Select(proposal => Id(String(proposal, "itemId")) is { } itemId && Outcome(String(proposal, "outcome")) is { } kind
+                ? new InboxTriageOutcomeProposalDto(itemId, kind, Reason(proposal), Confidence(proposal))
+                : null)
+            .OfType<InboxTriageOutcomeProposalDto>()
+            .ToList();
+
         var unplaced = Array(root, "unplaced")
             .Select(id => id.ValueKind == JsonValueKind.String ? Id(id.GetString()) : null)
             .OfType<Guid>()
             .ToList();
 
-        return new InboxTriagePassDto(plans, duplicates, routes, filings, archives, unplaced);
+        return new InboxTriagePassDto(plans, duplicates, routes, filings, archives, unplaced) { Outcomes = outcomes };
     }
+
+    private static InboxClarifyOutcome? Outcome(string? word) => word?.ToLowerInvariant() switch
+    {
+        "someday" => InboxClarifyOutcome.Someday,
+        "done-now" or "donenow" => InboxClarifyOutcome.DoneNow,
+        _ => null,
+    };
 
     private static JsonElement? Object(JsonElement parent, string name) =>
         parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Object ? value : null;

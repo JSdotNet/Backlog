@@ -114,4 +114,15 @@ public interface IInboxBacklogTarget
     /// backlog no longer has is skipped, since it is already what the undo asks.
     /// </summary>
     Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// <see cref="DeleteRoutedTasksAsync(IReadOnlyList{Guid}, CancellationToken)"/>
+    /// for a route that may have made its entries Done. With
+    /// <paramref name="madeDone"/> — undoing Done now, whose one entry was born
+    /// Done and ticked — Done is what the route made and is deleted too; archived
+    /// still refuses. A target that never makes a Done entry answers the plain
+    /// delete.
+    /// </summary>
+    Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, bool madeDone, CancellationToken cancellationToken = default) =>
+        DeleteRoutedTasksAsync(taskIds, cancellationToken);
 }

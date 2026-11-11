@@ -43,4 +43,11 @@ public sealed record InboxBrainRoutedDto(Guid InboxItemId, string NotePath, stri
 /// <param name="IsInbox">Whether it is the Brain's inbox area, which the picker
 /// lists first and starts on.</param>
 /// <param name="IsProject">Whether it is a project rather than an area.</param>
-public sealed record InboxBrainDestinationDto(string Folder, string Label, bool IsInbox = false, bool IsProject = false);
+public sealed record InboxBrainDestinationDto(string Folder, string Label, bool IsInbox = false, bool IsProject = false)
+{
+    /// <summary>The folder of the Brain's <c>someday</c> area, where the Someday
+    /// decision files an item (local ADR 0054 §3): To Brain with that area
+    /// chosen, in one press. A Brain whose areas leave it out refuses the route
+    /// in its own words.</summary>
+    public const string SomedayFolder = "someday";
+}

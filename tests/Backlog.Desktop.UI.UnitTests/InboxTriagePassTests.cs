@@ -277,6 +277,46 @@ public sealed class InboxTriagePassTests
 
     /// <summary>Each side of a pair says where its item is: the list it is
     /// filed in, or the inbox when it is in none.</summary>
+    /// <summary>The pass may propose Someday and Done now (local ADR 0054): one
+    /// row each in The rest, applied through the decision bar's own acts, and each
+    /// one undo step.</summary>
+    [Fact]
+    public async Task Someday_and_done_now_proposals_are_rows_of_the_rest_that_apply_and_undo()
+    {
+        using var harness = Harness.Create();
+        var someday = harness.Inbox.Seed("Learn the cello");
+        var doneNow = harness.Inbox.Seed("Reply to Sam");
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriagePassAnswer = Result.Success(InboxTriagePassDto.Nothing with
+        {
+            Outcomes =
+            [
+                new InboxTriageOutcomeProposalDto(someday.Id, InboxClarifyOutcome.Someday, "A possibility.", 0.9),
+                new InboxTriageOutcomeProposalDto(doneNow.Id, InboxClarifyOutcome.DoneNow, "Two minutes.", 0.9),
+            ],
+        });
+        var pane = await harness.StartTriageAsync();
+        await ProposeAsync(pane);
+
+        Assert.Contains("Someday 1", Squash(pane.Find("[data-testid='inbox-pass-someday']").TextContent), StringComparison.Ordinal);
+        Assert.Contains("Done now 1", Squash(pane.Find("[data-testid='inbox-pass-done-now']").TextContent), StringComparison.Ordinal);
+        Assert.Equal("2 of 2 accepted", Count(pane));
+
+        await pane.Find("[data-testid='inbox-pass-apply']").ClickAsync(new());
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["someday"], harness.Inbox.BrainFolders);
+            Assert.Equal([doneNow.Id], harness.Inbox.DoneNowRoutes);
+        });
+
+        await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("u"));
+        pane.WaitForAssertion(() => Assert.Contains(("return-done", doneNow.Id), harness.Inbox.Undos));
+
+        await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("u"));
+        pane.WaitForAssertion(() => Assert.Contains(("unlink", someday.Id), harness.Inbox.Undos));
+    }
+
     [Fact]
     public async Task A_side_filed_in_a_list_is_labelled_with_the_list_and_an_unfiled_one_with_the_inbox()
     {

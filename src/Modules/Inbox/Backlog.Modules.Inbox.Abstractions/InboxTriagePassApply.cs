@@ -69,13 +69,20 @@ public sealed record InboxTriageFilingDecision(string Name, Guid ItemId, Guid Li
 public sealed record InboxTriageArchiveDecision(string Name, Guid ItemId)
     : InboxTriageDecision(Name);
 
+/// <summary>One item taken Someday — To Brain into the <c>someday</c> area — or
+/// Done now — one task created already ticked (local ADR 0054).</summary>
+public sealed record InboxTriageOutcomeDecision(string Name, Guid ItemId, InboxClarifyOutcome Outcome)
+    : InboxTriageDecision(Name);
+
 /// <summary>A decision that landed. <paramref name="Batch"/> is a plan's
 /// batch — partly routed ones included, so their routed half can still be
-/// taken back — and <paramref name="Routed"/> a single route's entries.</summary>
+/// taken back — <paramref name="Routed"/> a single route's entries, Done now's
+/// included, and <paramref name="Brain"/> the note Someday wrote.</summary>
 public sealed record InboxTriageApplied(
     InboxTriageDecision Decision,
     InboxBatchRoutedDto? Batch = null,
-    InboxRoutedDto? Routed = null);
+    InboxRoutedDto? Routed = null,
+    InboxBrainRoutedDto? Brain = null);
 
 /// <summary>The decision that stopped Apply: which item it was refused for,
 /// what that item is called, and why.</summary>
@@ -104,6 +111,8 @@ public sealed record InboxTriagePassFailure(
         InboxTriageDuplicateDecision { Choice: InboxTriageDuplicateChoice.Merge } => $"archive \"{ItemName}\" as a duplicate",
         InboxTriageRouteDecision => $"move \"{ItemName}\" to the backlog",
         InboxTriageFilingDecision => $"file \"{ItemName}\" in its list",
+        InboxTriageOutcomeDecision { Outcome: InboxClarifyOutcome.Someday } => $"keep \"{ItemName}\" for someday",
+        InboxTriageOutcomeDecision => $"record \"{ItemName}\" as done",
         _ => $"archive \"{ItemName}\"",
     };
 
@@ -210,6 +219,7 @@ public static class InboxTriagePassApply
         InboxTriageRouteDecision route => RouteAsync(inbox, route, cancellationToken),
         InboxTriageFilingDecision filing => SimpleAsync(decision, filing.ItemId, inbox.MoveToListAsync(filing.ItemId, filing.ListId, cancellationToken)),
         InboxTriageArchiveDecision archive => SimpleAsync(decision, archive.ItemId, inbox.ArchiveAsync(archive.ItemId, cancellationToken)),
+        InboxTriageOutcomeDecision outcome => OutcomeAsync(inbox, outcome, cancellationToken),
         _ => throw new ArgumentOutOfRangeException(nameof(decision), decision.GetType().Name, "Not a triage decision."),
     };
 
@@ -285,6 +295,24 @@ public static class InboxTriagePassApply
             : new Step(null, new Refusal(route.ItemId, routed.Error));
     }
 
+    /// <summary>Someday through To Brain with the <c>someday</c> area named, Done
+    /// now through its own route: the acts the decision bar takes.</summary>
+    private static async Task<Step> OutcomeAsync(IInboxItems inbox, InboxTriageOutcomeDecision outcome, CancellationToken cancellationToken)
+    {
+        if (outcome.Outcome == InboxClarifyOutcome.Someday)
+        {
+            var kept = await inbox.RouteToBrainAsync(outcome.ItemId, InboxBrainDestinationDto.SomedayFolder, cancellationToken).ConfigureAwait(false);
+            return kept.IsSuccess
+                ? new Step(new InboxTriageApplied(outcome, Brain: kept.Value), null)
+                : new Step(null, new Refusal(outcome.ItemId, kept.Error));
+        }
+
+        var done = await inbox.RouteDoneNowAsync(outcome.ItemId, cancellationToken).ConfigureAwait(false);
+        return done.IsSuccess
+            ? new Step(new InboxTriageApplied(outcome, Routed: done.Value), null)
+            : new Step(null, new Refusal(outcome.ItemId, done.Error));
+    }
+
     private static async Task<Step> SimpleAsync(InboxTriageDecision decision, Guid itemId, Task<Result> act)
     {
         var result = await act.ConfigureAwait(false);
@@ -302,6 +330,7 @@ public static class InboxTriagePassApply
         InboxTriageRouteDecision route => route.ItemId,
         InboxTriageFilingDecision filing => filing.ItemId,
         InboxTriageArchiveDecision archive => archive.ItemId,
+        InboxTriageOutcomeDecision outcome => outcome.ItemId,
         _ => Guid.Empty,
     };
 

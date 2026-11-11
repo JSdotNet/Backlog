@@ -303,6 +303,52 @@ public sealed class TriageAdvisorTests
         Assert.Equal(("Login button misaligned", (string?)null), (pass.Duplicates[1].TargetTitle, pass.Duplicates[1].TargetStatus));
     }
 
+    /// <summary>An outcome card — Someday or Done now — names nothing outside the
+    /// item, so it comes back as the advisor read it.</summary>
+    [Fact]
+    public async Task An_outcome_card_comes_back_as_read()
+    {
+        var (store, item, _) = Inbox();
+        var advisor = new FakeTriageAdvisor
+        {
+            Advice = InboxTriageAdviceDto.None(item.Id) with { Outcome = new InboxTriageOutcomeDto(InboxClarifyOutcome.DoneNow, "Two minutes.") },
+        };
+
+        var advice = (await Advise(store, advisor, item.Id)).Value;
+
+        Assert.Equal(new InboxTriageOutcomeDto(InboxClarifyOutcome.DoneNow, "Two minutes."), advice.Outcome);
+        Assert.True(advice.HasCards);
+    }
+
+    /// <summary>Someday and Done now proposals come after every other kind, so an
+    /// item an earlier proposal placed is not placed twice, and one for an item
+    /// outside the pass is dropped.</summary>
+    [Fact]
+    public async Task Outcome_proposals_are_held_to_the_pass_and_place_each_item_once()
+    {
+        var (store, item, other) = Inbox();
+        var third = Items.Manual("Learn the cello");
+        store.Seed(third);
+        var advisor = new FakeTriageAdvisor
+        {
+            Pass = new InboxTriagePassDto([], [], [], [], [new InboxTriageArchiveDto(item.Id, "Old.", 0.9)], [])
+            {
+                Outcomes =
+                [
+                    new InboxTriageOutcomeProposalDto(item.Id, InboxClarifyOutcome.DoneNow, "Placed already.", 0.9),
+                    new InboxTriageOutcomeProposalDto(third.Id, InboxClarifyOutcome.Someday, "One day.", 1.4),
+                    new InboxTriageOutcomeProposalDto(Guid.CreateVersion7(), InboxClarifyOutcome.Someday, "Unknown.", 0.9),
+                ],
+            },
+        };
+
+        var pass = (await Pass(store, advisor, [item.Id, other.Id, third.Id])).Value;
+
+        var kept = Assert.Single(pass.Outcomes);
+        Assert.Equal((third.Id, InboxClarifyOutcome.Someday, 1.0), (kept.ItemId, kept.Outcome, kept.Confidence));
+        Assert.Equal([other.Id], pass.Unplaced);
+    }
+
     [Fact]
     public async Task A_failed_pass_is_passed_through()
     {

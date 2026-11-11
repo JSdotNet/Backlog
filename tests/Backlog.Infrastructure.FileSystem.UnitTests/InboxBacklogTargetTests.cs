@@ -104,6 +104,25 @@ public sealed class InboxBacklogTargetTests
         Assert.Empty(parsed.Unreadable ?? []);
     }
 
+    /// <summary>Done now's entry is born Done and ticked on the day — the two
+    /// facts the Tasks pane's checkbox writes — and parses back as both.</summary>
+    [Fact]
+    public void Done_now_writes_a_done_entry_ticked_on_the_day()
+    {
+        var request = new InboxRouteRequestDto(Item, "Reply to Sam", string.Empty, null, [], [])
+        {
+            CompletedOn = new DateOnly(2026, 11, 11),
+        };
+
+        var text = InboxBacklogTarget.Compose(request, null);
+        var parsed = EntryTextParser.Parse(text);
+
+        Assert.Equal("# Reply to Sam\n`task` `!done` `completed:2026-11-11`\n", text);
+        Assert.Equal(EntryStatus.Done, parsed.Status);
+        Assert.Equal(new DateOnly(2026, 11, 11), parsed.CompletedOn);
+        Assert.Empty(parsed.Unreadable ?? []);
+    }
+
     /// <summary>Without either, the route's text is what it always was.</summary>
     [Fact]
     public void Without_a_schedule_no_due_or_my_day_token_is_written()

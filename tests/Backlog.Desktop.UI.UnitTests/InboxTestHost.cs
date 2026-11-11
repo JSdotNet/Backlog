@@ -690,6 +690,54 @@ internal sealed class FakeInboxItems : IInboxItems
         return new InboxRoutedDto(id, taskIds);
     }
 
+    /// <summary>Every item Done now was asked for, in order.</summary>
+    public List<Guid> DoneNowRoutes { get; } = [];
+
+    /// <summary>The module's Done now, restated: refused through
+    /// <see cref="FailAct"/> under <c>"done-now"</c>, else the item is routed to
+    /// one task, whatever its repositories.</summary>
+    public async Task<Result<InboxRoutedDto>> RouteDoneNowAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        DoneNowRoutes.Add(id);
+        if (BeforeRoute is { } gate) await gate();
+
+        if (Fails("done-now", id, out var refused)) return Result.Failure<InboxRoutedDto>(refused);
+
+        if (Find(id) is not { } item) return Result.Failure<InboxRoutedDto>(InboxErrors.ItemNotFound);
+        if (item.Routing is not null) return Result.Failure<InboxRoutedDto>(InboxErrors.InvalidTransition("Already routed."));
+
+        List<Guid> taskIds = [Guid.NewGuid()];
+        OnRouted?.Invoke(item, taskIds);
+
+        await Update(id, current => current with
+        {
+            Status = InboxStatus.Triaged,
+            Routing = new InboxRoutingDto(RoutingDomain.Tasks, current.RepoIds, taskIds, Now)
+        });
+
+        return new InboxRoutedDto(id, taskIds);
+    }
+
+    /// <summary>Done now's undo, restated as a return that deletes its task,
+    /// recorded as <c>"return-done"</c>.</summary>
+    public Task<Result> ReturnDoneNowToInboxAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        Undos.Add(("return-done", id));
+        ThrowIfUndoFails(id);
+
+        if (Find(id) is { Routing: null })
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Only a routed item can return.")));
+        }
+
+        if (RefuseReturn is { } refusal && (RefuseReturnOf.Count == 0 || RefuseReturnOf.Contains(id)))
+        {
+            return Task.FromResult(Result.Failure(refusal));
+        }
+
+        return Update(id, current => current with { Status = InboxStatus.Unprocessed, Routing = null });
+    }
+
     /// <summary>Every item To Brain was asked for, in order.</summary>
     public List<Guid> BrainRoutes { get; } = [];
 

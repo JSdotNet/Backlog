@@ -22,6 +22,8 @@ namespace Backlog.Desktop.WebHarness;
 /// words (<see cref="Filler"/>) do not count.</item>
 /// <item><b>Plan.</b> Items sharing a tag group into one plan named for the
 /// tag.</item>
+/// <item><b>Outcome.</b> An item tagged <see cref="SomedayTag"/> is taken
+/// Someday, one tagged <see cref="QuickTag"/> Done now — on its card too.</item>
 /// <item><b>List.</b> An item with a tag that names one of the reader's lists
 /// is filed there.</item>
 /// <item><b>Route.</b> An item with repositories is routed as a <c>prompt</c>;
@@ -79,7 +81,7 @@ public sealed class FakeInboxTriageAdvisor : IInboxTriageAdvisor
                 ? context.OpenTasks.First(open => open.Id == task.TargetId).RepoIds
                 : [];
 
-        return Task.FromResult(Result.Success(new InboxTriageAdviceDto(item.Id, duplicate, plan, repositories)));
+        return Task.FromResult(Result.Success(new InboxTriageAdviceDto(item.Id, duplicate, plan, repositories) { Outcome = OutcomeOf(item) }));
     }
 
     public Task<Result<InboxTriagePassDto>> ProposePassAsync(
@@ -96,6 +98,7 @@ public sealed class FakeInboxTriageAdvisor : IInboxTriageAdvisor
         var filings = new List<InboxTriageListFilingDto>();
         var routes = new List<InboxTriageRouteProposalDto>();
         var archives = new List<InboxTriageArchiveDto>();
+        var outcomes = new List<InboxTriageOutcomeProposalDto>();
 
         foreach (var item in items)
         {
@@ -135,7 +138,12 @@ public sealed class FakeInboxTriageAdvisor : IInboxTriageAdvisor
 
         foreach (var item in items.Where(item => !placed.Contains(item.Id)))
         {
-            if (context.Lists.FirstOrDefault(list => item.Tags.Contains(list.Name, StringComparer.OrdinalIgnoreCase)) is { } list)
+            if (OutcomeOf(item) is { } outcome)
+            {
+                placed.Add(item.Id);
+                outcomes.Add(new InboxTriageOutcomeProposalDto(item.Id, outcome.Outcome, outcome.Reason, HighConfidence));
+            }
+            else if (context.Lists.FirstOrDefault(list => item.Tags.Contains(list.Name, StringComparer.OrdinalIgnoreCase)) is { } list)
             {
                 placed.Add(item.Id);
                 filings.Add(new InboxTriageListFilingDto(item.Id, list.Id, $"It is tagged {list.Name}, which is one of your lists.", HighConfidence));
@@ -166,8 +174,21 @@ public sealed class FakeInboxTriageAdvisor : IInboxTriageAdvisor
 
         var unplaced = items.Where(item => !placed.Contains(item.Id)).Select(item => item.Id).ToList();
 
-        return Task.FromResult(Result.Success(new InboxTriagePassDto(plans, duplicates, routes, filings, archives, unplaced)));
+        return Task.FromResult(Result.Success(new InboxTriagePassDto(plans, duplicates, routes, filings, archives, unplaced) { Outcomes = outcomes }));
     }
+
+    /// <summary>The outcome an item's tag names: <see cref="SomedayTag"/> for
+    /// Someday, <see cref="QuickTag"/> for Done now; null for neither.</summary>
+    private static InboxTriageOutcomeDto? OutcomeOf(InboxTriageItemDto item) =>
+        HasTag(item, SomedayTag) ? new InboxTriageOutcomeDto(InboxClarifyOutcome.Someday, $"It is tagged {SomedayTag}: a possibility, not a commitment.")
+        : HasTag(item, QuickTag) ? new InboxTriageOutcomeDto(InboxClarifyOutcome.DoneNow, $"It is tagged {QuickTag}: two minutes' work, done at once.")
+        : null;
+
+    /// <summary>The tag that reads as Someday.</summary>
+    public const string SomedayTag = "someday";
+
+    /// <summary>The tag that reads as Done now.</summary>
+    public const string QuickTag = "quick";
 
     /// <summary>The words of a title that count: three or more letters or
     /// digits, lower-cased, filler left out.</summary>
