@@ -62,7 +62,8 @@ internal sealed class InboxCaptureDelivery(IInboxIntake intake, IInboxListLookup
             facts?.Tags,
             facts?.Person,
             facts?.ContentKind,
-            listId);
+            listId,
+            Event: EventOf(facts?.Event));
 
         var outcome = await intake.ReceiveAsync(capture, cancellationToken).ConfigureAwait(false);
 
@@ -73,6 +74,16 @@ internal sealed class InboxCaptureDelivery(IInboxIntake intake, IInboxListLookup
             _ => CaptureDeliveryOutcome.Ignored
         };
     }
+
+    /// <summary>An event page capture's facts in the Inbox's words, part for part
+    /// (<c>.devbook/domain/inbox/domain.md#event-facts</c>): the Inbox keeps them and
+    /// hands them to Events when the item is routed To Event.</summary>
+    internal static InboxEventFactsDto? EventOf(CaptureEventFacts? facts) => facts is null
+        ? null
+        : new InboxEventFactsDto(DateOf(facts.Start), DateOf(facts.End), facts.Place, facts.PageUrl, facts.PageTitle);
+
+    private static InboxEventDateDto? DateOf(CaptureEventDate? date) =>
+        date is null ? null : new InboxEventDateDto(date.Date, date.Time, date.Offset);
 
     /// <summary>The id of the list called <paramref name="name"/>, matched the
     /// way a reader would — trimmed, and without regard to case — or null when

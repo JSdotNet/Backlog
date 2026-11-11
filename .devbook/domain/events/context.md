@@ -45,10 +45,10 @@ flowchart LR
 ```
 
 The Knowledge Event and Event Series aggregates are built in `Backlog.Modules.Events`, and each
-desktop keeps them as documents in a store of its own, behind the `events` flag. The read contract
-and the Calendar's events layer are built too. The pane, the To Event route, the harvest task, the
-phone and sync are not built yet. These chapters are the model
-those changes build, decided in local [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md).
+desktop keeps them as documents in a store of its own, behind the `events` flag. The Inbox's To
+Event route makes Spotted events through `IKnowledgeEvents`, and the Calendar's events layer reads
+the decided ones through the read contract. The pane, the harvest task, the phone and sync are not
+built yet. These chapters are the model those changes build, decided in local [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md).
 
 Tasks and the Brain know no event. The event holds the task ids and note links,
 and a task or note never names the event back. Events publishes no domain event.

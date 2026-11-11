@@ -44,6 +44,15 @@
          request shape. The published surface only: the adapter answers the Inbox's
          port and asks Tasks through ITaskItems, and needs neither aggregate. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+    <!-- The same join's To Event route: an inbox item routed To Event becomes a
+         Spotted knowledge event through Events' published IKnowledgeEvents, and the
+         route is offered while Events' flag is on. The same reference serves the
+         cross-context join under Events/ - the Tasks Calendar's events layer, Tasks'
+         ICalendarEvents answered over Events' published read contract (local ADR
+         0050 §7). The published surface only: neither adapter sees a knowledge event
+         or its repository, though the implementation is reachable through the Sqlite
+         adapter below. -->
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
     <!-- The cross-context join under Dashboard/ - the Sessions context supplies the
          assistant-session facts the Dashboard's sessions part reports on. Two
          published surfaces and no implementation: the adapter is the only thing in
@@ -63,12 +72,6 @@
          ISettledPullRequestStore: merged pull requests remembered across a restart,
          in app storage (local ADR 0042). The published surface only. -->
     <ProjectReference Include="..\..\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
-    <!-- The cross-context join under Events/ - the Tasks Calendar's events layer,
-         Tasks' ICalendarEvents answered over Events' published read contract
-         (local ADR 0050 §7). The published surface only: the adapter never sees
-         a knowledge event or its repository, though the implementation is
-         reachable through the Sqlite adapter below. -->
-    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
          settings file: Tasks' ITaskStore and Devbook's

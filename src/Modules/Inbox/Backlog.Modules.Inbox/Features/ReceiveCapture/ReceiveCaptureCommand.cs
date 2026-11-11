@@ -159,6 +159,7 @@ public sealed class ReceiveCaptureCommandHandler(
                 capture.ReplicaBacked);
 
             item.RecordAttachments(attachments);
+            item.LoadEventFacts(EventFactsOf(capture.Event));
 
             // A channel that says what it captured is believed; the slug is kept
             // as written so a kind this build does not know survives, the way a
@@ -275,6 +276,22 @@ public sealed class ReceiveCaptureCommandHandler(
     /// service refuses such a capture at the edge, so this is a newer or broken
     /// client's document, not a phone's.</summary>
     private static List<InboxAttachment> AttachmentsOf(InboxCaptureDto capture) => AttachmentsOf(capture.Attachments);
+
+    /// <summary>An event page capture's facts as the aggregate keeps them, texts
+    /// trimmed and a blank one read as none.</summary>
+    internal static InboxEventFacts? EventFactsOf(InboxEventFactsDto? facts) => facts is null
+        ? null
+        : new InboxEventFacts(
+            DateOf(facts.Start),
+            DateOf(facts.End),
+            Blank(facts.Place),
+            Blank(facts.PageUrl),
+            Blank(facts.PageTitle));
+
+    private static InboxEventDate? DateOf(InboxEventDateDto? date) =>
+        date is null ? null : new InboxEventDate(date.Date, date.Time, date.Offset);
+
+    private static string? Blank(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
     /// <summary>The files named, as the aggregate keeps them; one whose metadata
     /// the aggregate refuses is dropped. Shared with the note intake.</summary>

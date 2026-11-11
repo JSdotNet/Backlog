@@ -209,8 +209,9 @@ public static class DesktopCompositionRegistration
 
         // Events (local ADR 0050): the module's one registration point. Its two stores are
         // the events_knowledge_events and events_series tables AddSqlite registered above.
-        // Nothing of it shows yet — no pane, surface, settings section or Ask AI source —
-        // and the pane that comes later is gated on the `events` feature, off by default.
+        // It publishes IKnowledgeEvents, which the Inbox's To Event route reaches through
+        // the adapter AddInboxCrossContextAdapters registers, offered while the `events`
+        // feature is on. No pane, surface, settings section or Ask AI source yet.
         services.AddEventsModule();
 
         // Capture: the module brings the run, and the head decides where the

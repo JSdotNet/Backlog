@@ -36,7 +36,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 - **Progress:** The goals are the ones a person's work is attached to, and the impediments are what hold that work back. It names tasks by id, plans by tag and pull requests by repository and number, without owning any of them.
 - **Sessions:** It owns none of the work, the machines, or the repositories those sessions touch.
 - **Notifications:** The answer comes back from whichever paired device the person used. The context carries no work of its own (local ADR 0039).
-- **Events:** Learning events support the person's work and are not what sets the product apart. Knowledge events only: other appointments stay out (local ADR 0050). The aggregates, the read contract and the Calendar's events layer are built. The pane, the To Event route, the harvest task, the phone and sync are not yet.
+- **Events:** Learning events support the person's work and are not what sets the product apart. Knowledge events only: other appointments stay out (local ADR 0050). The aggregates, the Inbox's To Event route, the read contract and the Calendar's events layer are built. The pane, the harvest task, the phone and sync are not yet.
 - **Sync:** It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model. It is still not what makes the product different.
 
 ## Context map
@@ -150,7 +150,7 @@ flowchart LR
 
     %% Events. Local ADR 0050. The aggregates, the read contract and the
     %% Calendar's events layer are built, so Events -> Tasks is solid. The
-    %% other Events edges are not built yet.
+    %% Inbox's To Event route is built too.
     %% The Calendar is a layout of the Tasks pane (ADR 0022), so the events layer
     %% lands on Tasks. The two Tasks edges run through different parts. See
     %% .devbook/domain/events/context.md.
@@ -322,8 +322,8 @@ flowchart LR
   request (local ADR 0038 §1).
 - `Events` keeps knowledge events only, attended to learn something
   (`.devbook/arc42/adr/0050-events-is-its-own-bounded-context.md`). Its
-  aggregates, its read contract and the Calendar's events layer are built; the
-  rest is not yet. It names what it links by these identities:
+  aggregates, the To Event route, its read contract and the Calendar's events
+  layer are built; the rest is not yet. It names what it links by these identities:
   - a task by its id;
   - a Brain note by its path from the Brain's root;
   - a Talk note by its Inbox note id.

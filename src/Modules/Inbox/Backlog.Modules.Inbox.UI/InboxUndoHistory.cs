@@ -24,6 +24,9 @@ public enum InboxDecisionKind
 
     /// <summary>To Brain: the item became a note in the person's Brain.</summary>
     ToBrain,
+
+    /// <summary>To Event: the item became a Spotted knowledge event.</summary>
+    ToEvent,
 }
 
 /// <summary>

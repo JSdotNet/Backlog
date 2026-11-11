@@ -1292,13 +1292,13 @@ related: [.devbook/domain/inbox/features.md#route-to-event, .devbook/domain/even
 ```
 
 > What the To Event route promises the Inbox item. What the event is made of is in
-> [Events' requirements](../events/requirements.md#to-event-route). Nothing is built
-> yet.
+> [Events' requirements](../events/requirements.md#to-event-route).
 
 ### Requirement: No To Event route while the area is off
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests.While_the_Events_area_is_off_To_Event_is_not_offered_anywhere, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests.The_shortcuts_dialog_lists_e_only_while_the_area_is_on, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.While_the_Events_area_is_off_nothing_is_made_and_the_item_stays, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests.The_route_is_withdrawn_while_the_flag_is_off_or_nothing_is_composed]
 ```
 
 The system SHALL offer no To Event route in triage, in the item's detail or on the **e** key while the `events` flag is off.
@@ -1313,6 +1313,7 @@ The system SHALL offer no To Event route in triage, in the item's detail or on t
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.The_event_joins_the_series_whose_page_is_the_watched_page, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.A_routed_item_hands_its_title_link_and_facts_to_Events_and_leaves_the_queue, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests.The_items_title_link_and_facts_reach_Events_part_for_part]
 ```
 
 The system SHALL put the event made from an item in the Event Series whose page is the page the item was watched from.
@@ -1327,6 +1328,7 @@ The system SHALL put the event made from an item in the Event Series whose page 
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.An_unknown_page_starts_a_series_named_after_it_and_linked_to_it, unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.A_page_with_no_title_names_its_series_after_the_host, unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.An_item_from_no_watched_page_starts_no_series]
 ```
 
 The system SHALL start a new Event Series, named after the watched page's title and linked to that page, when no Series has the page the item was watched from.
@@ -1341,6 +1343,7 @@ The system SHALL start a new Event Series, named after the watched page's title 
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.An_Events_store_that_fails_leaves_the_item_open_and_unrouted, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.An_item_already_routed_makes_no_second_event, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests.A_store_that_throws_is_the_event_not_made, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests.An_event_Events_did_not_make_is_said_and_the_item_stays]
 ```
 
 The system SHALL mark an item routed To Event, with the event's id, only once Events has made the event.
