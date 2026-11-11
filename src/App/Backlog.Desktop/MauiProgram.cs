@@ -237,7 +237,9 @@ public static class MauiProgram
         // And where the same listener receives Claude Code's telemetry (local ADR
         // 0024), for the Settings page that says what to paste into Claude Code.
         builder.Services.TryAddSingleton<IClaudeCodeTelemetryEndpoint>(sp =>
-            new DesktopClaudeCodeTelemetryEndpoint(sp.GetRequiredService<IMcpEndpointSource>()));
+            new DesktopClaudeCodeTelemetryEndpoint(
+                sp.GetRequiredService<IMcpEndpointSource>(),
+                sp.GetRequiredService<WorkspaceSettingsStore>()));
 
         // The bill for the Azure Foundry resource, read from Azure Cost Management
         // with the developer sign-in on this machine. Reports itself unavailable

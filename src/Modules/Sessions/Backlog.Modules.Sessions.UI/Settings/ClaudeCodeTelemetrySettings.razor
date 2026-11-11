@@ -61,10 +61,12 @@
         @if (_token is not null)
         {
             <span>
-                The endpoint answers on this machine only, on the MCP server's port, and asks for the
-                MCP server's token - the same one its registrations carry. The copied block holds the
-                token itself, where the one above shows it hidden. Moving the MCP server to another
-                port, or giving it a new token, means pasting the block again.
+                The endpoint answers on this machine only, on the MCP server's port, and asks for a
+                telemetry token of its own - not the one the MCP registrations carry, which it no
+                longer takes, and one that calls no tool. The copied block holds the token itself,
+                where the one above shows it hidden. A block pasted before the telemetry token
+                existed carries the MCP token and is refused: paste this one in its place. Moving
+                the MCP server to another port means pasting the block again.
             </span>
         }
         else

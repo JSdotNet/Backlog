@@ -711,6 +711,12 @@ public sealed class McpServerWorker : IDisposable
             // somebody had already connected without it.
             _ = _settings.EnsureMcpServerToken();
 
+            // And the two narrower tokens beside it: the question hook reads its own from
+            // settings.json, and the Settings page's telemetry block carries the other, so
+            // both exist before anything has to present them.
+            _ = _settings.EnsureQuestionHookToken();
+            _ = _settings.EnsureTelemetryToken();
+
             await listener.StartAsync(_lifetime.Token).ConfigureAwait(false);
 
             lock (_gate)
@@ -821,18 +827,71 @@ public sealed class McpServerWorker : IDisposable
 
         var authorization = context.Request.Headers.Authorization;
 
-        if (authorization.Count > 1
-            || !McpLoopbackGuard.IsAuthorized(
+        // Three tokens, each held to its own routes: the MCP token everywhere but the
+        // OTLP logs endpoint, the telemetry token there alone, and the question hook's on
+        // the question tools alone. A token presented where it does not reach is refused
+        // exactly as no token is: 401, before anything is dispatched.
+        var credential = authorization.Count > 1
+            ? McpCredential.None
+            : McpLoopbackGuard.Identify(
                 authorization.Count == 0 ? null : authorization[0],
-                _settings.EnsureMcpServerToken()))
+                _settings.EnsureMcpServerToken(),
+                _settings.QuestionHookToken,
+                _settings.TelemetryToken);
+
+        if (!McpLoopbackGuard.Reaches(credential, context.Request.Method, context.Request.Path.Value ?? string.Empty)
+            || (credential == McpCredential.QuestionHook && !await IsQuestionHookCallAsync(context.Request).ConfigureAwait(false)))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             context.Response.Headers.WWWAuthenticate = "Bearer";
-            _log.LogWarning("An MCP request was refused: no valid bearer token.");
+
+            if (credential == McpCredential.Mcp)
+            {
+                // The one refusal with a known cause: a telemetry block pasted before the
+                // telemetry token existed. The exporter drops a 401 silently, so the log says
+                // what fixes it.
+                _log.LogWarning("Claude Code's telemetry was refused: it carries the MCP server's token, which /v1/logs no longer takes. Copy the block from Settings, Claude Code, again.");
+                return;
+            }
+
+            _log.LogWarning(
+                credential == McpCredential.None
+                    ? "An MCP request was refused: no valid bearer token."
+                    : "An MCP request was refused: its token does not reach {Path}.",
+                context.Request.Path.Value);
             return;
         }
 
         await next(context).ConfigureAwait(false);
+    }
+
+    /// <summary>The most of a question-hook request the guard reads to tell which tool it
+    /// calls. A question is a few kilobytes; a body past this is refused unread.</summary>
+    private const int QuestionHookBodyLimit = 1024 * 1024;
+
+    /// <summary>
+    /// Reads the request's JSON-RPC body — buffered, so <c>MapMcp</c> reads it again from
+    /// the start — and answers whether the question-hook token may send it.
+    /// </summary>
+    private static async Task<bool> IsQuestionHookCallAsync(HttpRequest request)
+    {
+        if (request.ContentLength > QuestionHookBodyLimit) return false;
+
+        request.EnableBuffering(QuestionHookBodyLimit);
+
+        using var copy = new MemoryStream();
+        var buffer = new byte[16 * 1024];
+        int read;
+
+        while ((read = await request.Body.ReadAsync(buffer, request.HttpContext.RequestAborted).ConfigureAwait(false)) > 0)
+        {
+            if (copy.Length + read > QuestionHookBodyLimit) return false;
+            copy.Write(buffer, 0, read);
+        }
+
+        request.Body.Position = 0;
+
+        return McpLoopbackGuard.IsQuestionHookCall(copy.GetBuffer().AsSpan(0, (int)copy.Length));
     }
 
     /// <summary>

@@ -124,6 +124,38 @@ public class WorkspaceMcpServerSettingsTests : IDisposable
         Assert.Equal(first, store.McpServerToken);
     }
 
+    /// <summary>
+    /// The question hook and the telemetry exporter each get a token of their own, kept in
+    /// the same settings.json row as the MCP token: three different 256-bit values, none
+    /// minted until first need, each stable across a restart.
+    /// </summary>
+    [Fact]
+    public void The_hook_and_telemetry_tokens_are_their_own_and_survive_a_restart()
+    {
+        var store = Store();
+        Assert.Null(store.QuestionHookToken);
+        Assert.Null(store.TelemetryToken);
+
+        var mcp = store.EnsureMcpServerToken();
+        var hook = store.EnsureQuestionHookToken();
+        var telemetry = store.EnsureTelemetryToken();
+
+        Assert.Equal(3, new[] { mcp, hook, telemetry }.Distinct(StringComparer.Ordinal).Count());
+        Assert.All([hook, telemetry], token => Assert.Equal(43, token.Length));
+        Assert.Equal(hook, store.EnsureQuestionHookToken());
+        Assert.Equal(telemetry, store.EnsureTelemetryToken());
+
+        var reopened = Store();
+        Assert.Equal(mcp, reopened.McpServerToken);
+        Assert.Equal(hook, reopened.QuestionHookToken);
+        Assert.Equal(telemetry, reopened.TelemetryToken);
+
+        using var document = JsonDocument.Parse(File.ReadAllText(SettingsFile));
+        var row = document.RootElement.GetProperty("mcpServer");
+        Assert.Equal(hook, row.GetProperty("hookToken").GetString());
+        Assert.Equal(telemetry, row.GetProperty("telemetryToken").GetString());
+    }
+
     [Fact]
     public void A_generated_token_survives_a_restart()
     {

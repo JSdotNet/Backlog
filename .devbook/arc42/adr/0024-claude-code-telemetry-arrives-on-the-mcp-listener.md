@@ -1,7 +1,7 @@
 # ADR 0024: Claude Code's telemetry arrives as OTLP/HTTP logs on the in-app MCP listener
 
 ```meta
-date: 2026-10-08
+date: 2026-11-11
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/guidelines/0010-opentelemetry-observability.md", ".devbook/domain/sessions/domain.md#claude-api-request-log", ".devbook/domain/sessions/features.md#cost-as-claude-code-reports-it"]
 c4: [backlog.desktop.sessions]
 c4-touches: [backlog.taskStore]
@@ -129,8 +129,11 @@ token goes to this endpoint and to no other exporter a person has configured.
 - A Claude Code session started with the block in its settings reports every model
   request to the app while the app runs. Requests made while the app is closed are lost:
   the exporter does not keep what it could not send.
-- The token in the block is the MCP server's. Rotating it means pasting the block again,
-  as it already means re-registering the MCP server.
+- The token in the block is a telemetry token of its own, kept beside the MCP server's
+  token. `/v1/logs` takes that token alone and refuses the MCP server's, and the
+  telemetry token reaches no other route, so a leaked block cannot call a tool (ADR 0052,
+  phase 0). A block pasted before the split carries the MCP token and is refused with a
+  `401`: pasting the block again is the repair, as it is for a new port.
 - `backlog.db` gains a table that grows with use, roughly one row per model request.
   Because ADR 0010 backs up the database whole, the rows travel into the backup
   repository with the tasks.
@@ -154,3 +157,13 @@ token goes to this endpoint and to no other exporter a person has configured.
 - **Keeping every event.** The other events carry prompts, tool output and file paths.
   Storing them would make `backlog.db` hold what a session said, which nothing in the
   product reads.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-11-11 | `/v1/logs` takes a telemetry token of its own and refuses the MCP server's token. | ADR 0052 phase 0: the exporter's header must not be a credential that calls tools. |
+| 2026-10-08 | Proposed: Claude Code's OTLP/HTTP logs arrive at `/v1/logs` on the MCP listener, behind the MCP server's token. | A run's cost is Claude Code's figure, and the listener already had the guard. |
