@@ -44,11 +44,13 @@ flowchart LR
     Event -->|read by| Calendar["Calendar layer"]
 ```
 
-The Knowledge Event and Event Series aggregates are built in `Backlog.Modules.Events`, and each
-desktop keeps them as documents in a store of its own, behind the `events` flag. The Inbox's To
-Event route makes Spotted events through `IKnowledgeEvents`, and the Calendar's events layer reads
-the decided ones through the read contract. The pane, the harvest task, the phone and sync are not
-built yet. These chapters are the model those changes build, decided in local [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md).
+The Knowledge Event and Event Series aggregates and the Events pane are built in
+`Backlog.Modules.Events`, with prep tasks, behind the `events` flag. Each desktop keeps the
+aggregates as documents in a store of its own. The Inbox's To Event route makes Spotted events
+through `IKnowledgeEvents`, and the Calendar's events layer reads the decided ones through the
+read contract. The harvest task, the phone and sync are not built yet. These chapters are the
+model those changes build, decided in local
+[ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md).
 
 Tasks and the Brain know no event. The event holds the task ids and note links,
 and a task or note never names the event back. Events publishes no domain event.
@@ -130,8 +132,8 @@ form no cycle of modules.
 |---|---|---|---|---|
 | [Inbox](../inbox/context.md) | OHS + Published Language (Events = conformist) | The To Event route hands the triaged item to Events' intake, through an adapter | [ItemTriaged](../inbox/domain.md#itemtriaged), route `events` | An Inbox item becomes a Spotted knowledge event. |
 | [Capture](../capture/context.md) | OHS + Published Language, through the Inbox | None direct: the facts ride on the Inbox item | [ItemCaptured](../capture/domain.md#itemcaptured), its `event` field | The dates, place and their source reach the event. |
-| [Tasks](../tasks/domain.md#task) | Customer/Supplier (Events = customer) | A port in Events' abstractions, answered by an adapter over Tasks' published task contract | `Backlog.Modules.Tasks.Abstractions` | Files a prep or harvest task under the Brain scope, and completes one by id. |
-| [Brain](../brain/context.md) | One-way reference | A Brain note's path from the Brain's root, held on the event | The path `ItemTriaged.note_path` uses | The takeaways stay Brain notes. Brain knows no event. |
+| [Tasks](../tasks/domain.md#task) | Customer/Supplier (Events = customer) | `IEventTaskTarget` in Events' abstractions, answered by `EventsTaskTarget` in `Backlog.Infrastructure.FileSystem` over `ITaskItems` and `ITaskChangeSignal` | `Backlog.Modules.Tasks.Abstractions` | Files a prep or harvest task under the Brain scope, reads a linked task's title and status by id, and completes one by id. |
+| [Brain](../brain/context.md) | One-way reference | A Brain note's path from the Brain's root, held on the event. The pane reads whether the note is there, its title and the notes to pick through `IEventBrainNotes`, answered by `EventsBrainNotes` in `Backlog.Infrastructure.Brain` | The path `ItemTriaged.note_path` uses | The takeaways stay Brain notes. Brain knows no event. |
 | [Inbox](../inbox/domain.md#note), notes | One-way reference | An Inbox note id, held on the event | [Note](../inbox/domain.md#note) | A Talk note is attached to its event. |
 | [Sync](../sync/context.md) | Conformist (Events = conformist) | An exchange in `Backlog.Infrastructure.Sync`, and the phone's device outbox | The replica protocol in `Backlog.Modules.Sync.Abstractions`; local ADR 0050 | Events and attachment requests reach every paired device. |
 

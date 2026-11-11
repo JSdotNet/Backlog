@@ -12,7 +12,7 @@ namespace Backlog.Modules.Events.Services;
 /// </summary>
 internal sealed class KnowledgeEventReader(IKnowledgeEventRepository repository) : IKnowledgeEventReader
 {
-    public async Task<IReadOnlyList<KnowledgeEventDto>> ListDecidedAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DecidedEventDto>> ListDecidedAsync(CancellationToken cancellationToken = default)
     {
         var events = await repository.ListAsync(cancellationToken).ConfigureAwait(false);
 
@@ -25,7 +25,7 @@ internal sealed class KnowledgeEventReader(IKnowledgeEventRepository repository)
             or KnowledgeEventState.Attended
             or KnowledgeEventState.Harvested;
 
-    private static KnowledgeEventDto ToDto(KnowledgeEvent knowledgeEvent) =>
+    private static DecidedEventDto ToDto(KnowledgeEvent knowledgeEvent) =>
         new(
             knowledgeEvent.Id,
             knowledgeEvent.Title,

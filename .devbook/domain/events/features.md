@@ -5,8 +5,9 @@ type: features
 ```
 
 > What Events lets the person do, in the context's own language. What each feature
-> guarantees is in [`requirements.md`](requirements.md). Only the To Event route is
-> built, and every feature sits behind the [Events area](context.md#events-area) flag.
+> guarantees is in [`requirements.md`](requirements.md). The Events pane, prep tasks
+> and the To Event route are built; the other features are not yet. Every feature
+> sits behind the [Events area](context.md#events-area) flag.
 
 ## Events pane
 
@@ -17,7 +18,8 @@ related: [.devbook/domain/events/requirements.md#events-pane, .devbook/domain/ev
 ```
 
 The desktop's place to keep track of knowledge events: add one, decide on it, and
-link what it produced. The pane lists the person's events by state.
+link what it produced. The pane lists the person's events by state, the decided
+ones first, and within a state the upcoming ones soonest first.
 
 ### Adding an event
 
@@ -63,8 +65,8 @@ related: [.devbook/domain/events/domain.md#note-link, .devbook/domain/brain/doma
 
 The person links Brain notes holding the takeaways, and Talk notes taken on the
 phone. Each link opens its note. A Brain note no longer at its path shows as
-missing, and the person can link it again. Once the event is Attended, the person
-writes the verdict.
+missing, and the person can link it again. A wrong link can be removed. Once the
+event is Attended, the person writes the verdict.
 
 ## To Event route
 

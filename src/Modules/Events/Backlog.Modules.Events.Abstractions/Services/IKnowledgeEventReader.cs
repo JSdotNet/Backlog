@@ -19,5 +19,5 @@ public interface IKnowledgeEventReader
     /// events were first saved. Spotted and Skipped are left out, so nothing the person has not
     /// weighed up reaches another context.
     /// </summary>
-    Task<IReadOnlyList<KnowledgeEventDto>> ListDecidedAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<DecidedEventDto>> ListDecidedAsync(CancellationToken cancellationToken = default);
 }

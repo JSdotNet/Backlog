@@ -425,15 +425,16 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
-    /// Events is composed but shows nothing (local ADR 0050): the shared composition adds the
-    /// module and <c>AddSqlite</c> answers its two store ports with the rooted SQLite adapters,
-    /// while no shell surface, settings section or Ask AI source of it is registered — there is
-    /// no pane yet — and with the default feature file the <c>events</c> switch reads as off.
+    /// Events is composed with its pane behind the switch (local ADR 0050 §6): the shared
+    /// composition adds the module and <c>AddSqlite</c> answers its two store ports with the
+    /// rooted SQLite adapters. The one shell surface it registers is the Events takeover, gated
+    /// on the <c>events</c> flag; with the default feature file that switch reads as off, so the
+    /// catalog offers nothing of it. No settings section or Ask AI source of it is registered.
     /// The events read contract and the Calendar's port over it (§7) are composed too, and
     /// with the switch off the Calendar is offered no events.
     /// </summary>
     [Fact]
-    public async Task The_desktop_harness_composes_the_events_store_and_shows_nothing_of_it()
+    public async Task The_desktop_harness_composes_the_events_pane_behind_its_switch_which_is_off()
     {
         const string module = "Backlog.Modules.Events";
 
@@ -448,9 +449,14 @@ public class WebHarnessHostTests
 
         static bool OfEvents(Type type) => type.Assembly.GetName().Name!.StartsWith(module, StringComparison.Ordinal);
 
-        Assert.DoesNotContain(
+        var surface = Assert.Single(
             scope.ServiceProvider.GetServices<Backlog.SharedKernel.ShellSurface>(),
             surface => surface.FeatureKey == Backlog.Modules.Events.Abstractions.EventsFeatures.Events || OfEvents(surface.Component));
+        Assert.Equal("events", surface.Id);
+        Assert.Equal(Backlog.Modules.Events.Abstractions.EventsFeatures.Events, surface.FeatureKey);
+        Assert.DoesNotContain(
+            scope.ServiceProvider.GetRequiredService<Backlog.SharedKernel.ISurfaceCatalog>().Surfaces,
+            offered => offered.Id == "events");
         Assert.DoesNotContain(
             scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>(),
             section => section.FeatureKey == Backlog.Modules.Events.Abstractions.EventsFeatures.Events || OfEvents(section.Component));
@@ -466,6 +472,26 @@ public class WebHarnessHostTests
         var calendarEvents = harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ICalendarEvents>();
         Assert.IsType<Backlog.Infrastructure.FileSystem.Events.EventsCalendarEvents>(calendarEvents);
         Assert.False((await calendarEvents.ReadAsync(TestContext.Current.CancellationToken)).Available);
+    }
+
+    /// <summary>
+    /// The Events pane's port resolves in a window's scope over the two cross-context
+    /// adapters: the task target over Tasks' published port, and the Brain's own note
+    /// reader, which replaced the every-note-missing stand-in because the desktop composes
+    /// the Brain.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_the_events_pane_over_its_task_and_brain_adapters()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+        using var scope = harness.Services.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventsPane>());
+        Assert.Equal(
+            "EventsTaskTarget",
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventTaskTarget>().GetType().Name);
+        Assert.IsType<Backlog.Infrastructure.Brain.EventsBrainNotes>(
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventBrainNotes>());
     }
 
     /// <summary>

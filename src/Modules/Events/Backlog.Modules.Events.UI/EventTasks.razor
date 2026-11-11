@@ -1,0 +1,156 @@
+@inject IEventsPane Pane
+@inject ISurfaceNavigator Navigator
+
+@*
+    The tasks an event links, by id (.devbook/domain/events/features.md#prep-tasks). Each is
+    the library's task chip: gold and followable while this backlog holds the task, reading
+    its title, with its status beside it; "not in this backlog" inside a dashed edge when it
+    does not. Pressing a chip opens the task in Tasks.
+
+    Add prep task files a task with the title alone, under the Brain scope, through Tasks'
+    published contract; the task names nothing of the event. Link task links a task this
+    backlog holds by its id and writes nothing to it.
+*@
+
+<div class="events-tasks" data-testid="events-tasks">
+    @if (Event.Tasks.Count > 0)
+    {
+        <ul class="events-tasks__chips">
+            @foreach (var task in Event.Tasks)
+            {
+                <li class="events-tasks__chip" data-testid="events-task" data-task="@task.TaskId">
+                    <TaskLinkChip Label="@(task.InBacklog ? task.Title ?? task.TaskId : task.TaskId)"
+                                  Reference="@task.TaskId"
+                                  Resolved="@task.InBacklog"
+                                  OnOpen="OpenTask"
+                                  TestId="events-task-chip" />
+                    @if (task.InBacklog && !string.IsNullOrWhiteSpace(task.Status))
+                    {
+                        <StatusBadge Status="@task.Status" TestId="events-task-status" />
+                    }
+                    <span class="events-tasks__purpose" data-testid="events-task-purpose">@EventPresentation.PurposeLabel(task.Purpose)</span>
+                </li>
+            }
+        </ul>
+    }
+
+    <div class="events-tasks__add">
+        <TextField Label="Prep task"
+                   Placeholder="Book hotel in Antwerp"
+                   @bind-Value="_prepTitle"
+                   ErrorMessage="@_prepError"
+                   TestId="events-prep-title"
+                   @onkeydown="PrepKeyAsync" />
+        <AppButton Variant="ButtonVariant.Secondary"
+                   Busy="_filing"
+                   BusyLabel="Adding"
+                   TestId="events-prep-add"
+                   OnClick="AddPrepTaskAsync">Add prep task</AppButton>
+    </div>
+
+    <div class="events-tasks__add">
+        <TextField Label="Link a task by id"
+                   Placeholder="The task's id"
+                   @bind-Value="_taskId"
+                   ErrorMessage="@_linkError"
+                   TestId="events-link-task-id"
+                   @onkeydown="LinkKeyAsync" />
+        <AppButton Variant="ButtonVariant.Secondary"
+                   Busy="_linking"
+                   BusyLabel="Linking"
+                   TestId="events-link-task"
+                   OnClick="LinkTaskAsync">Link task</AppButton>
+    </div>
+</div>
+
+@code {
+    private string _prepTitle = string.Empty;
+    private string _taskId = string.Empty;
+    private string? _prepError;
+    private string? _linkError;
+    private bool _filing;
+    private bool _linking;
+
+    /// <summary>The open event.</summary>
+    [Parameter, EditorRequired]
+    public KnowledgeEventDto Event { get; set; } = default!;
+
+    /// <summary>Raised with the event as saved after a task was linked.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeEventDto> OnSaved { get; set; }
+
+    /// <summary>The pane's one write queue, so a write here never overlaps the editor's.</summary>
+    [Parameter]
+    public EventWriteQueue Writes { get; set; } = new();
+
+    private void OpenTask(string? taskId)
+    {
+        if (string.IsNullOrWhiteSpace(taskId)) return;
+
+        Navigator.Show("tasks", new Dictionary<string, string>(StringComparer.Ordinal) { ["entry"] = taskId });
+    }
+
+    private Task PrepKeyAsync(KeyboardEventArgs args) => args.Key == "Enter" ? AddPrepTaskAsync() : Task.CompletedTask;
+
+    private Task LinkKeyAsync(KeyboardEventArgs args) => args.Key == "Enter" ? LinkTaskAsync() : Task.CompletedTask;
+
+    private async Task AddPrepTaskAsync()
+    {
+        if (_filing) return;
+
+        _filing = true;
+        _prepError = null;
+        try
+        {
+            var id = Event.Id;
+            var title = _prepTitle;
+            var saved = await Writes.RunAsync(() => Pane.AddPrepTaskAsync(id, title));
+            if (saved.IsFailure)
+            {
+                _prepError = saved.Error.Message;
+                return;
+            }
+
+            _prepTitle = string.Empty;
+            await OnSaved.InvokeAsync(saved.Value);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _prepError = "The prep task could not be filed: " + exception.Message;
+        }
+        finally
+        {
+            _filing = false;
+        }
+    }
+
+    private async Task LinkTaskAsync()
+    {
+        if (_linking) return;
+
+        _linking = true;
+        _linkError = null;
+        try
+        {
+            var id = Event.Id;
+            var taskId = _taskId;
+            var saved = await Writes.RunAsync(() => Pane.LinkExistingTaskAsync(id, taskId));
+            if (saved.IsFailure)
+            {
+                _linkError = saved.Error.Message;
+                return;
+            }
+
+            _taskId = string.Empty;
+            await OnSaved.InvokeAsync(saved.Value);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _linkError = "The task could not be linked: " + exception.Message;
+        }
+        finally
+        {
+            _linking = false;
+        }
+    }
+}

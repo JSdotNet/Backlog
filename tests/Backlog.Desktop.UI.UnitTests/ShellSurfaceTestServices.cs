@@ -4,6 +4,7 @@ using Backlog.Desktop.UI.Goals;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Events.UI;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Sessions.UI;
@@ -33,6 +34,7 @@ internal static class ShellSurfaceTestServices
         services.AddGoalsSurface();
         services.AddDevbookSurface();
         services.AddInboxSurface();
+        services.AddEventsSurface();
         services.AddSessionsSurface();
         services.AddPullRequestsSurface();
         services.AddDashboardSurface();

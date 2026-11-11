@@ -12,8 +12,9 @@ namespace Backlog.Modules.Events.Abstractions.DataTransferObjects;
 /// yet (<c>.devbook/domain/events/domain.md#place</c>).</param>
 /// <param name="Online">Whether it happens online rather than at a venue.</param>
 /// <param name="KeyDates">The dates that matter before it, in the event's order
-/// (<c>.devbook/domain/events/domain.md#key-date</c>).</param>
-public sealed record KnowledgeEventDto(
+/// (<c>.devbook/domain/events/domain.md#key-date</c>), in the pane's own
+/// <see cref="KeyDateDto"/> shape.</param>
+public sealed record DecidedEventDto(
     Guid Id,
     string Title,
     KnowledgeEventState State,
@@ -22,7 +23,3 @@ public sealed record KnowledgeEventDto(
     string? Venue,
     bool Online,
     IReadOnlyList<KeyDateDto> KeyDates);
-
-/// <summary>A date that matters before an event, with its label, such as "Early bird
-/// ends".</summary>
-public sealed record KeyDateDto(DateOnly Date, string Label);

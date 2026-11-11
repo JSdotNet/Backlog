@@ -182,10 +182,10 @@ public sealed class EventsCalendarEventsTests : IDisposable
 
     private string NavigationPath() => Path.Combine(_root, "shell-navigation.json");
 
-    private static EventsCalendarEvents On(params KnowledgeEventDto[] events) =>
+    private static EventsCalendarEvents On(params DecidedEventDto[] events) =>
         new(new ListedReader(events), new Features(events: true));
 
-    private static KnowledgeEventDto Decided(
+    private static DecidedEventDto Decided(
         string title,
         KnowledgeEventState state,
         DateOnly? start,
@@ -195,16 +195,16 @@ public sealed class EventsCalendarEventsTests : IDisposable
         IReadOnlyList<KeyDateDto>? keyDates = null) =>
         new(Guid.NewGuid(), title, state, start, end, venue, online, keyDates ?? []);
 
-    private sealed class ListedReader(IReadOnlyList<KnowledgeEventDto> events) : IKnowledgeEventReader
+    private sealed class ListedReader(IReadOnlyList<DecidedEventDto> events) : IKnowledgeEventReader
     {
-        public Task<IReadOnlyList<KnowledgeEventDto>> ListDecidedAsync(CancellationToken cancellationToken = default) =>
+        public Task<IReadOnlyList<DecidedEventDto>> ListDecidedAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(events);
     }
 
     /// <summary>A reader the area's switch must keep the Calendar from: off, nothing is read.</summary>
     private sealed class UnreadableReader : IKnowledgeEventReader
     {
-        public Task<IReadOnlyList<KnowledgeEventDto>> ListDecidedAsync(CancellationToken cancellationToken = default) =>
+        public Task<IReadOnlyList<DecidedEventDto>> ListDecidedAsync(CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("The events were read while the area is off.");
     }
 

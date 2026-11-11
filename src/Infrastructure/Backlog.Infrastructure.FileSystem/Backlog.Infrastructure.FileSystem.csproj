@@ -44,14 +44,15 @@
          request shape. The published surface only: the adapter answers the Inbox's
          port and asks Tasks through ITaskItems, and needs neither aggregate. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
-    <!-- The same join's To Event route: an inbox item routed To Event becomes a
-         Spotted knowledge event through Events' published IKnowledgeEvents, and the
-         route is offered while Events' flag is on. The same reference serves the
-         cross-context join under Events/ - the Tasks Calendar's events layer, Tasks'
-         ICalendarEvents answered over Events' published read contract (local ADR
-         0050 §7). The published surface only: neither adapter sees a knowledge event
-         or its repository, though the implementation is reachable through the Sqlite
-         adapter below. -->
+    <!-- Events' published surface, for two joins: the Inbox join's To Event route, where an
+         inbox item routed To Event becomes a Spotted knowledge event through IKnowledgeEvents
+         while Events' flag is on; and the joins under Events/, where an event's prep task is
+         filed and its task chips read through Tasks' ITaskItems, to answer Events'
+         IEventTaskTarget (local ADR 0050 §3), and where the Tasks Calendar's events layer,
+         Tasks' ICalendarEvents, is answered over Events' read contract (§7). The published
+         surface only: no adapter sees a knowledge event or its repository, though the
+         implementation is reachable through the Sqlite adapter below. -->
+
     <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
     <!-- The cross-context join under Dashboard/ - the Sessions context supplies the
          assistant-session facts the Dashboard's sessions part reports on. Two

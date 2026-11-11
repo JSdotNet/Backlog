@@ -83,6 +83,6 @@ public sealed class EventsCalendarEvents : ICalendarEvents
 
     private bool EventsOn => _features?.IsEnabled(EventsFeatures.Events) ?? false;
 
-    private static string? PlaceOf(KnowledgeEventDto knowledgeEvent) =>
+    private static string? PlaceOf(DecidedEventDto knowledgeEvent) =>
         knowledgeEvent.Venue ?? (knowledgeEvent.Online ? Online : null);
 }

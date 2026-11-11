@@ -45,18 +45,23 @@ public sealed class EventsModuleRegistrationTests
         Assert.Same(pinned, provider.GetRequiredService<TimeProvider>());
     }
 
-    /// <summary>The published contract the Inbox's To Event route reaches Events
-    /// through resolves once the host has registered the repositories.</summary>
+    /// <summary>The published contracts — the one the Inbox's To Event route reaches Events
+    /// through, and the pane's — resolve once the host has registered the repositories and the
+    /// pane's two outbound adapters.</summary>
     [Fact]
     public void The_published_contract_resolves_over_the_hosts_repositories()
     {
         var services = new ServiceCollection();
         services.AddSingleton<IKnowledgeEventRepository>(new NoEvents());
         services.AddSingleton<IEventSeriesRepository>(new NoSeries());
+        services.AddScoped<Backlog.Modules.Events.Abstractions.IEventTaskTarget, FakeEventTaskTarget>();
+        services.AddSingleton<Backlog.Modules.Events.Abstractions.IEventBrainNotes, FakeEventBrainNotes>();
 
-        using var provider = services.AddEventsModule().BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
+        using var provider = services.AddEventsModule().BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        using var scope = provider.CreateScope();
 
         Assert.NotNull(provider.GetRequiredService<IKnowledgeEvents>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IEventsPane>());
     }
 
     /// <summary>
