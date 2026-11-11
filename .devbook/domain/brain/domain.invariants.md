@@ -4,7 +4,7 @@
 type: invariants
 ```
 
-What each aggregate on [`domain.md`](domain.md) enforces, one chapter per aggregate: each rule, where it is enforced, and the unit test that proves it.
+What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each: each rule, where it is enforced, and the unit test that proves it.
 
 ## Knowledge Note
 
@@ -36,6 +36,7 @@ type: invariant
 ```
 
 A note's links to tasks and to other notes change only through the note.
+Even [Cross-Linking](#cross-linking) changes them by writing into the note, never by keeping a link anywhere else.
 
 Enforced at: open
 
@@ -95,4 +96,46 @@ A folder `CONVENTIONS.md` lists under `## Ignore`, matched case-insensitively, i
 Ignore wins over a declaration, so one line keeps a folder of templates or attachments off the tabs.
 
 Enforced at: `BrainConventions`, in `Backlog.Modules.Devbook.Abstractions`
+
+## Cross-Linking
+
+```meta
+type: invariants
+related: [.devbook/domain/brain/domain.md#cross-linking, .devbook/arc42/adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md]
+```
+
+> The rules [Cross-Linking](domain.md#cross-linking) keeps when it writes a link
+> into an existing note. They narrow [Links change through the note](#invariant-links-change-through-the-note):
+> the link still changes through the note, and only by an append.
+
+### Invariant: Only the two lists change
+
+```meta
+type: invariant
+```
+
+A link write changes only the `tasks` or `roadmap` list in the note's top `meta` block, and leaves every other byte of the file as it was.
+The body, the other fields, their key order, comments, blank lines and the list's flow or block style are the person's.
+
+Enforced at: open
+
+### Invariant: A present value is not added again
+
+```meta
+type: invariant
+```
+
+A task id or Roadmap Tag the list already holds is not appended again, so a repeated link leaves the file unchanged.
+
+Enforced at: open
+
+### Invariant: An unparsable block is not written
+
+```meta
+type: invariant
+```
+
+A note whose top `meta` block is missing or does not parse is not written.
+
+Enforced at: open
 

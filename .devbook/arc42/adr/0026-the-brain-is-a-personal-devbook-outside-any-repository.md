@@ -32,6 +32,13 @@ disk are the tabs, and `CONVENTIONS.md` is an overlay with an `Ignore` list.
 > own. The folder, its convention, the three fields, the database in app storage
 > and the reuse of the devbook machinery still stand.
 
+> **Amended 2026-11-11 by
+> [ADR 0052](0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md)
+> (proposed).** [§3](#3-a-note-is-a-devbook-chapter-with-three-more-fields):
+> the app may append a task id to an existing note's `tasks` field, and changes
+> nothing else in the file. It may also move a finished project note into the
+> archive area on the person's press.
+
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
 
@@ -162,6 +169,9 @@ It adds three fields:
 | `para` | The note's area. It is derived from the folder, and written only to override it. |
 | `repos` | The repositories a project note concerns. Project notes only. |
 | `tasks` | The tasks the note links to. |
+
+The person and their agent write these fields. Since ADR 0052 the app may also
+append a task id to an existing note's `tasks` field.
 
 ### 4. The database is built into app storage, never into the folder
 
@@ -303,5 +313,6 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | Amended by ADR 0052: the app may append a task id to an existing note's `tasks` field (§3). | Picking up a note into a task needs the link at the note's end too. |
 | 2026-10-13 | The Brain is one personal devbook folder per user, outside every repository. | A person's notes span repositories, so a folder per repository splits them. |
 | 2026-08-03 | A `.brain/` dot-folder at workspace, repository and project level. | Every scope carried the same dot-folder contract. |
