@@ -158,7 +158,7 @@ with a line saying why it is not newer.
 
 ```meta
 type: sub-feature
-related: [".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/domain/inbox/features.md#notes-on-the-phone", ".devbook/domain/inbox/domain.md#note", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
+related: [".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/domain/inbox/features.md#notes-on-the-phone", ".devbook/domain/inbox/domain.md#note", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/domain/events/features.md#attach-a-talk-note"]
 ```
 
 A note taken during a conference talk: what was said, the slide photo, the
@@ -189,6 +189,9 @@ names it. A file already sent is never sent again, and a failed one is
 retried on its own. A note saved without a title is named after the first line of
 its body. With no body, it is "Photo · <date>" when a picture is attached, else the
 first file's name.
+
+While the phone holds a knowledge event, the note's page offers to attach the note to
+one: see Events' [Attach a Talk note](../events/features.md#attach-a-talk-note).
 
 ### Share-sheet and shortcuts
 

@@ -4,7 +4,7 @@
 index: root
 type: context
 deployment: service
-related: [.devbook/arc42/05-building-block-view.md#cloud-service, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
+related: [.devbook/arc42/05-building-block-view.md#cloud-service, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/adr/0050-events-is-its-own-bounded-context.md]
 ```
 
 Sync keeps one person's data the same on each of their devices. It knows which
@@ -27,6 +27,8 @@ Inside the boundary:
     each read through a signed [SyncCursor](domain.md#synccursor);
   - the `notifications` feed with its `notificationReplies` mailbox (local
     [ADR 0039](../../arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md));
+  - the `knowledgeEvents` feed (local
+    [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md));
 - telling a device to pull: the Web PubSub nudge to desktops and the
   Android push to phones;
 - the push installation registry: one Notification Hubs installation per phone,
@@ -45,6 +47,8 @@ Outside it: what each document means.
 - A session record is [Sessions](../sessions/domain.md#session-log)'.
 - An annotation and a [devbook subject's state](../devbook/domain.md#subject-state)
   are [Devbook](../devbook/context.md)'s.
+- A knowledge event and an event series are
+  [Events](../events/domain.md#knowledge-event)'.
 - A `capture`-kind document becomes an inbox item in the
   [Inbox](../inbox/domain.md#inbox-item) (local
   [ADR 0009](../../arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md)).
@@ -80,7 +84,7 @@ it on lets the device:
 
 - register;
 - pair a second device;
-- push its task changes, session records, remarks and devbook subject states;
+- push its task changes, session records, remarks, devbook subject states and knowledge events;
 - pull back what the other devices changed.
 
 A session record travels as metadata only: it never carries a prompt, a
@@ -123,12 +127,14 @@ open host service. Each downstream context reaches it through an adapter in
 | [Devbook](../devbook/domain.md#subject-state) | OHS + Published Language (Sync = supplier) | `DevbookSubjectSyncWorker` pushes and pulls through `POST` and `GET /api/sync/devbook-subjects`; `DevbookSubjectReplicaMerge` applies each pulled one | `DevbookSubjectChange` and `DevbookSubjectPayload`; local ADR 0044 | A subject's state is stored whole in `devbookSubjects`, and Change Precedence holds with no tombstone. |
 | [Notifications](../notifications/context.md) | OHS + Published Language (Sync = supplier) | The owner desktop pushes through `POST /api/sync/notifications` and every device pulls through `GET` | `NotificationChange` with its `NotificationPushPreview`, and `RegisterPushInstallationRequest`; local ADR 0039 | Each notification has one writer, and a reply reaches only its own owner. |
 | [Inbox](../inbox/domain.md#inbox-item) | Customer/Supplier (Inbox = customer of the intake channel) | The desktop sync client hands `capture`-kind documents to `IInboxIntake` and drains `IInboxCaptureOutbox` | local ADR 0009; attachments, local ADR 0014 | A capture reaches the desktop once, keyed by its own id. |
+| [Events](../events/context.md) | OHS + Published Language (Sync = supplier) | `KnowledgeEventSyncWorker` pushes and pulls through `POST` and `GET /api/sync/knowledge-events`; `KnowledgeEventReplicaMerge` applies each pulled one | `KnowledgeEventChange`, kinds `knowledge-event` and `event-series`; local ADR 0050 | A document is stored whole, and Change Precedence holds with no tombstone. |
 
 - **Tasks:** The desktop runs `TaskSyncWorker` over the task feed. The merge writes to the local store, and a task document is stored whole. Other kinds ride the task feed under their owners' kind tokens:
   - roadmap plans (local ADR 0018);
   - GitHub settings (local ADR 0021);
   - notes (local ADR 0025);
-  - Progress's `goal` and `impediment` documents, with the phone's `stand-up-context` and `impediment-edit` (local ADR 0035 §8, §9).
+  - Progress's `goal` and `impediment` documents, with the phone's `stand-up-context` and `impediment-edit` (local ADR 0035 §8, §9);
+  - the phone's `event-attachment-request`, which a desktop hands to Events (local ADR 0050).
 
   A `sprint-series` document an older build pushed is read and dropped, never taken as a task.
 - **Sessions:** Only whitelisted metadata travels.

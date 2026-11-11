@@ -58,11 +58,13 @@ public class InfrastructureGraphTests
             + "GitHubRegisteredRepositories answer its pull-request source and registry ports, mapping each "
             + "record to the module's status (local ADR 0042). Splitting it by context would mean one "
             + "registry per context."),
-        ("Backlog.Infrastructure.Sync", 8,
+        ("Backlog.Infrastructure.Sync", 9,
             "The sync client carries every synchronised context's records — Tasks, Inbox, Roadmap, Progress, "
-            + "Devbook, Sessions and Notifications — over the Sync module's own contract, so it sees each "
+            + "Devbook, Sessions, Notifications and Events — over the Sync module's own contract, so it sees each "
             + "context's published surface by design. Notifications' surface is also how the pairing client "
-            + "here, which issues the pairing codes a notification can be about, tells Notifications when one ends."),
+            + "here, which issues the pairing codes a notification can be about, tells Notifications when one ends. "
+            + "Events' surface is the knowledge event exchange's (local ADR 0050 §2): it reads and applies events "
+            + "through IKnowledgeEventReplication and serializes the wire shape the phone reads."),
         ("Backlog.Infrastructure.Mcp", 8,
             "The MCP server is one adapter: the agent tools over each context's published port, one tool "
             + "group per context behind that context's own key (local ADR 0012 §7) — Tasks, Roadmap, Devbook, "

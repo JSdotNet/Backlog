@@ -20,7 +20,7 @@ public abstract class EventsPaneFixture
     {
         var clock = new FakeTimeProvider(Now);
         clock.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("CET-test", Cet, "CET", "CET"));
-        Pane = new EventsPane(Store, new InMemoryEventSeries(), Tasks, Brain, clock);
+        Pane = new EventsPane(Store, new InMemoryEventSeries(), Tasks, Brain, new HarvestTaskPolicy(Store, Tasks), clock);
     }
 
     internal InMemoryKnowledgeEvents Store { get; } = new();

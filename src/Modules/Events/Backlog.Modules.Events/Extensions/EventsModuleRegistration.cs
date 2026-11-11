@@ -34,9 +34,23 @@ public static class EventsModuleRegistration
         services.TryAddSingleton<IKnowledgeEvents, KnowledgeEvents>();
         services.TryAddScoped<IEventsPane, EventsPane>();
 
+        // The Harvest Task Policy holds the task target, Scoped like the pane that calls it; the
+        // worker is the Desktop clock, a singleton the desktop heads resolve at start, which
+        // takes a scope per check.
+        services.TryAddScoped<HarvestTaskPolicy>();
+        services.TryAddSingleton<HarvestTaskWorker>();
+
         // A singleton over the host's repository, which is one too: the reader holds nothing
         // but that port. TryAdd, so a second call adds nothing.
         services.TryAddSingleton<IKnowledgeEventReader, KnowledgeEventReader>();
+
+        // The replication port the sync client's knowledge event exchange reads and writes
+        // through (local ADR 0050 §2), over the host's replica stores when it registered them.
+        services.TryAddSingleton<IKnowledgeEventReplication, KnowledgeEventReplication>();
+
+        // Where the sync client applies the phone's attachment requests (local ADR 0050 §3):
+        // a Talk note linked to an event, over the host's event repository.
+        services.TryAddSingleton<IEventAttachmentRequests, EventAttachmentRequests>();
 
         return services;
     }

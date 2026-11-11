@@ -2,6 +2,7 @@ using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Events.DomainModels;
 using Backlog.Modules.Events.Extensions;
+using Backlog.Modules.Events.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Modules.Events.UnitTests;
@@ -62,6 +63,22 @@ public sealed class EventsModuleRegistrationTests
 
         Assert.NotNull(provider.GetRequiredService<IKnowledgeEvents>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IEventsPane>());
+    }
+
+    /// <summary>The Harvest Task Policy, one per scope for the task target it holds, and the
+    /// worker the heads resolve at start, which needs no feature settings to be built.</summary>
+    [Fact]
+    public void The_harvest_policy_and_its_worker_resolve_over_the_hosts_ports()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IKnowledgeEventRepository>(new NoEvents());
+        services.AddScoped<Backlog.Modules.Events.Abstractions.IEventTaskTarget, FakeEventTaskTarget>();
+
+        using var provider = services.AddEventsModule().BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<HarvestTaskPolicy>());
+        Assert.Same(provider.GetRequiredService<HarvestTaskWorker>(), provider.GetRequiredService<HarvestTaskWorker>());
     }
 
     /// <summary>

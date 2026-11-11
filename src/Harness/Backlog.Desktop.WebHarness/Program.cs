@@ -262,6 +262,9 @@ _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 // And devbook subject state's loop, the annotations' sibling, on the same terms.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
 
+// And knowledge event replication's loop (local ADR 0050 §2), on the same terms.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.KnowledgeEventSyncWorker>();
+
 // And the one-time devbook import, on the same terms and for the same reason the
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<Backlog.Desktop.UI.Devbook.DevbookImportWorker>();
@@ -280,6 +283,10 @@ _ = app.Services.GetRequiredService<BackupWorker>();
 // And the linked task sync's timer, on the same terms and for the same reason the
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
+
+// And the Desktop clock of the Events area, on the same terms and for the same reason the
+// desktop head resolves it.
+_ = app.Services.GetRequiredService<Backlog.Modules.Events.Services.HarvestTaskWorker>();
 
 // And the spec-manager question source, on the same terms and for the same reason the
 // desktop head resolves it.

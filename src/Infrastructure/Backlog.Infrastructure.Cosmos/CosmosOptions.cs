@@ -74,6 +74,15 @@ public sealed class CosmosOptions
     public string DevbookSubjectsContainerName { get; set; } = "devbookSubjects";
 
     /// <summary>
+    /// The container holding knowledge event and event series documents (local ADR 0050
+    /// §2), partitioned on <c>/ownerId</c> like the other replica containers. No TTL and no
+    /// tombstones: an event is never deleted on the feed, so the container keeps every
+    /// document for as long as its owner has one.
+    /// </summary>
+    [Required(AllowEmptyStrings = false)]
+    public string KnowledgeEventsContainerName { get; set; } = "knowledgeEvents";
+
+    /// <summary>
     /// The container holding registered devices, partitioned on <c>/id</c> —
     /// the device id, not the owner. The one read on every token mint has only
     /// the device id in hand, and partitioning on the owner would put a

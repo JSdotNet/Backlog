@@ -23,6 +23,12 @@ public interface IEventTaskTarget
         IReadOnlyCollection<string> taskIds,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Completes the task <paramref name="taskId"/> names as a tick in the Tasks pane
+    /// does — ticked off on the local day, Done, and its steps with it — the Harvest Task
+    /// Policy's completion. A task already Done or Archived is left as it is; an id this backlog
+    /// does not hold is refused (<c>event_task.not_in_backlog</c>).</summary>
+    Task<Result> CompleteAsync(string taskId, CancellationToken cancellationToken = default);
+
     /// <summary>Raised after a task was written on this machine, on the writer's thread. It
     /// carries nothing: a reader asks again.</summary>
     event Action? Changed;

@@ -36,7 +36,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 - **Progress:** The goals are the ones a person's work is attached to, and the impediments are what hold that work back. It names tasks by id, plans by tag and pull requests by repository and number, without owning any of them.
 - **Sessions:** It owns none of the work, the machines, or the repositories those sessions touch.
 - **Notifications:** The answer comes back from whichever paired device the person used. The context carries no work of its own (local ADR 0039).
-- **Events:** Learning events support the person's work and are not what sets the product apart. Knowledge events only: other appointments stay out (local ADR 0050). The aggregates, the To Event route, the Events pane with prep tasks, and the Calendar's events layer over the read contract are built; the harvest task and sync are not.
+- **Events:** Learning events support the person's work and are not what sets the product apart. Knowledge events only: other appointments stay out (local ADR 0050). The aggregates, the To Event route, the Events pane with prep tasks, the Calendar's events layer over the read contract, the harvest task, sync and the phone are built.
 - **Sync:** It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model. It is still not what makes the product different.
 
 ## Context map
@@ -152,16 +152,19 @@ flowchart LR
     %% layer are built, so Events -> Tasks is solid. Tasks -> Events is built
     %% for filing and reading tasks by id (IEventTaskTarget, answered by
     %% EventsTaskTarget over ITaskItems), and stays dashed until completing the
-    %% harvest task is built.
+    %% harvest task is built. Sync -> Events is built: the knowledge event
+    %% replica, and the phone's attachment requests on the task feed, reach
+    %% Events through IKnowledgeEventReplication and IEventAttachmentRequests.
     %% The code still draws the Calendar as a layout of the Tasks pane (ADR 0022),
-    %% so the events layer lands on Tasks until ADR 0055 is built. The two Tasks edges run through different parts. See
+    %% so the events layer lands on Tasks until ADR 0055 is built. The two Tasks
+    %% edges run through different parts. See
     %% .devbook/domain/events/context.md.
     Inbox -.->|"OHS + Published Language<br/>ItemTriaged: To Event"| Events
     Capture -.->|"OHS + Published Language<br/>Event facts on the capture, through the Inbox. Watched pages stay Capture's targets"| Events
     Tasks -.->|"Customer/Supplier<br/>File and complete tasks under the Brain scope, task by id. Tasks never shows the event"| Events
     Events -.->|"One-way reference<br/>Note links by id. Brain knows no event"| Brain
     Events -->|"Customer/Supplier<br/>The events layer on the Calendar view, through a Tasks-owned port and an adapter"| Tasks
-    Sync -.->|"Conformist<br/>Knowledge event replica"| Events
+    Sync -->|"Conformist<br/>Knowledge event replica, and attachment requests on the task feed"| Events
 
     %% Calendar (local ADR 0055) is not drawn until its module is built: the
     %% plans and events still reach it through Tasks-owned ports, as above. See
@@ -190,7 +193,8 @@ flowchart LR
 | Tasks | `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9), from a session id or a pull request to its task | The desktop shell, for Repository Management's and Sessions' screens |
 | Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` | Sessions, Sync, Devbook, Tasks |
 | Events | The events read contract: `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions`, which answers the decided events and their key dates, under `.devbook/domain/events/domain.md#knowledge-event` (local ADR 0050) | Tasks, through an adapter, for the Calendar's events layer |
-| Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
+| Events | `IKnowledgeEventReplication` and `IEventAttachmentRequests` in `Backlog.Modules.Events.Abstractions`, under `.devbook/domain/events/domain.md#knowledge-event` and `.devbook/domain/events/domain.md#attachment-request` (local ADR 0050) | Sync, through `Backlog.Infrastructure.Sync` |
+| Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox, Events |
 
 ## Strategic rules
 

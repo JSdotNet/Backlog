@@ -66,6 +66,11 @@ public static class TaskFold
     /// (local ADR 0035 §8). Never a task row; persisted, so never renamed.</summary>
     public const string ImpedimentEditType = "impediment-edit";
 
+    /// <summary>The kind token of a Talk note attachment the phone queues for a desktop to
+    /// apply to a knowledge event (<c>.devbook/domain/events/domain.md#attachment-request</c>).
+    /// Never a task row; persisted, so never renamed.</summary>
+    public const string EventAttachmentRequestType = "event-attachment-request";
+
     /// <summary>The kind token of the My Day preferences — Clear My Day overnight, set
     /// on a desktop (.devbook/arc42/adr/0032). Never a row: the projection keeps the
     /// document whole beside the rows, as <see cref="MyDayPreferencesDocument"/>. A
@@ -97,6 +102,7 @@ public static class TaskFold
         ImpedimentType,
         StandUpContextType,
         ImpedimentEditType,
+        EventAttachmentRequestType,
     };
 
     /// <summary>Folds <paramref name="records"/> into <paramref name="rows"/>, and

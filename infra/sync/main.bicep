@@ -28,7 +28,7 @@ param cosmosLocation string = 'swedencentral'
 @description('Container image for the sync service. Left empty on the first provision so a public placeholder runs; azd sets it to the built image on every deploy after that.')
 param containerImage string = ''
 
-@description('Cosmos DB database holding the replica containers — tasks, sessions, annotations, devbookSubjects, notifications and notificationReplies — and the two registry containers beside them.')
+@description('Cosmos DB database holding the replica containers — tasks, sessions, annotations, devbookSubjects, knowledgeEvents, notifications and notificationReplies — and the two registry containers beside them.')
 param databaseName string = 'backlog'
 
 // ADR 0005 fixes this at 180 days. It is provisioned rather than written into
@@ -486,6 +486,45 @@ resource devbookSubjectsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlData
         excludedPaths: [
           {
             path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
+// `knowledgeEvents` — the knowledge events and event series a person's desktops keep
+// (local ADR 0050 §2), travelling between them and on to the phone on the devbookSubjects
+// container's terms: the later write wins, and each event rides as an opaque document the
+// service never reads. No defaultTtl at all: an event is never deleted on the feed, so there
+// is no tombstone to expire.
+resource knowledgeEventsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'knowledgeEvents'
+  properties: {
+    resource: {
+      id: 'knowledgeEvents'
+      partitionKey: {
+        paths: [
+          '/ownerId'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/"_etag"/?'
+          }
+          {
+            path: '/document/*'
           }
         ]
       }
@@ -1111,6 +1150,10 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'Sync__Cosmos__DevbookSubjectsContainerName'
               value: devbookSubjectsContainer.name
+            }
+            {
+              name: 'Sync__Cosmos__KnowledgeEventsContainerName'
+              value: knowledgeEventsContainer.name
             }
             {
               name: 'Sync__Cosmos__NotificationsContainerName'

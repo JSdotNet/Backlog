@@ -1,5 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
@@ -12,11 +13,22 @@ internal sealed class InMemoryKnowledgeEvents : IKnowledgeEventRepository
 
     public int Saves { get; private set; }
 
+    /// <summary>When set, the next list throws, as a store that could not be read would.</summary>
+    public bool FailNextList { get; set; }
+
     public Task<KnowledgeEvent?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(_saved.Find(saved => saved.Id == id) is { } found ? Copy(found) : null);
 
-    public Task<IReadOnlyList<KnowledgeEvent>> ListAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<KnowledgeEvent>>([.. _saved.Select(Copy)]);
+    public Task<IReadOnlyList<KnowledgeEvent>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        if (FailNextList)
+        {
+            FailNextList = false;
+            throw new InvalidOperationException("The events store could not be read.");
+        }
+
+        return Task.FromResult<IReadOnlyList<KnowledgeEvent>>([.. _saved.Select(Copy)]);
+    }
 
     public Task SaveAsync(KnowledgeEvent knowledgeEvent, CancellationToken cancellationToken = default)
     {
@@ -73,13 +85,44 @@ internal sealed class FakeEventTaskTarget : IEventTaskTarget
     /// <summary>When set, a filing waits on it, as a slow Tasks file write would.</summary>
     public TaskCompletionSource? FileGate { get; set; }
 
+    /// <summary>Titles a filing is refused for, while the rest still file.</summary>
+    public HashSet<string> RefuseTitles { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The task ids it was asked to complete, in order.</summary>
+    public List<string> Completed { get; } = [];
+
+    /// <summary>When set, a completion answers it and changes nothing.</summary>
+    public Error? RefuseCompletionWith { get; set; }
+
+    /// <summary>When set, a completion throws it, as a Tasks store that could not be written would.</summary>
+    public Exception? ThrowOnComplete { get; set; }
+
+    /// <summary>Titles a filing throws for, while the rest still file.</summary>
+    public HashSet<string> ThrowTitles { get; } = new(StringComparer.Ordinal);
+
     public async Task<Result<string>> FileAsync(string title, CancellationToken cancellationToken = default)
     {
         if (FileGate is { } gate) await gate.Task;
         if (RefuseWith is { } error) return Result.Failure<string>(error);
+        if (RefuseTitles.Contains(title)) return Result.Failure<string>(Error.Validation("entry.needs_title", "Refused."));
+        if (ThrowTitles.Contains(title)) throw new InvalidOperationException("The Tasks store could not be written.");
 
         Filed.Add(title);
         return Result.Success(Hold(title));
+    }
+
+    /// <summary>Marks a held task Done, and leaves one already Done or Archived as it is — the
+    /// adapter's rule, proved against Tasks in <c>EventsTaskTargetTests</c>.</summary>
+    public Task<Result> CompleteAsync(string taskId, CancellationToken cancellationToken = default)
+    {
+        if (ThrowOnComplete is { } thrown) throw thrown;
+        if (RefuseCompletionWith is { } error) return Task.FromResult(Result.Failure(error));
+        if (!Held.TryGetValue(taskId, out var held)) return Task.FromResult(Result.Failure(EventsErrors.TaskNotInBacklog()));
+        if (held.Status is "Done" or "Archived") return Task.FromResult(Result.Success());
+
+        Completed.Add(taskId);
+        Held[taskId] = held with { Status = "Done" };
+        return Task.FromResult(Result.Success());
     }
 
     public Task<IReadOnlyDictionary<string, EventTaskFactsDto>> LookupAsync(IReadOnlyCollection<string> taskIds, CancellationToken cancellationToken = default) =>
@@ -87,6 +130,23 @@ internal sealed class FakeEventTaskTarget : IEventTaskTarget
             taskIds.Where(Held.ContainsKey).Distinct().ToDictionary(id => id, id => Held[id], StringComparer.Ordinal));
 
     public event Action? Changed;
+
+    public void RaiseChanged() => Changed?.Invoke();
+}
+
+/// <summary>The device's feature settings, holding the <c>events</c> area on or off.</summary>
+internal sealed class FakeEventsFeature(bool on) : IAppFeatureSettings
+{
+    public event Action? Changed;
+
+    public AppFeatureSettings Current => throw new NotSupportedException();
+
+    public string SettingsPath => throw new NotSupportedException();
+
+    public bool IsEnabled(string key) =>
+        key == EventsFeatures.Events ? on : throw new ArgumentException($"No feature is called {key}.", nameof(key));
+
+    public string? SetEnabled(string key, bool enabled) => throw new NotSupportedException();
 
     public void RaiseChanged() => Changed?.Invoke();
 }

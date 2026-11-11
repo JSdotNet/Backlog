@@ -1,3 +1,4 @@
+using Backlog.Mobile.UI.Events;
 using Backlog.Mobile.UI.Notifications;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Outbox;
@@ -83,6 +84,10 @@ internal static class TestOutbox
         services.TryAddSingleton<INotificationViewStore>(new InMemoryNotificationViewStore());
         services.AddSingleton<NotificationViewProjection>();
         services.AddSingleton<IOutboxKind, ReplyOutboxKind>();
+        services.TryAddSingleton<IEventViewStore>(new InMemoryEventViewStore());
+        services.AddSingleton<EventViewProjection>();
+        services.AddSingleton<EventNoteAttachments>();
+        services.AddSingleton<IOutboxKind, EventAttachmentRequestOutboxKind>();
         return services;
     }
 }

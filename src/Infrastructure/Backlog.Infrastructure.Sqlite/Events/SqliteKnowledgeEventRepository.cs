@@ -18,8 +18,15 @@ namespace Backlog.Infrastructure.Sqlite.Events;
 /// write never becomes data loss. <c>created_at</c> is stamped on the first save and kept;
 /// <c>updated_at</c> on every save, which is what a later latest-write-wins sync compares.
 /// </para>
+/// <para>
+/// It also answers <see cref="IKnowledgeEventReplicaStore"/> over the same rows: replication
+/// reads what changed since a watermark and writes another desktop's copy at the stamp it
+/// arrived with. Stamps are compared as the <c>"O"</c> UTC strings they are stored as, which
+/// order as the instants do — the reasoning <c>SqliteTaskRepository.ListChangedSinceAsync</c>
+/// records.
+/// </para>
 /// </summary>
-public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository
+public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, IKnowledgeEventReplicaStore
 {
     private readonly string _databasePath;
     private readonly TimeProvider _clock;
@@ -73,9 +80,9 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository
         ArgumentNullException.ThrowIfNull(knowledgeEvent);
 
         var document = JsonSerializer.Serialize(KnowledgeEventDocument.From(knowledgeEvent), KnowledgeEventDocument.JsonOptions);
-        var now = Stamp(_clock.GetUtcNow());
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        var now = Stamp(await NextStampAsync(connection, knowledgeEvent.Id, cancellationToken).ConfigureAwait(false));
         await using var command = connection.CreateCommand();
 
         // created_at is left out of the update, so the first save's stamp is the one kept.
@@ -96,6 +103,92 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    public async Task<IReadOnlyList<StoredKnowledgeEvent>> ListChangedSinceAsync(
+        DateTimeOffset since,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+
+        command.CommandText =
+            "SELECT document, updated_at FROM events_knowledge_events WHERE updated_at > $since ORDER BY updated_at, id;";
+        command.Parameters.AddWithValue("$since", Stamp(since));
+
+        var changed = new List<StoredKnowledgeEvent>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (Parse(reader.GetString(0)) is { } knowledgeEvent)
+            {
+                changed.Add(new StoredKnowledgeEvent(knowledgeEvent, ReadStamp(reader.GetString(1))));
+            }
+        }
+
+        return changed;
+    }
+
+    public async Task<bool> SaveReplicatedAsync(
+        KnowledgeEvent knowledgeEvent,
+        DateTimeOffset updatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(knowledgeEvent);
+
+        var document = JsonSerializer.Serialize(KnowledgeEventDocument.From(knowledgeEvent), KnowledgeEventDocument.JsonOptions);
+
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+
+        // The WHERE on the update is the latest-write-wins rule, decided by SQLite in the same
+        // statement as the write: a row saved here after the copy was read is never overwritten
+        // by it. An update the WHERE stops counts no change.
+        command.CommandText =
+            """
+            INSERT INTO events_knowledge_events (id, state, created_at, updated_at, document)
+            VALUES ($id, $state, $now, $stamp, $document)
+            ON CONFLICT(id) DO UPDATE SET
+                state = excluded.state,
+                updated_at = excluded.updated_at,
+                document = excluded.document
+            WHERE excluded.updated_at > events_knowledge_events.updated_at;
+            """;
+
+        command.Parameters.AddWithValue("$id", Key(knowledgeEvent.Id));
+        command.Parameters.AddWithValue("$state", knowledgeEvent.State.ToString());
+        command.Parameters.AddWithValue("$now", Stamp(_clock.GetUtcNow()));
+        command.Parameters.AddWithValue("$stamp", Stamp(updatedAt));
+        command.Parameters.AddWithValue("$document", document);
+
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) > 0;
+    }
+
+    /// <summary>
+    /// Now, but never at or before the stamp the row already holds. A copy pulled from a desktop
+    /// whose clock runs ahead keeps that desktop's stamp; an edit saved over it at this clock's
+    /// earlier now would sit below the push watermark and be refused by every replica as no
+    /// later, so it is lost to the other devices. One tick past the held stamp keeps it the
+    /// latest write — the rule <c>SqliteGoalRepository</c> and the devbook subject store follow.
+    /// </summary>
+    private async Task<DateTimeOffset> NextStampAsync(SqliteConnection connection, Guid id, CancellationToken cancellationToken)
+    {
+        var stamp = _clock.GetUtcNow();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT updated_at FROM events_knowledge_events WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", Key(id));
+
+        if (await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is string stored)
+        {
+            var held = ReadStamp(stored);
+            if (stamp <= held) stamp = held.AddTicks(1);
+        }
+
+        return stamp;
+    }
+
+    private static DateTimeOffset ReadStamp(string stamp) =>
+        DateTimeOffset.Parse(stamp, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
 
     /// <summary>The stored event, or null for a document this build cannot read.</summary>
     private static KnowledgeEvent? Parse(string document)
