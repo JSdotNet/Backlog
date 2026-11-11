@@ -9,22 +9,31 @@
     window — the repository scope, the hues and Ask AI — comes through the window's
     DashboardSurfaceWiring. The Sessions tab's link to every session is a jump to the
     Sessions surface through the window's navigator, offered while the catalog offers
-    that surface.
+    that surface. `tab=<id>` opens it on that tab: the Sessions surface's See usage asks
+    for `tab=sessions`.
 *@
 <DashboardPane OnClose="OnClose"
                RepositoryAliases="@(_wiring?.RepositoryAliases?.Invoke() ?? [])"
                RepositoryColour="@_wiring?.RepositoryColour"
                OnOpenSessions="@OpenSessionsCallback"
-               OnAskAi="@AskAiCallback" />
+               OnAskAi="@AskAiCallback"
+               InitialTab="@InitialTab" />
 
 @code {
     /// <summary>The Sessions surface's id, named here as a string, since the Dashboard
     /// module references no Sessions UI project.</summary>
     private const string SessionsSurfaceId = "sessions";
 
-    /// <summary>Unused: the Dashboard takes no query.</summary>
+    /// <summary>The query the surface was shown with: <c>tab=&lt;id&gt;</c> opens it on that
+    /// tab — <c>tab=sessions</c> is a Holding dispatcher's See usage — or nothing.</summary>
     [Parameter]
     public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>The query key naming the tab the Dashboard opens on.</summary>
+    public const string TabKey = "tab";
+
+    private string? InitialTab =>
+        Query is not null && Query.TryGetValue(TabKey, out var tab) && tab.Length > 0 ? tab : null;
 
     /// <summary>Closes the surface: back to the main view, or the window closed.</summary>
     [Parameter]
