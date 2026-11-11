@@ -1782,6 +1782,12 @@
     color: var(--color-text-secondary);
 }
 
+/* A recording plays under its name, across the whole row. */
+.inbox-pane__file-player {
+    flex-basis: 100%;
+    width: 100%;
+}
+
 .inbox-pane__file-error {
     flex-basis: 100%;
     margin: 0;

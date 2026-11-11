@@ -195,7 +195,9 @@ else
             attachment.Name,
             AttachmentRules.Describe(attachment.ContentType),
             AttachmentRules.DescribeSize(attachment.SizeBytes),
-            AttachmentRules.IsPicture(attachment.ContentType)))
+            AttachmentRules.IsPicture(attachment.ContentType),
+            IsAudio: AttachmentRules.IsAudio(attachment.ContentType),
+            Audio: PlaybackOf(attachment.ContentType, Files.OutboxPath(attachment.Id))))
     ];
 
     private IReadOnlyList<AttachmentTile> PendingTiles =>
@@ -206,8 +208,18 @@ else
             AttachmentRules.Describe(attachment.ContentType),
             AttachmentRules.DescribeSize(attachment.SizeBytes),
             attachment.IsPicture,
-            attachment.Refusal))
+            attachment.Refusal,
+            AttachmentRules.IsAudio(attachment.ContentType),
+            PlaybackOf(attachment.ContentType, attachment.StagedPath)))
     ];
+
+    /// <summary>A recording plays on its tile while its bytes are on the phone: on the
+    /// strip, or in the outbox until the note reaches the service, which takes them
+    /// from there (local ADR 0014). Once delivered the tile only describes it.</summary>
+    private static AudioSource? PlaybackOf(string contentType, string path) =>
+        AttachmentRules.IsAudio(contentType) && !string.IsNullOrEmpty(path) && File.Exists(path)
+            ? new AudioSource(contentType, _ => Task.FromResult(TalkNoteFiles.OpenIfPresent(path)))
+            : null;
 
     protected override void OnInitialized()
     {

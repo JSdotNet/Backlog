@@ -14,9 +14,11 @@ public static class SyncAttachmentLimits
 
     /// <summary>
     /// The allowlist when the setting names none: images, PDF, plain text,
-    /// Markdown and CSV, and the Office Open XML document, spreadsheet and
-    /// presentation types. It exists to refuse executables, scripts and HTML,
-    /// not to enumerate every useful format.
+    /// Markdown and CSV, the Office Open XML document, spreadsheet and
+    /// presentation types, and the AAC audio of a meeting recording (local
+    /// ADR 0048) — ADTS from the phone, MPEG-4 from a browser or a picked
+    /// <c>.m4a</c>. It exists to refuse executables, scripts and HTML, not to
+    /// enumerate every useful format.
     /// </summary>
     public static readonly IReadOnlyList<string> DefaultContentTypes =
     [
@@ -33,6 +35,9 @@ public static class SyncAttachmentLimits
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "audio/aac",
+        "audio/mp4",
+        "audio/x-m4a",
     ];
 
     /// <summary>Whether <paramref name="mediaType"/> — without its parameters —

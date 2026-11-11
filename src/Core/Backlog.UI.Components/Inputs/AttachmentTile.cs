@@ -11,10 +11,16 @@ namespace Backlog.UI.Components.Inputs;
 /// <param name="IsPicture">Drawn with a picture glyph rather than a page.</param>
 /// <param name="Refusal">Why it will not be sent, or null. A refused tile says
 /// so in words, not only in colour.</param>
+/// <param name="IsAudio">A recording: drawn with a sound glyph, whether or not
+/// it can be played here.</param>
+/// <param name="Audio">Where to read it to play it on the tile, or null when
+/// the bytes are not on this device — the tile then only describes it.</param>
 public sealed record AttachmentTile(
     string Key,
     string Name,
     string TypeLabel,
     string SizeLabel,
     bool IsPicture = false,
-    string? Refusal = null);
+    string? Refusal = null,
+    bool IsAudio = false,
+    AudioSource? Audio = null);
