@@ -5,6 +5,8 @@
     ADR 0050). Clean architecture, inside out:
       DomainModels/  the Knowledge Event and Event Series aggregates and the
                      value objects a knowledge event owns
+      Services/      KnowledgeEventReader, which answers the published read
+                     contract from the repository
       Extensions/    AddEventsModule()
     IKnowledgeEventRepository and IEventSeriesRepository are ports declared here;
     their adapters are tables in backlog.db, under src/Infrastructure. This

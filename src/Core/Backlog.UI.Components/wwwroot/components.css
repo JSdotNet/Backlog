@@ -22555,10 +22555,13 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 
 /* Below the day head: the day's top padding, the head's height and the day's gap. A
    head that wraps — today's My Day count on a narrow column — grows past that height,
-   so the head holds its count to one line while the week carries plans. */
+   so the head holds its count to one line while the week carries bars — plans or
+   events. */
 .task-calendar__plans {
     position: absolute;
-    top: calc(var(--task-calendar-day-top) + var(--task-calendar-head-height) + var(--task-calendar-day-gap));
+    /* Under the week's event lanes too, which sit first (--task-calendar-event-lanes). */
+    top: calc(var(--task-calendar-day-top) + var(--task-calendar-head-height) + var(--task-calendar-day-gap)
+        + var(--task-calendar-event-lanes, 0) * (var(--task-calendar-plan-height) + var(--task-calendar-plan-gap)));
     right: 0;
     left: 0;
     display: grid;
@@ -22571,7 +22574,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     pointer-events: none;
 }
 
-.task-calendar__week--plans .task-calendar__day-head {
+.task-calendar__week--bars .task-calendar__day-head {
     flex-wrap: nowrap;
     overflow: hidden;
 }
@@ -22648,6 +22651,90 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* ----- Events on the calendar --------------------------------------------
+   Knowledge events as bars in lanes of their own above the plans, placed as the
+   plans are; the week reserves room under the day numbers for both layers through
+   --task-calendar-lanes, and moves the plans below the event lanes through
+   --task-calendar-event-lanes. A decided event is solid brand colour with inverse
+   text, apart from a plan's tint at a glance; one still being weighed up is a dashed
+   brand border with no fill and brand text. Bars take no drag. A key date is a
+   hollow brand diamond, where a roadmap milestone is a filled one. */
+.task-calendar__show-events {
+    margin-left: auto;
+}
+
+.task-calendar__show-plans + .task-calendar__show-events {
+    margin-left: var(--spacing-md);
+}
+
+.task-calendar__events {
+    position: absolute;
+    top: calc(var(--task-calendar-day-top) + var(--task-calendar-head-height) + var(--task-calendar-day-gap));
+    right: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-auto-rows: var(--task-calendar-plan-height);
+    row-gap: var(--task-calendar-plan-gap);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    pointer-events: none;
+}
+
+.task-calendar__event {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin: 0 var(--spacing-xs);
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-primary);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    pointer-events: auto;
+}
+
+.task-calendar__event--filled {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-calendar__event--tentative {
+    border-style: dashed;
+    background: transparent;
+    color: var(--color-primary);
+}
+
+.task-calendar__event--continues-before {
+    margin-left: 0;
+    border-left-width: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.task-calendar__event--continues-after {
+    margin-right: 0;
+    border-right-width: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.task-calendar__event-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.task-calendar__milestone--key-date .task-calendar__diamond {
+    box-sizing: border-box;
+    border: var(--border-width-2) solid var(--color-primary);
+    background: transparent;
 }
 
 .task-calendar__tray-head--plans {

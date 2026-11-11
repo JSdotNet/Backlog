@@ -177,6 +177,7 @@ public sealed class ShellNavigationStore
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
+        CalendarEventsShown = dto?.CalendarEventsShown ?? false;
         CalendarRange = string.IsNullOrWhiteSpace(dto?.CalendarRange) ? DefaultCalendarRange : dto.CalendarRange;
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
@@ -241,6 +242,12 @@ public sealed class ShellNavigationStore
     /// choice reads as off; one that says <c>false</c>, as a file from when the box
     /// was on by default does once it was turned off, reads as off too.</summary>
     public bool CalendarPlansShown { get; private set; }
+
+    /// <summary>Whether the Tasks Calendar draws the knowledge events — its "Show events"
+    /// box (local ADR 0050 §7): off until the reader turns it on on this device, and a
+    /// choice apart from <see cref="CalendarPlansShown"/>. A file that carries no choice
+    /// reads as off.</summary>
+    public bool CalendarEventsShown { get; private set; }
 
     /// <summary>
     /// The Tasks Calendar's range — <c>Month</c> or <c>Week</c> — as the reader last
@@ -463,6 +470,14 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetCalendarEventsShown(bool shown)
+    {
+        if (shown == CalendarEventsShown) return;
+
+        CalendarEventsShown = shown;
+        Save();
+    }
+
     public void SetCalendarRange(string range)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(range);
@@ -627,6 +642,9 @@ public sealed class ShellNavigationStore
                 BoardColumns = BoardColumns == DefaultBoardColumns ? null : BoardColumns,
                 // Left out while off, the default, so only turning it on writes a key.
                 CalendarPlansShown = CalendarPlansShown ? true : null,
+                // The same for the events box. A stored name: never rename it without
+                // reading the old one.
+                CalendarEventsShown = CalendarEventsShown ? true : null,
                 // Each of these is left out while at its default, the same way.
                 CalendarRange = CalendarRange == DefaultCalendarRange ? null : CalendarRange,
                 RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope],
@@ -707,6 +725,9 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? CalendarPlansShown { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? CalendarEventsShown { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? CalendarRange { get; init; }

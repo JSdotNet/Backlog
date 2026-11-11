@@ -581,7 +581,7 @@ public sealed class TaskCalendarTests : IDisposable
 
         // The bar opens on Thursday, the 4th column, and carries on past Sunday.
         var week = calendar.Find("[data-testid='cal-week']");
-        Assert.Contains("task-calendar__week--plans", week.ClassName);
+        Assert.Contains("task-calendar__week--bars", week.ClassName);
         var bar = calendar.Find("[data-testid='cal-plan-p']");
         Assert.Contains("grid-column: 4 / span 4", bar.GetAttribute("style"));
         Assert.Contains("task-calendar__plan--continues-after", bar.ClassName);

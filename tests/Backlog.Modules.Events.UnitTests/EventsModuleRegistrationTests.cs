@@ -1,3 +1,6 @@
+using Backlog.Modules.Events.Abstractions;
+using Backlog.Modules.Events.Abstractions.Services;
+using Backlog.Modules.Events.DomainModels;
 using Backlog.Modules.Events.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -6,7 +9,8 @@ namespace Backlog.Modules.Events.UnitTests;
 /// <summary>
 /// <c>AddEventsModule()</c>, the module's one registration point (guideline ADR 0005), resolved
 /// through a real container. The repositories are the host's to register, so the module adds
-/// only what it would otherwise lack: the clock.
+/// only what it would otherwise lack — the clock — and what it publishes: the contract the
+/// Inbox's To Event route reaches Events through, and the events read contract.
 /// </summary>
 public sealed class EventsModuleRegistrationTests
 {
@@ -56,26 +60,32 @@ public sealed class EventsModuleRegistrationTests
         using var provider = services.AddEventsModule().BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
         using var scope = provider.CreateScope();
 
-        Assert.NotNull(provider.GetRequiredService<Backlog.Modules.Events.Abstractions.IKnowledgeEvents>());
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventsPane>());
+        Assert.NotNull(provider.GetRequiredService<IKnowledgeEvents>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IEventsPane>());
     }
 
-    private sealed class NoEvents : IKnowledgeEventRepository
+    /// <summary>
+    /// The events read contract (local ADR 0050 §7) is the module's to publish: it resolves
+    /// over the repository the host registered.
+    /// </summary>
+    [Fact]
+    public async Task The_events_read_contract_resolves_over_the_hosts_repository()
     {
-        public Task<DomainModels.KnowledgeEvent?> GetAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<DomainModels.KnowledgeEvent?>(null);
+        var services = new ServiceCollection();
+        services.AddSingleton<IKnowledgeEventRepository>(new NoEvents());
 
-        public Task<IReadOnlyList<DomainModels.KnowledgeEvent>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<DomainModels.KnowledgeEvent>>([]);
+        using var provider = services.AddEventsModule().BuildServiceProvider();
 
-        public Task SaveAsync(DomainModels.KnowledgeEvent knowledgeEvent, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        var reader = provider.GetRequiredService<IKnowledgeEventReader>();
+        Assert.Empty(await reader.ListDecidedAsync(TestContext.Current.CancellationToken));
     }
 
-    private sealed class NoSeries : IEventSeriesRepository
+    [Fact]
+    public void Adding_the_module_twice_registers_one_events_read_contract()
     {
-        public Task<DomainModels.EventSeries?> GetAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<DomainModels.EventSeries?>(null);
+        var services = new ServiceCollection().AddEventsModule().AddEventsModule();
 
-        public Task<IReadOnlyList<DomainModels.EventSeries>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<DomainModels.EventSeries>>([]);
-
-        public Task SaveAsync(DomainModels.EventSeries series, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IKnowledgeEventReader));
     }
 
     [Fact]
@@ -85,4 +95,28 @@ public sealed class EventsModuleRegistrationTests
     }
 
     private sealed class PinnedClock : TimeProvider;
+
+    private sealed class NoEvents : IKnowledgeEventRepository
+    {
+        public Task<KnowledgeEvent?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<KnowledgeEvent?>(null);
+
+        public Task<IReadOnlyList<KnowledgeEvent>> ListAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<KnowledgeEvent>>([]);
+
+        public Task SaveAsync(KnowledgeEvent knowledgeEvent, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class NoSeries : IEventSeriesRepository
+    {
+        public Task<EventSeries?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<EventSeries?>(null);
+
+        public Task<IReadOnlyList<EventSeries>> ListAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<EventSeries>>([]);
+
+        public Task SaveAsync(EventSeries series, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+    }
 }

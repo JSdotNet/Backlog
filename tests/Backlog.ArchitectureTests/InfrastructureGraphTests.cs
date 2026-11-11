@@ -42,8 +42,9 @@ public class InfrastructureGraphTests
             + "task row's pull-request port through the same contract (local ADR 0042). The eleventh is "
             + "Events' published surface, for the Inbox's To Event route under Inbox/, which makes a Spotted "
             + "knowledge event through IKnowledgeEvents beside the Inbox's other routes, and for the "
-            + "cross-context join under Events/ that files an event's prep tasks and reads its task chips "
-            + "through Tasks' ITaskItems (local ADR 0050 §3)."),
+            + "cross-context joins under Events/ that file an event's prep tasks and read its task chips "
+            + "through Tasks' ITaskItems (local ADR 0050 §3) and answer the Calendar's events layer, Tasks' "
+            + "ICalendarEvents, over Events' read contract (local ADR 0050 §7)."),
         ("Backlog.Infrastructure.Sqlite", 7,
             "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
             + "Planning, the Inbox, Sessions, Progress, Notifications and Events — each answering that module's own repository "

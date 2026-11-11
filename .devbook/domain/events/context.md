@@ -47,8 +47,9 @@ flowchart LR
 The Knowledge Event and Event Series aggregates and the Events pane are built in
 `Backlog.Modules.Events`, with prep tasks, behind the `events` flag. Each desktop keeps the
 aggregates as documents in a store of its own. The Inbox's To Event route makes Spotted events
-through `IKnowledgeEvents`. The harvest task, the phone and sync are not built yet. These chapters
-are the model those changes build, decided in local
+through `IKnowledgeEvents`, and the Calendar's events layer reads the decided ones through the
+read contract. The harvest task, the phone and sync are not built yet. These chapters are the
+model those changes build, decided in local
 [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md).
 
 Tasks and the Brain know no event. The event holds the task ids and note links,
@@ -140,5 +141,5 @@ form no cycle of modules.
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Tasks](../tasks/features.md#calendar-view) | Customer/Supplier (Events = supplier) | A Tasks-owned port, answered by an adapter over Events' read contract, as the Calendar reads plans | The read contract in `Backlog.Modules.Events.Abstractions` | The decided events and their key dates, for the Calendar's events layer. |
+| [Tasks](../tasks/features.md#calendar-view) | Customer/Supplier (Events = supplier) | Tasks' `ICalendarEvents`, answered by `EventsCalendarEvents` under `Infrastructure.FileSystem/Events/` | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions` | The decided events and their key dates, for the Calendar's events layer. |
 | The phone (`Backlog.Mobile.UI`) | Conformist, through Sync | Pulls the event documents and posts attachment requests | The Events replica container; local ADR 0050 | A read-only view of the person's events at the venue. |

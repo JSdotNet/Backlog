@@ -430,9 +430,11 @@ public class WebHarnessHostTests
     /// rooted SQLite adapters. The one shell surface it registers is the Events takeover, gated
     /// on the <c>events</c> flag; with the default feature file that switch reads as off, so the
     /// catalog offers nothing of it. No settings section or Ask AI source of it is registered.
+    /// The events read contract and the Calendar's port over it (§7) are composed too, and
+    /// with the switch off the Calendar is offered no events.
     /// </summary>
     [Fact]
-    public void The_desktop_harness_composes_the_events_pane_behind_its_switch_which_is_off()
+    public async Task The_desktop_harness_composes_the_events_pane_behind_its_switch_which_is_off()
     {
         const string module = "Backlog.Modules.Events";
 
@@ -463,6 +465,13 @@ public class WebHarnessHostTests
             source => source.AreaKey == Backlog.Modules.Events.Abstractions.EventsFeatures.Events || OfEvents(source.GetType()));
         Assert.False(harness.Services.GetRequiredService<Backlog.SharedKernel.IAppFeatureSettings>()
             .IsEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events));
+
+        Assert.Equal(module, harness.Services
+            .GetRequiredService<Backlog.Modules.Events.Abstractions.Services.IKnowledgeEventReader>()
+            .GetType().Assembly.GetName().Name);
+        var calendarEvents = harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ICalendarEvents>();
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Events.EventsCalendarEvents>(calendarEvents);
+        Assert.False((await calendarEvents.ReadAsync(TestContext.Current.CancellationToken)).Available);
     }
 
     /// <summary>

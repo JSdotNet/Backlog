@@ -7,6 +7,9 @@
       EventsErrors    every code a knowledge event or an event series refuses with
       Enums           the vocabulary the pane renders: state, ticket, date source,
                       task purpose and note-link kind
+      Services/       IKnowledgeEventReader, the events read contract: the
+                      decided events and their key dates (ADR 0050 §7)
+      DataTransferObjects/  the shapes that contract answers in
     The aggregates, their repository ports and the registration stay in the
     implementation project. Nothing here may reference it, or anything else in
     the solution beyond the shared kernel.

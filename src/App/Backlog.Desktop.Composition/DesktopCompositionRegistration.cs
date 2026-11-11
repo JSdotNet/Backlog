@@ -248,7 +248,9 @@ public static class DesktopCompositionRegistration
 
         // Events' task target over Tasks' published port, Scoped like the port it holds, after
         // AddTasksModule(); and a stand-in for its Brain notes that the Brain's registration
-        // further down replaces.
+        // further down replaces. The same call answers the Calendar's events layer, Tasks'
+        // port over Events' read contract (local ADR 0050 §7), which offers nothing while the
+        // `events` area is off.
         services.AddEventsCrossContextAdapters();
 
         // Half of a repository's configuration is workspace data and follows the

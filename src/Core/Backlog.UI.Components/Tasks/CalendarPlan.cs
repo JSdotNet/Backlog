@@ -93,49 +93,11 @@ public static class CalendarPlanLanes
     /// </summary>
     public static (IReadOnlyList<CalendarPlanSegment> Segments, int Lanes) Week(
         DateOnly weekStart,
-        IReadOnlyList<CalendarPlan> plans)
-    {
-        ArgumentNullException.ThrowIfNull(plans);
-
-        var weekEnd = weekStart.AddDays(6);
-        var cut = plans
-            .Select((plan, order) => (plan, order))
-            .Where(entry => entry.plan.End >= entry.plan.Start && entry.plan.Start <= weekEnd && entry.plan.End >= weekStart)
-            .Select(entry =>
-            {
-                var from = entry.plan.Start < weekStart ? weekStart : entry.plan.Start;
-                var to = entry.plan.End > weekEnd ? weekEnd : entry.plan.End;
-                var column = from.DayNumber - weekStart.DayNumber + 1;
-                return (entry.plan, entry.order, column, span: to.DayNumber - from.DayNumber + 1);
-            })
-            .OrderBy(entry => entry.column)
-            .ThenByDescending(entry => entry.span)
-            .ThenBy(entry => entry.order)
-            .ToList();
-
-        // The last column each lane is taken up to.
-        var lanes = new List<int>();
-        var segments = new List<CalendarPlanSegment>(cut.Count);
-
-        foreach (var (plan, _, column, span) in cut)
-        {
-            var lane = lanes.FindIndex(last => last < column);
-            if (lane < 0)
-            {
-                lanes.Add(0);
-                lane = lanes.Count - 1;
-            }
-
-            lanes[lane] = column + span - 1;
-            segments.Add(new CalendarPlanSegment(
-                plan,
-                column,
-                span,
-                lane + 1,
-                ContinuesBefore: plan.Start < weekStart,
-                ContinuesAfter: plan.End > weekEnd));
-        }
-
-        return (segments, lanes.Count);
-    }
+        IReadOnlyList<CalendarPlan> plans) =>
+        CalendarLanes.Week(
+            weekStart,
+            plans,
+            plan => plan.Start,
+            plan => plan.End,
+            (plan, at) => new CalendarPlanSegment(plan, at.Column, at.Span, at.Lane, at.ContinuesBefore, at.ContinuesAfter));
 }
