@@ -21,8 +21,10 @@ namespace Backlog.Infrastructure.FileSystem.Events;
 /// a step, a second entry or a fence. A <c>#word</c> in it is a tag, as on any typed title line.
 /// </para>
 /// </summary>
-internal sealed partial class EventsTaskTarget(ITaskItems tasks, ITaskChangeSignal signal) : IEventTaskTarget
+internal sealed partial class EventsTaskTarget(ITaskItems tasks, ITaskChangeSignal signal, TimeProvider? clock = null) : IEventTaskTarget
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
     public event Action? Changed
     {
         add => signal.Changed += value;
@@ -59,6 +61,28 @@ internal sealed partial class EventsTaskTarget(ITaskItems tasks, ITaskChangeSign
         }
 
         return found;
+    }
+
+    public async Task<Result> CompleteAsync(string taskId, CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(taskId, out var id) || await tasks.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } entry)
+            return Result.Failure(EventsErrors.TaskNotInBacklog());
+
+        if (entry.Status is EntryStatus.Done or EntryStatus.Archived) return Result.Success();
+
+        // The Tasks pane's tick (TasksDesktopState.ToggleCompletedAsync), so the task lands under
+        // Completed: ticked off on the local day, Done, and its steps with it. Written into the
+        // text and not through EntryStatusFlow, which refuses Draft to Done — a filed harvest
+        // task is a Draft, and a person ticking it may.
+        var today = DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
+        var rewritten = EntryTextParser.WithStatus(
+            EntryTextParser.WithCompletedOn(EntryTextParser.ToRawText(entry), today),
+            EntryStatus.Done,
+            cascadeSubItems: true);
+
+        var saved = await tasks.SaveFromTextAsync(entry.Id, rewritten, entry.Order, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        return saved.IsFailure ? Result.Failure(saved.Error) : Result.Success();
     }
 
     /// <summary>A prep task's whole text: its title as one heading line, then the type word.</summary>

@@ -48,8 +48,9 @@ The Knowledge Event and Event Series aggregates and the Events pane are built in
 `Backlog.Modules.Events`, with prep tasks, behind the `events` flag. Each desktop keeps the
 aggregates as documents in a store of its own. The Inbox's To Event route makes Spotted events
 through `IKnowledgeEvents`, and the Calendar's events layer reads the decided ones through the
-read contract. Sync carries the events between devices, and the phone shows them and sends
-attachment requests. The harvest task is not built yet. These chapters are the
+read contract. The Harvest Task Policy files and completes the harvest task, checked when a
+desktop starts and when its local day turns. Sync carries the events between devices, and
+the phone shows them and sends attachment requests. These chapters are the
 model those changes build, decided in local
 [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md).
 

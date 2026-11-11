@@ -36,7 +36,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 - **Progress:** The goals are the ones a person's work is attached to, and the impediments are what hold that work back. It names tasks by id, plans by tag and pull requests by repository and number, without owning any of them.
 - **Sessions:** It owns none of the work, the machines, or the repositories those sessions touch.
 - **Notifications:** The answer comes back from whichever paired device the person used. The context carries no work of its own (local ADR 0039).
-- **Events:** Learning events support the person's work and are not what sets the product apart. Knowledge events only: other appointments stay out (local ADR 0050). The aggregates, the To Event route, the Events pane with prep tasks, the Calendar's events layer over the read contract, sync and the phone are built; the harvest task is not.
+- **Events:** Learning events support the person's work and are not what sets the product apart. Knowledge events only: other appointments stay out (local ADR 0050). The aggregates, the To Event route, the Events pane with prep tasks, the Calendar's events layer over the read contract, the harvest task, sync and the phone are built.
 - **Sync:** It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model. It is still not what makes the product different.
 
 ## Context map
