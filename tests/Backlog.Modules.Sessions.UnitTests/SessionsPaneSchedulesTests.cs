@@ -257,6 +257,61 @@ public sealed class SessionsPaneSchedulesTests
             Assert.Contains("The database is locked.", pane.Find("[data-testid='schedules-error']").TextContent, StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task A_schedule_alerts_Open_Schedules_link_opens_the_page_on_that_schedule()
+    {
+        using var context = Context(await RegisterAsync(), Sample);
+        context.Services.AddSingleton<ISurfaceCatalog>(new NoSurfaces());
+        var link = SurfaceLink.Parse("backlog://window/sessions?page=schedules&schedule=weekly-update")!;
+
+        // The surface accepts the keys a schedule alert's link carries.
+        Assert.Contains(SessionsSurfaceRegistration.PageKey, Registered().QueryKeys!);
+        Assert.Contains(SessionsSurfaceRegistration.ScheduleKey, Registered().QueryKeys!);
+
+        var surface = context.Render<SessionsSurface>(p => p.Add(c => c.Query, link.Query));
+
+        // Weekly update is not the page's first schedule: the link picked it.
+        surface.WaitForAssertion(() =>
+        {
+            Assert.NotNull(surface.Find("[data-testid='schedules-page']"));
+            Assert.Equal("Weekly update", surface.Find("[data-testid='schedules-detail-title']").TextContent.Trim());
+        });
+    }
+
+    [Fact]
+    public async Task Back_from_a_page_the_link_opened_stays_on_the_list()
+    {
+        using var context = Context(await RegisterAsync(), Sample);
+        var pane = context.Render<SessionsPane>(p => p.Add(c => c.OpenOnSchedules, true));
+
+        pane.WaitForElement("[data-testid='schedules-page']");
+        pane.Find("[data-testid='schedules-back']").Click();
+        pane.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='schedules-page']"));
+            Assert.NotEmpty(pane.FindAll("[data-testid='sessions-panel']"));
+        });
+    }
+
+    private static ShellSurface Registered()
+    {
+        var services = new ServiceCollection().AddSessionsSurface();
+        return services.Select(descriptor => descriptor.ImplementationInstance).OfType<ShellSurface>().Single(surface => surface.Id == SessionsSurfaceRegistration.SurfaceId);
+    }
+
+    private sealed class NoSurfaces : ISurfaceCatalog
+    {
+        public IReadOnlyList<ShellSurface> Surfaces => [];
+
+        public bool TryGet(string surfaceId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ShellSurface? surface)
+        {
+            surface = null;
+            return false;
+        }
+    }
+
     private sealed class Sessions(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>

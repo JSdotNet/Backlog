@@ -8,7 +8,9 @@
     `session=<id>` opens it on that session, its row selected and focused — a jump from
     a task or a pull request that names the session. What only the host can answer
     comes through the window's SessionsSurfaceWiring, and opening an entry is a jump to
-    the Tasks surface that lands in this window. A pull request's chip is asked for only
+    the Tasks surface that lands in this window. `page=schedules` opens it on the
+    Schedules page instead, and `schedule=<id>` on that schedule there — a schedule
+    alert's Open Schedules. A pull request's chip is asked for only
     while the catalog offers the pull requests surface, the flag that gates it.
 *@
 <SessionsPane OnClose="OnClose"
@@ -19,7 +21,9 @@
               SessionTask="@_wiring?.SessionTask"
               PullRequestStatus="@(Catalog.TryGet(PullRequestsSurfaceId, out _) ? _wiring?.PullRequestStatus : null)"
               OnAnswerQuestion="@AnswerQuestionCallback"
-              FocusSessionId="@FocusSessionId" />
+              FocusSessionId="@FocusSessionId"
+              OpenOnSchedules="@OpenOnSchedules"
+              FocusScheduleId="@FocusScheduleId" />
 
 @code {
     /// <summary>The pull requests surface's id, the Sessions context's second list.</summary>
@@ -40,6 +44,16 @@
     private string? FocusSessionId =>
         Query is not null && Query.TryGetValue(SessionsSurfaceRegistration.SessionKey, out var session) && session.Length > 0
             ? session
+            : null;
+
+    private bool OpenOnSchedules =>
+        Query is not null
+        && Query.TryGetValue(SessionsSurfaceRegistration.PageKey, out var page)
+        && string.Equals(page, SessionsSurfaceRegistration.SchedulesPage, StringComparison.OrdinalIgnoreCase);
+
+    private string? FocusScheduleId =>
+        Query is not null && Query.TryGetValue(SessionsSurfaceRegistration.ScheduleKey, out var schedule) && schedule.Length > 0
+            ? schedule
             : null;
 
     private EventCallback<DeliveryRunReference> OpenTaskCallback =>

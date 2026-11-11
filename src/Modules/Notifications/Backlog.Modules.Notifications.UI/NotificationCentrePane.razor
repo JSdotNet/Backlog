@@ -27,7 +27,10 @@
     An answer given here goes to INotificationCentre.AnswerAsync, the path a
     Windows notification's answer takes too, so the owner checks it the same way
     whichever channel it came from. A refused answer keeps the card's controls and
-    shows the reason under them.
+    shows the reason under them. An alert's action — "Open run", "Open Sessions" —
+    opens its backlog://window/ link in this window through ISurfaceNavigator, as
+    any jump between surfaces does; a host that composed no navigator draws the
+    button and opens nothing.
 
     It redraws on the centre's Changed event, so a question published, answered in
     a Windows notification or closed by its source while the centre is open shows
@@ -167,6 +170,7 @@
                                   ErrorMessage="@(_errorFor == selected.Id ? _error : null)"
                                   OnAnswer="@(reply => AnswerAsync(selected.Id, reply))"
                                   OnAcknowledge="@(() => AcknowledgeAsync(selected.Id))"
+                                  OnAction="OpenAction"
                                   TestId="notification-centre-card" />
             }
             else if (Shown.Count > 0)
@@ -635,6 +639,15 @@
         }
 
         await LoadAsync();
+    }
+
+    /// <summary>Opens an alert's action in this window: the surface its
+    /// <c>backlog://window/…</c> link names, with the link's query.</summary>
+    private void OpenAction(NotificationCardAction action)
+    {
+        if (global::Backlog.SharedKernel.SurfaceLink.Parse(action.Target) is not { } link) return;
+
+        Services.GetService<global::Backlog.SharedKernel.ISurfaceNavigator>()?.Show(link.SurfaceId, link.Query);
     }
 
     private async Task AcknowledgeAsync(Guid id)

@@ -55,9 +55,11 @@ public sealed class Notification
         string? deepLink,
         bool isPrivate,
         DateTimeOffset createdAt,
-        NotificationOrigin? origin)
+        NotificationOrigin? origin,
+        IReadOnlyList<NotificationAction>? actions = null)
     {
         Origin = origin;
+        Actions = actions ?? [];
         Id = id;
         OwnerInstanceId = ownerInstanceId;
         Source = source;
@@ -102,6 +104,10 @@ public sealed class Notification
     /// <summary>Where it came from, in words a person reads, or null
     /// (<c>.devbook/domain/notifications/domain.md#origin</c>).</summary>
     public NotificationOrigin? Origin { get; }
+
+    /// <summary>What an alert offers to open in Backlog beside Acknowledge; empty for none
+    /// and for every question.</summary>
+    public IReadOnlyList<NotificationAction> Actions { get; }
 
     public DateTimeOffset CreatedAt { get; }
 
@@ -171,6 +177,9 @@ public sealed class Notification
         var origin = Checked(draft.Origin);
         if (origin.IsFailure) return origin.Error;
 
+        var actions = Checked(draft.Actions, draft.Kind);
+        if (actions.IsFailure) return actions.Error;
+
         return new Notification(
             id,
             ownerInstanceId,
@@ -185,7 +194,40 @@ public sealed class Notification
             string.IsNullOrWhiteSpace(draft.DeepLink) ? null : draft.DeepLink.Trim(),
             draft.IsPrivate,
             createdAt,
-            origin.Value);
+            origin.Value,
+            actions.Value);
+    }
+
+    /// <summary>
+    /// The draft's actions, each label trimmed; empty when it has none. Refused
+    /// (<c>notification.action_invalid</c>, <c>notification.content_too_long</c>) on a question, for
+    /// more than <see cref="NotificationAction.MaxActions"/>, a blank or multi-line label, a label past
+    /// its bound, and a link that is not a <c>backlog://window/…</c> link.
+    /// </summary>
+    private static Result<IReadOnlyList<NotificationAction>> Checked(IReadOnlyList<NotificationAction>? actions, NotificationKind kind)
+    {
+        if (actions is null || actions.Count == 0) return Result.Success<IReadOnlyList<NotificationAction>>([]);
+
+        if (kind != NotificationKind.Alert) return NotificationsErrors.ActionInvalid("Only an alert offers actions; a question's answers are its controls.");
+        if (actions.Count > NotificationAction.MaxActions)
+            return NotificationsErrors.ActionInvalid($"An alert offers at most {NotificationAction.MaxActions} actions.");
+
+        var checkedActions = new List<NotificationAction>(actions.Count);
+
+        foreach (var action in actions)
+        {
+            var label = action?.Label?.Trim() ?? string.Empty;
+            if (label.Length == 0 || !NotificationText.IsOneLine(label))
+                return NotificationsErrors.ActionInvalid("An action's label is one line of text.");
+            if (label.Length > NotificationAction.MaxLabelLength)
+                return NotificationsErrors.ContentTooLong("action's label", NotificationAction.MaxLabelLength, "characters");
+            if (!NotificationAction.IsActionLink(action!.Link))
+                return NotificationsErrors.ActionInvalid("An action's link is a backlog://window/ link.");
+
+            checkedActions.Add(new NotificationAction(label, action.Link.Trim()));
+        }
+
+        return Result.Success<IReadOnlyList<NotificationAction>>(checkedActions);
     }
 
     /// <summary>
@@ -251,8 +293,9 @@ public sealed class Notification
         string? closeReason,
         NotificationAnswer? answer,
         DateTimeOffset? answerDeliveredAt,
-        NotificationOrigin? origin = null) =>
-        new(id, ownerInstanceId, source, subject, kind, severity, title, summary, bodyMarkdown, answerSpec, deepLink, isPrivate, createdAt, origin)
+        NotificationOrigin? origin = null,
+        IReadOnlyList<NotificationAction>? actions = null) =>
+        new(id, ownerInstanceId, source, subject, kind, severity, title, summary, bodyMarkdown, answerSpec, deepLink, isPrivate, createdAt, origin, actions)
         {
             State = state,
             SettledAt = settledAt,

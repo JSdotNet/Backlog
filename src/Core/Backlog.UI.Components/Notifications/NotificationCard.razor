@@ -14,7 +14,7 @@
       multiple choice    one Checkbox per set answer, and Answer to send the picks
       open               a plain-text TextArea and Send
       choices with open  the buttons, and the box with Send beside them
-      alert              Acknowledge
+      alert              its actions ("Open run", "Open Sessions"), then Acknowledge
     Seven or eight choices lay out as an even grid that wraps, so no row runs
     past the card. A question that takes a note adds a plain-text box, "Add a
     note (optional)", under the answers; whatever is in it goes with the answer.
@@ -35,7 +35,8 @@
     and the source: "[AI agent] Sessions". Without either the header names the
     source beside the time, as it always did.
 
-    The card does not answer anything itself. It raises OnAnswer or OnAcknowledge,
+    The card does not answer anything itself. It raises OnAnswer, OnAcknowledge or
+    OnAction — the last with the action pressed, which the host opens —
     the host takes the answer to its own reply path, and hands back Busy while it
     works and ErrorMessage when the answer was refused, so the person can answer
     again.
@@ -130,6 +131,13 @@
             @if (Model.Kind == NotificationCardKind.Alert)
             {
                 <div class="notification-card__actions">
+                    @foreach (var action in Model.Actions ?? [])
+                    {
+                        <AppButton Variant="ButtonVariant.Secondary"
+                                   Disabled="@Busy"
+                                   TestId="notification-card-action"
+                                   OnClick="@(() => ActAsync(action))">@action.Label</AppButton>
+                    }
                     <AppButton Variant="ButtonVariant.Primary"
                                Busy="@Busy"
                                BusyLabel="Acknowledging"
@@ -325,6 +333,11 @@
     /// <summary>Raised when the person acknowledges an open alert.</summary>
     [Parameter]
     public EventCallback OnAcknowledge { get; set; }
+
+    /// <summary>Raised with the action the person pressed on an open alert, for the host to
+    /// open.</summary>
+    [Parameter]
+    public EventCallback<NotificationCardAction> OnAction { get; set; }
 
     /// <summary>True while the host takes the answer to its reply path.</summary>
     [Parameter]
@@ -577,6 +590,12 @@
     {
         _localError = null;
         await OnAnswer.InvokeAsync(reply);
+    }
+
+    private async Task ActAsync(NotificationCardAction action)
+    {
+        _localError = null;
+        await OnAction.InvokeAsync(action);
     }
 
     private async Task AcknowledgeAsync()

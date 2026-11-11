@@ -288,6 +288,9 @@ _ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions
 // And the question relay's escalation timer (local ADR 0041), as the desktop head starts it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
 
+// And the schedule and loop alerts' sweep (local ADR 0051 §5), as the desktop head starts it.
+app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.SessionAlertPublisher>().Start();
+
 // And the notifications startup pass, on the same terms and for the same reason the desktop
 // head starts it.
 _ = app.Services.GetRequiredService<Backlog.Modules.Notifications.Services.NotificationsStartup>().Start();
