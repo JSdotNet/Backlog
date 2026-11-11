@@ -109,9 +109,92 @@ public sealed class WindowLinkTokensTests
         var tokens = new WindowLinkTokens(_clock);
         var cookie = tokens.Redeem(tokens.Mint());
 
-        _clock.Advance(TimeSpan.FromDays(3));
+        _clock.Advance(WindowLinkTokens.Lifetime + TimeSpan.FromHours(1));
 
         Assert.True(tokens.IsValidCookie(cookie));
+    }
+
+    /// <summary>The cookie a link buys expires after 8 idle hours (local ADR 0052 §4),
+    /// and once it has, it never comes back.</summary>
+    [Fact]
+    public void A_cookie_value_idle_for_eight_hours_is_valid_to_the_last_moment_and_then_never_again()
+    {
+        var tokens = new WindowLinkTokens(_clock);
+        var lastMoment = tokens.Redeem(tokens.Mint());
+        var late = tokens.Redeem(tokens.Mint());
+
+        _clock.Advance(WindowLinkTokens.IdleTimeout);
+        Assert.True(tokens.IsValidCookie(lastMoment));
+
+        _clock.Advance(TimeSpan.FromTicks(1));
+        Assert.False(tokens.IsValidCookie(late));
+
+        using (tokens.Hold(late))
+        {
+            Assert.False(tokens.IsValidCookie(late), "An expired cookie value is forgotten, so not even a hold revives it.");
+        }
+    }
+
+    [Fact]
+    public void Every_use_of_a_cookie_value_starts_its_idle_time_over()
+    {
+        var tokens = new WindowLinkTokens(_clock);
+        var cookie = tokens.Redeem(tokens.Mint());
+
+        for (var day = 0; day < 3; day++)
+        {
+            _clock.Advance(WindowLinkTokens.IdleTimeout - TimeSpan.FromMinutes(1));
+            Assert.True(tokens.IsValidCookie(cookie));
+        }
+
+        _clock.Advance(WindowLinkTokens.IdleTimeout + TimeSpan.FromMinutes(1));
+        Assert.False(tokens.IsValidCookie(cookie));
+    }
+
+    /// <summary>A page whose circuit is connected holds its cookie for as long as the
+    /// connection lasts, so a window in use never expires under the person; the idle
+    /// time starts when the connection ends.</summary>
+    [Fact]
+    public void A_held_cookie_value_is_not_idle_until_its_hold_ends()
+    {
+        var tokens = new WindowLinkTokens(_clock);
+        var cookie = tokens.Redeem(tokens.Mint());
+
+        var circuit = tokens.Hold(cookie);
+        _clock.Advance(WindowLinkTokens.IdleTimeout * 3);
+        Assert.True(tokens.IsValidCookie(cookie));
+
+        circuit.Dispose();
+        circuit.Dispose();
+        _clock.Advance(WindowLinkTokens.IdleTimeout);
+        Assert.True(tokens.IsValidCookie(cookie));
+
+        _clock.Advance(WindowLinkTokens.IdleTimeout + TimeSpan.FromTicks(1));
+        Assert.False(tokens.IsValidCookie(cookie));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("never-issued")]
+    public void A_hold_on_a_cookie_value_never_issued_holds_nothing(string? cookie)
+    {
+        var tokens = new WindowLinkTokens(_clock);
+
+        using (tokens.Hold(cookie))
+        {
+            Assert.False(tokens.IsValidCookie(cookie));
+        }
+    }
+
+    [Fact]
+    public void Minting_answers_when_the_token_stops_redeeming()
+    {
+        var tokens = new WindowLinkTokens(_clock);
+
+        tokens.Mint(out var expires);
+
+        Assert.Equal(_clock.GetUtcNow() + WindowLinkTokens.Lifetime, expires);
     }
 
     [Fact]

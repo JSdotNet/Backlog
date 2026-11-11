@@ -23,11 +23,15 @@ internal sealed class FakeSurfaceWindows(bool nativeWindows = true, int? listene
         return Task.FromResult(true);
     }
 
-    public Uri? WebLink(string surfaceId, IReadOnlyDictionary<string, string> query)
+    /// <summary>The caller each web link was minted for, in the order asked.</summary>
+    public List<string> Callers { get; } = [];
+
+    public Uri? WebLink(string surfaceId, IReadOnlyDictionary<string, string> query, string caller)
     {
         if (listenerPort is not { } port) return null;
 
         Linked.Add((surfaceId, query));
+        Callers.Add(caller);
         return new Uri($"http://localhost:{port}" + SurfaceLink.Path(surfaceId, query.Append(new("t", "token"))));
     }
 

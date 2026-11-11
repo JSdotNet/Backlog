@@ -63,6 +63,40 @@ public class WindowToolsTests
             answer.BacklogLink);
     }
 
+    /// <summary>The host logs every link it mints with the caller (local ADR 0052 §4); a
+    /// call with no MCP client behind it names the generic caller.</summary>
+    [Fact]
+    public async Task Web_hands_the_host_the_caller_a_minted_link_is_logged_for()
+    {
+        var host = new FakeSurfaceWindows();
+        var tools = new WindowTools(FakeSurfaceWindows.Catalog(), host);
+
+        await tools.OpenAsync("tasks", "web");
+        await tools.OpenAsync("tasks", "desktop");
+
+        Assert.Equal([WindowTools.UnnamedCaller], host.Callers);
+    }
+
+    [Theory]
+    [InlineData("claude-code", "2.1.0", "claude-code 2.1.0")]
+    [InlineData("claude-code", null, "claude-code")]
+    [InlineData("  claude-ai  ", " 1.0 ", "claude-ai 1.0")]
+    [InlineData("", "", WindowTools.UnnamedCaller)]
+    [InlineData("   ", null, WindowTools.UnnamedCaller)]
+    [InlineData("evil\r\nINFO forged line", "1", "evilINFO forged line 1")]
+    [InlineData("evil\u2028INFO\u2029forged", "1", "evilINFOforged 1")]
+    public void The_caller_is_the_clients_own_name_and_version_with_no_line_of_its_own(string name, string? version, string expected)
+    {
+        Assert.Equal(expected, WindowTools.Caller(new ModelContextProtocol.Protocol.Implementation { Name = name, Version = version! }));
+    }
+
+    [Fact]
+    public void A_caller_with_no_client_and_an_overlong_name_are_both_bounded()
+    {
+        Assert.Equal(WindowTools.UnnamedCaller, WindowTools.Caller(null));
+        Assert.Equal(120, WindowTools.Caller(new ModelContextProtocol.Protocol.Implementation { Name = new string('a', 500), Version = "1" }).Length);
+    }
+
     [Fact]
     public async Task The_link_carries_the_keys_in_the_order_the_record_lists_them()
     {

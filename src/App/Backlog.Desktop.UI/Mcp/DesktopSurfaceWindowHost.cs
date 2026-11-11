@@ -4,6 +4,9 @@ using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.Mcp;
 using Backlog.SharedKernel;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
@@ -26,9 +29,17 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <param name="tokens">The link tokens the listener redeems.</param>
 /// <param name="listenerPort">The port the loopback listener is listening on now, or null
 /// while it is not.</param>
-public sealed class DesktopSurfaceWindowHost(IShellWindows windows, WindowLinkTokens tokens, Func<int?> listenerPort)
+/// <param name="log">Where every minted link is recorded (local ADR 0052 §4); none
+/// records nothing.</param>
+public sealed class DesktopSurfaceWindowHost(
+    IShellWindows windows,
+    WindowLinkTokens tokens,
+    Func<int?> listenerPort,
+    ILogger<DesktopSurfaceWindowHost>? log = null)
     : ISurfaceWindowHost
 {
+    private readonly ILogger _log = (ILogger?)log ?? NullLogger.Instance;
+
     /// <inheritdoc />
     /// <remarks>Awaits the head's answer, so a window that failed to build, or an app
     /// with nothing to open it in, reads as not opened.</remarks>
@@ -37,14 +48,23 @@ public sealed class DesktopSurfaceWindowHost(IShellWindows windows, WindowLinkTo
 
     /// <inheritdoc />
     /// <remarks>No token is minted while the listener is not listening: a token for a
-    /// page nothing serves would wait out its 10 minutes unredeemed.</remarks>
-    public Uri? WebLink(string surfaceId, IReadOnlyDictionary<string, string> query)
+    /// page nothing serves would wait out its 10 minutes unredeemed. Each link minted is
+    /// logged with its surface, its caller and its token's expiry; the token itself, and
+    /// so the link, never reaches the log, which is a file read later.</remarks>
+    public Uri? WebLink(string surfaceId, IReadOnlyDictionary<string, string> query, string caller)
     {
         if (listenerPort() is not { } port) return null;
 
+        var token = tokens.Mint(out var expires);
         var tokenized = query
             .Where(pair => !string.Equals(pair.Key, WindowLinkTokens.QueryKey, StringComparison.Ordinal))
-            .Append(new KeyValuePair<string, string>(WindowLinkTokens.QueryKey, tokens.Mint()));
+            .Append(new KeyValuePair<string, string>(WindowLinkTokens.QueryKey, token));
+
+        _log.LogInformation(
+            "open_window minted a web link to {SurfaceId} for {Caller}; its token redeems until {Expires:o}.",
+            surfaceId,
+            caller,
+            expires);
 
         return new Uri(
             "http://localhost:" + port.ToString(CultureInfo.InvariantCulture) + SurfaceLink.Path(surfaceId, tokenized));

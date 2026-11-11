@@ -17,6 +17,12 @@ namespace Backlog.Desktop.UI.Mcp;
 /// tokens in <c>backlog://</c> links for the same reason).
 /// </para>
 /// <para>
+/// <b>A cookie value expires after <see cref="IdleTimeout"/> idle</b> (local ADR 0052
+/// §4): every request it admits slides it, and a page whose circuit is still connected
+/// is never idle, so a window in use stays open and one left alone for a working day
+/// asks for a new link.
+/// </para>
+/// <para>
 /// In <c>Backlog.Desktop.UI</c> beside <see cref="McpLoopbackGuard"/>, and for its
 /// reason: the listener lives in a MAUI head no test project can reference, and this
 /// is a security surface to be asserted directly. <c>open_window</c> mints the links
@@ -30,6 +36,10 @@ public sealed class WindowLinkTokens(TimeProvider? clock = null)
     /// link pasted somewhere is dead before anyone else finds it.</summary>
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(10);
 
+    /// <summary>How long a cookie value stays valid with no request carrying it and no
+    /// connection held open on it (local ADR 0052 §4).</summary>
+    public static readonly TimeSpan IdleTimeout = TimeSpan.FromHours(8);
+
     /// <summary>The query key a web link carries its token under.</summary>
     public const string QueryKey = "t";
 
@@ -41,24 +51,36 @@ public sealed class WindowLinkTokens(TimeProvider? clock = null)
     /// <summary>Each unredeemed token and the moment it stops redeeming.</summary>
     private readonly ConcurrentDictionary<string, DateTimeOffset> _tokens = new(StringComparer.Ordinal);
 
-    /// <summary>Each cookie value a redemption issued. They live as long as the app
-    /// does, as the browser's session cookie they are held in does.</summary>
-    private readonly ConcurrentDictionary<string, byte> _cookies = new(StringComparer.Ordinal);
+    /// <summary>Each cookie value a redemption issued, and how recently it was used.
+    /// One goes when it has been idle for <see cref="IdleTimeout"/>; the browser keeps
+    /// it as a session cookie, so only this side can tell it has gone.</summary>
+    private readonly ConcurrentDictionary<string, CookieUse> _cookies = new(StringComparer.Ordinal);
 
     /// <summary>A new token, for one link: URL-safe, so it goes into a query string
     /// as it is.</summary>
-    public string Mint()
+    public string Mint() => Mint(out _);
+
+    /// <summary>A new token, for one link, and the moment it stops redeeming — what the
+    /// log of minted links records in place of the token.</summary>
+    public string Mint(out DateTimeOffset expires)
     {
         var now = _clock.GetUtcNow();
 
-        // Tokens nobody redeemed would otherwise stay for the life of the app.
-        foreach (var (stale, expires) in _tokens)
+        // Tokens nobody redeemed and cookies nobody uses would otherwise stay for the
+        // life of the app.
+        foreach (var (stale, until) in _tokens)
         {
-            if (expires < now) _tokens.TryRemove(stale, out _);
+            if (until < now) _tokens.TryRemove(stale, out _);
+        }
+
+        foreach (var (stale, use) in _cookies)
+        {
+            if (use.IsIdle(now)) _cookies.TryRemove(stale, out _);
         }
 
         var token = NewSecret();
-        _tokens[token] = now + Lifetime;
+        expires = now + Lifetime;
+        _tokens[token] = expires;
         return token;
     }
 
@@ -75,14 +97,102 @@ public sealed class WindowLinkTokens(TimeProvider? clock = null)
         if (_clock.GetUtcNow() > expires) return null;
 
         var cookie = NewSecret();
-        _cookies[cookie] = 0;
+        _cookies[cookie] = new CookieUse(_clock.GetUtcNow());
         return cookie;
     }
 
-    /// <summary>Whether <paramref name="cookie"/> is a value a redemption of this
-    /// instance issued.</summary>
-    public bool IsValidCookie(string? cookie) =>
-        !string.IsNullOrEmpty(cookie) && _cookies.ContainsKey(cookie);
+    /// <summary>
+    /// Whether <paramref name="cookie"/> is a value a redemption of this instance
+    /// issued that has not gone idle for longer than <see cref="IdleTimeout"/>. A valid
+    /// one is used by the asking, so the idle time starts over; an idle one is
+    /// forgotten, and never valid again.
+    /// </summary>
+    public bool IsValidCookie(string? cookie)
+    {
+        if (string.IsNullOrEmpty(cookie) || !_cookies.TryGetValue(cookie, out var use)) return false;
+
+        if (use.TryTouch(_clock.GetUtcNow())) return true;
+
+        _cookies.TryRemove(cookie, out _);
+        return false;
+    }
+
+    /// <summary>
+    /// Holds <paramref name="cookie"/> in use for as long as one request it admitted
+    /// runs — a page's circuit, which is one connection for as long as the page is
+    /// open — so it is not idle while that request is; disposing the hold ends it, and
+    /// the idle time starts from then. A cookie value this instance does not hold is
+    /// held by nothing.
+    /// </summary>
+    public IDisposable Hold(string? cookie) =>
+        !string.IsNullOrEmpty(cookie) && _cookies.TryGetValue(cookie, out var use)
+            ? use.Hold(_clock)
+            : NoHold.Instance;
+
+    /// <summary>When one cookie value was last used, and how many requests it admitted
+    /// are running now.</summary>
+    private sealed class CookieUse(DateTimeOffset issued)
+    {
+        private readonly Lock _gate = new();
+        private DateTimeOffset _lastUsed = issued;
+        private int _running;
+
+        public bool IsIdle(DateTimeOffset now)
+        {
+            lock (_gate) return _running == 0 && now - _lastUsed > IdleTimeout;
+        }
+
+        /// <summary>Uses the value now, unless it has already gone idle.</summary>
+        public bool TryTouch(DateTimeOffset now)
+        {
+            lock (_gate)
+            {
+                if (_running == 0 && now - _lastUsed > IdleTimeout) return false;
+
+                _lastUsed = now;
+                return true;
+            }
+        }
+
+        public IDisposable Hold(TimeProvider clock)
+        {
+            lock (_gate)
+            {
+                _running++;
+                _lastUsed = clock.GetUtcNow();
+            }
+
+            return new Release(this, clock);
+        }
+
+        private void End(DateTimeOffset now)
+        {
+            lock (_gate)
+            {
+                _running--;
+                _lastUsed = now;
+            }
+        }
+
+        private sealed class Release(CookieUse use, TimeProvider clock) : IDisposable
+        {
+            private int _released;
+
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _released, 1) == 0) use.End(clock.GetUtcNow());
+            }
+        }
+    }
+
+    private sealed class NoHold : IDisposable
+    {
+        public static readonly NoHold Instance = new();
+
+        public void Dispose()
+        {
+        }
+    }
 
     private static string NewSecret() =>
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(SecretBytes))
