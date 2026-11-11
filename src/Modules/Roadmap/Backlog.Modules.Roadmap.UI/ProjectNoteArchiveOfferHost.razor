@@ -1,0 +1,39 @@
+@using Microsoft.Extensions.DependencyInjection
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    Draws nothing: it starts the watch that offers to archive a finished plan's
+    project note (local ADR 0052 §5) and stops it with the layout. Mounted once, by
+    the shell's layout, beside the tray the offer appears in.
+
+    The services are resolved rather than injected, for ToastTray's reason: a layout
+    that cannot construct takes the whole window with it. A host that composed no
+    Brain, no roadmap or no toast channel gets no offers, which is all it could have.
+*@
+
+@code {
+    private ProjectNoteArchiveOffers? _offers;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var archive = Services.GetService<IRoadmapProjectNoteArchive>();
+        var planning = Services.GetService<IRoadmapPlanning>();
+        var toasts = Services.GetService<IToastChannel>();
+        if (archive is null || planning is null || toasts is null) return;
+
+        _offers = new ProjectNoteArchiveOffers(archive, planning, toasts, Services.GetService<IRoadmapWorkChanges>());
+
+        try
+        {
+            await _offers.StartAsync();
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // A plan that cannot be read now is read again on its next change; the
+            // offer is never worth an error state of its own.
+        }
+    }
+
+    public void Dispose() => _offers?.Dispose();
+}

@@ -15,7 +15,12 @@ project note into the Brain's archive area, without changing the file.
 ```meta
 ```
 
-Proposed, 2026-11-11. Not yet built. The repository owner decided the link
+Proposed, 2026-11-11. The link writer is built, and so is §5's archive move: a
+plan that finishes while the app is open offers it once per device in a toast, the
+press moves the note and repoints the plan's Knowledge Refs, and
+`list_brain_reviews` lists the notes still to move
+([Archiving a finished plan's project note](../../domain/roadmap/features.md#archiving-a-finished-plans-project-note)).
+The repository owner decided the link
 writer on 2026-10-29, as design question Q1 and change C15 of the GTD and PARA
 exploration, choosing option (b) of three. The owner decided the archive move
 on 2026-11-09.
@@ -220,3 +225,4 @@ Look for tests that show these behaviours:
 | Date | Change | Why |
 | --- | --- | --- |
 | 2026-11-11 | Proposed: the app appends to a note's `tasks` and `roadmap` lists, and moves a finished project note to the archive. | Picking up a note into a task or plan needs the link at the note's end too (Q1, C15, 2026-10-29; archive move, 2026-11-09). |
+| 2026-11-11 | §5 built: the offer toast, the move with its Knowledge Ref repointed, and the weekly review's list. | Backlog plan entry `archive-project-note` of `gtd-para`. |

@@ -448,7 +448,20 @@ public sealed record CapturedNotePayload(string Path, string Title);
 /// <param name="On">The day the review dates were compared against, <c>YYYY-MM-DD</c>.</param>
 /// <param name="Due">The notes whose review date is that day or earlier, oldest first.</param>
 /// <param name="Warnings">The notes whose <c>review</c> value is no date, left out of <paramref name="Due"/>.</param>
-public sealed record BrainReviewsPayload(string On, IReadOnlyList<BrainReviewPayload> Due, IReadOnlyList<BrainReviewWarningPayload> Warnings);
+/// <param name="ToArchive">The project notes of finished plans still in the projects
+/// area, to move to the archive (local ADR 0052 §5); empty where no Brain or no plan
+/// reads them.</param>
+public sealed record BrainReviewsPayload(
+    string On,
+    IReadOnlyList<BrainReviewPayload> Due,
+    IReadOnlyList<BrainReviewWarningPayload> Warnings,
+    IReadOnlyList<BrainArchiveCandidatePayload>? ToArchive = null);
+
+/// <summary>A finished plan's project note, still in the Brain's projects area.</summary>
+/// <param name="Path">The note's path from the Brain's root.</param>
+/// <param name="Title">The note's title.</param>
+/// <param name="Plan">The title of the finished plan that gathers it.</param>
+public sealed record BrainArchiveCandidatePayload(string Path, string Title, string Plan);
 
 /// <summary>One Brain note whose review date has come.</summary>
 /// <param name="Path">The note's path from the Brain's root, as <c>read_knowledge_chapter</c> takes it under <c>#brain</c>.</param>
