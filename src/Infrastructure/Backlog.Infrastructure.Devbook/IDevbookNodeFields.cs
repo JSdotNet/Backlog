@@ -7,6 +7,10 @@ namespace Backlog.Infrastructure.Devbook;
 /// </summary>
 public interface IDevbookNodeFields
 {
+    /// <summary>Whether the node is a file, its block the file's top one, rather
+    /// than a heading's.</summary>
+    bool IsFile { get; }
+
     /// <summary>Whether the block names <paramref name="field"/> with a value
     /// that is not null.</summary>
     bool Has(string field);

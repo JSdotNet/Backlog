@@ -75,6 +75,10 @@ public static class BrainAdapterRegistration
         services.AddSingleton<IBrainBacklinks>(sp => new BrainBacklinkReader(sp.GetRequiredService<IBrainFolderSource>()));
         services.AddSingleton<IBrainTaskLinks>(sp => new BrainTaskLinkReader(sp.GetRequiredService<IBrainFolderSource>()));
 
+        // The notes whose review date has come (local ADR 0054 §6): list_brain_reviews
+        // reads it today, and the weekly review is to. Read only: no writer sets it.
+        services.AddSingleton<IBrainReviewDates>(sp => new BrainReviewDateReader(sp.GetRequiredService<IBrainFolderSource>()));
+
         // The notes a roadmap item gathers (local ADR 0053), from the same database.
         // Replace rather than TryAdd, as for To Brain below: the roadmap's
         // cross-context registration leaves an empty answer for a host without a

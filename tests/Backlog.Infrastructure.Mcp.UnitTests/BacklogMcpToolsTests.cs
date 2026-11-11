@@ -45,6 +45,7 @@ public class BacklogMcpToolsTests
                 "list_annotations",
                 "resolve_annotation",
                 "capture_note",
+                "list_brain_reviews",
 
                 // devbook.decision@1's seven operations — four on state, three on
                 // notes — beside the devbook tools and behind the same key.

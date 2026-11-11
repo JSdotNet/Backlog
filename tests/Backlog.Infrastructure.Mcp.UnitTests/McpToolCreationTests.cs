@@ -52,6 +52,7 @@ public class McpToolCreationTests
         DevbookTools.ListKnowledgeContexts,
         DevbookTools.ReadKnowledgeChapter,
         DevbookTools.ListAnnotations,
+        DevbookTools.ListBrainReviews,
         DecisionTools.GetState,
         SyncDirectionTools.ListSyncDirections,
         DecisionTools.ListNotes,
@@ -259,6 +260,7 @@ public class McpToolCreationTests
         Assert.Equal(["repository", "chapterPath"], schemas["list_annotations"]);
         Assert.Equal(["repository", "note"], schemas["resolve_annotation"]);
         Assert.Equal(["title", "body"], schemas["capture_note"]);
+        Assert.Equal(["on"], schemas["list_brain_reviews"]);
         Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "capture_note")));
 
         // devbook.decision@1's arguments and nothing else: who decided and when are

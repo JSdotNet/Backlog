@@ -150,6 +150,10 @@ public static class BacklogMcpTools
             // this pane, behind the same key, with no switch of its own.
             DevbookTools.ResolveAnnotation,
             DevbookTools.CaptureNote,
+
+            // The Brain's review dates (local ADR 0054 §6), read-only, behind the
+            // same key as the Brain's other tools.
+            DevbookTools.ListBrainReviews,
         ]);
 
     /// <summary>The sessions tool, behind <c>sessions</c>. Its own group because

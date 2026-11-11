@@ -345,6 +345,8 @@ internal static partial class DevbookGraphBuilder
     /// fields through.</summary>
     private sealed class NodeFields(DevbookGraphNode node, IReadOnlyDictionary<string, object?>? meta) : IDevbookNodeFields
     {
+        public bool IsFile => node.Type == "file";
+
         public bool Has(string field) => meta?.GetValueOrDefault(field) is not null;
 
         public string? Scalar(string field) =>

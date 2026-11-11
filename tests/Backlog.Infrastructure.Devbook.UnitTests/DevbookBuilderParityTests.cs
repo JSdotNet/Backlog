@@ -195,7 +195,8 @@ public class DevbookBuilderParityTests : IDisposable
     /// that hold a note — mixed case, one only deeply nested — by name, but not an
     /// ignored folder (one also declared), a dot-folder, a folder whose only note
     /// sits in a dot sub-folder or a folder with no note at all; the
-    /// <c>para</c>, <c>repos</c> and <c>tasks</c> fields, <c>repo:</c> links in
+    /// <c>para</c>, <c>repos</c> and <c>tasks</c> fields, a file's <c>review</c> —
+    /// a date, words, a list — and a heading's, which is not kept, <c>repo:</c> links in
     /// <c>related</c> and in prose (one inside a fence, one twice), a reference
     /// into an area that resolves to nothing, one outside every area, a repeated
     /// slug and the reading-order rules. The Node writer reads
@@ -249,6 +250,10 @@ public class DevbookBuilderParityTests : IDisposable
         }
         Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:para | value=TEXT:work", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:tasks", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:review | value=TEXT:2026-11-20", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:review | value=TEXT:next week", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:review | value=TEXT:2026-11-20,2026-12-01", StringComparison.Ordinal));
+        Assert.DoesNotContain(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:review | value=TEXT:2026-01-01", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "edge", "id"), row => row.Contains("type=TEXT:repo-link", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "edge", "id"), row => row.Contains("target=TEXT:repo:backlog/.devbook/arc42/05-building-block-view.md#devbook", StringComparison.Ordinal));
         Assert.DoesNotContain(Rows(app, "node", "id"), row => row.Contains("id=TEXT:repo:", StringComparison.Ordinal));
@@ -304,7 +309,9 @@ public class DevbookBuilderParityTests : IDisposable
         ("work/02-second.md", "# Second\n"),
         ("work/01-first.md", "# First\n"),
         ("work/hidden.md", "# Hidden\n\n```meta\nindex: exclude\n```\n"),
-        ("work/clients/acme.md", "# Acme\n\n```meta\nrepos: acme-web\n```\n"),
+        ("work/clients/acme.md", "# Acme\n\n```meta\nrepos: acme-web\nreview: 2026-11-20\n```\n"),
+        ("work/clients/later.md", "# Later\n\n```meta\nreview: next week\n```\n"),
+        ("work/clients/twice.md", "# Twice\n\n```meta\nreview: [2026-11-20, 2026-12-01]\n```\n\n## Aside\n\n```meta\nreview: 2026-01-01\n```\n"),
         ("design/README.md", "# Design notes\n"),
         ("design/palette.md", "# Palette\n\n```meta\ntype: guideline\n```\n\n## Teal\n\nA calm accent.\n"),
         ("projects/brain.md", """

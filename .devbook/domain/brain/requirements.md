@@ -1422,6 +1422,7 @@ The system SHALL show, for a Brain whose `CONVENTIONS.md` declares no areas, the
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_link_written_beside_a_review_date_never_touches_it]
 ```
 
 The system SHALL read a note's optional `review` date and SHALL never add, change or remove it, through capture, To Brain or the link writer.
@@ -1431,3 +1432,25 @@ The system SHALL read a note's optional `review` date and SHALL never add, chang
 - **Given** a note whose top `meta` block says `review: 2026-12-01`
 - **When** the app appends a task id to the note's `tasks` field
 - **Then** the block still says `review: 2026-12-01`, byte for byte
+
+### Requirement: A note's review date comes due
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainReviewDateReaderTests.The_notes_whose_review_date_has_come_arrive_oldest_first, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainReviewDateReaderTests.An_unreadable_date_is_a_warning_and_the_rest_still_answer, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainReviewDateReaderTests.A_later_day_brings_the_future_review_in_and_a_headings_review_never, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainReviewToolTests.It_answers_the_due_notes_and_the_warnings_for_today]
+```
+
+The system SHALL keep the `review` value of a note's top `meta` block in the Brain's database as written, and SHALL answer the notes whose date is on or before a given day, oldest first, to the app and through `list_brain_reviews`. A value that is not a `YYYY-MM-DD` date SHALL be a warning beside that answer, never an error.
+
+#### Scenario: A review date that has come
+
+- **Given** a note whose top `meta` block says `review: 2026-11-01`
+- **When** the app asks for the notes due on 2026-11-11
+- **Then** the note is in the answer, with its date
+
+#### Scenario: A review value that is no date
+
+- **Given** a note whose top `meta` block says `review: next week`
+- **When** the app asks for the notes due on any day
+- **Then** the note is listed as a warning and left out of the due notes
+- **And** the build and the other notes' answer go on as before

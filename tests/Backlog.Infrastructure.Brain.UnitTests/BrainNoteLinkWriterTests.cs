@@ -109,6 +109,25 @@ public sealed class BrainNoteLinkWriterTests : IDisposable
     [Theory]
     [InlineData("\n")]
     [InlineData("\r\n")]
+    public async Task A_link_written_beside_a_review_date_never_touches_it(string eol)
+    {
+        // Local ADR 0054 §6: the app never writes review, not even through this writer.
+        const string reviewed = "# Health\n\n```meta\nreview: 2026-11-5\n```\n\nCheck-ups.\n";
+        var path = Note("areas/health.md", reviewed, eol);
+
+        await Writer().AppendTaskAsync("areas/health.md", TaskId, Ct);
+        await Writer().AppendRoadmapTagAsync("areas/health.md", "health", Ct);
+
+        var expected = Eol(reviewed, eol).Replace(
+            "review: 2026-11-5" + eol,
+            "review: 2026-11-5" + eol + $"tasks: [{TaskId}]" + eol + "roadmap: [health]" + eol,
+            StringComparison.Ordinal);
+        Assert.Equal(expected, File.ReadAllText(path));
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
     public async Task A_roadmap_tag_appended_to_an_empty_flow_list_stays_a_flow_list(string eol)
     {
         var path = Note("projects/sync.md", Flow, eol);

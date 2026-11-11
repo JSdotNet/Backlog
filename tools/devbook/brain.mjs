@@ -8,7 +8,8 @@
 // a top folder — the ones its own `CONVENTIONS.md` declares, or the PARA set when
 // it declares none, then every other top folder holding a note, minus the
 // folders its `Ignore` section lists (local ADR 0026 §2). A note adds three
-// fields — `para`, `repos` and `tasks` — and may link into a repository devbook
+// fields — `para`, `repos` and `tasks` — its top block may name a fourth,
+// `review` (local ADR 0054 §6), kept as written, and it may link into a repository devbook
 // with `repo:<alias>/<devbook path>[#slug]` (local ADR 0027 §6), which no Brain
 // database can resolve: those links are stored as edges whose target is no node.
 //
@@ -46,7 +47,7 @@ export const PARA_AREAS = Object.freeze([
 ]);
 
 /** The node attributes a Brain adds to the devbook's list attributes. */
-export const BRAIN_ATTRIBUTES = ['para', 'repos', 'tasks'];
+export const BRAIN_ATTRIBUTES = ['para', 'repos', 'tasks', 'review'];
 
 /** The edge type a `repo:` link in a note's body draws. */
 export const REPO_LINK_EDGE = 'repo-link';
@@ -452,7 +453,8 @@ export function repoLinkEdges(relPath, markdown, chapters) {
  * that resolves to nothing draws nothing, as an unresolved one inside the devbook
  * folders does; a `repo:` reference keeps its edge and loses the invented node, so
  * it is stored unresolved; and the `para`, `repos` and `tasks` fields become node
- * attributes — `para` on every file, from the folder unless the note overrides it.
+ * attributes — `para` on every file, from the folder unless the note overrides it —
+ * and so does a file's own `review` date.
  */
 export async function loadBrainGenerator(brainRoot, base) {
     const areas = await readBrainAreas(brainRoot);
@@ -490,7 +492,7 @@ export async function loadBrainGenerator(brainRoot, base) {
 
                 const file = byId.get(relPath);
                 const fileMeta = chapters.find((chapter) => chapter.level === 1)?.meta ?? null;
-                if (file) applyBrainFields(file, fileMeta, folder);
+                if (file) applyBrainFields(file, fileMeta, folder, true);
 
                 const claimed = new Set();
                 for (const chapter of chapters) {
@@ -499,7 +501,7 @@ export async function loadBrainGenerator(brainRoot, base) {
                     if (claimed.has(id)) continue;
                     claimed.add(id);
                     const node = byId.get(id);
-                    if (node?.type === 'chapter') applyBrainFields(node, chapter.meta, null);
+                    if (node?.type === 'chapter') applyBrainFields(node, chapter.meta, null, false);
                 }
 
                 edges.push(...repoLinkEdges(relPath, markdown, chapters));
@@ -531,8 +533,11 @@ export async function loadBrainGenerator(brainRoot, base) {
 }
 
 /** `para`, `repos` and `tasks` onto a node: `para` from `area` when the note
- *  does not override it — a file always has one, a chapter only when it says. */
-function applyBrainFields(node, meta, area) {
+ *  does not override it — a file always has one, a chapter only when it says.
+ *  A file also keeps its top block's `review` as `String(value)` writes it:
+ *  whether it is a date is the reader's question, so an unreadable one is stored
+ *  and reported there as a warning, never refused here (local ADR 0054 §6). */
+function applyBrainFields(node, meta, area, isFile) {
     const para = meta?.para;
     if (para !== null && para !== undefined) node.para = String(para);
     else if (area !== null) node.para = area;
@@ -542,6 +547,10 @@ function applyBrainFields(node, meta, area) {
         if (values.length) node[field] = values.map(String);
         else delete node[field];
     }
+
+    const review = isFile && meta?.review !== null && meta?.review !== undefined ? String(meta.review) : '';
+    if (review.length) node.review = [review];
+    else delete node.review;
 }
 
 /** Every `.md` under `folder`, as the generator's graph walk finds them. A
