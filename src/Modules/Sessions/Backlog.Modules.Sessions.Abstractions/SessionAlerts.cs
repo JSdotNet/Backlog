@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Backlog.Modules.Sessions.Abstractions;
 
@@ -58,7 +59,9 @@ public sealed record SessionAlertAction(string Label, SessionAlertTarget Target,
 /// loop that stops again after checking in alerts again, and one whose waiting work drains and
 /// returns before it checks in does not.</param>
 /// <param name="Cause">Which cause.</param>
-/// <param name="Place">"Schedules" or "Sessions": the line under Backlog it is raised from.</param>
+/// <param name="Place">The line under Backlog it is raised from: a schedule's
+/// <see cref="SessionAlerts.SchedulePlace"/> — its repository, then "Schedules" — or a loop's
+/// "Sessions".</param>
 /// <param name="Title">One line, under 80 characters.</param>
 /// <param name="Summary">One line, under 180 characters.</param>
 /// <param name="Body">Markdown that says what happened and what clears it.</param>
@@ -104,10 +107,21 @@ public sealed record LoopWaitingWork(int SessionRequests, int Deliveries)
 /// </list>
 /// Review ready, Handled and No summary yet raise nothing.
 /// </summary>
-public static class SessionAlerts
+public static partial class SessionAlerts
 {
-    /// <summary>The place a schedule's alert is raised from.</summary>
+    /// <summary>The place a schedule's alert is raised from, after its repository.</summary>
     public const string SchedulesPlace = "Schedules";
+
+    /// <summary>
+    /// The place a schedule's alert names: the schedule's repository, then
+    /// <see cref="SchedulesPlace"/> — "JSdotNet/Backlog · Schedules". The repository leads, as
+    /// a run's does, so the centre files the alert under it rather than under the Brain; a
+    /// schedule that reported no repository is <see cref="SchedulesPlace"/> alone, the Brain's.
+    /// A repository name long enough to cut the place at its 120 characters loses the
+    /// separator, and the alert then reads as the Brain's too.
+    /// </summary>
+    public static string SchedulePlace(string? repository) =>
+        string.IsNullOrWhiteSpace(repository) ? SchedulesPlace : $"{OneLine(repository)} · {SchedulesPlace}";
 
     /// <summary>The place a loop's alert is raised from.</summary>
     public const string SessionsPlace = "Sessions";
@@ -174,6 +188,7 @@ public static class SessionAlerts
 
         var name = NameOf(schedule.Schedule);
         var id = schedule.Schedule.Id;
+        var place = SchedulePlace(schedule.Schedule.Repository);
         var alerts = new List<SessionAlert>();
 
         foreach (var reading in schedule.Runs)
@@ -187,9 +202,9 @@ public static class SessionAlerts
                 alerts.Add(new SessionAlert(
                     $"needs-you:schedule:{id}:{run.SessionId}",
                     SessionAlertCause.NeedsYou,
-                    SchedulesPlace,
+                    place,
                     Cut($"{name} needs you", MaxTitle),
-                    Cut(string.Join("; ", lines), MaxSummary),
+                    Cut(string.Join("; ", lines.Select(PlainText)), MaxSummary),
                     $"""
                     A run of **{name}** finished and asks for you:
 
@@ -206,7 +221,7 @@ public static class SessionAlerts
                 alerts.Add(new SessionAlert(
                     $"failed:schedule:{id}:{run.SessionId}",
                     SessionAlertCause.Failed,
-                    SchedulesPlace,
+                    place,
                     Cut($"{name} failed", MaxTitle),
                     Cut(error, MaxSummary),
                     $"""
@@ -225,7 +240,7 @@ public static class SessionAlerts
             alerts.Add(new SessionAlert(
                 $"held:schedule:{id}:{held}",
                 SessionAlertCause.Held,
-                SchedulesPlace,
+                place,
                 Cut($"{name} is held", MaxTitle),
                 "An earlier run is not archived, so each run skips itself.",
                 $"""
@@ -242,7 +257,7 @@ public static class SessionAlerts
             alerts.Add(new SessionAlert(
                 $"missed:schedule:{id}:{due.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}",
                 SessionAlertCause.Missed,
-                SchedulesPlace,
+                place,
                 Cut($"{name} missed its run", MaxTitle),
                 Cut($"It was due at {at} and no run has started.", MaxSummary),
                 $"""
@@ -362,6 +377,21 @@ public static class SessionAlerts
 
     private static string Clock(DateTimeOffset at, TimeZoneInfo zone) =>
         TimeZoneInfo.ConvertTime(at, zone).ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A Needs-you line as plain text, for the alert's summary, which is plain text
+    /// wherever it is drawn — a Windows notification, the phone, the centre's card: a link
+    /// keeps its words, and emphasis and code marks go. The body keeps the Markdown, where it
+    /// renders.
+    /// </summary>
+    internal static string PlainText(string line) =>
+        InlineMarks().Replace(MarkdownLink().Replace(line, "${text}"), string.Empty);
+
+    [GeneratedRegex(@"!?\[(?<text>[^\]]*)\]\([^)\s]*(?:\s+""[^""]*"")?\)")]
+    private static partial Regex MarkdownLink();
+
+    [GeneratedRegex(@"\*\*|`+")]
+    private static partial Regex InlineMarks();
 
     private static string OneLine(string text) =>
         string.Join(' ', text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Select(part => part.Trim())).Trim();

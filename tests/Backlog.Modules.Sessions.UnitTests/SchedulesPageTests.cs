@@ -385,6 +385,50 @@ public sealed class SchedulesPageTests
     }
 
     [Fact]
+    public void A_needs_you_line_draws_its_markdown_link_as_a_link_on_the_card_and_in_the_detail()
+    {
+        using var context = Context();
+        var weekly = Schedule(
+            "weekly-update", "Weekly update", "JSdotNet/Backlog", ScheduledRunState.NeedsYou,
+            cron: "0 18 * * 0",
+            runs:
+            [
+                Run("sun", ScheduledRunState.NeedsYou, new DateTimeOffset(2026, 11, 8, 18, 0, 0, TimeSpan.Zero),
+                    needsYou: ["Review [#1751](https://github.com/JSdotNet/Backlog/pull/1751) before Friday", "Run `dotnet test`"]),
+            ]);
+        var page = Render(context, [weekly]);
+
+        var card = page.Find("[data-testid='schedules-card']");
+        var link = card.QuerySelector("[data-testid='schedules-card-ask'] li a")!;
+        Assert.Equal("#1751", link.TextContent.Trim());
+        Assert.Equal("https://github.com/JSdotNet/Backlog/pull/1751", link.GetAttribute("href"));
+        Assert.Equal("Review #1751 before Friday", card.QuerySelectorAll("[data-testid='schedules-card-ask'] li")[0].TextContent.Trim());
+        Assert.DoesNotContain("](", card.TextContent, StringComparison.Ordinal);
+        Assert.Equal("dotnet test", card.QuerySelector("[data-testid='schedules-card-ask'] li code")!.TextContent.Trim());
+
+        page.Find("[data-testid='schedules-row-name']").Click();
+
+        var note = page.Find("[data-testid='schedules-detail'] [data-testid='schedules-detail-run-note']");
+        Assert.Equal("https://github.com/JSdotNet/Backlog/pull/1751", note.QuerySelector("a")!.GetAttribute("href"));
+        Assert.Equal("Review #1751 before Friday (+1 more)", note.TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_needs_you_line_never_makes_a_script_link_followable()
+    {
+        using var context = Context();
+        var weekly = Schedule(
+            "weekly-update", "Weekly update", "JSdotNet/Backlog", ScheduledRunState.NeedsYou,
+            cron: "0 18 * * 0",
+            runs: [Run("sun", ScheduledRunState.NeedsYou, new DateTimeOffset(2026, 11, 8, 18, 0, 0, TimeSpan.Zero), needsYou: ["Open [this](javascript:alert(1))"])]);
+        var page = Render(context, [weekly]);
+
+        var line = page.Find("[data-testid='schedules-card-ask'] li");
+        Assert.Null(line.QuerySelector("a"));
+        Assert.Equal("Open this", line.TextContent.Trim());
+    }
+
+    [Fact]
     public void No_schedule_reported_yet_reads_as_an_empty_page_that_says_how_one_appears()
     {
         using var context = Context();

@@ -61,7 +61,8 @@ public sealed class SessionAlertPublisherTests
         var alert = Assert.Single(_ledger.Views);
         Assert.Equal(NotificationKind.Alert, alert.Kind);
         Assert.Equal("Weekly update needs you", alert.Title);
-        Assert.Equal(new NotificationOrigin("Backlog", "Schedules"), alert.Origin);
+        // The schedule's repository leads the place, so the centre files the alert under it.
+        Assert.Equal(new NotificationOrigin("Backlog", "JSdotNet/Backlog · Schedules"), alert.Origin);
         Assert.Equal(new NotificationSubject("sessions", "alert", "needs-you:schedule:weekly-update:run-1"), alert.Subject);
         Assert.Equal(
             [

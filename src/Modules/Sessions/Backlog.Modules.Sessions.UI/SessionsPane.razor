@@ -739,6 +739,12 @@ else
                 <p class="sessions-detail__note" data-testid="sessions-copilot-liveness">@CopilotLivenessLine</p>
             }
 
+            @if (IsAgent(row))
+            {
+                @LoopFacts(row)
+            }
+            else
+            {
             <dl class="sessions-detail__facts" data-testid="sessions-facts">
                 <div class="sessions-fact">
                     <dt>Repository</dt>
@@ -817,6 +823,7 @@ else
                     </div>
                 }
             </dl>
+            }
 
             @if (IsAgent(row))
             {
@@ -833,7 +840,11 @@ else
                                  Work="@_loopWork"
                                  Busy="@_commanding"
                                  Error="@_commandError"
-                                 OnCommand="command => SetLoopCommandAsync(loop, command)" />
+                                 OnCommand="command => SetLoopCommandAsync(loop, command)"
+                                 CancellableRequests="@(AnotherDispatcherRuns(loop) ? null : _cancellable)"
+                                 Cancelling="@_cancelling"
+                                 OnCancelRequests="CancelWaitingRequestsAsync"
+                                 OnSeeUsage="@OnSeeUsage" />
             }
             else
             {
@@ -1068,6 +1079,13 @@ else
     [Parameter]
     public EventCallback<Guid> OnAnswerQuestion { get; set; }
 
+    /// <summary>
+    /// Opens where the app shows plan usage — a Holding dispatcher's See usage. The window
+    /// decides where that is; without it the card offers no See usage.
+    /// </summary>
+    [Parameter]
+    public EventCallback OnSeeUsage { get; set; }
+
     /// <summary>What each Waiting session asks, by session id, from the question
     /// relay's open questions; empty where the host composed none or it could not be
     /// read.</summary>
@@ -1113,6 +1131,38 @@ else
     /// composed no queue.</summary>
     private int? WaitingRequests { get; set; }
 
+    /// <summary>How many session requests a person may cancel — Requested or Claimed —
+    /// or null where the host composed no queue.</summary>
+    private int? _cancellable;
+
+    /// <summary>How many sessions the dispatcher started today, or null where the host
+    /// composed no queue.</summary>
+    private int? _dispatchedToday;
+
+    /// <summary>Whether the waiting requests are being cancelled.</summary>
+    private bool _cancelling;
+
+    /// <summary>How often the pane reads the Loop Register again on its own, so a loop's
+    /// chip follows its check-ins without a click (QA finding F5). A check-in lands at most
+    /// every couple of minutes, and the Listening window is two, so half a minute keeps
+    /// the row within a tick of its state. A tick reads what the loop rows need — the
+    /// register, the session list for each loop's process, the queue and the undelivered
+    /// answers — and the capacity only while a loop's card is on screen; it runs only
+    /// while the list holds a loop session.</summary>
+    internal static readonly TimeSpan LoopRefreshInterval = TimeSpan.FromSeconds(30);
+
+    /// <summary>The pane's own timer over the loops; null where the host composed no
+    /// Loop Register.</summary>
+    private ITimer? _loopTimer;
+
+    /// <summary>Whether a timed re-read of the loops is out.</summary>
+    private int _rereadingLoops;
+
+    /// <summary>Bumped by every change to the loops that is not a timed re-read — a full
+    /// read, a command, a cancel — so a timed re-read that started before one is dropped
+    /// rather than put older state back on screen.</summary>
+    private int _loopGeneration;
+
     private static string NeedYouLabel(int count) => count == 1 ? "1 needs you" : $"{count} need you";
 
     /// <summary>Whether a command is being set on a loop, and why the last one failed.</summary>
@@ -1120,6 +1170,21 @@ else
     private string? _commandError;
 
     private static bool IsAgent(SessionRow row) => SessionTitles.Of(row).Purpose is SessionPurpose.Agent;
+
+    /// <summary>
+    /// Whether a dispatcher other than <paramref name="loop"/> still runs: it checks in —
+    /// Listening or Holding — or it went quiet with its process seen alive. The register
+    /// keeps every dispatcher that ever checked in, so an old one reads Not running after a
+    /// restart; its card then offers no Cancel requests, since the requests are the live
+    /// dispatcher's to claim and start. A quiet entry whose session the list no longer
+    /// holds reads Stalled for ever, and is not taken for a live one.
+    /// </summary>
+    private bool AnotherDispatcherRuns(LoopSessionReading? loop) =>
+        _loops.Values.Any(other =>
+            other.Loop.CheckIn.Kind is LoopKind.Dispatcher
+            && (other.State is LoopState.Listening or LoopState.Holding
+                || (other.State is LoopState.Stalled && other.Process is LoopProcess.Alive))
+            && !string.Equals(other.Loop.SessionId, loop?.Loop.SessionId, StringComparison.Ordinal));
 
     /// <summary>The loop a row is, by the session id it checks in with — its transcript's
     /// id, or the desktop app's — or null for a loop session that has not checked in.</summary>
@@ -1154,6 +1219,54 @@ else
         }
     };
 
+    /// <summary>
+    /// A loop session's facts, in place of the generic ones (the design's "Loop session
+    /// states" artboard): where it runs, when it last checked in, how long it has run and,
+    /// for the dispatcher, how many sessions it started today. A loop's model, effort,
+    /// output and branch say nothing about whether it is doing its job.
+    /// </summary>
+    private RenderFragment LoopFacts(SessionRow row) => __builder =>
+    {
+        var loop = LoopOf(row);
+        var alive = LoopSessions.ProcessOf(row.Session) is LoopProcess.Alive or LoopProcess.Unknown;
+        var kind = loop?.Loop.CheckIn.Kind ?? LoopSessions.KindOfTitle(row.Title) ?? LoopKind.Dispatcher;
+
+        <dl class="sessions-detail__facts" data-testid="sessions-facts">
+            <div class="sessions-fact">
+                <dt>Repository</dt>
+                <dd><span class="@RepositoryClass(row)" title="@RepositoryTitle(row)">@Or(RepositoryLabel(row.Repository))</span></dd>
+            </div>
+            <div class="sessions-fact">
+                <dt>Machine</dt>
+                <dd>@row.Environment</dd>
+            </div>
+            <div class="sessions-fact">
+                <dt>Last check-in</dt>
+                @if (loop is { } checkedIn)
+                {
+                    <dd data-testid="sessions-fact-check-in" title="@Moment(checkedIn.Loop.CheckIn.At)">@LoopSessionView.Ago(checkedIn.Loop.CheckIn.At, _loopsReadAt)</dd>
+                }
+                else
+                {
+                    <dd data-testid="sessions-fact-check-in">None yet</dd>
+                }
+            </div>
+            <div class="sessions-fact">
+                @* Up to now while its process lives; from its start to its last activity
+                   once it has none. *@
+                <dt>@(alive ? "Running for" : "Ran for")</dt>
+                <dd data-testid="sessions-fact-running-for" title="@($"Started {Moment(row.StartedAt)}")">@Or(DurationLabel(alive ? _loopsReadAt - row.StartedAt : row.Duration))</dd>
+            </div>
+            @if (kind is LoopKind.Dispatcher)
+            {
+                <div class="sessions-fact">
+                    <dt>Dispatched today</dt>
+                    <dd data-testid="sessions-fact-dispatched" title="Session requests it started today">@(_dispatchedToday is { } today ? LoopSessionView.DispatchedLabel(today) : Missing)</dd>
+                </div>
+            }
+        </dl>
+    };
+
     /// <summary>Sets the person's command on a loop; the next check-in's answer carries
     /// it. The reading is replaced with what the register answered, so the card shows the
     /// command at once; a register that fails says so on the card and changes nothing.</summary>
@@ -1168,6 +1281,7 @@ else
         {
             if (await monitor.SetCommandAsync(loop.Loop.SessionId, command) is { } changed)
             {
+                _loopGeneration++;
                 _loops = new Dictionary<string, LoopSessionReading>(_loops, StringComparer.Ordinal)
                 {
                     [changed.SessionId] = loop with { Loop = changed }
@@ -1196,21 +1310,132 @@ else
         DateTimeOffset ReadAt,
         CapacityReading? Capacity,
         int? WaitingRequests,
-        IReadOnlyList<LoopWorkItem>? Work);
+        IReadOnlyList<LoopWorkItem>? Work,
+        int? Cancellable = null,
+        int? DispatchedToday = null,
+        bool CapacityRead = true);
 
     /// <summary>What <see cref="ReadLoopsAsync"/> read, taken in on the
-    /// renderer's thread.</summary>
-    private void Apply(LoopReading read)
+    /// renderer's thread. A timed re-read keeps the card's last error, which only the
+    /// person's next command or Refresh clears.</summary>
+    private void Apply(LoopReading read, bool timed = false)
     {
+        if (!timed) _loopGeneration++;
+
         _loops = read.Loops;
         _loopsReadAt = read.ReadAt;
-        _capacity = read.Capacity;
+        if (read.CapacityRead) _capacity = read.Capacity;
         WaitingRequests = read.WaitingRequests;
         _loopWork = read.Work;
-        _commandError = null;
+        _cancellable = read.Cancellable;
+        _dispatchedToday = read.DispatchedToday;
+        if (!timed) _commandError = null;
     }
 
-    private async Task<LoopReading> ReadLoopsAsync()
+    /// <summary>
+    /// The pane's own re-read of the loops, on <see cref="LoopRefreshInterval"/>: the Loop
+    /// Register, the queue and the capacity again, so a row that read Holding reads
+    /// Listening once its next check-in says so, and a check-in's age keeps counting. Only
+    /// while the list holds a loop session, never beside a full read already out, and
+    /// never two at once.
+    /// </summary>
+    private async Task RereadLoopsAsync()
+    {
+        if (_disposed || Interlocked.Exchange(ref _rereadingLoops, 1) == 1) return;
+
+        try
+        {
+            var due = false;
+            var card = false;
+            var generation = 0;
+            await InvokeAsync(() =>
+            {
+                generation = _loopGeneration;
+                due = !_disposed && _read && _reading is not { IsCompleted: false } && _rows.Any(IsAgent);
+                card = due && !_economics && !_schedulesPage && Selected is { } shown && IsAgent(shown);
+            });
+
+            if (!due) return;
+
+            // The capacity is measured only while a loop's card is on screen: it reads the
+            // week's telemetry and the machine's load, which the rows alone do not need.
+            var read = await Task.Run(() => ReadLoopsAsync(withCapacity: card));
+
+            await InvokeAsync(() =>
+            {
+                if (_disposed || _reading is { IsCompleted: false } || generation != _loopGeneration) return;
+
+                Apply(read, timed: true);
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // The pane went with its circuit between ticks.
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _rereadingLoops, 0);
+        }
+    }
+
+    /// <summary>
+    /// A Not running dispatcher's Cancel requests: every request still Requested or
+    /// Claimed, through the queue's own cancel, then the loops read again so the work
+    /// list and the row say what is left. A request that moved on meanwhile is refused by
+    /// the queue and stays as it is; the card says how many could not be cancelled.
+    /// </summary>
+    private async Task CancelWaitingRequestsAsync()
+    {
+        if (_cancelling || Services.GetService<ISessionRequestStore>() is not { } queue) return;
+
+        _cancelling = true;
+        _commandError = null;
+
+        try
+        {
+            var refused = await Task.Run(async () =>
+            {
+                var now = _clock.GetUtcNow();
+                var count = 0;
+
+                // The two states a person may cancel, asked for by state rather than
+                // reading the queue's whole history.
+                var open = (await queue.ListAsync(SessionRequestState.Requested))
+                    .Concat(await queue.ListAsync(SessionRequestState.Claimed));
+
+                foreach (var request in open)
+                {
+                    if (request.StateAt(now) is not (SessionRequestState.Requested or SessionRequestState.Claimed)) continue;
+
+                    if (!(await queue.CancelAsync(request.Id)).Succeeded) count++;
+                }
+
+                return count;
+            });
+
+            Apply(await Task.Run(ReadLoopsAsync));
+
+            if (refused > 0)
+            {
+                _commandError = refused == 1
+                    ? "One request moved on before it could be cancelled, so it was left as it is."
+                    : $"{refused} requests moved on before they could be cancelled, so they were left as they are.";
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _commandError = $"Couldn't cancel the requests: {exception.Message}";
+        }
+        finally
+        {
+            _cancelling = false;
+        }
+    }
+
+    private Task<LoopReading> ReadLoopsAsync() => ReadLoopsAsync(withCapacity: true);
+
+    private async Task<LoopReading> ReadLoopsAsync(bool withCapacity)
     {
         var now = _clock.GetUtcNow();
         var loops = new Dictionary<string, LoopSessionReading>(StringComparer.Ordinal);
@@ -1257,7 +1482,8 @@ else
 
         CapacityReading? capacity = null;
 
-        if (loops.Values.Any(loop => loop.Loop.CheckIn.Kind is LoopKind.Dispatcher)
+        if (withCapacity
+            && loops.Values.Any(loop => loop.Loop.CheckIn.Kind is LoopKind.Dispatcher)
             && Services.GetService<ICapacityReader>() is { } reader)
         {
             try
@@ -1275,7 +1501,23 @@ else
             now,
             capacity,
             requests is null ? null : SessionRequests.Waiting(requests, now).Count,
-            requests is null && undelivered.Count == 0 ? null : LoopSessionView.Work(requests ?? [], undelivered, now));
+            requests is null && undelivered.Count == 0 ? null : LoopSessionView.Work(requests ?? [], undelivered, now),
+            requests?.Count(request => request.StateAt(now) is SessionRequestState.Requested or SessionRequestState.Claimed),
+            requests is null ? null : LoopSessionView.DispatchedToday(requests, SessionStartOf(_catalog), now, _clock.LocalTimeZone),
+            withCapacity);
+    }
+
+    /// <summary>When a session in <paramref name="catalog"/> began, by its id.</summary>
+    private static Func<string, DateTimeOffset?> SessionStartOf(AgentSessionCatalog? catalog)
+    {
+        var starts = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var session in catalog?.Sessions ?? [])
+        {
+            if (session.StartedAt is { } started) starts.TryAdd(session.Id, started);
+        }
+
+        return id => starts.TryGetValue(id, out var start) ? start : null;
     }
 
     /// <summary>The open waiting questions, read beside the sessions. The relay is the
@@ -1445,7 +1687,11 @@ else
         }
     }
 
-    public void Dispose() => _disposed = true;
+    public void Dispose()
+    {
+        _disposed = true;
+        _loopTimer?.Dispose();
+    }
 
     /// <summary>What one row cost, worked out once its requests are in — and the effort
     /// those requests reported, which the same read answers.</summary>
@@ -2129,6 +2375,14 @@ else
         _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
 
         await RefreshAsync();
+
+        // The loops are the one part of the list that moves on its own: a check-in can
+        // turn Holding into Listening at any time, so they are read again on a timer of
+        // the pane's own rather than waiting for a click (QA finding F5).
+        if (Services.GetService<LoopSessionMonitor>() is not null && !_disposed)
+        {
+            _loopTimer = _clock.CreateTimer(_ => _ = RereadLoopsAsync(), null, LoopRefreshInterval, LoopRefreshInterval);
+        }
 
         // Every opening amends the records of the sessions that moved since the last
         // one, so a session is written down while its transcript is still there to

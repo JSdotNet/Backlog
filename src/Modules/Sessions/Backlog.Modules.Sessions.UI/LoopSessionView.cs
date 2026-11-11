@@ -169,6 +169,73 @@ public static class LoopSessionView
         ];
     }
 
+    /// <summary>What a Not running dispatcher leaves waiting: "3 requests wait for it."</summary>
+    public static string StoppedLine(int waiting) =>
+        waiting == 1 ? "1 request waits for it." : $"{waiting.ToString(CultureInfo.InvariantCulture)} requests wait for it.";
+
+    /// <summary>
+    /// What holds a Holding dispatcher, in words: each limit reached, with its figure —
+    /// "Plan usage is 84%, over the 80% limit." Where the host measured nothing that is
+    /// reached, the loop's own word for it stands.
+    /// </summary>
+    public static string HoldingLine(CapacityReading? reading)
+    {
+        if (reading is null || reading.HeldBy() is not { Count: > 0 } held)
+        {
+            return "It holds the waiting requests until a limit leaves room.";
+        }
+
+        var limits = reading.Limits;
+        var parts = held.Select(limit => limit switch
+        {
+            CapacityLimit.Sessions => $"{reading.WorkingSessions?.ToString(CultureInfo.InvariantCulture)} of {limits.Sessions.ToString(CultureInfo.InvariantCulture)} sessions are working, the limit",
+            CapacityLimit.Usage => $"plan usage is {Percent(reading.PlanUsagePercent)}, over the {Percent(limits.UsagePercent)} limit",
+            CapacityLimit.Cpu => $"CPU is {Percent(reading.CpuPercent)}, over the {Percent(limits.CpuPercent)} limit",
+            _ => $"free memory is {Math.Floor(reading.FreeMemoryGb ?? 0).ToString(CultureInfo.InvariantCulture)} GB, under the {limits.MinFreeGb.ToString(CultureInfo.InvariantCulture)} GB it keeps"
+        });
+
+        var line = string.Join("; ", parts) + ".";
+
+        return char.ToUpperInvariant(line[0]) + line[1..];
+    }
+
+    /// <summary>
+    /// How many sessions a dispatcher started today: the requests reported Started or
+    /// Linked whose session began today in <paramref name="zone"/>. A request carries no
+    /// start time of its own, so its session's start is read from the session list, and
+    /// the moment it was asked for stands in where the list does not hold that session.
+    /// </summary>
+    /// <param name="requests">Every session request the queue holds.</param>
+    /// <param name="sessionStart">When a session began, by its id; null when unknown.</param>
+    /// <param name="now">What "today" is measured from.</param>
+    /// <param name="zone">The zone a day is read in: this machine's.</param>
+    public static int DispatchedToday(
+        IEnumerable<SessionRequest> requests,
+        Func<string, DateTimeOffset?> sessionStart,
+        DateTimeOffset now,
+        TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+        ArgumentNullException.ThrowIfNull(sessionStart);
+        ArgumentNullException.ThrowIfNull(zone);
+
+        var today = TimeZoneInfo.ConvertTime(now, zone).Date;
+
+        return requests.Count(request =>
+            request.State is SessionRequestState.Started or SessionRequestState.Linked
+            && TimeZoneInfo.ConvertTime(
+                (request.SessionId is { Length: > 0 } session ? sessionStart(session) : null) ?? request.CreatedAt,
+                zone).Date == today);
+    }
+
+    /// <summary>"3 sessions", "1 session", "none": a dispatcher's day, as its fact reads.</summary>
+    public static string DispatchedLabel(int count) => count switch
+    {
+        0 => "None yet",
+        1 => "1 session",
+        _ => $"{count.ToString(CultureInfo.InvariantCulture)} sessions"
+    };
+
     /// <summary>A tile's footnote, naming the limit as the one that holds the loop when it
     /// is reached — in words, so the held tile never rests on its edge alone.</summary>
     private static string Limit(string limit, bool reached) => reached ? $"{limit} · reached" : limit;

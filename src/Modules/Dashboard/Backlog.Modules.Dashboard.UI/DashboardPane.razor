@@ -427,6 +427,38 @@
     [Parameter]
     public EventCallback<string> OnAskAi { get; set; }
 
+    /// <summary>
+    /// The tab to open on, by its short name — <c>sessions</c> for the Sessions tab — or
+    /// null for the Overview. Taken once per value, so a reader who moves on to another
+    /// tab is not pulled back by the next render; a name no tab answers to is ignored.
+    /// </summary>
+    [Parameter]
+    public string? InitialTab { get; set; }
+
+    /// <summary>The <see cref="InitialTab"/> last acted on.</summary>
+    private string? _openTabApplied;
+
+    /// <summary>The tabs <see cref="InitialTab"/> may name, by their panel ids.</summary>
+    private static readonly HashSet<string> TabIds = new(StringComparer.Ordinal)
+    {
+        "dashboard-overview", "dashboard-productivity", "dashboard-tasks", "dashboard-sessions", "dashboard-devbook", "dashboard-cost",
+    };
+
+    private void ApplyOpenTab()
+    {
+        if (string.Equals(InitialTab, _openTabApplied, StringComparison.OrdinalIgnoreCase)) return;
+
+        _openTabApplied = InitialTab;
+
+        var id = $"dashboard-{InitialTab?.Trim().ToLowerInvariant()}";
+
+        if (InitialTab is { Length: > 0 } && TabIds.Contains(id))
+        {
+            _activeTab = id;
+            _showBrief = false;
+        }
+    }
+
     /// <summary>The handler the parts' frames are cascaded, made once so the cascade
     /// does not change identity on every render; it reads <see cref="OnAskAi"/> when
     /// pressed, so a callback the shell replaces is the one that answers.</summary>
@@ -448,8 +480,11 @@
     /// part re-fetches for it.
     /// </para>
     /// </summary>
-    protected override void OnParametersSet() =>
+    protected override void OnParametersSet()
+    {
         Scope = _scope with { Repositories = RepositoryFocus.Of(RepositoryAliases) };
+        ApplyOpenTab();
+    }
 
     /// <summary>
     /// The machines the filter offers, asked for once when the pane opens rather than

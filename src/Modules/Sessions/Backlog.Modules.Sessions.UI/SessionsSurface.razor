@@ -10,8 +10,10 @@
     comes through the window's SessionsSurfaceWiring, and opening an entry is a jump to
     the Tasks surface that lands in this window. `page=schedules` opens it on the
     Schedules page instead, and `schedule=<id>` on that schedule there — a schedule
-    alert's Open Schedules. A pull request's chip is asked for only
-    while the catalog offers the pull requests surface, the flag that gates it.
+    alert's Open Schedules. A Holding dispatcher's See usage opens the Dashboard on its
+    Sessions tab, through the window's navigator, while the catalog offers the Dashboard.
+    A pull request's chip is asked for only while the catalog offers the pull requests
+    surface, the flag that gates it.
 *@
 <SessionsPane OnClose="OnClose"
               RepositoryScope="@(_wiring?.RepositoryScope?.Invoke() ?? [])"
@@ -23,7 +25,8 @@
               OnAnswerQuestion="@AnswerQuestionCallback"
               FocusSessionId="@FocusSessionId"
               OpenOnSchedules="@OpenOnSchedules"
-              FocusScheduleId="@FocusScheduleId" />
+              FocusScheduleId="@FocusScheduleId"
+              OnSeeUsage="@SeeUsageCallback" />
 
 @code {
     /// <summary>The pull requests surface's id, the Sessions context's second list.</summary>
@@ -58,6 +61,24 @@
 
     private EventCallback<DeliveryRunReference> OpenTaskCallback =>
         _wiring?.OpenTask is { } open ? EventCallback.Factory.Create(this, open) : default;
+
+    /// <summary>The Dashboard surface's id and the query that opens it on its Sessions tab,
+    /// where the app shows Claude Code usage and the limits it hit. Named as strings here,
+    /// since the Sessions module references no Dashboard UI project.</summary>
+    internal const string DashboardSurfaceId = "dashboard";
+
+    internal const string DashboardTabKey = "tab";
+
+    internal const string DashboardSessionsTab = "sessions";
+
+    /// <summary>Only while the catalog offers the Dashboard, so See usage never opens
+    /// nothing; without it a Holding card offers none.</summary>
+    private EventCallback SeeUsageCallback =>
+        Catalog.TryGet(DashboardSurfaceId, out _) && Services.GetService<global::Backlog.SharedKernel.ISurfaceNavigator>() is { } navigator
+            ? EventCallback.Factory.Create(this, () => navigator.Show(
+                DashboardSurfaceId,
+                new Dictionary<string, string>(StringComparer.Ordinal) { [DashboardTabKey] = DashboardSessionsTab }))
+            : default;
 
     /// <summary>Only while the window offers the centre, so an Answer never opens
     /// nothing; without it the strip still says what the session asks.</summary>

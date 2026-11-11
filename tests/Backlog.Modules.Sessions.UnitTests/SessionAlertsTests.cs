@@ -52,11 +52,50 @@ public sealed class SessionAlertsTests
         Assert.Equal(SessionAlertCause.NeedsYou, alert.Cause);
         Assert.Equal("Issue sweep needs you", alert.Title);
         Assert.Equal("Review two pull requests; Follow up on two issues", alert.Summary);
-        Assert.Equal(SessionAlerts.SchedulesPlace, alert.Place);
+        Assert.Equal("JSdotNet/Backlog · Schedules", alert.Place);
         Assert.Equal(
             [new SessionAlertAction("Open run", SessionAlertTarget.Run, "run-1"), new SessionAlertAction("Open Schedules", SessionAlertTarget.Schedules, ScheduleId: "issue-sweep")],
             alert.Actions);
         Assert.False(alert.IsCritical);
+    }
+
+    [Fact]
+    public void A_needs_you_alerts_summary_is_plain_text_and_its_body_keeps_the_markdown()
+    {
+        var alert = Assert.Single(Alerts(Recorded(
+            Report(ScheduledRunEvent.Started, "run-1"),
+            Report(ScheduledRunEvent.Finished, "run-1", "needs-you", ["Review [#1751](https://github.com/JSdotNet/Backlog/pull/1751) first", "Then merge **plan/x** with `gh`"]))));
+
+        Assert.Equal("Review #1751 first; Then merge plan/x with gh", alert.Summary);
+        Assert.Contains("[#1751](https://github.com/JSdotNet/Backlog/pull/1751)", alert.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Every_schedule_alert_leads_its_place_with_the_schedules_repository()
+    {
+        var held = Alerts(Recorded(
+            Report(ScheduledRunEvent.Started, "run-1"),
+            Report(ScheduledRunEvent.Finished, "run-1", "needs-you", ["Review it"]),
+            Report(ScheduledRunEvent.Skipped, "run-2", heldBy: "run-1")));
+        var failed = Alerts(Recorded(Report(ScheduledRunEvent.Started, "run-1"), Report(ScheduledRunEvent.Failed, "run-1", "broke")));
+
+        Assert.NotEmpty(held);
+        Assert.All(held.Concat(failed), alert => Assert.Equal("JSdotNet/Backlog · Schedules", alert.Place));
+    }
+
+    [Theory]
+    [InlineData("JSdotNet/Backlog", "JSdotNet/Backlog · Schedules")]
+    [InlineData("  ", "Schedules")]
+    [InlineData(null, "Schedules")]
+    public void A_schedules_place_is_its_repository_then_Schedules_or_Schedules_alone(string? repository, string place) =>
+        Assert.Equal(place, SessionAlerts.SchedulePlace(repository));
+
+    [Fact]
+    public void A_loops_alert_names_no_repository()
+    {
+        var alert = SessionAlerts.ForLoop(Loop(LoopKind.Dispatcher, LoopState.Stalled), LoopWaitingWork.None, Utc);
+
+        Assert.Equal(SessionAlerts.SessionsPlace, alert!.Place);
     }
 
     [Fact]

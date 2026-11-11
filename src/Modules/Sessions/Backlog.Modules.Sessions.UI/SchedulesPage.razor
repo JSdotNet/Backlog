@@ -1,4 +1,6 @@
 @using System.Globalization
+@using global::Backlog.SharedKernel.Markdown
+@using global::Backlog.UI.Components.Markdown
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
 
@@ -201,7 +203,7 @@
             <ul class="schedules-page__ask schedules-page__ask-lines" data-testid="schedules-card-ask">
                 @foreach (var line in run.NeedsYou.Take(MaxAskLines))
                 {
-                    <li>@line</li>
+                    <li>@Inline(line)</li>
                 }
                 @if (run.NeedsYou.Count > MaxAskLines)
                 {
@@ -255,7 +257,7 @@
                         <li class="schedules-page__run" @key="run.Run.SessionId" data-testid="schedules-detail-run" data-session="@run.Run.SessionId">
                             <span class="schedules-page__run-text">
                                 <span class="schedules-page__run-when">@When(ScheduleOverview.Began(run.Run))</span>
-                                <span class="schedules-page__quiet" data-testid="schedules-detail-run-note">@RunNote(schedule, run)</span>
+                                <span class="schedules-page__quiet" data-testid="schedules-detail-run-note">@Inline(RunNote(schedule, run))</span>
                             </span>
                             @RunChip(run)
                         </li>
@@ -306,6 +308,11 @@
     /// one, as the list beside the page names it, else as the runs reported it.</summary>
     private string RepositoryName(string? repository) =>
         string.IsNullOrWhiteSpace(repository) ? OtherRepository : RepositoryAlias?.Invoke(repository) ?? repository;
+
+    /// <summary>A line a run reported — a Needs-you line, a verdict — with its Markdown
+    /// inlines drawn: a link reads as a link a person can follow, not as its brackets and
+    /// URL. The renderer escapes the text and lets only safe link schemes through.</summary>
+    private static RenderFragment Inline(string text) => MarkdownRender.Inlines(MarkdownPreview.ParseInlines(text));
 
     private const int MaxAskLines = 3;
 

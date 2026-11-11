@@ -4984,6 +4984,22 @@ h1, h2, h3 {
     font-weight: 400;
 }
 
+/* What a stopped or holding dispatcher leaves for the person, with the one way out
+   beside it: Cancel requests, or See usage. */
+.sessions-loop__recover {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+}
+
+.sessions-loop__recover-line {
+    flex: 1 1 12rem;
+    min-width: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
 .sessions-loop__tiles {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));

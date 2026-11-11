@@ -6,7 +6,9 @@
     design's "Sessions pane" and "Loop session states" artboards): the /loop command it
     runs, its state, what the person last asked of it, when it last checked in and what
     wakes it; for the dispatcher, the four capacity figures beside their limits and the
-    requests and answer deliveries it works through; and Pause, Resume and Stop.
+    requests and answer deliveries it works through; and Pause, Resume and Stop. A Not
+    running dispatcher offers to cancel the requests waiting for it, beside the command
+    that starts it again; a Holding one offers See usage, where the app shows plan usage.
 
     The buttons set the command the next check_in answer carries. Backlog never stops a
     session itself: the loop reads the command and obeys it, which is why the card says
@@ -62,6 +64,56 @@
                 <span> · quiet past @Moment(LoopSessions.StalledAfter(checkIn))</span>
             }
         </p>
+
+        @if (OffersCancel && CancellableRequests is { } waiting)
+        {
+            @* The two ways out for requests a stopped dispatcher will not start: the
+               command above, to start it again, or cancelling them here. *@
+            <div class="sessions-loop__recover" role="group" aria-label="Requests waiting for this loop" data-testid="sessions-loop-recover">
+                <span class="sessions-loop__recover-line">@LoopSessionView.StoppedLine(waiting)</span>
+                <AppButton Variant="ButtonVariant.Secondary"
+                           Size="ButtonSize.Small"
+                           Disabled="@(Busy || Cancelling)"
+                           Busy="@Cancelling"
+                           BusyLabel="Cancelling"
+                           TestId="sessions-loop-cancel-requests"
+                           title="Cancel the session requests waiting for this loop"
+                           OnClick="() => _confirmCancel = true">
+                    Cancel requests
+                </AppButton>
+            </div>
+
+            <ConfirmDialog Open="_confirmCancel"
+                           OpenChanged="open => _confirmCancel = open"
+                           Title="@CancelTitle(waiting)"
+                           Message="Each one ends as Cancelled, and no session starts for it. Ask for a session again from its entry or plan."
+                           ConfirmText="Cancel requests"
+                           CancelText="Keep them"
+                           Destructive="true"
+                           TestId="sessions-loop-cancel-dialog"
+                           ConfirmTestId="sessions-loop-cancel-confirm"
+                           CancelTestId="sessions-loop-cancel-keep"
+                           OnConfirm="ConfirmCancelAsync" />
+        }
+
+        @if (checkIn.Kind is LoopKind.Dispatcher && loop.State is LoopState.Holding)
+        {
+            @* What holds it, in words beside the tiles' edges; the usage behind the plan's
+               share is read where the app shows it, where the window offers that. *@
+            <div class="sessions-loop__recover" data-testid="sessions-loop-holding">
+                <span class="sessions-loop__recover-line">@LoopSessionView.HoldingLine(Capacity)</span>
+                @if (OnSeeUsage.HasDelegate)
+                {
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               TestId="sessions-loop-see-usage"
+                               title="Open the Dashboard's Sessions tab: Claude Code usage and the limits it hit"
+                               OnClick="() => OnSeeUsage.InvokeAsync()">
+                        See usage
+                    </AppButton>
+                }
+            </div>
+        }
 
         @if (checkIn.Kind is LoopKind.Dispatcher)
         {
@@ -190,7 +242,27 @@
     [Parameter]
     public string? Error { get; set; }
 
+    /// <summary>How many session requests a person may cancel — Requested or Claimed — or
+    /// null where the host keeps no queue. A Not running dispatcher offers to cancel them.</summary>
+    [Parameter]
+    public int? CancellableRequests { get; set; }
+
+    /// <summary>Cancels the waiting session requests, through the queue's own cancel.</summary>
+    [Parameter]
+    public EventCallback OnCancelRequests { get; set; }
+
+    /// <summary>Whether the requests are being cancelled, which holds the button.</summary>
+    [Parameter]
+    public bool Cancelling { get; set; }
+
+    /// <summary>Opens where the app shows plan usage; a Holding dispatcher offers it. No
+    /// delegate where the window offers no such place.</summary>
+    [Parameter]
+    public EventCallback OnSeeUsage { get; set; }
+
     private bool _confirmStop;
+
+    private bool _confirmCancel;
 
     private string CommandLine => LoopSessions.LoopCommandLine(Loop?.Loop.CheckIn.Kind ?? Kind);
 
@@ -199,6 +271,28 @@
         _confirmStop = false;
         await OnCommand.InvokeAsync(LoopCommand.Stop);
     }
+
+    /// <summary>Whether the card offers Cancel requests now: a stopped dispatcher with
+    /// requests the person may cancel.</summary>
+    private bool OffersCancel =>
+        Loop is { State: LoopState.NotRunning, Loop.CheckIn.Kind: LoopKind.Dispatcher } && CancellableRequests is > 0;
+
+    /// <summary>A confirmation left open when the offer went — a re-read found the
+    /// dispatcher back, or nothing left to cancel — is dropped, so it never opens again
+    /// on its own when the offer returns.</summary>
+    protected override void OnParametersSet()
+    {
+        if (!OffersCancel) _confirmCancel = false;
+    }
+
+    private async Task ConfirmCancelAsync()
+    {
+        _confirmCancel = false;
+        await OnCancelRequests.InvokeAsync();
+    }
+
+    private static string CancelTitle(int waiting) =>
+        waiting == 1 ? "Cancel the request waiting for this loop?" : $"Cancel the {waiting} requests waiting for this loop?";
 
     private static string StopMessage(LoopKind kind) =>
         $"It ends its loop at its next check-in and says so in its session. Start it again with {LoopSessions.LoopCommandLine(kind)} in a pinned Claude Desktop session.";
