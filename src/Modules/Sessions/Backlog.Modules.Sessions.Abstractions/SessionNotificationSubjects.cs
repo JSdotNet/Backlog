@@ -26,6 +26,10 @@ public static class SessionNotificationSubjects
     /// <summary>A pull request, by <see cref="PullRequestId"/>.</summary>
     public const string PullRequest = "pull-request";
 
+    /// <summary>A schedule or loop alert of local ADR 0051 §5, by its <see cref="SessionAlert.Key"/>:
+    /// one subject per occurrence of a cause, so closing one cause closes nothing else.</summary>
+    public const string Alert = "alert";
+
     /// <summary>Why a notification about a session closes: it was archived or deleted.</summary>
     public const string SessionEndedReason = "Session archived";
 

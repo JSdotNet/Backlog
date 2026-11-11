@@ -21,6 +21,9 @@ namespace Backlog.UI.Components.Notifications;
 /// <param name="Asker">Whether an AI agent, a person or the host itself raised it. Without an
 /// <see cref="Origin"/> the card marks it on its own "asked" line with <see cref="Source"/> beside
 /// the marker; with one, <see cref="NotificationCardOrigin.Asker"/> says it. Null draws neither.</param>
+/// <param name="Actions">What an open alert offers to open beside Acknowledge — "Open run", "Open
+/// Sessions" — in order; null or empty for none. The card raises the one pressed and goes nowhere
+/// itself.</param>
 public sealed record NotificationCardModel(
     string Id,
     NotificationCardKind Kind,
@@ -34,10 +37,17 @@ public sealed record NotificationCardModel(
     NotificationCardState State,
     NotificationCardOutcome? Outcome = null,
     NotificationCardOrigin? Origin = null,
-    NotificationCardAsker? Asker = null)
+    NotificationCardAsker? Asker = null,
+    IReadOnlyList<NotificationCardAction>? Actions = null)
 {
     public bool IsOpen => State == NotificationCardState.Open;
 }
+
+/// <summary>One thing an alert offers to open: the label on its button and the host's own key for
+/// where it goes, handed back when it is pressed.</summary>
+/// <param name="Label">What a person reads on the button.</param>
+/// <param name="Target">The host's key for where it goes — a link the host reads.</param>
+public sealed record NotificationCardAction(string Label, string Target);
 
 /// <summary>
 /// Where a notification came from, already in words: the system as a badge and the place beside

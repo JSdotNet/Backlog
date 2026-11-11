@@ -471,6 +471,21 @@ public static class DesktopCompositionRegistration
             sp.GetRequiredService<QuestionRelay>(),
             sp.GetService<TimeProvider>(),
             sp.GetService<ILogger<QuestionRelayEscalation>>()));
+        // The schedule and loop alerts (local ADR 0051 §5): raised in the notification centre,
+        // and so on Windows, when a schedule or a loop session needs the person, and closed when
+        // the cause clears. Behind the sessions flag; its timer is started by the head at startup,
+        // like the relay's escalation.
+        services.AddSingleton(sp => new SessionAlertPublisher(
+            sp.GetService<IScheduleRegister>(),
+            sp.GetService<ILoopRegister>(),
+            sp.GetService<IAgentSessionSource>(),
+            sp.GetService<INotifications>,
+            sp.GetService<INotificationCentre>,
+            () => sp.GetService<IAppFeatureSettings>()?.IsEnabled(SessionFeatures.Sessions) ?? true,
+            sp.GetService<ISessionRequestStore>(),
+            sp.GetService<IWaitingQuestionStore>(),
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<SessionAlertPublisher>>()));
         // "Attach to goal" on tasks, plans and pull requests, cascaded to every screen.
         services.AddGoalControls();
         // The band under every route reads the backlog's save state through the

@@ -330,6 +330,10 @@ public static class MauiProgram
         // question still open in its session once the notify delay passes.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
 
+        // And the schedule and loop alerts' sweep (local ADR 0051 §5): it raises an alert when a
+        // schedule or a loop session needs the person and closes it once the cause clears.
+        app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.SessionAlertPublisher>().Start();
+
         // And the Windows notifications, before the notifications startup pass below: listening
         // first, so a notification that pass closes takes its Windows notification down with it.
         // Registered for presses before the first window, so a press that launched the app is

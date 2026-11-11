@@ -336,6 +336,39 @@ public sealed class NotificationCardTests
         Assert.True(acknowledged);
         Assert.Equal("Alert", card.Find("[data-testid='notification-card-kind']").TextContent);
         Assert.Empty(card.FindAll("[data-testid='notification-card-severity']"));
+        Assert.Empty(card.FindAll("[data-testid='notification-card-action']"));
+    }
+
+    [Fact]
+    public void An_alerts_actions_lead_acknowledge_and_raise_the_one_pressed()
+    {
+        using var context = Context();
+        NotificationCardAction? pressed = null;
+        var openSessions = new NotificationCardAction("Open Sessions", "backlog://window/sessions?session=loop-1");
+        var model = Alert() with { Actions = [openSessions, new NotificationCardAction("Open Schedules", "backlog://window/sessions?page=schedules")] };
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, model)
+            .Add(c => c.OnAction, action => pressed = action));
+
+        var buttons = card.FindAll("[data-testid='notification-card-answer'] button");
+        Assert.Equal(["Open Sessions", "Open Schedules", "Acknowledge"], buttons.Select(button => button.TextContent.Trim()));
+
+        card.FindAll("[data-testid='notification-card-action']")[0].Click();
+
+        Assert.Equal(openSessions, pressed);
+    }
+
+    [Fact]
+    public void A_settled_alert_offers_no_actions()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(
+            c => c.Model,
+            Alert() with { State = NotificationCardState.Acknowledged, Actions = [new NotificationCardAction("Open run", "backlog://window/sessions?session=run-1")] }));
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-action']"));
     }
 
     [Fact]

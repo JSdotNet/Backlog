@@ -31,7 +31,8 @@ internal sealed record NotificationDocument(
     string? CloseReason,
     NotificationAnswer? Accepted,
     DateTimeOffset? AnswerDeliveredAt,
-    NotificationOrigin? Origin = null)
+    NotificationOrigin? Origin = null,
+    IReadOnlyList<NotificationAction>? Actions = null)
 {
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -63,7 +64,9 @@ internal sealed record NotificationDocument(
         notification.CloseReason,
         notification.Answer,
         notification.AnswerDeliveredAt,
-        notification.Origin);
+        notification.Origin,
+        // Written only when there are some, so a document without actions reads as it always did.
+        notification.Actions.Count == 0 ? null : notification.Actions);
 
     /// <summary>The notification this document holds. Throws <see cref="JsonException"/> for one
     /// that parsed but does not read as a notification — a missing owner, source or title — so the
@@ -104,5 +107,7 @@ internal sealed record NotificationDocument(
         Accepted is null ? null : Accepted with { ChoiceIds = Accepted.ChoiceIds ?? [] },
         AnswerDeliveredAt,
         // A stored origin without its system reads as none, rather than costing the row.
-        string.IsNullOrWhiteSpace(Origin?.System) ? null : Origin);
+        string.IsNullOrWhiteSpace(Origin?.System) ? null : Origin,
+        // An action that lost its label or link reads as none, rather than costing the row.
+        Actions?.Where(action => action is not null && !string.IsNullOrWhiteSpace(action.Label) && !string.IsNullOrWhiteSpace(action.Link)).ToList());
 }
