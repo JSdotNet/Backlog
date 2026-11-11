@@ -214,6 +214,9 @@ public static class MauiProgram
         // "away after" read from the workspace settings on every question. This head's
         // own, because only it can read Windows input; presence never leaves the desktop.
         builder.Services.TryAddSingleton<IInputActivity, WindowsInputActivity>();
+        // This machine's CPU and free memory for a loop's capacity reading (local ADR 0051
+        // §4). This head's own, as the input is; on every other head both read unavailable.
+        builder.Services.TryAddSingleton<IMachineLoad, WindowsMachineLoad>();
         builder.Services.TryAddSingleton<IPresence>(sp =>
         {
             var settings = sp.GetRequiredService<WorkspaceSettingsStore>();
