@@ -7,8 +7,8 @@ related: [.devbook/domain/events/features.md]
 
 > What Events guarantees, one chapter per feature. Each requirement is one SHALL
 > sentence with the scenarios that prove it, and names its tests once it is built.
-> The Events pane, prep tasks, the To Event route and the Calendar's events layer
-> are built.
+> The Events pane, prep tasks, the To Event route, the Calendar's events layer and
+> the harvest task are built.
 
 ## Events pane
 
@@ -276,6 +276,7 @@ related: [.devbook/domain/events/features.md#harvest-task, .devbook/domain/event
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_going_event_gets_its_harvest_task_the_day_after_it_ends, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_going_event_is_not_due_on_its_last_day, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskWorkerTests.A_due_event_is_harvested_shortly_after_the_app_starts, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskWorkerTests.An_event_ending_today_is_harvested_once_the_local_day_turns]
 ```
 
 The system SHALL file a task titled `Harvest <event title>` with no repository on the first local day after a Going event's end date, and link it to the event as its harvest task.
@@ -296,6 +297,7 @@ The system SHALL file a task titled `Harvest <event title>` with no repository o
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_second_check_files_no_second_harvest_task, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.An_event_already_holding_a_harvest_task_gets_none_filed]
 ```
 
 The system SHALL file at most one harvest task per event, however many of the person's desktops see its end day pass.
@@ -310,6 +312,7 @@ The system SHALL file at most one harvest task per event, however many of the pe
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Marking_the_event_harvested_completes_its_open_harvest_task, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_finished_harvest_task_is_left_as_it_is, integration:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.EventsTaskTargetTests.Completing_an_open_task_marks_it_done_where_it_stands, integration:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.EventsTaskTargetTests.Completing_an_open_task_ticks_it_off_today_with_its_steps, integration:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.EventsTaskTargetTests.Completing_a_finished_task_leaves_it_as_it_is]
 ```
 
 The system SHALL complete an event's harvest task when the event is marked Harvested, if the task is still open.
@@ -330,6 +333,7 @@ The system SHALL complete an event's harvest task when the event is marked Harve
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Finishing_the_harvest_task_in_tasks_leaves_the_event_going]
 ```
 
 The system SHALL leave an event's state unchanged when its harvest task is completed in Tasks.

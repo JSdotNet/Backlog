@@ -68,7 +68,8 @@
         "dependencies": {
           "Backlog.Modules.Events.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )"
         }
       },
       "backlog.modules.events.abstractions": {

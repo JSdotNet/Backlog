@@ -25,6 +25,8 @@
   <ItemGroup>
     <!-- Only for AddEventsModule(); the domain knows nothing about the container. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- HarvestTaskWorker logs a check that failed: it runs on a timer with nobody to tell. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

@@ -281,6 +281,10 @@ _ = app.Services.GetRequiredService<BackupWorker>();
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 
+// And the Desktop clock of the Events area, on the same terms and for the same reason the
+// desktop head resolves it.
+_ = app.Services.GetRequiredService<Backlog.Modules.Events.Services.HarvestTaskWorker>();
+
 // And the spec-manager question source, on the same terms and for the same reason the
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();

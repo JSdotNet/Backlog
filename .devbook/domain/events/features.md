@@ -5,8 +5,9 @@ type: features
 ```
 
 > What Events lets the person do, in the context's own language. What each feature
-> guarantees is in [`requirements.md`](requirements.md). The Events pane, prep tasks
-> and the To Event route are built; the other features are not yet. Every feature
+> guarantees is in [`requirements.md`](requirements.md). The Events pane, prep tasks,
+> the To Event route, the Calendar's events layer and the harvest task are built; the
+> phone is not yet. Every feature
 > sits behind the [Events area](context.md#events-area) flag.
 
 ## Events pane
