@@ -1319,7 +1319,7 @@ cancels it. A dispatcher reads the next request on the listener's long poll, cla
 | `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. |
 | `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
 
-- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it.
+- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it. A Manager names its own session as `sessionId`, and the call is its [dispatch wait](#loop-register).
 - **`claim_session_request`:** The holder asking again is told it holds it; the lease is not renewed.
 - **`mark_session_request`:** Only the dispatcher holding the claim may mark it. Its `started` still counts after its lease ran out while nobody else claimed the request.
 
@@ -1689,8 +1689,9 @@ aliases: [LoopCheckIn, check-in, heartbeat]
 ```
 
 One check-in: the session id, when it arrived, the loop's own state as it says it, its heartbeat
-and its limits. A dispatch wait is a check-in with only the session and the time. Equality is by
-all its parts.
+and its limits. A dispatch wait is a check-in with only the session and the time: it moves the
+time of the session's last `check_in` and keeps the rest, and a wait for a session that never
+called `check_in` records nothing. Equality is by all its parts.
 
 ### Capacity Reading
 

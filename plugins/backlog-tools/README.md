@@ -154,7 +154,8 @@ running plan.
   A person starts it once as `/loop /backlog-tools:dispatch-sessions` in a pinned Claude
   Desktop session. A Monitor runs `skills/dispatch-sessions/assets/wait-requests.mjs`, which
   finds the app's port and token the way the telemetry forwarder does, loops on
-  `GET /session-requests/wait` and prints each item once — an answer delivery (`delivery`,
+  `GET /session-requests/wait` — naming the Manager's own session as `sessionId`, so each wait
+  counts as its loop check-in (local ADR 0051 §3) — and prints each item once — an answer delivery (`delivery`,
   local ADR 0041) before any session request (`request`) — so the Manager spends no turn
   while nothing is queued; it never polls the request tools in a loop. It delivers first: for
   each pending delivery whose session the Claude desktop app holds open it claims it

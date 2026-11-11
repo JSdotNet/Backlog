@@ -56,7 +56,8 @@ public class McpEndpointGateTests
         bool sessionRequests = true,
         ISessionRequestStore? queue = null,
         INotifications? notifications = null,
-        IScheduleRegister? schedules = null)
+        IScheduleRegister? schedules = null,
+        ILoopRegister? loops = null)
         : IsolatedHarnessFactory<DesktopHarness::Program>
     {
         protected override void ConfigureHarness(IWebHostBuilder builder)
@@ -80,6 +81,9 @@ public class McpEndpointGateTests
 
                 // And an in-memory register rather than the workspace's backlog.db.
                 if (schedules is not null) services.AddSingleton(schedules);
+
+                // And an in-memory Loop Register, for the same reason.
+                if (loops is not null) services.AddSingleton(loops);
             });
         }
     }
@@ -407,6 +411,29 @@ public class McpEndpointGateTests
         var body = JsonNode.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken))!;
         Assert.Equal(request.Id.ToString("D"), body["id"]!.GetValue<string>());
         Assert.Equal("/backlog-tools:execute-plan +session-dispatch", body["brief"]!.GetValue<string>());
+    }
+
+    /// <summary>A wait naming its session in <c>sessionId</c> counts as that loop session's
+    /// check-in (local ADR 0051 §3): the time moves, and nothing else does.</summary>
+    [Fact]
+    public async Task The_harness_wait_route_moves_the_check_in_of_the_session_it_names()
+    {
+        var loops = new InMemoryLoopRegister();
+        var checkedIn = DateTimeOffset.UtcNow - TimeSpan.FromHours(1);
+        var checkIn = LoopSessions.CheckIn("manager-session", LoopKind.Dispatcher, LoopActivity.Holding, 5, new LoopHeldWork(1, 0, 2, 0), checkedIn);
+        await loops.CheckInAsync(checkIn, TestContext.Current.CancellationToken);
+        var queue = new InMemorySessionRequestStore();
+        queue.Add(SessionRequests.ForPlan("+session-dispatch", "JSdotNet/Backlog", @"D:\Repos\Backlog", DateTimeOffset.UtcNow));
+        await using var harness = new Harness(queue: queue, loops: loops);
+        using var client = harness.CreateClient();
+
+        using var response = await client.GetAsync($"{SessionRequestWaitEndpoint.RoutePath}?sessionId=manager-session", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var stored = await loops.GetAsync("manager-session", TestContext.Current.CancellationToken);
+        Assert.NotNull(stored);
+        Assert.True(stored.CheckIn.At > checkedIn, $"The check-in stayed at {stored.CheckIn.At}.");
+        Assert.Equal(checkIn with { At = stored.CheckIn.At }, stored.CheckIn);
     }
 
     /// <summary>404 while <c>session-requests</c> is off, without asking the queue.</summary>

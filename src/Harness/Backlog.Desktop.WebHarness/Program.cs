@@ -414,7 +414,9 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
             TimeProvider.System,
             context.RequestAborted,
             questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
-            sessions: context.RequestServices.GetService<IAgentSessionSource>());
+            sessions: context.RequestServices.GetService<IAgentSessionSource>(),
+            sessionId: context.Request.Query["sessionId"].ToString(),
+            loops: context.RequestServices.GetService<ILoopRegister>());
     }
     catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
     {
@@ -422,7 +424,8 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
     }
 
     context.Response.StatusCode = reply.StatusCode;
-    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+    if (reply.Failure is not null && reply.StatusCode == 503) app.Logger.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+    else if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.");
     if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
     if (reply.Body.Length == 0) return;
 
