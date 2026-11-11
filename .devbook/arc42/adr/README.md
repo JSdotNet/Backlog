@@ -75,8 +75,8 @@ between inherited ADRs 0005 and 0009.
 - **[0046 — C4 zoom navigation is one architecture surface behind its own switch, its links are read from devbook metadata, and its code from syntax trees](0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, built; builds on 0004, 0015 and 0016)*
 - **[0047 — The Domain view reads by unit](0047-the-domain-view-reads-by-unit.md)** *(proposed, built behind the `devbook-domain-view` switch)*
 - **[0052 — The app may write links into a Brain note and move a finished project note to the archive](0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md)** *(proposed, built; amends 0026 §3 and 0040 §3 and §4, leaves 0027 §6)*
-- **[0053 — A plan or a task may reference a Brain note](0053-a-plan-or-a-task-may-reference-a-brain-note.md)** *(proposed, not yet built; amends 0027 §6, builds on 0052)*
-- **[0054 — Clarify outcomes follow GTD, and each item has one home](0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md)** *(proposed, not yet built; amends 0026 §2 and §3, adds a tool to 0012's Inbox group)*
+- **[0053 — A plan or a task may reference a Brain note](0053-a-plan-or-a-task-may-reference-a-brain-note.md)** *(proposed, built; amends 0027 §6, builds on 0052)*
+- **[0054 — Clarify outcomes follow GTD, and each item has one home](0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md)** *(proposed, built; amends 0026 §2 and §3, adds a tool to 0012's Inbox group)*
 
 ## Inherited decisions
 

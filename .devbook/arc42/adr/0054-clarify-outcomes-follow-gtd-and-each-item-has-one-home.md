@@ -15,11 +15,14 @@ never copies.
 ```meta
 ```
 
-Proposed, 2026-11-11. §4 is built: the task's waiting-for, its two tokens and the
-Tasks pane's Waiting slice. §8 is read by the `weekly-review` skill in
-`backlog-tools`, which reports the review in chat. The rest is not yet built.
-The repository owner settled every point below on 2026-11-09, from the GTD and
-PARA exploration of 2026-10-29.
+Proposed, 2026-11-11. Every section is built. §2's decisions all sit in triage
+with their keys: To Brain's destination picker, Someday, Done now, Waiting for,
+and a due date or My Day on Move to backlog. §3's `someday` area is in the PARA
+default set. §4's waiting-for, §5's contexts and §6's review date are read and
+written as decided. §7 is the `capture_to_inbox` tool. §8 is read by the
+`weekly-review` skill in `backlog-tools` and shown in the app's Weekly review
+takeover, behind its `weekly-review` flag. The repository owner settled every
+point below on 2026-11-09, from the GTD and PARA exploration of 2026-10-29.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. Numbered 0054 because 0052 is taken twice on the open
@@ -267,6 +270,13 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | §8 shown in the app: the Weekly review takeover beside the Inbox walks get clear, get current and get creative, behind the `weekly-review` flag. | Plan entry gtd-para:21. |
+| 2026-11-11 | §6 built: both database builders keep a Brain note's `review` date, and the weekly review reads the notes whose date has come. | Plan entry gtd-para:12. |
+| 2026-11-11 | §2 built: Waiting for (**w**) routes an item to a task carrying `waiting:` and `followup:`. | Plan entry gtd-para:9. |
+| 2026-11-11 | §2 built: Move to backlog offers an optional due date or My Day. | Plan entry gtd-para:7. |
+| 2026-11-11 | §2 built: Someday (**s**) files into the `someday` area, and Done now (**n**) makes a task created ticked. | Plan entry gtd-para:6. |
+| 2026-11-11 | §2 and §3 built: To Brain (**b**) opens a destination picker, and the PARA default set gains `someday` after `projects`. | Plan entry gtd-para:5. |
+| 2026-11-11 | §7 built: `capture_to_inbox` makes an Inbox item from an assistant's capture. | Plan entry gtd-para:4. |
 | 2026-11-11 | §8 read by the `weekly-review` skill: get clear, get current and get creative over the `backlog` MCP server, changing nothing. | Plan item `weekly-review-skill` landed. |
 | 2026-11-11 | §5 built: `#@pc` parses as the tag `@pc` and survives the canonical rewrite; the Tasks pane's Next actions slice groups by context and leaves a waiting task out. | Plan item `next-actions` landed. |
 | 2026-11-11 | §4 built: the waiting-for, its two tokens and the Waiting slice. | Plan item `waiting-for` landed. |
