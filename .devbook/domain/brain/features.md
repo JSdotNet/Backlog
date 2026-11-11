@@ -354,7 +354,7 @@ The note's file is named after its title (`Ideas for the sync` is `ideas-for-the
 type: feature
 depends-on: [.devbook/domain/brain/features.md#capture-into-the-brain]
 related: [.devbook/domain/brain/requirements.md#mcp-brain-scope, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#review-notes-in-a-chapter]
-tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.McpToolCreationTests.A_host_without_the_brain_ports_still_builds_the_devbook_tools]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainReviewToolTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.McpToolCreationTests.A_host_without_the_brain_ports_still_builds_the_devbook_tools]
 ```
 
 Let an assistant read and write the Brain through the same tools it uses on a repository devbook. The knowledge tools the app serves over MCP take the Brain as `#brain` in place of a repository's `owner/name`. They list the contexts, read a chapter, and list and resolve the reader's [remarks](../devbook/domain.md#remark).
@@ -368,4 +368,6 @@ The same spelling addresses a note from outside the Brain: `#brain:<path from th
 The capture tool, `capture_note`, writes a new note into the Brain's inbox area through the writer the pane's Capture uses. It applies the same guard on the text and writes source `manual`. A second capture with the same title is a second note. The tool answers the note's path from the Brain's root, which the read tool takes as it is. Where no Brain is set, or the host has none, the tools say so in words rather than failing.
 
 An action an assistant hears goes to the Inbox instead, through `capture_to_inbox`, so it reaches clarify ([Work the queue over MCP](../inbox/features.md#work-the-queue-over-mcp), local ADR 0054).
+
+`list_brain_reviews` answers the notes whose `review` date has come, oldest first, each with its path from the Brain's root ([A note's review date comes due](requirements.md#requirement-a-notes-review-date-comes-due), local ADR 0054 §6). It compares against today unless the call names a day. A note whose value is no `YYYY-MM-DD` date is listed under warnings and left out, never an error. Like `capture_note` it is the Brain's alone and takes no scope, and like it, it says so in words when no Brain is set or the host has none.
 

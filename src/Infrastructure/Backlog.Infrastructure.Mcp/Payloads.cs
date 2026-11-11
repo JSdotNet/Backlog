@@ -426,6 +426,25 @@ public sealed record ChapterDemoPayload(
 /// whitespace the writer folds already folded.</param>
 public sealed record CapturedNotePayload(string Path, string Title);
 
+/// <summary>What <c>list_brain_reviews</c> answers (local ADR 0054 §6).</summary>
+/// <param name="On">The day the review dates were compared against, <c>YYYY-MM-DD</c>.</param>
+/// <param name="Due">The notes whose review date is that day or earlier, oldest first.</param>
+/// <param name="Warnings">The notes whose <c>review</c> value is no date, left out of <paramref name="Due"/>.</param>
+public sealed record BrainReviewsPayload(string On, IReadOnlyList<BrainReviewPayload> Due, IReadOnlyList<BrainReviewWarningPayload> Warnings);
+
+/// <summary>One Brain note whose review date has come.</summary>
+/// <param name="Path">The note's path from the Brain's root, as <c>read_knowledge_chapter</c> takes it under <c>#brain</c>.</param>
+/// <param name="Title">The note's title.</param>
+/// <param name="Review">The date its <c>review</c> field names, <c>YYYY-MM-DD</c>.</param>
+public sealed record BrainReviewPayload(string Path, string Title, string Review);
+
+/// <summary>One Brain note whose <c>review</c> value does not read as a date.</summary>
+/// <param name="Path">The note's path from the Brain's root.</param>
+/// <param name="Title">The note's title.</param>
+/// <param name="Value">The value as the note writes it.</param>
+/// <param name="Message">The warning in words.</param>
+public sealed record BrainReviewWarningPayload(string Path, string Title, string Value, string Message);
+
 /// <summary>The live, typed-into notes on one chapter.</summary>
 /// <param name="Archived">Whether the repository is archived (local ADR 0029
 /// §4). Its notes still list, because a remark already kept stays readable, but

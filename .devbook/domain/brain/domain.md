@@ -32,14 +32,14 @@ The lifecycle states (Created, Organized, Linked, Archived) are workflow phases,
 
 An organized unit of project knowledge stored as Markdown, and the boundary for its own organization and links. Its rules are in [its invariants](domain.invariants.md#knowledge-note).
 
-A Knowledge Note lives in the [Brain](#brain) as one Markdown file, a devbook chapter like any other. It keeps the devbook `meta` block and `annotation` fences (local ADR 0016) and adds three fields to the block (local ADR 0026). Local ADR 0054 adds an optional fourth, `review`, which nothing reads yet:
+A Knowledge Note lives in the [Brain](#brain) as one Markdown file, a devbook chapter like any other. It keeps the devbook `meta` block and `annotation` fences (local ADR 0016) and adds three fields to the block (local ADR 0026). Local ADR 0054 adds an optional fourth, `review`, read from the top block only:
 
 | Field | Holds | Value object |
 |---|---|---|
 | `para` | The note's area, derived from its top folder; written only to override it. | [PARA Category](#para-category) |
 | `repos` | The repositories a project note concerns. Project notes only. | [Project Ref](#project-ref) |
 | `tasks` | The tasks the note links to. | [Task Link](#task-link) |
-| `review` | An optional `YYYY-MM-DD` the weekly review reads, to look at the note again. The app never writes it. | none |
+| `review` | An optional `YYYY-MM-DD` the weekly review reads, to look at the note again. The Brain's database keeps it as written. The app answers which notes' dates have come, today over `list_brain_reviews`, and a value that is no date is a warning beside them. The app never writes it. | none |
 
 The file is the note. What the app derives from it stays out of the folder ([Nothing derived lands in the folder](requirements.md#requirement-nothing-derived-lands-in-the-folder)). The folder's own sync carries the note between machines, not the task feed, which tells it apart from an Inbox [Note](../inbox/domain.md#note) (local ADR 0025). An Inbox Note waits for triage, and triaging it **To Brain** makes a Knowledge Note of it.
 
