@@ -401,8 +401,8 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     public EntryType? SelectedType { get; private set; }
 
     /// <summary>The type filter's chips: one per task type in what the scopes ahead
-    /// of it left in view, with how many of those rows are of it, in the type's own
-    /// order. Empty while that is fewer than two types and none is picked, so a
+    /// of it left in view, with how many of those rows of it are still open — the
+    /// completed ones go in the tooltip — in the type's own order. Empty while that is fewer than two types and none is picked, so a
     /// backlog of one type has no chip that could not narrow anything.</summary>
     public IReadOnlyList<TypeFilterOption> TypeFilters { get; private set; } = [];
 
@@ -415,16 +415,18 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
     private void RebuildTypeFilters(IReadOnlyCollection<EntryRow> scoped)
     {
+        // Every type in scope gets a chip, a finished one included; the face counts
+        // what is still to do, as a tag chip's does.
         var counts = scoped.Where(row => row.IsPersisted)
             .GroupBy(row => row.PreviewType)
-            .ToDictionary(group => group.Key, group => group.Count());
-        if (SelectedType is { } selected) counts.TryAdd(selected, 0);
+            .ToDictionary(group => group.Key, group => (Open: group.Count(row => !IsFinished(row)), Completed: group.Count(IsFinished)));
+        if (SelectedType is { } selected) counts.TryAdd(selected, (0, 0));
 
         TypeFilters = counts.Count < 2 && SelectedType is null
             ? []
             : [.. Enum.GetValues<EntryType>()
                 .Where(counts.ContainsKey)
-                .Select(type => new TypeFilterOption(type, type.ToString(), counts[type]))];
+                .Select(type => new TypeFilterOption(type, type.ToString(), counts[type].Open, counts[type].Completed))];
     }
 
     /// <summary>Whether a row is in the source <paramref name="source"/> names.</summary>
@@ -448,13 +450,15 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             return;
         }
 
+        var local = Rows.Where(row => row.IsPersisted && row.SourceRef is null).ToList();
         SourceFilters =
         [
-            new SourceFilterOption(LocalSource, "Local", Rows.Count(row => row.IsPersisted && row.SourceRef is null)),
-            .. connectorIds.Select(id => new SourceFilterOption(
-                id,
-                LinkedSources.NameOf(id),
-                linked.Count(row => row.SourceRef!.ConnectorId == id)))
+            new SourceFilterOption(LocalSource, "Local", local.Count(row => !IsFinished(row)), local.Count(IsFinished)),
+            .. connectorIds.Select(id =>
+            {
+                var from = linked.Where(row => row.SourceRef!.ConnectorId == id).ToList();
+                return new SourceFilterOption(id, LinkedSources.NameOf(id), from.Count(row => !IsFinished(row)), from.Count(IsFinished));
+            })
         ];
 
         if (SelectedSource is { } selected && SourceFilters.All(option => option.Value != selected)) SelectedSource = null;
@@ -6558,20 +6562,22 @@ public sealed record TagFilterOption(string Label, string Value, int OpenCount, 
 /// asked for.</summary>
 public sealed record MetaReading(string Kind, string Value, bool Explicit, string? Note = null);
 
+/// <summary>One chip of the Source filter: the value it sets, the name it shows,
+/// and its tasks split the way a <see cref="TagFilterOption"/>'s are — the open ones
+/// on the face, the ticked-off ones in the tooltip.</summary>
+public sealed record SourceFilterOption(string Value, string Label, int OpenCount, int CompletedCount);
+
+/// <summary>One chip of the type filter: the task type, its label, and the rows in
+/// scope of it split the way a <see cref="TagFilterOption"/>'s are — the open ones on
+/// the face, the ticked-off ones in the tooltip.</summary>
+public sealed record TypeFilterOption(EntryType Value, string Label, int OpenCount, int CompletedCount);
+
 /// <summary>A row in the quick-edit list. <see cref="Key"/> is a stable
 /// client-side identity used for <c>@key</c> and debounce tracking, independent
 /// of <see cref="Id"/> which is null until the row is first saved.
 /// <see cref="RawText"/> is the single source of truth the user types into —
 /// there is no separate title/type/status/tags field anywhere, and the rendered
 /// form shown when the row is not focused is derived from it.</summary>
-/// <summary>One chip of the Source filter: the value it sets, the name it shows,
-/// and how many tasks it would keep.</summary>
-public sealed record SourceFilterOption(string Value, string Label, int Count);
-
-/// <summary>One chip of the type filter: the task type, its label and how many rows
-/// in scope are of it.</summary>
-public sealed record TypeFilterOption(EntryType Value, string Label, int Count);
-
 public sealed class EntryRow
 {
     private string? _renderedFrom;

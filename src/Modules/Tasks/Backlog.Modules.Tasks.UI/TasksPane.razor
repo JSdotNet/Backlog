@@ -203,9 +203,9 @@
                                               Pressed="@(State.SelectedSource == source.Value)"
                                               TestId="source-filter-option"
                                               data-source="@source.Value"
-                                              Title="@(State.SelectedSource == source.Value ? "Show every source again" : $"Show only {source.Label} tasks")"
+                                              Title="@FilterChipTitle(State.SelectedSource == source.Value ? "Show every source again" : $"Show only {source.Label} tasks", source.OpenCount, source.CompletedCount)"
                                               PressedChanged="pressed => State.SetSourceFilter(pressed ? source.Value : null)">
-                                    @source.Label<span class="chip__count">@source.Count</span>
+                                    @source.Label<span class="chip__count">@source.OpenCount</span>
                                 </ToggleButton>
                             }
                         </div>
@@ -228,9 +228,9 @@
                                               Pressed="@(State.SelectedType == type.Value)"
                                               TestId="type-filter-option"
                                               data-type="@EntryTextParser.TypeToken(type.Value)"
-                                              Title="@(State.SelectedType == type.Value ? "Show every type again" : $"Show only {type.Label.ToLowerInvariant()}s")"
+                                              Title="@FilterChipTitle(State.SelectedType == type.Value ? "Show every type again" : $"Show only {type.Label.ToLowerInvariant()}s", type.OpenCount, type.CompletedCount)"
                                               PressedChanged="pressed => State.SetTypeFilter(pressed ? type.Value : null)">
-                                    @type.Label<span class="chip__count">@type.Count</span>
+                                    @type.Label<span class="chip__count">@type.OpenCount</span>
                                 </ToggleButton>
                             }
                         </div>
@@ -5875,15 +5875,18 @@
     /// does not explain a zero.</summary>
     private string TagFilterTitle(TagFilterOption tag)
     {
-        var act = State.IsTagSelected(tag.Value) ? "Stop filtering by" : "Filter by";
-        var counts = tag.CompletedCount > 0
-            ? $"{tag.OpenCount} open, {tag.CompletedCount} completed"
-            : $"{tag.OpenCount} open";
+        var title = FilterChipTitle($"{(State.IsTagSelected(tag.Value) ? "Stop filtering by" : "Filter by")} {tag.Label}", tag.OpenCount, tag.CompletedCount);
 
         return PlanWaitingOnChip(tag) is { } waiting
-            ? $"{act} {tag.Label} — {counts}. {PlanSessionRequestTitle(waiting)}"
-            : $"{act} {tag.Label} — {counts}";
+            ? $"{title}. {PlanSessionRequestTitle(waiting)}"
+            : title;
     }
+
+    /// <summary>A filter chip's tooltip: what pressing it does, then what is behind
+    /// the open count on its face — "Show only prompts — 2 open, 1 completed". The
+    /// completed clause is left off when nothing is finished.</summary>
+    private static string FilterChipTitle(string act, int open, int completed) =>
+        completed > 0 ? $"{act} — {open} open, {completed} completed" : $"{act} — {open} open";
 
     /// <summary>"never checked" is a real, distinct answer from "open" — the
     /// badge says so rather than implying a state nobody has verified.</summary>
