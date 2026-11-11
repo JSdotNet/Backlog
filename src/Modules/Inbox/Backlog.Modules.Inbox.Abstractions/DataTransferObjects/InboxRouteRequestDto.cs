@@ -38,6 +38,11 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// alike. The captures themselves are not changed: they stay what arrived, and
 /// the adapter writes these as prose on the entry. Null or empty when there
 /// are none.</param>
+/// <param name="DueOn">On a single route, the due date every entry is given;
+/// null for none, and always null in a batch.</param>
+/// <param name="InMyDayOn">On a single route, the day every entry is picked
+/// for in My Day — today, when the person asked for it; null for none, and
+/// always null in a batch.</param>
 public sealed record InboxRouteRequestDto(
     Guid InboxItemId,
     string Title,
@@ -49,7 +54,9 @@ public sealed record InboxRouteRequestDto(
     IReadOnlyList<Guid>? AfterItems = null,
     IReadOnlyList<string>? AfterTasks = null,
     string? EntryType = null,
-    IReadOnlyList<InboxAttachedDuplicateDto>? Attached = null);
+    IReadOnlyList<InboxAttachedDuplicateDto>? Attached = null,
+    DateOnly? DueOn = null,
+    DateOnly? InMyDayOn = null);
 
 /// <summary>A capture archived as a duplicate of the item being routed, as the
 /// route carries it: what it was called and the link it arrived with, if

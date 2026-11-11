@@ -665,10 +665,12 @@ internal sealed class FakeInboxItems : IInboxItems
     public async Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
         Guid id,
         string? entryType = null,
+        InboxRouteScheduleDto? schedule = null,
         CancellationToken cancellationToken = default)
     {
         SingleRouteCalls++;
         SingleRoutes.Add((id, entryType));
+        SingleRouteSchedules.Add(schedule);
         if (BeforeRoute is { } gate) await gate();
 
         if (Fails("route", id, out var refused)) return Result.Failure<InboxRoutedDto>(refused);
@@ -753,6 +755,10 @@ internal sealed class FakeInboxItems : IInboxItems
     /// <summary>Every single route asked of the port, with the entry type it
     /// named — null when none was given.</summary>
     public List<(Guid Id, string? EntryType)> SingleRoutes { get; } = [];
+
+    /// <summary>The schedule every single route was asked with, in the order
+    /// asked — null when none was given.</summary>
+    public List<InboxRouteScheduleDto?> SingleRouteSchedules { get; } = [];
 
     /// <summary>The module's proposal, restated: the tag minted as the route
     /// would, decided items refused, the seeded dependencies among the rest.</summary>

@@ -1,4 +1,5 @@
 using Backlog.Modules.Inbox.Abstractions;
+using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.DomainModels;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.SharedKernel.Results;
@@ -271,11 +272,67 @@ public sealed class RouteToBacklogTests
         new(Guid.CreateVersion7(), title, string.Empty, sourceUrl, capturedAt, capturedAt,
             ContentKind.Text, new InboxSource(InboxEnumMap.ManualChannel, null), replicaBacked: false);
 
+    /// <summary>A due date chosen beside Move to backlog travels to the target as
+    /// a date, for every entry the route makes.</summary>
+    [Fact]
+    public async Task A_due_date_reaches_the_target()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        item.SetRepoIds(["jsdotnet/backlog", "jsdotnet/other"]);
+        store.Seed(item);
+        var due = new DateOnly(2026, 11, 20);
+
+        var result = await Route(store, target, item.Id, schedule: new InboxRouteScheduleDto(DueOn: due));
+
+        Assert.True(result.IsSuccess);
+        var request = Assert.Single(target.Requests);
+        Assert.Equal(due, request.DueOn);
+        Assert.Null(request.InMyDayOn);
+    }
+
+    /// <summary>Add to My Day picks the entry for today — the handler's own
+    /// local date, not a date the screen supplies.</summary>
+    [Fact]
+    public async Task Add_to_my_day_picks_the_entry_for_today()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var result = await Route(store, target, item.Id, schedule: new InboxRouteScheduleDto(AddToMyDay: true));
+
+        Assert.True(result.IsSuccess);
+        var request = Assert.Single(target.Requests);
+        Assert.Equal(DateOnly.FromDateTime(Decision.UtcDateTime), request.InMyDayOn);
+        Assert.Null(request.DueOn);
+    }
+
+    /// <summary>Without either choice the route asks the target for exactly
+    /// what it asked before: no date, no My Day.</summary>
+    [Fact]
+    public async Task Without_a_schedule_the_request_carries_no_date()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        await Route(store, target, item.Id, schedule: new InboxRouteScheduleDto());
+
+        var request = Assert.Single(target.Requests);
+        Assert.Null(request.DueOn);
+        Assert.Null(request.InMyDayOn);
+    }
+
     private static Task<Result<Abstractions.DataTransferObjects.InboxRoutedDto>> Route(
         InMemoryInboxStore store,
         FakeBacklogTarget target,
         Guid id,
-        string? entryType = null) =>
+        string? entryType = null,
+        InboxRouteScheduleDto? schedule = null) =>
         new RouteToBacklogCommandHandler(store, target, new FakeTimeProvider(Decision))
-            .Handle(new RouteToBacklogCommand(id, entryType), TestContext.Current.CancellationToken);
+            .Handle(new RouteToBacklogCommand(id, entryType, schedule), TestContext.Current.CancellationToken);
 }

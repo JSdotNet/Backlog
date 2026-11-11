@@ -1235,6 +1235,40 @@ public sealed class InboxDesktopState : IDisposable
     /// so. The item stays selected: its detail now says where it went.</summary>
     public Task RouteToBacklogAsync() => RouteSelectedAsync(previousRepoIds: null);
 
+    /// <summary>The due date and My Day chosen beside Move to backlog, per item,
+    /// until the item is routed. Held here rather than in either view so the
+    /// column's detail, triage and the <c>r</c> key all route with the same
+    /// choice. An item with no entry has chosen neither.</summary>
+    private readonly Dictionary<Guid, InboxRouteScheduleDto> _routeSchedules = [];
+
+    private static readonly InboxRouteScheduleDto NoSchedule = new();
+
+    /// <summary>The due date and My Day the selected item will be routed with;
+    /// empty when neither is chosen, which routes it the plain way.</summary>
+    public InboxRouteScheduleDto RouteSchedule => SelectedItem is { } item ? ScheduleOf(item.Id) : NoSchedule;
+
+    private InboxRouteScheduleDto ScheduleOf(Guid itemId) =>
+        _routeSchedules.TryGetValue(itemId, out var schedule) ? schedule : NoSchedule;
+
+    /// <summary>Chooses the due date the selected item's tasks get when it is
+    /// moved to the backlog, or none with null.</summary>
+    public void SetRouteDue(DateOnly? dueOn) => SetRouteSchedule(schedule => schedule with { DueOn = dueOn });
+
+    /// <summary>Chooses whether the selected item's tasks go into today's My Day
+    /// when it is moved to the backlog.</summary>
+    public void SetRouteToMyDay(bool on) => SetRouteSchedule(schedule => schedule with { AddToMyDay = on });
+
+    private void SetRouteSchedule(Func<InboxRouteScheduleDto, InboxRouteScheduleDto> change)
+    {
+        if (SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
+
+        var next = change(ScheduleOf(item.Id));
+        if (next.IsEmpty) _routeSchedules.Remove(item.Id);
+        else _routeSchedules[item.Id] = next;
+
+        Changed?.Invoke();
+    }
+
     /// <summary><see cref="RouteToBacklogAsync"/>, with the repositories the item
     /// had before a write made for this route, for its undo to put back.</summary>
     private async Task RouteSelectedAsync(IReadOnlyList<string>? previousRepoIds)
@@ -1248,8 +1282,11 @@ public sealed class InboxDesktopState : IDisposable
 
         try
         {
-            var routed = await _inbox.RouteToBacklogAsync(item.Id);
+            var schedule = ScheduleOf(item.Id);
+            var routed = await _inbox.RouteToBacklogAsync(item.Id, schedule: schedule.IsEmpty ? null : schedule);
             if (Report(routed)) return;
+
+            _routeSchedules.Remove(item.Id);
 
             _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Move to backlog", item.Id, DeleteTasks: true, DeferralOf(item), previousRepoIds));
 
