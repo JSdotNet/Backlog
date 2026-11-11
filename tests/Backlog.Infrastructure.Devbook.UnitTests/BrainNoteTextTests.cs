@@ -27,6 +27,33 @@ public sealed class BrainNoteTextTests
         Assert.Equal("manual", parsed.FileMeta["source"]);
     }
 
+    /// <summary>A project note Create plan starts names the plan's Roadmap Tag
+    /// in its <c>roadmap</c> list from the start, where the parse — and so the
+    /// roadmap's gathering by tag — reads it.</summary>
+    [Fact]
+    public void A_project_note_starts_its_roadmap_list_with_the_plan_s_tag()
+    {
+        var text = BrainNoteText.Compose("Ship the thing", "Notes.", BrainNoteSource.Inbox, ["ship-the-thing-5e6f7a8b"]);
+
+        Assert.Equal(
+            "# Ship the thing\n\n```meta\ntype: note\nstatus: draft\nsource: inbox\nroadmap: [ship-the-thing-5e6f7a8b]\n```\n\nNotes.\n",
+            text);
+        Assert.Equal(["ship-the-thing-5e6f7a8b"], (string[])DevbookMarkdown.Parse(text).FileMeta!["roadmap"]!);
+    }
+
+    [Theory]
+    [InlineData("two words")]
+    [InlineData("a,b")]
+    [InlineData("x]")]
+    [InlineData("  ")]
+    [InlineData("#tag")]
+    public void A_roadmap_value_that_is_not_one_plain_tag_is_left_out(string value)
+    {
+        var text = BrainNoteText.Compose("Odd", null, BrainNoteSource.Inbox, [value]);
+
+        Assert.DoesNotContain("roadmap", text, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_note_routed_from_the_inbox_says_so()
     {

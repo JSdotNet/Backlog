@@ -231,8 +231,8 @@ internal sealed class InboxItems(
         CancellationToken cancellationToken = default) =>
         routeBatchToBacklog.Handle(new RouteBatchToBacklogCommand(ids, listId, choices, planTitle), cancellationToken);
 
-    public Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default) =>
-        createPlan.Handle(new CreatePlanCommand(id), cancellationToken);
+    public Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, bool startProjectNote = false, CancellationToken cancellationToken = default) =>
+        createPlan.Handle(new CreatePlanCommand(id, startProjectNote), cancellationToken);
 
     public Task<Result> RetryAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
         retryAttachment.Handle(new RetryAttachmentCommand(id, attachmentId), cancellationToken);

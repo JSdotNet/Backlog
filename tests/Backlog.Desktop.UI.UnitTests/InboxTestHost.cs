@@ -180,6 +180,9 @@ internal sealed class FakeInboxItems : IInboxItems
     /// <summary>How many entries "Create plan" pretends to import.</summary>
     public int PlanEntries { get; set; } = 2;
 
+    /// <summary>Whether each "Create plan" asked for a project note, in order.</summary>
+    public List<bool> PlanProjectNoteAsks { get; } = [];
+
     /// <summary>The next capture's kind and URL, for a test seeding a video or
     /// an article through the capture field. Reset after one use.</summary>
     public (ContentKind Kind, string Slug, string? SourceUrl)? NextCapture { get; set; }
@@ -941,14 +944,20 @@ internal sealed class FakeInboxItems : IInboxItems
         return new InboxBatchRoutedDto(tag, routed, failed) { Archived = archived };
     }
 
-    public async Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, bool startProjectNote = false, CancellationToken cancellationToken = default)
     {
+        PlanProjectNoteAsks.Add(startProjectNote);
+
         if (!PlanDrafterAvailability.Available)
         {
             return Result.Failure<InboxRoutedDto>(InboxErrors.PlanNotConfigured(PlanDrafterAvailability.Reason));
         }
 
         if (Find(id) is not { } item) return Result.Failure<InboxRoutedDto>(InboxErrors.ItemNotFound);
+        if (startProjectNote && BrainUnavailableReason is { } brainReason)
+        {
+            return Result.Failure<InboxRoutedDto>(InboxErrors.BrainUnavailable(brainReason));
+        }
 
         var taskIds = Enumerable.Range(0, PlanEntries).Select(_ => Guid.NewGuid()).ToList();
         OnRouted?.Invoke(item, taskIds);
@@ -959,7 +968,7 @@ internal sealed class FakeInboxItems : IInboxItems
             Routing = new InboxRoutingDto(RoutingDomain.Tasks, current.RepoIds, taskIds, Now)
         });
 
-        return new InboxRoutedDto(id, taskIds);
+        return new InboxRoutedDto(id, taskIds, startProjectNote ? "projects/" + item.Title.ToLowerInvariant().Replace(' ', '-') + ".md" : null);
     }
 
     public Task<Result<InboxListDto>> CreateListAsync(string name, Guid? groupId = null, CancellationToken cancellationToken = default)

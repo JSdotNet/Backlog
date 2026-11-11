@@ -940,6 +940,57 @@ public sealed class InboxPaneTests
         Assert.Contains(harness.Toasts.Visible, toast => toast.TestId == "inbox-plan-created");
     }
 
+    /// <summary>Also start a project note: off by default, and the plan asks for
+    /// the note only once it is ticked; the toast names the note, and the next
+    /// plan starts off again (features.md#create-plan-from-an-item).</summary>
+    [Fact]
+    public async Task Create_plan_starts_a_project_note_only_when_the_option_is_ticked()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.PlanDrafterAvailability = (true, null);
+        var first = harness.Inbox.Seed("Ship the thing");
+        var second = harness.Inbox.Seed("Plan me");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, first.Id);
+
+        var option = pane.Find("[data-testid='inbox-create-plan-project-note'] input");
+        Assert.False(option.HasAttribute("checked"));
+        Assert.False(option.HasAttribute("disabled"));
+
+        await option.ChangeAsync(new ChangeEventArgs { Value = true });
+        await pane.Find("[data-testid='inbox-create-plan']").ClickAsync(new());
+
+        Assert.Equal([true], harness.Inbox.PlanProjectNoteAsks);
+        Assert.Contains(harness.Toasts.Visible, toast => toast.TestId == "inbox-plan-created"
+            && toast.Message.Contains("projects/ship-the-thing.md", StringComparison.Ordinal));
+
+        await harness.SelectAsync(pane, second.Id);
+        Assert.False(pane.Find("[data-testid='inbox-create-plan-project-note'] input").HasAttribute("checked"));
+        await pane.Find("[data-testid='inbox-create-plan']").ClickAsync(new());
+
+        Assert.Equal([true, false], harness.Inbox.PlanProjectNoteAsks);
+    }
+
+    [Fact]
+    public async Task Also_start_a_project_note_is_disabled_with_the_brain_s_reason_when_there_is_no_brain()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.PlanDrafterAvailability = (true, null);
+        harness.Inbox.BrainUnavailableReason = "Choose a Brain folder in Settings.";
+        var item = harness.Inbox.Seed("Plan me");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        Assert.True(pane.Find("[data-testid='inbox-create-plan-project-note'] input").HasAttribute("disabled"));
+        Assert.Equal("Choose a Brain folder in Settings.", pane.Find("[data-testid='inbox-create-plan-project-note-hint']").GetAttribute("title"));
+        Assert.False(pane.Find("[data-testid='inbox-create-plan']").HasAttribute("disabled"));
+
+        await pane.Find("[data-testid='inbox-create-plan']").ClickAsync(new());
+        Assert.Equal([false], harness.Inbox.PlanProjectNoteAsks);
+    }
+
     [Fact]
     public async Task Archiving_takes_the_row_out_and_the_detail_says_archived()
     {

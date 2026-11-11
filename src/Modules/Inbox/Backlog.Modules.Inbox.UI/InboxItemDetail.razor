@@ -93,6 +93,19 @@
                                        Title="@(Availability.Available ? "Ask the AI for an import plan and add it to the backlog" : Availability.Reason)"
                                        OnClick="State.CreatePlanAsync"
                                        TestId="inbox-create-plan">Create plan</AppButton>
+                            @* Off by default, and disabled with the Brain's own reason
+                               while it cannot take a note (features.md#create-plan-from-an-item).
+                               The reason sits on a wrapper: a disabled input shows no tooltip. *@
+                            <span class="inbox-pane__plan-project-note"
+                                  title="@(State.ToBrainUnavailableReason ?? InboxDesktopState.StartProjectNoteTitle)"
+                                  data-testid="inbox-create-plan-project-note-hint">
+                                <Checkbox Label="@InboxDesktopState.StartProjectNoteLabel"
+                                          Checked="@(State.StartProjectNote && State.ToBrainUnavailableReason is null)"
+                                          CheckedChanged="State.SetStartProjectNote"
+                                          Disabled="@(State.ToBrainUnavailableReason is not null || !Availability.Available || State.RouteRunning || State.BulkRunning)"
+                                          Busy="@State.PlanRunning"
+                                          TestId="inbox-create-plan-project-note" />
+                            </span>
                         }
                         <DeleteButton Size="ButtonSize.Small"
                                       Disabled="@Busy"
