@@ -805,7 +805,7 @@ public sealed class McpServerWorker : IDisposable
                 return;
             }
 
-            if (!SurfaceWindowPages.Admit(context, _windowLinkTokens))
+            if (!await SurfaceWindowPages.AdmitAsync(context, _windowLinkTokens).ConfigureAwait(false))
             {
                 if (context.Response.StatusCode == StatusCodes.Status401Unauthorized)
                 {

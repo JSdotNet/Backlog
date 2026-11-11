@@ -3,6 +3,7 @@ using System.ComponentModel;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Backlog.Infrastructure.Mcp;
@@ -65,7 +66,8 @@ public sealed class WindowTools(ISurfaceCatalog catalog, ISurfaceWindowHost host
         + "for one load within 10 minutes, for the person or a browser pane to open. Only with target \"desktop\" does "
         + "it open a window on the person's screen; use that only when the person asked for a window. Both answers "
         + "carry a backlog:// link that opens the surface in the installed app and stays valid, for a brief or a "
-        + "digest. A surface the app does not offer is refused with the ids it does.")]
+        + "digest. A web link's page stays open while it is used and asks for a new link after 8 idle hours. "
+        + "A surface the app does not offer is refused with the ids it does.")]
     public async Task<WindowOpenedPayload> OpenAsync(
         [Description("The surface's id, such as tasks, board, roadmap or devbook.")]
         string surface,
@@ -78,7 +80,8 @@ public sealed class WindowTools(ISurfaceCatalog catalog, ISurfaceWindowHost host
         [Description("Optional. A devbook chapter's path, repository-relative, or a Brain note's path with scope brain.")]
         string? chapter = null,
         [Description("Optional, with chapter. The repository, owner/name, or brain, that chapter is read in. Left out, the window's own repository scope.")]
-        string? scope = null)
+        string? scope = null,
+        McpServer? server = null)
     {
         var shown = Surface(surface);
         var kind = Target(target);
@@ -101,7 +104,7 @@ public sealed class WindowTools(ISurfaceCatalog catalog, ISurfaceWindowHost host
                     : $"No window was opened for {shown.Title}: this host has no native window to open, or the window could not be built. Ask again with target \"web\" for a link.");
         }
 
-        var link = host.WebLink(shown.Id, query);
+        var link = host.WebLink(shown.Id, query, Caller(server?.ClientInfo));
 
         return new WindowOpenedPayload(
             shown.Id,
@@ -113,6 +116,34 @@ public sealed class WindowTools(ISurfaceCatalog catalog, ISurfaceWindowHost host
                 ? $"No web page is served now: the app's listener is not listening, so no link was made for {shown.Title}."
                 : $"The link opens {shown.Title} once, within 10 minutes. Nothing was opened.");
     }
+
+    /// <summary>The caller a minted link is logged for (local ADR 0052 §4).</summary>
+    internal const string UnnamedCaller = "MCP client";
+
+    /// <summary>The longest caller the log records.</summary>
+    private const int CallerLength = 120;
+
+    /// <summary>
+    /// Who asked for a link, as the log records it: the MCP client's name and version
+    /// as its <c>initialize</c> gave them, or <see cref="UnnamedCaller"/> when it gave
+    /// none. Until the token broker of local ADR 0052 §3 names an agent's grant, the
+    /// client's own word is all there is, so it is a label, never an identity; control
+    /// characters are dropped and the length is capped, so a client cannot write lines
+    /// of its own into the log.
+    /// </summary>
+    internal static string Caller(Implementation? client)
+    {
+        var named = string.Join(' ', new[] { client?.Name, client?.Version }.Where(part => !string.IsNullOrWhiteSpace(part)).Select(part => part!.Trim()));
+        var clean = new string([.. named.Where(character => !char.IsControl(character) && !IsLineBreak(character))]).Trim();
+
+        if (clean.Length == 0) return UnnamedCaller;
+        return clean.Length <= CallerLength ? clean : clean[..CallerLength];
+    }
+
+    /// <summary>The line and paragraph separators, which are no control characters but
+    /// break a line in a log viewer all the same.</summary>
+    private static bool IsLineBreak(char character) =>
+        char.GetUnicodeCategory(character) is System.Globalization.UnicodeCategory.LineSeparator or System.Globalization.UnicodeCategory.ParagraphSeparator;
 
     /// <summary>The surface the catalog offers under <paramref name="id"/>, or the refusal
     /// that names the ids it does offer.</summary>

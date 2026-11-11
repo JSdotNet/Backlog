@@ -25,7 +25,13 @@ public interface ISurfaceWindowHost
     /// The full web address of the surface's page with <paramref name="query"/>, a link
     /// token of its own appended where this host guards its pages with one. Null when
     /// nothing serves the pages now — the listener is not listening — and no token was
-    /// minted.
+    /// minted. A host that mints a token logs the link with the surface id,
+    /// <paramref name="caller"/> and the token's expiry, never the token (local ADR 0052
+    /// §4).
     /// </summary>
-    Uri? WebLink(string surfaceId, IReadOnlyDictionary<string, string> query);
+    /// <param name="surfaceId">The surface the link opens.</param>
+    /// <param name="query">The query the link carries.</param>
+    /// <param name="caller">Who asked for the link: the MCP client, as it named
+    /// itself.</param>
+    Uri? WebLink(string surfaceId, IReadOnlyDictionary<string, string> query, string caller);
 }

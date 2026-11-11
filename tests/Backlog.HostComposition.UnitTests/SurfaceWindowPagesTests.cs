@@ -382,6 +382,60 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         Assert.Equal(HttpStatusCode.Unauthorized, forged.StatusCode);
     }
 
+    /// <summary>
+    /// The cookie a link buys expires after 8 idle hours (local ADR 0052 §4): a page
+    /// asked for with it after that is 401 and shows the page that asks for the window
+    /// to be opened again, and the page's files are refused as plainly as with no
+    /// cookie. Within the 8 hours the same cookie still admits it.
+    /// </summary>
+    [Fact]
+    public async Task A_cookie_idle_for_eight_hours_answers_the_page_asking_to_open_the_window_again()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head's container and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        var clock = new SettableClock(new DateTimeOffset(2026, 11, 11, 9, 0, 0, TimeSpan.Zero));
+        using var listener = await StartAsync(clock);
+        using var client = await listener.AdmittedClientAsync();
+        using var fresh = await listener.AdmittedClientAsync();
+
+        clock.Now += WindowLinkTokens.IdleTimeout - TimeSpan.FromMinutes(1);
+        using (var used = await fresh.GetAsync("/window/probe?keep=1", TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, used.StatusCode);
+        }
+
+        clock.Now += TimeSpan.FromMinutes(2);
+
+        using var expired = await client.GetAsync("/window/probe?keep=1", TestContext.Current.CancellationToken);
+        var html = await expired.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, expired.StatusCode);
+        Assert.Equal("text/html", expired.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("data-testid=\"window-expired\"", html, StringComparison.Ordinal);
+        Assert.Contains("open_window", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("surface-window", html, StringComparison.Ordinal);
+        Assert.False(expired.Headers.Contains("Set-Cookie"));
+
+        using var file = await client.GetAsync("/app.js", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, file.StatusCode);
+        Assert.Equal("text/plain", file.Content.Headers.ContentType?.MediaType);
+
+        using var stillUsed = await fresh.GetAsync("/window/probe?keep=1", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, stillUsed.StatusCode);
+    }
+
+    /// <summary>A clock a test sets, for the link cookies' idle time.</summary>
+    private sealed class SettableClock(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = now;
+
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
     /// <summary>A browser that already has the cookie and loads an address that still
     /// carries a token — a stale link, or a second one — is sent on without it rather
     /// than refused, and a live token is spent either way.</summary>
@@ -507,10 +561,17 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     }
 
     [SupportedOSPlatform("windows")]
-    private async Task<Listener> StartAsync()
+    private async Task<Listener> StartAsync(TimeProvider? clock = null)
     {
         var services = MauiDesktopCompositionTests.MauiShapedServices(_appData);
-        services.AddSingleton(new ShellSurface("probe", "Probe", ShellSurfaceGroup.Takeover, 900, typeof(ProbeSurface), QueryKeys: ["keep"]));
+        if (clock is not null)
+        {
+            Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.Replace(
+                services,
+                ServiceDescriptor.Singleton(new WindowLinkTokens(clock)));
+        }
+
+        services.AddSingleton(new ShellSurface("probe","Probe", ShellSurfaceGroup.Takeover, 900, typeof(ProbeSurface), QueryKeys: ["keep"]));
         services.AddSingleton(new ShellSurface("probe-target", "Probe target", ShellSurfaceGroup.Takeover, 901, typeof(ProbeTargetSurface)));
         services.AddSingleton<ProbeSingleton>();
         services.AddSingleton(new DesktopServiceRegistrations([.. services]));
