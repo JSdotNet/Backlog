@@ -277,6 +277,11 @@
     /// The editing mode survives a re-read of the same note — a save re-reads it —
     /// and is dropped for a different one.
     /// </para>
+    /// <para>
+    /// The Tasks section also lists the tasks the note's own top <c>meta</c> block
+    /// names that the Brain's database does not yet: right after a pickup wrote one
+    /// there, the database is rebuilt from the file only later.
+    /// </para>
     /// </summary>
     private async Task LoadAsync()
     {
@@ -288,6 +293,7 @@
             ? await DevbookChapterContent.LoadAsync(Services, Brain.FolderKey, folder, path, canEdit: true)
             : DevbookChapterContent.None;
         var tasks = await ReadNoteTasksAsync(chapter.Chapter?.RelativePath);
+        if (_taskLinks is not null && chapter.Text is { } written) tasks = WithNamedTasks(tasks, written);
         var projectsFolder = _pickup is null ? null : await ReadProjectsFolderAsync();
         if (read != _read || _disposed) return;
 
@@ -326,6 +332,20 @@
         {
             return [];
         }
+    }
+
+    /// <summary>The database's tasks, then each one the note's top <c>meta</c>
+    /// block's <c>tasks</c> field names that it does not, in the field's order.</summary>
+    private static IReadOnlyList<BrainTaskLink> WithNamedTasks(IReadOnlyList<BrainTaskLink> listed, string text)
+    {
+        var seen = new HashSet<string>(listed.Select(link => link.TaskId ?? link.Raw), StringComparer.OrdinalIgnoreCase);
+        var named = BrainNoteLinks.ReadList(text, "tasks")
+            .Select(BrainTaskLink.Parse)
+            .OfType<BrainTaskLink>()
+            .Where(link => seen.Add(link.TaskId ?? link.Raw))
+            .ToList();
+
+        return named.Count == 0 ? listed : [.. listed, .. named];
     }
 
     /// <summary>The Brain's projects area folder, read off the render thread: the
@@ -408,6 +428,10 @@
             var result = await pick();
             message = result.Message;
             linked = result.Outcome is BrainPickupOutcome.Linked;
+
+            // A link was written into the note: read it again, still busy, so it
+            // shows what the message says it names.
+            if (linked && !_editing && !_disposed && string.Equals(NotePath, path, StringComparison.OrdinalIgnoreCase)) await ReadAgainAsync();
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or HttpRequestException or OperationCanceledException)
         {
@@ -425,6 +449,20 @@
 
         _pickupMessage = message;
         _pickupLinked = linked;
+    }
+
+    /// <summary>The note read again after a pickup linked it. A file taken away or
+    /// held under the read leaves the note as it was on screen: the work was made,
+    /// and the answer still says so.</summary>
+    private async Task ReadAgainAsync()
+    {
+        try
+        {
+            await LoadAsync();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ObjectDisposedException)
+        {
+        }
     }
 
     /// <summary>The text the reader selected inside the note, or null. A host
