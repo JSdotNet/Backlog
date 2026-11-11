@@ -1,12 +1,14 @@
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
 
 /// <summary>
 /// Turns what a roadmap item reaches — its direct links and everything carrying its
-/// tag — into the two de-duplicated lists a rollup shows.
+/// tag — into the de-duplicated lists a rollup shows: backlog entries, repository
+/// devbook chapters, and the owner's Brain notes.
 /// <para>
 /// A pure function of the item, the backlog and the knowledge nodes, deliberately
 /// apart from the adapter that reads those. Everything worth asserting about a
@@ -31,17 +33,22 @@ public static class RoadmapItemRollupBuilder
     /// id — read only to date an entry that carries no date of its own. Null, or a
     /// linked session missing from it, leaves the entry's dates as Tasks recorded
     /// them.</param>
+    /// <param name="brainNotes">This device's Brain notes (local ADR 0053), or null
+    /// where no Brain is readable: every <c>#brain:</c> ref then reads as unresolved
+    /// for want of a Brain, and no note is gathered by tag. An empty list is a Brain
+    /// that holds nothing, so its refs read as not in it.</param>
     public static RoadmapItemRollupDto Build(
         RoadmapItemDto item,
         IReadOnlyList<TaskItemDto> backlog,
         IReadOnlyList<KnowledgeGraphNode> knowledge,
-        IReadOnlyDictionary<string, RoadmapSessionActivity>? sessions = null)
+        IReadOnlyDictionary<string, RoadmapSessionActivity>? sessions = null,
+        IReadOnlyList<RoadmapBrainNote>? brainNotes = null)
     {
         ArgumentNullException.ThrowIfNull(item);
         ArgumentNullException.ThrowIfNull(backlog);
         ArgumentNullException.ThrowIfNull(knowledge);
 
-        return Build(item, backlog, knowledge, DependencyCandidates(backlog), sessions ?? NoSessions);
+        return Build(item, backlog, knowledge, DependencyCandidates(backlog), sessions ?? NoSessions, BrainIndex.Of(brainNotes));
     }
 
     /// <summary>
@@ -64,13 +71,15 @@ public static class RoadmapItemRollupBuilder
         RoadmapPlanDto plan,
         IReadOnlyList<TaskItemDto> backlog,
         IReadOnlyList<KnowledgeGraphNode> knowledge,
-        IReadOnlyDictionary<string, RoadmapSessionActivity>? sessions = null)
+        IReadOnlyDictionary<string, RoadmapSessionActivity>? sessions = null,
+        IReadOnlyList<RoadmapBrainNote>? brainNotes = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(backlog);
         ArgumentNullException.ThrowIfNull(knowledge);
 
         var candidates = DependencyCandidates(backlog);
+        var brain = BrainIndex.Of(brainNotes);
         var rollups = new Dictionary<Guid, RoadmapItemRollupDto>();
 
         foreach (var item in plan.Items)
@@ -78,7 +87,7 @@ public static class RoadmapItemRollupBuilder
             // Last write wins on a repeated id rather than throwing. A plan holding
             // one id twice is already broken, and refusing to draw any of it is a
             // worse answer than drawing it once.
-            rollups[item.Id] = Build(item, backlog, knowledge, candidates, sessions ?? NoSessions);
+            rollups[item.Id] = Build(item, backlog, knowledge, candidates, sessions ?? NoSessions, brain);
         }
 
         return rollups;
@@ -89,10 +98,12 @@ public static class RoadmapItemRollupBuilder
         IReadOnlyList<TaskItemDto> backlog,
         IReadOnlyList<KnowledgeGraphNode> knowledge,
         IReadOnlyCollection<DependencyResolution.Candidate> candidates,
-        IReadOnlyDictionary<string, RoadmapSessionActivity> sessions) =>
+        IReadOnlyDictionary<string, RoadmapSessionActivity> sessions,
+        BrainIndex brain) =>
         new(
             RoadmapRollup.Merge(BacklogCandidates(item, backlog, candidates, sessions)),
-            RoadmapRollup.Merge(KnowledgeCandidates(item, knowledge)));
+            RoadmapRollup.Merge(KnowledgeCandidates(item, knowledge)),
+            RoadmapRollup.Merge(BrainCandidates(item, brain)));
 
     private static readonly IReadOnlyDictionary<string, RoadmapSessionActivity> NoSessions =
         new Dictionary<string, RoadmapSessionActivity>();
@@ -268,6 +279,11 @@ public static class RoadmapItemRollupBuilder
         {
             if (string.IsNullOrWhiteSpace(reference)) continue;
 
+            // A Brain address is the Brain's, routed out before the graph is asked: a
+            // repository's devbook never answers for a note (local ADR 0053 §1 and §6), not
+            // even through a node that happens to share the string.
+            if (BrainNoteAddress.Is(reference)) continue;
+
             if (byId.TryGetValue(reference, out var node))
             {
                 yield return new RoadmapGatheredLink(node.Id, node.Label, node.Effort, RollupOrigin.Direct);
@@ -288,6 +304,100 @@ public static class RoadmapItemRollupBuilder
             if (!node.Roadmap.Contains(tag, StringComparer.OrdinalIgnoreCase)) continue;
             yield return new RoadmapGatheredLink(node.Id, node.Label, node.Effort, RollupOrigin.Tag);
         }
+    }
+
+    /// <summary>
+    /// The owner's Brain notes the item reaches: its <c>#brain:</c> refs, in the
+    /// person's order, then every note whose <c>roadmap</c> list names its tag
+    /// (local ADR 0053 §5).
+    /// <para>
+    /// A ref that names no note this Brain holds — or any ref at all where no Brain
+    /// is readable — is still listed, titled by the address as written, with no
+    /// effort, and marked unresolved with the reason: no Brain here, not in this
+    /// Brain, or no Brain address at all. The reader is not the owner, or the note has
+    /// gone, and either is an ordinary reading rather than a broken plan. Keys are the
+    /// address in its one spelling, so a ref and a tag match of the same note meet.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<RoadmapGatheredLink> BrainCandidates(RoadmapItemDto item, BrainIndex brain)
+    {
+        foreach (var reference in item.Knowledge)
+        {
+            if (!BrainNoteAddress.Is(reference)) continue;
+
+            var written = reference.Trim();
+            if (!BrainNoteAddress.TryParse(written, out var address))
+            {
+                yield return Unresolved(written, written, RoadmapUnresolvedReason.NotAnAddress);
+            }
+            else if (!brain.IsReadable)
+            {
+                yield return Unresolved(address.Value, written, RoadmapUnresolvedReason.NoBrain);
+            }
+            else if (brain.Find(address) is { } note)
+            {
+                yield return BrainLink(note, RollupOrigin.Direct);
+            }
+            else
+            {
+                yield return Unresolved(address.Value, written, RoadmapUnresolvedReason.NotInBrain);
+            }
+        }
+
+        var tag = item.Tag;
+        if (string.IsNullOrWhiteSpace(tag)) yield break;
+
+        foreach (var note in brain.Notes)
+        {
+            if (!note.Roadmap.Contains(tag, StringComparer.OrdinalIgnoreCase)) continue;
+            yield return BrainLink(note, RollupOrigin.Tag);
+        }
+    }
+
+    private static RoadmapGatheredLink Unresolved(string key, string written, RoadmapUnresolvedReason reason) =>
+        new(key, written, null, RollupOrigin.Direct, UnresolvedBecause: reason);
+
+    private static RoadmapGatheredLink BrainLink(RoadmapBrainNote note, RollupOrigin origin) =>
+        new(BrainNoteAddress.Format(note.Path, note.Slug), note.Title, note.Effort, origin);
+
+    /// <summary>
+    /// The Brain's notes by address, built once per gathering so a plan-wide build
+    /// indexes them once. A note as a whole is found by its path and also by its top
+    /// heading's slug, the address a person may well have copied from the pane.
+    /// </summary>
+    private sealed class BrainIndex
+    {
+        private static readonly BrainIndex None = new([]) { IsReadable = false };
+
+        private readonly Dictionary<string, RoadmapBrainNote> _byAddress = new(StringComparer.OrdinalIgnoreCase);
+
+        private BrainIndex(IReadOnlyList<RoadmapBrainNote> notes)
+        {
+            Notes = notes;
+
+            foreach (var note in notes)
+            {
+                if (string.IsNullOrWhiteSpace(note.Path)) continue;
+
+                _byAddress.TryAdd(BrainNoteAddress.Format(note.Path, note.Slug), note);
+                if (note.Slug is null && !string.IsNullOrEmpty(note.TitleSlug))
+                {
+                    _byAddress.TryAdd(BrainNoteAddress.Format(note.Path, note.TitleSlug), note);
+                }
+            }
+        }
+
+        public IReadOnlyList<RoadmapBrainNote> Notes { get; }
+
+        /// <summary>Whether a Brain was read at all — false where none is readable on
+        /// this device, true for a Brain that holds nothing.</summary>
+        public bool IsReadable { get; private init; } = true;
+
+        public static BrainIndex Of(IReadOnlyList<RoadmapBrainNote>? notes) =>
+            notes is null ? None : new BrainIndex(notes);
+
+        public RoadmapBrainNote? Find(BrainNoteAddress address) =>
+            _byAddress.TryGetValue(address.Value, out var note) ? note : null;
     }
 
     /// <summary>

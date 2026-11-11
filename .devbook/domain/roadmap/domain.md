@@ -368,8 +368,8 @@ type: domain-service
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#shared-value-objects, .devbook/domain/sessions/domain.md#agent-session, .devbook/domain/roadmap/domain.invariants.md#roadmap-item-gathering]
 ```
 
-Assembles, for one Roadmap Item, everything it reaches across Tasks and Devbook,
-and totals the registered story points over the result. It reaches work two ways:
+Assembles, for one Roadmap Item, everything it reaches across Tasks, Devbook and,
+for the Brain's owner, the Brain, and totals the registered story points over the result. It reaches work two ways:
 
 - **By name**: the task its [Task Link](#task-link) names, and the chapters its
   [Knowledge Refs](#knowledge-ref) list. The item wrote these references down
@@ -379,8 +379,9 @@ and totals the registered story points over the result. It reaches work two ways
   these without naming them. For the Brain's owner, it also reaches every Brain
   note whose `roadmap` list names the tag (local ADR 0053).
 
-It is a service because none of this is in the item's own state: Tasks and
-Devbook hold the entries and chapters and register the effort. Like
+It is a service because none of this is in the item's own state: Tasks,
+Devbook and the Brain hold the entries, chapters and notes and register the
+effort. Like
 [Repository Scope Resolution](#repository-scope-resolution), it reads foreign data
 on the read path and holds none, so an unreachable supplier degrades a total and
 never corrupts a plan.

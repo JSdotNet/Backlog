@@ -223,6 +223,31 @@ public class PlanTaggingTests
     }
 
     [Fact]
+    public void ABrainNoteAddress_IsKeptAsWritten_OnAddAndOnUpdate()
+    {
+        // Local ADR 0053 §2: a Knowledge Ref may name a note in its owner's Brain. The
+        // plan holds the string by value and never reads it, so the address, its case
+        // and its slug survive both writes untouched.
+        var plan = RoadmapPlan.Empty();
+
+        var item = plan.AddItem(
+            "Work",
+            Window(5, 9),
+            knowledgeRefs: KnowledgeReferences.Of(["#brain:projects/sync.md", ".devbook/domain/tasks/domain.md#task"])).Value;
+
+        Assert.Equal(["#brain:projects/sync.md", ".devbook/domain/tasks/domain.md#task"], item.KnowledgeRefs.Refs);
+
+        plan.UpdateItem(
+            item.Id,
+            "Work",
+            Window(5, 9),
+            PlanningPriority.Medium,
+            knowledgeRefs: KnowledgeReferences.Of(["#Brain:projects/sync.md#the-plan"]));
+
+        Assert.Equal(["#Brain:projects/sync.md#the-plan"], item.KnowledgeRefs.Refs);
+    }
+
+    [Fact]
     public void TheDistinctTagsInUseAreReported_OnceEach()
     {
         var plan = RoadmapPlan.Empty();

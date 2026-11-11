@@ -41,6 +41,15 @@
         <BrainNotesBadge Notes="@TwoNotes" OnOpen="_ => { }" TestId="brain-pane-notes-two" />
     </Story>
 
+    <Story Name="Brain notes on a roadmap item"
+           Description="BrainNoteChip, in a roadmap item's Brain notes group: a note its Knowledge Refs name as #brain:path, or one whose roadmap list names the item's tag (local ADR 0053). The Brain badge with the word Brain printed sits in front. Resolved, the label reads the note's title and pressing it opens the note in the Devbook pane, Brain side. Unresolved, the label is the address, nothing opens, and the edge is dashed with a mark whose name is the reason the gathering found, in the chip's own words: no Brain readable on this device (NotInYourBrain), a Brain that holds no such note (NotInThisBrain), or a reference that is no Brain address (NotABrainAddress)."
+           Code="@NoteChipCode">
+        <BrainNoteChip Reference="#brain:projects/sync.md" Title="Sync rework" OnOpen="_ => { }" TestId="brain-pane-note-chip-resolved" />
+        <BrainNoteChip Reference="#brain:projects/sync.md" Unresolved="true" Problem="@BrainNoteChip.NotInYourBrain" TestId="brain-pane-note-chip-no-brain" />
+        <BrainNoteChip Reference="#brain:projects/retired.md" Unresolved="true" Problem="@(BrainNoteChip.NotInThisBrain("projects/retired.md"))" TestId="brain-pane-note-chip-missing" />
+        <BrainNoteChip Reference="#brain:../outside.md" Unresolved="true" Problem="@BrainNoteChip.NotABrainAddress" TestId="brain-pane-note-chip-not-an-address" />
+    </Story>
+
     <Story Name="Show hidden toggle"
            Description="A small icon ToggleButton (an eye, named Show hidden folders), at the end of the Brain menu's heading through TreeView's HeadingTrailing slot; only the Brain's menu carries it. Pressed, every folder CONVENTIONS.md lists under Ignore and every dot-folder gets a tab after the rest, and each area's menu lists its dot-entries. It is off until pressed, and the app keeps the choice per device, never in the folder. Search, the atlas and the Brain database are unchanged by it."
            Code="@ShowHiddenCode">
@@ -139,6 +148,10 @@
 
     private const string NotesBadgeCode = """
         <BrainNotesBadge Notes="@notes" OnOpen="OnOpenBrainNote" TestId="entry-brain-notes" />
+        """;
+
+    private const string NoteChipCode = """
+        <BrainNoteChip Reference="@link.Key" Title="@link.Title" Unresolved="@link.Unresolved" Problem="@BrainProblem(link)" OnOpen="BrainChipPressed" />
         """;
 
     private const string ConflictMessage =

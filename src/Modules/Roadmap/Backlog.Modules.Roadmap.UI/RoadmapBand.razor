@@ -172,6 +172,7 @@
                        OnDependencyChanged="ChangeDependencyAsync"
                        OnUseForecast="UseForecastAsync"
                        OnOpenTasks="OpenTasksAsync"
+                       OnOpenBrainNote="@(OnOpenBrainNote.HasDelegate ? OpenBrainNoteCallback : default(EventCallback<string>))"
                        OnComplete="CompleteAsync"
                        OnReopen="ReopenAsync"
                        AllowCopy="@CopyEnabled"
@@ -397,6 +398,14 @@
     /// </summary>
     [Parameter]
     public EventCallback<RoadmapTasksRequest> OnOpenTasks { get; set; }
+
+    /// <summary>
+    /// Asks the host to open one of an item's gathered Brain notes — its
+    /// <c>&lt;path&gt;[#slug]</c> inside the Brain (local ADR 0053) — in the Devbook
+    /// pane, Brain side. With nothing answering, the editor's Brain chips are text.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnOpenBrainNote { get; set; }
 
     /// <summary>
     /// A plan to open the chart on, by its tag with or without the <c>+</c>: the bar of
@@ -1209,6 +1218,23 @@
         _edited = null;
         await Load();
         KeepUpHeldForTheEditor();
+    }
+
+    private EventCallback<string> OpenBrainNoteCallback => EventCallback.Factory.Create<string>(this, OpenBrainNoteAsync);
+
+    /// <summary>
+    /// A Brain chip pressed in the editor: the dialog closes, as for Open in Tasks, so
+    /// the note opens with nothing over it. The editor offers the chip only while its
+    /// fields hold no unsaved change, so closing discards nothing.
+    /// </summary>
+    private async Task OpenBrainNoteAsync(string note)
+    {
+        _editing = false;
+        _edited = null;
+        _placement = null;
+        KeepUpHeldForTheEditor();
+
+        await OnOpenBrainNote.InvokeAsync(note);
     }
 
     /// <summary>

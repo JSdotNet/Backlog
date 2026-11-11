@@ -3,6 +3,7 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -69,6 +70,14 @@ public static class BrainAdapterRegistration
         // devbook shows its owner "From your Brain" and nothing is written there.
         services.AddSingleton<IBrainBacklinks>(sp => new BrainBacklinkReader(sp.GetRequiredService<IBrainFolderSource>()));
         services.AddSingleton<IBrainTaskLinks>(sp => new BrainTaskLinkReader(sp.GetRequiredService<IBrainFolderSource>()));
+
+        // The notes a roadmap item gathers (local ADR 0053), from the same database.
+        // Replace rather than TryAdd, as for To Brain below: the roadmap's
+        // cross-context registration leaves an empty answer for a host without a
+        // Brain, and whichever of the two runs first, this one wins. A singleton, as
+        // that one is: it holds no scoped service.
+        services.Replace(ServiceDescriptor.Singleton<IRoadmapBrainNotes>(sp =>
+            new BrainRoadmapNoteReader(sp.GetRequiredService<IBrainFolderSource>())));
 
         // The watch ties the setting to the refresher; each head starts it after Build().
         services.AddSingleton(sp => new BrainFolderWatch(

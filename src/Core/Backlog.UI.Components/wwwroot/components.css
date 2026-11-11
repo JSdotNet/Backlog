@@ -3146,6 +3146,79 @@ button.devbook-chip__label:focus-visible {
     background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
 }
 
+/* A Brain note something holds — a roadmap item gathering it (local ADR 0053) — as a
+   chip: the DevbookReferenceChip shape with the Brain badge in front, so the word
+   Brain is printed and the band-2 teal never says it alone
+   (color-scheme.md#the-brains-accent). Unresolved — no Brain on this device, or the
+   note is not in it — the edge is dashed, the label is the address in the secondary
+   ink, and a mark carries the reason. */
+.brain-note-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 var(--spacing-xs) 0 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+    vertical-align: baseline;
+}
+
+.brain-note-chip--unresolved {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+}
+
+/* The badge sits inside the chip's edge: as tall as one line of chip text, its
+   left band the chip's leading edge. */
+.brain-note-chip > .brain-note-chip__badge {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full) 0 0 var(--border-radius-full);
+    line-height: inherit;
+}
+
+.brain-note-chip__label {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    min-width: 0;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+button.brain-note-chip__label {
+    cursor: pointer;
+}
+
+button.brain-note-chip__label:hover:not(:disabled) {
+    color: var(--color-primary-light);
+    text-decoration: underline;
+}
+
+button.brain-note-chip__label:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.brain-note-chip--unresolved .brain-note-chip__label {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+}
+
+.brain-note-chip__unresolved {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+    cursor: help;
+}
+
 /* The Domain view's Brain and task links (local ADR 0026 §3, ADR 0027 §6). The
    notes badge on a model part or a glossary term and the From your Brain box
    under a unit, feature or term are the Brain's own teal; the task chips on a

@@ -5,6 +5,7 @@ using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
 
@@ -66,12 +67,18 @@ public static class RoadmapCrossContextAdapterRegistration
         // taking the backlog in the constructor deadlocks the scope, as for the
         // finished work below. The session source is optional: it dates work its entry
         // left undated, and a host without one draws the entries' own dates, as before.
+        //
+        // The Brain's notes are read through Roadmap's own port (local ADR 0053): none
+        // in a host without a Brain, the Brain's database where its adapters replace
+        // this empty answer. A singleton either way — it holds no scoped service.
+        services.TryAddSingleton<IRoadmapBrainNotes, NoRoadmapBrainNotes>();
         services.AddScoped<IRoadmapItemRollup>(sp =>
             new RoadmapItemRollupService(
                 () => sp.GetRequiredService<ITaskItems>(),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
                 sp.GetService<IAgentSessionSource>(),
-                sp.GetService<TimeProvider>()));
+                sp.GetService<TimeProvider>(),
+                sp.GetService<IRoadmapBrainNotes>()));
 
         // The shelf of plans not yet on the roadmap reads the backlog the same way,
         // so it is scoped for the same reason: ITaskItems is.

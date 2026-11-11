@@ -30,6 +30,10 @@ public sealed record RoadmapPlanIntakeRequestDto(
 /// <param name="Due">The <c>due:</c>, the last day inclusive.</param>
 /// <param name="After">The plan-level <c>after:</c> values.</param>
 /// <param name="Notes">The body, verbatim, or null when it is empty.</param>
+/// <param name="KnowledgeRefs">The entry's <c>devbook:</c> values, in the order written:
+/// a repository chapter normalised as a task's reference is, or a Brain address
+/// (<c>#brain:&lt;path&gt;[#slug]</c>, local ADR 0053) kept as written. Null or empty
+/// when it wrote none.</param>
 public sealed record RoadmapPlanEntryDto(
     string Title,
     string Tag,
@@ -38,7 +42,8 @@ public sealed record RoadmapPlanEntryDto(
     Priority? Priority,
     DateOnly? Due,
     IReadOnlyList<string> After,
-    string? Notes);
+    string? Notes,
+    IReadOnlyList<string>? KnowledgeRefs = null);
 
 /// <summary>What the stored tasks under one plan tag register: the sum of their
 /// points, and how many registered none.</summary>

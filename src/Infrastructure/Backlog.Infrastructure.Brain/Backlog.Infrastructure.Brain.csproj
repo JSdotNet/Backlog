@@ -4,8 +4,8 @@
     The Brain's adapters (local ADR 0040 §1; its adapter project rather than
     folders spread across FileSystem, Devbook and Mcp): the Brain setting's file,
     its folder source, the note writer, the folder watch, the corpus profile
-    Devbook's builder reads the Brain under, the backlink and task-link readers
-    over its database, the Inbox's To Brain join, and Show hidden.
+    Devbook's builder reads the Brain under, the backlink, task-link and roadmap
+    note readers over its database, the Inbox's To Brain join, and Show hidden.
 
     The edge runs from here to the modules and never back: Devbook supplies the
     hooks (the corpus profile, the personal source), this project plugs the Brain
@@ -44,6 +44,10 @@
     <!-- The Inbox's IInboxBrainTarget port, answered over the note writer: the
          To Brain join only an adapter seeing both contexts may hold. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+    <!-- Roadmap's IRoadmapBrainNotes port, answered over the Brain's database: a
+         roadmap item's #brain: refs and its tag reach the owner's notes (local ADR
+         0053). -->
+    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.Abstractions\Backlog.Modules.Roadmap.Abstractions.csproj" />
     <!-- Devbook's builder and registry, for the corpus profile, the database
          location and the readers over the Brain's database. -->
     <ProjectReference Include="..\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
