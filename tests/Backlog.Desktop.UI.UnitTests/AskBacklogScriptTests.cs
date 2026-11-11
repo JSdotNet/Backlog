@@ -60,6 +60,26 @@ public sealed class AskBacklogScriptTests : IDisposable
 
     private static JsonObject Unavailable() => new() { ["status"] = 503 };
 
+    /// <summary>
+    /// With no token in the environment the hook reads the app's settings.json beside its
+    /// folder and presents the question hook's own token, never the MCP server's.
+    /// </summary>
+    [Fact]
+    public void The_hook_presents_the_question_hook_token_from_settings_and_never_the_mcp_token()
+    {
+        File.WriteAllText(Path.Combine(_root, "settings.json"), """
+            { "mcpServer": { "token": "mcp-token", "hookToken": "hook-token" } }
+            """);
+
+        var run = Run(
+            Replies(("ask", [Asked(DialogId, "session")])),
+            new Dictionary<string, string> { ["BACKLOG_HOOK_TOKEN"] = "" },
+            Step("pre", PreInput()));
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.Equal("Bearer hook-token", Assert.Single(run.Calls).Authorization);
+    }
+
     // ---- pre ---------------------------------------------------------------------------
 
     /// <summary>At the keyboard: one ask, nothing printed, so the dialog opens at once.</summary>
@@ -544,7 +564,7 @@ public sealed class AskBacklogScriptTests : IDisposable
     {
         var environment = new JsonObject
         {
-            ["BACKLOG_MCP_TOKEN"] = "test-token",
+            ["BACKLOG_HOOK_TOKEN"] = "test-token",
             ["ASK_BACKLOG_STATE_DIR"] = Path.Combine(_root, "state"),
             ["ASK_BACKLOG_RETRY_MS"] = "",
             // Never this machine's own settings.json, whatever the test sets.

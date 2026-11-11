@@ -21,9 +21,10 @@
 //   end     SessionEnd                    close every open question of the session session-ended,
 //                                         then sweep state files other sessions left behind.
 //
-// The MCP tools are called as JSON-RPC tools/call over HTTP on the app's /mcp, with the bearer
-// token. Port and token come from BACKLOG_MCP_PORT / BACKLOG_MCP_TOKEN, else from the app's
-// settings.json — the one beside this script's own folder first, then %LOCALAPPDATA%\Backlog's —
+// The MCP tools are called as JSON-RPC tools/call over HTTP on the app's /mcp, with the question
+// hook's own bearer token, which reaches the question tools and nothing else — never the MCP
+// server's token. Port and token come from BACKLOG_MCP_PORT / BACKLOG_HOOK_TOKEN, else from the
+// app's settings.json (mcpServer.port, mcpServer.hookToken) — the one beside this script's own folder first, then %LOCALAPPDATA%\Backlog's —
 // the way telemetry-forwarder.mjs finds them.
 //
 // There is no tool that lists a session's questions, so the ids this script was given are kept
@@ -90,7 +91,7 @@ function installedSettingsPath() {
 
 async function endpoint() {
     let port = Number(process.env.BACKLOG_MCP_PORT) || null;
-    let token = process.env.BACKLOG_MCP_TOKEN || null;
+    let token = process.env.BACKLOG_HOOK_TOKEN || null;
     // The app writes this script to <app data>\hooks, so its own settings.json is one folder up:
     // that is what makes a debug head's Backlog.Debug hook talk to the debug head.
     for (const settings of [path.join(here, "..", "settings.json"), installedSettingsPath()]) {
@@ -98,7 +99,7 @@ async function endpoint() {
         try {
             const mcp = JSON.parse(await readFile(settings, "utf8")).mcpServer || {};
             port ||= Number(mcp.port) || null;
-            token ||= mcp.token || null;
+            token ||= mcp.hookToken || null;
         } catch {
             // No settings there: try the next, or the defaults.
         }

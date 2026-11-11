@@ -121,9 +121,10 @@ The desktop app receives Claude Code's OpenTelemetry logs at `/v1/logs` and keep
 - **Read the URL, never build it.** Settings → **Claude Code** shows the endpoint and a
   `settings.json` block. The page is offered only while the `sessions` feature is on
   (Settings → Features). In the desktop app the endpoint is `/v1/logs` on the MCP server's
-  loopback port, behind the MCP server's bearer token. **Copy the settings block** carries
-  the token; the block drawn on the page hides it. A new MCP port or token means copying the
-  block again.
+  loopback port, behind a telemetry token of its own — the MCP server's token is refused
+  there with `401`, and the telemetry token reaches no other route. **Copy the settings block**
+  carries the token; the block drawn on the page hides it. A new MCP port, or a block copied
+  before the telemetry token existed, means copying the block again.
 - **An app without the page does not serve it.** A desktop build from before the receiver
   answers `404` on `/v1/logs` even with a valid token. Do not point Claude Code at it.
 - **The harness serves it too.** `desktop-web-harness` maps `/v1/logs` on its own origin,
