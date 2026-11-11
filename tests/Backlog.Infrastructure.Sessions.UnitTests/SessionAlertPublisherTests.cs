@@ -33,7 +33,7 @@ public sealed class SessionAlertPublisherTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private SessionAlertPublisher Publisher() =>
-        new(_schedules, _loops, _sessions, () => _ledger, () => _ledger, () => _enabled, _requests, clock: _time) { Zone = TimeZoneInfo.Utc };
+        new(_schedules, _loops, _sessions, () => _ledger, () => _ledger, () => _enabled, _requests, clock: _time, store: () => _ledger) { Zone = TimeZoneInfo.Utc };
 
     private Task ReportAsync(ScheduledRunEvent @event, string session, string? verdict = null, IReadOnlyList<string>? needsYou = null) =>
         _schedules.RecordAsync(
@@ -224,6 +224,94 @@ public sealed class SessionAlertPublisherTests
     }
 
     [Fact]
+    public async Task Turning_the_sessions_area_back_on_raises_again_an_alert_whose_cause_still_holds()
+    {
+        await NeedsYouAsync();
+        var publisher = Publisher();
+        await publisher.SweepAsync(Ct);
+        _enabled = false;
+        await publisher.SweepAsync(Ct);
+
+        _enabled = true;
+
+        Assert.Equal((1, 0), await publisher.SweepAsync(Ct));
+        Assert.Equal((0, 0), await Publisher().SweepAsync(Ct));
+        var raised = Assert.Single(_ledger.Views, view => view.IsOpen);
+        Assert.Equal("Weekly update needs you", raised.Title);
+        Assert.Equal(SessionAlertPublisher.IdFor("needs-you:schedule:weekly-update:run-1", 2), raised.Id);
+        Assert.Equal(2, _ledger.Views.Count);
+    }
+
+    [Fact]
+    public async Task Each_switch_off_and_on_raises_the_alert_again_under_the_next_generation()
+    {
+        await NeedsYouAsync();
+        var publisher = Publisher();
+        await publisher.SweepAsync(Ct);
+
+        for (var cycle = 0; cycle < 2; cycle++)
+        {
+            _enabled = false;
+            await publisher.SweepAsync(Ct);
+            _enabled = true;
+            Assert.Equal((1, 0), await publisher.SweepAsync(Ct));
+        }
+
+        Assert.Equal(SessionAlertPublisher.IdFor("needs-you:schedule:weekly-update:run-1", 3), Assert.Single(_ledger.Views, view => view.IsOpen).Id);
+        Assert.Equal(3, _ledger.Views.Count);
+    }
+
+    [Fact]
+    public async Task A_switch_off_closing_the_centre_no_longer_lists_is_found_in_the_store()
+    {
+        await NeedsYouAsync();
+        var publisher = Publisher();
+        await publisher.SweepAsync(Ct);
+        _enabled = false;
+        await publisher.SweepAsync(Ct);
+        var first = Assert.Single(_ledger.Views).Id;
+
+        _ledger.Unlist(first);
+        _enabled = true;
+
+        Assert.Equal((1, 0), await publisher.SweepAsync(Ct));
+        Assert.Equal(SessionAlertPublisher.IdFor("needs-you:schedule:weekly-update:run-1", 2), Assert.Single(_ledger.Views, view => view.IsOpen).Id);
+    }
+
+    [Fact]
+    public async Task An_acknowledged_alert_stays_acknowledged_across_a_switch_off_and_on()
+    {
+        await NeedsYouAsync();
+        var publisher = Publisher();
+        await publisher.SweepAsync(Ct);
+        _ledger.Acknowledge(Assert.Single(_ledger.Views).Id);
+
+        _enabled = false;
+        await publisher.SweepAsync(Ct);
+        _enabled = true;
+
+        Assert.Equal((0, 0), await publisher.SweepAsync(Ct));
+        Assert.Equal(NotificationState.Acknowledged, Assert.Single(_ledger.Views).State);
+    }
+
+    [Fact]
+    public async Task An_alert_closed_by_its_cause_clearing_is_not_raised_again_by_turning_the_area_off_and_on()
+    {
+        await NeedsYouAsync();
+        var publisher = Publisher();
+        await publisher.SweepAsync(Ct);
+        _sessions.Archive("run-1");
+        await publisher.SweepAsync(Ct);
+
+        _enabled = false;
+        await publisher.SweepAsync(Ct);
+        _enabled = true;
+
+        Assert.Equal((0, 0), await publisher.SweepAsync(Ct));
+        Assert.Equal("Run archived", Assert.Single(_ledger.Views).CloseReason);
+    }
+
+    [Fact]
     public async Task Open_run_names_the_session_by_the_id_the_sessions_list_knows_it_by()
     {
         _sessions.Add("3f2c-transcript-id", desktopId: "local_run-1");
@@ -275,11 +363,25 @@ public sealed class SessionAlertPublisherTests
     /// <summary>
     /// The owner's port and centre over one list, keeping the rules the sweep leans on: a held id
     /// publishes nothing, closing a subject closes its open notifications, and the centre lists
-    /// open and settled alike.
+    /// open and settled alike — but for one <see cref="Unlist"/> has let go of, as the centre lets
+    /// go of what settled more than a week ago, which the store still holds.
     /// </summary>
-    private sealed class Ledger : INotifications, INotificationCentre
+    private sealed class Ledger : INotifications, INotificationCentre, INotificationReplication
     {
         private readonly List<NotificationView> _views = [];
+        private readonly HashSet<Guid> _unlisted = [];
+
+        public void Unlist(Guid id) => _unlisted.Add(id);
+
+        public Task<IReadOnlyList<NotificationSnapshot>> ListOpenAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<NotificationSnapshot>>([.. _views.Where(view => view.IsOpen).Select(Snapshot)]);
+
+        public Task<NotificationSnapshot?> GetAsync(Guid notificationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_views.Where(view => view.Id == notificationId).Select(Snapshot).FirstOrDefault());
+
+        private static NotificationSnapshot Snapshot(NotificationView view) =>
+            new(view.Id, view.OwnerInstanceId, view.Source, view.Subject, view.Kind, view.Severity, view.Title, view.Summary, view.BodyMarkdown,
+                view.AnswerSpec, view.DeepLink, view.IsPrivate, view.CreatedAt, view.State, view.SettledAt, view.CloseReason, view.Answer, view.Origin);
 
         public IReadOnlyList<NotificationView> Views => [.. _views];
 
@@ -326,7 +428,7 @@ public sealed class SessionAlertPublisherTests
         }
 
         public Task<IReadOnlyList<NotificationView>> ListAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<NotificationView>>([.. _views]);
+            Task.FromResult<IReadOnlyList<NotificationView>>([.. _views.Where(view => !_unlisted.Contains(view.Id))]);
 
         public Task<Result> CloseAsync(Guid notificationId, string? reason = null, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();

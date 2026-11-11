@@ -1666,7 +1666,7 @@ and another reports its finish with its verdict and any Needs-you lines. The app
 Claude Desktop's own schedule or run files. A schedule appears here after its first report.
 Local
 [ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)
-decides it, and nothing of it is built yet.
+decides it.
 
 | State | The schedule's latest run | On the page |
 | --- | --- | --- |
@@ -1726,7 +1726,7 @@ The Sessions list says whether each loop session is still doing its job. A loop 
 session a person keeps running under `/loop`: the Manager that dispatches session requests and
 the Brain tender. When one stops or hangs, the work waiting for it waits silently. Local
 [ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)
-decides it, and nothing of it is built yet.
+decides it.
 
 A loop checks in with Backlog on every tick, through the MCP `check_in` tool. A Manager's wait
 for the next request counts as a check-in too. The answer tells the loop whether the person

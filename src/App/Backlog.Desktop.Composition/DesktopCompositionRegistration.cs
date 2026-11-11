@@ -485,7 +485,8 @@ public static class DesktopCompositionRegistration
             sp.GetService<ISessionRequestStore>(),
             sp.GetService<IWaitingQuestionStore>(),
             sp.GetService<TimeProvider>(),
-            sp.GetService<ILogger<SessionAlertPublisher>>()));
+            sp.GetService<ILogger<SessionAlertPublisher>>(),
+            sp.GetService<INotificationReplication>));
         // "Attach to goal" on tasks, plans and pull requests, cascaded to every screen.
         services.AddGoalControls();
         // The band under every route reads the backlog's save state through the

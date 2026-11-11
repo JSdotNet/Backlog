@@ -154,6 +154,16 @@ public sealed class SessionAlertsTests
         Assert.NotEqual(alert.Key, checkedInAgain!.Key);
     }
 
+    [Theory]
+    [InlineData(LoopKind.Dispatcher, 1, "The **session dispatcher** is still running, but it has not checked in since 05:30: its heartbeat is 1 minute.")]
+    [InlineData(LoopKind.BrainTender, 30, "The **brain tender** is still running, but it has not checked in since 05:30: its heartbeat is 30 minutes.")]
+    public void A_stalled_loops_body_names_the_loop_once_and_counts_its_heartbeat(LoopKind kind, int heartbeat, string expected)
+    {
+        var alert = SessionAlerts.ForLoop(Loop(kind, LoopState.Stalled, heartbeat: heartbeat), LoopWaitingWork.None, Utc);
+
+        Assert.StartsWith(expected, alert!.Body, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_dispatcher_not_running_while_requests_wait_raises_a_critical_alert_that_counts_them()
     {

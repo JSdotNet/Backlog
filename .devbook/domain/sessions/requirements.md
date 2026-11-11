@@ -494,7 +494,8 @@ type: requirements
 related: [.devbook/domain/sessions/features.md#schedules-and-their-runs, .devbook/domain/sessions/domain.md#schedule-register]
 ```
 
-> Local ADR 0051 decides these requirements. None is built yet.
+> Local ADR 0051 decides these requirements. They are built, and the harness validation of
+> 2026-11-11 exercised each state on the Schedules page and each alert in the notification centre.
 
 ### Requirement: A schedule is known only from its runs' reports
 
@@ -589,7 +590,9 @@ type: requirements
 related: [.devbook/domain/sessions/features.md#loop-sessions, .devbook/domain/sessions/domain.md#loop-register]
 ```
 
-> Local ADR 0051 decides these requirements. None is built yet.
+> Local ADR 0051 decides these requirements. They are built, and the harness validation of
+> 2026-11-11 exercised Listening, Holding and Stalled rows, Pause, Resume and Stop, and the loop
+> alerts.
 
 ### Requirement: A loop session's state is read from its check-ins
 
@@ -678,3 +681,9 @@ The system SHALL offer no Schedules page, Agents section, run report tool or `ch
 - **Given** the `sessions` flag is off
 - **When** a scheduled run's hook reports its start
 - **Then** the report tool is not on the MCP endpoint, and nothing is recorded
+
+#### Scenario: The flag is turned on again
+
+- **Given** a schedule that reads Needs you, whose alert closed when the `sessions` flag was turned off
+- **When** the person turns the flag on again
+- **Then** one alert that the schedule needs the person is raised again

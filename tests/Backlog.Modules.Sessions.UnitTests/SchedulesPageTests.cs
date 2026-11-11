@@ -299,6 +299,51 @@ public sealed class SchedulesPageTests
     }
 
     [Fact]
+    public void A_skip_whose_holding_run_was_archived_says_it_was_not_archived_yet()
+    {
+        var released = Schedule(
+            "issue-sweep", "Issue sweep", "JSdotNet/Backlog", ScheduledRunState.Handled,
+            cron: "30 5 * * 1-5",
+            runs:
+            [
+                Run("mon", ScheduledRunState.Handled, new DateTimeOffset(2026, 11, 9, 5, 40, 0, TimeSpan.Zero), skipped: true, heldBy: "fri"),
+                Run("fri", ScheduledRunState.Handled, Friday, needsYou: ["Answer the proposals in the brief"]),
+            ]);
+        using var context = Context();
+        var page = Render(context, [released]);
+
+        page.Find("[data-testid='schedules-row'][data-schedule='issue-sweep'] [data-testid='schedules-row-name']").Click();
+
+        var skip = page.Find("[data-testid='schedules-detail-run'][data-session='mon']");
+        Assert.Equal("Handled", skip.QuerySelector("[data-testid='schedules-detail-run-chip']")!.TextContent.Trim());
+        Assert.Equal("Skipped: the Fri 6 Nov run was not archived yet", skip.QuerySelector("[data-testid='schedules-detail-run-note']")!.TextContent.Trim());
+    }
+
+    [Theory]
+    [InlineData(ScheduledRunState.NeedsYou, "Skipped: the Fri 6 Nov run is not archived")]
+    [InlineData(null, "Skipped: an earlier run was not archived yet")]
+    public void A_skip_archived_on_its_own_says_what_its_holder_still_reads(ScheduledRunState? holderState, string expected)
+    {
+        // The skip's own session is archived, so it reads Handled; the holder is unarchived, or
+        // no longer listed at all.
+        ScheduledRunReading[] runs = holderState is { } state
+            ?
+            [
+                Run("mon", ScheduledRunState.Handled, new DateTimeOffset(2026, 11, 9, 5, 40, 0, TimeSpan.Zero), skipped: true, heldBy: "fri"),
+                Run("fri", state, Friday, needsYou: ["Answer the proposals in the brief"]),
+            ]
+            : [Run("mon", ScheduledRunState.Handled, new DateTimeOffset(2026, 11, 9, 5, 40, 0, TimeSpan.Zero), skipped: true, heldBy: "fri")];
+        var schedule = Schedule("issue-sweep", "Issue sweep", "JSdotNet/Backlog", ScheduledRunState.NeedsYou, cron: "30 5 * * 1-5", runs: runs);
+        using var context = Context();
+        var page = Render(context, [schedule]);
+
+        page.Find("[data-testid='schedules-row'][data-schedule='issue-sweep'] [data-testid='schedules-row-name']").Click();
+
+        var skip = page.Find("[data-testid='schedules-detail-run'][data-session='mon']");
+        Assert.Equal(expected, skip.QuerySelector("[data-testid='schedules-detail-run-note']")!.TextContent.Trim());
+    }
+
+    [Fact]
     public void A_missed_schedules_detail_says_when_it_was_due()
     {
         using var context = Context();
