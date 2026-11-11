@@ -139,6 +139,47 @@ public static class LoopSessions
     /// <summary>The longest heartbeat a check-in may state: a day.</summary>
     public const int MaxHeartbeatMinutes = 24 * 60;
 
+    /// <summary>The title a loop gives its own session on its first turn
+    /// (<c>plugins/backlog-tools/resources/standing-session.md</c>): its icon and its
+    /// name in capitals.</summary>
+    public static string Title(LoopKind kind) => kind switch
+    {
+        LoopKind.Dispatcher => "📡 SESSION DISPATCHER",
+        LoopKind.BrainTender => "🧠 BRAIN TENDER",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "A loop kind with no title.")
+    };
+
+    /// <summary>The <c>/loop</c> command a person starts the loop with.</summary>
+    public static string LoopCommandLine(LoopKind kind) => kind switch
+    {
+        LoopKind.Dispatcher => "/loop /backlog-tools:dispatch-sessions",
+        LoopKind.BrainTender => "/loop /backlog-tools:tend-brain",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "A loop kind with no command.")
+    };
+
+    /// <summary>The loop a session title names, or null for any other title. The whole
+    /// title, as the loop writes it; its name alone, without the icon, reads the same, so
+    /// a host that drops the emoji still files the session as a loop.</summary>
+    public static LoopKind? KindOfTitle(string? title)
+    {
+        var text = title?.Trim();
+
+        if (string.IsNullOrEmpty(text)) return null;
+
+        foreach (var kind in Enum.GetValues<LoopKind>())
+        {
+            var whole = Title(kind);
+
+            if (string.Equals(text, whole, StringComparison.Ordinal)
+                || string.Equals(text, whole[(whole.IndexOf(' ', StringComparison.Ordinal) + 1)..], StringComparison.Ordinal))
+            {
+                return kind;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>When a loop that checked in as <paramref name="checkIn"/> reads Stalled,
     /// if its process is still alive and it checks in no more.</summary>
     public static DateTimeOffset StalledAfter(LoopCheckIn checkIn)

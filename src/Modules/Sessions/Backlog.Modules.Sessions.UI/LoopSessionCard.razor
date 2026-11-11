@@ -1,0 +1,209 @@
+@using global::Backlog.UI.Components.Overlays
+@using global::Backlog.UI.Components.Metrics
+
+@*
+    A loop session's card in the Sessions detail panel (local ADR 0051 §3, §4; the
+    design's "Sessions pane" and "Loop session states" artboards): the /loop command it
+    runs, its state, what the person last asked of it, when it last checked in and what
+    wakes it; for the dispatcher, the four capacity figures beside their limits and the
+    requests and answer deliveries it works through; and Pause, Resume and Stop.
+
+    The buttons set the command the next check_in answer carries. Backlog never stops a
+    session itself: the loop reads the command and obeys it, which is why the card says
+    what was asked rather than claiming it happened. Stop asks first, because a stopped
+    loop does not come back without the person starting it again.
+
+    A loop that never checked in has nothing to read and nothing to command: the card
+    says so, and how to start one.
+*@
+
+<section class="sessions-loop" aria-label="Loop" data-testid="sessions-loop">
+    <div class="sessions-loop__head">
+        <h4 class="sessions-loop__title">Loop</h4>
+        <span class="sessions-loop__command data-table__mono" data-testid="sessions-loop-command">@CommandLine</span>
+        @* The way back for a loop that is not running: start it again with this. *@
+        <CopyButton Text="@CommandLine"
+                    Label="Copy the /loop command"
+                    TestId="sessions-loop-command-copy" />
+        @if (Loop is { } reading)
+        {
+            <Badge Kind="tone"
+                   Slug="@LoopSessionView.Tone(reading.State)"
+                   CssClass="sessions-loop__state"
+                   TestId="sessions-loop-state">@LoopSessionView.Label(reading.State)</Badge>
+        }
+    </div>
+
+    @if (Loop is not { } loop)
+    {
+        <p class="sessions-detail__note" data-testid="sessions-loop-no-check-in">
+            This loop has not checked in with Backlog yet, so its state, its limits and its commands wait for its first tick.
+        </p>
+    }
+    else
+    {
+        var checkIn = loop.Loop.CheckIn;
+
+        @if (LoopSessionView.CommandLine(loop.Loop.Command) is { } asked)
+        {
+            <p class="sessions-loop__asked" data-testid="sessions-loop-asked">
+                @asked
+                @if (loop.Loop.CommandSetAt is { } setAt)
+                {
+                    <span class="sessions-loop__quiet"> · set @LoopSessionView.Ago(setAt, Now)</span>
+                }
+            </p>
+        }
+
+        <p class="sessions-loop__check-in" data-testid="sessions-loop-check-in" title="@Moment(checkIn.At)">
+            Last check-in @LoopSessionView.Ago(checkIn.At, Now) · every @Minutes(checkIn.HeartbeatMinutes)
+            @if (loop.State is LoopState.Stalled)
+            {
+                <span> · quiet past @Moment(LoopSessions.StalledAfter(checkIn))</span>
+            }
+        </p>
+
+        @if (checkIn.Kind is LoopKind.Dispatcher)
+        {
+            <div class="sessions-loop__tiles" data-testid="sessions-loop-capacity">
+                @if (Capacity is { } capacity)
+                {
+                    @foreach (var tile in LoopSessionView.Tiles(capacity))
+                    {
+                        <MetricTile Label="@tile.Label"
+                                    Value="@tile.Value"
+                                    Footnote="@tile.Footnote"
+                                    Status="@(tile.Value is null ? MetricStatusKind.Unavailable : MetricStatusKind.Ready)"
+                                    StatusMessage="Not measured on this machine"
+                                    CssClass="@(tile.Held ? "sessions-loop__tile sessions-loop__tile--held" : "sessions-loop__tile")"
+                                    TestId="@tile.TestId"
+                                    data-held="@(tile.Held ? "true" : "false")" />
+                    }
+                }
+                else
+                {
+                    <p class="sessions-detail__note" data-testid="sessions-loop-capacity-unavailable">This host measures no capacity.</p>
+                }
+            </div>
+        }
+
+        <p class="sessions-loop__wakes" data-testid="sessions-loop-wakes">@LoopSessionView.WakeLine(checkIn)</p>
+
+        @if (checkIn.Kind is LoopKind.Dispatcher)
+        {
+            @if (Work is { Count: > 0 } work)
+            {
+                <ol class="sessions-loop__work" aria-label="Requests and deliveries" data-testid="sessions-loop-work">
+                    @foreach (var item in work)
+                    {
+                        <li class="sessions-loop__item" data-testid="sessions-loop-item" data-kind="@item.Kind">
+                            <StatusDot Tone="@item.Tone" />
+                            <span class="sessions-loop__what" title="@item.Title">@item.What</span>
+                            <span class="sessions-loop__kind">@item.Kind</span>
+                            <Badge BaseClass="sessions-loop__item-state" Kind="">@item.State</Badge>
+                        </li>
+                    }
+                </ol>
+            }
+            else if (Work is not null)
+            {
+                <p class="sessions-detail__note" data-testid="sessions-loop-work-empty">No session request or answer is waiting.</p>
+            }
+            else
+            {
+                <p class="sessions-detail__note" data-testid="sessions-loop-work-unavailable">This host keeps no session request queue to read.</p>
+            }
+        }
+
+        @if (Error is { } error)
+        {
+            <Alert Message="@error" BaseClass="sessions-panel__notice" Role="alert" TestId="sessions-loop-error" />
+        }
+
+        <div class="sessions-loop__actions" role="group" aria-label="Commands for this loop">
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Disabled="@(Busy || loop.Loop.Command is LoopCommand.Pause)"
+                       TestId="sessions-loop-pause"
+                       Title="Ask the loop to do no work and keep checking in"
+                       OnClick="() => OnCommand.InvokeAsync(LoopCommand.Pause)">
+                Pause
+            </AppButton>
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Disabled="@(Busy || loop.Loop.Command is not (LoopCommand.Pause or LoopCommand.Stop))"
+                       TestId="sessions-loop-resume"
+                       Title="Ask the loop to carry on"
+                       OnClick="() => OnCommand.InvokeAsync(LoopCommand.Resume)">
+                Resume
+            </AppButton>
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Disabled="@(Busy || loop.Loop.Command is LoopCommand.Stop)"
+                       TestId="sessions-loop-stop"
+                       Title="Ask the loop to end itself at its next check-in"
+                       OnClick="() => _confirmStop = true">
+                Stop
+            </AppButton>
+        </div>
+
+        <ConfirmDialog Open="_confirmStop"
+                       OpenChanged="open => _confirmStop = open"
+                       Title="@($"Stop {LoopSessions.Title(checkIn.Kind)}?")"
+                       Message="@StopMessage(checkIn.Kind)"
+                       ConfirmText="Stop the loop"
+                       Destructive="true"
+                       TestId="sessions-loop-stop-dialog"
+                       ConfirmTestId="sessions-loop-stop-confirm"
+                       OnConfirm="ConfirmStopAsync" />
+    }
+</section>
+
+@code {
+    /// <summary>The loop as the register and the session list read it now, or null for a
+    /// loop session that has never checked in.</summary>
+    [Parameter]
+    public LoopSessionReading? Loop { get; set; }
+
+    /// <summary>Which loop the session's title names, for the command line before any check-in.</summary>
+    [Parameter]
+    public LoopKind Kind { get; set; }
+
+    /// <summary>What "now" is, for the ages on the card.</summary>
+    [Parameter]
+    public DateTimeOffset Now { get; set; }
+
+    /// <summary>The dispatcher's room, or null where the host measures none.</summary>
+    [Parameter]
+    public CapacityReading? Capacity { get; set; }
+
+    /// <summary>The requests and deliveries the dispatcher works through.</summary>
+    [Parameter]
+    public IReadOnlyList<LoopWorkItem>? Work { get; set; }
+
+    /// <summary>Sets a command on the loop; the next check-in's answer carries it.</summary>
+    [Parameter]
+    public EventCallback<LoopCommand> OnCommand { get; set; }
+
+    /// <summary>Whether a command is being set, which holds the buttons.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>Why the last command could not be set, or null.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    private bool _confirmStop;
+
+    private string CommandLine => LoopSessions.LoopCommandLine(Loop?.Loop.CheckIn.Kind ?? Kind);
+
+    private async Task ConfirmStopAsync()
+    {
+        _confirmStop = false;
+        await OnCommand.InvokeAsync(LoopCommand.Stop);
+    }
+
+    private static string StopMessage(LoopKind kind) =>
+        $"It ends its loop at its next check-in and says so in its session. Start it again with {LoopSessions.LoopCommandLine(kind)} in a pinned Claude Desktop session.";
+
+    private static string Minutes(int minutes) => minutes == 1 ? "1 minute" : $"{minutes} minutes";
+
+    private static string Moment(DateTimeOffset moment) => moment.ToLocalTime().ToString("ddd d MMM HH:mm");
+}

@@ -14,6 +14,11 @@ namespace Backlog.Modules.Sessions.Abstractions;
 /// </summary>
 public enum SessionPurpose
 {
+    /// <summary><c>📡 SESSION DISPATCHER</c> or <c>🧠 BRAIN TENDER</c> — a loop session,
+    /// the long-running agent a person keeps under <c>/loop</c> (local ADR 0051 §3). First,
+    /// because the Agents section leads the list.</summary>
+    Agent,
+
     /// <summary><c>ARTIFACT: title</c> — a session kept for something it produced.</summary>
     Artifact,
 
@@ -117,6 +122,11 @@ public static class SessionTitles
     {
         var raw = title ?? string.Empty;
         var text = raw.Trim();
+
+        if (LoopSessions.KindOfTitle(text) is not null)
+        {
+            return new(SessionPurpose.Agent, null, null, null, text, raw);
+        }
 
         foreach (var (prefix, purpose, state) in Prefixes)
         {

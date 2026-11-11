@@ -4872,6 +4872,168 @@ h1, h2, h3 {
     border-style: dotted;
 }
 
+/* A loop session: the design's gold pill, solid like a hand-typed purpose because the
+   loop titles its own session on purpose (local ADR 0051 §3). */
+.sessions-purpose--agent {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+/* The Agents section's heading says what it holds in the quiet ink, outside the
+   uppercase label. */
+.sessions-group__note {
+    color: var(--color-text-secondary);
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+/* What a loop holds, from its latest check-in: the row's last line, in the body ink. */
+.sessions-row__holds {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The Scheduled fold with Open Schedules beside its heading: the link is the fold
+   trigger's sibling, stacked over the heading's end so it is never inside the button. */
+.sessions-group--scheduled {
+    display: grid;
+}
+
+.sessions-group--scheduled > * {
+    grid-area: 1 / 1;
+}
+
+.sessions-group--scheduled > .sessions-group__open-schedules {
+    align-self: start;
+    justify-self: end;
+    z-index: 1;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.sessions-group--scheduled > .sessions-group__open-schedules:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.sessions-group__needs {
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+/* A loop session's card in the detail panel. */
+.sessions-loop {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.sessions-loop__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.sessions-loop__title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+}
+
+.sessions-loop__command {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.sessions-loop__state {
+    margin-inline-start: auto;
+}
+
+.sessions-loop__check-in,
+.sessions-loop__wakes {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* What the person asked of the loop, in the primary ink: it is the one line here
+   they set themselves. */
+.sessions-loop__asked {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sessions-loop__quiet {
+    color: var(--color-text-secondary);
+    font-weight: 400;
+}
+
+.sessions-loop__tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: var(--spacing-sm);
+}
+
+/* A limit reached: the strong edge, so it survives greyscale beside the footnote's
+   words "limit reached". */
+.sessions-loop__tile--held {
+    box-shadow: inset 0 0 0 2px var(--color-border-strong);
+}
+
+.sessions-loop__work {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sessions-loop__item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) 5rem auto;
+    gap: var(--spacing-sm);
+    align-items: center;
+    padding: var(--spacing-xs) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
+    font-size: var(--font-size-sm);
+}
+
+.sessions-loop__what {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: var(--font-weight-semibold);
+}
+
+.sessions-loop__kind,
+.sessions-loop__item-state {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sessions-loop__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
 .sessions-plan-badge--draft {
     font-weight: 500;
 }
