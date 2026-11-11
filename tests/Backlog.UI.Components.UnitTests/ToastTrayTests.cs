@@ -56,6 +56,32 @@ public sealed class ToastTrayTests
     }
 
     [Fact]
+    public void An_offer_is_marked_to_stack_its_words_above_its_button()
+    {
+        // The archive offer's long button sat beside the title and the sentence in
+        // one row, squeezing both into columns a word or two wide. The tray marks an
+        // offer so components.css can stack it; a plain toast keeps its single row.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var channel = new ToastChannel();
+        context.Services.AddSingleton<IToastChannel>(channel);
+        channel.Publish(new ToastMessage
+        {
+            Title = "House move is done",
+            Message = "Its project note House move is still in the projects area.",
+            TestId = "offer",
+            ActionLabel = "Move the project note to the archive",
+            Action = () => Task.CompletedTask,
+        });
+        channel.Publish(ToastMessage.Info("Saved.", "plain"));
+
+        var tray = context.Render<ToastTray>();
+
+        Assert.Contains("toast--offer", tray.Find("[data-testid='offer']").ClassList);
+        Assert.DoesNotContain("toast--offer", tray.Find("[data-testid='plain']").ClassList);
+    }
+
+    [Fact]
     public void A_toast_with_no_action_draws_no_button()
     {
         using var context = new BunitContext();
