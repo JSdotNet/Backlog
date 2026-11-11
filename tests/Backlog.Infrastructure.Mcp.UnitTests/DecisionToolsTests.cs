@@ -10,14 +10,16 @@ using ModelContextProtocol;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// The four state operations of <c>devbook.decision@1</c> — <c>devbook_get_state</c>,
-/// <c>devbook_set_state</c>, <c>devbook_approve</c>, <c>devbook_accept</c> — as a
-/// caller meets them over MCP.
+/// The operations of <c>devbook.decision@1</c> Backlog serves over MCP —
+/// <c>devbook_get_state</c>, <c>devbook_set_state</c> and the three note tools — as
+/// a caller meets them. Approve and accept are the person's, in the app (local ADR
+/// 0052 §7); <c>DevbookProposalDecisionTests</c> holds them.
 /// <para>
 /// What a caller is promised is mostly about shape and refusal: the answer is
 /// <c>{ state }</c>, plus <c>approval</c> and <c>acceptance</c> for a proposal, or
 /// <c>{ refused, message }</c> with one of the contract's codes, and a refusal
-/// writes nothing. Who decided and when are the host's, never the caller's. So
+/// writes nothing. Who and when are the host's, never the caller's: every write
+/// here is stamped <see cref="DevbookLocalAuthor.AgentViaMcp"/>. So
 /// the tests read the answer as the caller would and the store as the app would,
 /// and the rules themselves are the shared ones (<see cref="DevbookSubjectRules"/>),
 /// applied by the double.
@@ -26,7 +28,6 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 public sealed class DecisionToolsTests
 {
     private const string Repository = "JSdotNet/Backlog";
-    private const string Fingerprint = "sha256:0a1b2c3d";
     private const string DebtPath = ".devbook/arc42/tdr/0003-sqlite-without-migrations.md";
     private const string DecisionPath = ".devbook/arc42/adr/0044-devbook-state-outside-git.md";
 
@@ -85,7 +86,7 @@ public sealed class DecisionToolsTests
     }
 
     [Fact]
-    public void Setting_a_proposal_to_draft_keeps_it_under_the_repositorys_alias_by_this_host()
+    public void Setting_a_proposal_to_draft_keeps_it_under_the_repositorys_alias_by_agent_via_mcp()
     {
         var tools = Tools(out var store);
 
@@ -96,105 +97,64 @@ public sealed class DecisionToolsTests
         var kept = Assert.Single(store.Written);
         Assert.Equal("backlog", kept.RepositoryAlias);
         Assert.Equal(DevbookSubject.Proposal("add-decision-tools"), kept.Subject);
-        Assert.Equal(Environment.MachineName, kept.By);
+        Assert.Equal(DevbookLocalAuthor.AgentViaMcp, kept.By);
+        Assert.NotEqual(DevbookLocalAuthor.Name, kept.By);
         Assert.Equal(Now, kept.At);
     }
 
-    [Fact]
-    public void Approving_a_proposal_records_who_when_and_at_which_fingerprint()
-    {
-        var tools = Tools(out _);
-
-        var answer = tools.ApproveProposal(Repository, Proposal(), Fingerprint);
-
-        Assert.Equal("approved", answer.State);
-        Assert.Equal(new DevbookDecisionPayload(Environment.MachineName, "2026-10-30T09:15:00Z", Fingerprint), answer.Approval);
-        Assert.Null(answer.Acceptance);
-    }
-
-    [Fact]
-    public void Accepting_at_the_approved_fingerprint_moves_the_proposal_to_accepted()
-    {
-        var tools = Tools(out _);
-        tools.ApproveProposal(Repository, Proposal(), Fingerprint);
-
-        var answer = tools.AcceptProposal(Repository, Proposal(), Fingerprint);
-
-        Assert.Equal("accepted", answer.State);
-        Assert.Equal(Fingerprint, answer.Approval?.Fingerprint);
-        Assert.Equal(new DevbookDecisionPayload(Environment.MachineName, "2026-10-30T09:15:00Z", Fingerprint), answer.Acceptance);
-
-        // And get_state answers it the same way, which is what set_state, approve
-        // and accept promise: "the state as get_state answers it".
-        Assert.Equal(Wire(answer), Wire(tools.GetStateOf(Repository, Proposal())));
-    }
-
-    [Fact]
-    public void Accepting_with_no_approval_is_refused_not_approved_and_writes_nothing()
-    {
-        var tools = Tools(out var store);
-
-        var answer = tools.AcceptProposal(Repository, Proposal(), Fingerprint);
-
-        Assert.Equal("not-approved", answer.Refused);
-        Assert.Empty(store.Written);
-    }
-
-    [Fact]
-    public void Accepting_at_another_fingerprint_is_refused_fingerprint_mismatch()
-    {
-        var tools = Tools(out var store);
-        tools.ApproveProposal(Repository, Proposal(), Fingerprint);
-
-        var answer = tools.AcceptProposal(Repository, Proposal(), "sha256:ffffffff");
-
-        Assert.Equal("fingerprint-mismatch", answer.Refused);
-        Assert.Single(store.Written);
-        Assert.Equal("approved", tools.GetStateOf(Repository, Proposal()).State);
-    }
-
+    /// <summary>
+    /// Every state but draft is a decision, and decisions are the person's in the
+    /// app: refused <c>bad-state</c> with a message saying so, before the store is
+    /// asked, for every kind of subject.
+    /// </summary>
     [Theory]
-    [InlineData("approved")]
-    [InlineData("accepted")]
-    [InlineData("planned")]
-    public void Set_state_refuses_a_state_outside_the_row_or_reached_only_by_a_decision(string state)
+    [InlineData("proposal", "approved")]
+    [InlineData("proposal", "accepted")]
+    [InlineData("proposal", "Draft")]
+    [InlineData("proposal", "planned")]
+    [InlineData("decision", "proposed")]
+    [InlineData("decision", "decided")]
+    [InlineData("decision", "declined")]
+    [InlineData("debt", "identified")]
+    [InlineData("debt", "planned")]
+    [InlineData("debt", "in-progress")]
+    [InlineData("debt", "resolved")]
+    public void Set_state_over_mcp_refuses_every_state_but_draft_and_writes_nothing(string kind, string state)
     {
         var tools = Tools(out var store);
+        var subject = kind switch
+        {
+            "proposal" => Proposal(),
+            "decision" => Decision(12),
+            _ => Debt()
+        };
 
-        var answer = tools.SetStateOf(Repository, Proposal(), state);
+        var answer = tools.SetStateOf(Repository, subject, state);
 
         Assert.Equal("bad-state", answer.Refused);
-        Assert.False(string.IsNullOrWhiteSpace(answer.Message));
-        Assert.Empty(store.Written);
+        Assert.Equal(DecisionTools.DecisionsInTheAppMessage, answer.Message);
+        Assert.Contains("Backlog app", answer.Message, StringComparison.Ordinal);
+        Assert.Empty(store.Calls);
     }
 
+    /// <summary>Draft on a record whose row has none is the store's own
+    /// <c>bad-state</c>: the shared rules still answer what the row holds.</summary>
     [Fact]
-    public void Approve_and_accept_take_a_proposal_alone()
+    public void Draft_on_a_record_is_refused_by_the_rules_and_writes_nothing()
     {
         var tools = Tools(out var store);
 
-        Assert.Equal("bad-state", tools.ApproveProposal(Repository, Debt(), Fingerprint).Refused);
-        Assert.Equal("bad-state", tools.AcceptProposal(Repository, Decision(12), Fingerprint).Refused);
-        Assert.Empty(store.Written);
-    }
-
-    [Fact]
-    public void A_fingerprint_that_is_not_one_is_refused_bad_state()
-    {
-        var tools = Tools(out var store);
-
-        var answer = tools.ApproveProposal(Repository, Proposal(), "0a1b2c3d");
-
-        Assert.Equal("bad-state", answer.Refused);
+        Assert.Equal("bad-state", tools.SetStateOf(Repository, Debt(), "draft").Refused);
         Assert.Empty(store.Written);
     }
 
     [Fact]
     public void A_debt_records_state_is_answered_without_a_proposals_decisions()
     {
-        var tools = Tools(out _);
+        var tools = Tools(out var store);
+        store.Seed(Kept(DevbookSubject.Debt(DebtPath), "planned"));
 
-        var answer = tools.SetStateOf(Repository, Debt(), "planned");
+        var answer = tools.GetStateOf(Repository, Debt());
 
         Assert.Equal("planned", answer.State);
         Assert.Equal("""{"state":"planned"}""", Wire(answer));
@@ -204,12 +164,10 @@ public sealed class DecisionToolsTests
     public void A_decision_record_is_keyed_by_its_pull_request_too()
     {
         var tools = Tools(out var store);
-
-        tools.SetStateOf(Repository, Decision(12), "decided");
+        store.Seed(Kept(DevbookSubject.Decision(DecisionPath, 12), "decided"));
 
         Assert.Equal("decided", tools.GetStateOf(Repository, Decision(12)).State);
         Assert.Null(tools.GetStateOf(Repository, Decision(13)).State);
-        Assert.Equal(DevbookSubject.Decision(DecisionPath, 12), Assert.Single(store.Written).Subject);
     }
 
     [Fact]
@@ -217,13 +175,13 @@ public sealed class DecisionToolsTests
     {
         var tools = Tools(out _);
 
-        var answer = tools.AcceptProposal(Repository, Proposal(), Fingerprint);
+        var answer = tools.SetStateOf(Repository, Proposal(), "approved");
 
         using var document = JsonDocument.Parse(Wire(answer));
         Assert.Equal(
             ["message", "refused"],
             [.. document.RootElement.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal)]);
-        Assert.Equal("not-approved", document.RootElement.GetProperty("refused").GetString());
+        Assert.Equal("bad-state", document.RootElement.GetProperty("refused").GetString());
     }
 
     /// <summary>
@@ -262,9 +220,7 @@ public sealed class DecisionToolsTests
         Assert.All(
             [
                 tools.GetStateOf(Repository, subject),
-                tools.SetStateOf(Repository, subject, "draft"),
-                tools.ApproveProposal(Repository, subject, Fingerprint),
-                tools.AcceptProposal(Repository, subject, Fingerprint)
+                tools.SetStateOf(Repository, subject, "draft")
             ],
             answer =>
             {
@@ -291,19 +247,20 @@ public sealed class DecisionToolsTests
             Path.GetTempPath(),
             new DevbookFolderSetting(".arc42", "Architecture", ".arc42") { Path = "docs/arch" });
         var tools = Tools(out var store, folders: folders);
+        store.Seed(Kept(DevbookSubject.Debt("docs/arch/tdr/0003-x.md"), "identified"));
 
-        var answer = tools.SetStateOf(Repository, Debt("docs/arch/tdr/0003-x.md"), "identified");
+        var answer = tools.GetStateOf(Repository, Debt("docs/arch/tdr/0003-x.md"));
 
         Assert.Equal("identified", answer.State);
-        Assert.Equal(DevbookSubject.Debt("docs/arch/tdr/0003-x.md"), Assert.Single(store.Written).Subject);
+        Assert.Equal(DevbookSubject.Debt("docs/arch/tdr/0003-x.md"), Assert.Single(store.Calls).Subject);
     }
 
     /// <summary>
     /// The classification forgives case and the legacy layout; the key does not,
     /// so each spelling of one record would otherwise be a subject of its own.
     /// Every spelling is filed under the path the repository has — the one the
-    /// arc42 panel keys the record's state by — so the second write lands on the
-    /// first one's state.
+    /// arc42 panel keys the record's state by — so every spelling reads the state
+    /// the panel set.
     /// </summary>
     [Theory]
     [InlineData(".devbook/arc42/tdr/0003-paging.md")]
@@ -320,13 +277,12 @@ public sealed class DecisionToolsTests
             var folders = new FakeDevbookFolderSource(root, new DevbookFolderSetting(".arc42", "Architecture", ".devbook/arc42"));
             var tools = Tools(out var store, folders: folders);
             var mine = DevbookSubject.Debt(".devbook/arc42/tdr/0003-paging.md");
+            store.Seed(Kept(mine, "planned"));
 
-            tools.SetStateOf(Repository, Debt(".devbook/arc42/tdr/0003-paging.md"), "identified");
-            var answer = tools.SetStateOf(Repository, Debt(spelled), "planned");
+            var answer = tools.GetStateOf(Repository, Debt(spelled));
 
             Assert.Equal("planned", answer.State);
-            Assert.All(store.Written, written => Assert.Equal(mine, written.Subject));
-            Assert.Equal("planned", tools.GetStateOf(Repository, Debt(".devbook/arc42/tdr/0003-paging.md")).State);
+            Assert.Equal(mine, Assert.Single(store.Calls).Subject);
         }
         finally
         {
@@ -346,9 +302,9 @@ public sealed class DecisionToolsTests
             var folders = new FakeDevbookFolderSource(root, new DevbookFolderSetting(".arc42", "Architecture", ".devbook/arc42"));
             var tools = Tools(out var store, folders: folders);
 
-            tools.SetStateOf(Repository, Decision(12, ".arc42/adr/0044-devbook-state-outside-git.md"), "decided");
+            tools.GetStateOf(Repository, Decision(12, ".arc42/adr/0044-devbook-state-outside-git.md"));
 
-            Assert.Equal(DevbookSubject.Decision(DecisionPath, 12), Assert.Single(store.Written).Subject);
+            Assert.Equal(DevbookSubject.Decision(DecisionPath, 12), Assert.Single(store.Calls).Subject);
         }
         finally
         {
@@ -366,18 +322,9 @@ public sealed class DecisionToolsTests
         var tools = Tools(out var store);
         store.AnswersArchived = true;
 
-        Assert.All(
-            new Action[]
-            {
-                () => tools.SetStateOf(Repository, Debt(), "resolved"),
-                () => tools.ApproveProposal(Repository, Proposal(), Fingerprint),
-                () => tools.AcceptProposal(Repository, Proposal(), Fingerprint)
-            },
-            write => Assert.Contains(
-                DevbookTools.ArchivedCode,
-                Assert.Throws<McpException>(write).Message,
-                StringComparison.Ordinal));
+        var failure = Assert.Throws<McpException>(() => tools.SetStateOf(Repository, Proposal(), "draft"));
 
+        Assert.Contains(DevbookTools.ArchivedCode, failure.Message, StringComparison.Ordinal);
         Assert.Empty(store.Written);
     }
 
@@ -389,9 +336,7 @@ public sealed class DecisionToolsTests
         var failures = new[]
         {
             Assert.Throws<McpException>(() => tools.GetStateOf("#brain", Proposal())),
-            Assert.Throws<McpException>(() => tools.SetStateOf("#brain", Proposal(), "draft")),
-            Assert.Throws<McpException>(() => tools.ApproveProposal("#brain", Proposal(), Fingerprint)),
-            Assert.Throws<McpException>(() => tools.AcceptProposal("#brain", Proposal(), Fingerprint))
+            Assert.Throws<McpException>(() => tools.SetStateOf("#brain", Proposal(), "draft"))
         };
 
         Assert.All(failures, failure => Assert.Contains(DecisionTools.BrainCode, failure.Message, StringComparison.Ordinal));
@@ -426,25 +371,16 @@ public sealed class DecisionToolsTests
 
         Assert.Equal("planned", tools.GetStateOf(Repository, Debt()).State);
 
-        Assert.All(
-            new Action[]
-            {
-                () => tools.SetStateOf(Repository, Debt(), "resolved"),
-                () => tools.ApproveProposal(Repository, Proposal(), Fingerprint),
-                () => tools.AcceptProposal(Repository, Proposal(), Fingerprint)
-            },
-            write => Assert.Contains(
-                DevbookTools.ArchivedCode,
-                Assert.Throws<McpException>(write).Message,
-                StringComparison.Ordinal));
+        var failure = Assert.Throws<McpException>(() => tools.SetStateOf(Repository, Proposal(), "draft"));
 
+        Assert.Contains(DevbookTools.ArchivedCode, failure.Message, StringComparison.Ordinal);
         Assert.Empty(store.Written);
     }
 
     private const string ChangeProposal = "openspec/changes/add-decision-tools/proposal.md";
 
     [Fact]
-    public void Posting_a_note_answers_it_in_the_contracts_shape_by_this_host_on_the_default_branch()
+    public void Posting_a_note_answers_it_in_the_contracts_shape_by_agent_via_mcp_on_the_default_branch()
     {
         var tools = Tools(out _, out var notes);
 
@@ -456,11 +392,12 @@ public sealed class DecisionToolsTests
         Assert.Equal("question", note.Kind);
         Assert.Equal("open", note.Status);
         Assert.Equal("Is the fee ours to keep?", note.Body);
-        Assert.Equal(Environment.MachineName, note.By);
+        Assert.Equal(DevbookLocalAuthor.AgentViaMcp, note.By);
         Assert.Equal("2026-10-30T09:15:00Z", note.At);
         Assert.Empty(note.Replies);
 
         var kept = Assert.Single(notes.All);
+        Assert.Equal(DevbookLocalAuthor.AgentViaMcp, kept.Author);
         Assert.Equal(Guid.Parse(note.Id), kept.Id);
         Assert.Equal("backlog", kept.RepositoryAlias);
         Assert.Equal(DevbookAnnotationKind.Question, kept.Kind);
@@ -525,7 +462,7 @@ public sealed class DecisionToolsTests
 
     /// <summary>
     /// A reply is answered as one of the note's <c>replies</c>, <c>{ by, at,
-    /// body }</c>, by this host and at its clock, and the note's own <c>body</c> is
+    /// body }</c>, by agent via MCP and at this host's clock, and the note's own <c>body</c> is
     /// unchanged. The store keeps no thread: the reply is folded into the stored
     /// body, and read back out of it when the note is answered.
     /// </summary>
@@ -543,14 +480,14 @@ public sealed class DecisionToolsTests
         Assert.Equal("question", note.Kind);
         Assert.Equal("Is the fee ours to keep?", note.Body);
         Assert.Equal(
-            [new DevbookNoteReplyPayload(Environment.MachineName, "2026-10-30T09:15:00Z", "Yes, per the card contract of 3 December, 2026-12-01: the fee.")],
+            [new DevbookNoteReplyPayload(DevbookLocalAuthor.AgentViaMcp, "2026-10-30T09:15:00Z", "Yes, per the card contract of 3 December, 2026-12-01: the fee.")],
             note.Replies);
 
         Assert.Equal("Is the fee ours to keep?", again.Body);
         Assert.Equal(
             [
-                new DevbookNoteReplyPayload(Environment.MachineName, "2026-10-30T09:15:00Z", "Yes, per the card contract of 3 December, 2026-12-01: the fee."),
-                new DevbookNoteReplyPayload(Environment.MachineName, "2026-10-30T09:15:00Z", "Confirmed.\nBy finance.")
+                new DevbookNoteReplyPayload(DevbookLocalAuthor.AgentViaMcp, "2026-10-30T09:15:00Z", "Yes, per the card contract of 3 December, 2026-12-01: the fee."),
+                new DevbookNoteReplyPayload(DevbookLocalAuthor.AgentViaMcp, "2026-10-30T09:15:00Z", "Confirmed.\nBy finance.")
             ],
             again.Replies);
         Assert.Equal(again.Replies, Assert.Single(tools.ListNotesOn(Repository, ChangeProposal).Notes).Replies);
@@ -711,40 +648,6 @@ public sealed class DecisionToolsTests
         Assert.Empty(notes.All);
     }
 
-    /// <summary>An open question anywhere in the change blocks approve and accept
-    /// on it; resolved, it no longer does.</summary>
-    [Fact]
-    public void An_open_question_on_the_change_refuses_approve_and_accept_until_it_is_resolved()
-    {
-        var tools = Tools(out var store, out _);
-        var question = tools.PostNoteOn(Repository, ChangeProposal, "Is the fee ours to keep?", kind: "question").Note!;
-
-        var refused = tools.ApproveProposal(Repository, Proposal(), Fingerprint);
-
-        Assert.Equal("open-question", refused.Refused);
-        Assert.Contains(ChangeProposal, refused.Message, StringComparison.Ordinal);
-        Assert.Empty(store.Written);
-
-        tools.ResolveNoteFor(Repository, question.Id);
-
-        Assert.Equal("approved", tools.ApproveProposal(Repository, Proposal(), Fingerprint).State);
-
-        tools.PostNoteOn(Repository, "openspec/changes/add-decision-tools/specs/tools/spec.md#notes", "And the reply shape?", kind: "question");
-
-        Assert.Equal("open-question", tools.AcceptProposal(Repository, Proposal(), Fingerprint).Refused);
-        Assert.Equal("approved", tools.GetStateOf(Repository, Proposal()).State);
-    }
-
-    [Fact]
-    public void A_comment_on_the_change_never_blocks_approval()
-    {
-        var tools = Tools(out _, out _);
-        tools.PostNoteOn(Repository, ChangeProposal, "Nice framing.");
-        tools.PostNoteOn(Repository, ChangeProposal, "Typo in the title.", kind: "flag");
-
-        Assert.Equal("approved", tools.ApproveProposal(Repository, Proposal(), Fingerprint).State);
-    }
-
     [Fact]
     public void An_archived_repositorys_notes_are_listed_and_never_written()
     {
@@ -784,6 +687,19 @@ public sealed class DecisionToolsTests
         Assert.All(failures, failure => Assert.Contains(DecisionTools.BrainCode, failure.Message, StringComparison.Ordinal));
         Assert.Empty(notes.All);
     }
+
+    /// <summary>A state the app set for <paramref name="subject"/>, as the store
+    /// keeps it.</summary>
+    private static DevbookSubjectState Kept(DevbookSubject subject, string state) => new(
+        DevbookSubject.IdFor("backlog", subject),
+        "backlog",
+        subject,
+        state,
+        DevbookLocalAuthor.Name,
+        Now.AddDays(-1),
+        Approval: null,
+        Acceptance: null,
+        UpdatedAt: Now.AddDays(-1));
 
     /// <summary>The answer as the SDK puts it on the wire: its own serializer
     /// options, which is what the converter on the payload has to hold under.</summary>

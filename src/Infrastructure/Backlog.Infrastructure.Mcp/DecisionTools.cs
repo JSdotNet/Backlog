@@ -12,25 +12,34 @@ using ModelContextProtocol.Server;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// The seven operations of <c>devbook.decision@1</c>: the four on state — read a
-/// subject's workflow state, set it, approve a proposal, accept one — answered
-/// over Backlog's own subject store, and the three on review notes — list them at
-/// an address, post one, resolve one — answered over its remark store.
+/// Five of the seven operations of <c>devbook.decision@1</c>: two on state — read a
+/// subject's workflow state, set a proposal back to draft — answered over
+/// Backlog's own subject store, and the three on review notes — list them at an
+/// address, post one, resolve one — answered over its remark store.
+/// <para>
+/// <b>The decisions are the person's (local ADR 0052 §7).</b> <c>devbook_approve</c>
+/// and <c>devbook_accept</c> are not served: an agent holding the MCP token could
+/// approve its own proposal, and the record named the person. The person approves
+/// and accepts in the devbook view, through <see cref="DevbookProposalDecision"/>.
+/// <c>devbook_set_state</c> takes <c>draft</c> alone, so no other state — decided,
+/// declined, planned — is set over MCP either.
+/// </para>
 /// <para>
 /// <b>Why the state is here and not in the chapter.</b> Under devbook's
 /// branch-true decision a branch states what is true of its code, and "approved",
 /// "planned" or "decided" is a fact about the work around a chapter rather than
 /// about the chapter, so the host that runs the workflow keeps it
 /// (<see cref="IDevbookSubjectStateStore"/>). A caller resolves this group from
-/// the live tool list by the <c>devbook_*</c> prefix and binds when all seven
-/// are listed.
+/// the live tool list by the <c>devbook_*</c> prefix; with two operations unlisted
+/// it finds Backlog's read and note half only.
 /// </para>
 /// <para>
 /// <b>A note is a remark.</b> The contract's note is Backlog's
 /// <see cref="DevbookAnnotation"/>, the same record the chapter view draws and
 /// <c>list_annotations</c> reads, kept on the default branch because the contract
-/// carries none. An open <c>question</c> under a change's folder makes approve and
-/// accept refuse <c>open-question</c> (<see cref="DevbookSubjectRules.OpenQuestion"/>).
+/// carries none. An open <c>question</c> under a change's folder makes the
+/// person's approve and accept refuse <c>open-question</c>
+/// (<see cref="DevbookSubjectRules.OpenQuestion"/>).
 /// </para>
 /// <para>
 /// <b>The names, arguments and answers are the contract's</b>, matched by callers
@@ -41,9 +50,8 @@ namespace Backlog.Infrastructure.Mcp;
 /// <c>{ refused, message }</c>.
 /// </para>
 /// <para>
-/// <b>Two kinds of no.</b> What the contract refuses — a state outside the row, a
-/// decision on anything but a proposal, an acceptance with no approval or at
-/// another fingerprint, and a subject it could not name — is an answer, because
+/// <b>Two kinds of no.</b> What the contract refuses — a state other than draft,
+/// and a subject it could not name — is an answer, because
 /// the contract says it is one and a caller reports it rather than retrying. What
 /// is not the contract's question — no repository, one this host does not know,
 /// the Brain, an archived repository — is thrown, as every other tool here
@@ -52,10 +60,9 @@ namespace Backlog.Infrastructure.Mcp;
 /// </para>
 /// <para>
 /// <b>Who and when are the host's.</b> <c>by</c> is
-/// <see cref="DevbookLocalAuthor.Name"/> and <c>at</c> the store's clock; neither
-/// is an argument, so a caller cannot say somebody else decided. Approve and
-/// accept are a person's decision, and their descriptions say so, because a model
-/// reads them to decide whether to call.
+/// <see cref="DevbookLocalAuthor.AgentViaMcp"/> on every write here — the token is
+/// an agent's, so nothing written through it is recorded as the person's — and
+/// <c>at</c> the store's clock; neither is an argument.
 /// </para>
 /// </summary>
 [McpServerToolType]
@@ -76,11 +83,17 @@ public sealed class DecisionTools(
 
     internal const string GetState = "devbook_get_state";
     internal const string SetState = "devbook_set_state";
-    internal const string Approve = "devbook_approve";
-    internal const string Accept = "devbook_accept";
     internal const string ListNotes = "devbook_list_notes";
     internal const string PostNote = "devbook_post_note";
     internal const string ResolveNote = "devbook_resolve_note";
+
+    /// <summary>The one state <see cref="SetStateOf"/> sets.</summary>
+    private const string Draft = "draft";
+
+    /// <summary>Why every other state is refused, as the caller reads it.</summary>
+    internal const string DecisionsInTheAppMessage =
+        "Decisions are made in the Backlog app: over MCP a subject's state can only be set to draft. Ask the person "
+        + "to approve, accept or decide it in the devbook view.";
 
     /// <summary>The code the refusal of the Brain carries.</summary>
     internal const string BrainCode = "brain.no_workflow_state";
@@ -93,7 +106,7 @@ public sealed class DecisionTools(
     /// per group, each behind its area's key, and these are the Devbook's: somebody
     /// switching the devbook off has switched off the records whose state these
     /// set as much as the chapters the other group reads. A group of its own
-    /// rather than seven more tools on <see cref="DevbookTools"/> because they are
+    /// rather than five more tools on <see cref="DevbookTools"/> because they are
     /// another contract — that class reads chapters and a reader's notes, these
     /// answer <c>devbook.decision@1</c>, whose names and shapes are devbook's.
     /// </para>
@@ -106,7 +119,7 @@ public sealed class DecisionTools(
     internal static BacklogMcpTools.McpToolGroup Group { get; } = new(
         DevbookFeatures.RepositoryDevbook,
         typeof(DecisionTools),
-        [GetState, SetState, Approve, Accept, ListNotes, PostNote, ResolveNote]);
+        [GetState, SetState, ListNotes, PostNote, ResolveNote]);
 
     private const string RepositoryDescription =
         "The repository in owner/name form, e.g. JSdotNet/Backlog. The Brain (" + BrainMcpScope.Value
@@ -116,10 +129,6 @@ public sealed class DecisionTools(
         "The subject: { kind: proposal, name } for a change under openspec/changes/; { kind: decision, path, "
         + "pullRequest } for a decision record; { kind: debt, path } for a debt record. A path is the record's "
         + "repository path.";
-
-    private const string FingerprintDescription =
-        "The change's devbook.chapter.fingerprint@1, computed with chapter-hash.mjs: sha256: and eight lowercase hex "
-        + "characters.";
 
     // Closed: the state is Backlog's own store and nothing on this path can reach
     // GitHub.
@@ -142,10 +151,10 @@ public sealed class DecisionTools(
             : refused;
     }
 
-    // Idempotent: setting the state a subject already has leaves it as it was —
-    // the stamp moves, the state and the decisions do not. Not destructive by this
-    // assembly's line, which only a delete crosses, though draft withdraws a
-    // proposal's decisions: the description says so, and a person can decide again.
+    // Idempotent: setting draft on a draft leaves it as it was — the stamp moves,
+    // the state does not. Not destructive by this assembly's line, which only a
+    // delete crosses, though draft withdraws a proposal's decisions: the
+    // description says so, and the person can decide again in the app.
     [McpServerTool(
         Name = SetState,
         Title = "Set a devbook subject's workflow state",
@@ -154,93 +163,26 @@ public sealed class DecisionTools(
         Destructive = false,
         OpenWorld = false)]
     [Description(
-        "Sets a devbook subject's workflow state (devbook.decision@1). A proposal: draft only, which withdraws its "
-        + "approval and acceptance; approved and accepted are reached through devbook_approve and devbook_accept. A "
-        + "decision record: proposed, decided or declined. A debt record: identified, planned, in-progress or "
-        + "resolved. Answers the state as devbook_get_state does, or { refused: bad-state, message } for a state "
-        + "outside the subject's row; a refusal writes nothing. Who and when are recorded by Backlog. Refused for an "
-        + "archived repository.")]
+        "Sets a change proposal back to draft (devbook.decision@1), which withdraws its approval and acceptance. "
+        + "Decisions are made in the Backlog app: every other state, and every state of a decision or debt record, "
+        + "answers { refused: bad-state, message }. Answers the state as devbook_get_state does; a refusal writes "
+        + "nothing. Recorded by Backlog as agent via MCP, at its own clock. Refused for an archived repository.")]
     public DevbookStatePayload SetStateOf(
         [Description(RepositoryDescription)]
         string repository,
         [Description(SubjectDescription)]
         DevbookSubjectArgument subject,
-        [Description("The state to set, from the subject's row.")]
+        [Description("draft, the one state set over MCP.")]
         string state)
     {
         var scope = Scope(repository, writes: true);
 
-        return TryName(scope, subject, out var named, out var refused)
-            ? DevbookStatePayload.Of(named, subjects.SetState(scope.Alias, named, state, DevbookLocalAuthor.Name))
-            : refused;
-    }
-
-    // Not idempotent: each call is a decision of its own, recorded with its own
-    // time, and approving again withdraws an acceptance that stood on the earlier
-    // approval — so no client may repeat one on its own account.
-    [McpServerTool(
-        Name = Approve,
-        Title = "Approve a change proposal",
-        ReadOnly = false,
-        Idempotent = false,
-        Destructive = false,
-        OpenWorld = false)]
-    [Description(
-        "Records a person's approval of a change proposal at the change's fingerprint (devbook.decision@1): state "
-        + "approved, approval { by, at, fingerprint }, any acceptance withdrawn. Call only on that person's explicit "
-        + "word in this session — never on a reviewer's verdict or an unattended run's. A proposal alone; anything else "
-        + "answers { refused: bad-state, message }. An open question note under openspec/changes/<name>/ answers "
-        + "{ refused: open-question, message }. A refusal writes nothing. Who and when are recorded by Backlog. Refused "
-        + "for an archived repository.")]
-    public DevbookStatePayload ApproveProposal(
-        [Description(RepositoryDescription)]
-        string repository,
-        [Description(SubjectDescription)]
-        DevbookSubjectArgument subject,
-        [Description(FingerprintDescription)]
-        string fingerprint)
-    {
-        var scope = Scope(repository, writes: true);
-
         if (!TryName(scope, subject, out var named, out var refused)) return refused;
 
-        return OpenQuestionOn(scope, named) is { } blocked
-            ? DevbookStatePayload.Of(named, blocked)
-            : DevbookStatePayload.Of(named, subjects.Approve(scope.Alias, named, fingerprint, DevbookLocalAuthor.Name));
-    }
-
-    // Not idempotent, for approve's reason: an acceptance is a decision recorded
-    // with its own time.
-    [McpServerTool(
-        Name = Accept,
-        Title = "Accept a change proposal",
-        ReadOnly = false,
-        Idempotent = false,
-        Destructive = false,
-        OpenWorld = false)]
-    [Description(
-        "Records a person's acceptance of an approved change proposal (devbook.decision@1): state accepted, acceptance "
-        + "{ by, at, fingerprint }. It stands on an approval at the same fingerprint: with none it answers "
-        + "{ refused: not-approved, message }, with one at another { refused: fingerprint-mismatch, message } — the "
-        + "change moved since it was approved, so ask the person to approve it again. An open question note under "
-        + "openspec/changes/<name>/ answers { refused: open-question, message }. Call only on that person's explicit "
-        + "word in this session. A proposal alone; a refusal writes nothing. Who and when are recorded by Backlog. "
-        + "Refused for an archived repository.")]
-    public DevbookStatePayload AcceptProposal(
-        [Description(RepositoryDescription)]
-        string repository,
-        [Description(SubjectDescription)]
-        DevbookSubjectArgument subject,
-        [Description(FingerprintDescription)]
-        string fingerprint)
-    {
-        var scope = Scope(repository, writes: true);
-
-        if (!TryName(scope, subject, out var named, out var refused)) return refused;
-
-        return OpenQuestionOn(scope, named) is { } blocked
-            ? DevbookStatePayload.Of(named, blocked)
-            : DevbookStatePayload.Of(named, subjects.Accept(scope.Alias, named, fingerprint, DevbookLocalAuthor.Name));
+        // Ordinal, as the rules compare a state: "Draft" is no state in any row.
+        return string.Equals(state, Draft, StringComparison.Ordinal)
+            ? DevbookStatePayload.Of(named, subjects.SetState(scope.Alias, named, state, DevbookLocalAuthor.AgentViaMcp))
+            : DevbookStatePayload.Refusal(DevbookSubjectRefusal.BadState, DecisionsInTheAppMessage);
     }
 
     private const string AddressDescription =
@@ -295,8 +237,8 @@ public sealed class DecisionTools(
         + "flag) for a new note, or replyTo with a note's id to reply to it — the note is answered, the reply the last "
         + "of its replies, each { by, at, body }. A reply to a note this repository does not keep answers "
         + "{ refused: unknown-note, message } and writes nothing. An open question under openspec/changes/<name>/ "
-        + "blocks devbook_approve and devbook_accept on that change until it is resolved. Who and when are recorded "
-        + "by Backlog. Refused for an archived repository.")]
+        + "blocks the person's approval and acceptance of that change in the app until it is resolved. Recorded by "
+        + "Backlog as agent via MCP, at its own clock. Refused for an archived repository.")]
     public DevbookNoteAnswer PostNoteOn(
         [Description(RepositoryDescription)]
         string repository,
@@ -347,7 +289,7 @@ public sealed class DecisionTools(
         // library's, which this assembly does not reference, so a note posted here
         // is anchored by index alone — what a host without the parsed chapter
         // already gets (IDevbookAnnotationStore.Add).
-        var added = annotations.Add(scope.Alias, chapter.Path, block, DevbookLocalAuthor.Name, blockHash: null, noteKind, branch: null);
+        var added = annotations.Add(scope.Alias, chapter.Path, block, DevbookLocalAuthor.AgentViaMcp, blockHash: null, noteKind, branch: null);
         annotations.Edit(added.Id, said);
 
         return Answer(scope, annotations.Find(added.Id) ?? added with { Body = said });
@@ -407,7 +349,7 @@ public sealed class DecisionTools(
         }
 
         var at = DevbookDecisionPayload.Utc((clock ?? TimeProvider.System).GetUtcNow());
-        var folded = DevbookNoteReplies.Fold(note.Body, DevbookLocalAuthor.Name, at, said);
+        var folded = DevbookNoteReplies.Fold(note.Body, DevbookLocalAuthor.AgentViaMcp, at, said);
 
         annotations.Edit(note.Id, folded);
 
@@ -431,14 +373,6 @@ public sealed class DecisionTools(
         && DevbookAnnotation.BranchKey(note.Branch) is null
         && string.Equals(DevbookSubject.AliasKey(note.RepositoryAlias), DevbookSubject.AliasKey(scope.Alias), StringComparison.Ordinal)
             ? note
-            : null;
-
-    /// <summary>The <c>open-question</c> refusal for a proposal whose change has
-    /// an open question, read from every remark the store keeps, or
-    /// null.</summary>
-    private DevbookSubjectOutcome? OpenQuestionOn(TasksRepositoryRef scope, DevbookSubject subject) =>
-        subject.Kind == DevbookSubjectKind.Proposal
-            ? DevbookSubjectRules.OpenQuestion(scope.Alias, subject, annotations.ListChangedSince(DateTimeOffset.MinValue))
             : null;
 
     /// <summary>An address's chapter path and section slug — lower case, the

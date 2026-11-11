@@ -1,0 +1,126 @@
+@using Backlog.Infrastructure.Devbook.Fingerprints
+@using Backlog.UI.Components.Buttons
+@using Backlog.UI.Components.Feedback
+
+@*
+    The person's decisions on a repository's change proposals. Approve and Accept
+    are here because local ADR 0052 §7 took them off MCP: an agent holding the
+    token could approve its own change, and the record named the person. A click
+    here is the person's, so it is stamped with this machine's author; every refusal
+    the retired tools gave — an open question, an approval at another fingerprint —
+    is the same refusal here, from the same use case.
+*@
+
+<section class="devbook-proposals" data-testid="devbook-proposals" aria-label="Change proposals">
+    @if (_message is not null)
+    {
+        <Alert Message="@_message" Role="status" TestId="devbook-proposals-message" />
+    }
+
+    <ul class="devbook-proposals__list">
+        @foreach (var row in Rows)
+        {
+            <li @key="row.Name" class="devbook-proposals__row" data-testid="devbook-proposal" data-proposal="@row.Name">
+                <div class="devbook-proposals__summary">
+                    <strong class="devbook-proposals__name">@row.Name</strong>
+                    <Badge Kind="status" Slug="@row.State?.State" TestId="devbook-proposal-state">@StateText(row)</Badge>
+                </div>
+
+                @if (row.State?.Approval is { } approval)
+                {
+                    <p class="devbook-proposals__decision" data-testid="devbook-proposal-approval">
+                        Approved by @DevbookLocalAuthor.Display(approval.By), @approval.At.ToLocalTime().ToString("g")@(row.Lapsed(approval) ? " — lapsed: the change moved since" : string.Empty)
+                    </p>
+                }
+
+                @if (row.State?.Acceptance is { } acceptance)
+                {
+                    <p class="devbook-proposals__decision" data-testid="devbook-proposal-acceptance">
+                        Accepted by @DevbookLocalAuthor.Display(acceptance.By), @acceptance.At.ToLocalTime().ToString("g")@(row.Lapsed(acceptance) ? " — lapsed: the change moved since" : string.Empty)
+                    </p>
+                }
+
+                @if (row.Fingerprint is null)
+                {
+                    <p class="devbook-proposals__decision">Its files could not be read, so it cannot be decided here.</p>
+                }
+
+                <div class="devbook-proposals__actions">
+                    <AppButton Variant="ButtonVariant.Primary"
+                               Disabled="@(ReadOnly || !row.CanApprove)"
+                               OnClick="@(() => Decide(row, accept: false))"
+                               TestId="devbook-proposal-approve">Approve</AppButton>
+                    <AppButton Disabled="@(ReadOnly || !row.CanAccept)"
+                               OnClick="@(() => Decide(row, accept: true))"
+                               TestId="devbook-proposal-accept">Accept</AppButton>
+                </div>
+            </li>
+        }
+    </ul>
+</section>
+
+@code {
+    private string? _message;
+
+    /// <summary>The proposals to offer, as <see cref="DevbookProposals.Read"/>
+    /// answered them.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<DevbookProposalRow> Rows { get; set; } = [];
+
+    [Parameter, EditorRequired]
+    public IDevbookSubjectStateStore Subjects { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public IDevbookAnnotationStore Annotations { get; set; } = null!;
+
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The repository root the changes are read from, so a decision is
+    /// taken at the fingerprint the change has at the click.</summary>
+    [Parameter]
+    public string? RepositoryRoot { get; set; }
+
+    /// <summary>An archived repository: shown, never decided.</summary>
+    [Parameter]
+    public bool ReadOnly { get; set; }
+
+    /// <summary>Raised after a decision was written, so the host reads the rows
+    /// again.</summary>
+    [Parameter]
+    public EventCallback OnDecided { get; set; }
+
+    private static string StateText(DevbookProposalRow row) => row.State?.State ?? "no state kept";
+
+    /// <summary>
+    /// The person's click. The change is read again first, off the dispatcher, so
+    /// a change edited since the row was drawn is decided at what it says now; a
+    /// store that cannot write says so in the message rather than throwing out of
+    /// the button.
+    /// </summary>
+    private async Task Decide(DevbookProposalRow row, bool accept)
+    {
+        var root = RepositoryRoot;
+        var fingerprint = await Task.Run(() => DevbookChangeFolders.Fingerprint(root, row.Name));
+
+        DevbookSubjectOutcome outcome;
+
+        try
+        {
+            outcome = accept
+                ? DevbookProposals.Accept(Subjects, Annotations, RepositoryAlias, ReadOnly, row, fingerprint)
+                : DevbookProposals.Approve(Subjects, Annotations, RepositoryAlias, ReadOnly, row, fingerprint);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _message = $"The decision on '{row.Name}' could not be saved: {ex.Message}";
+            return;
+        }
+
+        _message = outcome.IsRefused ? outcome.Message : null;
+
+        // Read again whatever the answer: a change that moved shows its new
+        // fingerprint, and the approval it now lacks.
+        await OnDecided.InvokeAsync();
+    }
+}
