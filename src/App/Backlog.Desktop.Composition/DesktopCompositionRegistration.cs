@@ -1,6 +1,7 @@
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.Goals;
+using Backlog.Desktop.UI.Review;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
@@ -40,6 +41,7 @@ using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.Progress.UI.WeeklyReview;
 using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.RepositoryManagement.Extensions;
 using Backlog.Modules.Roadmap.Extensions;
@@ -363,6 +365,7 @@ public static class DesktopCompositionRegistration
         services.AddGoalsSurface();
         services.AddDevbookSurface();
         services.AddInboxSurface();
+        services.AddWeeklyReviewSurface();
         services.AddSessionsSurface();
         services.AddPullRequestsSurface();
         services.AddDashboardSurface();
@@ -391,6 +394,12 @@ public static class DesktopCompositionRegistration
         services.Add(new ServiceDescriptor(
             typeof(IGoalsViewSource),
             sp => sp.GetRequiredService<ShellGoalsViewSource>(),
+            options.WindowStateLifetime));
+        // The weekly review's reading of the window's Inbox, task list, Brain, roadmap
+        // and goals, and its actions in this window.
+        services.Add(new ServiceDescriptor(
+            typeof(IWeeklyReviewSource),
+            sp => new ShellWeeklyReviewSource(sp),
             options.WindowStateLifetime));
         services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
         services.Add(new ServiceDescriptor(typeof(ISurfaceNavigator), typeof(SurfaceNavigator), options.WindowStateLifetime));

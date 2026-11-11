@@ -56,7 +56,20 @@ relationships are in [dependencies.md](dependencies.md).
 
 ADR 0035 retires the sprint series Progress used to lay over repositories, with their settings and the parts of local [ADR 0028](../../arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md) that described them. The plan `+goals-standup` retired their code.
 
-Goals, impediments and the stand-up are always on. The `goals` flag switched the context while it was built, and kept the In progress view for a person who had it off. Both are retired (local [ADR 0035 §10](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md#10-the-view-is-goals-always-on)).
+Goals, impediments and the stand-up are always on. The `goals` flag switched the context while it was built, and kept the In progress view for a person who had it off. Both are retired (local [ADR 0035 §10](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md#10-the-view-is-goals-always-on)). The [weekly review](features.md#the-weekly-review) is the one Progress feature still behind a flag, [Weekly review](#weekly-review).
+
+## Weekly review
+
+```meta
+type: feature-flag
+key: weekly-review
+default: off
+related: [".devbook/domain/progress/features.md#the-weekly-review", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md"]
+```
+
+Turning it on shows the Weekly review option in the Home shell's header, right after the Inbox's. It gives the [weekly review](features.md#the-weekly-review) the whole screen in place of the main view, as the Inbox does. Pressed again, or Escape, returns to that view.
+
+It ships off and marked `DEV` while the review is new. The key is Progress's own, `ProgressFeatures.WeeklyReview`, which the surface's registration and the Shell both read. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json`.
 
 ## Iteration length
 
