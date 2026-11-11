@@ -1400,15 +1400,18 @@ public sealed class InboxDesktopState : IDisposable
 
         try
         {
-            var routed = await _inbox.CreatePlanAsync(item.Id);
+            // Asked only while the Brain can take a note: the checkbox is disabled
+            // otherwise, and a choice made before the Brain went away is not one
+            // the reader can see any more.
+            var startProjectNote = StartProjectNote && ToBrainUnavailableReason is null;
+            var routed = await _inbox.CreatePlanAsync(item.Id, startProjectNote);
             if (Report(routed)) return;
 
+            StartProjectNote = false;
             _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Create plan", item.Id, DeleteTasks: true, DeferralOf(item)));
 
             await ReloadAsync();
-            _toasts?.Publish(ToastMessage.Info(
-                $"Planned {Counted(routed.Value.TaskIds.Count, "entry", "entries")} from \"{item.Title}\".",
-                "inbox-plan-created"));
+            _toasts?.Publish(ToastMessage.Info(PlanCreatedMessage(item.Title, routed.Value), "inbox-plan-created"));
             Routed?.Invoke(routed.Value);
         }
         finally
@@ -1417,6 +1420,33 @@ public sealed class InboxDesktopState : IDisposable
             Changed?.Invoke();
         }
     }
+
+    /// <summary>Whether the next Create plan also starts a project note in the
+    /// Brain — <b>Also start a project note</b>, off until the reader ticks it, and
+    /// off again once a plan is made.</summary>
+    public bool StartProjectNote { get; private set; }
+
+    /// <summary>Ticks or clears <b>Also start a project note</b>.</summary>
+    public void SetStartProjectNote(bool on)
+    {
+        if (StartProjectNote == on) return;
+
+        StartProjectNote = on;
+        Changed?.Invoke();
+    }
+
+    /// <summary>The label of the Create plan option that starts a project note.</summary>
+    public const string StartProjectNoteLabel = "Also start a project note";
+
+    /// <summary>What the option says on hover while the Brain can take a note.</summary>
+    public const string StartProjectNoteTitle = "Write a note for the plan in your Brain's projects area, and link the plan to it";
+
+    /// <summary>What the toast after Create plan says: the entries, and the project
+    /// note when one was started.</summary>
+    internal static string PlanCreatedMessage(string title, InboxRoutedDto routed) =>
+        routed.ProjectNotePath is { Length: > 0 } note
+            ? $"Planned {Counted(routed.TaskIds.Count, "entry", "entries")} from \"{title}\", with its project note {note}."
+            : $"Planned {Counted(routed.TaskIds.Count, "entry", "entries")} from \"{title}\".";
 
     // --- Triage, one item at a time ---------------------------------------------
     //

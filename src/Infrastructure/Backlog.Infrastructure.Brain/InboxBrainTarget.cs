@@ -34,8 +34,22 @@ public sealed class InboxBrainTarget(IBrainNoteWriter writer, IDevbookPersonalSo
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var folder = request.Folder;
+        if (request.IntoProjects)
+        {
+            if (UnavailableReason is { } reason) return Result.Failure<InboxBrainNoteWrittenDto>(InboxErrors.BrainUnavailable(reason));
+
+            // The projects area as the writer lists it, so a Brain whose conventions
+            // name it differently is still found. A writer that lists nothing is
+            // asked for the PARA folder and refuses in its own words.
+            var destinations = await writer.ListDestinationsAsync(cancellationToken).ConfigureAwait(false);
+            folder = destinations.Count == 0 ? BrainNoteDestinations.ProjectsFolder : ProjectsFolderOf(destinations);
+            if (folder is null) return Result.Failure<InboxBrainNoteWrittenDto>(InboxErrors.BrainUnavailable(NoProjectsArea));
+        }
+
+        IReadOnlyList<string>? roadmap = request.RoadmapTag is { Length: > 0 } tag ? [tag] : null;
         var written = await writer
-            .WriteAsync(new BrainNoteDraft(request.Title, BodyOf(request), BrainNoteSource.Inbox, request.Folder), cancellationToken)
+            .WriteAsync(new BrainNoteDraft(request.Title, BodyOf(request), BrainNoteSource.Inbox, folder, roadmap), cancellationToken)
             .ConfigureAwait(false);
 
         return written.Written
@@ -49,6 +63,20 @@ public sealed class InboxBrainTarget(IBrainNoteWriter writer, IDevbookPersonalSo
 
         var destinations = await writer.ListDestinationsAsync(cancellationToken).ConfigureAwait(false);
         return [.. destinations.Select(destination => new InboxBrainDestinationDto(destination.Folder, destination.Label, destination.IsInbox, destination.IsProject))];
+    }
+
+    /// <summary>What a project note is refused with in a Brain that has no
+    /// projects area.</summary>
+    internal const string NoProjectsArea = "This Brain has no projects area to start a project note in.";
+
+    /// <summary>The projects area among the writer's destinations — the area whose
+    /// folder is <c>projects</c>, else the one named Projects, as
+    /// <see cref="BrainNoteDestinations.ProjectsArea"/> picks it — or null.</summary>
+    internal static string? ProjectsFolderOf(IReadOnlyList<BrainNoteDestination> destinations)
+    {
+        var areas = destinations.Where(destination => !destination.IsProject).ToList();
+        return (areas.FirstOrDefault(area => string.Equals(area.Folder, BrainNoteDestinations.ProjectsFolder, StringComparison.OrdinalIgnoreCase))
+            ?? areas.FirstOrDefault(area => string.Equals(area.Area.Trim(), "Projects", StringComparison.OrdinalIgnoreCase)))?.Folder;
     }
 
     /// <summary>A writer that did not name the area: the note's top folder, as a

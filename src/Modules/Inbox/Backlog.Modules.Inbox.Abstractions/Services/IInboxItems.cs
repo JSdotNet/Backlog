@@ -278,8 +278,12 @@ public interface IInboxItems
     /// <summary>Asks the plan drafter for an import plan about the item, hands
     /// the plan to Tasks' import, and records the entries it produced as the
     /// item's routing. Fails with <c>inbox.plan.not_configured</c> when
-    /// <see cref="PlanDrafterAvailability"/> says so.</summary>
-    Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <see cref="PlanDrafterAvailability"/> says so. With
+    /// <paramref name="startProjectNote"/> it also starts the plan's project note
+    /// in the Brain, which the plan references; refused with
+    /// <c>inbox.brain.unavailable</c> and the Brain's reason while
+    /// <see cref="BrainUnavailableReason"/> says so, before anything is drafted.</summary>
+    Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, bool startProjectNote = false, CancellationToken cancellationToken = default);
 
     /// <summary>Fetches one of the item's files again — the act behind Retry on a
     /// file row whose download failed. A file already on this machine with the

@@ -784,8 +784,8 @@ the item once, and a failure on the Tasks side leaves it open:
 ```meta
 type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#route-to-tasks]
-related: [.devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests]
+related: [.devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md, .devbook/domain/brain/features.md#capture-into-the-brain, .devbook/domain/roadmap/domain.md#knowledge-ref]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanProjectNoteTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_project_note_lands_in_the_projects_area_naming_the_plan_s_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Create_plan_starts_a_project_note_only_when_the_option_is_ticked, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Also_start_a_project_note_is_disabled_with_the_brain_s_reason_when_there_is_no_brain]
 ```
 
 Ask an AI drafter for an import plan about the item and bring it into the
@@ -797,6 +797,19 @@ name only the repositories the item was assigned, and a plan that names another
 is refused whole. The item is routed to the entries the import created, the same
 outcome as Route to Tasks. When no drafter is configured the action stays
 visible, disabled, with its reason.
+
+Beside it, **Also start a project note** is off by default and off again after
+each plan. Ticked, Create plan also writes a new note into the Brain's projects
+area through the one Brain writer
+([Capture into the Brain](../brain/features.md#capture-into-the-brain)). The note
+is titled as the plan, and its body is the item's notes with the source link as
+the last line. Its `roadmap` field names the plan's tag, the
+[Roadmap Tag](../tasks/domain.md#roadmap-tag) the import gives the plan. The plan
+gains a `plan` entry with that tag, the item's repositories, and the note's
+address as a [Knowledge Ref](../roadmap/domain.md#knowledge-ref). The note is
+written only once the drafter has answered with a plan. If the import then
+refuses, the note stays in the Brain and the refusal is shown. With no Brain set
+the option is disabled, and hovering it gives the Brain's own reason.
 
 ### Route a batch to Tasks
 

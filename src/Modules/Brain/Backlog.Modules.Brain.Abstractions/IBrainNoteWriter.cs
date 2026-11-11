@@ -33,10 +33,17 @@ public interface IBrainNoteWriter
 }
 
 /// <summary>A note to write: its title, its Markdown body (null or blank for
-/// none), where it came from, and the folder to write it into, relative to the
+/// none), where it came from, the folder to write it into, relative to the
 /// Brain's root — an area's folder or one below it (<c>someday</c>,
-/// <c>projects/sync-rewrite</c>); null or blank for the inbox area.</summary>
-public sealed record BrainNoteDraft(string Title, string? BodyMd, BrainNoteSource Source, string? Folder = null);
+/// <c>projects/sync-rewrite</c>); null or blank for the inbox area — and the
+/// Roadmap Tags its <c>roadmap</c> list starts with, for a project note a plan is
+/// made beside (<see cref="BrainNoteText.Compose"/>); null or empty for none.</summary>
+public sealed record BrainNoteDraft(
+    string Title,
+    string? BodyMd,
+    BrainNoteSource Source,
+    string? Folder = null,
+    IReadOnlyList<string>? Roadmap = null);
 
 /// <summary>
 /// What a write did: the note's path relative to the Brain's root, with
