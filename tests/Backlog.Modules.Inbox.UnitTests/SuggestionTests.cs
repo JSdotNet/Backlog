@@ -540,7 +540,7 @@ public sealed class SuggestionTests
             }
         }
 
-        public Task<Result<string>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default) =>
+        public Task<Result<InboxBrainNoteWrittenDto>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("A suggestion writes nothing.");
     }
 

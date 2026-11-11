@@ -27,7 +27,7 @@ Organize notes into areas, one top folder and one tab each. The areas the Brain'
 
 - an inbox for what is not filed yet;
 - Projects (active, deadline);
-- Someday (possibilities not committed to; local ADR 0054, not yet built);
+- Someday (possibilities not committed to; local ADR 0054);
 - Areas (ongoing);
 - Resources (reference);
 - People;
@@ -331,7 +331,7 @@ Building runs the refresher that builds the index in the background. The map tak
 type: feature
 depends-on: [.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane]
 related: [.devbook/domain/brain/requirements.md#capture-into-the-brain, .devbook/domain/inbox/features.md#route-to-brain, .devbook/domain/inbox/domain.md#itemtriaged]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_capture_lands_in_the_inbox_area_and_reads_back_as_written]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteDestinationsTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_capture_lands_in_the_inbox_area_and_reads_back_as_written]
 ```
 
 ```mermaid
@@ -339,14 +339,16 @@ flowchart LR
     Capture[Capture in the pane] --> Writer
     Triage[To Brain from Inbox triage] --> Writer
     Tool[capture_note over MCP] --> Writer
-    Writer[One writer, IBrainNoteWriter] --> Note[A new note in the Brain's inbox area]
+    Writer[One writer, IBrainNoteWriter] --> Note[A new note in the inbox area, or the area or project named]
 ```
 
 Get a thought into the Brain without leaving what is on screen. In Brain mode the pane header carries **Capture**: a title and a Markdown body, written as a new note with its `meta` block in the Brain's inbox area. That area is `_inbox` under the PARA default, or the area `CONVENTIONS.md` marks as the inbox. Inbox triage writes the same kind of note through its **To Brain** route, from a capture or an Inbox note, keeping the title and body.
 
+The writer takes a target area: an area's folder, or a folder below one such as a project's (`someday`, `projects/launch`). With none it writes into the inbox area. A target that is not one of the Brain's areas, or climbs out of the Brain or into a dot-folder, is refused in words and nothing is written. The writer also lists where a note can go, which is the list To Brain's destination picker shows ([Route to Brain](../inbox/features.md#route-to-brain)).
+
 Whatever the person typed stays text. A heading, fence or meta block typed into a capture gets a zero-width space just before its marker. The space is invisible when read, and no reader takes the line for structure.
 
-The note's file is named after its title (`Ideas for the sync` is `ideas-for-the-sync.md`). A name already taken gets `-2`, `-3` and on, so capture never overwrites a note already in the Brain. Capture only creates notes; appending a link to an existing note is [Cross-Linking](domain.md#cross-linking)'s job, beside it ([Bi-directional linking](#bi-directional-linking), local ADR 0052). Its `meta` block says `type: note` and its [source](domain.md#note-source), `manual` from Capture and `inbox` from To Brain. Once written, the pane opens it. An assistant calls the capture tool over MCP ([MCP Brain scope](#mcp-brain-scope)).
+The note's file is named after its title (`Ideas for the sync` is `ideas-for-the-sync.md`), in whichever folder it lands. A name already taken gets `-2`, `-3` and on, so capture never overwrites a note already in the Brain. Capture only creates notes; appending a link to an existing note is [Cross-Linking](domain.md#cross-linking)'s job, beside it ([Bi-directional linking](#bi-directional-linking), local ADR 0052). Its `meta` block says `type: note` and its [source](domain.md#note-source), `manual` from Capture and `inbox` from To Brain. Once written, the pane opens it. An assistant calls the capture tool over MCP ([MCP Brain scope](#mcp-brain-scope)).
 
 ## MCP Brain scope
 

@@ -18,12 +18,20 @@ namespace Backlog.Modules.Inbox.Abstractions.Services;
 /// </summary>
 public interface IInboxBrainTarget
 {
-    /// <summary>Writes the item into the Brain's inbox area as a new note, keeping
-    /// its title and body, and answers the note's path relative to the Brain's
-    /// root. A Brain that is not set up, or cannot be written, fails with
-    /// <see cref="InboxErrors.BrainUnavailableCode"/> and the reason in words, and
-    /// nothing is written.</summary>
-    Task<Result<string>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default);
+    /// <summary>Writes the item into the Brain as a new note, keeping its title
+    /// and body — into the destination the request names, else the inbox area — and
+    /// answers the note's path relative to the Brain's root and its area's name. A
+    /// Brain that is not set up, a destination it does not have, or a folder that
+    /// cannot be written fails with <see cref="InboxErrors.BrainUnavailableCode"/>
+    /// and the reason in words, and nothing is written.</summary>
+    Task<Result<InboxBrainNoteWrittenDto>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>Where To Brain can file an item right now, in the order the
+    /// destination picker lists them: the inbox area first, the Brain's other
+    /// areas in tab order, its projects after the projects area. Empty while the
+    /// Brain cannot take a note.</summary>
+    Task<IReadOnlyList<InboxBrainDestinationDto>> ListDestinationsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<InboxBrainDestinationDto>>([]);
 
     /// <summary>Why a route To Brain would be refused right now — no Brain folder
     /// set, one that is missing, a host without a Brain — in the words the refusal

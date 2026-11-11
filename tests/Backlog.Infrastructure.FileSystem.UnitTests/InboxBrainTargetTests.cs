@@ -3,6 +3,7 @@ using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
+using Backlog.Modules.Inbox.Abstractions.Services;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
@@ -35,7 +36,7 @@ public sealed class InboxBrainTargetTests : IDisposable
         var written = await Target().WriteNoteAsync(new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Standup", "- shipped sync", null), Cancellation);
 
         Assert.True(written.IsSuccess);
-        Assert.Equal("_inbox/standup.md", written.Value);
+        Assert.Equal(new InboxBrainNoteWrittenDto("_inbox/standup.md", "Inbox"), written.Value);
         Assert.Equal(
             BrainNoteText.Compose("Standup", "- shipped sync", BrainNoteSource.Inbox),
             await File.ReadAllTextAsync(Path.Combine(Brain, "_inbox", "standup.md"), Cancellation));
@@ -51,7 +52,7 @@ public sealed class InboxBrainTargetTests : IDisposable
 
         var written = await Target().WriteNoteAsync(new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Odd", "```meta\ntype: x\n```\n# Heading", null), Cancellation);
 
-        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Value), Cancellation);
+        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Value.NotePath), Cancellation);
         Assert.Equal(1, text.Split("\n```meta\n").Length - 1);
         Assert.Contains("\n\u200B```meta\n", text, StringComparison.Ordinal);
         Assert.Contains("\n\u200B# Heading\n", text, StringComparison.Ordinal);
@@ -69,7 +70,7 @@ public sealed class InboxBrainTargetTests : IDisposable
             new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Event sourcing in practice", "Why the log is the truth.", "https://example.com/es"),
             Cancellation);
 
-        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Value), Cancellation);
+        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Value.NotePath), Cancellation);
         Assert.EndsWith("\nWhy the log is the truth.\n\nSource: <https://example.com/es>\n", text, StringComparison.Ordinal);
     }
 
@@ -109,6 +110,53 @@ public sealed class InboxBrainTargetTests : IDisposable
 
         Directory.CreateDirectory(Brain);
         Assert.Null(target.UnavailableReason);
+    }
+
+    /// <summary>The destination the picker named is where the note lands, and the
+    /// area it names is the toast's (local ADR 0054 §2).</summary>
+    [Fact]
+    public async Task A_route_with_a_destination_lands_in_it_and_names_its_area()
+    {
+        Directory.CreateDirectory(Path.Combine(Brain, "projects", "launch"));
+        File.WriteAllText(Path.Combine(Brain, "projects", "launch", "brief.md"), "# Brief\n");
+        _setting = Brain;
+
+        var written = await Target().WriteNoteAsync(
+            new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Retry budget", "", null, "projects/launch"),
+            Cancellation);
+
+        Assert.Equal(new InboxBrainNoteWrittenDto("projects/launch/retry-budget.md", "Projects"), written.Value);
+        Assert.True(File.Exists(Path.Combine(Brain, "projects", "launch", "retry-budget.md")));
+    }
+
+    /// <summary>The picker's rows, as the Inbox sees them: the inbox area first
+    /// and marked, the PARA areas in tab order, the project after Projects.</summary>
+    [Fact]
+    public async Task The_destinations_are_listed_in_the_inbox_s_words()
+    {
+        Directory.CreateDirectory(Path.Combine(Brain, "projects"));
+        File.WriteAllText(Path.Combine(Brain, "projects", "sync-rewrite.md"), "# Sync rewrite\n");
+        _setting = Brain;
+        var brain = new BrainFolderSource(() => _setting);
+
+        var destinations = await new InboxBrainTarget(new BrainNoteWriter(brain), brain).ListDestinationsAsync(Cancellation);
+
+        Assert.Equal(
+            ["_inbox", "projects", "projects", "someday", "areas", "resources", "people", "journal", "archive"],
+            destinations.Select(destination => destination.Folder));
+        Assert.True(destinations[0].IsInbox);
+        Assert.True(destinations[2].IsProject);
+    }
+
+    /// <summary>No Brain, no destinations: the picker falls back to the inbox
+    /// row, whose route is refused in the Brain's words.</summary>
+    [Fact]
+    public async Task No_brain_lists_no_destinations()
+    {
+        var brain = new BrainFolderSource(() => _setting);
+
+        Assert.Empty(await new InboxBrainTarget(new BrainNoteWriter(brain), brain).ListDestinationsAsync(Cancellation));
+        Assert.Empty(await ((IInboxBrainTarget)new NoBrainTarget()).ListDestinationsAsync(Cancellation));
     }
 
     /// <summary>A host composed without a Brain says so up front too.</summary>

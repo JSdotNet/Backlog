@@ -141,7 +141,7 @@ public class BrainConventionsTests : IDisposable
     {
         Assert.Empty(BrainConventions.Declared(markdown));
         Assert.Equal(
-            ["_inbox", "projects", "areas", "resources", "people", "journal", "archive"],
+            ["_inbox", "projects", "someday", "areas", "resources", "people", "journal", "archive"],
             BrainConventions.Parse(markdown).Select(area => area.Folder));
     }
 
@@ -270,9 +270,9 @@ public class BrainConventionsTests : IDisposable
         var areas = BrainConventions.Resolve([], [], ["projects", "meetings"], _ => true);
 
         Assert.Equal(
-            ["_inbox", "projects", "areas", "resources", "people", "journal", "archive", "meetings"],
+            ["_inbox", "projects", "someday", "areas", "resources", "people", "journal", "archive", "meetings"],
             areas.Select(area => area.Folder));
-        Assert.Equal(Enumerable.Range(1, 8), areas.Select(area => area.Order));
+        Assert.Equal(Enumerable.Range(1, 9), areas.Select(area => area.Order));
     }
 
     [Fact]

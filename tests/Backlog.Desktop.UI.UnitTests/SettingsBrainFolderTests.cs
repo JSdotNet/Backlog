@@ -82,9 +82,9 @@ public sealed class SettingsBrainFolderTests
         Assert.True(File.Exists(Path.Combine(brain, "README.md")));
         Assert.True(File.Exists(Path.Combine(brain, "CONVENTIONS.md")));
         Assert.All(
-            ["_inbox", "projects", "areas", "resources", "people", "journal", "archive"],
+            ["_inbox", "projects", "someday", "areas", "resources", "people", "journal", "archive"],
             folder => Assert.True(Directory.Exists(Path.Combine(brain, folder)), folder));
-        Assert.Contains("README.md, CONVENTIONS.md and 7 area folders", settings.Component.Find("[data-testid='brain-folder-card-message']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("README.md, CONVENTIONS.md and 8 area folders", settings.Component.Find("[data-testid='brain-folder-card-message']").TextContent, StringComparison.Ordinal);
         Assert.Empty(settings.Component.FindAll("[data-testid='brain-folder-card-create-conventions']"));
     }
 
