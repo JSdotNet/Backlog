@@ -28,7 +28,8 @@ public sealed class RetryAttachmentCommandHandler(
     TimeProvider clock,
     IInboxAttachmentSource? attachmentSource = null,
     IInboxAttachmentFiles? attachmentFiles = null,
-    ILogger<RetryAttachmentCommandHandler>? logger = null)
+    ILogger<RetryAttachmentCommandHandler>? logger = null,
+    IInboxRecordingQueue? recordings = null)
     : ICommandHandler<RetryAttachmentCommand, Result>
 {
     private readonly ILogger _logger = logger ?? NullLogger<RetryAttachmentCommandHandler>.Instance;
@@ -47,6 +48,13 @@ public sealed class RetryAttachmentCommandHandler(
             .ConfigureAwait(false);
 
         await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
+
+        // A recording that came down on Retry is transcribed as one that came down on a pull
+        // is (local ADR 0049 §1).
+        if (error is null && item.IsNote && item.Attachments.Any(a => a.Id == command.AttachmentId && a.IsRecording))
+        {
+            recordings?.Request(item.Id);
+        }
 
         return error is null
             ? Result.Success()

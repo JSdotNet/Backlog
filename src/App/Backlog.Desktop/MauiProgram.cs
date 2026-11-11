@@ -298,6 +298,11 @@ public static class MauiProgram
         // And annotation replication's loop, the third sibling, on the same terms.
         _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
+        // And the Inbox's transcription of meeting recordings (local ADR 0049): started
+        // here, for the reason the sync loops are, so a recording that came down while the
+        // app was closed — or failed last time — is tried on this start.
+        app.Services.GetRequiredService<Backlog.Modules.Inbox.Services.InboxRecordingTranscriptionWorker>().Start();
+
         // And devbook subject state's loop, the annotations' sibling, on the same terms.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
 

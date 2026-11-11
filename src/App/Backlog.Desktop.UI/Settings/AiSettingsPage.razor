@@ -454,6 +454,20 @@
             <TextField Bare="true"
                        LabelCssClass="setting__label"
                        InputCssClass="setting__input"
+                       Label="Transcription deployment"
+                       Id="azure-foundry-transcription-deployment"
+                       data-testid="azure-foundry-transcription-deployment-input"
+                       spellcheck="false"
+                       autocomplete="off"
+                       Placeholder="@AzureFoundryTranscriptionOptions.DefaultDeployment"
+                       Value="@_draftAzureFoundryTranscriptionDeployment"
+                       ValueChanged="value => _draftAzureFoundryTranscriptionDeployment = value"
+                       @onchange="ApplyAzureFoundryTranscriptionDeployment"
+                       @onkeydown="OnAzureFoundryTranscriptionKeyDown" />
+
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="setting__input"
                        Label="API key"
                        Id="azure-foundry-api-key"
                        data-testid="azure-foundry-api-key-input"
@@ -573,6 +587,7 @@
     private string _draftAzureFoundryApiVersion = AzureFoundrySettingsStore.DefaultApiVersion;
     private string _draftAzureFoundryApiKey = string.Empty;
     private string _draftAzureFoundryCostScope = string.Empty;
+    private string _draftAzureFoundryTranscriptionDeployment = AzureFoundryTranscriptionOptions.DefaultDeployment;
     private string? _azureFoundryMessage;
     private string _draftGitHubUsageEndpoint = string.Empty;
     private string? _gitHubUsageMessage;
@@ -694,6 +709,21 @@
         SyncAzureFoundryDrafts();
     }
 
+    /// <summary>The deployment a meeting recording on a note is transcribed by (local ADR
+    /// 0049 §2). Blank goes back to the default; idempotent, for Enter's two events.</summary>
+    private void ApplyAzureFoundryTranscriptionDeployment()
+    {
+        var error = AzureFoundry.SetTranscriptionDeployment(_draftAzureFoundryTranscriptionDeployment);
+        _azureFoundryMessage = error ?? "Azure Foundry transcription deployment updated.";
+        SyncAzureFoundryDrafts();
+    }
+
+    private void OnAzureFoundryTranscriptionKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyAzureFoundryTranscriptionDeployment();
+        else if (e.Key == "Escape") SyncAzureFoundryDrafts();
+    }
+
     private void OnAzureFoundryCostScopeKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter") ApplyAzureFoundryCostScope();
@@ -706,6 +736,7 @@
         _draftAzureFoundryDeployment = AzureFoundry.Current.Deployment ?? string.Empty;
         _draftAzureFoundryApiVersion = AzureFoundry.Current.ApiVersion;
         _draftAzureFoundryCostScope = AzureFoundry.Current.CostScope ?? string.Empty;
+        _draftAzureFoundryTranscriptionDeployment = AzureFoundry.Current.TranscriptionDeployment;
     }
 
     /// <summary>The account whose subpage is open - the chosen one while it still
