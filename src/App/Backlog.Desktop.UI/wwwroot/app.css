@@ -6565,6 +6565,200 @@ a.pull-request-detail-checks__name:hover {
     font-size: var(--font-size-sm);
 }
 
+/* ---------------------------------------------------------------------------
+   Schedules: the Sessions takeover's second page (local ADR 0051 §6). It wears
+   Delivery economics' breadcrumb and panel, then its own parts: the cards of the
+   schedules that need the person, and the table by repository beside the
+   selected schedule's detail — the detail drops under the table at a narrow width.
+   --------------------------------------------------------------------------- */
+.schedules-page__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.schedules-page__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.schedules-page__heading-count {
+    margin-left: var(--spacing-2xs);
+    color: var(--color-text-primary);
+}
+
+.schedules-page__needs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.schedules-page__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+    gap: var(--spacing-sm);
+}
+
+.schedules-page__card .card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    height: 100%;
+}
+
+.schedules-page__card-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+}
+
+.schedules-page__card-title,
+.schedules-page__detail-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    align-items: flex-start;
+}
+
+.schedules-page__card-name {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+}
+
+.schedules-page__repo {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.schedules-page__ask {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+.schedules-page__ask-lines {
+    display: grid;
+    gap: var(--spacing-2xs);
+    padding-left: var(--spacing-md);
+}
+
+.schedules-page__card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-top: auto;
+}
+
+.schedules-page__layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    align-items: flex-start;
+}
+
+.schedules-page__all {
+    display: flex;
+    flex: 999 1 36rem;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.schedules-page__quiet {
+    color: var(--color-text-secondary);
+}
+
+/* The schedule's name is the row's control: a plain button the width of its cell,
+   pressed for the schedule the detail shows. */
+.schedules-page__name {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.schedules-page__name:hover {
+    text-decoration: underline;
+}
+
+.schedules-page__name:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* Selected reads by the raised surface and the focus-colour edge, as the phase
+   rows of Delivery economics do; aria-pressed on the name says it to assistive
+   technology. */
+.schedules-page__row--selected,
+.schedules-page__row--selected:hover {
+    background: var(--color-background-raised);
+    box-shadow: inset var(--border-width-2) 0 0 var(--color-border-focus);
+}
+
+.schedules-page__detail {
+    flex: 1 1 22rem;
+}
+
+.schedules-page__detail:focus {
+    outline: none;
+}
+
+.schedules-page__runs {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.schedules-page__run {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-xs) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.schedules-page__run-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.schedules-page__run-when {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.schedules-page__detail-open {
+    align-self: flex-start;
+}
+
+.schedules-page:focus {
+    outline: none;
+}
+
 /* The main view is the workspace's one grid item: the Devbook that once split
    the row with it takes the screen as a surface of its own (local ADR 0022,
    amendment of 2026-10-15), so there is no pane row to lay out here. */
