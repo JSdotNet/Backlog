@@ -8,6 +8,7 @@ using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -355,6 +356,162 @@ public sealed class McpServerWorkerTests : IDisposable
             Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
             Assert.Contains(request.Id.ToString("D"), await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
         }
+    }
+
+    /// <summary>Rotate (local ADR 0052, Phase 0): the listener reads the token per
+    /// request, so the old one is refused from the very next request and the new one
+    /// admitted, with no rebind.</summary>
+    [Fact]
+    public async Task A_rotated_token_refuses_the_old_one_at_once_and_admits_the_new_one()
+    {
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(_services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var old = settings.EnsureMcpServerToken();
+
+        using (var response = await client.SendAsync(Hook(old), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        Assert.Null(settings.RotateMcpServerToken());
+        var rotated = settings.McpServerToken;
+        Assert.NotNull(rotated);
+        Assert.NotEqual(old, rotated);
+
+        using (var response = await client.SendAsync(Hook(old), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
+        }
+
+        using (var response = await client.SendAsync(Hook(rotated), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        // And it is the token a fresh store reads back: the next launch demands it too.
+        Assert.Equal(rotated, new WorkspaceSettingsStore(settings.DefaultRootDirectory).McpServerToken);
+    }
+
+    /// <summary>A Rotate with many sessions running: each sends the old token once more
+    /// before its headers helper re-reads the new one. Those 401s must not trip the
+    /// bearer limit, or Rotate would lock its own person out.</summary>
+    [Fact]
+    public async Task The_old_token_after_a_rotation_never_trips_the_bearer_limit()
+    {
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(_services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var old = settings.EnsureMcpServerToken();
+        Assert.Null(settings.RotateMcpServerToken());
+
+        for (var i = 0; i < McpBearerLimiter.MaxFailures * 2; i++)
+        {
+            using var refused = await client.SendAsync(Hook(old), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        }
+
+        using var admitted = await client.SendAsync(Hook(settings.McpServerToken), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, admitted.StatusCode);
+    }
+
+    /// <summary>Ten failed bearer attempts within a minute refuse every bearer request
+    /// with 429 for a minute, the right token included, and write one audit record; once
+    /// the minute is up the right token is admitted again.</summary>
+    [Fact]
+    public async Task Ten_failed_bearer_attempts_lock_every_bearer_request_out_for_a_minute_and_are_audited()
+    {
+        var audit = new RecordingAuditLog();
+        var clock = new ManualClock(new DateTimeOffset(2026, 11, 11, 9, 0, 0, TimeSpan.Zero));
+        var services = new GatedProvider(new ServiceCollection()
+            .AddSingleton<IMcpAuditLog>(audit)
+            .BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings, log: null, staticWebAssetsManifest: null, clock);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var token = settings.EnsureMcpServerToken();
+
+        for (var i = 0; i < McpBearerLimiter.MaxFailures; i++)
+        {
+            using var refused = await client.SendAsync(Hook(token + "-wrong"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        }
+
+        var record = Assert.Single(audit.Records);
+        Assert.Equal(McpAudit.BearerLockout, record.Tool);
+        Assert.Equal(McpAudit.NoValidTokenCaller, record.Caller);
+        Assert.Equal(McpCallOutcome.Refused, record.Outcome);
+
+        clock.Advance(TimeSpan.FromSeconds(20));
+
+        using (var response = await client.SendAsync(Hook(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+            Assert.Equal(TimeSpan.FromSeconds(40), response.Headers.RetryAfter?.Delta);
+        }
+
+        clock.Advance(McpBearerLimiter.Lockout);
+
+        using (var response = await client.SendAsync(Hook(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        Assert.Single(audit.Records);
+    }
+
+    private static HttpRequestMessage Hook(string? token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, AskBacklogHook.RoutePath);
+        if (token is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return request;
+    }
+
+    /// <summary>A clock the test moves by hand.</summary>
+    private sealed class ManualClock(DateTimeOffset now) : TimeProvider
+    {
+        private long _ticks = now.UtcTicks;
+
+        public override DateTimeOffset GetUtcNow() => new(Interlocked.Read(ref _ticks), TimeSpan.Zero);
+
+        public void Advance(TimeSpan by) => Interlocked.Add(ref _ticks, by.Ticks);
+    }
+
+    /// <summary>Keeps every record written, in order.</summary>
+    private sealed class RecordingAuditLog : IMcpAuditLog
+    {
+        private readonly List<McpAuditRecord> _records = [];
+
+        public event Action? Changed;
+
+        public IReadOnlyList<McpAuditRecord> Records
+        {
+            get
+            {
+                lock (_records) return [.. _records];
+            }
+        }
+
+        public Task AppendAsync(McpAuditRecord record, CancellationToken cancellationToken = default)
+        {
+            lock (_records) _records.Add(record);
+            Changed?.Invoke();
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<McpAuditRecord>> LatestAsync(int count, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<McpAuditRecord>>([.. Records.AsEnumerable().Reverse().Take(count)]);
     }
 
     private static HttpRequestMessage Wait(string? token)
