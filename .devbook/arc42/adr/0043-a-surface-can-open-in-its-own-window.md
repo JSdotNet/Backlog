@@ -257,10 +257,14 @@ only in a live session.
 **No feature flag.** Pop-out, the routes and the MCP tool are always available. A
 surface's own feature flag still hides it everywhere the catalog is read (§1).
 
-**Amended 2026-11-11 by local ADR 0052 §4, not yet built.** `open_window` and the link
-tokens it mints need the `ui:open` scope, so only a grant holding it can open a
-window or mint a web link. The cookie a link buys expires after 8 idle hours rather
-than living as long as the app runs. The app logs every link `open_window` mints.
+**Amended 2026-11-11 by local ADR 0052 §4.** `open_window` and the link tokens it mints
+need the `ui:open` scope, so only a grant holding it can open a window or mint a web
+link; that scope is not built yet. The cookie a link buys expires after 8 idle hours
+rather than living as long as the app runs: each request it admits slides it, and a
+page whose circuit is connected is never idle. A page asked for on an expired cookie
+answers 401 with a page asking for the window to be opened again. The app logs every
+link `open_window` mints with the surface, the caller and the token's expiry, never
+the token.
 
 ## Consequences
 
@@ -341,6 +345,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | §7's idle cookie and link log built. `WindowLinkTokens` keeps each cookie value with its last use and the requests it admitted that are still running: `IsValidCookie` refuses and forgets one idle for longer than `IdleTimeout`, 8 hours, and otherwise starts its idle time over, and `SurfaceWindowPages.AdmitAsync` holds the cookie for as long as each admitted request runs, so a connected circuit keeps its page open. The browser's cookie stays a session cookie; only the listener knows it has expired. A refused `/window` load answers 401 with a static page asking the agent or person to open the window again; a refused file or circuit request stays a plain 401. `ISurfaceWindowHost.WebLink` takes the caller, the MCP client's name and version as its `initialize` gave them, stripped of line breaks and capped at 120 characters, and `DesktopSurfaceWindowHost` logs each minted link with the surface id, that caller and the token's expiry, never the token or the link. The `ui:open` scope waits on the token broker. | Plan `zero-trust-auth`, step 4, `window-cookie-expiry`. |
 | 2026-11-11 | Amended §7 by local ADR 0052: `open_window` and its link tokens need the `ui:open` scope, the link cookie expires after 8 idle hours, and every minted link is logged. Not built yet. | Plan `zero-trust-auth`: any holder of the shared MCP token could mint a link to full UI access for as long as the app ran. |
 | 2026-11-10 | Amended §5, renamed from "the main window owns the app's life": closing the main window (✕ or Alt+F4) flushes the navigation and window-bounds stores and hides it to a notification-area icon. The process and the MCP listener keep running, and popped-out windows stay open. The tray menu has **Open Backlog** and **Quit**, and a double-click restores the window. Quit keeps the flush, closes every window and quits. A plain second launch, a `backlog://` link, a toast press and **Show in main window** re-show a hidden main window, and the first hide shows a one-time toast. Two per-machine switches join the MCP server settings page: **Keep running in the tray when closed**, on by default, and **Start Backlog when I sign in**, off by default, an MSIX `StartupTask` that starts to the tray. That switch is disabled in an unpackaged build and when Windows reports the task disabled by the person or by policy. The runtime view gains the scenario "Main window close, hide and quit". Not built yet. | Plan `tray-keep-alive`: closing the window stopped the MCP listener, so every session lost the `backlog` tools until Backlog was opened again. |
 | 2026-11-04 | Both §4 toggles kept side by side after `main` landed **Keep on top**: the header reads title, scope chips, **Keep on top**, **Remember this window**, **Show in main window**. **Keep on top** keeps the pin; **Remember this window** wears Lucide's `bookmark` (`BookmarkIcon`). Both sit in `surface-window__actions`, so below 40rem they stay on the title's row. `IShellWindows` answers `CanKeepOnTop` and `CanRemember` apart, and `shell-windows.json` keeps `onTop` and `remembered` as sections of their own beside `surfaces`. | Two toggles on one glyph would read as one control, and the pin already meant on top. |

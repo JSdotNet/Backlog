@@ -98,6 +98,8 @@ public static class MauiProgram
             SessionSyncFolder = appData,
             AnnotationSyncFolder = appData,
             BackupStatePath = Path.Combine(appData, "backup-state.json"),
+            // The MCP audit log, per installation and never in the workspace root.
+            McpAuditLogPath = Path.Combine(appData, "mcp-audit.db"),
             // The URL on the Settings page, per machine and never in the workspace.
             SyncServiceSettingsPath = Path.Combine(appData, "sync-service.json"),
             // The catalog is the shell's product copy; the store is the adapter that
@@ -192,11 +194,13 @@ public static class MauiProgram
         builder.Services.TryAddSingleton<ShellWindows>();
         builder.Services.TryAddSingleton<IShellWindows>(sp => sp.GetRequiredService<ShellWindows>());
         // What open_window opens and links to (local ADR 0043 §7): these windows, and a
-        // tokenized link to the listener's page at the port it is listening on now.
+        // tokenized link to the listener's page at the port it is listening on now, each
+        // minted link logged without its token (local ADR 0052 §4).
         builder.Services.TryAddSingleton<ISurfaceWindowHost>(sp => new DesktopSurfaceWindowHost(
             sp.GetRequiredService<IShellWindows>(),
             sp.GetRequiredService<WindowLinkTokens>(),
-            () => sp.GetService<McpServerWorker>()?.Address?.Port));
+            () => sp.GetService<McpServerWorker>()?.Address?.Port,
+            sp.GetService<ILogger<DesktopSurfaceWindowHost>>()));
         // What a backlog:// link opens (local ADR 0043 §7): BacklogLinkInstance hands it
         // the link the app was launched with and every one redirected here later.
         builder.Services.TryAddSingleton<BacklogLinkActivation>();

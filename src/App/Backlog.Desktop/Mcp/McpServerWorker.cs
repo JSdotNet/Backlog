@@ -8,6 +8,7 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -583,7 +584,8 @@ public sealed class McpServerWorker : IDisposable
             if (Socket.OSSupportsIPv6) options.Listen(IPAddress.IPv6Loopback, port);
         });
 
-        builder.Services.AddBacklogMcpServer().WithHttpTransport();
+        // Every call this listener admits carries the one shared bearer token (§1).
+        builder.Services.AddBacklogMcpServer(McpAudit.SharedTokenCaller).WithHttpTransport();
 
         // The pop-out pages' own services, before the bridge: what the listener
         // composes itself is never forwarded, so a page's IShellWindows is a
@@ -803,7 +805,7 @@ public sealed class McpServerWorker : IDisposable
                 return;
             }
 
-            if (!SurfaceWindowPages.Admit(context, _windowLinkTokens))
+            if (!await SurfaceWindowPages.AdmitAsync(context, _windowLinkTokens).ConfigureAwait(false))
             {
                 if (context.Response.StatusCode == StatusCodes.Status401Unauthorized)
                 {
@@ -951,7 +953,9 @@ public sealed class McpServerWorker : IDisposable
     /// <see cref="ISessionRequestStore"/> for the session-request wait route, which the
     /// dispatcher tools would carry across anyway but the route must not depend on, and
     /// <see cref="IWaitingQuestionStore"/> and <see cref="IAgentSessionSource"/> beside it
-    /// for the answer deliveries the same route hands out, on the same grounds.
+    /// for the answer deliveries the same route hands out, on the same grounds;
+    /// and <see cref="IMcpAuditLog"/>, which the audit call filter resolves per request and
+    /// no tool constructs.
     /// </para>
     /// <para>
     /// The probe is <see cref="IServiceProviderIsService"/>, which every
@@ -974,6 +978,7 @@ public sealed class McpServerWorker : IDisposable
             .Append(typeof(ISessionRequestStore))
             .Append(typeof(IWaitingQuestionStore))
             .Append(typeof(IAgentSessionSource))
+            .Append(typeof(IMcpAuditLog))
             .Distinct();
 
     private IEnumerable<Type> ForwardedPorts(IServiceProviderIsService? probe)

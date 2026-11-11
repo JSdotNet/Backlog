@@ -544,6 +544,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             SessionSyncFolder = appData,
             AnnotationSyncFolder = appData,
             BackupStatePath = Path.Combine(appData, "backup-state.json"),
+            McpAuditLogPath = Path.Combine(appData, "mcp-audit.db"),
             SyncServiceSettingsPath = Path.Combine(appData, "sync-service.json"),
             FeatureSettings = _ => new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(appData, "features.json")),
             WorkingHoursSettings = _ => new WorkingHoursSettingsStore(Path.Combine(appData, "working-hours.json")),
@@ -615,7 +616,8 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         services.TryAddSingleton<Backlog.Infrastructure.Mcp.ISurfaceWindowHost>(sp => new Backlog.Desktop.UI.Mcp.DesktopSurfaceWindowHost(
             new NoShellWindows(),
             sp.GetRequiredService<Backlog.Desktop.UI.Mcp.WindowLinkTokens>(),
-            () => sp.GetRequiredService<WorkspaceSettingsStore>().McpServerPort));
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().McpServerPort,
+            sp.GetService<Microsoft.Extensions.Logging.ILogger<Backlog.Desktop.UI.Mcp.DesktopSurfaceWindowHost>>()));
 
         Backlog.Infrastructure.AzureFoundry.AzureFoundryRegistration.AddAzureFoundryCostClient(services);
     }

@@ -1,6 +1,8 @@
 using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 
+using Microsoft.Extensions.Logging;
+
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
@@ -54,7 +56,7 @@ public sealed class DesktopSurfaceWindowHostTests
         var windows = new RecordingShellWindows();
         var host = new DesktopSurfaceWindowHost(windows, tokens, () => 49213);
 
-        var link = host.WebLink("tasks", PlanQuery);
+        var link = host.WebLink("tasks", PlanQuery, "test-client");
 
         Assert.NotNull(link);
         Assert.Equal("localhost", link.Host);
@@ -73,8 +75,8 @@ public sealed class DesktopSurfaceWindowHostTests
     {
         var host = new DesktopSurfaceWindowHost(new RecordingShellWindows(), new WindowLinkTokens(), () => 5757);
 
-        var first = host.WebLink("devbook", new Dictionary<string, string>());
-        var second = host.WebLink("devbook", new Dictionary<string, string>());
+        var first = host.WebLink("devbook", new Dictionary<string, string>(), "test-client");
+        var second = host.WebLink("devbook", new Dictionary<string, string>(), "test-client");
 
         Assert.NotEqual(first, second);
     }
@@ -82,10 +84,62 @@ public sealed class DesktopSurfaceWindowHostTests
     [Fact]
     public void No_link_while_the_listener_is_not_listening()
     {
-        var tokens = new WindowLinkTokens();
-        var host = new DesktopSurfaceWindowHost(new RecordingShellWindows(), tokens, () => null);
+        var log = new RecordingLogger();
+        var host = new DesktopSurfaceWindowHost(new RecordingShellWindows(), new WindowLinkTokens(), () => null, log);
 
-        Assert.Null(host.WebLink("tasks", PlanQuery));
+        Assert.Null(host.WebLink("tasks", PlanQuery, "test-client"));
+        Assert.Empty(log.Entries);
+    }
+
+    /// <summary>
+    /// Every link minted is logged (local ADR 0052 §4) with the surface, the caller and
+    /// the moment its token stops redeeming — and never the token, nor the link that
+    /// carries it, since the log is a file anyone reading it later could replay.
+    /// </summary>
+    [Fact]
+    public void Every_minted_link_is_logged_with_its_surface_caller_and_expiry_and_never_its_token()
+    {
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(new DateTimeOffset(2026, 11, 11, 9, 30, 0, TimeSpan.Zero));
+        var log = new RecordingLogger();
+        var host = new DesktopSurfaceWindowHost(new RecordingShellWindows(), new WindowLinkTokens(clock), () => 5757, log);
+
+        var link = host.WebLink("tasks", PlanQuery, "claude-code 2.1.0");
+        Assert.NotNull(link);
+        var token = SurfaceWindowRoute.QueryOf(link.AbsoluteUri)[WindowLinkTokens.QueryKey];
+
+        var entry = Assert.Single(log.Entries);
+        Assert.Equal(LogLevel.Information, entry.Level);
+        Assert.Equal("tasks", entry.Values["SurfaceId"]);
+        Assert.Equal("claude-code 2.1.0", entry.Values["Caller"]);
+        Assert.Equal(clock.GetUtcNow() + WindowLinkTokens.Lifetime, entry.Values["Expires"]);
+        Assert.Contains("tasks", entry.Message, StringComparison.Ordinal);
+        Assert.Contains("claude-code 2.1.0", entry.Message, StringComparison.Ordinal);
+        Assert.Contains("2026-11-11T09:40:00", entry.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(token, entry.Message, StringComparison.Ordinal);
+        Assert.All(entry.Values.Values, value => Assert.DoesNotContain(token, value?.ToString() ?? string.Empty, StringComparison.Ordinal));
+
+        host.WebLink("devbook", new Dictionary<string, string>(), "another-client");
+        Assert.Equal(2, log.Entries.Count);
+        Assert.Equal("devbook", log.Entries[1].Values["SurfaceId"]);
+    }
+
+    private sealed record LogEntry(LogLevel Level, string Message, IReadOnlyDictionary<string, object?> Values);
+
+    private sealed class RecordingLogger : ILogger<DesktopSurfaceWindowHost>
+    {
+        public List<LogEntry> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            var values = state is IEnumerable<KeyValuePair<string, object?>> pairs
+                ? pairs.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
+                : new Dictionary<string, object?>(StringComparer.Ordinal);
+            Entries.Add(new LogEntry(logLevel, formatter(state, exception), values));
+        }
     }
 
     [Fact]
@@ -94,7 +148,7 @@ public sealed class DesktopSurfaceWindowHostTests
         var tokens = new WindowLinkTokens();
         var host = new DesktopSurfaceWindowHost(new RecordingShellWindows(), tokens, () => 5757);
 
-        var link = host.WebLink("tasks", new Dictionary<string, string> { [WindowLinkTokens.QueryKey] = "forged" });
+        var link = host.WebLink("tasks", new Dictionary<string, string> { [WindowLinkTokens.QueryKey] = "forged" }, "test-client");
 
         Assert.NotNull(link);
         Assert.Single(link.Query.Split('&'), part => part.StartsWith("t=", StringComparison.Ordinal) || part.StartsWith("?t=", StringComparison.Ordinal));
