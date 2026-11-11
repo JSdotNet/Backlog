@@ -1,0 +1,371 @@
+/* The Events pane (Backlog.Modules.Events.UI), served at
+   _content/Backlog.Modules.Events.UI/events.css. Every control is the library's and
+   styled there; this file lays out the takeover around them: the header and the add
+   row across the top, the grouped list on the left, the editor on the right, and the
+   rows and chip strips inside them. Tokens only, no colour of its own. */
+
+.events-pane {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    height: 100%;
+    min-height: 0;
+    padding: var(--spacing-lg);
+}
+
+.events-pane__header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+}
+
+.events-pane__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.events-pane__title {
+    margin: 0;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.events-pane__subtitle {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.events-pane__header-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    margin-left: auto;
+}
+
+/* The add row: title, series and its two buttons, wrapping on a narrow window. */
+.events-pane__add {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
+    align-items: flex-end;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.events-pane__add > .field,
+.events-pane__add > .combobox {
+    flex: 1 1 16rem;
+    min-width: 0;
+}
+
+.events-pane__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.events-pane__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.events-pane__split {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+}
+
+.events-pane__list,
+.events-pane__detail {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.events-pane__list {
+    padding-right: var(--spacing-sm);
+}
+
+.events-pane__detail {
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+/* The list: one section per state, each a heading with its tally over its rows. */
+.events-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.events-list__heading {
+    margin: 0 0 var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.events-list__tally {
+    margin-left: var(--spacing-2xs);
+    font-weight: var(--font-weight-normal);
+}
+
+.events-list__rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.events-list__row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-2xs);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.events-list__row:hover {
+    background: var(--color-background-alt);
+}
+
+.events-list__row:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* Selected: the focus-colour edge and the primary strip, held on hover, so it reads
+   apart from hover and focus (.devbook/design/interaction-guidelines.md#focus-and-selection). */
+.events-list__row--selected,
+.events-list__row--selected:hover {
+    border-color: var(--color-border-focus);
+    background: var(--color-background-raised);
+    box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.events-list__title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.events-list__line {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The editor: a header line, then one section per concern. */
+.events-editor {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.events-editor__header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.events-editor__title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.events-editor__save {
+    margin-left: auto;
+}
+
+.events-editor__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding-top: var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.events-editor__heading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.events-editor__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
+    align-items: flex-end;
+}
+
+.events-editor__row > .field {
+    flex: 1 1 10rem;
+    min-width: 0;
+}
+
+.events-editor__group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    align-items: flex-start;
+}
+
+.events-editor__group > .field {
+    align-self: stretch;
+}
+
+.events-editor__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.events-editor__moves {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.events-editor__reason,
+.events-editor__byline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The series page, a link on the dark theme as the Inbox draws its links. */
+.events-editor__link {
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.events-editor__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
+}
+
+.events-editor__editions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.events-editor__edition {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.events-editor__edition:hover {
+    background: var(--color-background-raised);
+}
+
+.events-editor__edition:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.events-editor__edition-line {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The note and task chips, a wrapping strip, each chip with its own controls. */
+.events-notes,
+.events-tasks {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.events-notes__chips,
+.events-tasks__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.events-notes__chip,
+.events-tasks__chip {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.events-notes__link,
+.events-tasks__add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: flex-end;
+}
+
+.events-notes__link > .combobox,
+.events-tasks__add > .field {
+    flex: 1 1 16rem;
+    min-width: 0;
+}
+
+.events-notes__reason,
+.events-tasks__purpose {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* One column on a narrow window: the list over the editor, as the Inbox restacks. */
+@media (max-width: 48rem) {
+    .events-pane__split {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto;
+    }
+
+    .events-pane__split > .split-pane__start,
+    .events-pane__split > .split-pane__end {
+        grid-column: 1;
+    }
+
+    .events-pane__split > .split-pane__separator {
+        display: none;
+    }
+}

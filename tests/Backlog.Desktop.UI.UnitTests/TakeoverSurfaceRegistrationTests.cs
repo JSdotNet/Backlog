@@ -5,6 +5,8 @@ using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Events.Abstractions;
+using Backlog.Modules.Events.UI;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Notifications.Abstractions;
@@ -27,6 +29,7 @@ public sealed class TakeoverSurfaceRegistrationTests
     public static TheoryData<string, string, string, string[]> Takeovers => new()
     {
         { "inbox", "Inbox", InboxFeatures.Pane, [] },
+        { "events", "Events", EventsFeatures.Events, ["event"] },
         { "sessions", "Sessions", SessionFeatures.Sessions, ["session"] },
         { "pull-requests", "Pull requests", RepositoryManagementFeatures.PullRequests, ["pullRequest"] },
         { "dashboard", "Dashboard", DashboardFeatures.Dashboard, [] },
@@ -55,6 +58,7 @@ public sealed class TakeoverSurfaceRegistrationTests
         for (var pass = 0; pass < 2; pass++)
         {
             services.AddInboxSurface();
+            services.AddEventsSurface();
             services.AddSessionsSurface();
             services.AddPullRequestsSurface();
             services.AddDashboardSurface();
@@ -63,7 +67,7 @@ public sealed class TakeoverSurfaceRegistrationTests
             services.AddAtlasSurface();
         }
 
-        Assert.Equal(7, services.Count(descriptor => descriptor.ImplementationInstance is ShellSurface));
+        Assert.Equal(8, services.Count(descriptor => descriptor.ImplementationInstance is ShellSurface));
     }
 
     [Fact]
@@ -74,7 +78,7 @@ public sealed class TakeoverSurfaceRegistrationTests
             .OrderBy(surface => surface.Order)
             .Select(surface => surface.Id);
 
-        Assert.Equal(["inbox", "devbook", "sessions", "pull-requests", "dashboard", "notifications", "tools", "atlas"], order);
+        Assert.Equal(["inbox", "devbook", "events", "sessions", "pull-requests", "dashboard", "notifications", "tools", "atlas"], order);
     }
 
     private static List<ShellSurface> Registered() =>

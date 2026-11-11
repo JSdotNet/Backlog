@@ -1,8 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!--
-    The Events module's UI (.devbook/domain/events/features.md): the Events pane,
-    once it lands. It holds no component yet, and no host references it.
+    The Events module's UI (.devbook/domain/events/features.md#events-pane): the Events
+    pane the desktop shell opens as a takeover (EventsSurface, registered by
+    AddEventsSurface behind the `events` flag), its list grouped by state (EventList),
+    the editor beside it (EventEditor) with its note links (EventNoteLinks), its tasks
+    (EventTasks) and the skip dialog (EventSkipDialog). The layout ships in
+    wwwroot/events.css.
 
     It references the shared control library rather than growing its own controls,
     which is the rule every module UI project follows, and the module's published

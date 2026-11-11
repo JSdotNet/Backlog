@@ -38,6 +38,8 @@
     <!-- The Brain module (local ADR 0040): AddBrainModule registers its adapters
          and the mode it adds to the Devbook pane. -->
     <ProjectReference Include="..\..\Modules\Brain\Backlog.Modules.Brain.UI\Backlog.Modules.Brain.UI.csproj" />
+    <!-- The Events pane (local ADR 0050): AddEventsSurface registers its takeover. -->
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.UI\Backlog.Modules.Events.UI.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Capture\Backlog.Infrastructure.Capture.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />

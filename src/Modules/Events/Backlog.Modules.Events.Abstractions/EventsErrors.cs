@@ -7,7 +7,7 @@ namespace Backlog.Modules.Events.Abstractions;
 /// codes are the ones <c>.devbook/domain/events/domain.invariants.md</c> gives each rule, so a
 /// screen can match on them rather than on a message.
 /// </summary>
-public static class EventsErrors
+public static partial class EventsErrors
 {
     // --- Knowledge Event (.devbook/domain/events/domain.invariants.md#knowledge-event) ---
 

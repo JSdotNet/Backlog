@@ -11,6 +11,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Dashboard;
+using Backlog.Infrastructure.FileSystem.Events;
 using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
@@ -30,6 +31,7 @@ using Backlog.Modules.Brain.UI.Extensions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Events.Extensions;
+using Backlog.Modules.Events.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.UI;
@@ -210,7 +212,8 @@ public static class DesktopCompositionRegistration
         // the events_knowledge_events and events_series tables AddSqlite registered above.
         // It publishes IKnowledgeEvents, which the Inbox's To Event route reaches through
         // the adapter AddInboxCrossContextAdapters registers, offered while the `events`
-        // feature is on. No pane, surface, settings section or Ask AI source yet.
+        // feature is on. Its pane is the Events takeover AddEventsSurface registers below,
+        // behind the same feature; it has no settings section or Ask AI source yet.
         services.AddEventsModule();
 
         // Capture: the module brings the run, and the head decides where the
@@ -242,6 +245,11 @@ public static class DesktopCompositionRegistration
         // Inbox's intake, after AddInboxModule().
         services.AddInboxCrossContextAdapters();
         services.AddCaptureAdapters();
+
+        // Events' task target over Tasks' published port, Scoped like the port it holds, after
+        // AddTasksModule(); and a stand-in for its Brain notes that the Brain's registration
+        // further down replaces.
+        services.AddEventsCrossContextAdapters();
 
         // Half of a repository's configuration is workspace data and follows the
         // backlog folder: the root is read per call, and moving the workspace
@@ -361,7 +369,7 @@ public static class DesktopCompositionRegistration
         // ShellSurface, one catalog holds them, and each window jumps between them
         // through a navigator of its own (§3). The five views — Tasks, Board and
         // Calendar from Tasks, the Roadmap, Goals — and the takeovers: the Inbox, the
-        // Devbook, Sessions, the Dashboard, the notification centre, Tools and the
+        // Devbook, Events, Sessions, the Dashboard, the notification centre, Tools and the
         // Lobes atlas from their modules, and the pull requests from the shell's own project, which
         // reads GitHub for them.
         services.AddTasksSurfaces();
@@ -369,6 +377,7 @@ public static class DesktopCompositionRegistration
         services.AddGoalsSurface();
         services.AddDevbookSurface();
         services.AddInboxSurface();
+        services.AddEventsSurface();
         services.AddSessionsSurface();
         services.AddPullRequestsSurface();
         services.AddDashboardSurface();

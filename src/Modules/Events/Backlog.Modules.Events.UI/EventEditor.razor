@@ -1,0 +1,792 @@
+@using global::Backlog.SharedKernel.Results
+@using Microsoft.Extensions.DependencyInjection
+@implements IAsyncDisposable
+@inject IEventsPane Pane
+@inject IServiceProvider Services
+
+@*
+    One event, open beside the list (.devbook/domain/events/features.md#events-pane): where it
+    stands and the moves it may make, its details, its series, what it harvested and its tasks.
+
+    Nothing has a save button (.devbook/design/interaction-guidelines.md#auto-save-no-save-buttons).
+    Text saves 750 ms after the last keystroke and at once when the field is left; a date, a
+    figure, a pick or a box saves when it changes. Each field keeps what was typed while its
+    save is out, so a save landing mid-typing never takes letters back; the fields are read
+    from the event again only when another event is opened. A refusal stays under its field,
+    and the indicator says the change is not saved.
+
+    The state choice offers only what the event may move to: the later states on its path,
+    and Skip from Spotted or Considering alone, which asks for a reason.
+*@
+
+<article class="events-editor" data-testid="events-editor" aria-labelledby="@TitleId">
+    <header class="events-editor__header">
+        <h2 id="@TitleId" class="events-editor__title" data-testid="events-editor-title">@Event.Title</h2>
+        <StatusBadge Status="@EventPresentation.StateTone(Event.State)"
+                     Text="@EventPresentation.StateLabel(Event.State)"
+                     Title="@($"State: {EventPresentation.StateLabel(Event.State)}")"
+                     TestId="events-editor-state" />
+        <SaveIndicator State="SaveStatus" CssClass="events-editor__save" TestId="events-editor-save" />
+    </header>
+
+    <section class="events-editor__section" aria-labelledby="@($"{TitleId}-decide")" data-testid="events-decide">
+        <h3 id="@($"{TitleId}-decide")" class="events-editor__heading">Decide</h3>
+
+        @if (Event.State == KnowledgeEventState.Skipped)
+        {
+            <p class="events-editor__reason" data-testid="events-skip-reason-shown">Skipped: @Event.SkipReason</p>
+        }
+        else
+        {
+            <FlowSteps Steps="@EventPresentation.Lifecycle(Event.State)" AriaLabel="Where the event stands" TestId="events-lifecycle" />
+        }
+
+        @if (Event.Moves.Forward.Count > 0 || Event.Moves.CanSkip)
+        {
+            <div class="events-editor__moves">
+                @if (Event.Moves.Forward.Count > 0)
+                {
+                    <ButtonGroup AriaLabel="Move the event to" TestId="events-moves">
+                        @foreach (var target in Event.Moves.Forward)
+                        {
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Busy="@(_moving == target)"
+                                       Disabled="@(_moving is not null && _moving != target)"
+                                       TestId="@($"events-move-{target.ToString().ToLowerInvariant()}")"
+                                       OnClick="@(() => MoveAsync(target))">@EventPresentation.StateLabel(target)</AppButton>
+                        }
+                    </ButtonGroup>
+                }
+                @if (Event.Moves.CanSkip)
+                {
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Disabled="@(_moving is not null)"
+                               TestId="events-skip"
+                               OnClick="OpenSkip">Skip…</AppButton>
+                }
+            </div>
+        }
+
+        @if (Error("state") is { } stateError)
+        {
+            <Alert Message="@stateError" TestId="events-move-error" />
+        }
+    </section>
+
+    <section class="events-editor__section" aria-labelledby="@($"{TitleId}-details")" data-testid="events-details">
+        <h3 id="@($"{TitleId}-details")" class="events-editor__heading">Details</h3>
+
+        <TextField Label="Title"
+                   Value="@_title"
+                   ValueChanged="TitleInput"
+                   ErrorMessage="@Error("title")"
+                   TestId="events-field-title"
+                   @onchange="@((ChangeEventArgs e) => CommitTextAsync(TitleInput, e))" />
+
+        <div class="events-editor__row">
+            <TextField Label="Starts"
+                       Type="date"
+                       Value="@_startDate"
+                       ValueChanged="@(value => _startDate = value)"
+                       TestId="events-field-start-date"
+                       @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _startDate = value, e))" />
+            <TextField Label="Start time"
+                       Type="time"
+                       Value="@_startTime"
+                       ValueChanged="@(value => _startTime = value)"
+                       Disabled="@(EventPresentation.ParseDate(_startDate) is null)"
+                       HelpText="@OffsetOf(_startDate, _startTime)"
+                       TestId="events-field-start-time"
+                       @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _startTime = value, e))" />
+            <TextField Label="Ends"
+                       Type="date"
+                       Value="@_endDate"
+                       ValueChanged="@(value => _endDate = value)"
+                       Disabled="@(EventPresentation.ParseDate(_startDate) is null)"
+                       ErrorMessage="@Error("dates")"
+                       TestId="events-field-end-date"
+                       @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _endDate = value, e))" />
+            <TextField Label="End time"
+                       Type="time"
+                       Value="@_endTime"
+                       ValueChanged="@(value => _endTime = value)"
+                       Disabled="@(EventPresentation.ParseDate(_endDate) is null)"
+                       HelpText="@OffsetOf(_endDate, _endTime)"
+                       TestId="events-field-end-time"
+                       @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _endTime = value, e))" />
+        </div>
+
+        <div class="events-editor__row">
+            <Checkbox Label="Online"
+                      Checked="_online"
+                      CheckedChanged="OnlineChangedAsync"
+                      TestId="events-field-online" />
+            <TextField Label="Venue"
+                       Value="@_venue"
+                       ValueChanged="VenueInput"
+                       Disabled="_online"
+                       ErrorMessage="@Error("place")"
+                       TestId="events-field-venue"
+                       @onchange="@((ChangeEventArgs e) => CommitTextAsync(VenueInput, e))" />
+        </div>
+
+        <TextField Label="Link"
+                   Type="url"
+                   Value="@_link"
+                   ValueChanged="LinkInput"
+                   ErrorMessage="@Error("link")"
+                   TestId="events-field-link"
+                   @onchange="@((ChangeEventArgs e) => CommitTextAsync(LinkInput, e))" />
+
+        <TextArea Label="What I want to learn"
+                  Value="@_learn"
+                  ValueChanged="LearnInput"
+                  ErrorMessage="@Error("learn")"
+                  TestId="events-field-learn"
+                  @onchange="@((ChangeEventArgs e) => CommitTextAsync(LearnInput, e))" />
+
+        <div class="events-editor__group" data-testid="events-key-dates">
+            <span class="events-editor__label">Key dates</span>
+            @for (var i = 0; i < _keyDates.Count; i++)
+            {
+                var row = _keyDates[i];
+                <div class="events-editor__row" data-testid="events-key-date">
+                    <TextField Label="What"
+                               Placeholder="Early bird ends"
+                               Value="@row.Label"
+                               ValueChanged="@(value => KeyDateLabelInput(row, value))"
+                               TestId="events-key-date-label"
+                               @onchange="@((ChangeEventArgs e) => CommitTextAsync(value => KeyDateLabelInput(row, value), e))" />
+                    <TextField Label="When"
+                               Type="date"
+                               Value="@row.Date"
+                               ValueChanged="@(value => row.Date = value)"
+                               TestId="events-key-date-date"
+                               @onchange="@((ChangeEventArgs e) => KeyDateDateChangedAsync(row, e))" />
+                    <IconButton AriaLabel="@KeyDateRemoveName(row)"
+                                CssClass="btn--ghost"
+                                TestId="events-key-date-remove"
+                                OnClick="@(() => RemoveKeyDateAsync(row))"><XIcon /></IconButton>
+                </div>
+            }
+            @if (Error("keyDates") is { } keyDateError)
+            {
+                <Alert Message="@keyDateError" TestId="events-key-dates-error" />
+            }
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="events-key-date-add"
+                       OnClick="AddKeyDate">Add key date</AppButton>
+        </div>
+
+        <div class="events-editor__row">
+            <SelectField Form="true"
+                         Label="Ticket"
+                         CurrentValue="@Event.Ticket?.ToString()"
+                         Options="TicketOptions"
+                         IncludeEmptyOption="true"
+                         EmptyLabel="Not set"
+                         TestId="events-field-ticket"
+                         OnChanged="TicketChangedAsync" />
+            <TextField Label="Cost"
+                       Type="number"
+                       Value="@_amount"
+                       ValueChanged="@(value => _amount = value)"
+                       ErrorMessage="@Error("cost")"
+                       TestId="events-field-cost"
+                       min="0"
+                       step="0.01"
+                       @onchange="@((ChangeEventArgs e) => CostChangedAsync(value => _amount = value, e))" />
+            <TextField Label="Currency"
+                       Placeholder="EUR"
+                       Value="@_currency"
+                       ValueChanged="@(value => _currency = value)"
+                       TestId="events-field-currency"
+                       maxlength="3"
+                       @onchange="@((ChangeEventArgs e) => CostChangedAsync(value => _currency = value, e))" />
+        </div>
+    </section>
+
+    <section class="events-editor__section" aria-labelledby="@($"{TitleId}-series")" data-testid="events-series">
+        <h3 id="@($"{TitleId}-series")" class="events-editor__heading">Series</h3>
+
+        <SelectField Form="true"
+                     Label="Series"
+                     CurrentValue="@Event.Series?.Id.ToString()"
+                     Options="SeriesOptions"
+                     IncludeEmptyOption="true"
+                     EmptyLabel="No series"
+                     TestId="events-field-series"
+                     OnChanged="SeriesChangedAsync" />
+
+        @if (Event.Series is { } series && (!string.IsNullOrWhiteSpace(series.Organiser) || !string.IsNullOrWhiteSpace(series.Link)))
+        {
+            <p class="events-editor__byline" data-testid="events-series-byline">
+                @if (!string.IsNullOrWhiteSpace(series.Organiser))
+                {
+                    <span>@series.Organiser</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(series.Link))
+                {
+                    <a class="events-editor__link" href="@series.Link" target="_blank" rel="noopener noreferrer" data-testid="events-series-link">@series.Link</a>
+                }
+            </p>
+        }
+
+        @if (Event.OtherEditions.Count > 0)
+        {
+            <div class="events-editor__group" data-testid="events-editions">
+                <span class="events-editor__label">Other editions</span>
+                <ul class="events-editor__editions">
+                    @foreach (var edition in Event.OtherEditions)
+                    {
+                        <li>
+                            <AppButton BaseClass="events-editor__edition"
+                                       Variant="ButtonVariant.None"
+                                       TestId="@($"events-edition-{edition.Id:N}")"
+                                       OnClick="@(() => OnOpenEvent.InvokeAsync(edition.Id))">
+                                <span class="events-editor__edition-title">@edition.Title</span>
+                                <span class="events-editor__edition-line">@EventPresentation.When(edition.Start, null) · @EventPresentation.StateLabel(edition.State)</span>
+                            </AppButton>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (_startingSeries)
+        {
+            <div class="events-editor__group" data-testid="events-new-series">
+                <TextField Label="Series name" @bind-Value="_seriesName" ErrorMessage="@Error("series")" TestId="events-new-series-name" />
+                <TextField Label="Organiser" @bind-Value="_seriesOrganiser" TestId="events-new-series-organiser" />
+                <TextField Label="Series page" Type="url" @bind-Value="_seriesLink" TestId="events-new-series-link" />
+                <div class="events-editor__moves">
+                    <AppButton Variant="ButtonVariant.Primary"
+                               Busy="_savingSeries"
+                               BusyLabel="Starting"
+                               TestId="events-new-series-start"
+                               OnClick="StartSeriesAsync">Start series</AppButton>
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               TestId="events-new-series-cancel"
+                               OnClick="CancelNewSeries">Cancel</AppButton>
+                </div>
+            </div>
+        }
+        else
+        {
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="events-new-series-open"
+                       OnClick="OpenNewSeries">Start a new series</AppButton>
+        }
+    </section>
+
+    <section class="events-editor__section" aria-labelledby="@($"{TitleId}-harvest")" data-testid="events-harvest">
+        <h3 id="@($"{TitleId}-harvest")" class="events-editor__heading">Harvest</h3>
+
+        <EventNoteLinks Event="Event" Writes="Writes" OnSaved="SavedAsync" Revision="Revision" />
+
+        @if (Event.VerdictOffered)
+        {
+            <TextArea Label="Verdict"
+                      Placeholder="Worth it? Go again?"
+                      Value="@_verdict"
+                      ValueChanged="VerdictInput"
+                      ErrorMessage="@Error("verdict")"
+                      TestId="events-field-verdict"
+                      @onchange="@((ChangeEventArgs e) => CommitTextAsync(VerdictInput, e))" />
+        }
+    </section>
+
+    <section class="events-editor__section" aria-labelledby="@($"{TitleId}-tasks")" data-testid="events-tasks-section">
+        <h3 id="@($"{TitleId}-tasks")" class="events-editor__heading">Tasks</h3>
+
+        <EventTasks Event="Event" Writes="Writes" OnSaved="SavedAsync" />
+    </section>
+
+    <EventSkipDialog Open="_skipping"
+                     OpenChanged="SkipOpenChanged"
+                     EventTitle="@Event.Title"
+                     ErrorMessage="@Error("skip")"
+                     OnSkip="SkipAsync" />
+</article>
+
+@code {
+    /// <summary>How long text waits after the last keystroke before it saves.</summary>
+    public static readonly TimeSpan TextDelay = TimeSpan.FromMilliseconds(750);
+
+    private static readonly IReadOnlyList<SelectorOption> TicketOptions =
+    [
+        .. Enum.GetValues<TicketState>().Select(ticket => new SelectorOption(ticket.ToString(), EventPresentation.TicketLabel(ticket)))
+    ];
+
+    private readonly string _id = "events-editor-" + Guid.NewGuid().ToString("N");
+    private readonly Dictionary<string, string> _errors = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Func<Task<Result<KnowledgeEventDto>>>> _pending = new(StringComparer.Ordinal);
+    private DebouncedSave? _debounce;
+    private TimeProvider _time = TimeProvider.System;
+    private Guid? _loadedId;
+    private int _inFlight;
+    private bool _saved;
+    private bool _leaving;
+
+    private string _title = string.Empty;
+    private string _startDate = string.Empty;
+    private string _startTime = string.Empty;
+    private string _endDate = string.Empty;
+    private string _endTime = string.Empty;
+    private bool _online;
+    private string _venue = string.Empty;
+    private string _link = string.Empty;
+    private string _learn = string.Empty;
+    private List<KeyDateDraft> _keyDates = [];
+    private string _amount = string.Empty;
+    private string _currency = string.Empty;
+    private string _verdict = string.Empty;
+
+    private IReadOnlyList<EventSeriesDto> _series = [];
+    private bool _startingSeries;
+    private bool _savingSeries;
+    private string _seriesName = string.Empty;
+    private string _seriesOrganiser = string.Empty;
+    private string _seriesLink = string.Empty;
+
+    private KnowledgeEventState? _moving;
+    private bool _skipping;
+
+    /// <summary>The open event, as the pane last answered it.</summary>
+    [Parameter, EditorRequired]
+    public KnowledgeEventDto Event { get; set; } = default!;
+
+    /// <summary>Raised with the event as saved after every change that held.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeEventDto> OnSaved { get; set; }
+
+    /// <summary>Raised with another event to open: an edition of the same series.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnOpenEvent { get; set; }
+
+    /// <summary>The pane's one write queue, which the sections share, so no two writes to an
+    /// event overlap. A fresh one when the host hands none.</summary>
+    [Parameter]
+    public EventWriteQueue Writes { get; set; } = new();
+
+    /// <summary>Moves on when a task or the Brain changed underneath.</summary>
+    [Parameter]
+    public int Revision { get; set; }
+
+    private string TitleId => _id + "-title";
+
+    private SaveState SaveStatus =>
+        _errors.Count > 0 ? SaveState.Failed
+        : _inFlight > 0 || _debounce?.State == SaveState.Saving ? SaveState.Saving
+        : _saved ? SaveState.Saved
+        : SaveState.Idle;
+
+    private IReadOnlyList<SelectorOption> SeriesOptions =>
+    [
+        .. _series.Select(series => new SelectorOption(series.Id.ToString(), series.Name)),
+        // A series the list has not caught up with still shows as chosen.
+        .. Event.Series is { } chosen && _series.All(series => series.Id != chosen.Id)
+            ? [new SelectorOption(chosen.Id.ToString(), chosen.Name)]
+            : Array.Empty<SelectorOption>()
+    ];
+
+    private string? Error(string field) => _errors.TryGetValue(field, out var message) ? message : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _time = Services.GetService<TimeProvider>() ?? TimeProvider.System;
+        _debounce = new DebouncedSave(TextDelay, () => InvokeAsync(FlushPendingAsync), _time);
+        _debounce.StateChanged += () => _ = InvokeAsync(StateHasChanged);
+        await LoadSeriesAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedId == Event.Id) return;
+
+        // What was typed for the event being left is written for that event before the
+        // fields are read from the new one. The pane keys the editor by event, so this is
+        // the fallback for a host that does not.
+        if (_loadedId is not null) await FlushOnLeaveAsync();
+
+        _loadedId = Event.Id;
+        _errors.Clear();
+        _skipping = false;
+        _startingSeries = false;
+        _moving = null;
+        _saved = false;
+        Load(Event);
+    }
+
+    private void Load(KnowledgeEventDto e)
+    {
+        _title = e.Title;
+        _startDate = EventPresentation.DateText(e.Start?.Date);
+        _startTime = EventPresentation.TimeText(e.Start?.Time);
+        _endDate = EventPresentation.DateText(e.End?.Date);
+        _endTime = EventPresentation.TimeText(e.End?.Time);
+        _online = e.Place?.IsOnline ?? false;
+        _venue = e.Place?.Venue ?? string.Empty;
+        _link = e.Link ?? string.Empty;
+        _learn = e.WhatToLearn ?? string.Empty;
+        _keyDates = [.. e.KeyDates.Select(keyDate => new KeyDateDraft(EventPresentation.DateText(keyDate.Date), keyDate.Label))];
+        _amount = EventPresentation.AmountText(e.Cost?.Amount);
+        _currency = e.Cost?.Currency ?? string.Empty;
+        _verdict = e.Verdict ?? string.Empty;
+    }
+
+    private async Task LoadSeriesAsync()
+    {
+        try
+        {
+            _series = await Pane.ListSeriesAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _errors["series"] = "The series could not be read: " + exception.Message;
+        }
+    }
+
+    private string? OffsetOf(string date, string time) =>
+        EventPresentation.DayOf(date, time, _time.LocalTimeZone)?.UtcOffset is { } offset
+            ? EventPresentation.OffsetText(offset)
+            : null;
+
+    // --- Saving ------------------------------------------------------------------------------
+
+    /// <summary>Queues a text field's write, to run once the typing stops.</summary>
+    private void Queue(string field, Func<Task<Result<KnowledgeEventDto>>> write)
+    {
+        _pending[field] = write;
+        _debounce?.Touch();
+    }
+
+    /// <summary>A text field left, or Enter in one: what it holds is saved now.</summary>
+    private async Task CommitTextAsync(Action<string> input, ChangeEventArgs change)
+    {
+        input(change.Value?.ToString() ?? string.Empty);
+        if (_debounce is not null) await _debounce.SaveNowAsync();
+    }
+
+    private async Task FlushPendingAsync()
+    {
+        var writes = _pending.ToList();
+        _pending.Clear();
+
+        foreach (var (field, write) in writes) await WriteAsync(field, write);
+    }
+
+    /// <summary>Runs one write and files its answer: the event as saved goes to the host, a
+    /// refusal stays under its field until the field saves.</summary>
+    private async Task WriteAsync(string field, Func<Task<Result<KnowledgeEventDto>>> write)
+    {
+        _inFlight++;
+        try
+        {
+            var saved = await Writes.RunAsync(write);
+            if (saved.IsFailure)
+            {
+                _errors[field] = saved.Error.Message;
+                if (_leaving) Toast(saved.Error.Message);
+                return;
+            }
+
+            _errors.Remove(field);
+            _saved = true;
+            await OnSaved.InvokeAsync(saved.Value);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _errors[field] = "Could not save: " + exception.Message;
+            if (_leaving) Toast(_errors[field]);
+        }
+        finally
+        {
+            _inFlight--;
+        }
+    }
+
+    /// <summary>Writes what is still waiting for the event being left. Its fields are about
+    /// to go, so a refusal is raised as a toast rather than dropped with them.</summary>
+    private async Task FlushOnLeaveAsync()
+    {
+        if (_pending.Count == 0) return;
+
+        _leaving = true;
+        try
+        {
+            await FlushPendingAsync();
+        }
+        finally
+        {
+            _leaving = false;
+        }
+    }
+
+    private void Toast(string message) =>
+        Services.GetService<IToastChannel>()?.Publish(
+            ToastMessage.Error($"{Event.Title}: not saved. {message}", "events-editor-left-refusal"));
+
+    private Task SavedAsync(KnowledgeEventDto saved)
+    {
+        _saved = true;
+        return OnSaved.InvokeAsync(saved);
+    }
+
+    // --- Decide ------------------------------------------------------------------------------
+
+    private async Task MoveAsync(KnowledgeEventState target)
+    {
+        if (_moving is not null) return;
+
+        _moving = target;
+        try
+        {
+            var id = Event.Id;
+            await WriteAsync("state", () => Pane.MoveToAsync(id, target));
+        }
+        finally
+        {
+            _moving = null;
+        }
+    }
+
+    /// <summary>The dialog closing, by Cancel, Escape or a skip that held: a refusal it showed
+    /// goes with it, so the indicator does not go on saying something is unsaved.</summary>
+    private void SkipOpenChanged(bool open)
+    {
+        _skipping = open;
+        if (!open) _errors.Remove("skip");
+    }
+
+    private void OpenSkip()
+    {
+        _errors.Remove("skip");
+        _skipping = true;
+    }
+
+    private async Task SkipAsync(string reason)
+    {
+        var id = Event.Id;
+        await WriteAsync("skip", () => Pane.SkipAsync(id, reason));
+        if (Error("skip") is null) _skipping = false;
+    }
+
+    // --- Details -----------------------------------------------------------------------------
+
+    private void TitleInput(string value)
+    {
+        _title = value;
+        var id = Event.Id;
+        Queue("title", () => Pane.RenameAsync(id, value));
+    }
+
+    private Task DatesChangedAsync(Action<string> input, ChangeEventArgs change)
+    {
+        input(change.Value?.ToString() ?? string.Empty);
+
+        var zone = _time.LocalTimeZone;
+        var start = EventPresentation.DayOf(_startDate, _startTime, zone);
+        // An end with no start is not offered, so a cleared start clears both.
+        var end = start is null ? null : EventPresentation.DayOf(_endDate, _endTime, zone);
+        var id = Event.Id;
+        return WriteAsync("dates", () => Pane.SetDatesAsync(id, start, end));
+    }
+
+    private Task OnlineChangedAsync(bool online)
+    {
+        _online = online;
+        _pending.Remove("place");
+        var id = Event.Id;
+        var place = Place();
+        return WriteAsync("place", () => Pane.SetPlaceAsync(id, place));
+    }
+
+    private void VenueInput(string value)
+    {
+        _venue = value;
+        var id = Event.Id;
+        var place = Place();
+        Queue("place", () => Pane.SetPlaceAsync(id, place));
+    }
+
+    private PlaceDto? Place() =>
+        _online ? new PlaceDto(null, true)
+        : string.IsNullOrWhiteSpace(_venue) ? null
+        : new PlaceDto(_venue, false);
+
+    private void LinkInput(string value)
+    {
+        _link = value;
+        var id = Event.Id;
+        Queue("link", () => Pane.SetLinkAsync(id, string.IsNullOrWhiteSpace(value) ? null : value));
+    }
+
+    private void LearnInput(string value)
+    {
+        _learn = value;
+        var id = Event.Id;
+        Queue("learn", () => Pane.SetWhatToLearnAsync(id, string.IsNullOrWhiteSpace(value) ? null : value));
+    }
+
+    private void VerdictInput(string value)
+    {
+        _verdict = value;
+        var id = Event.Id;
+        Queue("verdict", () => Pane.SetVerdictAsync(id, string.IsNullOrWhiteSpace(value) ? null : value));
+    }
+
+    /// <summary>The remove button's name: the row's label, else its date, else plain words, so
+    /// two new rows never share an empty name.</summary>
+    private static string KeyDateRemoveName(KeyDateDraft row) =>
+        !string.IsNullOrWhiteSpace(row.Label) ? $"Remove the key date {row.Label}"
+        : EventPresentation.ParseDate(row.Date) is { } date ? $"Remove the key date on {EventPresentation.Day(new EventDateDto(date))}"
+        : "Remove this key date";
+
+    private void AddKeyDate() => _keyDates.Add(new KeyDateDraft(string.Empty, string.Empty));
+
+    private void KeyDateLabelInput(KeyDateDraft row, string value)
+    {
+        row.Label = value;
+        Queue("keyDates", KeyDatesWrite());
+    }
+
+    private Task KeyDateDateChangedAsync(KeyDateDraft row, ChangeEventArgs change)
+    {
+        row.Date = change.Value?.ToString() ?? string.Empty;
+        _pending.Remove("keyDates");
+        return WriteAsync("keyDates", KeyDatesWrite());
+    }
+
+    private Task RemoveKeyDateAsync(KeyDateDraft row)
+    {
+        _keyDates.Remove(row);
+        _pending.Remove("keyDates");
+        return WriteAsync("keyDates", KeyDatesWrite());
+    }
+
+    /// <summary>The key dates as they stand: every row with a whole date, in order. A row
+    /// still waiting for its date is not written yet.</summary>
+    private Func<Task<Result<KnowledgeEventDto>>> KeyDatesWrite()
+    {
+        var id = Event.Id;
+        IReadOnlyList<KeyDateDto> keyDates =
+        [
+            .. _keyDates
+                .Where(row => EventPresentation.ParseDate(row.Date) is not null)
+                .Select(row => new KeyDateDto(EventPresentation.ParseDate(row.Date)!.Value, row.Label))
+        ];
+        return () => Pane.SetKeyDatesAsync(id, keyDates);
+    }
+
+    private Task TicketChangedAsync(string? value)
+    {
+        TicketState? ticket = Enum.TryParse<TicketState>(value, out var parsed) ? parsed : null;
+        var id = Event.Id;
+        return WriteAsync("ticket", () => Pane.SetTicketAsync(id, ticket));
+    }
+
+    private Task CostChangedAsync(Action<string> input, ChangeEventArgs change)
+    {
+        input(change.Value?.ToString() ?? string.Empty);
+
+        // No amount is no cost, whatever the currency says.
+        if (string.IsNullOrWhiteSpace(_amount))
+        {
+            var cleared = Event.Id;
+            return WriteAsync("cost", () => Pane.SetCostAsync(cleared, null));
+        }
+
+        if (EventPresentation.ParseAmount(_amount) is not { } amount)
+        {
+            _errors["cost"] = "The cost is not a number.";
+            return Task.CompletedTask;
+        }
+
+        // An amount typed before its currency waits for it, rather than being refused.
+        if (string.IsNullOrWhiteSpace(_currency))
+        {
+            _errors.Remove("cost");
+            return Task.CompletedTask;
+        }
+
+        var id = Event.Id;
+        var cost = new CostDto(amount, _currency.Trim());
+        return WriteAsync("cost", () => Pane.SetCostAsync(id, cost));
+    }
+
+    // --- Series ------------------------------------------------------------------------------
+
+    private void CancelNewSeries()
+    {
+        _startingSeries = false;
+        _errors.Remove("series");
+    }
+
+    private Task SeriesChangedAsync(string? value)
+    {
+        Guid? seriesId = Guid.TryParse(value, out var parsed) ? parsed : null;
+        var id = Event.Id;
+        return WriteAsync("series", () => Pane.SetSeriesAsync(id, seriesId));
+    }
+
+    private void OpenNewSeries()
+    {
+        _seriesName = string.Empty;
+        _seriesOrganiser = string.Empty;
+        _seriesLink = string.Empty;
+        _errors.Remove("series");
+        _startingSeries = true;
+    }
+
+    private async Task StartSeriesAsync()
+    {
+        if (_savingSeries) return;
+
+        _savingSeries = true;
+        try
+        {
+            var started = await Pane.StartSeriesAsync(
+                _seriesName,
+                string.IsNullOrWhiteSpace(_seriesOrganiser) ? null : _seriesOrganiser,
+                string.IsNullOrWhiteSpace(_seriesLink) ? null : _seriesLink);
+            if (started.IsFailure)
+            {
+                _errors["series"] = started.Error.Message;
+                return;
+            }
+
+            await LoadSeriesAsync();
+            var id = Event.Id;
+            var seriesId = started.Value.Id;
+            await WriteAsync("series", () => Pane.SetSeriesAsync(id, seriesId));
+            if (Error("series") is null) _startingSeries = false;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _errors["series"] = "The series could not be started: " + exception.Message;
+        }
+        finally
+        {
+            _savingSeries = false;
+        }
+    }
+
+    /// <summary>Text still waiting on its delay is written as the editor goes, so closing the
+    /// pane mid-sentence loses nothing.</summary>
+    public async ValueTask DisposeAsync()
+    {
+        _debounce?.Dispose();
+        await FlushOnLeaveAsync();
+    }
+
+    /// <summary>A key date row as typed: its label and its date field's text.</summary>
+    private sealed class KeyDateDraft(string date, string label)
+    {
+        public string Date { get; set; } = date;
+
+        public string Label { get; set; } = label;
+    }
+}

@@ -16,6 +16,10 @@ namespace Backlog.Modules.Events.Extensions;
 /// <c>events_*</c> tables in <c>backlog.db</c> — as <c>INotificationRepository</c> is. Both are
 /// singletons there, so the contract over them is one too.
 /// </para>
+/// <para>
+/// It also publishes <see cref="IEventsPane"/>, the Events pane's port. That one is Scoped,
+/// one per window, because it holds Tasks' scoped port through <see cref="IEventTaskTarget"/>.
+/// </para>
 /// </summary>
 public static class EventsModuleRegistration
 {
@@ -25,6 +29,7 @@ public static class EventsModuleRegistration
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IKnowledgeEvents, KnowledgeEvents>();
+        services.TryAddScoped<IEventsPane, EventsPane>();
 
         return services;
     }

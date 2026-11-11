@@ -181,8 +181,11 @@ A note the event points at, of one of two kinds:
 
 The link also keeps the note's title as it read when linked, or none when it had none. The phone shows a
 Brain note by that title only, because it cannot see the Brain. A Brain note moved
-or renamed leaves a broken link, which the pane shows as missing. Two links are
-equal when they name the same note.
+or renamed leaves a broken link, which the pane shows as missing. A missing link
+can be pointed at the note's new path, in its place among the links. If the event
+already links that note, the old link just goes. A link can also be removed. A
+task link is not removed in the first version. Two links are equal when they name
+the same note.
 
 ### Event Task Link
 

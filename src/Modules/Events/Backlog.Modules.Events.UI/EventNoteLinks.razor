@@ -1,0 +1,225 @@
+@inject IEventsPane Pane
+@inject ISurfaceNavigator Navigator
+
+@*
+    The notes under Harvest (.devbook/domain/events/features.md#linking-notes), linked the way
+    a Brain note links tasks (.devbook/domain/brain/features.md#bi-directional-linking): each
+    link is a chip. A Brain note that is at its path is followable, in the live tone, and opens
+    the note in the Devbook on the Brain side. One that moved reads "missing" inside a dashed
+    edge, never as an error, and can be linked again to the note it moved to. A Talk note shows
+    by its stored title and opens nothing yet.
+
+    Link note is a combobox of the Brain's notes that also takes a typed path, from the Brain's
+    root. With no Brain to read it is disabled, and the reason says why. Whether a note is
+    there is the Brain adapter's answer; this component reads no file.
+*@
+
+<div class="events-notes" data-testid="events-notes">
+    @if (Event.Notes.Count > 0)
+    {
+        <ul class="events-notes__chips">
+            @foreach (var note in Event.Notes)
+            {
+                var brain = note.Kind == NoteLinkKind.Brain;
+                <li class="events-notes__chip" data-testid="events-note" data-missing="@(note.Missing ? "true" : "false")">
+                    <RepoLinkChip Alias="@(brain ? "Brain" : "Talk")"
+                                  Label="@note.Title"
+                                  Reference="@note.Reference"
+                                  Resolved="@(!note.Missing)"
+                                  Problem="@Missing"
+                                  OnOpen="@(brain && !note.Missing ? EventCallback.Factory.Create<string?>(this, OpenNote) : default)"
+                                  TestId="events-note-chip" />
+                    @if (brain && note.Missing)
+                    {
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   Size="ButtonSize.Small"
+                                   Disabled="@(Unavailable is not null)"
+                                   TestId="events-note-relink"
+                                   OnClick="@(() => StartRelink(note.Reference))">Link again</AppButton>
+                    }
+                    <IconButton AriaLabel="@($"Remove the link to {note.Title}")"
+                                CssClass="btn--ghost"
+                                Disabled="_busy"
+                                TestId="events-note-unlink"
+                                OnClick="@(() => UnlinkAsync(note))"><XIcon /></IconButton>
+                </li>
+            }
+        </ul>
+    }
+
+    <div class="events-notes__link">
+        <Combobox Label="@(_relinking is null ? "Link a Brain note" : $"Link {TitleOf(_relinking)} again")"
+                  Placeholder="A note, or its path from the Brain"
+                  Options="_options"
+                  @bind-Value="_text"
+                  Disabled="@(Unavailable is not null || _busy)"
+                  OnCommit="CommitAsync"
+                  aria-describedby="@(Unavailable is null ? null : _reasonId)"
+                  TestId="events-note-picker" />
+        @if (_relinking is not null)
+        {
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="events-note-relink-cancel"
+                       OnClick="CancelRelink">Cancel</AppButton>
+        }
+    </div>
+
+    @if (Unavailable is not null)
+    {
+        <p id="@_reasonId" class="events-notes__reason" data-testid="events-note-unavailable">@Unavailable</p>
+    }
+
+    @if (_error is not null)
+    {
+        <Alert Message="@_error" Inline="true" TestId="events-note-error" />
+    }
+</div>
+
+@code {
+    /// <summary>What a moved Brain note's chip says.</summary>
+    public const string Missing = "missing";
+
+    private IReadOnlyList<SelectorOption> _options = [];
+    private IReadOnlyList<EventBrainNoteDto> _candidates = [];
+    private string _text = string.Empty;
+    private string? _relinking;
+    private string? _error;
+    private bool _busy;
+    private int _revisionRead = -1;
+    private readonly string _reasonId = "events-notes-reason-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The open event.</summary>
+    [Parameter, EditorRequired]
+    public KnowledgeEventDto Event { get; set; } = default!;
+
+    /// <summary>Raised with the event as saved after a link changed.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeEventDto> OnSaved { get; set; }
+
+    /// <summary>Moves on when the Brain changed underneath, so the picker is read again.</summary>
+    [Parameter]
+    public int Revision { get; set; }
+
+    /// <summary>The pane's one write queue, so a write here never overlaps the editor's.</summary>
+    [Parameter]
+    public EventWriteQueue Writes { get; set; } = new();
+
+    private string? Unavailable => Pane.BrainUnavailableReason;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Revision == _revisionRead) return;
+        _revisionRead = Revision;
+
+        if (Unavailable is not null)
+        {
+            _candidates = [];
+            _options = [];
+            return;
+        }
+
+        try
+        {
+            _candidates = await Pane.BrainNoteCandidatesAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _candidates = [];
+            _error = "The Brain's notes could not be read: " + exception.Message;
+        }
+
+        _options = [.. _candidates.Select(note => new SelectorOption(note.Path, note.Title, note.Path))];
+    }
+
+    private string TitleOf(string reference) =>
+        Event.Notes.FirstOrDefault(note => note.Reference == reference)?.Title ?? reference;
+
+    private void OpenNote(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        Navigator.Show("devbook", new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["scope"] = "brain",
+            ["chapter"] = path,
+        });
+    }
+
+    private void StartRelink(string reference)
+    {
+        _relinking = reference;
+        _text = string.Empty;
+        _error = null;
+    }
+
+    private void CancelRelink()
+    {
+        _relinking = null;
+        _text = string.Empty;
+    }
+
+    // Only a pick or Enter links: leaving the field with half a path typed links nothing.
+    private async Task CommitAsync(ComboboxCommit commit)
+    {
+        if (commit.Reason == ComboboxCommitReason.Changed || string.IsNullOrWhiteSpace(commit.Value)) return;
+
+        var path = commit.Value.Trim();
+        var title = _candidates.FirstOrDefault(note => string.Equals(note.Path, path, StringComparison.OrdinalIgnoreCase))?.Title;
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            var saved = _relinking is { } old
+                ? await Writes.RunAsync(() => Pane.RelinkBrainNoteAsync(Event.Id, old, path, title))
+                : await Writes.RunAsync(() => Pane.LinkBrainNoteAsync(Event.Id, path, title));
+
+            if (saved.IsFailure)
+            {
+                commit.Refuse();
+                _error = saved.Error.Message;
+                return;
+            }
+
+            _relinking = null;
+            _text = string.Empty;
+            await OnSaved.InvokeAsync(saved.Value);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            commit.Refuse();
+            _error = "The note could not be linked: " + exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task UnlinkAsync(EventNoteLinkDto note)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var saved = await Writes.RunAsync(() => Pane.UnlinkNoteAsync(Event.Id, note.Kind, note.Reference));
+            if (saved.IsFailure)
+            {
+                _error = saved.Error.Message;
+                return;
+            }
+
+            if (_relinking == note.Reference) _relinking = null;
+            await OnSaved.InvokeAsync(saved.Value);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _error = "The link could not be removed: " + exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

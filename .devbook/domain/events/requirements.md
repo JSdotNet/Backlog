@@ -6,8 +6,8 @@ related: [.devbook/domain/events/features.md]
 ```
 
 > What Events guarantees, one chapter per feature. Each requirement is one SHALL
-> sentence with the scenarios that prove it. Only the To Event route is built,
-> so only its requirements name tests.
+> sentence with the scenarios that prove it, and names its tests once it is built.
+> The Events pane, prep tasks and the To Event route are built.
 
 ## Events pane
 
@@ -22,6 +22,7 @@ related: [.devbook/domain/events/features.md#events-pane, .devbook/domain/events
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_title_alone_adds_a_spotted_event_and_opens_it, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_blank_title_is_refused_in_the_modules_words_and_nothing_is_added, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.A_title_alone_adds_one_spotted_event, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.A_blank_title_is_refused_and_nothing_is_saved]
 ```
 
 The system SHALL let the person add a knowledge event with a title alone, in the state Spotted.
@@ -36,6 +37,7 @@ The system SHALL let the person add a knowledge event with a title alone, in the
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_spotted_event_offers_every_later_state_and_skip_and_marked_going_offers_neither_back_nor_skip, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_spotted_event_marked_going_is_going, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_going_event_offers_no_way_back_and_refuses_one, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_harvested_event_moves_nowhere]
 ```
 
 The system SHALL offer only the states after an event's current one, including states further on than the next.
@@ -56,6 +58,7 @@ The system SHALL offer only the states after an event's current one, including s
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Skip_asks_why_refuses_a_blank_reason_and_shows_the_reason_once_skipped, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_considering_event_skipped_with_a_reason_shows_the_reason, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_blank_skip_reason_is_refused, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_going_event_cannot_be_skipped]
 ```
 
 The system SHALL skip a Spotted or Considering event only with the reason the person gives, and show that reason on the event.
@@ -76,6 +79,7 @@ The system SHALL skip a Spotted or Considering event only with the reason the pe
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_linked_note_that_is_there_opens_in_the_devbook_and_a_moved_one_reads_missing, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLinkTests.A_note_that_moved_shows_as_missing_with_the_title_it_had, integration:dotnet:Backlog.Infrastructure.Brain.UnitTests.EventsBrainNotesTests.A_note_that_moved_is_left_out_though_the_database_still_names_it]
 ```
 
 The system SHALL show a linked Brain note that is no longer at its path as missing.
@@ -90,6 +94,7 @@ The system SHALL show a linked Brain note that is no longer at its path as missi
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_the_events_pane_behind_its_switch_which_is_off, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Add_events_surface_registers_one_flagged_takeover_with_the_event_key_and_a_second_call_adds_nothing]
 ```
 
 The system SHALL show no Events pane while the `events` flag is off.
@@ -99,6 +104,27 @@ The system SHALL show no Events pane while the `events` flag is off.
 - **Given** the `events` flag is off
 - **When** the person opens the desktop shell
 - **Then** no Events pane is offered
+
+### Requirement: The pane lists events by state, upcoming first
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.The_list_groups_events_by_state_with_upcoming_first_and_draws_no_empty_group, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.With_no_events_the_pane_says_so_and_offers_to_add_one, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.The_list_groups_by_state_in_decided_order_and_leaves_empty_groups_out, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.Within_a_group_upcoming_come_soonest_first_then_undated_then_past_most_recent_first, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.An_event_still_running_today_counts_as_upcoming_and_one_that_ended_yesterday_as_past]
+```
+
+The system SHALL list the events grouped by state, Going, Considering, Spotted, Attended, Harvested, Skipped, drawing no empty group, and within a group the events not yet over soonest first, then the undated ones, then the past ones most recent first.
+
+#### Scenario: Upcoming first
+
+- **Given** a Going event "NDC Oslo", and the Spotted events "Techorama Belgium" in May 2027 and "dotNET Friday" on 27 November 2026
+- **When** the person opens the Events pane
+- **Then** Going comes before Spotted, no other group is drawn, and "dotNET Friday" leads Spotted
+
+#### Scenario: No events yet
+
+- **Given** the person has no events
+- **When** they open the Events pane
+- **Then** the pane says there are no events yet and offers to add one
 
 ## To Event route
 
@@ -167,6 +193,7 @@ related: [.devbook/domain/events/features.md#prep-tasks]
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Add_prep_task_files_the_title_alone_and_lists_it_with_its_status, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLinkTests.A_prep_task_is_filed_with_its_title_alone_and_listed_by_id_with_its_status, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLinkTests.A_refused_filing_links_nothing, integration:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.EventsTaskTargetTests.Filing_appends_after_the_backlog_with_no_repository_and_answers_the_id]
 ```
 
 The system SHALL file a prep task created from an event with no repository, and link it to the event by its id.
@@ -181,6 +208,7 @@ The system SHALL file a prep task created from an event with no repository, and 
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.EventsTaskTargetTests.A_prep_task_parses_back_to_its_title_alone, integration:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.EventsTaskTargetTests.Nothing_a_title_holds_becomes_structure]
 ```
 
 The system SHALL leave every task linked to an event without a field, tag or link that names the event.
@@ -195,6 +223,7 @@ The system SHALL leave every task linked to an event without a field, tag or lin
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLinkTests.An_existing_task_is_linked_by_its_id_and_nothing_is_written_to_it, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLinkTests.A_task_this_backlog_does_not_hold_is_refused_in_words, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Link_task_refuses_an_id_this_backlog_does_not_hold_in_words]
 ```
 
 The system SHALL let the person link an existing task to an event by its id, leaving the task unchanged.
@@ -204,6 +233,33 @@ The system SHALL let the person link an existing task to an event by its id, lea
 - **Given** a task "Ask about training budget" and a Considering event
 - **When** the person links the task to the event
 - **Then** the event lists the task, and the task is unchanged
+
+#### Scenario: An unknown id is refused
+
+- **Given** no task with that id in this backlog
+- **When** the person links the id to an event
+- **Then** the pane says "No task with that id in this backlog", and the event links nothing
+
+### Requirement: The event lists its tasks with their status
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_linked_task_this_backlog_no_longer_holds_reads_not_in_this_backlog, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_task_changing_underneath_reads_the_open_events_chips_again, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLinkTests.A_linked_task_this_backlog_no_longer_holds_reads_as_not_in_this_backlog, integration:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.EventsTaskTargetTests.A_lookup_answers_the_held_tasks_with_their_status_in_words]
+```
+
+The system SHALL list each task linked to an event with its title and status, and a task this backlog does not hold as not in this backlog.
+
+#### Scenario: A task no longer held
+
+- **Given** an event linking a task this backlog no longer holds
+- **When** the person opens the event
+- **Then** the task reads as not in this backlog
+
+#### Scenario: A task changed elsewhere
+
+- **Given** an open event listing the task "Book hotel in Antwerp" as Draft
+- **When** the task is marked Done in Tasks
+- **Then** the event lists the task as Done
 
 ## Harvest task
 

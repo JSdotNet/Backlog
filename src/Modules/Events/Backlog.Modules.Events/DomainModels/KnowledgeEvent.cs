@@ -288,6 +288,35 @@ public sealed class KnowledgeEvent
         return Result.Success();
     }
 
+    /// <summary>
+    /// Points a link at another note, in the same place in the list: how a Brain note that
+    /// moved is linked again. A replacement the event already links is kept once, so the old
+    /// link just goes. Refused when the event does not link <paramref name="linked"/>
+    /// (<c>note_link.not_linked</c>).
+    /// </summary>
+    public Result ReplaceNoteLink(NoteLink linked, NoteLink replacement)
+    {
+        ArgumentNullException.ThrowIfNull(linked);
+        ArgumentNullException.ThrowIfNull(replacement);
+
+        var at = _notes.IndexOf(linked);
+        if (at < 0) return Result.Failure(EventsErrors.NoteNotLinked());
+
+        var held = _notes.IndexOf(replacement);
+        if (held >= 0 && held != at) _notes.RemoveAt(at);
+        else _notes[at] = replacement;
+
+        return Result.Success();
+    }
+
+    /// <summary>Removes a note link. A note the event does not link changes nothing.</summary>
+    public void UnlinkNote(NoteLink link)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+
+        _notes.Remove(link);
+    }
+
     private static string? Blank(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
     private static bool IsFinal(KnowledgeEventState state) =>

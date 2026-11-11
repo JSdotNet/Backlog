@@ -42,6 +42,7 @@ public sealed partial class DesktopCompositionTests
         "AddRoadmapCrossContextAdapters",
         "AddTasksCrossContextAdapters",
         "AddInboxCrossContextAdapters",
+        "AddEventsCrossContextAdapters",
         "AddDashboardCrossContextAdapters",
         "AddCaptureAdapters",
         "AddTasksAdapters",

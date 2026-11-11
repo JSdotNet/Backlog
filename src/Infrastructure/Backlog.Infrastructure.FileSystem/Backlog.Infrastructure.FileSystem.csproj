@@ -44,9 +44,11 @@
          request shape. The published surface only: the adapter answers the Inbox's
          port and asks Tasks through ITaskItems, and needs neither aggregate. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
-    <!-- The same join's To Event route: an inbox item routed To Event becomes a
-         Spotted knowledge event through Events' published IKnowledgeEvents, and the
-         route is offered while Events' flag is on. The published surface only. -->
+    <!-- Events' published surface, for two joins: the Inbox join's To Event route, where an
+         inbox item routed To Event becomes a Spotted knowledge event through IKnowledgeEvents
+         while Events' flag is on; and the join under Events/, where an event's prep task is
+         filed and its task chips read through Tasks' ITaskItems, to answer Events'
+         IEventTaskTarget. The published surface only (local ADR 0050 §3). -->
     <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
     <!-- The cross-context join under Dashboard/ - the Sessions context supplies the
          assistant-session facts the Dashboard's sessions part reports on. Two
