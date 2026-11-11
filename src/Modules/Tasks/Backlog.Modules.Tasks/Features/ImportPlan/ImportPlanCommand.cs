@@ -355,7 +355,8 @@ public sealed class ImportPlanCommandHandler(
                 TaskEntryFields.ApplyToExisting(entry, outcome.Parsed with
                 {
                     DependsOn = resolvedDependsOn,
-                    BlockedSince = outcome.Parsed.BlockedSince ?? entry.BlockedSince
+                    BlockedSince = outcome.Parsed.BlockedSince ?? entry.BlockedSince,
+                    WaitingFor = outcome.Parsed.WaitingFor ?? entry.WaitingFor
                 });
                 if (outcome.Parsed.Status is { } status) entry.SetStatus(status, TaskEntryFields.LocalToday);
 

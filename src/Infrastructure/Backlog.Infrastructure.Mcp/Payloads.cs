@@ -52,7 +52,17 @@ public sealed record EntryPayload(
     IReadOnlyList<string> DependsOn,
     string? PlanId,
     string? PlanItemId,
-    DateTimeOffset? CreatedAt);
+    DateTimeOffset? CreatedAt)
+{
+    /// <summary>Who the entry waits on — free text, its <c>waiting:</c> token — or
+    /// null when it waits on nobody. Beside the positional fields so a caller that
+    /// never asked for it reads the payload as before.</summary>
+    public string? WaitingFor { get; init; }
+
+    /// <summary>The day to follow up with <see cref="WaitingFor"/>, its
+    /// <c>followup:</c> token, or null when none was set.</summary>
+    public DateOnly? FollowUpOn { get; init; }
+}
 
 /// <summary>The entries filed against one repository, in rank order.</summary>
 public sealed record EntryListPayload(string Repository, string RepositoryAlias, int Count, IReadOnlyList<EntryPayload> Entries);
@@ -84,7 +94,15 @@ public sealed record EntryRefPayload(Guid Id, string Title, string Status);
 /// points at, as stored (<c>path</c> or <c>path#anchor</c>). Beside the text
 /// rather than in it, because they are never part of it: saving the markdown
 /// leaves them alone, and <c>set_devbook_references</c> is how they change.</param>
-public sealed record EntryTextPayload(Guid Id, string Title, string Status, string Markdown, IReadOnlyList<string> DevbookReferences);
+public sealed record EntryTextPayload(Guid Id, string Title, string Status, string Markdown, IReadOnlyList<string> DevbookReferences)
+{
+    /// <summary>Who the entry waits on, or null — the <c>waiting:</c> token the
+    /// markdown already carries, read out so a session need not parse the line.</summary>
+    public string? WaitingFor { get; init; }
+
+    /// <summary>The day to follow up, or null — the <c>followup:</c> token.</summary>
+    public DateOnly? FollowUpOn { get; init; }
+}
 
 /// <summary>
 /// An entry's Devbook references, each resolved against the repository's

@@ -7466,6 +7466,19 @@ button.task-panel__check:focus-visible {
     font-size: var(--font-size-xs);
 }
 
+/* A date that has passed while the work is still open — a waiting-for's follow-up
+   day. The label says "overdue" in words; the value takes the fault ink so the
+   row is found by colour too, never by colour alone. */
+.task-action--overdue .task-action__value {
+    color: var(--color-error-text);
+}
+
+/* The row's waiting badge once its follow-up day has passed: the fault ink, beside
+   the word "overdue" the badge already prints. */
+.badge--waiting-overdue {
+    color: var(--color-error-text);
+}
+
 /* Icon-only, for an act that shares a line with a row that needs the width —
    "Create follow-up" beside "Waiting for" is the case this was built for. The
    grid the full-size row uses is a label column and a clear column, and a compact

@@ -263,9 +263,11 @@ related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".dev
 The `effort:` value is a non-negative whole number and is not honoured on a `plan` entry.
 
 `waiting:` and `followup:` carry a task's
-[waiting-for](../domain/tasks/domain.md#waiting-for). They are decided in local
-ADR 0054 and not parsed yet. A follow-up date that has passed reads overdue, and
-deleting `waiting:` clears the waiting-for. A context is not a token: it is a tag
+[waiting-for](../domain/tasks/domain.md#waiting-for), decided in local ADR 0054.
+`waiting:` takes free text up to the closing backtick, spaces included, and
+`followup:` a calendar date. A `followup:` with no `waiting:` beside it is
+unreadable, as `for:` is without `at:`. A follow-up date that has passed reads
+overdue, and deleting `waiting:` clears the waiting-for and its date. A context is not a token: it is a tag
 written in the body, `#@pc` (`.devbook/domain/tasks/domain.md#context`).
 
 A full metadata line mixes both forms, sigils first:

@@ -867,7 +867,9 @@ the person's next actions until the waiting-for is cleared, which returns it.
 It is not an [Impediment](../progress/domain.md#impediment): an Impediment
 holds back a goal and has its own lifecycle in Progress, and a waiting-for
 creates none. The Inbox's **Waiting for** decision makes a task with one.
-Decided in local ADR 0054 and not yet built.
+Decided in local ADR 0054. The task stores it and the Tasks pane's
+[Waiting slice](features.md#waiting-for-someone) lists it; the other views still
+list a waiting task among the next actions.
 
 ### Context
 

@@ -623,6 +623,40 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     /// </summary>
     public bool ReadyInPlanOnly { get; private set; }
 
+    /// <summary>
+    /// True while the view is narrowed to the tasks waiting on someone: the
+    /// <b>Waiting</b> slice (<c>.devbook/domain/tasks/domain.md#waiting-for</c>,
+    /// local ADR 0054 §4).
+    /// <para>
+    /// A task with a <c>waiting:</c> token, open — a ticked-off row is out, whatever
+    /// it still waits on. Not the "Waiting for" a chain of <c>after:</c> tokens
+    /// derives (<see cref="IsNotWaiting"/>): that one waits on other entries, this one
+    /// on a person or a party outside the backlog.
+    /// </para>
+    /// <para>
+    /// While it is on, the slice reads soonest follow-up first and undated last, so
+    /// the first row is the one to chase next; the rank order holds within a day and
+    /// among the undated. Because that is not the rank order, reordering and the
+    /// status sort are off while it is on. Composes with every other scope the way
+    /// My Day does.
+    /// </para>
+    /// <para>
+    /// The other views still list a waiting task: taking it out of the next actions
+    /// (ADR 0054 §4) is a later step, so for now the slice is where it is read.
+    /// </para>
+    /// </summary>
+    public bool WaitingForOnly { get; private set; }
+
+    /// <summary>Whether a row is in the Waiting slice <see cref="WaitingForOnly"/>
+    /// keeps: open and waiting on someone. Read by the chip for its count.</summary>
+    public bool IsWaitingForSomeone(EntryRow row) =>
+        row.PreviewWaitingFor is not null && !IsFinished(row);
+
+    /// <summary>Where a row sorts in the Waiting slice: by its follow-up date, and
+    /// after every dated row when it has none.</summary>
+    private static DateOnly WaitingForSortKey(EntryRow row) =>
+        row.PreviewWaitingFor?.FollowUpOn ?? DateOnly.MaxValue;
+
     /// <summary>Whether a row is the ready plan work <see cref="ReadyInPlanOnly"/>
     /// keeps. Read by the chip for its count, so the chip and the filter are one
     /// question. Off the preview, the reader the status filter uses.</summary>
@@ -1521,6 +1555,14 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ApplyFilter();
     }
 
+    /// <summary>Turns the Waiting slice on or off. See
+    /// <see cref="WaitingForOnly"/> for what it keeps and how it is ordered.</summary>
+    public void SetWaitingForFilter(bool only)
+    {
+        WaitingForOnly = only;
+        ApplyFilter();
+    }
+
     /// <summary>Adds a tag to the selection, or takes it back out when it is
     /// already there. Bare and lower-cased the way the parser stores one;
     /// <see cref="UntaggedTag"/> asks for the entries with no tags. Additive in
@@ -1613,6 +1655,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         _selectedRepositoryAliases.Clear();
         MyDayOn = null;
         ReadyInPlanOnly = false;
+        WaitingForOnly = false;
         SelectedSource = null;
         SelectedType = null;
         SelectedStatusFilterWire = string.Empty;
@@ -1679,6 +1722,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (ReadyInPlanOnly && !IsReadyInPlan(row))
         {
             ReadyInPlanOnly = false;
+            widened = true;
+        }
+
+        if (WaitingForOnly && !IsWaitingForSomeone(row))
+        {
+            WaitingForOnly = false;
             widened = true;
         }
 
@@ -2440,6 +2489,11 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         if (row.IsReadOnly || ReferenceEquals(row, target)) return;
 
+        // The Waiting slice draws the rows in follow-up order, not rank order, so a
+        // neighbour there is no neighbour in the rank: a move would change a rank the
+        // reader cannot see and change nothing they can.
+        if (WaitingForOnly) return;
+
         var from = Rows.IndexOf(row);
         var to = Rows.IndexOf(target);
         if (from < 0 || to < 0 || from == to) return;
@@ -2464,6 +2518,10 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     {
         get
         {
+            // Not in the Waiting slice: the rows it shows are in follow-up order, and
+            // the sort reads its input as rank order (see MoveEntryAsync).
+            if (WaitingForOnly) return false;
+
             var visible = SortableVisibleRows().ToList();
             return !visible.SequenceEqual(StatusSortOrder(visible));
         }
@@ -2877,6 +2935,19 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ArgumentNullException.ThrowIfNull(row);
 
         await RewriteMetadataAsync(row, BlockedText(row, blocked, today));
+    }
+
+    /// <summary>
+    /// Records who the entry waits on and its follow-up date, or clears the
+    /// waiting-for with null — which takes the <c>followup:</c> token with it and
+    /// takes the task out of the Waiting slice. Written the way every other field here
+    /// is: the metadata line, then the save.
+    /// </summary>
+    public async Task ChangeWaitingForAsync(EntryRow row, WaitingFor? waitingFor)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        await RewriteMetadataAsync(row, EntryTextParser.WithWaitingFor(row.RawText, waitingFor));
     }
 
     public async Task ChangeDependsOnAsync(EntryRow row, IEnumerable<string>? dependsOn) =>
@@ -6070,6 +6141,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             rows = rows.Where(IsReadyInPlan);
         }
 
+        // And the Waiting slice, on the same terms again.
+        if (WaitingForOnly)
+        {
+            rows = rows.Where(IsWaitingForSomeone);
+        }
+
         // And where a task came from: the same terms again.
         RebuildSourceFilters();
         if (SelectedSource is { } source)
@@ -6139,6 +6216,14 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         foreach (var row in Rows)
         {
             if (kept.Remove(row)) filtered.Add(row);
+        }
+
+        // The Waiting slice reads soonest follow-up first and undated last. A stable
+        // sort over the list order, so rank still decides within one day and among
+        // the undated.
+        if (WaitingForOnly)
+        {
+            filtered = [.. filtered.OrderBy(WaitingForSortKey)];
         }
 
         FilteredRows = filtered;
@@ -6973,6 +7058,14 @@ public sealed class EntryRow
     /// the entries after it.</summary>
     public bool IsPreviewBlocked => PreviewBlockedSince is not null;
 
+    /// <summary>Who the entry waits on and when to follow up, or null while it waits
+    /// on nobody. A preview like the hand-set block: the <c>waiting:</c> and
+    /// <c>followup:</c> tokens are in the text and a reader can type them.</summary>
+    public WaitingFor? PreviewWaitingFor
+    {
+        get { Render(); return _parsed!.WaitingFor; }
+    }
+
     public IReadOnlyList<string> PreviewDependsOn
     {
         get { Render(); return _parsed!.DependsOn ?? []; }
@@ -7078,6 +7171,15 @@ public sealed class EntryRow
             if (PreviewBlockedSince is { } blockedSince)
             {
                 readings.Add(new MetaReading("blocked", EntryTextParser.DateToken(blockedSince), true));
+            }
+
+            if (PreviewWaitingFor is { } waitingFor)
+            {
+                readings.Add(new MetaReading("waiting", waitingFor.Who, true));
+                if (waitingFor.FollowUpOn is { } followUp)
+                {
+                    readings.Add(new MetaReading("followup", EntryTextParser.DateToken(followUp), true));
+                }
             }
 
             foreach (var id in PreviewDependsOn)
