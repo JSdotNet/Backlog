@@ -878,6 +878,7 @@ this chapter only reads them.
 
 | The title starts with | Session Purpose | Plan tag | Plan State | Shown title |
 | --- | --- | --- | --- | --- |
+| `📡 X` or `🧠 X` | Agent | none | none | X |
 | `ARTIFACT: X` | Artifact | none | none | X |
 | `DESIGN: X` | Design | none | none | X |
 | `PLAN: +tag — X` or `PLAN: X` | Plan | tag, where written | Draft | X |
@@ -913,6 +914,13 @@ Tasks.
 
 Artifact, Design, Plan, Research and Hold are **standing** purposes: a session with one
 is kept until it is archived, and When draws it above the days.
+
+**Agent** is the purpose of a loop session, the one
+[`standing-session.md`](../../../plugins/backlog-tools/resources/standing-session.md) titles
+with its icon: `📡 SESSION DISPATCHER` or `🧠 BRAIN TENDER`. Here Agent names a purpose. The
+[Agent](#agent) enum names the assistant that ran a session, and the two never stand in for each
+other. An Agent session sits in the Agents section that leads every grouping
+([Session Grouping](#session-grouping)), and the [Loop Register](#loop-register) reads its state.
 
 The reading has two limits:
 
@@ -1252,6 +1260,12 @@ entries by step. Each part keeps most recently active first. Under When, a stand
 session sits in Live now while it runs and returns to Standing after. A Scheduled row is
 never standing, so it keeps its day.
 
+**An Agents section leads the list.** Before any grouping, `AgentsFirst` takes every row whose
+Session Purpose is Agent out of its section. It puts them in one leading "Agents" section, key
+`agents`, the dispatcher before the Brain tender and each most recently active first. It drops no
+row and, with no Agent session in the view, draws no section. Every grouping applies it, None included
+(local [ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)).
+
 **In the Open view, the scheduled runs close the list.** After any grouping,
 `ScheduledApart` takes every row whose session is a run of a desktop scheduled task
 out of its section. It puts them in one trailing "Scheduled" section, key `scheduled`,
@@ -1305,7 +1319,7 @@ cancels it. A dispatcher reads the next request on the listener's long poll, cla
 | `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. |
 | `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
 
-- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it.
+- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it. A Manager names its own session as `sessionId`, and the call is its [dispatch wait](#loop-register).
 - **`claim_session_request`:** The holder asking again is told it holds it; the lease is not renewed.
 - **`mark_session_request`:** Only the dispatcher holding the claim may mark it. Its `started` still counts after its lease ran out while nobody else claimed the request.
 
@@ -1581,6 +1595,140 @@ The settings are kept in the desktop's workspace settings file and edited on the
 Notifications settings page. Away after and notify after take whole minutes (1 to
 480), and dialog wait takes whole hours (1 to 24). A value outside those bounds is
 refused with the setting named.
+
+## Schedule Register
+
+```meta
+type: aggregate
+related: [.devbook/arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md, .devbook/domain/sessions/features.md#schedules-and-their-runs, .devbook/domain/sessions/requirements.md#schedules-and-their-runs]
+aliases: [ScheduleRegister, schedule, scheduled run report]
+```
+
+The schedules this machine runs, as their runs reported them. It is evidence the runs send
+about themselves, beside the records the agents leave. A run reports its start and its finish
+through the MCP listener, from the `backlog-tools` hook pair of local
+[ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md).
+The register never reads Claude Desktop's own schedule or run files.
+
+A schedule enters the register with its first start report, keyed by its schedule id. That
+report carries the schedule's title, repository and cron, which a later report updates. The
+register is this machine's, kept in the app's local database, and does not replicate.
+
+Invocation semantics: command-oriented for the reports, query-oriented for the states. A
+reading combines the reports with the session records the [Session Log](#session-log) reads, to
+tell whether a run's session is archived, and with the clock, to tell a missed due time.
+
+### Scheduled Run
+
+```meta
+type: entity
+aliases: [ScheduledRun, run report]
+```
+
+One run of a schedule, identified by its session id. It holds:
+
+- when it reported its start;
+- when it reported its finish, with its verdict;
+- the Needs-you lines its summary listed, in order;
+- for a skipped run, that it skipped itself and which earlier run held it.
+
+A run with a start and no finish reads No summary yet. A finish without a start is kept, because
+the start report can be lost while the run goes on.
+
+### Scheduled Run State
+
+```meta
+type: enum
+aliases: [ScheduledRunState, schedule state]
+```
+
+What a run, and the schedule whose latest run it is, needs from the person:
+`needs-you`, `held`, `failed`, `missed`, `review-ready`, `handled`, `no-summary-yet`.
+
+- **Needs you** and **Review ready** hold only while the run's session is not archived.
+- **Held** is the schedule's while its runs skip themselves for an unarchived run. Each skipped
+  run reads Skipped, a line under the schedule.
+- **Missed** is the schedule's alone. A schedule reads it 30 minutes past its cron's due time
+  with no start report since. Backlog takes every schedule that has reported as enabled.
+- **Handled** is any run whose session is archived, whatever it reported.
+
+The states are a reading, never stored, as the [Liveness Assessment](#liveness-assessment)'s are.
+
+## Loop Register
+
+```meta
+type: aggregate
+related: [.devbook/arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md, .devbook/domain/sessions/features.md#loop-sessions, .devbook/domain/sessions/requirements.md#loop-sessions, .devbook/domain/sessions/domain.md#session-request-queue]
+aliases: [LoopRegister, loop session, check_in]
+```
+
+The loop sessions this machine runs and their latest check-ins. A **loop session** is a session
+whose Session Purpose is Agent: the Manager of local
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
+and the Brain tender, both under `/loop`.
+
+A loop checks in two ways:
+
+- **`check_in`**, an MCP tool it calls on every tick, with its state, its heartbeat and its
+  limits;
+- **the dispatch wait**, a Manager's call to `GET /session-requests/wait`.
+
+The answer to `check_in` carries the work waiting for the loop, whether the machine has room for
+it, and the `pause`, `resume` or `stop` the person last set. Setting one is the register's one
+command. The loop obeys it, and this context still never stops a session.
+
+Invocation semantics: command-oriented for a check-in and for the person's wish, query-oriented
+for the states. The register keeps the latest check-in per session, in memory and in the app's
+local database.
+
+### Loop Check-in
+
+```meta
+type: value-object
+aliases: [LoopCheckIn, check-in, heartbeat]
+```
+
+One check-in: the session id, when it arrived, the loop's own state as it says it, its heartbeat
+and its limits. A dispatch wait is a check-in with only the session and the time: it moves the
+time of the session's last `check_in` and keeps the rest, and a wait for a session that never
+called `check_in` records nothing. Equality is by all its parts.
+
+### Capacity Reading
+
+```meta
+type: value-object
+aliases: [CapacityReading, capacity, room]
+```
+
+How much room the machine has, measured by Backlog itself at a check-in:
+
+- the dispatched sessions working, with Waiting sessions not counted;
+- plan usage, read from the Claude usage cache;
+- CPU;
+- free memory.
+
+Against the loop's limits it says whether there is room, and which limit is reached when there
+is none. A figure Backlog cannot read is left out and holds nothing back. Equality is by its
+parts.
+
+### Loop State
+
+```meta
+type: enum
+aliases: [LoopState]
+```
+
+How a loop session is doing: `listening`, `holding`, `stalled`, `not-running`.
+
+- **Listening:** it checked in within 2 minutes.
+- **Holding:** it checks in, work waits, and its Capacity Reading has no room.
+- **Stalled:** the [Liveness Assessment](#liveness-assessment) finds its process alive, and
+  nothing checked in past its heartbeat plus 10 minutes.
+- **Not running:** it has no process, or its session is archived.
+
+Between 2 minutes and its heartbeat plus 10 minutes, a loop keeps the state it last read. The
+Brain tender has no queue, so it never reads Holding. Like a session's state, a loop's state is a
+reading, never stored.
 
 ## Session Activity Publishing
 

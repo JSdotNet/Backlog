@@ -6,7 +6,8 @@ namespace Backlog.Modules.Sessions.UI;
 /// What the Sessions surface reads from the window it is shown in that only the host
 /// can answer (local ADR 0043 §1, §3): the window's repository scope, what a recorded
 /// repository is called and the hue it wears, the Backlog entry that linked a session,
-/// how a pull request stands, and how an entry is opened.
+/// how a pull request stands, how an entry is opened, and how a waiting question's
+/// notification is opened.
 /// <para>
 /// One per window, with the window's view state, filled by the host from the window's
 /// own state. Opening an entry is a jump to the Tasks surface through the window's
@@ -35,4 +36,13 @@ public sealed class SessionsSurfaceWiring
     /// <summary>How a pull request a session leads to stands. Read only while the
     /// catalog offers the pull requests surface.</summary>
     public Func<DeliveryRunReference, Task<SessionPullRequestStatus?>>? PullRequestStatus { get; set; }
+
+    /// <summary>Opens the notification centre on a waiting question's notification, by
+    /// its id — a Waiting row's Answer; null leaves the Asks strip without one.</summary>
+    public Func<Guid, Task>? AnswerQuestion { get; set; }
+
+    /// <summary>Whether the window offers the notification centre right now: the
+    /// notifications flag can go off while a published question is still open, and an
+    /// Answer then would open nothing. Null reads as offered.</summary>
+    public Func<bool>? AnswerQuestionOffered { get; set; }
 }

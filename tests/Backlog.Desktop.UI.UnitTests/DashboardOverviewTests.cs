@@ -2,6 +2,7 @@ using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
+using Backlog.SharedKernel;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -319,6 +320,52 @@ public class DashboardOverviewTests
         Assert.Single(context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]);
     }
 
+    [Fact]
+    public void A_tab_asked_for_opens_the_pane_on_that_tab_and_lets_the_reader_move_on()
+    {
+        using var context = Context();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        // A Holding dispatcher's See usage asks for the Sessions tab.
+        var pane = context.Render<DashboardPane>(parameters => parameters.Add(p => p.InitialTab, "sessions"));
+
+        Assert.Equal("true", pane.Find("[data-testid='dashboard-tab-sessions']").GetAttribute("aria-selected"));
+
+        pane.Find("[data-testid='dashboard-tab-cost']").Click();
+        pane.Render(parameters => parameters.Add(p => p.InitialTab, "sessions"));
+
+        // The same ask again does not pull the reader back.
+        Assert.Equal("true", pane.Find("[data-testid='dashboard-tab-cost']").GetAttribute("aria-selected"));
+    }
+
+    [Fact]
+    public void The_surface_opens_the_pane_on_the_tab_its_query_names()
+    {
+        using var context = Context(services =>
+        {
+            services.AddSingleton<ISurfaceNavigator, SurfaceNavigator>();
+            services.AddSingleton<ISurfaceCatalog>(new NoSurfaces());
+        });
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        // The link a Holding dispatcher's See usage asks for.
+        var surface = context.Render<DashboardSurface>(parameters => parameters
+            .Add(p => p.Query, new Dictionary<string, string> { [DashboardSurface.TabKey] = "sessions" }));
+
+        Assert.Equal("true", surface.Find("[data-testid='dashboard-tab-sessions']").GetAttribute("aria-selected"));
+    }
+
+    [Fact]
+    public void A_tab_no_panel_answers_to_leaves_the_pane_on_the_overview()
+    {
+        using var context = Context();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var pane = context.Render<DashboardPane>(parameters => parameters.Add(p => p.InitialTab, "nowhere"));
+
+        Assert.Equal("true", pane.Find("[data-testid='dashboard-tab-overview']").GetAttribute("aria-selected"));
+    }
+
     private static BunitContext Context(Action<IServiceCollection>? configure = null)
     {
         var context = new BunitContext();
@@ -331,6 +378,17 @@ public class DashboardOverviewTests
 
     private static IReadOnlyList<InsightPoint> Weeks(params decimal[] values) =>
         [.. values.Select((value, index) => new InsightPoint($"W{38 + index}", value))];
+
+    private sealed class NoSurfaces : ISurfaceCatalog
+    {
+        public IReadOnlyList<ShellSurface> Surfaces => [];
+
+        public bool TryGet(string surfaceId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ShellSurface? surface)
+        {
+            surface = null;
+            return false;
+        }
+    }
 
     private sealed class FixedAttentionInsights(NeedsYouInsight insight) : IAttentionInsights
     {

@@ -74,6 +74,14 @@ test('finds the port and token the way the telemetry forwarder does', () => {
   expect(endpointFrom({}, '{ half')).toEqual({ url: 'http://127.0.0.1:5757/session-requests/wait', token: null })
 })
 
+test('names the Manager\'s session on the wait, so each wait counts as its check-in', () => {
+  const settings = JSON.stringify({ mcpServer: { port: 6123, token: 'from-settings' } })
+  expect(endpointFrom({}, settings, 'a1b2-c3')).toEqual({ url: 'http://127.0.0.1:6123/session-requests/wait?sessionId=a1b2-c3', token: 'from-settings' })
+  expect(endpointFrom({}, null, ' x y&z ').url).toBe('http://127.0.0.1:5757/session-requests/wait?sessionId=x%20y%26z')
+  expect(endpointFrom({}, null, '').url).toBe('http://127.0.0.1:5757/session-requests/wait')
+  expect(endpointFrom({}, null, null).url).toBe('http://127.0.0.1:5757/session-requests/wait')
+})
+
 test('names the dispatcher after the machine, so a restarted Manager knows its claims', () => {
   expect(dispatcherName('JOB-PC.local')).toBe('dispatch-sessions-job-pc-local')
 })

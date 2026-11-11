@@ -1,3 +1,5 @@
+using Backlog.SharedKernel;
+
 namespace Backlog.Modules.Notifications.Abstractions;
 
 /// <summary>
@@ -224,6 +226,9 @@ public sealed record AnswerSpec(
 /// from it, so publishing the same thing twice is one notification: an id this instance already
 /// holds publishes nothing and answers that id, and an id another desktop already put on the
 /// replica stays that desktop's (<c>.devbook/domain/notifications/domain.md#notification</c>).</param>
+/// <param name="Actions">What an alert offers to open in Backlog beside Acknowledge — "Open run",
+/// "Open Sessions" — at most <see cref="NotificationAction.MaxActions"/>; null or empty for none.
+/// Refused on a question, whose answers are its controls.</param>
 public sealed record NotificationDraft(
     NotificationSource Source,
     NotificationSubject? Subject,
@@ -236,7 +241,37 @@ public sealed record NotificationDraft(
     string? DeepLink = null,
     bool IsPrivate = false,
     NotificationOrigin? Origin = null,
-    Guid? Id = null);
+    Guid? Id = null,
+    IReadOnlyList<NotificationAction>? Actions = null);
+
+/// <summary>
+/// One thing an alert offers to open in Backlog: a label a person reads on the button, and the
+/// <c>backlog://window/{surfaceId}?…</c> link (<see cref="SurfaceLink"/>) the owner's centre
+/// opens in the window it was pressed in. A link is the only thing it carries, so pressing one
+/// changes nothing but where the person looks; Acknowledge stays the alert's own control.
+/// <para>
+/// The owner's alone: the replica carries no actions, because a link opens a window of this
+/// desktop's app, so a phone or another desktop shows the alert with Acknowledge only.
+/// </para>
+/// </summary>
+/// <param name="Label">One line of plain text, at most <see cref="MaxLabelLength"/> characters.</param>
+/// <param name="Link">A <c>backlog://window/…</c> link <see cref="SurfaceLink.Parse"/> reads.</param>
+public sealed record NotificationAction(string Label, string Link)
+{
+    /// <summary>The most actions one alert carries.</summary>
+    public const int MaxActions = 3;
+
+    /// <summary>The most characters a label holds.</summary>
+    public const int MaxLabelLength = 40;
+
+    /// <summary>The most characters a link holds.</summary>
+    public const int MaxLinkLength = 2048;
+
+    /// <summary>Whether <paramref name="link"/> may be an action's link: a
+    /// <c>backlog://window/…</c> link that names a surface, within <see cref="MaxLinkLength"/>.</summary>
+    public static bool IsActionLink(string? link) =>
+        link is { Length: <= MaxLinkLength } && SurfaceLink.Parse(link) is not null;
+}
 
 /// <summary>
 /// What a person submitted to answer a question, from any instance

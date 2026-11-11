@@ -110,5 +110,6 @@ internal sealed class NotificationCentre : INotificationCentre, IDisposable
         n.SettledAt,
         n.CloseReason,
         n.Answer,
-        n.Origin);
+        n.Origin,
+        n.Actions);
 }

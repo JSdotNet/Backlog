@@ -339,7 +339,11 @@ public static class NotificationPresentation
             Outcome(notification, now, thisDeviceId),
             notification.Origin is { } origin ? ToCardOrigin(notification, origin) : null,
             // Every card marks the kind its row marks, origin or not.
-            CardAsker(AskerKind(notification)));
+            CardAsker(AskerKind(notification)),
+            // The link is the action's target: the centre opens it when it is pressed.
+            notification.Actions is { Count: > 0 } actions
+                ? [.. actions.Select(action => new NotificationCardAction(action.Label, action.Link))]
+                : null);
     }
 
     private static NotificationCardOutcome? Outcome(NotificationView notification, DateTimeOffset now, Guid thisDeviceId)

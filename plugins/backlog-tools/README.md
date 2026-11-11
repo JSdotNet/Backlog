@@ -154,7 +154,8 @@ running plan.
   A person starts it once as `/loop /backlog-tools:dispatch-sessions` in a pinned Claude
   Desktop session. A Monitor runs `skills/dispatch-sessions/assets/wait-requests.mjs`, which
   finds the app's port and token the way the telemetry forwarder does, loops on
-  `GET /session-requests/wait` and prints each item once — an answer delivery (`delivery`,
+  `GET /session-requests/wait` — naming the Manager's own session as `sessionId`, so each wait
+  counts as its loop check-in (local ADR 0051 §3) — and prints each item once — an answer delivery (`delivery`,
   local ADR 0041) before any session request (`request`) — so the Manager spends no turn
   while nothing is queued; it never polls the request tools in a loop. It delivers first: for
   each pending delivery whose session the Claude desktop app holds open it claims it
@@ -243,7 +244,13 @@ those three skip it.
 as a long-running agent: on its first turn `dispatch-sessions` and `tend-brain` title their own
 Claude Desktop session with an icon and an ALL CAPS name (`📡 SESSION DISPATCHER`,
 `🧠 BRAIN TENDER`), file it under the `Agents` sidebar section and pin it, skipping any step the
-host lacks. `tests/loop-skills.test.mjs` holds every `/loop`-started skill to it.
+host lacks. Every tick then opens with the `backlog` server's `check_in` (local ADR 0051 §3),
+which passes the session's own id (`${CLAUDE_SESSION_ID}`), its state and its heartbeat, and
+whose answer carries the person's last command: `pause` does no work and keeps checking in at
+the heartbeat, `resume` carries on, and `stop` ends the loop and says so. A loop that cannot
+check in — the `sessions` flag off, the app closed — carries on as before. `tend-brain` checks
+in only under `/loop`, so a one-off tick never reads as a loop. `tests/loop-skills.test.mjs`
+holds every `/loop`-started skill to all of it, and to the 40-line body budget.
 
 `resources/chat-reports.md` is the one statement of how short a skill's chat report is. Nine
 skills point to it from their report step; `devbook-sweep` and `dispatch-sessions` run with
@@ -309,6 +316,46 @@ are matched to shell, edits, sub-agents, skills and MCP tools, the calls a run's
 read for, so a session is not paying a process spawn on every `Read` and `Grep`. The script
 needs Node, drops the tool's output before posting, gives up after two seconds and exits 0 on
 any error, so a closed app costs a session nothing but a refused connection.
+
+### Scheduled run reports
+
+`hooks/schedule-run-report.mjs` reports each run a Claude Desktop schedule starts to the app's
+Schedules page (local ADR 0051 §1). Such a run's first prompt opens with
+`<scheduled-task name="<taskId>" …>`, and that task id is the schedule's id in Backlog.
+
+- **SessionStart** (`startup`) reads that first prompt from the transcript — Claude Desktop
+  writes it there before the hook fires — and adds context telling the session, before any other
+  work, to look its entry up once with the scheduler tool (`list_scheduled_tasks`) and call
+  `report_schedule_run` with event `started`, its title, cron and repository, and the session id
+  the hook names. A `UserPromptSubmit` hook does the same for a transcript not yet on disk; the
+  shell lets only a prompt carrying `<scheduled-task` through to Node, and a marker per session
+  in the temp folder keeps the context to once.
+- **Stop** posts the finish to `POST /schedule-runs` on the same port and token as `/telemetry`:
+  `skipped`, with the line, when the final message opens with `Skipped:`, and the session id
+  the line names as `heldBy`; `failed`, with the error after it, when it opens with `Failed:`;
+  else `finished` with the report's bold verdict line (its first line of prose when it has
+  none) and the rows under every *Needs you* heading, each as its cells joined by ` · `. The
+  final message is the Stop payload's `last_assistant_message`, else the transcript's last
+  assistant text.
+- **StopFailure** fires instead of Stop when the turn ends on an API error — a rate limit, an
+  overloaded or failing server, a billing or authentication error — and posts `failed` with the
+  error line the session shows as the verdict.
+
+`delivery-schedule`'s skills write no closing line of their own on failure, and its pickup gate's
+`Skipped:` line names the earlier run only by its start time. So the start context also asks the
+run to end a skip with `(session <session_id>)`, the holding run's id from the scheduler's run
+list, and to end on a `Failed: <the error>` line when an error stops it. A run that does neither
+still reports: a skip without `heldBy`, an error as its finish. The app resolves a `local_` id to
+the session that run reported under.
+
+The posts carry the MCP server's own token from `settings.json`. The question hook's token of its
+own (plan `zero-trust-auth`) has not landed, so the route has no narrower token to take yet.
+
+A session no schedule started reports nothing. Like the forwarder, the script gives up after
+two seconds and exits 0 with nothing printed on any error, so a closed app, the `sessions` flag
+off (`404`) or a refused report never fails or holds up the run. Its decisions live in
+`hooks/schedule-run-logic.mjs`; `node --test plugins/backlog-tools/tests/schedule-run-report.test.mjs`
+drives them and the hook process against a stand-in route.
 
 ### The plan-progress pane
 

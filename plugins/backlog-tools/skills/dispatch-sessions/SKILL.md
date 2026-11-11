@@ -14,31 +14,31 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
 
 ## Each turn
 
-1. **Wait.** `node assets/wait-requests.mjs --name` prints your `dispatcher`. Keep one Monitor on
-   `node assets/wait-requests.mjs` at its longest timeout, re-armed on expiry or `stopped`; never loop on tools.
-2. **Restart.** First turn only: mark this session per `../../resources/standing-session.md`;
-   `list_session_requests` and `list_deliveries` `state: claimed`;
-   release each your `dispatcher` holds (`mark_session_request`, `mark_delivery`).
-3. **Deliver** each `list_deliveries` `state: pending` with a `desktopSessionId`, oldest first:
+1. **Check in** per `../../resources/standing-session.md#check-in`, `sessionId` `${CLAUDE_SESSION_ID}`, `state`
+   `holding` if a limit held the last queue, `heartbeatMinutes` step 8's last pace (30 at first), `sessions:` step 6's count.
+2. **Wait.** `node assets/wait-requests.mjs --name` prints your `dispatcher`. One Monitor, longest timeout, re-armed on expiry or
+   `stopped`: `node assets/wait-requests.mjs --session ${CLAUDE_SESSION_ID}`, each wait a check-in; never loop on tools.
+3. **Restart.** First unpaused turn only: mark this session per `../../resources/standing-session.md#mark`;
+   `released` (`mark_session_request`, `mark_delivery`) each your `dispatcher` holds in either list's `state: claimed`.
+4. **Deliver** each `list_deliveries` `state: pending` with a `desktopSessionId`, oldest first:
    `claim_delivery` (id, `dispatcher`), `claimed: false` → next; `send_message` to that id:
    "You asked: <question>. The answer from Backlog: <answer>", both verbatim. Sent or queued →
    `mark_delivery` `delivered`; the session no longer exists, or any other failure → `released`.
-4. **Queue.** `list_session_requests` `state: requested`, oldest first; empty → step 7. A
-   Monitor line other than `delivery`, `request` or `ready` → say it once, then step 7.
-5. **Capacity**, before each start, cheapest first; the first that fails holds the queue:
+5. **Queue.** `list_session_requests` `state: requested`, oldest first; empty → step 8. A
+   Monitor line other than `delivery`, `request` or `ready` → say it once, then step 8.
+6. **Capacity**, before each start, cheapest first; the first that fails holds the queue:
    - fewer than `sessions` rows of `list_sessions` (`linked: true`, `limit: 100`) with `startedBy`
      your id (`get_session` `self`) and `isRunning: true`, not counting a row whose id is a
      `desktopSessionId` the `backlog` server's `list_sessions` reads `Waiting`;
    - every plan limit `get_usage` reports under `usage` percent (`not_applicable` passes);
-   - `powershell -NoProfile -ExecutionPolicy Bypass -File assets/capacity.ps1 -MaxCpu <cpu>
-     -MinFreeGb <memory>` prints `"fits":true`.
-6. **Dispatch** the oldest: `claim_session_request` (id, `dispatcher`), `claimed: false` → next. `start_session`:
+   - `powershell -NoProfile -ExecutionPolicy Bypass -File assets/capacity.ps1 -MaxCpu <cpu> -MinFreeGb <memory>` prints `"fits":true`.
+7. **Dispatch** the oldest: `claim_session_request` (id, `dispatcher`), `claimed: false` → next. `start_session`:
    `initiation: user_asked`, `context: fresh`, `cwd` its `cloneFolder`, `use_worktree: true`, `prompt` its
    `brief` verbatim, `wake_when_done: true`, `title` the entry's `read_item` title or plan's `+tag` (<60
    chars), `background` "Started by dispatch-sessions for Backlog session request <id>." Failed → `released`.
    Started → `mark_session_request` `started` with its id, even past the lease; `marked: false`, another holds
-   the claim → never release: say both sessions started for <id>, naming yours and the holder's, so the person stops one. → 5.
-7. **Pace.** End the turn. `/loop` is only the fallback: 300 s if a limit held the queue, else 1800 s.
+   the claim → never release: say both sessions started for <id>, naming yours and the holder's, so the person stops one. → 6.
+8. **Pace.** End the turn. `/loop` is only the fallback: 300 s if a limit held the queue, else 1800 s.
 
 ## Never
 

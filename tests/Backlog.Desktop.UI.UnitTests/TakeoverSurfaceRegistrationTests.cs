@@ -27,9 +27,9 @@ public sealed class TakeoverSurfaceRegistrationTests
     public static TheoryData<string, string, string, string[]> Takeovers => new()
     {
         { "inbox", "Inbox", InboxFeatures.Pane, [] },
-        { "sessions", "Sessions", SessionFeatures.Sessions, ["session"] },
+        { "sessions", "Sessions", SessionFeatures.Sessions, ["session", "page", "schedule"] },
         { "pull-requests", "Pull requests", RepositoryManagementFeatures.PullRequests, ["pullRequest"] },
-        { "dashboard", "Dashboard", DashboardFeatures.Dashboard, [] },
+        { "dashboard", "Dashboard", DashboardFeatures.Dashboard, ["tab"] },
         { "notifications", "Notifications", NotificationsFeatures.Notifications, ["notification"] },
         { "tools", "Tools", DevPcFeatures.SystemTools, [] },
         { "atlas", "Atlas", DevbookFeatures.LobesAtlas, ["layout"] },
