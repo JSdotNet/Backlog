@@ -914,7 +914,7 @@ public sealed class InboxPaneTests
                 Key: button.QuerySelector("kbd")!.TextContent.Trim()))
             .ToList();
         Assert.Equal(
-            [("Move to backlog", "R"), ("To Brain", "B"), ("Someday", "S"), ("Done now", "N"), ("Move to list", "L"), ("Defer", "D"), ("Archive", "A")],
+            [("Move to backlog", "R"), ("To Brain", "B"), ("Someday", "S"), ("Done now", "N"), ("Waiting for", "W"), ("Move to list", "L"), ("Defer", "D"), ("Archive", "A")],
             decisions);
 
         // Defer in the bar offers the quick review dates.

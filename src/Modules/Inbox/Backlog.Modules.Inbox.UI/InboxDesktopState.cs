@@ -1433,6 +1433,68 @@ public sealed class InboxDesktopState : IDisposable
         }
     }
 
+    /// <summary>
+    /// Waiting for (<c>w</c>, local ADR 0054 §4): routes the selected item as Move
+    /// to backlog does — one task per repository, with the due date and My Day
+    /// chosen beside it — every task waiting on <paramref name="who"/>, free
+    /// text, with the optional <paramref name="followUpOn"/> day to chase them.
+    /// Moves on, and undoes, as Move to backlog does. A blank who, or one holding
+    /// a backtick, is not sent: the dialog asking for it keeps its button off
+    /// until the name can be written. In triage the repositories ticked there are
+    /// written first, as triage's Move to backlog writes them, and the undo puts
+    /// back the ones the item had.
+    /// </summary>
+    /// <returns>Whether the item was routed, so the dialog knows to close.</returns>
+    public async Task<bool> WaitingForAsync(string who, DateOnly? followUpOn)
+    {
+        var waitingFor = new InboxWaitingForDto(who ?? string.Empty, followUpOn);
+        if (!waitingFor.IsValid || SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return false;
+
+        IReadOnlyList<string>? previousRepoIds = null;
+        var picked = TriageRepositories;
+        if (TriageMode && !SameRepositories(picked, item.RepoIds))
+        {
+            if (!await TryAssignRepositoriesAsync(item.Id, picked)) return false;
+            previousRepoIds = item.RepoIds;
+        }
+
+        var before = VisibleItems;
+        RememberPosition();
+        RouteRunning = true;
+        Changed?.Invoke();
+
+        try
+        {
+            var schedule = ScheduleOf(item.Id);
+            var routed = await _inbox.RouteWaitingForAsync(item.Id, waitingFor, schedule.IsEmpty ? null : schedule);
+            if (Report(routed)) return false;
+
+            _routeSchedules.Remove(item.Id);
+
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, WaitingForLabel, item.Id, DeleteTasks: true, DeferralOf(item), previousRepoIds));
+
+            await ReloadAsync();
+            if (TriageMode) AdvancePast(before, item.Id);
+            Routed?.Invoke(routed.Value);
+            _toasts?.Publish(ToastMessage.Info($"\"{ItemTitle(item)}\" is waiting on {waitingFor.Who.Trim()}.", WaitingForToastTestId));
+            return true;
+        }
+        finally
+        {
+            RouteRunning = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>Waiting for's name, on its buttons, its dialog and its undo.</summary>
+    public const string WaitingForLabel = "Waiting for";
+
+    /// <summary>What the Waiting for buttons say on hover: the act and its key.</summary>
+    public const string WaitingForTitle = "Someone else has the next step: a task that waits on them (w)";
+
+    /// <summary>The toast a Waiting for publishes.</summary>
+    public const string WaitingForToastTestId = "inbox-waiting-for-routed";
+
     /// <summary>The Brain's destinations as last listed — each time the pane is
     /// opened or shown again, and each time the destination picker opens — or
     /// null before the first.</summary>
@@ -2445,6 +2507,7 @@ public sealed class InboxDesktopState : IDisposable
             InboxRouteUndoStep { Kind: InboxDecisionKind.ToBrain, Label: SomedayLabel } => "Someday",
             InboxRouteUndoStep { Kind: InboxDecisionKind.ToBrain } => "Brain",
             InboxRouteUndoStep { MadeDone: true } => "Done",
+            InboxRouteUndoStep { Kind: InboxDecisionKind.MoveToBacklog, Label: WaitingForLabel } => "Waiting for",
             InboxRouteUndoStep => "Backlog",
             _ => step.Label,
         };

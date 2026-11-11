@@ -1741,14 +1741,14 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/domain/inbox/features.md#quick-triage-shortcuts, .devbook/domain/inbox/features.md#triage-mode, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/domain/inbox/features.md#route-to-brain, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
-> Local ADR 0054 decides these outcomes. The destination picker, Someday and
-> Done now are built; Waiting for is not.
+> Local ADR 0054 decides these outcomes. The destination picker, Someday,
+> Done now and Waiting for are built.
 
 ### Requirement: S, n and w take Someday, Done now and Waiting for
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.S_files_it_without_a_picker_and_u_takes_it_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.A_decided_item_is_not_routed_again_by_s_or_n]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.S_files_it_without_a_picker_and_u_takes_it_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.A_decided_item_is_not_routed_again_by_s_or_n, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests.W_in_triage_asks_who_and_when_then_routes_and_moves_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests.A_decided_item_is_not_routed_again_by_w]
 ```
 
 The system SHALL take Someday on **s**, Done now on **n** and Waiting for on **w**, through the same act as the decision's button in the item's detail and in triage mode, and SHALL offer by key no act the detail withholds for that item.
@@ -1832,6 +1832,7 @@ The system SHALL route an item taken as Done now to a task created ticked, with 
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Waiting_for_routes_like_move_to_backlog_with_the_waiting_for_on_every_entry, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Waiting_for_with_nobody_writable_routes_nothing, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Waiting_for_writes_the_waiting_and_followup_tokens, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests.Refused_by_tasks_it_leaves_the_item_open_and_the_dialog_up]
 ```
 
 The system SHALL route an item taken as Waiting for to a task carrying the waiting-for the reader names, who and an optional follow-up date, and mark the item routed once the task is saved.

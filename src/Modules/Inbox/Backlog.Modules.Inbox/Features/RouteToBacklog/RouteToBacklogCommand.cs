@@ -17,8 +17,16 @@ namespace Backlog.Modules.Inbox.Features.RouteToBacklog;
 /// chosen beside Move to backlog, given to every entry; null for neither.
 /// <paramref name="DoneNow"/> is the Done now decision (local ADR 0054): one
 /// entry, made Done and ticked today, however many repositories the item names —
-/// the work is already over, so there is nothing to fan out.</summary>
-public sealed record RouteToBacklogCommand(Guid Id, string? EntryType = null, InboxRouteScheduleDto? Schedule = null, bool DoneNow = false);
+/// the work is already over, so there is nothing to fan out.
+/// <paramref name="WaitingFor"/> is the Waiting for decision (local ADR 0054 §4):
+/// the plain route, every entry made with who it waits on and the optional
+/// follow-up date.</summary>
+public sealed record RouteToBacklogCommand(
+    Guid Id,
+    string? EntryType = null,
+    InboxRouteScheduleDto? Schedule = null,
+    bool DoneNow = false,
+    InboxWaitingForDto? WaitingFor = null);
 
 /// <summary>
 /// The order of the two writes is the decision here. Tasks is asked first and
@@ -65,6 +73,11 @@ public sealed class RouteToBacklogCommandHandler(
         var entryType = InboxTriagePassDto.EntryTypeOf(command.EntryType);
         if (entryType is null && !string.IsNullOrWhiteSpace(command.EntryType)) return InboxErrors.UnknownEntryType(command.EntryType.Trim());
 
+        // Who it waits on goes into entry text as a token's value, so a blank one
+        // — no waiting-for at all — or one a backtick would break is refused
+        // before anything is made.
+        if (command.WaitingFor is { IsValid: false }) return InboxErrors.WaitingForWhoRequired;
+
         var item = await items.GetAsync(command.Id, cancellationToken).ConfigureAwait(false);
         if (item is null) return InboxErrors.ItemNotFound;
 
@@ -83,6 +96,9 @@ public sealed class RouteToBacklogCommandHandler(
             // My Day is today's choice, so it is dated here, on the reader's
             // local calendar, rather than by whoever asked.
             InMyDayOn = command.Schedule is { AddToMyDay: true } ? today : null,
+            WaitingFor = command.WaitingFor is { } waitingFor
+                ? new InboxWaitingForDto(waitingFor.Who.Trim().ReplaceLineEndings(" "), waitingFor.FollowUpOn)
+                : null,
         };
 
         // Done now: one task, ticked off today on the same local calendar. The

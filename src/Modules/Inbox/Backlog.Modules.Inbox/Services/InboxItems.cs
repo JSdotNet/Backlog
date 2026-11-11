@@ -209,6 +209,16 @@ internal sealed class InboxItems(
     public Task<Result<InboxRoutedDto>> RouteDoneNowAsync(Guid id, CancellationToken cancellationToken = default) =>
         routeToBacklog.Handle(new RouteToBacklogCommand(id, DoneNow: true), cancellationToken);
 
+    public Task<Result<InboxRoutedDto>> RouteWaitingForAsync(
+        Guid id,
+        InboxWaitingForDto waitingFor,
+        InboxRouteScheduleDto? schedule = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(waitingFor);
+        return routeToBacklog.Handle(new RouteToBacklogCommand(id, Schedule: schedule, WaitingFor: waitingFor), cancellationToken);
+    }
+
     public Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, string? folder = null, CancellationToken cancellationToken = default) =>
         routeToBrain.Handle(new RouteToBrainCommand(id, folder), cancellationToken);
 

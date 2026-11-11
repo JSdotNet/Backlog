@@ -458,6 +458,15 @@
                         <span class="inbox-triage__decision-hint">a task, ticked</span>
                     </AppButton>
                     <AppButton CssClass="inbox-triage__decision"
+                               Disabled="@(!open || Busy)"
+                               Title="@InboxDesktopState.WaitingForTitle"
+                               OnClick="OpenWaitingFor"
+                               TestId="inbox-waiting-for">
+                        <kbd class="inbox-pane__key" aria-hidden="true">W</kbd>
+                        <span class="inbox-triage__decision-label">@InboxDesktopState.WaitingForLabel</span>
+                        <span class="inbox-triage__decision-hint">on someone else</span>
+                    </AppButton>
+                    <AppButton CssClass="inbox-triage__decision"
                                Disabled="@Busy"
                                Title="File it in one of your lists (l)"
                                OnClick="OpenMove"
@@ -548,6 +557,10 @@
                           Open="@_brainOpen"
                           OpenChanged="value => _brainOpen = value" />
 
+        <InboxWaitingForDialog State="State"
+                               Open="@_waitingForOpen"
+                               OpenChanged="value => _waitingForOpen = value" />
+
         <Modal Open="@_deferOpen"
                OpenChanged="value => _deferOpen = value"
                Title="Defer until"
@@ -615,6 +628,19 @@
     }
 
     private bool _brainOpen;
+
+    /// <summary>Opens Waiting for's question — who, and when to follow up — as
+    /// <c>w</c> and the button do. Confirming routes with the repositories
+    /// ticked here, as R does.</summary>
+    public void OpenWaitingFor()
+    {
+        if (!CanDecide) return;
+
+        _waitingForOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool _waitingForOpen;
 
     /// <summary>Asks for what triage shows about the item on screen: the AI
     /// cards, the suggestions and the relations. Each is a no-op once the

@@ -239,13 +239,13 @@ actionable, and the backlog holds every commitment.
 | Create plan | — | A plan |
 | Merge | — | A comment on a task already tracked |
 
-Waiting for is decided in local ADR 0054 and not yet built. Someday, Done now,
-the destination picker, and the due date or My Day on Move to backlog are built
-([Route to Brain](#route-to-brain), [Route to Tasks](#route-to-tasks)).
+Someday, Done now, Waiting for, the destination picker, and the due date or My
+Day on Move to backlog are built ([Route to Brain](#route-to-brain),
+[Route to Tasks](#route-to-tasks)).
 
 The decisions sit in a bar fixed at the foot of the detail, each naming its
-key: **Move to backlog**, **To Brain**, **Someday**, **Done now**, **Move to
-list**, **Defer** and **Archive**. The bar stays in place while the detail scrolls. Delete, tags and
+key: **Move to backlog**, **To Brain**, **Someday**, **Done now**, **Waiting
+for**, **Move to list**, **Defer** and **Archive**. The bar stays in place while the detail scrolls. Delete, tags and
 repositories stay in the detail itself, because they are not the decision the
 item is waiting for.
 
@@ -291,7 +291,7 @@ Picking a set is separate from choosing the item the detail shows.
 type: sub-feature
 related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/design/accessibility.md#keyboard-navigation, .devbook/domain/inbox/requirements.md#clarify-outcomes]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests]
 ```
 
 With the Inbox pane in use, a triage session runs from the keyboard:
@@ -306,15 +306,13 @@ With the Inbox pane in use, a triage session runs from the keyboard:
 | **b** | Route it [To Brain](#route-to-brain) |
 | **s** | Route it [Someday](#route-to-brain), into the Brain's `someday` area |
 | **n** | Done now: route it to a task created already ticked |
-| **w** | Waiting for: route it to a task that waits on someone |
+| **w** | Waiting for: ask who it waits on, then route it to a task that waits on them |
 | **g** | Go to its tags |
 | **x** | Pick it for an [act on several at once](#act-on-several-at-once) |
 | **t** | Start [triage mode](#triage-mode), as the header's **Start triage** button does |
 | **u** | Undo the latest decision of the session ([Undo a decision](#undo-a-decision)) |
 | **?** | Open the **Shortcuts** dialog |
 | **Escape** | Leave the mode the reader is in |
-
-**w** is decided in local ADR 0054 and not yet built.
 
 The Tasks pane binds no letters, so **Escape** is the one key the two panes
 share. A key offers only the acts the item's detail offers: a routed or
@@ -377,9 +375,8 @@ From the top down the screen holds:
   repository ticked, the pickers read **Brain**, where the entry is filed.
   More than one makes one linked task per repository ([Route to Tasks](#route-to-tasks)).
 - **The decisions** as large buttons, each naming its key: Move to
-  backlog (**r**), To Brain (**b**), Someday (**s**), Done now (**n**), Move to
-  list (**l**), Defer (**d**) and Archive (**a**). Local ADR 0054 adds Waiting
-  for (**w**), not yet built.
+  backlog (**r**), To Brain (**b**), Someday (**s**), Done now (**n**), Waiting
+  for (**w**), Move to list (**l**), Defer (**d**) and Archive (**a**).
 - **Due** and **Add to My Day**, under the repository picker, beside Move to
   backlog: the date and the My Day choice **r** gives every task it makes
   ([Route to Tasks](#route-to-tasks)).
@@ -389,8 +386,7 @@ triage will show them. Under it, **Just decided** shows the session's last
 decision as "*title* → *what became of it*", with **Undo** (**u**).
 
 The decisions that move on are archive, defer, move to a list, move to the
-backlog, To Brain, Someday, Done now and merge into a task, and once built
-Waiting for. A reader who skipped items with **j** finds them
+backlog, To Brain, Someday, Done now, Waiting for and merge into a task. A reader who skipped items with **j** finds them
 again past the last row, and [Inbox zero](#inbox-zero) follows when none is left.
 Tags and repositories are not decisions and leave the reader where they are. Escape, or
 **Back to the list**, returns to the rows on the item the session stopped at.
@@ -484,7 +480,8 @@ app closes:
 - move to the backlog;
 - merge into a task;
 - To Brain and Someday;
-- Done now.
+- Done now;
+- Waiting for, which is undone as Move to backlog is.
 
 Three decisions reach outside the Inbox, and undoing them is bounded by that:
 
@@ -757,7 +754,7 @@ Routing is the terminal outcome of triage and happens exactly once.
 ```meta
 type: sub-feature
 related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/domain/inbox/requirements.md#route-to-tasks, .devbook/domain/tasks/domain.md#waiting-for, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests]
 ```
 
 Create one draft task per repository assigned to the item, or a single
@@ -792,9 +789,13 @@ and a failure on the Tasks side leaves it open:
   its attachment folder, in the item's first repository or none; the other
   repositories get no sibling, because nothing is left to do there. A due date
   or My Day chosen beside Move to backlog does not go with it.
-- **Waiting for (w)**, not yet built. The task is created with a
-  [waiting-for](../tasks/domain.md#waiting-for): who it waits on, and an
-  optional follow-up date.
+- **Waiting for (w).** A dialog asks who the work waits on, free text and
+  required, and an optional follow-up date. The item then routes as Move to
+  backlog routes it, with the repositories, due date and My Day chosen beside
+  it, and every task it makes carries that
+  [waiting-for](../tasks/domain.md#waiting-for) as `waiting:` and
+  `followup:`. A name holding a backtick, which a token cannot carry, keeps
+  the dialog's button off.
 
 ### Create plan from an item
 

@@ -291,6 +291,15 @@ public static class InboxErrors
         "inbox.batch.merge_save_failed",
         $"The item it duplicates was routed, but this one could not be archived ({detail}). It is still in the Inbox.");
 
+    /// <summary>The code <see cref="WaitingForWhoRequired"/> answers with.</summary>
+    public const string WaitingForWhoRequiredCode = "inbox.route.waiting_for_who_required";
+
+    /// <summary>Waiting for was asked with nobody to wait on, or with a name
+    /// holding a backtick, which entry text cannot carry. Nothing was routed.</summary>
+    public static Error WaitingForWhoRequired { get; } = Error.Validation(
+        WaitingForWhoRequiredCode,
+        "Name who it waits on, without a backtick, so nothing was routed.");
+
     /// <summary>The code <see cref="UnknownEntryType"/> answers with.</summary>
     public const string UnknownEntryTypeCode = "inbox.route.unknown_entry_type";
 

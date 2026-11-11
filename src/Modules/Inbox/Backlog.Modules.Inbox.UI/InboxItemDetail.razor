@@ -483,6 +483,10 @@
                            Title="@InboxDesktopState.DoneNowTitle"
                            OnClick="State.DoneNowAsync"
                            TestId="inbox-done-now"><span class="inbox-pane__decision-label">@InboxDesktopState.DoneNowLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">N</kbd></AppButton>
+                <AppButton Disabled="@Busy"
+                           Title="@InboxDesktopState.WaitingForTitle"
+                           OnClick="OpenWaitingFor"
+                           TestId="inbox-waiting-for"><span class="inbox-pane__decision-label">@InboxDesktopState.WaitingForLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">W</kbd></AppButton>
             }
             <AppButton Disabled="@Busy"
                        Title="File it in one of your lists (l)"
@@ -602,6 +606,10 @@
         <InboxBrainPicker State="State"
                           Open="@_brainOpen"
                           OpenChanged="open => _brainOpen = open" />
+
+        <InboxWaitingForDialog State="State"
+                               Open="@_waitingForOpen"
+                               OpenChanged="open => _waitingForOpen = open" />
 
         <Modal Open="@_deferOpen"
                OpenChanged="open => _deferOpen = open"
@@ -1116,6 +1124,18 @@
     }
 
     private bool _brainOpen;
+
+    /// <summary>Opens Waiting for's question — who, and when to follow up — as
+    /// <c>w</c> and the button do.</summary>
+    public void OpenWaitingFor()
+    {
+        if (!CanDecide) return;
+
+        _waitingForOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool _waitingForOpen;
 
     private IReadOnlyList<MenuItem> DeferChoices() => InboxDecisionMenus.DeferChoices(State.Today);
 
