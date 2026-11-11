@@ -164,6 +164,11 @@ Negative:
   everyone else sees it unresolved.
 - **A Brain set up on one device only resolves on that device.** The others read
   the address as unresolved until they have the folder.
+- **An older device drops a task's Brain references.** A build from before the
+  task side reads a `#brain:` address as no reference at all: its replica merge
+  and its store leave it out without a word. If that device then edits the task
+  and pushes it, the references are gone for every device. Update every device
+  before using Brain references on tasks.
 
 Neutral:
 
@@ -216,3 +221,4 @@ Look for tests that show these behaviours:
 | 2026-11-11 | The plan side built: Knowledge Ref, Import's `plan` entry `devbook:` token (ADR 0013 amended), gathering by tag, Brain chips. | Plan entry gtd-para:14. |
 | 2026-11-11 | The task side built: a task's Devbook references hold a Brain address, answered from the owner's Brain with `scope: "#brain"` over MCP, shown as a Brain chip, and read by `run-plan-item` before a session works. | Plan entry gtd-para:15. |
 | 2026-11-11 | `import-plan` takes a Brain note as its source: the `plan` entry and its steps carry `devbook:#brain:` and name the note in `Read first:`; the import grammar documents the address. | Plan entry gtd-para:18. |
+| 2026-11-11 | Consequences record that a device on a build before the task side drops a task's Brain references, and that a push from it loses them everywhere. | Left open by the review of PR #1763; found by plan entry gtd-para:23. |
