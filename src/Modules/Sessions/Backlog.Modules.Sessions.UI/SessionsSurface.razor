@@ -18,6 +18,7 @@
               OnOpenTask="@OpenTaskCallback"
               SessionTask="@_wiring?.SessionTask"
               PullRequestStatus="@(Catalog.TryGet(PullRequestsSurfaceId, out _) ? _wiring?.PullRequestStatus : null)"
+              OnAnswerQuestion="@AnswerQuestionCallback"
               FocusSessionId="@FocusSessionId" />
 
 @code {
@@ -43,4 +44,11 @@
 
     private EventCallback<DeliveryRunReference> OpenTaskCallback =>
         _wiring?.OpenTask is { } open ? EventCallback.Factory.Create(this, open) : default;
+
+    /// <summary>Only while the window offers the centre, so an Answer never opens
+    /// nothing; without it the strip still says what the session asks.</summary>
+    private EventCallback<Guid> AnswerQuestionCallback =>
+        _wiring?.AnswerQuestion is { } answer && (_wiring.AnswerQuestionOffered?.Invoke() ?? true)
+            ? EventCallback.Factory.Create(this, answer)
+            : default;
 }
