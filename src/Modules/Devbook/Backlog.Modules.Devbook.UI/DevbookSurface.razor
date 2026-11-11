@@ -12,8 +12,7 @@
     it — another repository's chapter, the Brain, the switch, a task — goes through
     the window's ISurfaceNavigator, so it lands in the window it was pressed in.
 *@
-<DevbookPane OnClose="OnClose"
-             RepositoryAlias="@RepositoryAlias"
+<DevbookPane RepositoryAlias="@RepositoryAlias"
              SwitchRepositoryAlias="@SwitchRepositoryAlias"
              ShowsBrainChanged="ShowSide"
              OpenSearchResultElsewhere="OpenSearchResult"
@@ -34,7 +33,9 @@
     [Parameter]
     public IReadOnlyDictionary<string, string>? Query { get; set; }
 
-    /// <summary>Closes the surface, back to the view underneath.</summary>
+    /// <summary>The shell's close callback (<see cref="ShellSurface.CloseParameter"/>),
+    /// declared because the shell hands it to every surface. Unused: the Devbook
+    /// draws no close of its own.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
 

@@ -116,11 +116,10 @@
             <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync" TestId="tools-update-all">
                 @(Updating ? UpdatingLabel : UpdateAllLabel)
             </AppButton>
-            @* Icon-only, so the label is the aria-label and the target is the
-               44px floor the iconography rules set for one. *@
-            <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost tools-panel__close" OnClick="() => OnClose.InvokeAsync()" TestId="tools-close">
-                <XIcon Size="20" TestId="tools-close-icon" />
-            </IconButton>
+            @* No close of its own (interaction-guidelines.md#shell-header, "A
+               surface draws no close of its own"): the Tools option pressed again,
+               or Escape, is the way back in the main window, and the OS close in a
+               window of its own. *@
         </Actions>
     </SectionHeader>
 
@@ -1702,12 +1701,6 @@
     private string? _importError;
 
     private DevToolInfo? _removing;
-
-    /// <summary>Raised when somebody dismisses the pane. Whether that hides it,
-    /// collapses a stack or does nothing is the shell's decision — the pane only
-    /// reports that the ✕ was pressed.</summary>
-    [Parameter]
-    public EventCallback OnClose { get; set; }
 
     protected override Task OnInitializedAsync()
     {
