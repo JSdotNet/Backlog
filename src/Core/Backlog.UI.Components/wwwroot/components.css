@@ -24123,7 +24123,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 /* Where a host draws the list: under a field's row, a part's card, a member's
-   card, a Glossary row, a flow card, a lifecycle and a feature's promises. */
+   card, a Glossary row and a feature's promises. */
 .domain-field-row__rules {
     flex: 1 1 100%;
 }
@@ -24134,24 +24134,12 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     margin-top: var(--spacing-xs);
 }
 
-.domain-flows__rules {
-    display: grid;
-    gap: var(--spacing-xs);
-}
-
-.domain-flows__rules-title {
-    margin: 0;
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-}
-
 .domain-feature-detail__rules-label {
     margin-top: var(--spacing-md);
 }
 
 /* A rule count that opens the rules in place: a link, as the boards draw it. */
 .domain-glossary__rules,
-.domain-flow-card__rules,
 .domain-model__rules {
     align-self: flex-start;
     padding: 0;
@@ -24165,13 +24153,11 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .domain-glossary__rules:hover,
-.domain-flow-card__rules:hover,
 .domain-model__rules:hover {
     color: var(--color-primary-light);
 }
 
 .domain-glossary__rules:focus-visible,
-.domain-flow-card__rules:focus-visible,
 .domain-model__rules:focus-visible,
 .domain-field-rules:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
@@ -24505,9 +24491,9 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-size: var(--font-size-sm);
 }
 
-/* --- Domain view: Flow ----------------------------------------------------- */
+/* --- Domain view: flows ---------------------------------------------------- */
 /*
-  The Flow page of the Domain view (local ADR 0047): a stateDiagram-v2 drawn as
+  A unit's lifecycles on its Domain page (local ADR 0047): a stateDiagram-v2 drawn as
   one row of states, each a box with its description. A move to the next state
   runs straight to it on top, a move back underneath in a dimmer tone; other
   forward arcs run in lanes above, other ways back in lanes below, the restore
@@ -24543,11 +24529,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-size: var(--font-size-xl);
     font-weight: var(--font-weight-semibold);
     line-height: var(--line-height-tight);
-}
-
-/* The board's page title: the scale's H3, as every Domain view page title. */
-.domain-flows__title--page {
-    font-size: var(--font-size-3xl);
 }
 
 /* A unit's own flows on its Domain page, below its About card: the
@@ -24789,60 +24770,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     color: var(--color-text-primary);
 }
 
-/* What sits beside the status rather than in it: one card per sub-chapter. */
-.domain-flows__cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
-    gap: var(--spacing-lg);
-}
-
-.domain-flow-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    min-width: 0;
-    padding: var(--spacing-md) var(--spacing-lg);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background-alt);
-}
-
-.domain-flow-card__header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--spacing-2xs) var(--spacing-sm);
-}
-
-.domain-flow-card__title {
-    margin: 0;
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-}
-
-.domain-flow-card__tag {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.domain-flow-card__tag p,
-.domain-flow-card__footer p {
-    margin: 0;
-}
-
-.domain-flow-card__body {
-    font-size: var(--font-size-sm);
-}
-
-.domain-flow-card__footer {
-    margin-top: auto;
-    padding-top: var(--spacing-sm);
-    font-size: var(--font-size-sm);
-}
-
 /*
-  A flowchart and a sequence on the Flow page wear the row's cards, lines,
+  A flowchart and a sequence wear the row's cards, lines,
   arrowhead and labels; a dotted link and a reply are dashed.
 */
 

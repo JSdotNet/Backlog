@@ -341,7 +341,7 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
 
         var context = Assert.Single(tree.Children, node => node.Path == "inbox");
         Assert.Equal(
-            ["inbox/domain.md", "inbox/features.md", "inbox/model.md", "inbox/flow.md", "inbox/dependencies.md", "inbox/naming.md"],
+            ["inbox/domain.md", "inbox/features.md", "inbox/model.md", "inbox/dependencies.md", "inbox/flow.md", "inbox/naming.md"],
             context.Children.Select(node => node.Path));
     }
 
@@ -445,7 +445,7 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
         var context = Assert.Single(tree.Children, node => node.Path == "inbox");
         Assert.Equal("Inbox", context.Label);
         Assert.Equal(
-            ["Domain", "Features", "Model", "Flow", "Dependencies", "Naming"],
+            ["Domain", "Features", "Model", "Dependencies", "Flow", "Naming"],
             context.Children.Select(node => node.Label));
 
         // The property behind all three guards: whatever a level adopts, its rows
