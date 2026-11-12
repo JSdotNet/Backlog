@@ -11,7 +11,7 @@ related: [.devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-la
 type: feature
 setting: [.devbook/domain/calendar/context.md#calendar-range, .devbook/domain/calendar/context.md#show-plans, .devbook/domain/calendar/context.md#show-events]
 related: [.devbook/domain/tasks/features.md#tasks-on-the-calendar, .devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/features.md#my-day, .devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first, .devbook/design/interaction-guidelines.md#group-shape-says-cardinality, .devbook/domain/events/features.md#events-on-the-calendar, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_range_is_remembered_and_a_fresh_shell_reopens_on_it, unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarEventsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneCalendarTests.On_a_device_that_never_chose_the_events_are_off_until_ticked_and_the_tick_is_kept]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_range_is_remembered_and_a_fresh_shell_reopens_on_it, unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarEventsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneCalendarTests.On_a_device_that_never_chose_the_events_are_off_until_ticked_and_the_tick_is_kept, unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarSurfaceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_shell_navigation_file_written_before_the_calendar_module_reopens_the_calendar_on_its_range_and_choices, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellCalendarViewPreferencesTests, unit:dotnet:Backlog.Modules.Calendar.UnitTests.CalendarPlansLayerTests]
 ```
 
 The Calendar lays its [layers](domain.md#calendar-layer) out on a month or a week. It
@@ -86,7 +86,7 @@ changes nothing else.
 ```meta
 type: sub-feature
 related: [.devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/calendar/features.md#calendar-view, .devbook/domain/tasks/features.md#tasks-on-the-calendar, .devbook/domain/roadmap/features.md, .devbook/design/interaction-guidelines.md#combobox]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarHoursTests, unit:dotnet:Backlog.UI.Components.UnitTests.PlannedHoursEditorTests, unit:dotnet:Backlog.UI.Components.UnitTests.CalendarHoursTests]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarHoursTests, unit:dotnet:Backlog.UI.Components.UnitTests.PlannedHoursEditorTests, unit:dotnet:Backlog.UI.Components.UnitTests.CalendarHoursTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneCalendarHoursTests]
 ```
 
 The person can set [Planned Hours](../tasks/domain.md#planned-hours) aside for a task

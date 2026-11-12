@@ -75,7 +75,7 @@ between inherited ADRs 0005 and 0009.
 - **[0046 — C4 zoom navigation is one architecture surface behind its own switch, its links are read from devbook metadata, and its code from syntax trees](0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, built; builds on 0004, 0015 and 0016)*
 - **[0047 — The Domain view reads by unit](0047-the-domain-view-reads-by-unit.md)** *(proposed, built behind the `devbook-domain-view` switch)*
 - **[0050 — Events is its own bounded context](0050-events-is-its-own-bounded-context.md)** *(proposed, specification only; §7's events layer moves to the Calendar by 0055)*
-- **[0055 — Calendar is a surface of its own that reads layers](0055-calendar-is-a-surface-of-its-own-that-reads-layers.md)** *(proposed, specification only; supersedes 0022 §1 for the Calendar)*
+- **[0055 — Calendar is a surface of its own that reads layers](0055-calendar-is-a-surface-of-its-own-that-reads-layers.md)** *(proposed, Tasks and Plans layers built; supersedes 0022 §1 for the Calendar)*
 
 ## Inherited decisions
 

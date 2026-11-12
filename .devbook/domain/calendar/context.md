@@ -28,7 +28,7 @@ Outside it:
 
 ```mermaid
 flowchart LR
-    Tasks -->|Tasks layer| Calendar
+    Tasks -->|"Tasks layer, a part"| Calendar
     Roadmap["Roadmap Planning"] -->|Plans layer| Calendar
     Events -->|Events layer| Calendar
     Calendar -->|"due date, hours"| Tasks
@@ -40,11 +40,18 @@ taken. The Events layer writes nothing.
 
 These chapters are the model decided in local
 [ADR 0055](../../arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md),
-which is proposed. The code still draws the Calendar as a layout of the Tasks pane,
-through ports Tasks owns, and its stored choices sit in `ShellNavigationStore`. A later
-`flow-code` change builds the module `Backlog.Modules.Calendar`, with
-`Backlog.Modules.Calendar.Abstractions` for the layer ports and
-`Backlog.Modules.Calendar.UI` for the surface.
+which is proposed. The module `Backlog.Modules.Calendar` is built.
+`Backlog.Modules.Calendar.Abstractions` holds the layer ports, and
+`Backlog.Modules.Calendar.UI` the surface.
+
+- **Tasks layer:** a part Tasks offers and the Calendar hosts. It carries the filter bar,
+  the tasks by due date, the tray, the hours, the drag and the open task, on the window's
+  task state.
+- **Plans layer and the hours worked each day:** the Calendar's own ports, which adapters
+  answer over Roadmap Planning.
+- **Range and Show plans:** the Calendar's own view choices.
+- **Events layer and Show events:** still reach the Calendar through Tasks'
+  `ICalendarEvents`, until they move.
 
 ## Calendar range
 
@@ -93,8 +100,8 @@ apart from Show plans.
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Tasks](../tasks/features.md#tasks-on-the-calendar) | Customer/Supplier | Tasks layer port, answered by an adapter (not built) | Tasks' published task contract | The tasks by due date, their hours, and the writes back |
-| [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier | Plans layer port and the hours worked each day, answered by adapters (not built; today `ICalendarPlans` and `ICalendarCapacity` in Tasks) | Roadmap's plans, shelf and working week | The plan bars, the shelf drop, and a day's capacity |
+| [Tasks](../tasks/features.md#tasks-on-the-calendar) | Customer/Supplier | A part Tasks offers, which the Calendar hosts and hands its range, Plans layer and hours; registered as `CalendarTasksLayer` in `Backlog.UI.Components` | The window's task state (filter, open task, selection), local ADR 0043 §5 | The tasks by due date, their hours, and the writes back |
+| [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier | `ICalendarPlans` and `ICalendarCapacity` in `Backlog.Modules.Calendar.Abstractions`, answered by `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` under `Infrastructure.FileSystem/Calendar/` over Roadmap's abstractions | Roadmap's plans, shelf and working week | The plan bars, the shelf drop, and a day's capacity |
 | [Events](../events/domain.md#knowledge-event) | Customer/Supplier | Events layer port, answered by an adapter (not built; today `ICalendarEvents` in Tasks) | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions` | The event bars and key dates |
 
 ### Inbound dependents (known)
