@@ -26,6 +26,11 @@ public sealed class BrainCorpusProfile : DevbookCorpusProfile
 
     public override bool ReadsCrossCorpusLinks => true;
 
+    /// <summary>The lists a note names its links in, read in either list style:
+    /// the link writer keeps a block list one (local ADR 0052 §1), so the index
+    /// reads it back — <c>BLOCK_LIST_FIELDS</c> in <c>tools/devbook/brain.mjs</c>.</summary>
+    public override IReadOnlyCollection<string> BlockListFields { get; } = ["repos", "tasks", "roadmap"];
+
     /// <summary>The areas <see cref="BrainConventions.Read"/> resolves, in tab
     /// order, of those that are folders on disk — the set the pane's tabs show and
     /// <c>tools/devbook/brain.mjs</c> reads.</summary>

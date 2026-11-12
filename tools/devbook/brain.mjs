@@ -49,6 +49,13 @@ export const PARA_AREAS = Object.freeze([
 /** The node attributes a Brain adds to the devbook's list attributes. */
 export const BRAIN_ATTRIBUTES = ['para', 'repos', 'tasks', 'review'];
 
+/** The lists a note may write as a YAML block list — the field with no value,
+ *  then one `- item` line per value — as well as `[a, b]`. The devbook parse
+ *  skips `- item` lines; the link writer keeps a block list one (local ADR 0052
+ *  §1), so the Brain reads these back itself. `BlockListFields` on
+ *  `BrainCorpusProfile.cs` is the C# twin. */
+export const BLOCK_LIST_FIELDS = Object.freeze(['repos', 'tasks', 'roadmap']);
+
 /** The edge type a `repo:` link in a note's body draws. */
 export const REPO_LINK_EDGE = 'repo-link';
 
@@ -367,6 +374,53 @@ async function isDirectory(absolute) {
     }
 }
 
+/**
+ * The block lists of a `meta` block's body (`metaRaw`, as the parse kept it):
+ * each of BLOCK_LIST_FIELDS whose last line in the block has no value takes the
+ * `- item` lines under it — blank lines and `# comments` between them kept out,
+ * any other line ending the list — trimmed and unquoted, as a flow list's
+ * entries are. A field whose last line has a value keeps the parse's reading, as
+ * a later key wins; one with no items stays as the parse left it.
+ */
+export function readBlockLists(metaRaw) {
+    const lists = new Map();
+    let open = null;
+    for (const line of String(metaRaw ?? '').split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed[0] === '#') continue;
+        if (trimmed[0] === '-' && (trimmed.length === 1 || trimmed[1].trim() === '')) {
+            const item = unquoteEntry(trimmed.slice(1).trim());
+            if (open && item.length) open.push(item);
+            continue;
+        }
+        open = null;
+        const colon = line.indexOf(':');
+        if (colon === -1) continue;
+        const key = line.slice(0, colon).trim();
+        if (!BLOCK_LIST_FIELDS.includes(key)) continue;
+        if (line.slice(colon + 1).trim() === '') lists.set(key, (open = []));
+        else lists.delete(key);
+    }
+    return lists;
+}
+
+/** `meta` with its block lists read in: a copy when there is one to add. */
+function withBlockLists(meta, metaRaw) {
+    if (!meta) return meta;
+    let read = meta;
+    for (const [key, items] of readBlockLists(metaRaw)) {
+        if (items.length) read = { ...read, [key]: items };
+    }
+    return read;
+}
+
+/** `parseScalar`'s unquoting of one entry. */
+function unquoteEntry(value) {
+    return value.length >= 2 && ((value[0] === '"' && value.at(-1) === '"') || (value[0] === "'" && value.at(-1) === "'"))
+        ? value.slice(1, -1)
+        : value;
+}
+
 const asList = (value) => (value === null || value === undefined ? [] : Array.isArray(value) ? value : [value]);
 
 /** One flag per line: inside a fenced block, fences included (CommonMark). */
@@ -491,7 +545,8 @@ export async function loadBrainGenerator(brainRoot, base) {
                 const { chapters } = base.parseDocument(markdown);
 
                 const file = byId.get(relPath);
-                const fileMeta = chapters.find((chapter) => chapter.level === 1)?.meta ?? null;
+                const top = chapters.find((chapter) => chapter.level === 1);
+                const fileMeta = withBlockLists(top?.meta ?? null, top?.metaRaw);
                 if (file) applyBrainFields(file, fileMeta, folder, true);
 
                 const claimed = new Set();
@@ -501,7 +556,7 @@ export async function loadBrainGenerator(brainRoot, base) {
                     if (claimed.has(id)) continue;
                     claimed.add(id);
                     const node = byId.get(id);
-                    if (node?.type === 'chapter') applyBrainFields(node, chapter.meta, null, false);
+                    if (node?.type === 'chapter') applyBrainFields(node, withBlockLists(chapter.meta, chapter.metaRaw), null, false);
                 }
 
                 edges.push(...repoLinkEdges(relPath, markdown, chapters));
@@ -547,6 +602,10 @@ function applyBrainFields(node, meta, area, isFile) {
         if (values.length) node[field] = values.map(String);
         else delete node[field];
     }
+
+    // `roadmap` is the generator's attribute; a block list it skipped is read here.
+    const roadmap = asList(meta?.roadmap);
+    if (!asList(node.roadmap).length && roadmap.length) node.roadmap = roadmap.map(String);
 
     const review = isFile && meta?.review !== null && meta?.review !== undefined ? String(meta.review) : '';
     if (review.length) node.review = [review];
