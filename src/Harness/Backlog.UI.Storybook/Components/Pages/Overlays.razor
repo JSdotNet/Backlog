@@ -130,7 +130,7 @@ Confirm stays open with its button busy until the host's OnConfirm has finished,
     <Story Name="PopoverButton"
            Description="A small panel of the host's own controls under a button, for settings somebody flips now and then and would rather not see all day. A disclosure rather than a menu: the trigger carries `aria-expanded` and `aria-controls`, and the panel is a `role=group` holding switches and buttons, not menu items. It is drawn straight after the trigger, so Tab walks into it.
 
-Escape closes it and puts the focus back on the trigger; so does a click anywhere outside, and a second press of the trigger. Flipping a control inside leaves it open. The desktop header puts its Colors and Show archived switches in one."
+Escape closes it and puts the focus back on the trigger; so does a click anywhere outside, and a second press of the trigger. Flipping a control inside leaves it open. The desktop footer's Settings gear puts its Colors and Show archived switches in one."
            Code="@PopoverCode">
         <div class="sb-row">
             <PopoverButton AriaLabel="Display options" TestId="story-popover">
@@ -142,6 +142,20 @@ Escape closes it and puts the focus back on the trigger; so does a click anywher
             </PopoverButton>
         </div>
         <p class="sb-state" data-testid="popover-state">Colors: @(_popoverColours ? "on" : "off") &nbsp;|&nbsp; Show archived: @(_popoverArchived ? "on" : "off")</p>
+    </Story>
+
+    <Story Name="PopoverButton opening upward"
+           Description="The same disclosure on a trigger at the window's bottom edge, where a panel opening downward would run off the screen. `OpenUpward` puts the panel's bottom edge on the trigger's top; `AlignEnd` lines its end edge up with the trigger's, so it opens inward from the end of the row. The desktop footer's Settings gear is drawn this way, last on the band."
+           Code="@PopoverUpwardCode">
+        <div class="sb-footer-band">
+            <PopoverButton AriaLabel="Settings" TestId="story-popover-upward" OpenUpward="true" AlignEnd="true">
+                <Trigger>⚙</Trigger>
+                <ChildContent>
+                    <Toggle Label="Colors" TestId="story-popover-upward-colours" Checked="_popoverColours" CheckedChanged="v => _popoverColours = v" />
+                    <Toggle Label="Show archived" TestId="story-popover-upward-archived" Checked="_popoverArchived" CheckedChanged="v => _popoverArchived = v" />
+                </ChildContent>
+            </PopoverButton>
+        </div>
     </Story>
 
     @*
@@ -226,6 +240,16 @@ Escape closes it and puts the focus back on the trigger; so does a click anywher
     private const string PopoverCode = """
         <PopoverButton AriaLabel="Display options">
             <Trigger><EllipsisIcon /></Trigger>
+            <ChildContent>
+                <Toggle Label="Colors" @bind-Checked="_colours" />
+                <Toggle Label="Show archived" @bind-Checked="_archived" />
+            </ChildContent>
+        </PopoverButton>
+        """;
+
+    private const string PopoverUpwardCode = """
+        <PopoverButton AriaLabel="Settings" OpenUpward="true" AlignEnd="true">
+            <Trigger>⚙</Trigger>
             <ChildContent>
                 <Toggle Label="Colors" @bind-Checked="_colours" />
                 <Toggle Label="Show archived" @bind-Checked="_archived" />

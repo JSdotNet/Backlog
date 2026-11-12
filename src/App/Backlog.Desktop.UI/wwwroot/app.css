@@ -264,6 +264,10 @@ h1, h2, h3 {
     align-items: center;
     gap: var(--spacing-md);
     flex-wrap: nowrap;
+    /* How far a DEV or BETA flag stands past its control's right edge — see the
+       flag rule under Header groups, and the utilities' end padding that keeps
+       the room for it. */
+    --header-flag-overhang: 4px;
 }
 
 .app-header > * {
@@ -330,8 +334,14 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
+/* The end padding is the room a flag on the last control stands out into. Ask
+   AI closes the row now the gear has gone to the footer, and its DEV or BETA
+   flag hung past the header's own edge: the header then measured a few pixels
+   wider than its box, and backlogHeaderFit (app.js) folded every tier and wrapped
+   the row at any width. A flag is decoration and must never decide the fit. */
 .app-header__utilities {
     gap: var(--spacing-xs);
+    padding-inline-end: var(--header-flag-overhang);
 }
 
 /* Once the row has wrapped the utilities may land on a row of their own, and
@@ -387,7 +397,9 @@ h1, h2, h3 {
 }
 
 /*
-  The shared Toggle in the header's gear menu rather than in a settings row.
+  The shared Toggle in the Settings gear's menu rather than in a settings row. The
+  `header-` names are from when the gear sat in the header; the footer band holds
+  it now, and the names stay because they describe the shape, not the place.
 
   The component is laid out for that row: the track aligns to the top of a text
   block that may carry a description under the name, and the name is set at the
@@ -423,11 +435,19 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
 }
 
-/* The gear reads pressed while its menu is out, as a hovered icon link does. */
-.icon-link.icon-link--open {
+/* The gear reads pressed while its menu is out, as a hovered utility does. */
+.header-util.header-util--open {
     background: var(--color-background-alt);
     border-color: var(--color-border-strong);
     color: var(--color-text-primary);
+}
+
+/* The gear wears the band's utility shape, so it is as short as Report issue
+   beside it; only its glyph steps up from the band's small type, which would
+   draw it no bigger than a letter. Line height 1, so the band stays one line. */
+.app-footer__settings-trigger {
+    font-size: var(--font-size-lg);
+    line-height: 1;
 }
 
 /* Settings, last in the gear menu: a link to the page, set apart from the
@@ -622,21 +642,28 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
-/* Tags take the middle of the bar, and all the slack in it. They used to share it
-   with the areas group, which is gone; nothing else in the bar wants the width,
-   because the two scopes are pinned and status sits against the right edge.
+/* The tags' own row, under every other group on the bar. The strip used to take
+   the middle of the first row with a zero basis, which left it whatever the scopes,
+   Source, Type and the statuses did not use — at mid widths one sliced chip and
+   More. A row of its own gives it the bar's whole width at every width, collapsed or
+   expanded, and keeps More or Fewer at that row's end. `order: 1` puts it last, as
+   the markup does, and keeps it under the refresh spinner that follows it in the
+   DOM; nothing else on the bar sets an order.
 
-   Two ways it stops taking room at all. It is absent from the markup while nothing
-   in scope carries a tag, so the bar is two groups for anyone who does not tag; and
-   it is hidden below 38rem, where the rows' own tags are the better control — see
-   the container query at the bottom of this file. What is left here is the width in
-   between. */
+   It is absent while nothing in scope carries a tag, and gone at the 48rem step
+   while nothing is picked — see the container query at the bottom of this file. */
+.filter-bar__tags {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+    flex: 1 0 100%;
+    order: 1;
+    min-width: 0;
+}
+
 .filter-group--tags {
-    /* A zero basis, so the strip takes what the other groups leave rather than
-       competing with them for it: at `auto` a long pile shrank the statuses too,
-       clipping them through a chip's name. What the strip cannot fit is the
-       toggle's to reach. The bar wraps too, and at `auto` a long pile would
-       claim a row of its own there and push the statuses onto a third. */
+    /* All of the row but More's end of it: a zero basis, so the toggle keeps its
+       width and the strip takes the rest. */
     flex: 1 1 0;
     /* One row of whole chips. The strip wraps, and is cut to the height of one
        chip, so a chip that does not fit drops out of view entirely instead of
@@ -649,22 +676,17 @@ h1, h2, h3 {
     max-height: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));
     /* Never narrower than a pressed first chip. A pressed plan — opened from the
        roadmap or pressed on the bar — is put first with its copy
-       (TasksDesktopState.RebuildTagFilters), and with every repository in
-       scope the zero basis leaves the strip next to nothing — the chip that says why
-       the list is short would be clipped whole. components.js measures that chip;
-       unpressed, the variable is unset and the strip keeps taking only the slack. */
+       (TasksDesktopState.RebuildTagFilters). On its own row the strip rarely runs
+       that short, but a column narrower than the pair still would, and clip the chip
+       that says why the list is short whole. components.js measures that chip;
+       unpressed, the variable is unset. */
     min-width: var(--tag-strip-lead, 0);
 }
 
-/* Opened by the toggle: every tag, on as many rows as it takes, and across the
-   bar's whole width on a row of its own. Left in the middle column it wrapped
-   into a narrow tower beside the statuses, a few chips a row however wide the
-   pane was. The order moves it after every other group, statuses included, so
-   the first row keeps the layout it had while the strip was closed and the
-   Fewer toggle stays where it was pressed; nothing else in the bar sets one. */
+/* Opened by the toggle: every tag, on as many rows as it takes. The row it opens
+   in is already its own, so nothing else on the bar moves and Fewer stays at the
+   row's end, where More was pressed. */
 .filter-group--tags--expanded {
-    flex-basis: 100%;
-    order: 1;
     max-height: none;
     row-gap: var(--spacing-xs);
 }
@@ -860,13 +882,47 @@ h1, h2, h3 {
     margin-left: auto;
 }
 
-/* The open-work total. Not a filter, and last on the bar: the status group's auto
-   margin already carries it to the right edge, so it takes no margin of its own
-   here — two auto margins would split the slack and float status off the edge.
-   It never shrinks and no step hides it: the tag pile gives way before it does,
-   below 60rem it drops its detail half and below 47rem its noun. */
+/* The open-work total. Not a filter, and last on the bar's first row: the status
+   group's auto margin already carries it to the right edge, so it takes no margin
+   of its own here — two auto margins would split the slack and float status off
+   the edge. It never shrinks and no step hides it: below 60rem it drops its detail
+   half and below 47rem its noun. In the list on a narrow column it is not on the
+   bar at all but beside New entry (`.entry-add-row__summary`); TasksPane renders
+   it there, because a query cannot move an element between parents. */
 .filter-group--summary {
     flex: 0 0 auto;
+}
+
+/* The narrow column's Filter menu: Source and Type folded behind one trigger.
+   Pinned like the scopes, because it is the only way to either group down here. */
+.filter-group--menu {
+    flex: 0 0 auto;
+    overflow: visible;
+}
+
+/* The bar clips what overflows it (above), and the open panel hangs below the
+   bar — so only while it is open does the bar let it out. */
+.filter-bar:has(.filter-menu__panel) {
+    overflow: visible;
+}
+
+/* The trigger's face: the word, the caret, and the count of what is pressed. */
+.chip--menu .popover-button__glyph {
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+/* The library draws the chevron pointing up and leaves the turn to the host: this
+   one opens a panel below it. */
+.filter-menu__caret {
+    transform: rotate(180deg);
+}
+
+/* Inside the panel the two groups are rows of their own, so their chips wrap
+   rather than clip. */
+.filter-menu__panel > .filter-group {
+    flex-wrap: wrap;
+    overflow: visible;
 }
 
 /* Sort by status: an act on the rows in view, not a filter. A glyph on a square
@@ -2159,7 +2215,12 @@ h1, h2, h3 {
    Still a small pile's width and not a promise: the pile has no ceiling at all, since
    an entry wears any number of tags and every distinct one gets a chip. */
 @container backlog-list (max-width: 48rem) {
-    /* The tag group goes while nothing is picked, and it is the only group that may.
+    /* The same width is TasksPane.ListNarrowRem, where components.js tells the
+       pane the column is narrow and it folds Source and Type into one Filter
+       menu and, in the list, moves the open-work summary beside New entry. A
+       query cannot do either: both change which parent an element has.
+
+       The tag row goes while nothing is picked, and it is the only group that may.
 
        Every other group on the bar is the whole of its own question — there is no
        second place to pick an area, a status or My Day, so hiding one would take
@@ -2171,12 +2232,12 @@ h1, h2, h3 {
        so a row's tag adds and removes its own tag and nothing else — it is no longer
        the single press that puts every row back, and "Untagged" is not on a row at
        all, so a selection holding it would have had no control left on screen. Hence
-       the second rule: once something is picked the group stays, narrowed to exactly
+       the second rule: once something is picked the row stays, narrowed to exactly
        what was picked. That is both the reminder that the list is short for a reason
        and the way back out of it, and it costs none of the width the first rule is
        here to save: what comes back is the selection, never the strip of every tag
        in the backlog. See OnRowTagSelected. */
-    .filter-group--tags:not(.filter-group--tags--picked) {
+    .filter-bar__tags:not(:has(.filter-group--tags--picked)) {
         display: none;
     }
 
@@ -2202,7 +2263,7 @@ h1, h2, h3 {
    narrow even for the number wraps the summary onto the next row while the strip
    stays exactly where it would be without it. */
 @container backlog-list (max-width: 47rem) {
-    .open-work-summary__noun {
+    .filter-bar .open-work-summary__noun {
         display: none;
     }
 }
@@ -2421,6 +2482,15 @@ h1, h2, h3 {
 .entry-add-row > .entry-add--import {
     flex: 0 0 auto;
     justify-content: center;
+}
+
+/* The open-work total in a narrow list column, after Import: the bar has no row
+   to spare there, and this row is the list's own foot. Centred on the buttons'
+   height, and as wide as its words. */
+.entry-add-row__summary {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
 }
 
 /* --- Import a plan --------------------------------------------------------- */
@@ -4134,7 +4204,7 @@ h1, h2, h3 {
 .header-accent > :is(.badge--feature-dev, .badge--feature-beta) {
     position: absolute;
     top: -6px;
-    right: -4px;
+    right: calc(-1 * var(--header-flag-overhang, 4px));
     z-index: 1;
     margin: 0;
     box-shadow: 0 0 0 var(--border-width) var(--color-background);
@@ -4171,9 +4241,9 @@ h1, h2, h3 {
   when reached for. Chrome that appears on approach rather than shouting the whole
   time, which is how it stays behind whatever the loud thing on its row is.
 
-  The name outlived its own claim and is kept anyway. Both controls that wear it —
-  the version and Report issue — are in the app-shell footer now, so nothing in a
-  header uses this at all, and the accent they used to sit behind (Ask AI) is a row
+  The name outlived its own claim and is kept anyway. The controls that wear it —
+  the version, the sync phrase, Report issue and the Settings gear — are in the
+  app-shell footer now, so nothing in a header uses this at all, and the accent they used to sit behind (Ask AI) is a row
   away. What the class describes is "quiet utility", never "in the header", so the
   shape is unchanged by the move and renaming it would buy nothing.
 */

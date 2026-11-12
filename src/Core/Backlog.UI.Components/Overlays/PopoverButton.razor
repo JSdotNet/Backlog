@@ -1,5 +1,6 @@
 @*
-    A button that shows a small panel of the host's own controls under it — a
+    A button that shows a small panel of the host's own controls under it, or
+    over it (OpenUpward) where the trigger sits at the window's bottom edge — a
     disclosure, not a menu. The panel holds switches and buttons rather than
     menu items, so it carries role="group" and the trigger aria-expanded, and the
     arrow keys stay the controls' own.
@@ -8,15 +9,21 @@
     the trigger into it and out the other side with no focus handling here.
     Escape anywhere inside closes it and puts the focus back on the trigger.
 
-    Outside-click is a transparent full-screen backdrop, as ContextMenu does it:
-    it goes when the panel goes, so no document listener is left behind. It
-    covers the trigger too, which is how a second press closes the panel. Like
-    the context menu's, it takes the click it catches: a click on a control
-    outside only closes the panel, and focus is left where the click put it.
-    Only Escape hands the focus back to the trigger.
+    Outside-click is two things. A transparent full-screen backdrop, as
+    ContextMenu does it, covers the trigger too, which is how a second press
+    closes the panel. But `position: fixed` is only full-screen while no
+    ancestor is a containing block for it, and a query container is one — the
+    Tasks bar's Filter menu sits in one — so while the panel is open
+    components.js also watches the window (`backlogPopoverOutside`): a pointer
+    press that starts outside this component is taken before any handler hears
+    it, and its click closes the panel. Either way a click on a control outside
+    only closes the panel, and focus is left where the click put it. Only Escape
+    hands the focus back to the trigger. The watch goes when the panel goes.
 *@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
 
-<span class="@ClassValue" data-testid="@TestId" @onkeydown="OnKeyDownAsync" @attributes="AdditionalAttributes">
+<span class="@ClassValue" data-testid="@TestId" @ref="_root" @onkeydown="OnKeyDownAsync" @attributes="AdditionalAttributes">
     <button type="button"
             class="@TriggerClassValue"
             @ref="_trigger"
@@ -44,7 +51,13 @@
 @code {
     private readonly string _panelId = $"popover-{Guid.NewGuid():n}";
     private ElementReference _trigger;
+    private ElementReference _root;
     private bool _open;
+
+    // Who backlogPopoverOutside tells about a click outside, made on the first
+    // open and kept for the component's life; the watch itself only while open.
+    private DotNetObjectReference<PopoverButton>? _outside;
+    private bool _watching;
 
     /// <summary>The control's name: the trigger's aria-label and the panel's.</summary>
     [Parameter, EditorRequired]
@@ -80,6 +93,12 @@
     [Parameter]
     public bool AlignEnd { get; set; }
 
+    /// <summary>Opens the panel above the trigger rather than below it, for a
+    /// trigger at the window's bottom edge, where a panel opening downward would run
+    /// off the screen. Combines with <see cref="AlignEnd"/>.</summary>
+    [Parameter]
+    public bool OpenUpward { get; set; }
+
     /// <summary>Appended to the panel's <c>popover-button__panel</c>.</summary>
     [Parameter]
     public string? PanelCssClass { get; set; }
@@ -112,34 +131,122 @@
     {
         get
         {
-            var value = AlignEnd ? "popover-button__panel popover-button__panel--end" : "popover-button__panel";
+            var value = "popover-button__panel";
+            if (AlignEnd) value += " popover-button__panel--end";
+            if (OpenUpward) value += " popover-button__panel--up";
             return string.IsNullOrWhiteSpace(PanelCssClass) ? value : $"{value} {PanelCssClass}";
         }
     }
 
     private Task ToggleAsync() => _open ? CloseAsync() : OpenAsync();
 
-    private Task OpenAsync()
+    // The host hears of the opening before the watch call goes out, so a close that
+    // lands while that call is in flight is told after it, never before.
+    private async Task OpenAsync()
     {
         _open = true;
-        return OpenChanged.InvokeAsync(true);
+        await OpenChanged.InvokeAsync(true);
+        await WatchOutsideAsync();
     }
 
-    private Task CloseAsync()
+    private Task CloseAsync() => CloseAsync(focusTrigger: false);
+
+    /// <summary>
+    /// Closes the panel, and only then tells the host. The focus goes back to the
+    /// trigger first when asked (Escape): a host may take this whole component out
+    /// of the DOM on <see cref="OpenChanged"/> — the Tasks bar redraws itself wide
+    /// once its Filter menu shuts — and a focus sent after that would be sent to a
+    /// trigger that is gone, leaving it on the page's body.
+    /// </summary>
+    private async Task CloseAsync(bool focusTrigger)
     {
         _open = false;
-        return OpenChanged.InvokeAsync(false);
+        await UnwatchOutsideAsync();
+
+        if (focusTrigger)
+        {
+            try
+            {
+                await _trigger.FocusAsync();
+            }
+            catch (JSException)
+            {
+                // The trigger was already gone from the page: nothing to hand back to.
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+
+        await OpenChanged.InvokeAsync(false);
     }
 
-    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    /// <summary>A click outside the component, which the script has already kept
+    /// from everything under it: the panel closes and nothing else happens. A word
+    /// that arrives for a panel already shut is a watch that should not be there,
+    /// and is taken down.</summary>
+    [JSInvokable]
+    public Task CloseFromOutsideAsync() => InvokeAsync(async () =>
     {
-        if (e.Key != "Escape" || !_open) return;
+        if (!_open)
+        {
+            await UnwatchOutsideAsync(force: true);
+            return;
+        }
 
         await CloseAsync();
+        StateHasChanged();
+    });
+
+    /// <summary>
+    /// Starts the window watch. Marked as watching before the call goes out, not
+    /// after it answers: a close that lands while the call is in flight then sends
+    /// its unwatch too, and the script runs the two in the order they were sent, so
+    /// the watch never outlives the panel. Should the panel be shut by the time the
+    /// answer comes, it is taken down again here as well.
+    /// </summary>
+    private async Task WatchOutsideAsync()
+    {
+        _outside ??= DotNetObjectReference.Create(this);
+        _watching = true;
 
         try
         {
-            await _trigger.FocusAsync();
+            await JS.InvokeVoidAsync("backlogPopoverOutside.watch", _panelId, _root, _outside, nameof(CloseFromOutsideAsync));
+        }
+        catch (JSException)
+        {
+            // Without the script the backdrop is still there; only a click past a
+            // containing block it cannot reach goes unheard.
+            _watching = false;
+        }
+        catch (JSDisconnectedException)
+        {
+            _watching = false;
+        }
+        catch (InvalidOperationException)
+        {
+            _watching = false;
+        }
+
+        if (!_open) await UnwatchOutsideAsync();
+    }
+
+    private async Task UnwatchOutsideAsync(bool force = false)
+    {
+        if (!_watching && !force) return;
+
+        _watching = false;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogPopoverOutside.unwatch", _panelId);
+        }
+        catch (JSException)
+        {
         }
         catch (JSDisconnectedException)
         {
@@ -147,5 +254,18 @@
         catch (InvalidOperationException)
         {
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await UnwatchOutsideAsync();
+        _outside?.Dispose();
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Escape" || !_open) return;
+
+        await CloseAsync(focusTrigger: true);
     }
 }

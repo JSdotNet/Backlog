@@ -6,6 +6,7 @@
 @using Backlog.SharedKernel
 @using Backlog.SharedKernel.Ai
 @using Backlog.Modules.Devbook.Abstractions
+@using Microsoft.AspNetCore.Components.Sections
 @inject TasksDesktopState State
 @inject InboxDesktopState InboxState
 @inject IServiceProvider Services
@@ -532,8 +533,9 @@
             }
         </div>
 
-        @* Region D — the cross-cutting concerns, at the far edge and last in
-           reading order: not one of them is about the work on screen.
+        @* Region D — Ask AI, at the far edge and last in reading order. The
+           Settings gear that used to close it is in the footer band now — see
+           the SectionContent after the header.
 
            Ask AI is the one accented control in the whole header. It is a designed
            first-class surface rather than a utility, and holding the accent back to
@@ -572,69 +574,67 @@
                                         TestId="ai-feature-status" />
                 </AppButton>
             }
-
-            @* Two utilities left, and they are the two that are still about this
-               screen: Ask AI opens a panel beside its content, and the gear is
-               where this screen's own configuration lives. The version control
-               and the Report issue button were neither, and they are now in the
-               app-shell footer MainLayout mounts below every route.
-
-               The gear opens a small menu rather than going straight to Settings,
-               because two choices about this screen that are made now and then
-               live in it too: whether the repositories' identity hues are drawn
-               (Colors), and whether archived repositories are offered in the
-               scope, the Board's columns and the pickers (Show archived, local ADR
-               0029 §3). Both ask "is this layer on" and narrow nothing, so they are
-               switches, and neither earns a place in the row it would widen. The
-               Settings page is the last entry, one click further than it was.
-
-               The PopoverButton is a disclosure: aria-expanded on the trigger, a
-               role="group" panel drawn straight after it so Tab walks in, closed by
-               Escape, an outside click or a second press, and left open while a
-               switch is flipped. Inside, both switches are the shared Toggle,
-               named by the words beside the track through aria-labelledby.
-
-               Colors only while a repository is configured: with none there is no
-               hue to draw, and the Brain's edge is not one of them. Show archived
-               is always listed, so it can be found, and disabled with a note while
-               nothing is archived, since it would have nothing to show. It is kept
-               per device and read from that choice on every render, so a shell the
-               Router built afresh draws what was left. *@
-            <PopoverButton TestId="settings-menu"
-                           Id="settings-menu"
-                           AriaLabel="Settings"
-                           AlignEnd="true"
-                           TriggerBaseClass="icon-link"
-                           TriggerOpenCssClass="icon-link--open">
-                <Trigger>⚙</Trigger>
-                <ChildContent>
-                    @if (State.Repositories.Count > 0)
-                    {
-                        <Toggle CssClass="header-switch"
-                                LabelCssClass="header-switch__label"
-                                ControlCssClass="toggle__track header-switch__track"
-                                Label="Colors"
-                                Id="repository-colours-switch"
-                                TestId="repository-colours-toggle"
-                                Checked="State.RepositoryColoursVisible"
-                                CheckedChanged="ShowRepositoryColours" />
-                    }
-                    <Toggle CssClass="header-switch"
-                            LabelCssClass="header-switch__label"
-                            DescriptionCssClass="header-switch__description"
-                            ControlCssClass="toggle__track header-switch__track"
-                            Label="Show archived"
-                            Description="@(State.HasArchivedRepositories ? null : "No archived repositories")"
-                            Disabled="!State.HasArchivedRepositories"
-                            Id="show-archived-switch"
-                            TestId="show-archived-toggle"
-                            Checked="State.ShowArchivedRepositories"
-                            CheckedChanged="State.SetShowArchivedRepositories" />
-                    <a class="header-menu__link" href="settings" id="settings-link" data-testid="settings-link">Settings</a>
-                </ChildContent>
-            </PopoverButton>
         </div>
     </header>
+
+    @* The Settings gear, drawn into the footer band's end (AppFooter.EndSection)
+       rather than in this header. It is this screen's own configuration —
+       whether the repositories' hues are drawn (Colors), and whether archived
+       repositories are offered (Show archived, local ADR 0029 §3) — so this page
+       still owns it, and the band shows it only while this page is the route: not
+       on Settings, where its last entry would link to the page on screen, and not
+       in a popped-out window, which renders SurfaceWindow instead. In the header
+       it was the one control left to wrap onto a row of its own at mid widths.
+
+       A PopoverButton, so a disclosure: aria-expanded on the trigger, a
+       role="group" panel straight after it so Tab walks in, closed by Escape, an
+       outside click or a second press, and left open while a switch is flipped.
+       It opens upward, since the band is the window's bottom edge, and lines up
+       with its own end edge, since it is last on the band. The trigger wears the
+       band's utility shape, so it keeps the band one line.
+
+       Both switches are the shared Toggle, named by the words beside the track.
+       Colors only while a repository is configured: with none there is no hue to
+       draw, and the Brain's edge is not one of them. Show archived is always
+       listed, so it can be found, and disabled with a note while nothing is
+       archived. It is kept per device and read on every render, so a shell the
+       Router built afresh draws what was left. *@
+    <SectionContent SectionName="@AppFooter.EndSection">
+        <PopoverButton TestId="app-settings-menu"
+                       Id="app-settings-menu"
+                       AriaLabel="Settings"
+                       AlignEnd="true"
+                       OpenUpward="true"
+                       TriggerBaseClass="header-util app-footer__settings-trigger"
+                       TriggerOpenCssClass="header-util--open">
+            <Trigger>⚙</Trigger>
+            <ChildContent>
+                @if (State.Repositories.Count > 0)
+                {
+                    <Toggle CssClass="header-switch"
+                            LabelCssClass="header-switch__label"
+                            ControlCssClass="toggle__track header-switch__track"
+                            Label="Colors"
+                            Id="repository-colours-switch"
+                            TestId="repository-colours-toggle"
+                            Checked="State.RepositoryColoursVisible"
+                            CheckedChanged="ShowRepositoryColours" />
+                }
+                <Toggle CssClass="header-switch"
+                        LabelCssClass="header-switch__label"
+                        DescriptionCssClass="header-switch__description"
+                        ControlCssClass="toggle__track header-switch__track"
+                        Label="Show archived"
+                        Description="@(State.HasArchivedRepositories ? null : "No archived repositories")"
+                        Disabled="!State.HasArchivedRepositories"
+                        Id="show-archived-switch"
+                        TestId="show-archived-toggle"
+                        Checked="State.ShowArchivedRepositories"
+                        CheckedChanged="State.SetShowArchivedRepositories" />
+                <a class="header-menu__link" href="settings" id="settings-link" data-testid="settings-link">Settings</a>
+            </ChildContent>
+        </PopoverButton>
+    </SectionContent>
 
     @* Gated the way its button is: the panel follows the areas it reads from, and
        comes back open if the reader left it open, because _aiExpanded is not

@@ -1,6 +1,8 @@
 using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.GitHub;
 using Bunit;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Sections;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -88,6 +90,31 @@ public sealed class AppFooterSaveStateTests
 
         Assert.NotNull(footer.Find("[data-testid='app-footer']"));
         Assert.Empty(footer.FindAll("[data-testid='save-state-indicator']"));
+    }
+
+    /// <summary>The band's end is the page's to fill — Home draws its Settings gear
+    /// there — so what a page puts in it lands last on the band, after Report issue,
+    /// and a route whose page puts nothing there (Settings, a popped-out window)
+    /// draws no gear.</summary>
+    [Fact]
+    public void A_page_fills_the_end_of_the_band_and_no_page_leaves_it_empty()
+    {
+        using var context = Context(status: null);
+
+        var footer = context.Render<AppFooter>();
+        Assert.Empty(footer.FindAll("[data-testid='app-settings-menu']"));
+
+        context.Render<SectionContent>(parameters => parameters
+            .Add(content => content.SectionName, AppFooter.EndSection)
+            .Add(content => content.ChildContent, (RenderFragment)(builder =>
+            {
+                builder.OpenElement(0, "span");
+                builder.AddAttribute(1, "data-testid", "page-end-control");
+                builder.CloseElement();
+            })));
+
+        footer.WaitForAssertion(() =>
+            Assert.Equal("page-end-control", footer.Find("[data-testid='app-footer']").LastElementChild?.GetAttribute("data-testid")));
     }
 
     private static BunitContext Context(ISaveStatusSource? status)

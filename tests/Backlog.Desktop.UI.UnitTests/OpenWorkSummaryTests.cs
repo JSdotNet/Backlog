@@ -4,7 +4,8 @@ using Microsoft.AspNetCore.Components.Web;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The open-work summary at the end of the filter bar, and the report it opens.
+/// The open-work summary at the end of the filter bar — or beside New entry in a
+/// narrow list column — and the report it opens.
 /// <para>
 /// The numbers are taken over the rows the repository scope leaves in view —
 /// the pool the chips count — so a status, tag, My Day or Ready-in-a-plan filter
@@ -114,6 +115,52 @@ public sealed class OpenWorkSummaryTests
         await dialog.KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
 
         Assert.Empty(pane.FindAll(Report));
+    }
+
+    /// <summary>
+    /// In a narrow list column the bar has no row to spare, so the total moves to
+    /// the list's own foot, beside New entry and Import. One copy, with the same
+    /// name, tooltip and report — and the same id, so the report still hands the
+    /// focus back to it. The column's narrow state is components.js's word, given
+    /// here as the script gives it.
+    /// </summary>
+    [Fact]
+    public async Task In_a_narrow_list_column_the_summary_sits_beside_new_entry()
+    {
+        using var host = await SeededAsync();
+
+        var pane = host.Render();
+        await pane.InvokeAsync(() => pane.Instance.ListNarrowChangedAsync(true));
+
+        var button = pane.Find(Summary);
+        Assert.Single(pane.FindAll(Summary));
+        Assert.Null(button.Closest(".filter-bar"));
+        Assert.NotNull(button.Closest(".entry-add-row .entry-add-row__summary"));
+        Assert.Equal("open-work-summary", button.Id);
+        Assert.Equal("3 open tasks in scope, 5 points estimated, 1 not estimated. Open the report.", button.GetAttribute("aria-label"));
+        Assert.Equal(button.GetAttribute("aria-label"), button.GetAttribute("title"));
+
+        await button.ClickAsync(new());
+        Assert.NotNull(pane.Find(Report));
+
+        await pane.InvokeAsync(() => pane.Instance.ListNarrowChangedAsync(false));
+        Assert.NotNull(pane.Find(Summary).Closest(".filter-bar .filter-group--summary"));
+    }
+
+    /// <summary>The Board and the Calendar have no New entry row, so a narrow column
+    /// keeps the total on their bar.</summary>
+    [Theory]
+    [InlineData(TasksLayout.Board)]
+    [InlineData(TasksLayout.Calendar)]
+    public async Task On_the_board_and_calendar_a_narrow_column_keeps_the_summary_on_the_bar(TasksLayout layout)
+    {
+        using var host = await SeededAsync();
+
+        var pane = host.Context.Render<TasksPane>(parameters => parameters.Add(p => p.Layout, layout));
+        await pane.InvokeAsync(() => pane.Instance.ListNarrowChangedAsync(true));
+
+        Assert.NotNull(pane.Find(Summary).Closest(".filter-bar .filter-group--summary"));
+        Assert.Single(pane.FindAll(Summary));
     }
 
     [Fact]

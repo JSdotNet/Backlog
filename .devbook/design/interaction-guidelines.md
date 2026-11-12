@@ -777,16 +777,16 @@ question. Below it the workspace shows exactly one **main view**, unless a
 | Identity | Over which repositories? | The repository scope, a fused group of chips led by the **Brain** chip, and nothing else. |
 | Navigation | What am I looking at? | Left to right: **Inbox**, the view switch, **Devbook**, the Goals group, the remaining takeovers. |
 | Status | How is the workspace doing? | The GitHub check, only while a task view is on screen. |
-| Utilities | What cuts across all of it? | **Ask AI**, while an area has something to ask about; then the **Settings** gear. |
+| Utilities | What cuts across all of it? | **Ask AI**, while an area has something to ask about. |
 
 - **Identity:** see `#focus-and-selection`, *Modifier-click scope*. The
   repository chips follow the Brain chip. The scope renders always, with the
   Brain chip alone when no repository is configured (local ADR 0027).
 - **Status:** ambient, the quietest region. Its auto margin carries it and the
   utilities to the right edge.
-- **Utilities:** **Ask AI** is the one accented control in the header. The gear
-  comes last and opens a menu of **Colors**, **Show archived** and a
-  **Settings** link (*The gear holds the occasional switches*).
+- **Utilities:** **Ask AI** is the one accented control in the header. The
+  **Settings** gear is not in the header: it closes the footer band (*The gear
+  holds the occasional switches*).
 
 The navigation region holds three kinds of control, and each MUST look and act
 as its kind:
@@ -835,7 +835,7 @@ as its kind:
 | A control acts on what is on screen | A header control whose target is off screen MUST NOT render. |
 | The shell reopens where it was left | The main view, open takeover or Inbox or Devbook, and scope MUST return on a fresh shell. |
 | The Brain chip leads the scope | The repository scope MUST start with the **Brain** chip, then a divider, then the repository chips. |
-| The gear holds the occasional switches | The **Settings** gear MUST be a `#popover-button` named **Settings** listing the occasional switches. |
+| The gear holds the occasional switches | The **Settings** gear MUST be a `#popover-button` named **Settings**, last in the main window's footer band. |
 | Views and work lead with a glyph | Each view-switch option and Goals group member MUST lead with a decorative glyph before its word. |
 
 - **The workspace cluster sits close:** the groups after it sit at the wider
@@ -891,7 +891,8 @@ as its kind:
     close button of its own: the OS one closes it.
   - The window's title follows the surface on screen.
   - The footer band and toasts MUST show in the window as in the main one, except
-    in a docked window (local ADR 0043 §4, §5).
+    in a docked window (local ADR 0043 §4, §5). The **Settings** gear stays in
+    the main window.
 - **A popped-out window is remembered by its bookmark:**
   - The bookmark MUST be an icon-only toggle between **Keep on top** and **Show
     in main window**, at the header's trailing end. It uses the Lucide
@@ -952,9 +953,13 @@ as its kind:
   - No *No repo* chip appears anywhere else: Brain is the one place that says
     "no repository".
 - **The gear holds the occasional switches:**
-  - The panel lines up with the gear's end edge. It MUST list the **Colors**
-    switch, then the **Show archived** switch, then a **Settings** link to the
-    Settings page.
+  - It sits after **Report issue** at the footer's trailing end. The Settings
+    page and popped-out windows draw no gear.
+  - **Why:** in the header it wrapped a whole row for one icon at common window
+    widths, and that row came out of the list.
+  - The panel opens upward and lines up with the gear's end edge. It MUST list
+    the **Colors** switch, then the **Show archived** switch, then a **Settings**
+    link to the Settings page.
   - Both switches are the shared `Toggle`, named by the visible word beside the
     track.
   - **Colors** is listed only while a repository is configured (local ADR 0027);
@@ -1120,12 +1125,12 @@ figure typed, a figure refused).
 related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
-A popover button shows a small panel of the host's own controls under a button.
+A popover button shows a small panel of the host's own controls beside a button.
 They are settings a reader flips now and then and would rather not see all day. It is a
 disclosure, not a menu. The panel holds switches, buttons and links, not menu
-items, so the arrow keys stay those controls' own. The desktop header's
-**Settings** gear is its first use (`#shell-header`). `PopoverButton` in the
-shared library builds it.
+items, so the arrow keys stay those controls' own. The footer's **Settings** gear
+(`#shell-header`) and the narrow filter bar's **Filter** menu use it.
+`PopoverButton` in the shared library builds it.
 
 | Rule | Requirement |
 |---|---|
@@ -1136,6 +1141,7 @@ shared library builds it.
 | Outside click only closes | A click outside the open panel MUST close it and do nothing else. |
 | It stays open while used | Pressing a control inside the panel, such as flipping a switch, MUST leave it open. |
 | Lined up with its trigger | The panel MUST line up with the trigger's start edge, or its end edge at a row's end. |
+| Opens toward the room | The panel MUST open below the trigger, or above it when the trigger sits at the window's bottom edge. |
 
 - **Named on the trigger:** the tooltip shows the name unless the host gives
   another.
