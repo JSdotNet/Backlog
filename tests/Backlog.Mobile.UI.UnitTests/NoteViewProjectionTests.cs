@@ -142,6 +142,54 @@ public sealed class NoteViewProjectionTests : IDisposable
     }
 
     [Fact]
+    public async Task Files_attached_after_an_edit_keep_the_edits_words()
+    {
+        _service.State = InboxServiceState.Unreachable;
+        var created = await _notes.CreateAsync("Standup", "before", cancellationToken: Cancellation);
+        var recording = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.AttachmentMetadata(Guid.CreateVersion7(), "Recording · 0:12", "audio/aac", 300, new string('a', 64));
+
+        // The recording was readied while the page saved newer words: attaching takes the note
+        // as it stands when it writes, not as it stood before.
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        await _notes.EditAsync(created.Id, "Standup (edited)", "after", cancellationToken: Cancellation);
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        var attached = await _notes.AttachAsync(created.Id, [recording], Cancellation);
+
+        Assert.NotNull(attached);
+        var note = _notes.Find(created.Id)!;
+        Assert.Equal("Standup (edited)", note.Title);
+        Assert.Equal("after", note.Body);
+        Assert.Equal([recording.Id], note.Attachments.Select(file => file.Id));
+        var queued = NoteOutboxKind.Read(_outbox.Entries[^1]).Change.Task;
+        Assert.Equal("after", queued.ContentMd);
+        Assert.Equal([recording.Id], queued.Attachments!.Select(file => file.Id));
+    }
+
+    [Fact]
+    public async Task Attaching_files_the_note_already_holds_writes_nothing()
+    {
+        _service.State = InboxServiceState.Unreachable;
+        var created = await _notes.CreateAsync("Standup", "text", cancellationToken: Cancellation);
+        var recording = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.AttachmentMetadata(Guid.CreateVersion7(), "Recording · 0:12", "audio/aac", 300, new string('a', 64));
+        await _notes.AttachAsync(created.Id, [recording], Cancellation);
+        var queued = _outbox.Entries.Count;
+
+        var again = await _notes.AttachAsync(created.Id, [recording], Cancellation);
+
+        Assert.NotNull(again);
+        Assert.Equal(queued, _outbox.Entries.Count);
+        Assert.Single(_notes.Find(created.Id)!.Attachments);
+    }
+
+    [Fact]
+    public async Task Files_cannot_be_attached_to_a_note_the_phone_does_not_hold()
+    {
+        var recording = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.AttachmentMetadata(Guid.CreateVersion7(), "Recording · 0:12", "audio/aac", 300, new string('a', 64));
+
+        Assert.Null(await _notes.AttachAsync(Guid.CreateVersion7(), [recording], Cancellation));
+    }
+
+    [Fact]
     public async Task Rows_kept_in_the_store_are_listed_before_any_pull()
     {
         var id = Guid.CreateVersion7();

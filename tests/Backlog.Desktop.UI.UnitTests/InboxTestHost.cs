@@ -1021,6 +1021,9 @@ internal sealed class FakeInboxItems : IInboxItems
     /// <summary>The bytes each downloaded attachment reads as, by id.</summary>
     public Dictionary<Guid, byte[]> AttachmentBytes { get; } = [];
 
+    /// <summary>A failure a read answers with instead, by id, ahead of the bytes.</summary>
+    public Dictionary<Guid, Error> AttachmentReadErrors { get; } = [];
+
     /// <summary>Every open and retry asked for, in order, by attachment id.</summary>
     public List<Guid> Opened { get; } = [];
 
@@ -1056,7 +1059,9 @@ internal sealed class FakeInboxItems : IInboxItems
     }
 
     public Task<Result<byte[]>> ReadAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(AttachmentBytes.TryGetValue(attachmentId, out var bytes)
+        Task.FromResult(AttachmentReadErrors.TryGetValue(attachmentId, out var error)
+            ? Result.Failure<byte[]>(error)
+            : AttachmentBytes.TryGetValue(attachmentId, out var bytes)
             ? Result.Success(bytes)
             : Result.Failure<byte[]>(InboxErrors.AttachmentNotDownloaded));
 

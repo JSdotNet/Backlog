@@ -6,6 +6,12 @@
     <!-- Speech capture on the Inbox screen. The runtime prompt is raised by
          Permissions.RequestAsync<Permissions.Microphone>; this only declares it. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- A meeting recording on a note (local ADR 0048): RecordingService keeps the
+         microphone open with the app in the background. Android 14 also requires
+         the microphone type's own permission. The service entry, with
+         foregroundServiceType="microphone", comes from its [Service] attribute. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- A talk note's slide photo. MediaPicker.CapturePhotoAsync raises the
          runtime prompt; this only declares it. -->
     <uses-permission android:name="android.permission.CAMERA" />

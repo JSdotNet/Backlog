@@ -112,6 +112,12 @@ public static class InboxErrors
         "inbox.plan.failed",
         detail);
 
+    /// <summary>A meeting recording could not be transcribed or summarized (local ADR 0049).
+    /// The detail is this adapter's own words, never Foundry's, which may quote the audio.</summary>
+    public static Error TranscriptionFailed(string detail) => new(
+        "inbox.transcription.failed",
+        detail);
+
     /// <summary>No triage advisor, or one that says it cannot run. Every AI
     /// surface is hidden in this case (local ADR 0023 §4), so the message is
     /// for a log or a test rather than the pane.</summary>

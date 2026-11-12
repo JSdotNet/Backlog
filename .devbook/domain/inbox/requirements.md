@@ -1633,6 +1633,117 @@ The system SHALL bring a note made on the phone into the desktop Inbox as an ite
 - **When** the desktop syncs
 - **Then** the desktop Inbox shows it as a Note with its title
 
+## Recordings on a note
+
+```meta
+type: requirements
+related: [.devbook/domain/capture/features.md#meeting-recording, .devbook/domain/inbox/features.md#notes-on-the-phone, .devbook/arc42/06-runtime-view.md#meeting-recording, .devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md]
+```
+
+> What a meeting recording on a phone note promises
+> ([Meeting recording](../capture/features.md#meeting-recording)). Nothing proves
+> these yet: they are written ahead of the code.
+
+### Requirement: A note takes AAC audio files
+
+```meta
+type: requirement
+```
+
+The system SHALL accept an AAC audio file on a note, as `audio/aac`, `audio/mp4` or `audio/x-m4a`, within the per-file limit every note file has.
+
+#### Scenario: A stopped recording
+
+- **Given** a note on the phone
+- **When** the reader records into it and presses Stop
+- **Then** the note lists "Recording · <duration>" as AAC audio with its size
+- **And** the desktop Inbox item shows the file with a player after the desktop syncs
+
+#### Scenario: An AAC file picked from the phone
+
+- **Given** a note on the phone
+- **When** the reader attaches an `.m4a` file
+- **Then** the file is on the note, not on the list of files not attached
+
+### Requirement: A long recording rolls over to a second part without a gap
+
+```meta
+type: requirement
+```
+
+The phone SHALL close a recording file at 24 MB and go on recording into the next part, "Recording · part 2 · <duration>", then part 3 and on by the same rule, with no audio lost between two parts.
+
+#### Scenario: A meeting longer than one file holds
+
+- **Given** a recording on a note that reaches 24 MB
+- **When** the reader goes on recording and then presses Stop
+- **Then** the note holds "Recording · <duration>" and "Recording · part 2 · <duration>"
+- **And** the second file starts where the first one ends
+
+### Requirement: A recording cut off by a killed app is kept
+
+```meta
+type: requirement
+```
+
+The phone SHALL attach a recording file left behind by an app that was ended while recording to its note as "Recording (interrupted)" the next time the app starts.
+
+#### Scenario: The phone ends the app mid-meeting
+
+- **Given** a recording running on a note
+- **When** the phone ends the app, and the reader opens it again
+- **Then** the note holds "Recording (interrupted)"
+- **And** it plays up to the moment the app was ended
+
+### Requirement: A phone call pauses the recording until the reader resumes it
+
+```meta
+type: requirement
+```
+
+The phone SHALL pause a recording when a phone call takes the microphone, say why on the recording bar, and resume only when the reader presses Resume.
+
+#### Scenario: A call comes in
+
+- **Given** a recording running on a note
+- **When** a phone call starts
+- **Then** the recording bar reads "Paused: a phone call has the microphone"
+- **And** the bar and the notification offer Resume
+
+#### Scenario: The call ends
+
+- **Given** a recording paused by a phone call
+- **When** the call ends
+- **Then** the recording stays paused until the reader presses Resume
+
+### Requirement: A recording uploads over any connection
+
+```meta
+type: requirement
+```
+
+The phone SHALL upload a recording over whatever connection it has, Wi-Fi or mobile data, as it uploads a photo.
+
+#### Scenario: On mobile data
+
+- **Given** a stopped recording on a note, and a phone on mobile data only
+- **When** the outbox next sends
+- **Then** the recording uploads, then the note
+
+### Requirement: A recording whose note is deleted elsewhere gets a note of its own
+
+```meta
+type: requirement
+```
+
+The phone SHALL save a recording whose note was deleted on the desktop while it ran to a new note named "Recording · <date>".
+
+#### Scenario: The desktop deletes the note mid-meeting
+
+- **Given** a recording running on a note
+- **When** the desktop deletes the note, the phone pulls, and the reader presses Stop
+- **Then** the Notes tab holds a new note "Recording · <date>" with the recording on it
+
 ## Notes on the desktop
 
 ```meta

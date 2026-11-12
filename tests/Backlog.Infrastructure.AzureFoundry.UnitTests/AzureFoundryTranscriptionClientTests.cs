@@ -270,6 +270,80 @@ public sealed class AzureFoundryTranscriptionClientTests
     }
 
     [Fact]
+    public async Task With_the_api_key_credential_the_call_carries_the_key_and_no_token()
+    {
+        var foundry = new Foundry(Text("x"));
+        var client = Client(foundry, options =>
+        {
+            options.Credential = AzureFoundryTranscriptionCredential.ApiKey;
+            options.ApiKey = "desktop-key";
+        });
+
+        Assert.True((await client.TranscribeAsync(Request("audio/mp4"), Cancellation)).Succeeded);
+
+        var request = Assert.Single(foundry.Requests);
+        Assert.True(request.HasApiKey);
+        Assert.Null(request.Authorization);
+    }
+
+    [Fact]
+    public async Task The_api_key_credential_with_no_key_sends_nothing()
+    {
+        var foundry = new Foundry(Text("x"));
+        var client = Client(foundry, options => options.Credential = AzureFoundryTranscriptionCredential.ApiKey);
+
+        Assert.False((await client.TranscribeAsync(Request("audio/mp4"), Cancellation)).Succeeded);
+        Assert.Empty(foundry.Requests);
+    }
+
+    [Fact]
+    public async Task A_prompt_is_passed_only_when_given()
+    {
+        var foundry = new Foundry(_ => Text("x"));
+        var client = Client(foundry);
+
+        await client.TranscribeAsync(new AzureFoundryTranscriptionRequest(Encoding.ASCII.GetBytes("a"), "audio/mp4", null, "the last words"), Cancellation);
+        await client.TranscribeAsync(Request("audio/mp4"), Cancellation);
+
+        Assert.Equal("the last words", foundry.Requests[0].Parts["prompt"].Text);
+        Assert.False(foundry.Requests[1].Parts.ContainsKey("prompt"));
+    }
+
+    [Fact]
+    public async Task On_the_desktop_the_client_reads_the_endpoint_deployment_and_key_from_the_settings_on_every_call()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"foundry-{Guid.NewGuid():N}.json");
+        try
+        {
+            var store = new AzureFoundrySettingsStore(path);
+            store.SetConnection("https://desk-foundry.cognitiveservices.azure.com", "chat", "desk-key", null);
+            var foundry = new Foundry(_ => Text("x"));
+            var services = new ServiceCollection();
+            services.AddSingleton(store);
+            services.AddAzureFoundryDesktopTranscriptionClient().ConfigurePrimaryHttpMessageHandler(() => foundry);
+            using var provider = services.BuildServiceProvider();
+            var client = provider.GetRequiredService<IAzureFoundryTranscriptionClient>();
+
+            await client.TranscribeAsync(Request("audio/mp4"), Cancellation);
+            store.SetTranscriptionDeployment("gpt-4o-transcribe-2");
+            await client.TranscribeAsync(Request("audio/mp4"), Cancellation);
+
+            Assert.Equal(
+                "https://desk-foundry.cognitiveservices.azure.com/openai/deployments/gpt-4o-transcribe/audio/transcriptions?api-version=2025-03-01-preview",
+                foundry.Requests[0].Uri.ToString());
+            Assert.Contains("/deployments/gpt-4o-transcribe-2/", foundry.Requests[1].Uri.ToString());
+            Assert.All(foundry.Requests, request => Assert.True(request.HasApiKey));
+            Assert.Equal(
+                AzureFoundryTranscriptionRegistration.DesktopPartBudget,
+                provider.GetRequiredService<IOptions<AzureFoundryTranscriptionOptions>>().Value.TotalBudget);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Managed_identity_registers_a_credential_and_none_registers_none()
     {
         using var managed = Provider(AzureFoundryTranscriptionCredential.ManagedIdentity);

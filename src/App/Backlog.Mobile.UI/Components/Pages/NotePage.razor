@@ -2,6 +2,7 @@
 @page "/notes/{Id:guid}"
 @using System.Globalization
 @using Backlog.Mobile.UI.Notes
+@using Backlog.Mobile.UI.Recordings
 @using Backlog.Mobile.UI.TalkNotes
 @inject NoteViewProjection Notes
 @inject DeviceOutbox Outbox
@@ -11,6 +12,7 @@
 @inject ISpeechTranscriber Speech
 @inject TimeProvider Clock
 @inject AppLifecycle Lifecycle
+@inject NoteRecordingSession Recording
 @implements IDisposable
 
 @*
@@ -31,6 +33,11 @@
     trip to another tab is the note itself, and the scoped draft is left to the
     capture sheet. Files picked and not yet saved wait on its strip; a refused one
     stays there, saying why, until it is taken off.
+
+    Record records a meeting into the note (features.md#meeting-recording). The
+    recording is NoteRecordingSession's, not this page's: leaving the note does
+    not stop it, the bar is back when the note opens again, and Stop attaches the
+    file as "Recording · <duration>" through the note's own outbox path.
 *@
 
 <PageTitle>@(string.IsNullOrWhiteSpace(_draft.Title) ? "Note" : _draft.Title)</PageTitle>
@@ -62,6 +69,12 @@ else
                           TestId="note-speech-toggle">
                 <MicIcon />
             </ToggleButton>
+            @* One recording at a time, on any note: while one runs, its controls are
+               on its bar, and Record stays disabled everywhere. *@
+            <AppButton Size="ButtonSize.Small"
+                       Disabled="@(_recordSupported != true || Recording.NoteId is not null)"
+                       Busy="_recordStarting" BusyLabel="Starting the recording"
+                       OnClick="RecordAsync" TestId="note-record">Record</AppButton>
             @if (_canTakePhoto)
             {
                 <AppButton Size="ButtonSize.Small" Disabled="_picking" OnClick="() => PickAsync(Picker.TakePhotoAsync)"
@@ -81,6 +94,18 @@ else
             @if (_speechStatus is not null)
             {
                 <Alert Message="@_speechStatus" Role="status" BaseClass="capture__status" TestId="note-speech-status" />
+            }
+
+            @if (_recordError is not null)
+            {
+                <Alert Message="@_recordError" BaseClass="error" TestId="note-record-error" />
+            }
+
+            @if (_row is { } recorded)
+            {
+                @* Re-renders itself on the session's ticks; this page only on a
+                   recording starting or ending, which Record's state follows. *@
+                <NoteRecordingBar NoteId="recorded.Id" TestId="note-recording" />
             }
 
             @if (_error is not null)
@@ -145,6 +170,16 @@ else
     private bool _canTakePhoto;
     private bool _picking;
 
+    private bool? _recordSupported;
+    private bool _recordStarting;
+
+    /// <summary>Why Record did not start, such as a refused microphone. No bar goes with it.</summary>
+    private string? _recordError;
+
+    /// <summary>The note being recorded into as this page last drew Record, so a tick of
+    /// the timer or the level does not draw the page again.</summary>
+    private Guid? _recordingNote;
+
     /// <summary>The note's id; absent on <c>/notes/new</c> until the first save.</summary>
     [Parameter]
     public Guid? Id { get; set; }
@@ -160,7 +195,9 @@ else
             attachment.Name,
             AttachmentRules.Describe(attachment.ContentType),
             AttachmentRules.DescribeSize(attachment.SizeBytes),
-            AttachmentRules.IsPicture(attachment.ContentType)))
+            AttachmentRules.IsPicture(attachment.ContentType),
+            IsAudio: AttachmentRules.IsAudio(attachment.ContentType),
+            Audio: PlaybackOf(attachment.ContentType, Files.OutboxPath(attachment.Id))))
     ];
 
     private IReadOnlyList<AttachmentTile> PendingTiles =>
@@ -171,14 +208,26 @@ else
             AttachmentRules.Describe(attachment.ContentType),
             AttachmentRules.DescribeSize(attachment.SizeBytes),
             attachment.IsPicture,
-            attachment.Refusal))
+            attachment.Refusal,
+            AttachmentRules.IsAudio(attachment.ContentType),
+            PlaybackOf(attachment.ContentType, attachment.StagedPath)))
     ];
+
+    /// <summary>A recording plays on its tile while its bytes are on the phone: on the
+    /// strip, or in the outbox until the note reaches the service, which takes them
+    /// from there (local ADR 0014). Once delivered the tile only describes it.</summary>
+    private static AudioSource? PlaybackOf(string contentType, string path) =>
+        AttachmentRules.IsAudio(contentType) && !string.IsNullOrEmpty(path) && File.Exists(path)
+            ? new AudioSource(contentType, _ => Task.FromResult(TalkNoteFiles.OpenIfPresent(path)))
+            : null;
 
     protected override void OnInitialized()
     {
         Outbox.Changed += OnOutboxChanged;
         Notes.Changed += OnNotesChanged;
         Lifecycle.Paused += OnPaused;
+        Recording.Changed += OnRecordingChanged;
+        _recordingNote = Recording.NoteId;
         if (Picker is WebAttachmentPicker web) web.Unrequested += OnUnrequestedAsync;
     }
 
@@ -202,6 +251,7 @@ else
         _row = null;
         _missing = false;
         _error = null;
+        _recordError = null;
         _state = SaveState.Idle;
 
         if (Id is { } noteId)
@@ -228,18 +278,21 @@ else
 
         _canTakePhoto = await Picker.CanTakePhotoAsync();
         _speechSupported = await Speech.IsSupportedAsync();
+        _recordSupported = await Recording.IsSupportedAsync();
         StateHasChanged();
     }
 
     /// <summary>Leaving the page ends dictation — words the device heard still
     /// arrive, a recording is not sent — and flushes what is still pending: the
-    /// note is a singleton's, so the write outlives this page.</summary>
+    /// note is a singleton's, so the write outlives this page. A meeting recording
+    /// is not stopped: the session holds it, and Stop attaches it from wherever.</summary>
     public void Dispose()
     {
         _disposed = true;
         Outbox.Changed -= OnOutboxChanged;
         Notes.Changed -= OnNotesChanged;
         Lifecycle.Paused -= OnPaused;
+        Recording.Changed -= OnRecordingChanged;
         if (Picker is WebAttachmentPicker web) web.Unrequested -= OnUnrequestedAsync;
 
         _debounce?.Dispose();
@@ -486,6 +539,93 @@ else
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Records into this note. A new note is created first, with whatever is typed,
+    /// so the recording's files carry its id; the microphone is asked for by the
+    /// recorder on the first press. A start that fails says why beside the tools
+    /// and draws no bar.
+    /// </summary>
+    private async Task RecordAsync()
+    {
+        _recordStarting = true;
+        _recordError = null;
+
+        try
+        {
+            if (await NoteToRecordIntoAsync() is not { } noteId) return;
+
+            if (!await Recording.StartAsync(noteId))
+            {
+                _recordError = Recording.Error ?? "The recording did not start.";
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _recordError = $"Couldn't start the recording: {ex.Message}";
+        }
+        finally
+        {
+            _recordStarting = false;
+        }
+    }
+
+    /// <summary>
+    /// The note a recording goes into: this one, created now when it is new. Typed
+    /// words are saved the usual way first; a note with nothing in it is created
+    /// empty, under the save gate so a save running now cannot create a second.
+    /// Null when the note could not be written, which the page already says.
+    /// </summary>
+    private async Task<Guid?> NoteToRecordIntoAsync()
+    {
+        if (_row is null && _draft.HasContent)
+        {
+            _dirty = true;
+            await FlushAsync();
+        }
+
+        if (_row is { } saved) return saved.Id;
+        if (_draft.HasContent) return null;
+
+        await _saveGate.WaitAsync();
+        try
+        {
+            if (_row is null)
+            {
+                var generation = _generation;
+                var created = await Notes.CreateAsync(_draft.Title, _draft.Body);
+                if (generation != _generation) return null;
+
+                _row = created;
+                _state = SaveState.Saved;
+                RefreshWaiting();
+            }
+
+            return _row.Id;
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// A recording starting or ending anywhere, which enables or disables Record. Raised
+    /// off the render thread and on every tick of the timer, so marshalled and filtered:
+    /// the bar draws the ticks itself.
+    /// </summary>
+    private void OnRecordingChanged()
+    {
+        if (_disposed || Recording.NoteId == _recordingNote) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed || Recording.NoteId == _recordingNote) return;
+
+            _recordingNote = Recording.NoteId;
+            StateHasChanged();
+        });
     }
 
     private async Task OnSpeechToggledAsync(bool pressed)

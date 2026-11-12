@@ -252,7 +252,7 @@ public sealed class WebAudioRecorder(IJSRuntime js) : IAudioRecorder
     /// <summary>The <c>getUserMedia</c> error names, in words a person can act on.</summary>
     private static string Describe(string? error) => error switch
     {
-        "NotAllowedError" or "SecurityError" => "Microphone access was denied. Allow it for this site and try again.",
+        "NotAllowedError" or "SecurityError" => MicrophoneAccess.DeniedInBrowser,
         "NotFoundError" or "OverconstrainedError" => "No microphone was found.",
         "NotReadableError" or "AbortError" or "audio-capture" => "The microphone could not be read.",
         "not-supported" => Unavailable,

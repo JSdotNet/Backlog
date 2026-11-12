@@ -23,6 +23,14 @@ public sealed class AzureFoundrySettings
     /// </summary>
     public string? CostScope { get; init; }
 
+    /// <summary>The deployment a meeting recording is transcribed by (local ADR 0049 §2). Its
+    /// own setting beside <see cref="Deployment"/>, because the chat deployment cannot
+    /// transcribe.</summary>
+    public string TranscriptionDeployment { get; init; } = AzureFoundryTranscriptionOptions.DefaultDeployment;
+
+    /// <summary>The api-version the transcription route is called with.</summary>
+    public string TranscriptionApiVersion { get; init; } = AzureFoundryTranscriptionOptions.DefaultApiVersion;
+
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(Endpoint)
         && !string.IsNullOrWhiteSpace(Deployment)
@@ -91,7 +99,9 @@ public sealed class AzureFoundrySettingsStore
             Deployment = Clean(deployment),
             ApiKey = Clean(apiKey) ?? Current.ApiKey,
             ApiVersion = Clean(apiVersion) ?? DefaultApiVersion,
-            CostScope = Current.CostScope
+            CostScope = Current.CostScope,
+            TranscriptionDeployment = Current.TranscriptionDeployment,
+            TranscriptionApiVersion = Current.TranscriptionApiVersion
         });
 
     public string? SetApiKey(string? apiKey) =>
@@ -101,7 +111,9 @@ public sealed class AzureFoundrySettingsStore
             Deployment = Current.Deployment,
             ApiKey = Clean(apiKey),
             ApiVersion = Current.ApiVersion,
-            CostScope = Current.CostScope
+            CostScope = Current.CostScope,
+            TranscriptionDeployment = Current.TranscriptionDeployment,
+            TranscriptionApiVersion = Current.TranscriptionApiVersion
         });
 
     public string? SetCostScope(string? costScope) =>
@@ -111,7 +123,22 @@ public sealed class AzureFoundrySettingsStore
             Deployment = Current.Deployment,
             ApiKey = Current.ApiKey,
             ApiVersion = Current.ApiVersion,
-            CostScope = Clean(costScope)
+            CostScope = Clean(costScope),
+            TranscriptionDeployment = Current.TranscriptionDeployment,
+            TranscriptionApiVersion = Current.TranscriptionApiVersion
+        });
+
+    /// <summary>Sets the transcription deployment; blank goes back to the default.</summary>
+    public string? SetTranscriptionDeployment(string? deployment) =>
+        Save(new AzureFoundrySettings
+        {
+            Endpoint = Current.Endpoint,
+            Deployment = Current.Deployment,
+            ApiKey = Current.ApiKey,
+            ApiVersion = Current.ApiVersion,
+            CostScope = Current.CostScope,
+            TranscriptionDeployment = Clean(deployment) ?? AzureFoundryTranscriptionOptions.DefaultDeployment,
+            TranscriptionApiVersion = Current.TranscriptionApiVersion
         });
 
     public string? ClearApiKey() => SetApiKey(null);
@@ -138,7 +165,9 @@ public sealed class AzureFoundrySettingsStore
                 Deployment = settings.Deployment,
                 ApiKey = SecretEnvelope.Seal(settings.ApiKey),
                 ApiVersion = settings.ApiVersion,
-                CostScope = settings.CostScope
+                CostScope = settings.CostScope,
+                TranscriptionDeployment = settings.TranscriptionDeployment,
+                TranscriptionApiVersion = settings.TranscriptionApiVersion
             };
 
             File.WriteAllText(_path, JsonSerializer.Serialize(stored, JsonOptions));
@@ -168,7 +197,9 @@ public sealed class AzureFoundrySettingsStore
                 Deployment = stored.Deployment,
                 ApiKey = SecretEnvelope.Open(stored.ApiKey, out wasPlaintext),
                 ApiVersion = stored.ApiVersion,
-                CostScope = stored.CostScope
+                CostScope = stored.CostScope,
+                TranscriptionDeployment = stored.TranscriptionDeployment,
+                TranscriptionApiVersion = stored.TranscriptionApiVersion
             });
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -192,7 +223,10 @@ public sealed class AzureFoundrySettingsStore
         ApiVersion = Clean(settings.ApiVersion) ?? DefaultApiVersion,
         // Trimmed of slashes at both ends so the request path is built from one
         // shape whether the ID was pasted from the portal or from a Bicep output.
-        CostScope = Clean(settings.CostScope)?.Trim('/') is { Length: > 0 } scope ? "/" + scope : null
+        CostScope = Clean(settings.CostScope)?.Trim('/') is { Length: > 0 } scope ? "/" + scope : null,
+        // A file an earlier release wrote has neither field, and reads as the defaults.
+        TranscriptionDeployment = Clean(settings.TranscriptionDeployment) ?? AzureFoundryTranscriptionOptions.DefaultDeployment,
+        TranscriptionApiVersion = Clean(settings.TranscriptionApiVersion) ?? AzureFoundryTranscriptionOptions.DefaultApiVersion
     };
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

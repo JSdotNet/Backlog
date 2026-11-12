@@ -1,0 +1,43 @@
+@page "/audio-player"
+
+<PageTitle>Audio player — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Audio player"
+           Summary="AudioPlayer: a recording the host holds, played in place with the browser's own controls and named for its file. The host hands it an AudioSource; it reads the bytes once, plays them from a blob URL, and releases the URL when it goes."
+           Guidelines="@Rules">
+
+    <Story Name="Playing a recording"
+           Description="As the desktop's Inbox item detail draws it under a downloaded recording's row. The controls are the browser's, so play, pause, seeking and the keyboard come with them; the accessible name is the host's, and says which file plays.
+
+The sample is a second of tone, generated here; a real recording is AAC."
+           Code="@PlayerCode">
+        <AudioPlayer Source="AudioFixtures.Tone" AriaLabel="Play Recording · 0:01" TestId="audio-player-sample" />
+    </Story>
+
+    <Story Name="Gone since it was listed"
+           Description="A file the host listed but can no longer read — removed after transcription, say. The player says so in words in place of a control that would never play. MissingText is the host's, so each says where the file is not."
+           Code="@GoneCode">
+        <AudioPlayer Source="AudioFixtures.Gone" AriaLabel="Play Recording · 47:12" MissingTestId="audio-player-gone"
+                     MissingText="This recording is not on this machine any more." />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#keyboard-navigation", "Why the player is the browser's own control, which keeps the keyboard, rather than a drawn one."),
+        new("accessibility.md#target-sizes-and-text", "Why the player keeps the 44 px touch minimum."),
+        new("interaction-guidelines.md#error-states", "Why a file that cannot be played says so in words where the player would be.")
+    ];
+
+    private const string PlayerCode = """
+        <AudioPlayer Source="@(new AudioSource("audio/aac", ct => State.OpenAttachmentStreamAsync(itemId, fileId, ct)))"
+                     AriaLabel="Play Recording · 47:12" />
+        """;
+
+    private const string GoneCode = """
+        <AudioPlayer Source="Source" AriaLabel="Play Recording · 47:12"
+                     MissingText="This recording is not on this machine any more." />
+        """;
+}
