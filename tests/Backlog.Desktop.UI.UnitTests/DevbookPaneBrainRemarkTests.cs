@@ -29,10 +29,10 @@ public sealed class DevbookPaneBrainRemarkTests
         var component = harness.RenderBrain();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='brain-note'] [data-testid^='markdown-comment-']")));
 
-        await component.Find("[data-testid='brain-note'] [data-testid='markdown-comment-1']").ClickAsync(new());
+        await component.ClickAsync("[data-testid='brain-note'] [data-testid='markdown-comment-1']");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit textarea")));
-        component.Find(".md-comment__edit textarea").Input("Which week?");
-        component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
+        await component.InputAsync(".md-comment__edit textarea", "Which week?");
+        await component.ClickAsync(".md-comment__edit-actions [data-testid^='markdown-comment-save-']");
         component.WaitForAssertion(() => Assert.Equal(
             "Which week?",
             component.Find(".md-block-row[data-block='1'] .md-comment__body").TextContent.Trim()));
@@ -101,10 +101,10 @@ public sealed class DevbookPaneBrainRemarkTests
         var component = harness.RenderBrain();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='brain-note'] [data-testid^='markdown-comment-']")));
 
-        await component.Find("[data-testid='brain-note'] [data-testid='markdown-comment-1']").ClickAsync(new());
+        await component.ClickAsync("[data-testid='brain-note'] [data-testid='markdown-comment-1']");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit textarea")));
-        component.Find(".md-comment__edit textarea").Input("Kept for now.");
-        component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
+        await component.InputAsync(".md-comment__edit textarea", "Kept for now.");
+        await component.ClickAsync(".md-comment__edit-actions [data-testid^='markdown-comment-save-']");
 
         component.WaitForAssertion(() => Assert.Contains("Kept for now.", component.Find(".md-block-row[data-block='1']").TextContent, StringComparison.Ordinal));
     }
