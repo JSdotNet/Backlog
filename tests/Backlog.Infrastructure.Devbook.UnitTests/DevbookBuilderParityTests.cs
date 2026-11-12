@@ -311,6 +311,7 @@ public class DevbookBuilderParityTests : IDisposable
         ("work/hidden.md", "# Hidden\n\n```meta\nindex: exclude\n```\n"),
         ("work/clients/acme.md", "# Acme\n\n```meta\nrepos: acme-web\nreview: 2026-11-20\n```\n"),
         ("work/clients/later.md", "# Later\n\n```meta\nreview: next week\n```\n"),
+        ("work/clients/blocks.md", "# Blocks\n\n```meta\ntype: note\ntasks:\n  - c5a14485\n  # a comment\n\n  - \"bb8ce071\"\nroadmap:\n  - +gtd-para\nrepos:\n- backlog\nrelated:\n  - work/standup.md\n```\n\n## Again\n\n```meta\ntasks:\n  - c5a14485\ntasks: [d1]\nroadmap: [sync]\nrepos:\n```\n"),
         ("work/clients/twice.md", "# Twice\n\n```meta\nreview: [2026-11-20, 2026-12-01]\n```\n\n## Aside\n\n```meta\nreview: 2026-01-01\n```\n"),
         ("design/README.md", "# Design notes\n"),
         ("design/palette.md", "# Palette\n\n```meta\ntype: guideline\n```\n\n## Teal\n\nA calm accent.\n"),

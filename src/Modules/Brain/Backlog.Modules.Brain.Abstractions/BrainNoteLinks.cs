@@ -30,8 +30,10 @@ public sealed record BrainLinkEdit(BrainLinkOutcome Outcome, string? Text, strin
 /// last item of a block list, or the field as the last line of the block — is
 /// changed; every other line, ending and byte is put back as it was read. A flow
 /// list (<c>[a, b]</c>) stays one and a block list (<c>- a</c>) stays one; a bare
-/// <c>tasks:</c> with no items has no style yet and becomes a flow list, the one
-/// the devbook parse reads.</item>
+/// <c>tasks:</c> with no items has no style yet and becomes a flow list. The
+/// Brain's index reads both styles back (<c>BlockListFields</c> on
+/// <c>BrainCorpusProfile</c>, <c>readBlockLists</c> in
+/// <c>tools/devbook/brain.mjs</c>).</item>
 /// <item><b>A present value is not added again.</b> A value the list holds — a task
 /// id in any case, a Roadmap Tag exactly — answers
 /// <see cref="BrainLinkOutcome.AlreadyPresent"/> and the text unchanged.</item>
@@ -101,8 +103,8 @@ public static partial class BrainNoteLinks
 
             if (parsed.Items.Count == 0)
             {
-                // A field with no value and no items has no style yet: it becomes the
-                // flow list the devbook parse reads, which does not read block items.
+                // A field with no value and no items has no style yet: it becomes a
+                // flow list, the style the devbook parse reads in every corpus.
                 var colon = keyLine.Text.IndexOf(':', StringComparison.Ordinal);
                 lines[parsed.KeyLine] = keyLine with { Text = keyLine.Text[..(colon + 1)] + $" [{item}]" };
                 return Changed(lines);
