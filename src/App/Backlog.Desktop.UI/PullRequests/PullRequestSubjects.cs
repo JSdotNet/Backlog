@@ -22,8 +22,9 @@ namespace Backlog.Desktop.UI.PullRequests;
 /// <see cref="SessionNotificationSubjects.PullRequestMergedReason"/> or
 /// <see cref="SessionNotificationSubjects.PullRequestClosedReason"/>, as the reading found
 /// it — once per process, since the card reads it again on every render. It also answers
-/// <see cref="ISessionPullRequestStates"/>, which the Sessions subject probe asks at
-/// startup, with the same read by number, through the contract's one cache.
+/// <see cref="ISessionPullRequestStates"/> — which the Sessions subject probe asks at startup
+/// and while a validation question is open, and a run's gate asks before its question is
+/// published — with the same read by number, through the contract's one cache.
 /// </para>
 /// </summary>
 /// <param name="pullRequests">The contract, resolved per call; null reads nothing.</param>
@@ -71,13 +72,20 @@ public sealed class PullRequestSubjects(
 
     /// <summary>Read by number, whatever state it is in. Null without the contract, for
     /// an archived repository nothing was kept for, or when GitHub did not answer for it.</summary>
-    public async Task<bool?> IsOpenAsync(string repository, int number, CancellationToken cancellationToken = default)
+    public async Task<SessionPullRequestState?> StateAsync(string repository, int number, CancellationToken cancellationToken = default)
     {
         if (_pullRequests() is not { } contract || string.IsNullOrWhiteSpace(repository) || number <= 0) return null;
 
         var listing = await contract.ReadAsync([new PullRequestReference(repository.Trim(), number)], cancellationToken: cancellationToken).ConfigureAwait(false);
         var found = listing.PullRequests.FirstOrDefault(candidate => candidate.Reference.Names(repository, number));
 
-        return found?.IsOpen;
+        return found?.State switch
+        {
+            PullRequestState.Open => SessionPullRequestState.Open,
+            PullRequestState.Draft => SessionPullRequestState.Draft,
+            PullRequestState.Merged => SessionPullRequestState.Merged,
+            PullRequestState.Closed => SessionPullRequestState.Closed,
+            _ => null
+        };
     }
 }

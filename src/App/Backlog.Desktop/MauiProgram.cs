@@ -337,6 +337,10 @@ public static class MauiProgram
         // question still open in its session once the notify delay passes.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
 
+        // And the run subject watch: an open Personal Validation question closes once its run's
+        // pull request merged or closed, or its sessions are all archived, while the app runs.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.RunSubjectWatch>();
+
         // And the Windows notifications, before the notifications startup pass below: listening
         // first, so a notification that pass closes takes its Windows notification down with it.
         // Registered for presses before the first window, so a press that launched the app is

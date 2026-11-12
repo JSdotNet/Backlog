@@ -78,15 +78,17 @@ public sealed class PullRequestSubjectsTests
         var contract = new InMemoryPullRequests().Holds(
             Pull(1, "JSdotNet/Backlog"),
             Pull(2, "JSdotNet/Backlog") with { State = PullRequestState.Merged },
-            Pull(3, "JSdotNet/Backlog") with { State = PullRequestState.Closed });
+            Pull(3, "JSdotNet/Backlog") with { State = PullRequestState.Closed },
+            Pull(4, "JSdotNet/Backlog") with { State = PullRequestState.Draft });
         var subjects = new PullRequestSubjects(() => contract, () => _notifications);
         var withoutTheContract = new PullRequestSubjects(() => null, () => _notifications);
 
-        Assert.True(await subjects.IsOpenAsync("jsdotnet/backlog", 1, TestContext.Current.CancellationToken));
-        Assert.False(await subjects.IsOpenAsync("jsdotnet/backlog", 2, TestContext.Current.CancellationToken));
-        Assert.False(await subjects.IsOpenAsync("jsdotnet/backlog", 3, TestContext.Current.CancellationToken));
-        Assert.Null(await subjects.IsOpenAsync("jsdotnet/backlog", 404, TestContext.Current.CancellationToken));
-        Assert.Null(await withoutTheContract.IsOpenAsync("jsdotnet/backlog", 1, TestContext.Current.CancellationToken));
+        Assert.Equal(SessionPullRequestState.Open, await subjects.StateAsync("jsdotnet/backlog", 1, TestContext.Current.CancellationToken));
+        Assert.Equal(SessionPullRequestState.Merged, await subjects.StateAsync("jsdotnet/backlog", 2, TestContext.Current.CancellationToken));
+        Assert.Equal(SessionPullRequestState.Closed, await subjects.StateAsync("jsdotnet/backlog", 3, TestContext.Current.CancellationToken));
+        Assert.Equal(SessionPullRequestState.Draft, await subjects.StateAsync("jsdotnet/backlog", 4, TestContext.Current.CancellationToken));
+        Assert.Null(await subjects.StateAsync("jsdotnet/backlog", 404, TestContext.Current.CancellationToken));
+        Assert.Null(await withoutTheContract.StateAsync("jsdotnet/backlog", 1, TestContext.Current.CancellationToken));
         Assert.All(contract.Calls, call => Assert.StartsWith("read ", call, StringComparison.Ordinal));
     }
 
