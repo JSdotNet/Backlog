@@ -1058,7 +1058,7 @@ folder to the task.
 type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#archive]
 related: [.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/inbox/features.md#capture-attachments, .devbook/domain/inbox/requirements.md#capture-to-inbox-over-mcp, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
-tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.InboxToolsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxMcpToolsOverSqliteTests]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.InboxToolsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxMcpToolsOverSqliteTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeInboxWiringTests.An_item_captured_and_archived_over_mcp_reaches_the_open_inbox_without_moving_the_selection, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxDesktopStateTests.A_write_outside_the_pane_is_announced_only_while_a_loaded_state_listens, unit:dotnet:Backlog.Desktop.UI.UnitTests.SurfaceWindowTests.An_inbox_capture_made_outside_the_window_reloads_its_inbox]
 ```
 
 Let an assistant file captures elsewhere, such as conference notes into the Brain,
@@ -1082,6 +1082,11 @@ description tells an assistant which to call.
 
 No tool deletes. An unknown id, an unknown status, a reversed range, a blank
 title and a source link that is no web address are each refused with a code.
+
+A capture or an archive made over MCP shows in an open Inbox at once, with its
+queue health counts, without a reload by hand, in the main window and in a
+popped-out one. The row being read stays chosen, the archived one included, and
+focus stays where it was.
 
 ## Queue health
 
