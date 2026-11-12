@@ -70,7 +70,9 @@
     the same repository — the second is how a Copilot session, which records no pull
     request, still leads back to the work.
 
-    The ✕ only reports that it was pressed; what that closes is the shell's business.
+    No close of its own (interaction-guidelines.md#shell-header, "A surface draws no
+    close of its own"): the Pull requests option pressed again, or Escape, is the way
+    back in the main window, and the OS close in a window of its own.
 
     Four things narrow the rows beside the header's chips: Mine (the reader's own
     pull requests and those related to one of their tasks), a repository's label
@@ -100,7 +102,6 @@
             {
                 <Badge BaseClass="pull-requests-panel__count" Kind="" TestId="pull-requests-count">@CountLabel</Badge>
             }
-            <IconButton AriaLabel="Close pull requests pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
     </SectionHeader>
 
@@ -386,11 +387,6 @@
 
     /// <summary>An act's outcome, where the host composed no toast channel.</summary>
     private string? _notice;
-
-    /// <summary>Raised when somebody dismisses the pane; what that closes is the
-    /// shell's decision.</summary>
-    [Parameter]
-    public EventCallback OnClose { get; set; }
 
     /// <summary>The goal control the host cascades, drawn in the selected pull request's
     /// head line. With none cascaded the head line is what it was.</summary>

@@ -11,8 +11,7 @@
     the Tasks surface that lands in this window. A pull request's chip is asked for only
     while the catalog offers the pull requests surface, the flag that gates it.
 *@
-<SessionsPane OnClose="OnClose"
-              RepositoryScope="@(_wiring?.RepositoryScope?.Invoke() ?? [])"
+<SessionsPane RepositoryScope="@(_wiring?.RepositoryScope?.Invoke() ?? [])"
               RepositoryAlias="@_wiring?.RepositoryAlias"
               RepositoryColour="@_wiring?.RepositoryColour"
               OnOpenTask="@OpenTaskCallback"
@@ -28,7 +27,8 @@
     [Parameter]
     public IReadOnlyDictionary<string, string>? Query { get; set; }
 
-    /// <summary>Closes the surface: back to the main view, or the window closed.</summary>
+    /// <summary>The shell's close callback, declared because the shell hands it to
+    /// every surface. Unused: the session list draws no close of its own.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
 

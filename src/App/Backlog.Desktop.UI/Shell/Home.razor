@@ -336,8 +336,8 @@
                context's session list, and the pull requests — Repository
                Management's screen (local ADR 0042) — fused beside it because they
                are what the sessions shipped. Each list is a
-               takeover, so pressing the pressed one, Escape, or the surface's own
-               close button returns to the workspace. *@
+               takeover, so pressing the pressed one or Escape returns to the
+               workspace; no surface draws a close of its own. *@
             <ButtonGroup CssClass="header-group header-group--work"
                          AriaLabel="Goals"
                          TestId="goals-switcher">
@@ -1457,8 +1457,8 @@
             ? NoQuery
             : new Dictionary<string, string>(StringComparer.Ordinal) { [global::Backlog.Desktop.UI.Devbook.Extensions.AtlasSurfaceRegistration.ScopeKey] = scope };
 
-    /// <summary>The atlas's way back — its close button, its option pressed again,
-    /// or Escape: the takeover it was opened over, or the workspace when that takeover
+    /// <summary>The atlas's way back — its option pressed again, Escape, or an empty
+    /// state's Back: the takeover it was opened over, or the workspace when that takeover
     /// is no longer offered — what <see cref="AtlasReturnName"/> promised.</summary>
     private void CloseAtlas()
     {

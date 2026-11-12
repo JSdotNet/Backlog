@@ -10644,7 +10644,7 @@ a.pull-request-detail-checks__name:hover {
 /* The Lobes atlas takeover (.devbook/domain/brain/features.md#lobes-atlas),
    laid out as Lobes.dc.html draws it: the map fills the takeover and everything
    else floats over it — the title at the top left, the
-   picture's controls and the close at the top right with the chips under them,
+   picture's controls at the top right with the chips under them,
    the panel and the scope card down the left, the index list down the right,
    and the foot's hint and orientation marker at the bottom. It was a header row
    and a grid column until #1494, #1498 and #1500 each found the map squeezed to
@@ -12248,10 +12248,10 @@ a.pull-request-detail-checks__name:hover {
 
 /*
   A popped-out window (local ADR 0043 §4): the slim header — the surface's title,
-  the repository scope chips, Keep on top, Remember this window, Show in main
-  window — over one surface. The title takes the room that is left, so the toggles
-  and Show in main window sit at the far edge where the main window keeps its
-  utilities.
+  the repository scope chips, Show in main window — over one surface. The title
+  takes the room that is left, so Show in main window sits at the far edge where
+  the main window keeps its utilities. Keep on top and Remember this window are
+  not here: they sit in the window's native title bar, which no stylesheet draws.
 */
 /* A popped-out window is often narrow and has no tiers to fold, so its header
    wraps rather than pushing Show in main window off the edge; the scope chips
@@ -12275,20 +12275,12 @@ a.pull-request-detail-checks__name:hover {
     padding: var(--spacing-lg);
 }
 
-/* Keep on top, Remember this window and Show in main window travel together to
-   the far edge. */
+/* Show in main window goes to the far edge. */
 .surface-window__actions {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
     margin-left: auto;
-}
-
-.surface-window__on-top,
-.surface-window__remember {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
 }
 
 /* Show in main window says it in words while there is room; its icon stands in for
@@ -12300,8 +12292,8 @@ a.pull-request-detail-checks__name:hover {
 /*
   Docked narrow — a "today" list on a side monitor. Every row the header and the
   footer spend is a task the reader cannot see, so below 40rem:
-  - the title and the buttons share the first row, and the scope chips take a
-    row of their own that scrolls sideways rather than running off the edge;
+  - the title and Show in main window share the first row, and the scope chips
+    take a row of their own that scrolls sideways rather than running off the edge;
   - Show in main window drops its words (the button keeps its name);
   - the footer goes: the version and the sync state are the main window's to say;
   - the rows lose their drag handles and the work links, and the page its wide side

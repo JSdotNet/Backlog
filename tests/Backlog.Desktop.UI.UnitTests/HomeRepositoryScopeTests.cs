@@ -397,6 +397,32 @@ public sealed class HomeRepositoryScopeTests
             Assert.Equal(["backlog"], component.FindComponent<NotificationCentrePane>().Instance.RepositoryScope));
     }
 
+    /// <summary>The notification centre draws no close of its own
+    /// (interaction-guidelines.md#shell-header, "A surface draws no close of its
+    /// own"): its option pressed again is the way back to the workspace.</summary>
+    [Fact]
+    public void The_notification_centre_draws_no_close_and_its_option_pressed_again_returns_to_the_workspace()
+    {
+        using var harness = CreateHarness();
+        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
+        _ = features.SetEnabled(NotificationsFeatures.Notifications, true);
+        var component = Render(harness);
+
+        component.WaitForElement("[data-testid='notifications-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='notifications-surface'] [data-testid='notification-centre']")));
+
+        Assert.Empty(component.FindAll("[data-testid='notification-centre-close']"));
+        Assert.Empty(component.FindAll("[data-testid='notifications-surface'] [aria-label='Close notifications']"));
+
+        component.Find("[data-testid='notifications-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='notifications-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+        });
+    }
+
     [Fact]
     public void The_anchor_is_marked_only_once_there_is_a_second_chip_to_tell_it_from()
     {
@@ -744,9 +770,15 @@ public sealed class HomeRepositoryScopeTests
             Assert.False(setUp.HasAttribute("target"));
             Assert.Empty(component.FindAll(".devbook-stack__nav-item"));
 
-            // With no tabs at all the way back is still on the header row.
-            Assert.Equal("Close the Brain", component.Find("[data-testid='devbook-close']").GetAttribute("aria-label"));
+            // With no tabs at all the way back is still the header's option, pressed:
+            // the pane draws no close of its own.
+            Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-close']"));
         });
+
+        component.Find("[data-testid='devbook-pane-option']").Click();
+
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='devbook-surface']")));
     }
 
     // --- Links that opened the side pane open the Devbook surface ---------------------

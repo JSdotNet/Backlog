@@ -65,7 +65,7 @@ related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook
 ### Desktop — .NET MAUI Blazor Hybrid (Razor in WebView2)
 
 ```meta
-related: [".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
+related: [".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/design/interaction-guidelines.md#shell-header"]
 ```
 
 Per `.devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md`, the desktop
@@ -102,6 +102,12 @@ rendering technology as the IDE webviews.
     `interaction-guidelines.md#keyboard-accessible-reordering`.
 - **A11y (EC5):** the shell chrome is the window and title bar. Verify both with
   Accessibility Insights.
+  - A popped-out window's **Keep on top** and **Remember this window** toggles
+    are native MAUI controls in its title bar, outside `Backlog.UI.Components`
+    (`interaction-guidelines.md#shell-header`). They are the one place the
+    app's controls leave the library.
+  - Each needs its UI Automation name, tooltip and toggle state checked there,
+    since no bUnit test or storybook page can render them.
 
 ### Mobile — .NET MAUI
 

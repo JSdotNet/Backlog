@@ -876,24 +876,24 @@ public sealed class SessionsPaneDetailTests
             Task.FromResult(new DeliveryRunCatalog(++Reads == 1 ? first : then, []));
     }
 
-    /// <summary>The page is inside the takeover, so its ✕ is the pane's own close.</summary>
+    /// <summary>The page is inside the takeover, and like the list it draws no close of
+    /// its own (interaction-guidelines.md#shell-header, "A surface draws no close of
+    /// its own"): its breadcrumb is the way back to the list.</summary>
     [Fact]
-    public void Delivery_economics_closes_the_takeover_the_way_the_list_does()
+    public void Delivery_economics_draws_no_close_the_way_the_list_draws_none()
     {
-        var closed = 0;
-
         using var context = Context([Claude], []);
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
-        var pane = context.Render<SessionsPane>(parameters => parameters.Add(p => p.OnClose, () => closed++));
+        var pane = context.Render<SessionsPane>();
 
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-open-economics']")));
+        Assert.Empty(pane.FindAll("[aria-label='Close sessions pane']"));
         pane.Find("[data-testid='sessions-open-economics']").Click();
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='delivery-economics']")));
 
-        pane.Find("[data-testid='delivery-economics'] [aria-label='Close sessions pane']").Click();
-
-        pane.WaitForAssertion(() => Assert.Equal(1, closed));
+        Assert.Empty(pane.FindAll("[data-testid='delivery-economics'] [aria-label='Close sessions pane']"));
+        Assert.NotNull(pane.Find("[data-testid='economics-back']"));
     }
 
     /// <summary>The run and its five earlier runs of the insight test, on the clock of
