@@ -352,6 +352,11 @@ app.UseWhen(
             return;
         }
 
+        // No token, so no grant: the harness's caller holds every grantable scope, and the
+        // tools' scope policies (local ADR 0052 §4) still run against it. A principal already
+        // on the request — a test's — is left where it is.
+        if (context.User.Identity?.IsAuthenticated != true) context.User = McpScopePolicies.HarnessCaller;
+
         await next(context);
     }));
 

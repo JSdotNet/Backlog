@@ -61,12 +61,11 @@ public sealed class McpTokenScopeTests
     [InlineData(McpCredential.QuestionHook, "POST", "/mcp/other", false)]
     [InlineData(McpCredential.QuestionHook, "POST", "/v1/logs", false)]
     [InlineData(McpCredential.QuestionHook, "GET", "/session-requests/wait", false)]
-    // A grant token (local ADR 0052 §3): what the MCP token reaches until scopes are enforced.
+    // A grant token (local ADR 0052 §4): every path here, because its scopes decide next.
     [InlineData(McpCredential.Grant, "POST", "/mcp", true)]
     [InlineData(McpCredential.Grant, "GET", "/session-requests/wait", true)]
     [InlineData(McpCredential.Grant, "POST", "/telemetry", true)]
-    [InlineData(McpCredential.Grant, "POST", "/v1/logs", false)]
-    [InlineData(McpCredential.Grant, "POST", "/V1/Logs/", false)]
+    [InlineData(McpCredential.Grant, "POST", "/v1/logs", true)]
     [InlineData(McpCredential.None, "POST", "/mcp", false)]
     public void Each_token_reaches_its_own_routes(McpCredential credential, string method, string path, bool reaches) =>
         Assert.Equal(reaches, McpLoopbackGuard.Reaches(credential, method, path));

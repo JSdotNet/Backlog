@@ -96,6 +96,14 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
         ArgumentNullException.ThrowIfNull(scopes);
         ArgumentException.ThrowIfNullOrWhiteSpace(createdBy);
 
+        // Only a scope a grant may hold (local ADR 0052 §4): devbook:decide, a misspelling or a
+        // name no policy knows is refused rather than dropped, so the caller cannot believe it
+        // was granted.
+        if (scopes.FirstOrDefault(scope => !McpScopes.IsGrantable(scope)) is { } refused)
+        {
+            throw new ArgumentException($"No grant may hold '{refused}'.", nameof(scopes));
+        }
+
         McpGrant grant;
 
         lock (_gate)

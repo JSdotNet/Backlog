@@ -654,12 +654,12 @@ public sealed class McpServerWorkerTests : IDisposable
     }
 
     /// <summary>
-    /// A grant token the broker minted (local ADR 0052 §3) gets past the guard wherever the MCP
-    /// token does, and not onto the logs route; once its grant is revoked the same token is
+    /// A grant token the broker minted (local ADR 0052 §3) gets past the guard where its scopes
+    /// reach, and is refused with 403 where they do not; once its grant is revoked the same token is
     /// refused with 401 and <c>WWW-Authenticate: Bearer</c> on the very next request.
     /// </summary>
     [Fact]
-    public async Task A_grant_token_reaches_what_the_mcp_token_does_until_its_grant_is_revoked()
+    public async Task A_grant_token_reaches_what_its_scopes_do_until_its_grant_is_revoked()
     {
         var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
         var tokens = new McpGrantTokens(grants, TimeProvider.System);
@@ -678,9 +678,20 @@ public sealed class McpServerWorkerTests : IDisposable
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
+        // The logs route needs telemetry:write, which this grant does not hold: its token is
+        // good and its scope is not, so 403 with insufficient_scope (local ADR 0052 §4).
         using (var response = await client.SendAsync(Export(token), TestContext.Current.CancellationToken))
         {
-            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Contains("insufficient_scope", response.Headers.WwwAuthenticate.Single().Parameter, StringComparison.Ordinal);
+        }
+
+        // And one that does hold it gets past the guard there.
+        var exporter = grants.Create("Telemetry", ["telemetry:write"], "jobsc");
+        using (var response = await client.SendAsync(Export(tokens.Mint(exporter.Id).Token!.Value), TestContext.Current.CancellationToken))
+        {
+            Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
         }
 
         grants.Revoke(grant.Id);

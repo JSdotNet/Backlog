@@ -81,14 +81,14 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     [Fact]
     public void A_fresh_store_reads_the_grants_another_one_wrote()
     {
-        var written = Store().Create("question hook", ["questions"], "jobsc");
-        Store().Revoke(Store().Create("telemetry", ["telemetry"], "jobsc").Id);
+        var written = Store().Create("question hook", ["notify:ask"], "jobsc");
+        Store().Revoke(Store().Create("telemetry", ["telemetry:write"], "jobsc").Id);
 
         var read = Store().List();
 
         Assert.Equal(2, read.Count);
         Assert.Equal(written.Id, read[0].Id);
-        Assert.Equal(["questions"], read[0].Scopes);
+        Assert.Equal(["notify:ask"], read[0].Scopes);
         Assert.Equal(Now, read[0].CreatedAt);
         Assert.False(read[0].Revoked);
         Assert.True(read[1].Revoked);
