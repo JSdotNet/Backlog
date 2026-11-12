@@ -76,6 +76,10 @@ public sealed class ShellWindows(
     /// <summary>A start at sign-in skipped reopening the remembered windows; they open
     /// the first time the main window is shown.</summary>
     private bool _reopenWhenShown;
+
+    /// <summary>Whether anything asked to see the main window, so a start to the tray
+    /// never hides a window a launch has already asked for.</summary>
+    private readonly MainWindowShowLatch _showAsked = new();
 #if WINDOWS
     private TrayIcon? _tray;
 #endif
@@ -104,12 +108,22 @@ public sealed class ShellWindows(
             if ((window.Handler?.PlatformView as Microsoft.UI.Xaml.Window)?.AppWindow is not { } appWindow) return;
 
             appWindow.Closing += OnMainWindowClosing;
-            if (!hidden) return;
+            if (!_showAsked.KeepHidden(hidden))
+            {
+                // A start to the tray that a launch asked for before the window existed:
+                // brought forward as that launch would have, since this process started
+                // at sign-in owns no foreground of its own.
+                if (hidden) MainThread.BeginInvokeOnMainThread(ActivateMainWindow);
+                return;
+            }
 
             // Hidden now, and once more after the launch has activated the window,
-            // whichever comes last.
+            // whichever comes last — unless a launch asked for the window in between.
             appWindow.Hide();
-            MainThread.BeginInvokeOnMainThread(() => appWindow.Hide());
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                if (_showAsked.KeepHidden(hidden)) appWindow.Hide();
+            });
         };
 
         _tray = TrayIcon.TryCreate(title, ActivateMainWindow, RequestQuit, OnSessionEnding);
@@ -169,14 +183,15 @@ public sealed class ShellWindows(
     /// </summary>
     public void ReopenRememberedWhenShown(bool hidden)
     {
-        if (hidden)
+        lock (_gate)
         {
-            lock (_gate)
+            // Under the gate, as ActivateMainWindow reads it: an ask that came before
+            // reopens now, one that comes after finds the flag set.
+            if (_showAsked.KeepHidden(hidden))
             {
                 _reopenWhenShown = true;
+                return;
             }
-
-            return;
         }
 
         ReopenRemembered();
@@ -483,6 +498,9 @@ public sealed class ShellWindows(
         bool reopen;
         lock (_gate)
         {
+            // Asked even before the main window exists: a start to the tray then
+            // opens it shown instead of hiding it.
+            _showAsked.Ask();
             main = _main;
             reopen = _reopenWhenShown && main is not null;
             if (reopen) _reopenWhenShown = false;
@@ -494,9 +512,21 @@ public sealed class ShellWindows(
         if (main is not null) OnMainThread(() =>
         {
 #if WINDOWS
-            (main.Handler?.PlatformView as Microsoft.UI.Xaml.Window)?.AppWindow?.Show();
+            var platformWindow = main.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
+            if (platformWindow?.AppWindow is { } appWindow)
+            {
+                appWindow.Show();
+                if (appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter { State: Microsoft.UI.Windowing.OverlappedPresenterState.Minimized } presenter)
+                    presenter.Restore();
+            }
 #endif
             Application.Current?.ActivateWindow(main);
+#if WINDOWS
+            // Activating alone leaves a window shown behind the foreground one, or only
+            // flashing in the taskbar; the launch that asked granted this process the
+            // foreground (AllowSetForegroundWindow), and the tray's own click owns it.
+            if (platformWindow is not null) _ = SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(platformWindow));
+#endif
 
             if (!reopen) return;
 
@@ -795,6 +825,10 @@ public sealed class ShellWindows(
 
     private static ScreenArea ToScreenArea(Microsoft.UI.Windowing.DisplayArea display) =>
         new(display.WorkArea.X, display.WorkArea.Y, display.WorkArea.Width, display.WorkArea.Height);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(nint window);
 #endif
 
     /// <summary>A popped-out window's title: its surface, then the app.</summary>
