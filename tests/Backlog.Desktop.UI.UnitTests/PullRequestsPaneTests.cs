@@ -44,6 +44,21 @@ public sealed class PullRequestsPaneTests : IDisposable
         }
     }
 
+    /// <summary>No close of its own (interaction-guidelines.md#shell-header, "A surface
+    /// draws no close of its own"): the Pull requests option, Escape, or the OS close of
+    /// a window of its own is the way out.</summary>
+    [Fact]
+    public void The_pane_draws_no_close_of_its_own()
+    {
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1)));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='pull-request-row']")));
+        Assert.Empty(pane.FindAll("[aria-label='Close pull requests pane']"));
+        Assert.DoesNotContain(pane.FindAll(".pull-requests-panel__header-actions button"), button => button.TextContent.Trim() == "✕");
+    }
+
     [Fact]
     public void Every_repositorys_open_pull_requests_are_rows_newest_update_first()
     {

@@ -380,10 +380,10 @@ internal static class StorybookIndex
             // whole, with its filters and its Easily confused pairs.
             new("devbook/domain-glossary", "Domain glossary", "DomainGlossary: every term and model chapter of a context, A–Z, with its kind, its aliases as code chips and its first sentence — a find box that matches aliases too, All / Model / Terms / Borrowed pills with counts, proposed and deprecated badges, and Easily confused beside the list for terms that name each other."),
 
-            // The Domain view's Flow page (local ADR 0047): a lifecycle drawn as one
+            // The Domain view's drawings (local ADR 0047): a lifecycle drawn as one
             // row of states, flowcharts and sequences in the same style; a diagram
             // none of them reads keeps DiagramView's rendering.
-            new("devbook/domain-flows", "Domain flows", "DomainChapterFlows, DomainFlowPage, DomainFlowRow, DomainFlowchart and DomainSequence: the lifecycle a domain chapter opens with, drawn below its unit's About card, and a legacy `flow.md`, whose `stateDiagram-v2` is drawn as one row of states — forward transitions above, the ways back below, the restore loop round the outside — and whose flowcharts and sequences wear the same cards and lines, with its prose beneath."),
+            new("devbook/domain-flows", "Domain flows", "DomainChapterFlows, DomainFlowFigures, DomainFlowRow, DomainFlowchart and DomainSequence: the lifecycles and processes a domain chapter opens with, drawn below its unit's About card — a `stateDiagram-v2` as one row of states, forward transitions above, the ways back below, the restore loop round the outside — with flowcharts and sequences in the same cards and lines."),
 
             // After the kinds' own pages: any other file of a context opens as
             // written (domain/devbook requirement "Any other file opens as written").

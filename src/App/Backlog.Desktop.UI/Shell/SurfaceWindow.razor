@@ -9,15 +9,18 @@
 
 @*
     A popped-out window (local ADR 0043 §4, §6): one registered surface, under the
-    slim header — the surface's title, the repository scope chips, Keep on top where
-    the head can, Remember this window where the window can be remembered (§5), and
-    Show in main window. No view switch, and no Ask AI: Ask AI stays in the main
-    window only. The OS close button is the window's own.
+    slim header — the surface's title, the repository scope chips, and Show in main
+    window. No view switch, and no Ask AI: Ask AI stays in the main window only.
+
+    Keep on top and Remember this window are not drawn here: they sit in the head's
+    native title bar, beside the system's minimise, maximise and close, which
+    SurfaceWindowCaption decides and the head draws. The OS close button is the
+    window's own, so the surface is handed no close of its own to draw either.
 
     It is often docked narrow beside other work — a "today" list on a side monitor —
-    so below 40rem the stylesheet puts the title and the buttons on one row, the
-    scope chips on a row of their own, and Show in main window down to its icon. The
-    button carries its name, so losing the words loses nothing to a screen reader.
+    so below 40rem the stylesheet puts the title and Show in main window on one row,
+    the scope chips on a row of their own, and Show in main window down to its icon.
+    The button carries its name, so losing the words loses nothing to a screen reader.
 
     The surface comes from the catalog and renders through DynamicComponent, handed
     only the query keys it registered. A jump inside it goes through this window's
@@ -66,37 +69,6 @@
         }
 
         <div class="surface-window__actions">
-            @if (CanKeepOnTop)
-            {
-                @* A window docked beside other work is the one that gets covered by
-                   it; pinned, it stays in front of every window that is not pinned
-                   itself. The next window of this surface opens pinned too. *@
-                <ToggleButton CssClass="surface-window__on-top"
-                              TestId="surface-window-on-top"
-                              AriaLabel="Keep on top"
-                              Title="Keep this window on top of other windows"
-                              Pressed="_onTop"
-                              PressedChanged="SetOnTop">
-                    <PinIcon />
-                </ToggleButton>
-            }
-
-            @if (CanRemember)
-            {
-                @* Remember this window (§5): this window alone reopens on the next
-                   start. No word on screen, so the name is on aria-label and stays
-                   fixed; aria-pressed carries the state, and the tooltip says what
-                   the next press does. *@
-                <ToggleButton CssClass="surface-window__remember"
-                              TestId="surface-window-remember"
-                              AriaLabel="Remember this window"
-                              Title="@(_remembered ? "Forget this window" : "Remember this window")"
-                              Pressed="_remembered"
-                              PressedChanged="SetRemembered">
-                    <BookmarkIcon />
-                </ToggleButton>
-            }
-
             @if (_surface is not null && CanShowInMainWindow)
             {
                 <AppButton CssClass="surface-window__main"
@@ -149,19 +121,10 @@
     private IShellWindows? _windows;
     private MainWindowSurfaces? _mainWindow;
     private string? _routedId;
-    private bool _remembered;
 
     private string Title => _surface?.Title ?? "Not available";
 
     private bool CanShowInMainWindow => _mainWindow is not null;
-
-    /// <summary>Only a window the head names, on a surface it can show, in a host that
-    /// reopens windows: never a web harness tab or a loopback page.</summary>
-    private bool CanRemember => _surface is not null && WindowKey is not null && _windows is { CanRemember: true };
-
-    private bool CanKeepOnTop => WindowKey is not null && _windows is { CanKeepOnTop: true };
-
-    private bool _onTop;
 
     private static readonly RenderFragment AppWindowGlyph = @<AppWindowIcon />;
 
@@ -170,7 +133,6 @@
         _state = Services.GetService<TasksDesktopState>();
         _windows = Services.GetService<IShellWindows>();
         _mainWindow = Services.GetService<MainWindowSurfaces>();
-        if (WindowKey is { } key && _windows is not null) _onTop = _windows.IsOnTop(key);
         Navigator.ShowRequested += HandleShowRequested;
         if (_state is not null)
         {
@@ -210,16 +172,8 @@
         if (string.Equals(_routedId, SurfaceId, StringComparison.Ordinal)) return;
 
         _routedId = SurfaceId;
-        if (WindowKey is { } key && _windows is not null) _remembered = _windows.IsRemembered(key);
         Switch(SurfaceId, SurfaceWindowRoute.QueryOf(Navigation.Uri));
         RestoreScope();
-    }
-
-    /// <summary>A press on Remember this window: this window alone is remembered, or forgotten.</summary>
-    private void SetRemembered(bool remembered)
-    {
-        _remembered = remembered;
-        if (WindowKey is { } key) _windows?.SetRemembered(key, remembered);
     }
 
     /// <summary>Tells the head what this window shows now, so a remembered window
@@ -320,12 +274,13 @@
         ReportShowing();
     }
 
-    /// <summary>What the surface's component is handed: its query, and the callback
-    /// that closes it — which in a window of its own closes the window.</summary>
+    /// <summary>What the surface's component is handed: its query, and no callback
+    /// to close it. In a window of its own the OS close button closes it, so a close
+    /// the surface drew would only repeat that one (local ADR 0043 §4).</summary>
     private Dictionary<string, object?> Parameters(ShellSurface surface) => new(StringComparer.Ordinal)
     {
         [ShellSurface.QueryParameter] = (IReadOnlyDictionary<string, string>)_query,
-        [ShellSurface.CloseParameter] = EventCallback.Factory.Create(this, CloseWindow),
+        [ShellSurface.CloseParameter] = default(EventCallback),
     };
 
     /// <summary>
@@ -357,14 +312,6 @@
 
         _windows?.ActivateMainWindow();
         CloseWindow();
-    }
-
-    private void SetOnTop(bool onTop)
-    {
-        if (WindowKey is not { } key || _windows is null) return;
-
-        _windows.SetOnTop(key, onTop);
-        _onTop = _windows.IsOnTop(key);
     }
 
     private void CloseWindow()

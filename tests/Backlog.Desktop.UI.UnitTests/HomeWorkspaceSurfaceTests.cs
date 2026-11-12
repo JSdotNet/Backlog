@@ -591,12 +591,12 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The Devbook closes on its own close button, as every takeover does
-    /// (interaction-guidelines.md, "Every way back works"): the ✕ on its header row
-    /// returns to the view underneath, and that is remembered.
+    /// The Devbook draws no close of its own (interaction-guidelines.md#shell-header,
+    /// "A surface draws no close of its own"): its option pressed again is the way
+    /// back to the view underneath, and that is remembered.
     /// </summary>
     [Fact]
-    public void The_devbooks_close_button_returns_to_the_view_underneath()
+    public void The_devbook_draws_no_close_and_its_option_pressed_again_returns_to_the_view_underneath()
     {
         var path = NewShellNavigationPath();
 
@@ -610,9 +610,9 @@ public sealed class HomeWorkspaceSurfaceTests
             component.Find("[data-testid='calendar-view-option']").Click();
             OpenTheDevbook(component);
 
-            var close = component.Find("[data-testid='devbook-surface'] [data-testid='devbook-close']");
-            Assert.Equal("Close the Devbook", close.GetAttribute("aria-label"));
-            close.Click();
+            Assert.Empty(component.FindAll("[data-testid='devbook-surface'] [data-testid='devbook-close']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-surface'] [aria-label^='Close the']"));
+            component.Find("[data-testid='devbook-pane-option']").Click();
 
             component.WaitForAssertion(() =>
             {
@@ -1447,8 +1447,8 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
         });
 
-        // The in-surface ✕ and the header toggle both close it; this is the ✕.
-        component.Find("[data-testid='tools-panel'] button.btn--ghost").Click();
+        // The header toggle pressed again closes it; the surface draws no ✕ of its own.
+        component.Find("[data-testid='tools-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -2009,8 +2009,8 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Closing is the ✕ inside the pane as well as the header's takeover group and
-    /// pane strip, which is what keeps the header on screen while a takeover is open.
+    /// Closing is the header's takeover option pressed again — the pane draws no ✕ of
+    /// its own — which is what keeps the header on screen while a takeover is open.
     /// </summary>
     [Fact]
     public void The_sessions_pane_closes_back_to_the_workspace()
@@ -2020,7 +2020,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
         OpenSessions(component);
 
-        component.Find("[data-testid='sessions-panel'] button.btn--ghost").Click();
+        component.Find("[data-testid='sessions-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -2415,11 +2415,11 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The pull requests list is a takeover of its own, with its own segment right
-    /// after Sessions, and the way back is the pane's ✕ as much as the header's
-    /// pane options.
+    /// after Sessions, and the way back is its option pressed again — the pane draws
+    /// no ✕ of its own.
     /// </summary>
     [Fact]
-    public void Opening_pull_requests_replaces_every_pane_and_its_close_returns_to_them()
+    public void Opening_pull_requests_replaces_every_pane_and_its_option_returns_to_them()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
@@ -2439,7 +2439,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal(options.IndexOf("sessions-toggle-button") + 1, options.IndexOf("pull-requests-toggle-button"));
         });
 
-        component.Find("[data-testid='pull-requests-panel'] button.btn--ghost").Click();
+        component.Find("[data-testid='pull-requests-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -2939,6 +2939,36 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// No takeover draws a close of its own in the main window either
+    /// (interaction-guidelines.md#shell-header, "A surface draws no close of its own"):
+    /// the ✕ each one drew is gone, and its option pressed again is the way back.
+    /// </summary>
+    [Theory]
+    [InlineData("tools-toggle-button", "tools-surface", "Close tools pane")]
+    [InlineData("dashboard-toggle-button", "dashboard-surface", "Close dashboard")]
+    [InlineData("sessions-toggle-button", "sessions-surface", "Close sessions pane")]
+    [InlineData("pull-requests-toggle-button", "pull-requests-surface", "Close pull requests pane")]
+    public void A_takeover_draws_no_close_and_its_option_pressed_again_returns_to_the_workspace(string toggle, string surface, string formerClose)
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll($"[data-testid='{toggle}']")));
+        component.Find($"[data-testid='{toggle}']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll($"[data-testid='{surface}']")));
+
+        Assert.Empty(component.FindAll($"[data-testid='{surface}'] [aria-label='{formerClose}']"));
+
+        component.Find($"[data-testid='{toggle}']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll($"[data-testid='{surface}']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+        });
+    }
+
     /// <summary>The Roadmap is a view, not a takeover, and keeps Escape for its own
     /// grabbed bars and dialogs: nothing on it carries the marker for the document
     /// listener, and the callback leaves it on screen.</summary>
@@ -3319,9 +3349,10 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>With the flag on, the header's Atlas gives the atlas the whole
-    /// screen in place of the view, and its close button returns to that view.</summary>
+    /// screen in place of the view. It draws no close of its own: its option pressed
+    /// again returns to that view.</summary>
     [Fact]
-    public void With_the_lobes_flag_on_the_headers_atlas_takes_the_screen_and_its_close_returns_to_the_view()
+    public void With_the_lobes_flag_on_the_headers_atlas_takes_the_screen_and_its_option_returns_to_the_view()
     {
         using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
         var component = Render(harness);
@@ -3349,7 +3380,8 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("false", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
         });
 
-        component.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas-close']").Click();
+        Assert.Empty(component.FindAll("[data-testid='atlas-surface'] [data-testid='lobes-atlas-close']"));
+        component.Find("[data-testid='atlas-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -3361,11 +3393,10 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>The Devbook's Atlas button, with the flag on, opens the atlas over the
-    /// Devbook on the shell's repository scope — the one the Devbook reads; its close,
-    /// Escape and its option pressed again return to the Devbook rather than the view
-    /// under it — where the person was.</summary>
+    /// Devbook on the shell's repository scope — the one the Devbook reads; Escape and
+    /// its option pressed again return to the Devbook rather than the view under it —
+    /// where the person was.</summary>
     [Theory]
-    [InlineData("close")]
     [InlineData("escape")]
     [InlineData("option")]
     public async Task The_devbooks_atlas_button_opens_the_atlas_on_the_shells_scope_and_the_way_back_returns_to_the_devbook(string wayBack)
@@ -3389,9 +3420,6 @@ public sealed class HomeWorkspaceSurfaceTests
 
         switch (wayBack)
         {
-            case "close":
-                component.Find("[data-testid='lobes-atlas-close']").Click();
-                break;
             case "escape":
                 await component.Find("[data-testid='atlas-surface']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
                 break;
@@ -3584,7 +3612,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.Equal("Back to Dashboard", reopened.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
             });
 
-            reopened.Find("[data-testid='lobes-atlas-close']").Click();
+            reopened.Find("[data-testid='atlas-toggle-button']").Click();
 
             reopened.WaitForAssertion(() =>
             {
@@ -3633,10 +3661,11 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The surface the atlas opened over switched off since: the tooltip names
-    /// the view the close will really land on, and the close lands there.
+    /// the view the way back will really land on, and its option pressed again lands
+    /// there.
     /// </summary>
     [Fact]
-    public void The_atlas_names_the_view_its_close_lands_on_once_the_surface_it_opened_over_is_off()
+    public void The_atlas_names_the_view_its_way_back_lands_on_once_the_surface_it_opened_over_is_off()
     {
         AppFeatureSettingsStore? features = null;
         using var harness = CreateHarness(
@@ -3660,7 +3689,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
             Assert.Equal("Back to Tasks", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title")));
 
-        component.Find("[data-testid='lobes-atlas-close']").Click();
+        component.Find("[data-testid='atlas-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {

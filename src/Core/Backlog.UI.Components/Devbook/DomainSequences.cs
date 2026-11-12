@@ -36,7 +36,7 @@ public sealed record DomainSequenceBranch(string Keyword, string Label) : Domain
 /// <summary>A block's <c>end</c>.</summary>
 public sealed record DomainSequenceEnd : DomainSequenceStep;
 
-/// <summary>A <c>sequenceDiagram</c> the Flow page draws itself.</summary>
+/// <summary>A <c>sequenceDiagram</c> the view draws itself.</summary>
 public sealed record DomainSequenceDiagram(IReadOnlyList<DomainSequenceParticipant> Participants, IReadOnlyList<DomainSequenceStep> Steps) : DomainFlowFigure
 {
     public DomainSequenceParticipant Participant(string id) => Participants.First(participant => participant.Id == id);
@@ -71,8 +71,8 @@ public sealed record DomainSequenceLayout(
     IReadOnlyList<DomainSequenceFrame> Frames);
 
 /// <summary>
-/// Reads a flow chapter's <c>sequenceDiagram</c> and lays it out in the
-/// lifecycle's cards and lines (local ADR 0047, the Flow page): a card per
+/// Reads a domain chapter's <c>sequenceDiagram</c> and lays it out in the
+/// lifecycle's cards and lines (local ADR 0047): a card per
 /// participant on top with its lifeline beneath, each message a line between two
 /// lifelines with its text above it — a reply dashed, as a way back is — and each
 /// <c>alt</c>, <c>opt</c>, <c>loop</c> or <c>par</c> block a frame round its

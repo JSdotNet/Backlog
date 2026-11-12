@@ -189,8 +189,9 @@ public sealed class GlobalPaneMarkupTests
 
     /// <summary>
     /// Navigation and cross-cutting concerns are separate regions of the header, not
-    /// one row of interchangeable pills. This pins the four regions and the fact
-    /// that only the navigation groups live inside the nav landmark.
+    /// one row of interchangeable pills. This pins the four regions, the fact that
+    /// only the navigation groups live inside the nav landmark, and that the
+    /// utilities end on Ask AI, the Settings gear having moved to the footer band.
     /// </summary>
     [Fact]
     public void The_header_separates_navigation_from_the_cross_cutting_utilities()
@@ -213,11 +214,15 @@ public sealed class GlobalPaneMarkupTests
         Assert.InRange(home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal), nav, status);
 
         Assert.True(home.IndexOf("TestId=\"ai-toggle-button\"", StringComparison.Ordinal) > utilities);
-        Assert.True(home.IndexOf("data-testid=\"settings-link\"", StringComparison.Ordinal) > utilities);
-        Assert.True(
-            home.IndexOf("TestId=\"ai-toggle-button\"", StringComparison.Ordinal)
-            < home.IndexOf("data-testid=\"settings-link\"", StringComparison.Ordinal),
-            "Settings is the last control in the header.");
+
+        // The Settings gear is not in the header: Home draws it into the footer
+        // band's end, after the header closes.
+        var headerEnd = home.IndexOf("</header>", utilities, StringComparison.Ordinal);
+        var footerEnd = home.IndexOf("<SectionContent SectionName=\"@AppFooter.EndSection\">", StringComparison.Ordinal);
+        Assert.True(headerEnd > utilities && footerEnd > headerEnd, "The gear is drawn into the footer's end, after the header.");
+        Assert.InRange(home.IndexOf("TestId=\"app-settings-menu\"", StringComparison.Ordinal), footerEnd, int.MaxValue);
+        Assert.InRange(home.IndexOf("data-testid=\"settings-link\"", StringComparison.Ordinal), footerEnd, int.MaxValue);
+        Assert.DoesNotContain("TestId=\"settings-menu\"", home, StringComparison.Ordinal);
 
         Assert.DoesNotContain("<FeedbackReportButton", home, StringComparison.Ordinal);
         Assert.DoesNotContain("TestId=\"app-version\"", home, StringComparison.Ordinal);
@@ -225,6 +230,42 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("\"pane-multiselect", home, StringComparison.Ordinal);
         Assert.DoesNotContain("pane-multiselect__option", home, StringComparison.Ordinal);
         Assert.DoesNotContain("header-tool-toggle", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A DEV or BETA flag on the header's last control never widens the header.
+    /// <para>
+    /// Ask AI closes the row since the gear moved to the footer, and its flag sits on
+    /// the control's top-right corner, standing a few pixels past its edge. Past the
+    /// header's edge, that made the header's scroll width exceed its box, and
+    /// <c>backlogHeaderFit</c> in app.js — which folds while the header overflows —
+    /// folded every tier and wrapped the row at every width. The utilities keep the
+    /// flag's overhang as end padding, one custom property saying both.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_flag_on_the_last_header_control_stands_inside_the_header()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        Assert.Contains("--header-flag-overhang: 4px;", RuleFor(css, ".app-header {"), StringComparison.Ordinal);
+
+        var flag = RuleFor(css, ".header-group__option > :is(.badge--feature-dev, .badge--feature-beta),");
+        Assert.Contains("position: absolute;", flag, StringComparison.Ordinal);
+        Assert.Contains("right: calc(-1 * var(--header-flag-overhang, 4px));", flag, StringComparison.Ordinal);
+
+        // The standalone utilities rule, not the shared region rule above it.
+        var at = css.LastIndexOf("\n.app-header__utilities {", StringComparison.Ordinal);
+        Assert.True(at >= 0, "`.app-header__utilities` has a rule of its own.");
+        Assert.Contains(
+            "padding-inline-end: var(--header-flag-overhang);",
+            css[at..css.IndexOf('}', at)],
+            StringComparison.Ordinal);
+
+        // Ask AI is still the control the flag rule positions, last in the utilities.
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var utilities = home.IndexOf("class=\"app-header__utilities\"", StringComparison.Ordinal);
+        Assert.InRange(home.IndexOf("BaseClass=\"header-accent\"", StringComparison.Ordinal), utilities, home.IndexOf("</header>", utilities, StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -932,7 +973,7 @@ public sealed class GlobalPaneMarkupTests
         // its own surface.
         Assert.DoesNotContain("<DashboardPane ", home, StringComparison.Ordinal);
         Assert.Contains(
-            "<DashboardPane OnClose=",
+            "<DashboardPane RepositoryAliases=",
             NormalizeLineEndings(File.ReadAllText(FindModuleFile("Dashboard", "DashboardSurface.razor"))),
             StringComparison.Ordinal);
 
@@ -1094,7 +1135,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.True(bulkBar > scroll && rows > scroll, "The bulk bar and the rows are inside the scroller.");
         Assert.True(
             tasks.IndexOf("<div class=\"backlog-list__scroll\"", filterBar, StringComparison.Ordinal)
-            > tasks.IndexOf("TestId=\"open-work-summary\"", StringComparison.Ordinal),
+            > tasks.IndexOf("TestId=\"backlog-refreshing\"", StringComparison.Ordinal),
             "The scroller opens after the filter bar's last control, not around it.");
 
         var scroller = Block(css, ".backlog-list__scroll {");

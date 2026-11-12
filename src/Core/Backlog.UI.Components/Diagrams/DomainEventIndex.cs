@@ -156,9 +156,8 @@ public static partial class DomainEventIndex
 
     /// <summary>
     /// The moves each event fires on: every transition of a <c>stateDiagram-v2</c>
-    /// the context's aggregate and domain-service chapters draw — and a legacy
-    /// <c>flow.md</c>'s diagrams — whose label names the event, by the event's
-    /// name, each move once, in source order. Prose saying a move "would emit" an
+    /// the context's aggregate and domain-service chapters draw whose label names
+    /// the event, by the event's name, each move once, in source order. Prose saying a move "would emit" an
     /// event is not read, nor a flowchart's edges or a note: only a transition.
     /// </summary>
     public static IReadOnlyDictionary<string, IReadOnlyList<DomainEventMove>> Moves(IEnumerable<DomainChapterFile> files)
@@ -179,16 +178,11 @@ public static partial class DomainEventIndex
         return moves.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<DomainEventMove>)pair.Value, StringComparer.Ordinal);
     }
 
-    private static IEnumerable<DomainFlowDiagram> Lifecycles(DomainChapterFile file)
-    {
-        // A legacy flow file draws its lifecycles in chapters of no unit's type.
-        var figures = DomainUnits.IsFlowReference(file.Path)
-            ? file.AllChapters().SelectMany(chapter => DomainFlows.Section(chapter).Diagrams)
-            : file.AllChapters()
-                .Where(chapter => chapter.Type is "aggregate" or "domain-service")
-                .SelectMany(chapter => DomainFlows.InChapter(chapter).Select(flow => flow.Figure));
-        return figures.OfType<DomainFlowDiagram>();
-    }
+    private static IEnumerable<DomainFlowDiagram> Lifecycles(DomainChapterFile file) =>
+        file.AllChapters()
+            .Where(chapter => chapter.Type is "aggregate" or "domain-service")
+            .SelectMany(chapter => DomainFlows.InChapter(chapter).Select(flow => flow.Figure))
+            .OfType<DomainFlowDiagram>();
 
     private static string Name(DomainFlowDiagram diagram, string id) => diagram.State(id) switch
     {

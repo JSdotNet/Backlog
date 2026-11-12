@@ -77,6 +77,12 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
         "flow.md", "model.md", "requirements.md"
     ];
 
+    /// <summary>Fincent's legacy flow files, in the order the rail lists pages:
+    /// devbook contract 37 retired <c>flow.md</c>, so each is a page of its own
+    /// rather than a split under a Flow row.</summary>
+    private static readonly string[] FlowPages =
+        [.. Financieel.Where(file => file.StartsWith("flow", StringComparison.Ordinal)).Order(StringComparer.Ordinal)];
+
     [Fact]
     public async Task Lists_a_split_context_by_kind_in_reading_order()
     {
@@ -86,11 +92,16 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
 
         Assert.Equal("financieel/context.md", context.Path);
         Assert.Equal(
-            ["Domain", "Actors", "Features", "Requirements", "Model", "Flow", "Import"],
-            context.Children.Select(node => node.Label));
+            ["Domain", "Actors", "Features", "Requirements", "Model"],
+            context.Children.Take(5).Select(node => node.Label));
         Assert.Equal(
-            ["financieel/domain.md", "financieel/actors.md", "financieel/features", "financieel/requirements.md", "financieel/model.md", "financieel/flow.md", "financieel/import.md"],
+            [
+                "financieel/domain.md", "financieel/actors.md", "financieel/features", "financieel/requirements.md", "financieel/model.md",
+                .. FlowPages.Select(file => $"financieel/{file}"), "financieel/import.md"
+            ],
             context.Children.Select(node => node.Path));
+        // flow.md is the page its name says, not a kind row over its splits.
+        Assert.Empty(Assert.Single(context.Children, node => node.Path == "financieel/flow.md").Children);
     }
 
     [Fact]
@@ -117,7 +128,8 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
         Assert.Equal(17, Child(context, "Requirements").Children.Count);
         Assert.Equal(10, Child(context, "Model").Children.Count);
         Assert.Equal("Domain services", Child(context, "Model").Children.Single(node => node.Path == "financieel/model.domain-services.md").Label);
-        Assert.Equal(10, Child(context, "Flow").Children.Count);
+        // A legacy flow split is a page of its own, not a child of a Flow row.
+        Assert.All(context.Children.Where(node => node.Path.StartsWith("financieel/flow", StringComparison.Ordinal)), node => Assert.Empty(node.Children));
         Assert.Empty(Child(context, "Actors").Children);
     }
 
@@ -213,7 +225,8 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
 
     /// <summary>The board's counts beside each kind row: Fincent's Domain 13,
     /// Features 20, Requirements 17 (the board's 18 counts <c>requirements.md</c>
-    /// itself), Model 10, Flows 10, and none on Actoren, which holds no split.</summary>
+    /// itself), Model 10, and none on Actoren, which holds no split, nor on a
+    /// legacy flow file, which is a page.</summary>
     [Fact]
     public async Task A_kind_row_counts_the_rows_under_it()
     {
@@ -222,8 +235,9 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
         var context = await LoadContextAsync(repo, "financieel", domainView: true);
 
         Assert.Equal(
-            new (string, int?)[] { ("Domain", 13), ("Actors", null), ("Features", 20), ("Requirements", 17), ("Model", 10), ("Flow", 10), ("Import", null) },
-            context.Children.Select(node => (node.Label, node.Count)));
+            new (string, int?)[] { ("Domain", 13), ("Actors", null), ("Features", 20), ("Requirements", 17), ("Model", 10) },
+            context.Children.Take(5).Select(node => (node.Label, node.Count)));
+        Assert.All(context.Children.Skip(5), node => Assert.Null(node.Count));
         Assert.All(Descendants(context).Except(context.Children), node => Assert.Null(node.Count));
     }
 
@@ -246,8 +260,10 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
 
         var context = await LoadContextAsync(repo, "financieel", domainView: true);
 
-        Assert.Equal(["Domain", "Actoren", "Model", "Flows"], context.Children.Select(node => node.Label));
-        Assert.Equal("Geld eruit", Assert.Single(Child(context, "Flows").Children).Label);
+        // A legacy flow file and its split are pages like import.md, labelled by
+        // their names: no kind row takes flow.md's heading or nests its split.
+        Assert.Equal(["Domain", "Actoren", "Model", "Flow.geld Eruit", "Flow"], context.Children.Select(node => node.Label));
+        Assert.All(context.Children, node => Assert.Empty(node.Children));
     }
 
     /// <summary>Backlog's <c>monitoring/</c> is "Monitoring &amp; Dashboard", and
@@ -315,7 +331,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
         var off = await LoadContextAsync(repo, "tasks", domainView: false);
 
         Assert.Equal(
-            ["tasks/domain.md", "tasks/domain.invariants.md", "tasks/features.md", "tasks/model.md", "tasks/flow.md", "tasks/dependencies.md", "tasks/assets", "tasks/requirements.md"],
+            ["tasks/domain.md", "tasks/domain.invariants.md", "tasks/features.md", "tasks/model.md", "tasks/dependencies.md", "tasks/assets", "tasks/flow.md", "tasks/requirements.md"],
             off.Children.Select(node => node.Path));
     }
 

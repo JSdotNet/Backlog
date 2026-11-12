@@ -229,7 +229,9 @@ public sealed class TasksPaneFocusTests
     /// departure rather than a move the pane stayed open through. A row's copy
     /// button is the one exception in the list: copying changes nothing about
     /// what is open. The calendar adds its month bar, its "+N more" and the open
-    /// entry's own chip, which move around the month rather than away.</summary>
+    /// entry's own chip, which move around the month rather than away. The narrow
+    /// bar's Filter menu is the last: the column is narrow because the entry is open,
+    /// and narrowing the list from the menu is not leaving the entry.</summary>
     [Fact]
     public async Task The_focus_out_check_asks_about_the_detail_pane_its_separator_and_the_row_copy_buttons()
     {
@@ -251,7 +253,8 @@ public sealed class TasksPaneFocusTests
                 "#backlog-pane .task-card[aria-current='true']",
                 "#backlog-pane .task-calendar__bar",
                 "#backlog-pane .task-calendar__more",
-                "#backlog-pane [data-calendar-task][aria-current='true']"
+                "#backlog-pane [data-calendar-task][aria-current='true']",
+                "#backlog-pane [data-testid='filter-menu']"
             ],
             invocation.Arguments);
     }

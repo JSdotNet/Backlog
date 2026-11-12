@@ -1,5 +1,4 @@
 using Backlog.Mobile.UI.Components;
-using Bunit.TestDoubles;
 using Backlog.Mobile.UI.Components.Notifications;
 using Backlog.Mobile.UI.Notifications;
 using Backlog.Modules.Notifications.Abstractions;
@@ -10,11 +9,11 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// The Notifications tab's default view, the pager
+/// The Notifications tab, the pager
 /// (<c>.devbook/domain/notifications/features.md#answering-from-another-device</c>): one open item
-/// waiting on the person per screen, oldest first; Previous, Next and a swipe that move and never
-/// answer; an answer that is confirmed and then gives way to the next card; the end of the stack;
-/// and the header switch to the list.
+/// waiting on the person per screen, oldest first, under one row; Previous, Next and a swipe that
+/// move and never answer; an answer that is confirmed and then gives way to the next card; the end
+/// of the stack; and the detail its title opens.
 /// </summary>
 public sealed class NotificationPagerScreenTests
 {
@@ -55,7 +54,6 @@ public sealed class NotificationPagerScreenTests
         app.WaitForAssertion(() => Assert.Equal("1 / 2", Position(app)));
         Assert.Equal(Older.Title, Title(app));
         Assert.Single(app.FindAll("[data-testid='notification-card']"));
-        Assert.Empty(app.FindAll("[data-testid='notifications-list']"));
 
         // The whole notification: its Markdown body, the diagram included, and the answer controls.
         Assert.NotNull(app.Find("[data-testid='notification-body']"));
@@ -67,26 +65,50 @@ public sealed class NotificationPagerScreenTests
         Assert.Equal("polite", app.Find("[data-testid='notifications-pager-position']").GetAttribute("aria-live"));
     }
 
+    /// <summary>Personal Validation's revise: nothing above the card but the one row — no
+    /// waiting line, no view switch, no refresh button.</summary>
     [Fact]
-    public void The_header_switch_shows_the_list_with_its_history_and_back()
+    public void Nothing_but_the_pagers_row_sits_above_the_card()
     {
-        var settled = TestNotifications.Answered(
-            TestNotifications.Question("Already answered", Now.AddMinutes(-60)), Guid.NewGuid(), Guid.NewGuid(), Now.AddMinutes(-50), "yes");
-        var (host, _, _) = Phone(Older, settled);
+        var (host, _, _) = Phone(Newer, Older);
         using var disposing = host;
+
         var app = host.Open("notifications");
-        app.WaitForAssertion(() => Assert.Equal("1 / 1", Position(app)));
+        app.WaitForAssertion(() => Assert.Equal("1 / 2", Position(app)));
 
-        app.Find("[data-testid='notifications-view-toggle']").Click();
+        Assert.Empty(app.FindAll("[data-testid='notifications-count']"));
+        Assert.Empty(app.FindAll("[data-testid='notifications-view-toggle']"));
+        Assert.Empty(app.FindAll("[data-testid='notifications-refresh']"));
+        Assert.Equal("Notifications", app.Find("h1.sr-only").TextContent);
+    }
 
-        app.WaitForAssertion(() => Assert.Equal(2, app.FindAll("[data-testid='notifications-list'] [data-testid='notification-card']").Count));
-        Assert.EndsWith("notifications?view=list", host.Navigation.Uri, StringComparison.Ordinal);
-        Assert.Equal("One at a time", app.Find("[data-testid='notifications-view-toggle']").TextContent.Trim());
+    [Fact]
+    public void The_cards_title_opens_the_detail()
+    {
+        var (host, _, _) = Phone(Older);
+        using var disposing = host;
 
-        app.Find("[data-testid='notifications-view-toggle']").Click();
+        var app = host.Open("notifications");
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notifications-pager']")));
-        Assert.Empty(app.FindAll("[data-testid='notifications-list']"));
+        app.WaitForAssertion(() => Assert.Equal($"notifications/{Older.Id}", app.Find("[data-testid='notification-open']").GetAttribute("href")));
+    }
+
+    [Fact]
+    public void Previous_and_next_are_chevron_icon_buttons_named_for_a_screen_reader()
+    {
+        var (host, _, _) = Phone(Newer, Older);
+        using var disposing = host;
+
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.Equal("1 / 2", Position(app)));
+
+        foreach (var (testId, name) in new[] { ("notifications-pager-previous", "Previous"), ("notifications-pager-next", "Next") })
+        {
+            var button = app.Find($"[data-testid='{testId}']");
+            Assert.Equal(name, button.GetAttribute("aria-label"));
+            Assert.Equal(string.Empty, button.TextContent.Trim());
+            Assert.NotNull(button.QuerySelector("svg.chevron-up-icon"));
+        }
     }
 
     [Fact]
@@ -255,8 +277,8 @@ public sealed class NotificationPagerScreenTests
         app.Find("[data-testid='notification-choice-yes']").Click();
         app.WaitForAssertion(() => Assert.NotEmpty(app.FindAll("[data-testid='notifications-pager-confirmation']")));
 
-        app.Find("[data-testid='notifications-view-toggle']").Click();
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notifications-list']")));
+        host.Navigation.NavigateTo("notes");
+        app.WaitForAssertion(() => Assert.Empty(app.FindComponents<NotificationPager>()));
         var focuses = Focuses(host);
 
         clock.Advance(NotificationPager.ConfirmationPause);
@@ -267,38 +289,21 @@ public sealed class NotificationPagerScreenTests
     }
 
     [Fact]
-    public void The_view_switch_replaces_the_address_rather_than_adding_to_history()
-    {
-        var (host, _, _) = Phone(Older);
-        using var disposing = host;
-        var app = host.Open("notifications");
-        app.WaitForAssertion(() => Assert.Equal("1 / 1", Position(app)));
-
-        app.Find("[data-testid='notifications-view-toggle']").Click();
-
-        app.WaitForAssertion(() => Assert.EndsWith("notifications?view=list", host.Navigation.Uri, StringComparison.Ordinal));
-        var latest = ((BunitNavigationManager)host.Navigation).History.First();
-        Assert.True(latest.Options.ReplaceHistoryEntry);
-    }
-
-    [Theory]
-    [InlineData("?view=list", "notifications?view=list")]
-    [InlineData("", "notifications")]
-    public void The_detail_goes_back_to_the_view_it_was_opened_from(string query, string back)
+    public void The_detail_goes_back_to_the_tab()
     {
         var (host, _, _) = Phone(Older);
         using var disposing = host;
 
-        var app = host.Open($"notifications/{Older.Id}{query}");
+        var app = host.Open($"notifications/{Older.Id}");
 
-        app.WaitForAssertion(() => Assert.Equal(back, app.Find("[data-testid='notification-back']").GetAttribute("href")));
+        app.WaitForAssertion(() => Assert.Equal("notifications", app.Find("[data-testid='notification-back']").GetAttribute("href")));
     }
 
     private static int Focuses(ShellHost host) =>
         host.JSInterop.Invocations.Count(invocation => invocation.Identifier == "Blazor._internal.domWrapper.focus");
 
     [Fact]
-    public void Answering_the_last_item_is_all_caught_up_with_a_way_to_the_list()
+    public void Answering_the_last_item_is_all_caught_up()
     {
         var (host, _, clock) = Phone(Older);
         using var disposing = host;
@@ -312,10 +317,7 @@ public sealed class NotificationPagerScreenTests
         clock.Advance(NotificationPager.ConfirmationPause);
 
         app.WaitForAssertion(() => Assert.Contains("All caught up", app.Find("[data-testid='notifications-pager-done']").TextContent));
-
-        app.Find("[data-testid='notifications-pager-show-list']").Click();
-
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notifications-list']")));
+        Assert.Empty(app.FindAll("[data-testid='notifications-pager-done'] button"));
     }
 
     [Fact]

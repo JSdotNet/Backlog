@@ -49,6 +49,13 @@ public static class MauiProgram
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+            })
+            .ConfigureMauiHandlers(handlers =>
+            {
+#if WINDOWS
+                // A popped-out window's title bar toggles (local ADR 0043 §4).
+                handlers.AddHandler<CaptionToggle, CaptionToggleHandler>();
+#endif
             });
 
         builder.Services.AddMauiBlazorWebView();

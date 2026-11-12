@@ -31,7 +31,7 @@ public sealed class DevbookReadingConventionTests
             ["flow.md", "model.md", "notes.md", "context.md", "features.md", "domain.md", "actors.md", "skills.md", "dependencies.md"]);
 
         Assert.Equal(
-            ["context.md", "domain.md", "actors.md", "skills.md", "features.md", "model.md", "flow.md", "dependencies.md", "notes.md"],
+            ["context.md", "domain.md", "actors.md", "skills.md", "features.md", "model.md", "dependencies.md", "flow.md", "notes.md"],
             order);
     }
 
