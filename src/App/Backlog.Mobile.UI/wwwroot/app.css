@@ -432,25 +432,33 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .standup-detail__field .field__input { min-height: 44px; }
 
 /*
-  Notifications (local ADR 0039): the list and the detail, drawn as the proposal's
-  phone mockup draws them — a raised card per notification, its kind and severity
-  as small tags with the age across from them, the title, the summary, the answer
-  controls, where it stands, and the desktop that owns it in the mono line.
+  Notifications (local ADR 0039): the pager's card and the detail, drawn as the
+  proposal's phone mockup draws them — a raised card per notification, its kind and
+  severity as small tags with the age across from them, the title, the summary, the
+  answer controls, where it stands, and the desktop that owns it in the mono line.
 */
-.notifications-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
-.notifications-heading__titles { display: grid; gap: .125rem; }
-.notifications-heading__lede { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
-.notifications-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 
-/* The From and Repository filters under the heading, side by side while they fit, Clear
-   filters at the row's end; both views share them. */
-.notifications-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem .75rem; margin-bottom: .75rem; }
-.notifications-filters__filter { flex: 1 1 9rem; min-width: 0; margin: 0; }
+/*
+  The filter button at the start of the pager's row: a thumb's 44px, gold while a
+  filter narrows the tab, with the number of waiting items the filters leave out
+  pinned to its corner. Its panel holds the From and Repository selects, labelled,
+  and Clear filters; wide enough for "All systems (n)" without wrapping.
+*/
+.notifications-filters__trigger { position: relative; min-width: 44px; min-height: 44px; }
+.notifications-filters__trigger--active { color: var(--color-primary); border-color: var(--color-primary); }
+.notifications-filters__hidden {
+    position: absolute;
+    top: 0;
+    right: 0;
+    transform: translate(35%, -35%);
+    font-size: var(--font-size-xs);
+    line-height: 1.25rem;
+    padding: 0 .3125rem;
+}
+.notifications-filters__panel { min-width: min(18rem, calc(100vw - 2rem)); }
+.notifications-filters__filter { margin: 0; }
 .notifications-filters__filter .field__input { min-height: 44px; width: 100%; }
-.notifications-filters__clear { min-height: 44px; }
-
-.notifications { padding-bottom: 1.5rem; }
-.notifications__list { display: grid; gap: .75rem; list-style: none; padding: 0; margin: 0; }
+.notifications-filters__clear { min-height: 44px; justify-self: start; }
 
 .phone-notification {
     display: grid;
@@ -529,16 +537,14 @@ html:has(.notifications-pager),
 body:has(.notifications-pager) { overscroll-behavior-x: none; }
 .content:has(> .notifications-pager) { display: flex; flex-direction: column; }
 
-/* The heading's two actions: the view switch and the refresh button, both a thumb's 44px. */
-.notifications-heading__actions { display: inline-flex; align-items: center; gap: .375rem; }
-.notifications-heading__toggle { min-height: 44px; }
-
 /*
-  The pager (NotificationPager): one waiting item per screen. Previous and Next sit
-  either side of the position at the thumb's 44px minimum; the dots echo the
-  position and the current one is larger and outlined, not only another colour, while
-  the "n / total" text is what a screen reader hears. The swipe surface lets the page
-  scroll vertically and leaves the horizontal gesture to swipe-pager.js.
+  The pager (NotificationPager): one waiting item per screen, under one row — the
+  host's control at its start, then Previous and Next as chevron icon buttons either
+  side of the "n / total" position, at the thumb's 44px minimum. The library draws
+  one chevron, pointing up, and the pager turns it a quarter each way. The dots under
+  the position echo it and the current one is larger and outlined, not only another
+  colour, while the "n / total" text is what a screen reader hears. The swipe surface
+  lets the page scroll vertically and leaves the horizontal gesture to swipe-pager.js.
 
   The card scrolls with the page and its answer controls are pinned to the bottom
   of the screen, just above the tab bar (--app-tab-bar-dock).
@@ -550,11 +556,17 @@ body:has(.notifications-pager) { overscroll-behavior-x: none; }
     gap: .75rem;
     padding-bottom: 1.5rem;
 }
-.notifications-pager__nav { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+/* The host's control at the row's start; Previous, the position and Next centred whether or not it is there. */
+.notifications-pager__nav { display: grid; grid-template-columns: 1fr auto auto auto 1fr; align-items: center; gap: .5rem; }
+.notifications-pager__leading { grid-column: 1; justify-self: start; display: inline-flex; }
+.notifications-pager__step--previous { grid-column: 2; }
+.notifications-pager__where { grid-column: 3; display: grid; justify-items: center; gap: .375rem; min-width: 3.5rem; }
+.notifications-pager__step--next { grid-column: 4; }
 /* Previous, Next and the end screen's actions: a thumb's 44px at least. */
 .notifications-pager__step,
 .notifications-pager__action { min-width: 44px; min-height: 44px; }
-.notifications-pager__where { display: grid; justify-items: center; gap: .375rem; min-width: 0; }
+.notifications-pager__chevron--previous { transform: rotate(-90deg); }
+.notifications-pager__chevron--next { transform: rotate(90deg); }
 .notifications-pager__position { color: var(--color-text-secondary); font-size: var(--font-size-sm); font-variant-numeric: tabular-nums; }
 .notifications-pager__dots { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .3125rem; }
 .notifications-pager__dot { width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-border); }

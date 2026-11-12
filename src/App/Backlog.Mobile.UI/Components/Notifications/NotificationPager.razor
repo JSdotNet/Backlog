@@ -6,8 +6,8 @@
 @implements IAsyncDisposable
 
 @*
-    The Notifications tab's default view: one open item waiting on the person per
-    screen, oldest first (NotificationStack), as
+    The Notifications tab: one open item waiting on the person per screen, oldest
+    first (NotificationStack), as
     .devbook/domain/notifications/features.md#answering-from-another-device describes.
 
     Each screen is the whole PhoneNotificationCard with its Markdown body. The page
@@ -18,8 +18,17 @@
 
     A horizontal swipe (swipe-pager.js) moves to the next or previous item and never
     answers: it is ignored when it starts on a control, and a mostly vertical drag is
-    the page scrolling. Previous and Next buttons beside it do the same, because every
-    gesture has a control beside it (design/component-libraries.md). While a reply
+    the page scrolling. Previous and Next beside it do the same, because every
+    gesture has a control beside it (design/component-libraries.md): icon buttons, a
+    chevron each side of the "n / total" position, named Previous and Next for a screen
+    reader, which hears the position as it changes. The dots under the position echo
+    it for the eye, the current one larger and outlined, not only another colour. The
+    whole row is the only thing above the card: the host puts its own control at the
+    row's start (Leading) — the tab's filter button — rather than a row of its own.
+    When the filters leave nothing, the host hands the pager what to show instead
+    (Replacement): the row keeps Leading alone and the surface shows that, so the
+    filter button is never drawn afresh under the person's finger.
+    While a reply
     is kept they are busy, not disabled: they keep their tab stop, say aria-disabled
     and ignore a press (.devbook/design/interaction-guidelines.md#accessibility). Previous
     on the first card, and Next on the end screen, have nowhere to go: unavailable
@@ -42,46 +51,63 @@
 
 <section class="notifications-pager" aria-label="Notifications, one at a time" data-testid="notifications-pager">
     <div class="notifications-pager__nav">
-        <AppButton Variant="ButtonVariant.Secondary"
-                   Disabled="@(!_stack.CanGoPrevious)"
-                   aria-disabled="@Blocked"
-                   CssClass="notifications-pager__step"
-                   TestId="notifications-pager-previous"
-                   OnClick="Previous">Previous</AppButton>
+        @if (Leading is not null)
+        {
+            <span class="notifications-pager__leading">@Leading</span>
+        }
 
-        <span class="notifications-pager__where">
-            <span class="notifications-pager__position" aria-live="polite" data-testid="notifications-pager-position">@PositionText</span>
-            @if (_stack.Total > 1)
-            {
-                <span class="notifications-pager__dots" aria-hidden="true" data-testid="notifications-pager-dots">
-                    @foreach (var item in _stack.Items)
-                    {
-                        <span @key="item.Id" class="@DotClass(item)"></span>
-                    }
-                </span>
-            }
-        </span>
+        @* Without a stack to move through — the filters left nothing — the row keeps only the
+           host's control, in the same place, so its panel stays open and the focus with it. *@
+        @if (Replacement is null)
+        {
+            <IconButton AriaLabel="Previous"
+                        Disabled="@(!_stack.CanGoPrevious)"
+                        aria-disabled="@Blocked"
+                        CssClass="notifications-pager__step notifications-pager__step--previous"
+                        TestId="notifications-pager-previous"
+                        OnClick="Previous">
+                <ChevronUpIcon Size="20" CssClass="notifications-pager__chevron notifications-pager__chevron--previous" />
+            </IconButton>
 
-        <AppButton Variant="ButtonVariant.Secondary"
-                   Disabled="@(!_stack.CanGoNext)"
-                   aria-disabled="@Blocked"
-                   CssClass="notifications-pager__step"
-                   TestId="notifications-pager-next"
-                   OnClick="Next">Next</AppButton>
+            <span class="notifications-pager__where">
+                <span class="notifications-pager__position" aria-live="polite" data-testid="notifications-pager-position">@PositionText</span>
+                @if (_stack.Total > 1)
+                {
+                    <span class="notifications-pager__dots" aria-hidden="true" data-testid="notifications-pager-dots">
+                        @foreach (var item in _stack.Items)
+                        {
+                            <span @key="item.Id" class="@DotClass(item)"></span>
+                        }
+                    </span>
+                }
+            </span>
+
+            <IconButton AriaLabel="Next"
+                        Disabled="@(!_stack.CanGoNext)"
+                        aria-disabled="@Blocked"
+                        CssClass="notifications-pager__step notifications-pager__step--next"
+                        TestId="notifications-pager-next"
+                        OnClick="Next">
+                <ChevronUpIcon Size="20" CssClass="notifications-pager__chevron notifications-pager__chevron--next" />
+            </IconButton>
+        }
     </div>
 
     <Alert Message="@_confirmation" Role="status" BaseClass="notifications-pager__confirmation" TestId="notifications-pager-confirmation" />
     <Alert Message="@_replyError" Role="status" BaseClass="capture__notice" TestId="notifications-pager-reply-error" />
 
     <div class="notifications-pager__surface" @ref="_surface" data-testid="notifications-pager-surface">
-        @if (_stack.Current is { } current)
+        @if (Replacement is not null)
+        {
+            @Replacement
+        }
+        else if (_stack.Current is { } current)
         {
             @* Focus lands here after every move: the card, named by its title. *@
             <div class="notifications-pager__card" @key="current.Id" @ref="_focusTarget"
                  tabindex="-1" role="group" aria-label="@current.Notification.Title" data-testid="notifications-pager-card">
                 <PhoneNotificationCard Notification="current"
                                        Href="@($"notifications/{current.Id}")"
-                                       ShowBody="true"
                                        Busy="_answering"
                                        OnReply="pick => ReplyAsync(current, pick)" />
             </div>
@@ -93,12 +119,7 @@
                 {
                     <EmptyState Title="All caught up"
                                 Description="Nothing is waiting for you."
-                                TestId="notifications-pager-done">
-                        <Action>
-                            <AppButton Variant="ButtonVariant.Secondary" CssClass="notifications-pager__action"
-                                       TestId="notifications-pager-show-list" OnClick="ShowList">Show all notifications</AppButton>
-                        </Action>
-                    </EmptyState>
+                                TestId="notifications-pager-done" />
                 }
                 else
                 {
@@ -140,17 +161,19 @@
     [Parameter, EditorRequired]
     public IReadOnlyList<PhoneNotification> Notifications { get; set; } = [];
 
-    /// <summary>Switches the tab to the list of every notification.</summary>
+    /// <summary>The host's control at the start of the pager's row, before Previous — the
+    /// tab's filter button — so nothing above the card takes a row of its own.</summary>
     [Parameter]
-    public EventCallback OnShowList { get; set; }
+    public RenderFragment? Leading { get; set; }
 
-    /// <summary>The tab's filters that narrowed <see cref="Notifications"/>. A change that
-    /// replaces the card on screen moves the focus as a pager move does; the stack itself
-    /// follows the narrowed list like any refresh.</summary>
+
+    /// <summary>What the surface shows instead of the stack — the tab's "Nothing matches these
+    /// filters" — with Previous, the position and Next taken out of the row. The pager stays
+    /// mounted under it, so <see cref="Leading"/> is never drawn again from scratch.</summary>
     [Parameter]
-    public NotificationFilter? Filter { get; set; }
+    public RenderFragment? Replacement { get; set; }
 
-    private NotificationFilter? _filtered;
+    private bool _replaced;
 
     /// <summary>aria-disabled for Previous and Next while a reply is kept. Never the native
     /// attribute: that would drop the button from the tab order and take the focus off it
@@ -163,18 +186,19 @@
 
     protected override void OnParametersSet()
     {
+        var wasReplaced = _replaced;
+        _replaced = Replacement is not null;
+
         if (ReferenceEquals(Notifications, _shown)) return;
 
-        var before = _stack.Current?.Id;
-        var refiltered = _shown is not null && !Equals(Filter, _filtered);
-
-        if (_shown is null) _stack = new NotificationStack(Notifications);
+        // A filter change is a refresh like any other and leaves the focus alone: the person
+        // is in the filter panel, and the position's live region says where the pager now is.
+        // Back from a replacement the stack starts afresh, on its oldest item, as a pager just
+        // opened does: the one it held was emptied by the filters, not gone through.
+        if (_shown is null || (wasReplaced && !_replaced)) _stack = new NotificationStack(Notifications);
         else _stack.Refresh(Notifications);
 
-        if (refiltered && _stack.Current?.Id != before) _moved = true;
-
         _shown = Notifications;
-        _filtered = Filter;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -274,8 +298,6 @@
         _replyError = null;
         _moved = true;
     }
-
-    private Task ShowList() => OnShowList.InvokeAsync();
 
     private async Task ReplyAsync(PhoneNotification item, NotificationAnswerPick pick)
     {
