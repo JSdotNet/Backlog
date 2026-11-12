@@ -1,4 +1,5 @@
 using Backlog.Modules.Inbox.Abstractions;
+using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.DomainModels;
 using Backlog.SharedKernel.Handlers;
@@ -12,9 +13,12 @@ namespace Backlog.Modules.Inbox.Features.ReturnToInbox;
 /// plan", which made the entries — those entries are deleted first; without it —
 /// "Link to task…", which made none — the task it named is left alone.
 /// <paramref name="MadeDone"/> is Done now's undo: its one entry was born Done
-/// and ticked, so Done does not count as started.
+/// and ticked, so Done does not count as started. <paramref name="TakeBackPlan"/>
+/// is Create plan's undo when it started a project note: the Roadmap Item its
+/// <c>plan</c> entry laid out goes with the entries, found by the plan tag Create
+/// plan minted from this item. The note stays in the Brain.
 /// </summary>
-public sealed record ReturnToInboxCommand(Guid Id, bool DeleteTasks, bool MadeDone = false);
+public sealed record ReturnToInboxCommand(Guid Id, bool DeleteTasks, bool MadeDone = false, bool TakeBackPlan = false);
 
 /// <summary>
 /// Settles the backlog first and the item second, so a refusal changes
@@ -41,7 +45,13 @@ public sealed class ReturnToInboxCommandHandler(
                 new InvalidInboxTransitionException(item.Status, "returned from the backlog").Message));
         }
 
-        if (command.DeleteTasks && routing.TaskIds.Count > 0)
+        if (command.DeleteTasks && command.TakeBackPlan)
+        {
+            var plan = new InboxLaidOutPlanDto(InboxPlanTag.For(item.Title, item.Id), item.Title, routing.RepoIds);
+            var deleted = await target.DeleteRoutedPlanAsync(routing.TaskIds, plan, cancellationToken).ConfigureAwait(false);
+            if (deleted.IsFailure) return deleted;
+        }
+        else if (command.DeleteTasks && routing.TaskIds.Count > 0)
         {
             var deleted = await target.DeleteRoutedTasksAsync(routing.TaskIds, command.MadeDone, cancellationToken).ConfigureAwait(false);
             if (deleted.IsFailure) return deleted;

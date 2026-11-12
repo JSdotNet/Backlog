@@ -972,6 +972,30 @@ public sealed class InboxPaneTests
         Assert.Equal([true, false], harness.Inbox.PlanProjectNoteAsks);
     }
 
+    /// <summary>Undoing a plan made with a project note takes its Roadmap Item back
+    /// with the tasks; one made without a note laid out no item, and undoes as Move
+    /// to backlog does (features.md#undo-a-decision).</summary>
+    [Fact]
+    public async Task Undoing_a_plan_with_a_project_note_takes_its_roadmap_item_back_too()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.PlanDrafterAvailability = (true, null);
+        var noted = harness.Inbox.Seed("Ship the thing");
+        var plain = harness.Inbox.Seed("Plan me");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, plain.Id);
+        await pane.Find("[data-testid='inbox-create-plan']").ClickAsync(new());
+        await harness.SelectAsync(pane, noted.Id);
+        await pane.Find("[data-testid='inbox-create-plan-project-note'] input").ChangeAsync(new ChangeEventArgs { Value = true });
+        await pane.Find("[data-testid='inbox-create-plan']").ClickAsync(new());
+
+        await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("u"));
+        await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("u"));
+
+        Assert.Equal([("return-plan", noted.Id), ("return", plain.Id)], harness.Inbox.Undos);
+    }
+
     [Fact]
     public async Task Also_start_a_project_note_is_disabled_with_the_brain_s_reason_when_there_is_no_brain()
     {

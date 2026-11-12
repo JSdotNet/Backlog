@@ -140,6 +140,50 @@ public sealed class UndoDecisionTests
         Assert.Contains(item.Id, store.ItemWrites);
     }
 
+    /// <summary>Undoing Create plan with a project note: the tasks and the Roadmap
+    /// Item its <c>plan</c> entry laid out go back together, the item named by the
+    /// plan tag Create plan minted (<c>.devbook/domain/inbox/features.md#undo-a-decision</c>).</summary>
+    [Fact]
+    public async Task Returning_a_created_plan_takes_back_the_roadmap_item_with_the_tasks()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual("Sync rework");
+        Guid[] made = [Guid.CreateVersion7(), Guid.CreateVersion7()];
+        item.RouteToBacklog(made, ["Backlog"], Items.Noon);
+        store.Seed(item);
+
+        var result = await new ReturnToInboxCommandHandler(store, target, new FakeTimeProvider(Undone))
+            .Handle(new ReturnToInboxCommand(item.Id, DeleteTasks: true, TakeBackPlan: true), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        var (taskIds, plan) = Assert.Single(target.PlanDeletions);
+        Assert.Equal(made, taskIds);
+        Assert.Equal(InboxPlanTag.For("Sync rework", item.Id), plan.PlanTag);
+        Assert.Equal("Sync rework", plan.Title);
+        Assert.Equal(["Backlog"], plan.RepoIds);
+        Assert.Empty(target.Deletions);
+        Assert.Equal(InboxStatus.Unprocessed, item.Status);
+    }
+
+    [Fact]
+    public async Task An_edited_roadmap_item_refuses_the_plan_s_return_and_the_item_stays_routed()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget { FailDeleteWith = InboxErrors.UndoPlanEdited("Sync rework") };
+        var item = Items.Manual("Sync rework");
+        item.RouteToBacklog([Guid.CreateVersion7()], [], Items.Noon);
+        store.Seed(item);
+
+        var result = await new ReturnToInboxCommandHandler(store, target, new FakeTimeProvider(Undone))
+            .Handle(new ReturnToInboxCommand(item.Id, DeleteTasks: true, TakeBackPlan: true), TestContext.Current.CancellationToken);
+
+        Assert.Equal(InboxErrors.UndoPlanEditedCode, result.Error.Code);
+        Assert.Equal("Can't undo — the roadmap item Sync rework has been changed", result.Error.Message);
+        Assert.True(item.IsRouted);
+        Assert.Empty(store.ItemWrites);
+    }
+
     [Fact]
     public async Task Returning_withdraws_an_acknowledgement_the_outbox_has_not_sent()
     {
