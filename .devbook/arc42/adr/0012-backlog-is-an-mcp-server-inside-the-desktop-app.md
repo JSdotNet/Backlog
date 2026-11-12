@@ -158,7 +158,19 @@ time, caller, tool, target id, outcome and correlation id. Until grants land the
 `mcp-audit.db` in the installation's own app-data folder, never in `backlog.db`, and are
 kept 30 days. The MCP server's Settings page shows the latest 200 on its **Activity** card.
 A request the listener turns away before any tool is named — a foreign `Origin`, a missing
-or wrong token — is a warning in the app's log, not an audit record.
+or wrong token — is a warning in the app's log, not an audit record; only the bearer lockout below is audited.
+
+**Rotate and the bearer limit are built (2026-11-11, plan `zero-trust-auth` entry 6).** The
+**Bearer token** card has a **Rotate** that replaces `mcpServer.token` at once and says so
+on the card. The listener reads the token per request, so the old one is refused from the
+next request. The `headersHelper` re-reads `settings.json` after that 401 and picks up the
+new one; a registration that names the token itself needs the new copy. Ten failed bearer
+attempts within 60 seconds lock the listener out: every bearer request answers 429 with
+`Retry-After` for 60 seconds, the right token included. The trip writes one audit record,
+caller `no valid token`, tool `bearer lockout`, outcome Refused. The limit is one for the
+whole listener: every caller is on loopback, so no address tells a guesser from an agent.
+For 60 seconds after a Rotate the old token is refused but not counted, so the sessions
+still sending it cannot lock the person out.
 
 **The token broker and grants are built (2026-11-11, plan `zero-trust-auth` entry 7),
 beside the shared token.** The desktop app keeps grants in `mcp-grants.json` in its app-data folder, each with a
@@ -439,6 +451,7 @@ day this record was accepted. A row marked **Built** is one the plan has closed.
 | Date | Change | Why |
 | --- | --- | --- |
 | 2026-11-11 | Built §1's token broker and grants beside the shared token: a named pipe for the person's SID alone mints 15-minute JWTs for grants in `mcp-grants.json`, and the listener refuses an expired token or one older than its grant's version. | Plan `zero-trust-auth` entry 7, ADR 0052 Phase 1. |
+| 2026-11-11 | Built §1's Rotate on the **Bearer token** card and the limit on failed bearer attempts: ten within 60 seconds answer every bearer request 429 for 60 seconds, with one audit record. | Plan `zero-trust-auth` entry 6, ADR 0052 Phase 0. |
 | 2026-11-11 | The decision group drops `devbook_approve` and `devbook_accept` (local ADR 0052 §7): five operations, `devbook_set_state` to `draft` alone. | Plan `zero-trust-auth`: an agent could approve its own change under the person's name. |
 | 2026-11-11 | Built §1's audit log: one record per tool call, in a per-installation `mcp-audit.db`, kept 30 days and shown on the MCP server Settings page's **Activity** card. | Plan `zero-trust-auth` entry 5, ADR 0052 Phase 0. |
 | 2026-11-11 | Amended §1 by local ADR 0052: the shared bearer token becomes a per-registration grant whose broker mints 15-minute scoped tokens, checked by scope policies behind the `Origin` check. Not built yet. | Plan `zero-trust-auth`: the one plaintext token never expired and opened every tool to every caller. |

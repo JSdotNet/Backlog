@@ -290,6 +290,8 @@ public class McpEndpointExpansionTests
 
         public string? CurrentToken => TokensMinted > 0 ? token : null;
 
+        public string? RotateToken() => throw new NotSupportedException();
+
         public event Action? Changed
         {
             add { }

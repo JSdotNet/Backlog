@@ -16,4 +16,12 @@ public static class McpAudit
     /// <summary>The caller of every call the web harness admits: it asks for no token,
     /// because it is not the installed app (local ADR 0052).</summary>
     public const string HarnessCaller = "web harness, no token";
+
+    /// <summary>The caller of a record the listener writes for requests that carried no
+    /// valid bearer token: nobody it could name.</summary>
+    public const string NoValidTokenCaller = "no valid token";
+
+    /// <summary>The tool column of the record written when failed bearer attempts trip
+    /// the listener's lockout: not a tool, so not in a tool's snake case.</summary>
+    public const string BearerLockout = "bearer lockout";
 }

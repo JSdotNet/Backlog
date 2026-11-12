@@ -130,6 +130,19 @@
                 A registration sends it as <code>Authorization: Bearer</code> and the token.
                 The copy holds the token itself, where the one above shows it hidden.
             </p>
+            @* Rotate replaces the token at once and says so here, in place: the listener
+               refuses the old one from its next request (local ADR 0052, Phase 0). *@
+            <div class="setting__actions">
+                <AppButton TestId="mcp-server-token-rotate" OnClick="RotateToken">
+                    Rotate
+                </AppButton>
+            </div>
+            <Alert BaseClass="setting__status"
+                   CssClass="@(_rotated && _rotateNote is null ? "setting__status--ok" : null)"
+                   Role="status"
+                   Id="mcp-server-token-status"
+                   TestId="mcp-server-token-status"
+                   Message="@TokenStatus" />
         }
         else
         {
@@ -383,6 +396,30 @@
     private void Retry() => _source?.Retry();
 
     private void CreateToken() => _ = _source?.EnsureToken();
+
+    /// <summary>True once this page has rotated the token, so its status line says so.</summary>
+    private bool _rotated;
+
+    /// <summary>What the store said about the rotation it made - that the new token
+    /// could not be saved for next time - or null.</summary>
+    private string? _rotateNote;
+
+    /// <summary>What the token's status line says before any rotation.</summary>
+    private const string RotateHint = "Rotate replaces the token at once, and the old one stops working.";
+
+    /// <summary>What the token's status line says once rotated and saved.</summary>
+    public const string RotatedNote =
+        "Token rotated. The old one is refused now; a registration using the headers helper picks up the new one after its next 401, and any that names the token itself needs the new copy.";
+
+    private string TokenStatus => _rotated ? _rotateNote ?? RotatedNote : RotateHint;
+
+    private void RotateToken()
+    {
+        if (_source is null) return;
+
+        _rotateNote = _source.RotateToken();
+        _rotated = true;
+    }
 
     private static string PortText(int port) => port.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
