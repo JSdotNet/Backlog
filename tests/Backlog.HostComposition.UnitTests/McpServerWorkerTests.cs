@@ -653,6 +653,135 @@ public sealed class McpServerWorkerTests : IDisposable
         Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    /// <summary>
+    /// A grant token the broker minted (local ADR 0052 §3) gets past the guard wherever the MCP
+    /// token does, and not onto the logs route; once its grant is revoked the same token is
+    /// refused with 401 and <c>WWW-Authenticate: Bearer</c> on the very next request.
+    /// </summary>
+    [Fact]
+    public async Task A_grant_token_reaches_what_the_mcp_token_does_until_its_grant_is_revoked()
+    {
+        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var tokens = new McpGrantTokens(grants, TimeProvider.System);
+        var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var grant = grants.Create("Claude Code", ["tasks:read"], "jobsc");
+        var token = tokens.Mint(grant.Id).Token!.Value;
+
+        using (var response = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Export(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        grants.Revoke(grant.Id);
+
+        using (var response = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
+        }
+    }
+
+    /// <summary>A grant token this listener never signed is a guess, and counts towards the
+    /// failed-bearer lockout; one it signed whose grant was revoked does not, because its client
+    /// is real and its next mint is the fix.</summary>
+    [Fact]
+    public async Task Forged_grant_tokens_count_towards_the_lockout_and_a_revoked_one_does_not()
+    {
+        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var tokens = new McpGrantTokens(grants, TimeProvider.System);
+        var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var grant = grants.Create("Claude Code", [], "jobsc");
+        var revoked = tokens.Mint(grant.Id).Token!.Value;
+        grants.Revoke(grant.Id);
+
+        // Signed by another listener's key: well-formed, never signed here.
+        var otherGrants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var forged = new McpGrantTokens(otherGrants, TimeProvider.System).Mint(otherGrants.Create("x", [], "jobsc").Id).Token!.Value;
+
+        for (var i = 0; i < McpBearerLimiter.MaxFailures; i++)
+        {
+            using var refused = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", revoked), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        }
+
+        var token = settings.EnsureMcpServerToken();
+
+        using (var response = await client.SendAsync(Hook(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        for (var i = 0; i < McpBearerLimiter.MaxFailures; i++)
+        {
+            using var refused = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", forged), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Hook(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        }
+    }
+
+    /// <summary>A grant store that cannot be read — a locked or denied <c>mcp-grants.json</c> —
+    /// refuses the grant token with 401, so the headersHelper runs again, and never answers a
+    /// 500.</summary>
+    [Fact]
+    public async Task A_grant_store_that_cannot_be_read_refuses_with_401_not_500()
+    {
+        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var store = new FailableMcpGrantStore(grants);
+        var tokens = new McpGrantTokens(store, TimeProvider.System);
+        var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var token = tokens.Mint(grants.Create("Claude Code", [], "jobsc").Id).Token!.Value;
+        store.Failure = new UnauthorizedAccessException("Access to the path is denied.");
+
+        using var response = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", token), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
+    }
+
+    /// <summary>A listener whose head composed no grant tokens — the web harness's case — has
+    /// no grant path: a JWT-shaped bearer is refused like any other unknown token.</summary>
+    [Fact]
+    public async Task Without_grant_tokens_a_JWT_shaped_bearer_is_refused()
+    {
+        var settings = Settings(FreePort());
+        using var worker = new McpServerWorker(_services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var token = new McpGrantTokens(grants, TimeProvider.System).Mint(grants.Create("x", [], "jobsc").Id).Token!.Value;
+
+        using var response = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", token), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     /// <summary>One JSON-RPC <c>tools/call</c> of <paramref name="tool"/>.</summary>
     private static string Call(string tool) =>
         "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"" + tool + "\",\"arguments\":{}}}";

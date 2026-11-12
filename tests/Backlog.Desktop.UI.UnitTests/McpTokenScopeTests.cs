@@ -25,6 +25,19 @@ public sealed class McpTokenScopeTests
     public void Identify_names_the_token_presented(string? authorization, McpCredential expected) =>
         Assert.Equal(expected, McpLoopbackGuard.Identify(authorization, Mcp, Hook, Telemetry));
 
+    [Theory]
+    [InlineData("Bearer aaa.bbb.ccc", "aaa.bbb.ccc")]
+    [InlineData("bearer aaa.bbb.ccc ", "aaa.bbb.ccc")]
+    [InlineData("Bearer aaa.bbb.", "aaa.bbb.")]
+    [InlineData("Bearer " + Mcp, null)]
+    [InlineData("Bearer aaa.bbb", null)]
+    [InlineData("Bearer a.b.c.d", null)]
+    [InlineData("Basic aaa.bbb.ccc", null)]
+    [InlineData("Bearer ", null)]
+    [InlineData(null, null)]
+    public void Only_a_bearer_value_shaped_like_a_JWT_is_a_grant_token_candidate(string? authorization, string? expected) =>
+        Assert.Equal(expected, McpLoopbackGuard.GrantTokenCandidate(authorization));
+
     [Fact]
     public void A_token_not_minted_yet_matches_nothing() =>
         Assert.Equal(McpCredential.None, McpLoopbackGuard.Identify("Bearer ", Mcp, null, ""));
@@ -48,6 +61,12 @@ public sealed class McpTokenScopeTests
     [InlineData(McpCredential.QuestionHook, "POST", "/mcp/other", false)]
     [InlineData(McpCredential.QuestionHook, "POST", "/v1/logs", false)]
     [InlineData(McpCredential.QuestionHook, "GET", "/session-requests/wait", false)]
+    // A grant token (local ADR 0052 §3): what the MCP token reaches until scopes are enforced.
+    [InlineData(McpCredential.Grant, "POST", "/mcp", true)]
+    [InlineData(McpCredential.Grant, "GET", "/session-requests/wait", true)]
+    [InlineData(McpCredential.Grant, "POST", "/telemetry", true)]
+    [InlineData(McpCredential.Grant, "POST", "/v1/logs", false)]
+    [InlineData(McpCredential.Grant, "POST", "/V1/Logs/", false)]
     [InlineData(McpCredential.None, "POST", "/mcp", false)]
     public void Each_token_reaches_its_own_routes(McpCredential credential, string method, string path, bool reaches) =>
         Assert.Equal(reaches, McpLoopbackGuard.Reaches(credential, method, path));

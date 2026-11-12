@@ -2,13 +2,14 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import net from "node:net";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resolveToken, settingsPath } from "./backlog-mcp-headers.mjs";
+import { parseArgs, pipeName, pipePath, requestToken, resolveToken, settingsPath } from "./backlog-mcp-headers.mjs";
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "backlog-mcp-headers.mjs");
 const settings = (json) => () => JSON.stringify(json);
@@ -59,4 +60,147 @@ test("no token exits 1 with the reason, and prints no header", async () => {
     assert.equal(result.status, 1);
     assert.equal(result.stdout, "");
     assert.match(result.stderr, /No Backlog MCP token/);
+});
+
+// --grant (local ADR 0052 §3): the token comes from the desktop app's broker pipe.
+
+test("no flags is the shared-token path", () => {
+    assert.deepEqual(parseArgs([]), { grant: null, debug: false });
+});
+
+test("--grant takes the id as the next argument or after =", () => {
+    assert.deepEqual(parseArgs(["--grant", "g_abc"]), { grant: "g_abc", debug: false });
+    assert.deepEqual(parseArgs(["--grant=g_abc", "--debug"]), { grant: "g_abc", debug: true });
+});
+
+test("--grant without an id, and an unknown flag, are errors", () => {
+    assert.throws(() => parseArgs(["--grant"]), /needs a grant id/);
+    assert.throws(() => parseArgs(["--grant", "--debug"]), /needs a grant id/);
+    assert.throws(() => parseArgs(["--grant="]), /needs a grant id/);
+    assert.throws(() => parseArgs(["--grnat", "g_abc"]), /Unknown argument --grnat/);
+});
+
+test("the pipe is the installation's and the user's, as McpTokenBroker.PipeNameFor names it", () => {
+    assert.equal(pipeName({}, { username: "jobsc" }), "backlog-mcp-broker-jobsc");
+    assert.equal(pipeName({}, { debug: true, username: "jobsc" }), "backlog-debug-mcp-broker-jobsc");
+    assert.equal(pipeName({}, { username: "Jo Bs" }), "backlog-mcp-broker-jo_bs");
+    assert.equal(pipeName({}, { username: "jöb\\sc" }), "backlog-mcp-broker-j_b_sc");
+    assert.equal(pipePath("backlog-mcp-broker-jobsc"), String.raw`\\.\pipe\backlog-mcp-broker-jobsc`);
+});
+
+test("BACKLOG_MCP_BROKER_PIPE replaces the whole name", () => {
+    assert.equal(pipeName({ BACKLOG_MCP_BROKER_PIPE: "custom" }, { debug: true, username: "jobsc" }), "custom");
+});
+
+// A pipe on Windows, a socket file elsewhere: what net.connect reaches either way.
+function fakeAddress() {
+    const name = `backlog-mcp-headers-test-${process.pid}-${Math.random().toString(36).slice(2)}`;
+    return { name, address: process.platform === "win32" ? pipePath(name) : join(tmpdir(), `${name}.sock`) };
+}
+
+// A fake broker: records the request line and answers with `reply` (a string, sent as is).
+async function fakeBroker(reply) {
+    const { name, address } = fakeAddress();
+    const requests = [];
+    const server = net.createServer((socket) => {
+        let received = "";
+        socket.setEncoding("utf8");
+        socket.on("data", (chunk) => {
+            received += chunk;
+            if (!received.includes("\n")) return;
+            requests.push(received);
+            if (reply !== null) socket.end(reply);
+            else socket.destroy();
+        });
+    });
+    await new Promise((resolve) => server.listen(address, resolve));
+    return { name, address, requests, close: () => new Promise((resolve) => server.close(resolve)) };
+}
+
+test("requestToken sends one JSON line and resolves to the token in the reply", async () => {
+    const broker = await fakeBroker(JSON.stringify({ token: "a.b.c", expiresAt: "2026-11-11T09:45:00Z" }) + "\n");
+    try {
+        assert.equal(await requestToken("g_abc", () => net.connect(broker.address)), "a.b.c");
+        assert.deepEqual(broker.requests, ['{"grant":"g_abc"}\n']);
+    } finally {
+        await broker.close();
+    }
+});
+
+test("requestToken rejects with the broker's refusal", async () => {
+    const broker = await fakeBroker(JSON.stringify({ error: "revoked" }) + "\n");
+    try {
+        await assert.rejects(requestToken("g_abc", () => net.connect(broker.address)), /refused grant g_abc: revoked/);
+    } finally {
+        await broker.close();
+    }
+});
+
+test("requestToken rejects a reply that is not JSON, and a connection closed without one", async () => {
+    const garbled = await fakeBroker("not json\n");
+    try {
+        await assert.rejects(requestToken("g_abc", () => net.connect(garbled.address)), /not JSON/);
+    } finally {
+        await garbled.close();
+    }
+
+    const silent = await fakeBroker(null);
+    try {
+        await assert.rejects(requestToken("g_abc", () => net.connect(silent.address)), /without a reply/);
+    } finally {
+        await silent.close();
+    }
+});
+
+test("requestToken says the app is not running when there is no pipe", async () => {
+    const { address } = fakeAddress();
+    await assert.rejects(requestToken("g_abc", () => net.connect(address)), /not running: start the Backlog desktop app/);
+});
+
+function runAsync(args, env) {
+    return new Promise((resolve) => {
+        const child = spawn(process.execPath, [SCRIPT, ...args], { env: { PATH: process.env.PATH, ...env } });
+        let stdout = "";
+        let stderr = "";
+        child.stdout.setEncoding("utf8").on("data", (chunk) => (stdout += chunk));
+        child.stderr.setEncoding("utf8").on("data", (chunk) => (stderr += chunk));
+        child.on("close", (status) => resolve({ status, stdout, stderr }));
+    });
+}
+
+test("--grant prints the broker's token as the header, without reading settings.json or BACKLOG_MCP_TOKEN", { skip: process.platform !== "win32" && "the broker is a Windows named pipe" }, async () => {
+    const broker = await fakeBroker(JSON.stringify({ token: "a.b.c", expiresAt: "2026-11-11T09:45:00Z" }) + "\n");
+    try {
+        const result = await runAsync(["--grant", "g_abc"], { BACKLOG_MCP_BROKER_PIPE: broker.name, BACKLOG_MCP_TOKEN: "shared" });
+        assert.equal(result.status, 0, result.stderr);
+        assert.deepEqual(JSON.parse(result.stdout), { Authorization: "Bearer a.b.c" });
+    } finally {
+        await broker.close();
+    }
+});
+
+test("--grant exits 1 with the refusal on stderr and prints no header", { skip: process.platform !== "win32" && "the broker is a Windows named pipe" }, async () => {
+    const broker = await fakeBroker(JSON.stringify({ error: "unknown-grant" }) + "\n");
+    try {
+        const result = await runAsync(["--grant", "g_abc"], { BACKLOG_MCP_BROKER_PIPE: broker.name });
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, "");
+        assert.match(result.stderr, /refused grant g_abc: unknown-grant/);
+    } finally {
+        await broker.close();
+    }
+});
+
+test("--grant with no broker exits 1 with the reason and prints no header", async () => {
+    const result = await runAsync(["--grant", "g_abc"], { BACKLOG_MCP_BROKER_PIPE: fakeAddress().name, BACKLOG_MCP_TOKEN: "shared" });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /token broker/);
+});
+
+test("an unknown flag exits 1 and prints no header", async () => {
+    const result = await runAsync(["--grnat", "g_abc"], { BACKLOG_MCP_TOKEN: "shared" });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /Unknown argument/);
 });

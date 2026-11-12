@@ -19,6 +19,11 @@
          Microsoft.AspNetCore.App framework reference and belongs to the two
          hosts, and this package's nuspec declares none. -->
     <PackageReference Include="ModelContextProtocol" />
+    <!-- The grant tokens under Mcp/ (local ADR 0052 §3): the broker mints a JWT and the
+         listener validates it. The handler alone, which carries no framework reference,
+         so this project still takes no ASP.NET Core dependency (local ADR 0012 §2); the
+         same build the sync service issues its device tokens with. -->
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
   </ItemGroup>
 
   <ItemGroup>

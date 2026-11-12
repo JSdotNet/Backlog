@@ -90,9 +90,11 @@ flowchart LR
 | GitHub account and repository tokens | `GitHubSettingsStore` | DPAPI, per value | not composed |
 | Claude Admin API keys | `ClaudeSettingsStore` | DPAPI, per value | not composed |
 | Azure Foundry API key | `AzureFoundrySettingsStore` | DPAPI, per value | not composed |
+| MCP grant secrets (local ADR 0052 §3) | `FileMcpGrantStore` | DPAPI, per value | not composed |
 
 The three settings stores are desktop-only. Only the Windows head and the desktop
-web harness construct them, so they need no Android secure store.
+web harness construct them, and only the Windows head constructs the grant store,
+so none needs an Android secure store.
 
 ### 2. The envelope is on the value, not the file
 
@@ -102,9 +104,9 @@ web harness construct them, so they need no Android secure store.
 A sealed value is `dpapi:` followed by the base64 of a `ProtectedData` envelope
 under `CurrentUser` scope. Every other field stays legible JSON, so the clone
 directory, the endpoint and the account login can still be read and diagnosed.
-One helper, `SecretEnvelope`, does this for all three stores. It lives in the
-GitHub adapter and the Claude and Azure Foundry adapters compile it in, the way
-they share `IsoTimestamps`.
+One helper, `SecretEnvelope`, does this for all four stores. It lives in the
+GitHub adapter, and the Claude, Azure Foundry and file-system adapters compile it
+in, the way they share `IsoTimestamps`.
 
 ### 3. Plaintext from an earlier release is sealed on first read
 
