@@ -109,6 +109,48 @@ public sealed class GoalToolsTests
         Assert.Equal(new GoalProgressPayload(Done: 1, Total: 3, Doing: 1, Blocked: 0, ToDo: 1), listed.Progress);
     }
 
+    [Fact]
+    public async Task List_carries_each_goals_forecast_from_the_reading_the_goals_view_draws()
+    {
+        var goals = new FakeGoals();
+        var launch = goals.Seed("Launch", null, Due);
+        var sync = goals.Seed("Sync", null, Due);
+        var unread = goals.Seed("Set after the reading", null, Due);
+        var standUp = new FakeStandUp
+        {
+            Answer = Reading with
+            {
+                Goals =
+                [
+                    Reading.Goals[0] with { Id = launch },
+                    Reading.Goals[1] with { Id = sync },
+                ],
+            },
+        };
+
+        var payload = await new GoalTools(goals, new FakeRepositoryDirectory(), standUp).ListAsync(Cancellation);
+
+        var forecasts = payload.Goals.ToDictionary(goal => goal.Id, goal => goal.Forecast);
+        Assert.Equal(new GoalForecastPayload("at-risk", new DateOnly(2026, 11, 27), new DateOnly(2026, 11, 20), DueIsIterationEnd: false), forecasts[launch]);
+        Assert.Equal(new GoalForecastPayload("on-track", LandsOn: null, new DateOnly(2026, 11, 8), DueIsIterationEnd: true), forecasts[sync]);
+        Assert.Null(forecasts[unread]);
+        Assert.Equal(1, standUp.Reads);
+    }
+
+    [Fact]
+    public async Task List_still_answers_the_goals_without_a_forecast_when_the_reading_fails()
+    {
+        var goals = new FakeGoals();
+        var goal = goals.Seed("Launch", null, Due);
+        var standUp = new FakeStandUp { Refusal = Error.Unexpected("progress.read_failed", "The goals could not be read.") };
+
+        var payload = await new GoalTools(goals, new FakeRepositoryDirectory(), standUp).ListAsync(Cancellation);
+
+        var listed = Assert.Single(payload.Goals);
+        Assert.Equal(goal, listed.Id);
+        Assert.Null(listed.Forecast);
+    }
+
     // --- read_iterations ---------------------------------------------------------
 
     [Fact]

@@ -1068,8 +1068,8 @@ the Inbox pane's switch:
 
 | Tool | Does |
 | --- | --- |
-| `list_inbox_items` | Lists captures newest first, unprocessed unless `status` names another or `all`. Filters by `channel`, `kind` and a `from`–`to` range of capture days, in UTC. Each row has a body length, a short preview and an attachment count. |
-| `read_inbox_item` | Answers one capture whole: body, source URL, tags, and each attachment's name, type, size and file path on this machine. The path is empty until the file is downloaded. |
+| `list_inbox_items` | Lists captures newest first, unprocessed unless `status` names another or `all`. Filters by `channel`, `kind` and a `from`–`to` range of capture days, in UTC. Each row has a body length, a short preview, an attachment count and, on a deferred item, its review day (`deferredUntil`, empty when it was deferred with no date). |
+| `read_inbox_item` | Answers one capture whole: body, source URL, tags, a deferred item's review day, and each attachment's name, type, size and file path on this machine. The path is empty until the file is downloaded. |
 | `archive_inbox_item` | Archives a capture once it is filed, through the same act as [Archive](#archive). The phone stops offering it, and it stays restorable. |
 | `capture_to_inbox` | Captures a title, optional Markdown notes and an optional source link as a new unprocessed item, through the same act as [Add by hand](#add-by-hand). Answers the new item, its id first. |
 

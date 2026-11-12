@@ -17,6 +17,10 @@ public static class WeeklyReviewChecklistBuilder
     /// days after.</summary>
     public const int WeekDays = 7;
 
+    /// <summary>The check on a deferred item with no review date, worded as the
+    /// <c>weekly-review</c> skill words it.</summary>
+    public const string NoReviewDate = "No review date: look at it again.";
+
     public static WeeklyReviewChecklist Build(WeeklyReviewInputs inputs, DateOnly today)
     {
         ArgumentNullException.ThrowIfNull(inputs);
@@ -49,17 +53,20 @@ public static class WeeklyReviewChecklistBuilder
             }
         }
 
+        // A deferral with no date never comes back by itself, so every review asks about it,
+        // as the weekly-review skill does: the two read the same deferred items.
         var weekEnd = today.AddDays(WeekDays - 1);
-        foreach (var item in inputs.Inbox.Where(item => item.Deferred && item.DeferredUntil is { } until && until <= weekEnd))
+        foreach (var item in inputs.Inbox.Where(item => item.Deferred && (item.DeferredUntil is not { } until || until <= weekEnd)))
         {
             lines.Add(new(
                 $"deferred:{item.Id:D}",
                 WeeklyReviewStage.GetClear,
                 item.Title,
-                $"Deferred to {Day(item.DeferredUntil!.Value)}: look at it again.",
+                item.DeferredUntil is { } day ? $"Deferred to {Day(day)}: look at it again." : NoReviewDate,
                 [OpenInbox]));
         }
     }
+
 
     private static void GetCurrent(WeeklyReviewInputs inputs, DateOnly today, List<WeeklyReviewLine> lines)
     {
