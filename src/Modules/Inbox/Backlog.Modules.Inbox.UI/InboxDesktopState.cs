@@ -65,6 +65,11 @@ public sealed class InboxDesktopState : IDisposable
     private readonly IToastChannel? _toasts;
     private readonly TimeProvider _clock;
 
+    /// <summary>Where a write outside the pane is announced, or null in a host
+    /// that composes none. See <see cref="OnWrittenElsewhere"/>.</summary>
+    private readonly IInboxChangeSignal? _writesElsewhere;
+    private volatile bool _disposed;
+
     private readonly HashSet<string> _kindFilter = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Which groups are folded shut. Open is the default, so the set
@@ -83,9 +88,12 @@ public sealed class InboxDesktopState : IDisposable
         IToastChannel? toasts = null,
         TimeProvider? clock = null,
         IBacklogTagSource? backlogTags = null,
-        IShowArchivedRepositories? showArchived = null)
+        IShowArchivedRepositories? showArchived = null,
+        IInboxChangeSignal? writesElsewhere = null)
     {
         _inbox = inbox;
+        _writesElsewhere = writesElsewhere;
+        if (_writesElsewhere is not null) _writesElsewhere.Changed += OnWrittenElsewhere;
         _gitHubSettings = gitHubSettings;
         _showArchived = showArchived;
         if (_showArchived is not null) _showArchived.Changed += OnShowArchivedChanged;
@@ -112,6 +120,13 @@ public sealed class InboxDesktopState : IDisposable
     /// shell refreshes the Tasks pane and they leave it. Not raised for an undone
     /// link, which deleted nothing.</summary>
     public event Action? RouteUndone;
+
+    /// <summary>Raised when the Inbox was written somewhere other than this pane —
+    /// the MCP server capturing or archiving for an assistant — on the thread that
+    /// wrote it. The shell answers with <see cref="ReloadAsync"/> on its own
+    /// dispatcher, which keeps the chosen row and leaves focus alone. Not raised
+    /// before the first snapshot: the first load reads the write anyway.</summary>
+    public event Action? WrittenElsewhere;
 
     // --- The snapshot -------------------------------------------------------
 
@@ -417,7 +432,19 @@ public sealed class InboxDesktopState : IDisposable
     /// <summary>Lets go of the show-archived port, which outlives this state.</summary>
     public void Dispose()
     {
+        _disposed = true;
         if (_showArchived is not null) _showArchived.Changed -= OnShowArchivedChanged;
+        if (_writesElsewhere is not null) _writesElsewhere.Changed -= OnWrittenElsewhere;
+    }
+
+    /// <summary>Only passed on, never answered here: the signal arrives on a
+    /// request thread, and a reload replaces the snapshot the renderer reads, so it
+    /// belongs on the shell's dispatcher — as with Tasks' <c>WrittenElsewhere</c>.</summary>
+    private void OnWrittenElsewhere()
+    {
+        if (_disposed || !Loaded) return;
+
+        WrittenElsewhere?.Invoke();
     }
 
     /// <summary>The configured repositories a picker offers: the active ones, and the

@@ -1,10 +1,13 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Infrastructure.Sync;
+using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.Services;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -266,6 +269,56 @@ public sealed class HomeInboxWiringTests
             TimeSpan.FromSeconds(10));
     }
 
+    /// <summary>
+    /// An assistant's "remind me to…" lands in the open Inbox, and its archive
+    /// takes the row away again, without a reload by hand: the MCP tools write
+    /// through the same <c>IInboxItems</c> the pane reads, on a request thread,
+    /// and announce it on the Inbox's change signal. The row being read stays
+    /// chosen and focus stays where it was.
+    /// </summary>
+    [Fact]
+    public async Task An_item_captured_and_archived_over_mcp_reaches_the_open_inbox_without_moving_the_selection()
+    {
+        using var harness = CreateHarness();
+        var reading = harness.Inbox.Seed("Being read");
+
+        var component = Render(harness);
+        await OpenInboxAsync(component);
+        await component.Find($"[data-testid='inbox-item-{reading.Id:D}']").ClickAsync(new());
+
+        var inbox = harness.Context.Services.GetRequiredService<InboxDesktopState>();
+        Assert.Equal(reading.Id, inbox.SelectedItemId);
+        Assert.Equal(1, inbox.QueueHealth.Unprocessed);
+        var focusCalls = harness.Context.JSInterop.Invocations["backlogFocus"].Count;
+
+        var tools = new InboxTools(harness.Inbox, harness.Context.Services.GetRequiredService<IInboxChangeSignal>());
+
+        // Off the renderer's thread, as a request to the MCP endpoint is.
+        var captured = await Task.Run(() => tools.CaptureAsync("Remind me to call the plumber"));
+
+        component.WaitForAssertion(
+            () => Assert.NotEmpty(component.FindAll($"[data-testid='inbox-item-{captured.Id:D}']")),
+            TimeSpan.FromSeconds(10));
+        Assert.Equal(2, inbox.QueueHealth.Unprocessed);
+        Assert.Equal(reading.Id, inbox.SelectedItemId);
+
+        await Task.Run(() => tools.ArchiveAsync(captured.Id));
+
+        component.WaitForAssertion(
+            () => Assert.Empty(component.FindAll($"[data-testid='inbox-item-{captured.Id:D}']")),
+            TimeSpan.FromSeconds(10));
+        Assert.Equal(1, inbox.QueueHealth.Unprocessed);
+        Assert.Equal(reading.Id, inbox.SelectedItemId);
+
+        // The row being read archived from elsewhere stays chosen, as an archive in
+        // the pane leaves it: the queue count drops, the reader is not moved.
+        await Task.Run(() => tools.ArchiveAsync(reading.Id));
+
+        component.WaitForAssertion(() => Assert.Equal(0, inbox.QueueHealth.Unprocessed), TimeSpan.FromSeconds(10));
+        Assert.Equal(reading.Id, inbox.SelectedItemId);
+        Assert.Equal(focusCalls, harness.Context.JSInterop.Invocations["backlogFocus"].Count);
+    }
+
     [Fact]
     public async Task The_inbox_loads_when_it_first_shows_and_not_before()
     {
@@ -515,6 +568,9 @@ public sealed class HomeInboxWiringTests
             sp.GetRequiredService<GitHubIntegration>(),
             TasksCopilotCli.Unavailable,
             taskWrites: taskWrites));
+        // One Inbox change signal for the process, as the hosts compose it: the
+        // MCP tools raise it and every window's Inbox state hears it.
+        context.Services.AddSingleton<IInboxChangeSignal, InboxChangeSignal>();
         var inbox = InboxTestHost.AddInboxState(context.Services);
 
         // A task sync worker over a scripted replica that hands back one task,

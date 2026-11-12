@@ -177,6 +177,43 @@ public class InboxToolsTests
         Assert.Empty(((FakeInbox)(object)inbox).Items);
     }
 
+    /// <summary>A capture and an archive that landed are announced, so an open Inbox
+    /// reloads; a refused one changed nothing and says nothing; a read says nothing.</summary>
+    [Fact]
+    public async Task Each_write_that_lands_is_announced_and_nothing_else_is()
+    {
+        var item = Item("filed", Day);
+        var signal = new CountingSignal();
+        var tools = new InboxTools(FakeInbox.Over(item), signal);
+
+        await tools.ListAsync(cancellationToken: Cancel);
+        await tools.ReadAsync(item.Id, Cancel);
+        Assert.Equal(0, signal.Raised);
+
+        await tools.CaptureAsync("Remind me to call the plumber", cancellationToken: Cancel);
+        Assert.Equal(1, signal.Raised);
+
+        await tools.ArchiveAsync(item.Id, Cancel);
+        Assert.Equal(2, signal.Raised);
+
+        await Assert.ThrowsAsync<McpException>(() => tools.CaptureAsync("   ", cancellationToken: Cancel));
+        await Assert.ThrowsAsync<McpException>(() => tools.ArchiveAsync(item.Id, Cancel));
+        Assert.Equal(2, signal.Raised);
+    }
+
+    private sealed class CountingSignal : IInboxChangeSignal
+    {
+        public int Raised { get; private set; }
+
+        public event Action? Changed;
+
+        public void Raise()
+        {
+            Raised++;
+            Changed?.Invoke();
+        }
+    }
+
     /// <summary>The description is what an assistant chooses by: an action to clarify
     /// later comes here, a note already judged knowledge goes to <c>capture_note</c>.</summary>
     [Fact]
