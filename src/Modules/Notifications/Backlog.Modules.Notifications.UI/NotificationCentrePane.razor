@@ -40,20 +40,12 @@
                    TitleCssClass="notification-centre__title"
                    DescriptionCssClass="notification-centre__subtitle"
                    DescriptionTestId="notification-centre-subtitle"
-                   ActionsCssClass="notification-centre__header-actions"
                    TitleId="notification-centre-title"
                    Title="Notifications"
-                   Description="@Subtitle">
-        <Actions>
-            @if (OnClose.HasDelegate)
-            {
-                <IconButton AriaLabel="Close notifications"
-                            CssClass="btn--ghost"
-                            TestId="notification-centre-close"
-                            OnClick="() => OnClose.InvokeAsync()"><XIcon /></IconButton>
-            }
-        </Actions>
-    </SectionHeader>
+                   Description="@Subtitle" />
+    @* No close of its own (interaction-guidelines.md#shell-header, "A surface draws
+       no close of its own"): its header option pressed again, or Escape, is the way
+       back in the main window, and the OS close in a window of its own. *@
 
     @if (_loadError is not null)
     {
@@ -230,10 +222,6 @@
 
     // Until the first list is back the centre knows nothing, so the subtitle claims nothing.
     private bool _loaded;
-
-    /// <summary>Closes the takeover the centre is drawn in.</summary>
-    [Parameter]
-    public EventCallback OnClose { get; set; }
 
     /// <summary>A notification to open on — the one a Windows notification's body or its
     /// "Open in Backlog" was pressed on.</summary>

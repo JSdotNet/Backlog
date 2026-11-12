@@ -353,7 +353,7 @@ screen that reloads shows its own loader, and the rest of the screen stays usabl
 | Refresh | A populated region that refreshes MUST keep its content, show a header `Spinner`, and never blank. |
 | Dimming | A refreshing region MAY dim its content. |
 | Frame first | A navigation or takeover MUST open its frame at once and load its body inside it. |
-| The frame | The frame is the header, title and close control. |
+| The frame | The frame is the header and title; a surface draws no close of its own (`#shell-header`). |
 | Every region resolves | Each region ends in content, an empty state (`#empty-states`), or an inline section error with **Retry** (`#error-states`). |
 
 ### Timing
@@ -765,7 +765,7 @@ Review surface: storybook → *Task list* → **Task card**.
 ## Shell Header
 
 ```meta
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/interaction-guidelines.md#popover-button", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/interaction-guidelines.md#popover-button", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/design/component-libraries.md"]
 ```
 
 The desktop shell's header is four regions in reading order, each answering one
@@ -822,8 +822,9 @@ as its kind:
 |---|---|
 | The workspace cluster sits close | The Inbox toggle, view switch and Devbook toggle MUST sit at the tighter `spacing-xs` gap. |
 | A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view underneath. |
-| Every way back works | A takeover MUST close on Escape, its close button and a second press of its option. |
-| The atlas returns where it was opened | The **Atlas** takeover's Escape, close button and second press MUST return to the surface it opened over. |
+| Every way back works | A takeover MUST close on Escape and on a second press of its option. |
+| A surface draws no close of its own | A surface MUST NOT draw a close (✕) button that leaves the surface itself, in the main window or a popped-out one. A close for something inside it — an entry panel, a dialog, a sheet — stays. |
+| The atlas returns where it was opened | The **Atlas** takeover's Escape and second press MUST return to the surface it opened over. |
 | Nothing reads pressed under a takeover | During a takeover, or while the Inbox has the screen, no view option reads pressed. |
 | A surface pops out | Each header item a module registers as a surface MUST carry an **Open in new window** button. |
 | A popped-out window has a slim header | A popped-out window MUST draw a slim header, with no view switch or takeover options. |
@@ -846,6 +847,11 @@ as its kind:
   it and show the workspace with that view on screen. The Inbox is left by a
   second press of its option, a view option or another takeover, never by
   Escape.
+- **A surface draws no close of its own:** the shell already gives the way
+  back. In the main window that is Escape and the second press of the
+  surface's header option; in a popped-out window it is the OS close.
+  - **Why:** a ✕ in the surface repeats one of them, and under a window's
+    caption it reads as a second close.
 - **The atlas returns where it was opened:**
   - It opens from its header option or the Devbook's own **Atlas** button, and
     returns to the main view, another takeover or the Devbook. Its tooltip names
@@ -874,47 +880,64 @@ as its kind:
   - Every press opens one more window and changes nothing in this one (local ADR
     0043 §4). A host that cannot open windows draws no button.
 - **A popped-out window has a slim header:**
-  - The order is:
+
+  ```text
+  title bar   [window title] ............ [pin][bookmark][–][□][✕]
+  slim header [surface title] [scope chips] .... [Show in main window]
+  ```
+
+  - The slim header's order is:
     1. the surface's title as its heading;
     2. the window's own repository scope chips, led by the Brain chip;
-    3. a **Keep on top** pin;
-    4. the **Remember this window** bookmark;
-    5. a **Show in main window** control that switches the main window to this
+    3. a **Show in main window** control that switches the main window to this
        surface and closes this one.
+  - The window's native title bar carries the two window toggles, **Keep on
+    top** then **Remember this window**, just left of the system's minimise,
+    maximise and close buttons. The desktop head draws them through MAUI's
+    `Window.TitleBar`, because the system's own caption buttons cannot be
+    extended (local ADR 0043 §4).
   - The pin is an icon-only toggle named **Keep on top**. Pressed, it keeps the
     window in front of every window not kept on top itself, and the next window
-    of that surface opens kept on top too. Only the desktop head draws it,
-    because a browser tab cannot stay on top.
+    of that surface opens kept on top too. Its tooltip is **Keep this window on
+    top of other windows**, and it exposes its pressed state to UI Automation as
+    a toggle. Only the desktop head draws it, because a browser tab cannot stay
+    on top.
   - A plain press on a chip scopes that one, and a press on the only one in scope
     clears it. The chips narrow this window alone, never the main window's scope.
-  - The header MUST carry no **Ask AI**, which stays in the main window, and no
-    close button of its own: the OS one closes it.
-  - The window's title follows the surface on screen.
+  - The window MUST carry no **Ask AI**, which stays in the main window, and no
+    close button but the OS one, in its header or in its surface.
+  - The title bar keeps the system's behaviour: drag to move, double-click to
+    maximise, the system menu and the Snap layouts flyout. Its colours come from
+    `color-scheme.md`'s dark tokens, legible while the window is active and
+    inactive.
+  - The window's title follows the surface on screen, in the title bar and on
+    the taskbar.
   - The footer band and toasts MUST show in the window as in the main one, except
     in a docked window (local ADR 0043 §4, §5). The **Settings** gear stays in
     the main window.
 - **A popped-out window is remembered by its bookmark:**
-  - The bookmark MUST be an icon-only toggle between **Keep on top** and **Show
-    in main window**, at the header's trailing end. It uses the Lucide
-    `bookmark` glyph at `icon-sm`, hidden from assistive technology, with the
-    name **Remember this window** on the control itself.
-  - It reads pressed (`aria-pressed`) while this window is remembered. Its
-    tooltip says what the next press does: **Remember this window** or **Forget
-    this window**. A press changes this window alone, never another popped-out window or the main one.
+  - The bookmark MUST be an icon-only toggle in the title bar, between **Keep on
+    top** and the system's minimise button. It uses the Lucide `bookmark` glyph
+    at `icon-sm`, which assistive technology does not announce, with the name
+    **Remember this window** on the control itself.
+  - It reads pressed while this window is remembered, and exposes that state to
+    UI Automation as a toggle. Its tooltip says what the next press does:
+    **Remember this window** or **Forget this window**. A press changes this
+    window alone, never another popped-out window or the main one.
   - A remembered window reopens on the next start, after the main window, on the
     surface and query it showed at quit. Quitting keeps it remembered; closing
     the window, **Show in main window**, or pressing the bookmark again forgets
     it (local ADR 0043 §5).
   - A window without a key draws no bookmark, the web harness and the loopback
     pages among them.
-  - Its target matches **Keep on top**'s, under
-    `accessibility.md#target-sizes-and-text`'s 44 px for the same reason: the
-    slim header stays one height.
+  - Its target and **Keep on top**'s are the title bar's 32 px height, like the
+    system caption buttons beside them. That is an exception to
+    `accessibility.md#target-sizes-and-text`'s 44 px, recorded there.
 - **A docked window gives its rows to the list:**
   - A docked window sits beside other work, such as a list for today on a side
     monitor.
-  - Its header MUST put the title and its buttons on one row and the scope chips
-    on a row of their own. That row scrolls sideways rather than running off the
+  - Its header MUST put the title and **Show in main window** on one row and the
+    scope chips on a row of their own. That row scrolls sideways rather than running off the
     edge.
   - **Show in main window** keeps only its glyph, and its name stays on the
     control.
@@ -1151,10 +1174,15 @@ items, so the arrow keys stay those controls' own. The footer's **Settings** gea
   the focus stays where the click left it. A second press of the trigger closes
   it the same way.
 - **It stays open while used:** a link that leaves the page closes it by
-  leaving.
+  leaving. A control that moves the reader's attention elsewhere, such as a row
+  that jumps to what it names, closes it through the host's `CloseAsync`, and the
+  focus goes where the host puts it. A switch or a Cancel still leaves it open.
+  When a press removes the control that held the focus and the panel has none
+  left to give it, the host calls `FocusAsync`: the focus goes to the trigger and
+  the panel stays open. The Tasks pane's session queue does both.
 
 Review surface: storybook → *Overlays* → **PopoverButton** (closed, open, a switch
-flipped with the panel still open).
+flipped with the panel still open) and **PopoverButton closed by the host**.
 
 ## Action Density and Overflow
 

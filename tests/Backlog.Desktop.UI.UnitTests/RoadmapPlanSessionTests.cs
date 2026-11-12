@@ -201,7 +201,7 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
         var (id, tag) = await PlannedAsync("backlog");
         RepositorySettings.SetCloneDirectory("backlog", @"D:\Repos\Backlog");
         _queue.IsOffered = false;
-        _queue.Open[tag.TrimStart('+')] = new(Guid.NewGuid(), PlanSessionRequestState.Requested, "JSdotNet/Backlog");
+        _queue.Open[tag.TrimStart('+')] = new(Guid.NewGuid(), PlanSessionRequestState.Requested, "JSdotNet/Backlog", DateTimeOffset.UnixEpoch);
 
         using var context = Context();
         var band = Band(context);
@@ -220,7 +220,7 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
     {
         var (id, tag) = await PlannedAsync("backlog");
         RepositorySettings.SetCloneDirectory("backlog", @"D:\Repos\Backlog");
-        _queue.Open[tag.TrimStart('+')] = new(Guid.NewGuid(), state, "JSdotNet/Backlog");
+        _queue.Open[tag.TrimStart('+')] = new(Guid.NewGuid(), state, "JSdotNet/Backlog", DateTimeOffset.UnixEpoch);
 
         using var context = Context();
         var band = Band(context);
@@ -241,7 +241,7 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
         var (id, tag) = await PlannedAsync("backlog");
         RepositorySettings.SetCloneDirectory("backlog", @"D:\Repos\Backlog");
         var requestId = Guid.NewGuid();
-        _queue.Open[tag.TrimStart('+')] = new(requestId, PlanSessionRequestState.Requested, "JSdotNet/Backlog");
+        _queue.Open[tag.TrimStart('+')] = new(requestId, PlanSessionRequestState.Requested, "JSdotNet/Backlog", DateTimeOffset.UnixEpoch);
 
         using var context = Context();
         var band = Band(context);
@@ -293,7 +293,7 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
     public async Task A_plan_waiting_for_a_session_marks_its_bar_and_says_which_state_it_is_in(PlanSessionRequestState state, string said)
     {
         var (id, tag) = await PlannedAsync("backlog");
-        _queue.Open[tag.TrimStart('+')] = new(Guid.NewGuid(), state, "JSdotNet/Backlog");
+        _queue.Open[tag.TrimStart('+')] = new(Guid.NewGuid(), state, "JSdotNet/Backlog", DateTimeOffset.UnixEpoch);
 
         using var context = Context();
         var band = Band(context);
@@ -336,7 +336,7 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
     {
         var (id, tag) = await PlannedAsync("backlog");
         _queue.IsOffered = false;
-        _queue.Open[tag.TrimStart('+')] = new(Guid.NewGuid(), PlanSessionRequestState.Requested, "JSdotNet/Backlog");
+        _queue.Open[tag.TrimStart('+')] = new(Guid.NewGuid(), PlanSessionRequestState.Requested, "JSdotNet/Backlog", DateTimeOffset.UnixEpoch);
 
         using var context = Context();
         var band = Band(context);
@@ -398,7 +398,7 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
             Asked.Add((planTag, repository, cloneFolder));
             if (Gate is { } gate) await gate.Task;
 
-            var request = new PlanSessionRequest(Guid.NewGuid(), PlanSessionRequestState.Requested, repository);
+            var request = new PlanSessionRequest(Guid.NewGuid(), PlanSessionRequestState.Requested, repository, DateTimeOffset.UnixEpoch);
             Open[planTag] = request;
             return request;
         }

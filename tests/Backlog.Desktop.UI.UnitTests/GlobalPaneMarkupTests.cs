@@ -966,7 +966,7 @@ public sealed class GlobalPaneMarkupTests
         // its own surface.
         Assert.DoesNotContain("<DashboardPane ", home, StringComparison.Ordinal);
         Assert.Contains(
-            "<DashboardPane OnClose=",
+            "<DashboardPane RepositoryAliases=",
             NormalizeLineEndings(File.ReadAllText(FindModuleFile("Dashboard", "DashboardSurface.razor"))),
             StringComparison.Ordinal);
 

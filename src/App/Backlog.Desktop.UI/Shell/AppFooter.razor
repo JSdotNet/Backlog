@@ -46,7 +46,12 @@
        cannot tell by looking, so it gets the whole control. The version is still
        one click away, in the update window this opens. The harness footers show
        both at once because they have a whole band for fine print and no header
-       to fall back on; this one has two live controls to fit instead. *@
+       to fall back on; this one has two live controls to fit instead.
+
+       The label and its value sit in one span because the button is a flex box:
+       bare, the word and the code would be two flex items, each centred on its
+       own, and the monospace number would land off the word's baseline. One item
+       is one line box, and so one baseline. *@
     <AppButton BaseClass="header-util app-version"
                Variant="ButtonVariant.None"
                TestId="app-version"
@@ -55,11 +60,11 @@
                OnClick="OpenUpdateWindow">
         @if (_workspace is null)
         {
-            <text>Version <code>@Updates.CurrentVersion</code></text>
+            <span class="app-version__text">Version <code>@Updates.CurrentVersion</code></span>
         }
         else
         {
-            <text>Worktree <code data-testid="app-workspace">@_workspace.Marker</code></text>
+            <span class="app-version__text">Worktree <code data-testid="app-workspace">@_workspace.Marker</code></span>
         }
     </AppButton>
 

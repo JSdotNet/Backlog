@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The Flow page's row (local ADR 0047): a flow's <c>stateDiagram-v2</c> read as one
+/// The row a unit's Domain page draws (local ADR 0047): a <c>stateDiagram-v2</c> read as one
 /// row of states, forward transitions above it, the ways back below it, and the
 /// restore loop — the last state back to the first — round the outside; a
 /// flowchart and a sequence drawn in the same style; and a diagram none of them
@@ -21,46 +21,6 @@ public sealed class DomainFlowsTests
             InProgress --> Ready : Paused
             Done --> InProgress : Reopened
             Draft --> Archived : Dropped
-        """;
-
-    internal const string FlowFile = """
-        # Tasks
-
-        ```meta
-        type: flow
-        ```
-
-        ## Task lifecycle
-
-        Where a task is.
-
-        ```mermaid
-        stateDiagram-v2
-            [*] --> Draft
-            Draft --> Done : Completed
-            Done --> Draft : Restored
-        ```
-
-        - A done task can be restored.
-
-        ## Capture intake
-
-        ```mermaid
-        sequenceDiagram
-            participant P as Phone
-            P->>P: capture
-        ```
-
-        The intake parses no token.
-
-        ## Task model
-
-        ```mermaid
-        classDiagram
-            class Task
-        ```
-
-        A task has a title.
         """;
 
     [Fact]
@@ -180,53 +140,6 @@ public sealed class DomainFlowsTests
     }
 
     [Fact]
-    public void A_flow_chapter_draws_its_state_diagram_and_keeps_its_prose_and_other_diagrams()
-    {
-        var file = DomainUnits.Parse(FlowFile, ".devbook/domain/tasks/flow.md");
-
-        var lifecycle = DomainFlows.Section(file.Chapters[0]);
-        Assert.Single(lifecycle.Diagrams);
-        Assert.DoesNotContain("stateDiagram-v2", lifecycle.Prose);
-        Assert.Equal("Where a task is.", lifecycle.Lead);
-        Assert.DoesNotContain("Where a task is.", lifecycle.Prose);
-        Assert.Contains("A done task can be restored.", lifecycle.Prose);
-
-        var intake = DomainFlows.Section(file.Chapters[1]);
-        Assert.IsType<DomainSequenceDiagram>(Assert.Single(intake.Diagrams));
-        Assert.DoesNotContain("sequenceDiagram", intake.Prose);
-        Assert.Contains("The intake parses no token.", intake.Prose);
-
-        var model = DomainFlows.Section(file.Chapters[2]);
-        Assert.Empty(model.Diagrams);
-        Assert.Contains("classDiagram", model.Prose);
-    }
-
-    [Fact]
-    public void The_flow_page_draws_the_row_with_the_prose_beneath_and_mermaid_for_the_rest()
-    {
-        using var context = new BunitContext();
-        context.JSInterop.Mode = JSRuntimeMode.Loose;
-        var page = context.Render<DomainFlowPage>(parameters => parameters
-            .Add(p => p.File, DomainUnits.Parse(FlowFile, ".devbook/domain/tasks/flow.md")));
-
-        var sections = page.FindAll("[data-testid='domain-flow-section']");
-        Assert.Equal(["task-lifecycle", "capture-intake", "task-model"], sections.Select(section => section.GetAttribute("data-flow")));
-
-        var lifecycle = sections[0];
-        var row = lifecycle.QuerySelector("[data-testid='domain-flow-row']")!;
-        var list = lifecycle.QuerySelector("ul:not([data-testid='domain-flow-legend'])")!;
-        Assert.Contains("A done task can be restored.", list.TextContent);
-        Assert.True(row.CompareDocumentPosition(list).HasFlag(AngleSharp.Dom.DocumentPositions.Following));
-        Assert.Empty(lifecycle.QuerySelectorAll("[data-testid='diagram-view']"));
-
-        Assert.Single(sections[1].QuerySelectorAll("[data-testid='domain-sequence']"));
-        Assert.Empty(sections[1].QuerySelectorAll("[data-testid='diagram-view']"));
-
-        Assert.Single(sections[2].QuerySelectorAll("[data-testid='diagram-view']"));
-        Assert.Empty(sections[2].QuerySelectorAll("[data-testid='domain-flow-row'], [data-testid='domain-flowchart'], [data-testid='domain-sequence']"));
-    }
-
-    [Fact]
     public void The_row_reads_its_transitions_to_a_screen_reader_as_a_list()
     {
         using var context = new BunitContext();
@@ -306,7 +219,7 @@ public sealed class DomainFlowsTests
         using var context = new BunitContext();
         var row = context.Render<DomainFlowRow>(parameters => parameters
             .Add(p => p.Diagram, diagram)
-            .Add(p => p.DocumentPath, ".devbook/domain/tasks/flow.md")
+            .Add(p => p.DocumentPath, ".devbook/domain/tasks/domain.md")
             .Add(p => p.OnNavigate, reference => followed = reference));
         var projected = row.Find("[data-testid='domain-flow-event'][data-event='TaskProjected']");
         Assert.Contains("domain-flow__event--documented", projected.GetAttribute("class"));
@@ -389,64 +302,5 @@ public sealed class DomainFlowsTests
             }
         }
         Assert.True(layout.Height >= marks.Max(mark => mark.Y) + 22);
-    }
-
-    private const string BesideFile = """
-        # Tasks
-
-        ## Task lifecycle
-
-        Five recorded states.
-
-        ```mermaid
-        stateDiagram-v2
-            Draft --> Ready : refined (TaskProjected, not yet emitted)
-        ```
-
-        ## Beside the status, not states
-
-        ### The tick
-
-        `completed_on`
-
-        - Ticking an open task also moves it to Done.
-
-        [3 requirements →](requirements.md#requirement-ticking-an-open-task-off-moves-it-to-done)
-
-        ### Readiness
-
-        *derived on read*
-
-        - `ready` — nothing it waits on is open.
-        """;
-
-    [Fact]
-    public void The_first_chapter_titles_the_page_with_its_lead_and_a_legend_and_untyped_sub_chapters_read_as_cards()
-    {
-        var file = DomainUnits.Parse(BesideFile, ".devbook/domain/tasks/flow.md");
-        var beside = DomainFlows.Section(file.Chapters[1]);
-        Assert.Empty(beside.Prose);
-        Assert.Equal(["The tick", "Readiness"], beside.Cards.Select(card => card.Title));
-        Assert.Equal("`completed_on`", beside.Cards[0].Tag);
-        Assert.Equal("- Ticking an open task also moves it to Done.", beside.Cards[0].Body);
-        Assert.StartsWith("[3 requirements →]", beside.Cards[0].Footer);
-        Assert.Equal("*derived on read*", beside.Cards[1].Tag);
-        Assert.Empty(beside.Cards[1].Footer);
-
-        using var context = new BunitContext();
-        context.JSInterop.Mode = JSRuntimeMode.Loose;
-        var page = context.Render<DomainFlowPage>(parameters => parameters.Add(p => p.File, file));
-
-        var titles = page.FindAll("[data-testid='domain-flow-title']");
-        Assert.Contains("domain-flows__title--page", titles[0].GetAttribute("class"));
-        Assert.DoesNotContain("domain-flows__title--page", titles[1].GetAttribute("class"));
-        Assert.Contains("Five recorded states.", page.Find("[data-testid='domain-flow-lead']").TextContent);
-        var legend = page.Find("[data-testid='domain-flow-legend']").TextContent;
-        Assert.Contains("forward", legend);
-        Assert.Contains("event, documented but not emitted yet", legend);
-        Assert.DoesNotContain("event, emitted", legend);
-        Assert.Equal(["the-tick", "readiness"], page.FindAll("[data-testid='domain-flow-card']").Select(card => card.GetAttribute("data-card")));
-        Assert.Contains("completed_on", page.Find("[data-testid='domain-flow-card-tag']").TextContent);
-        Assert.Contains("3 requirements", page.Find("[data-testid='domain-flow-card-footer']").TextContent);
     }
 }

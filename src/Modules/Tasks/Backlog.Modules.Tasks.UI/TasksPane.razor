@@ -276,6 +276,37 @@
                         </div>
                     }
 
+                    @* The session queue: every request waiting for a session, the
+                       entries' and the plans', in one place — a plan let go of and an
+                       entry scrolled away still wait. At the bar's right end and shown
+                       while the action is offered even with nothing queued, so the
+                       queue never disappears again; the count is muted at 0. The
+                       panel opens inward from that end. Read from the two polls the
+                       chips already run: no timer of its own. *@
+                    @if (SessionQueueOffered)
+                    {
+                        var queue = SessionQueueRows();
+                        <div class="filter-group filter-group--queue">
+                            <PopoverButton @ref="_sessionQueuePopover"
+                                           Id="session-queue"
+                                           TestId="session-queue"
+                                           AriaLabel="@SessionQueue.TriggerLabel(queue.Count)"
+                                           TriggerBaseClass="@(queue.Count == 0 ? "chip chip--filter chip--icon chip--queue chip--queue-idle" : "chip chip--filter chip--icon chip--queue")"
+                                           TriggerOpenCssClass="chip--active"
+                                           PanelCssClass="session-queue"
+                                           AlignEnd="true"
+                                           OpenChanged="OnSessionQueueOpenChanged">
+                                <Trigger>
+                                    <ListEndIcon Size="14" CssClass="chip__icon" />
+                                    <span class="chip__count" data-testid="session-queue-count">@queue.Count</span>
+                                </Trigger>
+                                <ChildContent>
+                                    @RenderSessionQueue(queue)
+                                </ChildContent>
+                            </PopoverButton>
+                        </div>
+                    }
+
                     @* Nothing at all until something in scope carries a tag: the group
                        is built from what people typed, so a backlog with no tags has
                        no third group rather than a dead chip filtering nothing.
@@ -395,6 +426,18 @@
                                                       Title="@TagFilterTitle(tag)"
                                                       PressedChanged="_ => OnTagFilterPressed(tag.Value)">
                                             @tag.Label<span class="chip__count">@tag.OpenCount</span>
+                                            @* A plan waiting for a session says so on its own
+                                               chip, pressed or not — the pressed one says it
+                                               with the waiting chip in its pair instead. The
+                                               queue's glyph, hidden, and its sentence in the
+                                               name and the tooltip (TagFilterTitle). Inside
+                                               the chip rather than beside it, so the key and
+                                               the root of the iteration stay the chip. *@
+                                            @if (PlanWaitingOnChip(tag) is { } planWaiting)
+                                            {
+                                                <ListEndIcon Size="12" CssClass="chip__icon filter-bar__plan-waiting" TestId="tag-filter-plan-waiting" />
+                                                <span class="sr-only">, @PlanSessionRequestTitle(planWaiting)</span>
+                                            }
                                         </ToggleButton>
                                     }
                                 }
@@ -1000,6 +1043,8 @@
             Services.GetService(typeof(IEntrySessionRequests)) as IEntrySessionRequests,
             Services.GetService(typeof(TimeProvider)) as TimeProvider);
         _sessionRequests.Changed += HandleSessionRequestsChanged;
+        _sessionRequests.Refreshed += HandleSessionRequestsRefreshed;
+        _sessionClock = Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
         _ = _sessionRequests.RefreshAsync();
 
         _planSessions = new TasksPlanSessionRequests(
@@ -1075,6 +1120,19 @@
         {
             _focusTagChip = null;
             await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocusTagChip", TagFilterChipId(chip)));
+        }
+
+        if (_focusSessionQueue is { } queueTarget)
+        {
+            _focusSessionQueue = null;
+            if (queueTarget.Length == 0)
+            {
+                if (_sessionQueuePopover is { } popover) await FocusQuietlyAsync(() => new ValueTask(popover.FocusAsync()));
+            }
+            else
+            {
+                await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocus", queueTarget));
+            }
         }
 
         if (_focusRevealedRow)
@@ -1624,6 +1682,219 @@
                                Text="Waiting for a session"
                                Title="@SessionRequestTitle(request)"
                                TestId="@testId" />;
+
+    // --- The session queue (local ADR 0038) ------------------------------------
+
+    /// <summary>The queue's popover, held so a row that jumps can close it.</summary>
+    private PopoverButton? _sessionQueuePopover;
+
+    /// <summary>Whether the queue's panel is open: its ages read the clock, so while it
+    /// is the panel redraws on every poll, not only when the answer changed.</summary>
+    private bool _sessionQueueOpen;
+
+    /// <summary>Where the focus goes once a Cancel in the panel has drawn its row away:
+    /// the id of a row's control, or <see cref="SessionQueueFocusTrigger"/> when the panel
+    /// has none left. Null while nothing is owed.</summary>
+    private string? _focusSessionQueue;
+
+    private const string SessionQueueFocusTrigger = "";
+
+    /// <summary>The clock the ages and the dispatcher's silence are read against.</summary>
+    private TimeProvider _sessionClock = TimeProvider.System;
+
+    /// <summary>Whether the bar carries the queue: either half of the action is offered.</summary>
+    private bool SessionQueueOffered => _sessionRequests.IsOffered || _planSessions.IsOffered;
+
+    /// <summary>The plan request <paramref name="tag"/>'s chip marks, or null: the chip
+    /// names no plan, its plan has none open, or it is the pressed plan, whose pair
+    /// carries the waiting chip instead.</summary>
+    private EntrySessionRequest? PlanWaitingOnChip(TagFilterOption tag)
+    {
+        if (TagText.Kind(tag.Value) is not TagKind.Plan) return null;
+        if (State.SelectedPlan is { } pressed && string.Equals(tag.Value, pressed, StringComparison.OrdinalIgnoreCase)) return null;
+
+        return _planSessions.OpenFor(tag.Value);
+    }
+
+    /// <summary>The plan chip on the bar for a request's bare tag, or null when the
+    /// strip carries none.</summary>
+    private TagFilterOption? PlanChipFor(string bareTag) =>
+        State.TagFilters.FirstOrDefault(tag =>
+            TagText.Kind(tag.Value) is TagKind.Plan
+            && string.Equals(tag.Value.TrimStart('+'), bareTag, StringComparison.OrdinalIgnoreCase));
+
+    private IReadOnlyList<SessionQueueRow> SessionQueueRows() =>
+        SessionQueue.Rows(
+            _sessionRequests.Open,
+            _planSessions.Open,
+            entryId => State.Rows.FirstOrDefault(row => row.Id == entryId) is { } entry ? entry.PreviewTitle ?? string.Empty : null,
+            bareTag => PlanChipFor(bareTag) is not null);
+
+    private void OnSessionQueueOpenChanged(bool open) => _sessionQueueOpen = open;
+
+    private void HandleSessionRequestsRefreshed()
+    {
+        if (_sessionQueueOpen) _ = InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>The panel: the dispatcher warning when one is owed, then every open
+    /// request oldest first — or the line that says nothing is waiting.</summary>
+    private RenderFragment RenderSessionQueue(IReadOnlyList<SessionQueueRow> queue)
+    {
+        var now = _sessionClock.GetUtcNow();
+        var contact = _sessionRequests.DispatcherContact;
+        var warns = contact.WarnsFor(queue.Select(row => row.Request));
+
+        return @<text>
+            @if (warns)
+            {
+                <Callout Tone="warning"
+                         Heading="No dispatcher is running"
+                         TestId="session-queue-dispatcher-warning">
+                    <p>@SessionQueue.SilenceSentence(contact, now)</p>
+                    <p>Start <code>@SessionQueue.StartDispatcher</code> in a pinned Claude Desktop session.</p>
+                </Callout>
+            }
+
+            @if (queue.Count == 0)
+            {
+                <EmptyState Title="Nothing is waiting for a session"
+                            Description="A session you queue on an entry or a plan waits here until a dispatcher starts it."
+                            TestId="session-queue-none" />
+            }
+            else
+            {
+                <ul class="session-queue__list" data-testid="session-queue-list">
+                    @foreach (var row in queue)
+                    {
+                        <li @key="row.Key" class="session-queue__row" data-testid="session-queue-row" data-key="@row.Key">
+                            @if (row.InView)
+                            {
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Size="ButtonSize.Small"
+                                           CssClass="session-queue__name"
+                                           TestId="session-queue-jump"
+                                           id="@SessionQueueControlId("jump", row)"
+                                           title="@(row.EntryId is null ? $"Filter by {row.Name}" : $"Open {row.Name}")"
+                                           OnClick="() => OnSessionQueueJumpAsync(row)">
+                                    @row.Name
+                                </AppButton>
+                            }
+                            else
+                            {
+                                <span class="session-queue__name session-queue__name--away" data-testid="session-queue-name">@row.Name</span>
+                            }
+                            <span class="session-queue__meta" data-testid="session-queue-meta">
+                                @row.Request.Repository · @SessionQueue.StateLabel(row.Request.State) · <span title="@row.Request.RequestedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)">@SessionQueue.Age(row.Request.RequestedAt, now)</span>
+                            </span>
+                            @if (row.CanCancel)
+                            {
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Size="ButtonSize.Small"
+                                           CssClass="session-queue__cancel"
+                                           Busy="@(row.EntryId is { } busyId ? _sessionRequests.IsBusy(busyId) : _planSessions.Busy)"
+                                           BusyLabel="Cancelling"
+                                           aria-label="@($"Cancel the session request for {row.Name}")"
+                                           TestId="session-queue-cancel"
+                                           id="@SessionQueueControlId("cancel", row)"
+                                           OnClick="() => OnSessionQueueCancelAsync(row)">
+                                    Cancel
+                                </AppButton>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </text>;
+    }
+
+    /// <summary>A row followed: its entry opened — the scopes hiding it widened first,
+    /// as a followed "waiting for" name does — or its plan's chip pressed, on the
+    /// chip's own path; a plan already pressed stays pressed. The panel closes, since
+    /// the reader's attention has moved to what the row named.</summary>
+    private async Task OnSessionQueueJumpAsync(SessionQueueRow row)
+    {
+        if (!row.InView) return;
+
+        if (_sessionQueuePopover is not null) await _sessionQueuePopover.CloseAsync();
+
+        if (row.EntryId is { } entryId)
+        {
+            if (State.Rows.FirstOrDefault(candidate => candidate.Id == entryId) is { } entry)
+            {
+                await OnEntrySelectedAsync(EntryTaskId(entry));
+            }
+
+            return;
+        }
+
+        if (row.PlanTag is { } bare && PlanChipFor(bare) is { } chip && !State.IsTagSelected(chip.Value))
+        {
+            OnTagFilterPressed(chip.Value);
+        }
+    }
+
+    private async Task OnSessionQueueCancelAsync(SessionQueueRow row)
+    {
+        var at = IndexOfKey(SessionQueueRows(), row.Key);
+
+        if (row.EntryId is { } entryId)
+        {
+            if (!await _sessionRequests.CancelAsync(entryId) && _sessionRequests.Error is { } error)
+            {
+                Toasts.Publish(ToastMessage.Error(error, "session-request-cancel-failed"));
+            }
+        }
+        else if (row.PlanTag is { } tag)
+        {
+            await OnCancelPlanSessionAsync(tag);
+        }
+
+        _focusSessionQueue = SessionQueueFocusAfterCancel(SessionQueueRows(), row.Key, Math.Max(at, 0));
+    }
+
+    /// <summary>
+    /// The control the focus moves to once a Cancel has run. The row's own Cancel
+    /// went with its row, which would drop the focus on the body and out of the
+    /// panel — where Escape no longer closes it. So: the same row's control when the
+    /// cancel was refused and the row stayed; else the row now in its place, then the
+    /// rows below it, then the ones above it; and the trigger when no row has a
+    /// control left to hold it.
+    /// </summary>
+    private static string SessionQueueFocusAfterCancel(IReadOnlyList<SessionQueueRow> rows, string key, int at)
+    {
+        var kept = IndexOfKey(rows, key);
+        var start = kept >= 0 ? kept : Math.Min(at, rows.Count - 1);
+
+        for (var index = start; index >= 0 && index < rows.Count; index++)
+        {
+            if (SessionQueueFocusTarget(rows[index]) is { } id) return id;
+        }
+
+        for (var index = Math.Min(start, rows.Count) - 1; index >= 0; index--)
+        {
+            if (SessionQueueFocusTarget(rows[index]) is { } id) return id;
+        }
+
+        return SessionQueueFocusTrigger;
+    }
+
+    private static string? SessionQueueFocusTarget(SessionQueueRow row) =>
+        row.CanCancel ? SessionQueueControlId("cancel", row)
+        : row.InView ? SessionQueueControlId("jump", row)
+        : null;
+
+    private static string SessionQueueControlId(string control, SessionQueueRow row) => $"session-queue-{control}-{row.Key}";
+
+    private static int IndexOfKey(IReadOnlyList<SessionQueueRow> rows, string key)
+    {
+        for (var index = 0; index < rows.Count; index++)
+        {
+            if (rows[index].Key == key) return index;
+        }
+
+        return -1;
+    }
 
     /// <summary>
     /// The roadmap's plans for the Calendar, through Tasks' own port — null in a host
@@ -5638,8 +5909,14 @@
     /// "Filter by #sync — 2 open, 1 completed". The completed clause is left off
     /// when there is nothing finished, so a chip whose face already says everything
     /// does not explain a zero.</summary>
-    private string TagFilterTitle(TagFilterOption tag) =>
-        FilterChipTitle($"{(State.IsTagSelected(tag.Value) ? "Stop filtering by" : "Filter by")} {tag.Label}", tag.OpenCount, tag.CompletedCount);
+    private string TagFilterTitle(TagFilterOption tag)
+    {
+        var title = FilterChipTitle($"{(State.IsTagSelected(tag.Value) ? "Stop filtering by" : "Filter by")} {tag.Label}", tag.OpenCount, tag.CompletedCount);
+
+        return PlanWaitingOnChip(tag) is { } waiting
+            ? $"{title}. {PlanSessionRequestTitle(waiting)}"
+            : title;
+    }
 
     /// <summary>A filter chip's tooltip: what pressing it does, then what is behind
     /// the open count on its face — "Show only prompts — 2 open, 1 completed". The
@@ -5949,6 +6226,7 @@
         if (_calendarPlans is not null) _calendarPlans.Changed -= HandleCalendarPlansChanged;
         if (_calendarCapacity is not null) _calendarCapacity.Changed -= HandleCalendarCapacityChanged;
         _sessionRequests.Changed -= HandleSessionRequestsChanged;
+        _sessionRequests.Refreshed -= HandleSessionRequestsRefreshed;
         _sessionRequests.Dispose();
         _planSessions.Changed -= HandleSessionRequestsChanged;
         _planSessions.Dispose();

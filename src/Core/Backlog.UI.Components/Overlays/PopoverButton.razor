@@ -18,7 +18,9 @@
     press that starts outside this component is taken before any handler hears
     it, and its click closes the panel. Either way a click on a control outside
     only closes the panel, and focus is left where the click put it. Only Escape
-    hands the focus back to the trigger. The watch goes when the panel goes.
+    hands the focus back to the trigger. The watch goes when the panel goes. A
+    host whose control moves the reader elsewhere closes it through CloseAsync,
+    by reference.
 *@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
@@ -149,7 +151,43 @@
         await WatchOutsideAsync();
     }
 
-    private Task CloseAsync() => CloseAsync(focusTrigger: false);
+    /// <summary>
+    /// Closes the panel from the host, for a control inside it that moves the reader's
+    /// attention elsewhere — a row that jumps to what it names — the way a link that
+    /// leaves the page closes it by leaving. The focus is left where the host puts it.
+    /// Does nothing while the panel is closed.
+    /// </summary>
+    public async Task CloseAsync()
+    {
+        if (!_open) return;
+
+        // The press that asked may have been handled by the host's component, not
+        // this one, so nothing else would redraw the panel away.
+        await CloseCoreAsync(focusTrigger: false, redraw: true);
+    }
+
+    /// <summary>
+    /// Puts the focus on the trigger, the panel left as it is — for a host whose panel
+    /// has just lost the control that held the focus and has none left to give it,
+    /// so the focus stays inside the popover, where Escape still closes it.
+    /// </summary>
+    public async Task FocusAsync()
+    {
+        try
+        {
+            await _trigger.FocusAsync();
+        }
+        catch (JSException)
+        {
+            // The trigger was already gone from the page: nothing to hand back to.
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
 
     /// <summary>
     /// Closes the panel, and only then tells the host. The focus goes back to the
@@ -158,28 +196,13 @@
     /// once its Filter menu shuts — and a focus sent after that would be sent to a
     /// trigger that is gone, leaving it on the page's body.
     /// </summary>
-    private async Task CloseAsync(bool focusTrigger)
+    private async Task CloseCoreAsync(bool focusTrigger, bool redraw = false)
     {
         _open = false;
+        if (redraw) StateHasChanged();
         await UnwatchOutsideAsync();
 
-        if (focusTrigger)
-        {
-            try
-            {
-                await _trigger.FocusAsync();
-            }
-            catch (JSException)
-            {
-                // The trigger was already gone from the page: nothing to hand back to.
-            }
-            catch (JSDisconnectedException)
-            {
-            }
-            catch (InvalidOperationException)
-            {
-            }
-        }
+        if (focusTrigger) await FocusAsync();
 
         await OpenChanged.InvokeAsync(false);
     }
@@ -266,6 +289,6 @@
     {
         if (e.Key != "Escape" || !_open) return;
 
-        await CloseAsync(focusTrigger: true);
+        await CloseCoreAsync(focusTrigger: true);
     }
 }

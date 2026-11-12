@@ -677,6 +677,34 @@ The system SHALL put the four blocks on the clipboard on the desktop as plain te
 - **When** the person chooses Copy for stand-up and pastes into a Teams message
 - **Then** the message holds the four blocks as plain text, with their counts
 
+### Requirement: An agent reads the goals and iterations through MCP
+
+```meta
+type: requirement
+related: [.devbook/domain/progress/features.md#reading-the-stand-up-as-an-agent]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_without_a_length_reads_the_persons_own_iteration, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_with_a_length_reads_that_length_as_of_today, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.An_unknown_length_is_refused_and_nothing_is_read, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_answers_each_goal_with_its_standing_its_landing_and_what_it_did_in_the_window, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_answers_what_was_finished_and_what_is_planned_grouped_by_goal, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_answers_each_open_impediment_with_what_it_holds_back_and_whether_it_reads_ready_to_resolve]
+```
+
+The system SHALL let an agent read the goals and the stand-up through MCP, by the person's own iteration length or a named one, and refuse any other length.
+
+#### Scenario: The person's own length
+
+- **Given** the person's iteration length is Week, and today is Saturday 17 October
+- **When** an agent calls `read_iterations` with no length
+- **Then** the last window is 12–16 October and the next is 19–23 October, with "Customers get paid faster" and "Bank sample files missing" read over them
+
+#### Scenario: A named length
+
+- **Given** the person's iteration length is Week, and today is Monday 19 October
+- **When** an agent calls `read_iterations` with the length `month`
+- **Then** the last window is September and the next is October, whatever the person's setting
+
+#### Scenario: An unknown length
+
+- **Given** the goal "Customers get paid faster" is set
+- **When** an agent calls `read_iterations` with the length `sprint`
+- **Then** the call is refused with `progress.iteration_length_unknown`, and nothing is read
+
 ## Tracking an impediment
 
 ```meta

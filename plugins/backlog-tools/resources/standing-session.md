@@ -19,6 +19,7 @@ sets it apart:
 | --- | --- |
 | `dispatch-sessions` | `📡 SESSION DISPATCHER` |
 | `tend-brain` | `🧠 BRAIN TENDER` |
+| `track-goals` | `🎯 GOAL TRACKER` |
 
 - A tool the host lacks, or one the person declines → skip that step, say so once, go on.
   Marking never holds up the tick's own work.

@@ -4,6 +4,8 @@ using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 
+using Microsoft.Extensions.Time.Testing;
+
 using ModelContextProtocol;
 
 namespace Backlog.Infrastructure.Mcp.UnitTests;
@@ -18,10 +20,60 @@ public sealed class GoalToolsTests
 {
     private static readonly DateOnly Due = new(2026, 11, 2);
 
+    private static readonly Guid LaunchGoal = Guid.NewGuid();
+    private static readonly Guid SyncGoal = Guid.NewGuid();
+    private static readonly Guid FinishedTask = Guid.NewGuid();
+    private static readonly Guid PlannedTask = Guid.NewGuid();
+    private static readonly Guid BankImpediment = Guid.NewGuid();
+
+    /// <summary>One full reading: two goals, one at risk and one due at the iteration's end,
+    /// a task and a pull request finished, a planned task under No goal, and an impediment
+    /// being handled whose three held-back items are all settled.</summary>
+    private static readonly StandUpDto Reading = new(
+        new IterationWindowDto(IterationLength.Week, new DateOnly(2026, 10, 19), new DateOnly(2026, 10, 23)),
+        new IterationWindowDto(IterationLength.Week, new DateOnly(2026, 10, 26), new DateOnly(2026, 10, 30)),
+        [
+            new StandUpGoalDto(LaunchGoal, "Launch", new DateOnly(2026, 11, 20),
+                new GoalProgressDto(Done: 2, Total: 5, Doing: 1, Blocked: 1, ToDo: 1, DoneInWindow: 2),
+                GoalStanding.AtRisk, new DateOnly(2026, 11, 27)),
+            new StandUpGoalDto(SyncGoal, "Sync", new DateOnly(2026, 11, 8),
+                new GoalProgressDto(Done: 0, Total: 1, Doing: 0, Blocked: 0, ToDo: 1, DoneInWindow: 0),
+                GoalStanding.OnTrack, LandsOn: null, DueIsIterationEnd: true)
+        ],
+        [
+            new StandUpGroupDto(LaunchGoal, "Launch",
+            [
+                new StandUpItemDto(GoalAttachmentKind.Task, FinishedTask, "Ship the installer", "backlog", null, 3, null, new DateOnly(2026, 10, 21)),
+                new StandUpItemDto(GoalAttachmentKind.PullRequest, null, "JSdotNet/Backlog#1477", "JSdotNet/Backlog", 1477, null, null, new DateOnly(2026, 10, 23))
+            ])
+        ],
+        [
+            new StandUpGroupDto(LaunchGoal, "Launch", []),
+            new StandUpGroupDto(null, null,
+            [
+                new StandUpItemDto(GoalAttachmentKind.Task, PlannedTask, "Write the release notes", "backlog", null, 5, new DateOnly(2026, 11, 6), null)
+            ])
+        ],
+        PlannedEffort: 8,
+        Capacity: 13,
+        [
+            new StandUpImpedimentDto(BankImpediment, "Bank sample files missing", ImpedimentState.BeingHandled, "bank support",
+                DaysOpen: 4, CheckAgain: new DateOnly(2026, 10, 28), LaunchGoal, "Launch", "Asked twice", ReadyToResolve: true,
+                [
+                    new StandUpHeldBackItemDto(HeldBackItemDto.ForTask(FinishedTask), "Ship the installer", Settled: true),
+                    new StandUpHeldBackItemDto(HeldBackItemDto.ForPullRequest("JSdotNet/Backlog", 1477), "JSdotNet/Backlog#1477", Settled: true),
+                    new StandUpHeldBackItemDto(HeldBackItemDto.ForPlan("bank-integration"), "+bank-integration", Settled: true)
+                ])
+        ],
+        ResolvedInLast: 2);
+
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
     private static GoalTools Tools(FakeGoals goals, params string[] repositories) =>
-        new(goals, new FakeRepositoryDirectory([.. repositories.Select(Repository)]));
+        new(goals, new FakeRepositoryDirectory([.. repositories.Select(Repository)]), new FakeStandUp());
+
+    private static GoalTools Tools(FakeStandUp standUp, TimeProvider? clock = null) =>
+        new(new FakeGoals(), new FakeRepositoryDirectory(), standUp, clock);
 
     private static TasksRepositoryRef Repository(string id)
     {
@@ -55,6 +107,114 @@ public sealed class GoalToolsTests
             ],
             listed.Items);
         Assert.Equal(new GoalProgressPayload(Done: 1, Total: 3, Doing: 1, Blocked: 0, ToDo: 1), listed.Progress);
+    }
+
+    // --- read_iterations ---------------------------------------------------------
+
+    [Fact]
+    public async Task Read_iterations_without_a_length_reads_the_persons_own_iteration()
+    {
+        var standUp = new FakeStandUp { Setting = IterationLength.TwoWeeks };
+
+        var payload = await Tools(standUp).ReadIterationsAsync(cancellationToken: Cancellation);
+
+        Assert.Equal(new IterationWindowPayload("two-weeks", new DateOnly(2026, 10, 12), new DateOnly(2026, 10, 25)), payload.Last);
+        Assert.Equal(new IterationWindowPayload("two-weeks", new DateOnly(2026, 10, 26), new DateOnly(2026, 11, 8)), payload.Next);
+    }
+
+    [Theory]
+    [InlineData("day", "day")]
+    [InlineData("Week", "week")]
+    [InlineData("two-weeks", "two-weeks")]
+    [InlineData(" MONTH ", "month")]
+    public async Task Read_iterations_with_a_length_reads_that_length_as_of_today(string length, string token)
+    {
+        var standUp = new FakeStandUp { Setting = IterationLength.Week };
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 11, 9, 0, 0, TimeSpan.Zero));
+
+        var payload = await Tools(standUp, clock).ReadIterationsAsync(length, Cancellation);
+
+        Assert.Equal(new IterationWindowPayload(token, new DateOnly(2026, 11, 11), new DateOnly(2026, 11, 24)), payload.Next);
+    }
+
+    [Theory]
+    [InlineData("sprint")]
+    [InlineData("two_weeks")]
+    [InlineData("TwoWeeks")]
+    public async Task An_unknown_length_is_refused_and_nothing_is_read(string length)
+    {
+        var standUp = new FakeStandUp();
+
+        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(standUp).ReadIterationsAsync(length, Cancellation));
+
+        Assert.StartsWith("progress.iteration_length_unknown", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(0, standUp.Reads);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("month")]
+    public async Task A_refused_reading_reaches_the_client_with_its_code(string? length)
+    {
+        var standUp = new FakeStandUp { Refusal = Error.Unexpected("progress.read_failed", "The goals could not be read.") };
+
+        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(standUp).ReadIterationsAsync(length, Cancellation));
+
+        Assert.StartsWith("progress.read_failed", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Read_iterations_answers_each_goal_with_its_standing_its_landing_and_what_it_did_in_the_window()
+    {
+        var payload = await Tools(new FakeStandUp { Answer = Reading }).ReadIterationsAsync(cancellationToken: Cancellation);
+
+        Assert.Equal(
+            [
+                new IterationGoalPayload(LaunchGoal, "Launch", new DateOnly(2026, 11, 20), false, "at-risk", new DateOnly(2026, 11, 27),
+                    new IterationGoalProgressPayload(Done: 2, Total: 5, Doing: 1, Blocked: 1, ToDo: 1, DoneInWindow: 2)),
+                new IterationGoalPayload(SyncGoal, "Sync", new DateOnly(2026, 11, 8), true, "on-track", null,
+                    new IterationGoalProgressPayload(Done: 0, Total: 1, Doing: 0, Blocked: 0, ToDo: 1, DoneInWindow: 0))
+            ],
+            payload.Goals);
+        Assert.Equal((8, 13, 2), (payload.PlannedEffort, payload.Capacity, payload.ResolvedInLast));
+    }
+
+    [Fact]
+    public async Task Read_iterations_answers_what_was_finished_and_what_is_planned_grouped_by_goal()
+    {
+        var payload = await Tools(new FakeStandUp { Answer = Reading }).ReadIterationsAsync(cancellationToken: Cancellation);
+
+        var finished = Assert.Single(payload.Finished);
+        Assert.Equal((LaunchGoal, "Launch"), (finished.GoalId, finished.GoalTitle));
+        Assert.Equal(
+            [
+                new IterationItemPayload("task", FinishedTask, "Ship the installer", "backlog", null, 3, null, new DateOnly(2026, 10, 21)),
+                new IterationItemPayload("pull-request", null, "JSdotNet/Backlog#1477", "JSdotNet/Backlog", 1477, null, null, new DateOnly(2026, 10, 23))
+            ],
+            finished.Items);
+
+        Assert.Equal([(LaunchGoal, "Launch"), (null, null)], payload.Planned.Select(group => (group.GoalId, group.GoalTitle)));
+        Assert.Equal(
+            new IterationItemPayload("task", PlannedTask, "Write the release notes", "backlog", null, 5, new DateOnly(2026, 11, 6), null),
+            Assert.Single(payload.Planned[1].Items));
+    }
+
+    [Fact]
+    public async Task Read_iterations_answers_each_open_impediment_with_what_it_holds_back_and_whether_it_reads_ready_to_resolve()
+    {
+        var payload = await Tools(new FakeStandUp { Answer = Reading }).ReadIterationsAsync(cancellationToken: Cancellation);
+
+        var impediment = Assert.Single(payload.Impediments);
+        Assert.Equal(
+            (BankImpediment, "Bank sample files missing", "being-handled", "bank support", 4, new DateOnly(2026, 10, 28), (Guid?)LaunchGoal, "Launch", "Asked twice", true),
+            (impediment.Id, impediment.Title, impediment.State, impediment.With, impediment.DaysOpen, impediment.CheckAgain, impediment.GoalId, impediment.GoalTitle, impediment.Note, impediment.ReadyToResolve));
+        Assert.Equal(
+            [
+                new IterationHeldBackPayload("task", FinishedTask, null, null, null, "Ship the installer", true),
+                new IterationHeldBackPayload("pull-request", null, "JSdotNet/Backlog", 1477, null, "JSdotNet/Backlog#1477", true),
+                new IterationHeldBackPayload("plan", null, null, null, "bank-integration", "+bank-integration", true)
+            ],
+            impediment.HoldsBack);
     }
 
     // --- create_goal -------------------------------------------------------------
@@ -458,4 +618,45 @@ internal sealed class FakeGoals : IGoals
         : null;
 
     private static string? Blank(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+}
+
+/// <summary>
+/// Progress's iteration reading, answering <see cref="Answer"/> over two fourteen-day windows
+/// either side of the day it reads for, in the length it reads with: the person's
+/// <see cref="Setting"/> as of <see cref="HostToday"/> when no length is named, else the
+/// length and the day the caller gives. <see cref="Refusal"/> makes every read fail with it.
+/// </summary>
+internal sealed class FakeStandUp : IStandUp
+{
+    public IterationLength Setting { get; init; } = IterationLength.Week;
+
+    public DateOnly HostToday { get; init; } = FakeGoals.Today;
+
+    public StandUpDto Answer { get; init; } = new(
+        new IterationWindowDto(IterationLength.Week, FakeGoals.Today, FakeGoals.Today),
+        new IterationWindowDto(IterationLength.Week, FakeGoals.Today, FakeGoals.Today),
+        [], [], [], PlannedEffort: 0, Capacity: null, [], ResolvedInLast: 0);
+
+    public Error? Refusal { get; init; }
+
+    public int Reads { get; private set; }
+
+    public Task<Result<StandUpDto>> ReadAsync(DateOnly today, IterationLength length, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Read(today, length));
+
+    public Task<Result<StandUpDto>> ReadAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(Read(HostToday, Setting));
+
+    private Result<StandUpDto> Read(DateOnly today, IterationLength length)
+    {
+        Reads++;
+
+        if (Refusal is { } error) return Result.Failure<StandUpDto>(error);
+
+        return Answer with
+        {
+            Last = new IterationWindowDto(length, today.AddDays(-14), today.AddDays(-1)),
+            Next = new IterationWindowDto(length, today, today.AddDays(13)),
+        };
+    }
 }

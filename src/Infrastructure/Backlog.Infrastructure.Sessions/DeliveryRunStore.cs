@@ -34,10 +34,12 @@ internal sealed class DeliveryRunStore
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly string _home;
+    private readonly TimeSpan _replaceWindow;
 
-    internal DeliveryRunStore(string home)
+    internal DeliveryRunStore(string home, TimeSpan? replaceWindow = null)
     {
         _home = home;
+        _replaceWindow = replaceWindow ?? TimeSpan.FromSeconds(2);
     }
 
     /// <summary>The folder one worktree's runs are filed in, whether or not it exists
@@ -166,7 +168,7 @@ internal sealed class DeliveryRunStore
         {
             await File.WriteAllTextAsync(temp, run.ToJsonString(Layout), cancellationToken).ConfigureAwait(false);
 
-            File.Move(temp, path, overwrite: true);
+            await ReplaceAsync(temp, path, cancellationToken).ConfigureAwait(false);
             written = true;
         }
         finally
@@ -183,6 +185,39 @@ internal sealed class DeliveryRunStore
                     // Guid, so it collides with nothing, and the reader only looks at
                     // *.json.
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Move the temp file over the run file, waiting out a reader that holds it open.
+    /// <para>
+    /// The gate in <see cref="LockAsync"/> serializes the writers, not the readers: the
+    /// pane's <see cref="DeliveryRunReader"/>, the telemetry's first lookup of a session's
+    /// run, and other processes read these files without it. On Windows a replace is
+    /// refused — <see cref="UnauthorizedAccessException"/>, or an <see cref="IOException"/>
+    /// for a sharing violation — while any handle on the target is open, and a reader holds
+    /// one for the milliseconds a read takes. So a refusal is retried until the replace
+    /// window runs out, and only then is it the caller's failure.
+    /// </para>
+    /// </summary>
+    private async Task ReplaceAsync(string temp, string path, CancellationToken cancellationToken)
+    {
+        var giveUpAt = Environment.TickCount64 + (long)_replaceWindow.TotalMilliseconds;
+
+        while (true)
+        {
+            try
+            {
+                File.Move(temp, path, overwrite: true);
+                return;
+            }
+            catch (Exception error) when (
+                error is UnauthorizedAccessException or IOException
+                && error is not (FileNotFoundException or DirectoryNotFoundException)
+                && Environment.TickCount64 < giveUpAt)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(15), cancellationToken).ConfigureAwait(false);
             }
         }
     }

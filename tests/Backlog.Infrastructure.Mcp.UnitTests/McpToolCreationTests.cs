@@ -62,6 +62,7 @@ public class McpToolCreationTests
         InboxTools.ListInboxItems,
         InboxTools.ReadInboxItem,
         GoalTools.ListGoals,
+        GoalTools.ReadIterations,
         SessionRequestTools.ListSessionRequests,
         SessionRequestTools.ListDeliveries
     ];
@@ -217,6 +218,10 @@ public class McpToolCreationTests
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "link_to_impediment")));
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "unlink_from_impediment")));
         Assert.Empty(schemas["list_goals"]);
+
+        // Without a length the person's own setting applies, so nothing is required.
+        Assert.Equal(["length"], schemas["read_iterations"]);
+        Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "read_iterations")));
         Assert.Equal(["title", "dueDate", "outcome"], schemas["create_goal"]);
         Assert.Equal(["id", "title", "outcome", "dueDate"], schemas["update_goal"]);
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "update_goal")));
@@ -409,7 +414,7 @@ public class McpToolCreationTests
                 new FakeAgentSessionSource(AgentSessionCatalog.Empty),
                 new FakeClaudeApiRequestStore()),
             [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments(), new FakeRepositoryDirectory()),
-            [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
+            [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory(), new FakeStandUp()),
             [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore()),
             [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications()),
             [typeof(InboxTools)] = new InboxTools(InboxToolsTests.FakeInbox.Over()),

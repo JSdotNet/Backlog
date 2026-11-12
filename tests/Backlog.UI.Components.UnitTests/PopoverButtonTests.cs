@@ -265,4 +265,39 @@ public sealed class PopoverButtonTests
 
         Assert.NotNull(popover.Find("[data-testid='options-panel']"));
     }
+
+    [Fact]
+    public async Task The_host_can_close_the_panel_and_closing_it_again_does_nothing()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var changes = new List<bool>();
+
+        var popover = Render(context, changes);
+        popover.Find("[data-testid='options-button']").Click();
+
+        await popover.InvokeAsync(popover.Instance.CloseAsync);
+        await popover.InvokeAsync(popover.Instance.CloseAsync);
+
+        Assert.Empty(popover.FindAll("[data-testid='options-panel']"));
+        Assert.Equal("false", popover.Find("[data-testid='options-button']").GetAttribute("aria-expanded"));
+        Assert.Equal([true, false], changes);
+    }
+
+    [Fact]
+    public async Task The_host_can_put_the_focus_on_the_trigger_and_the_panel_stays_open()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var changes = new List<bool>();
+
+        var popover = Render(context, changes);
+        popover.Find("[data-testid='options-button']").Click();
+
+        await popover.InvokeAsync(popover.Instance.FocusAsync);
+
+        context.JSInterop.VerifyFocusAsyncInvoke();
+        Assert.NotNull(popover.Find("[data-testid='options-panel']"));
+        Assert.Equal([true], changes);
+    }
 }

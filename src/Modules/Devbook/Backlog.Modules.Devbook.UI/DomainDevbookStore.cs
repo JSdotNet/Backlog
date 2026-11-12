@@ -40,8 +40,9 @@ public sealed class DomainDevbookStore : IDisposable
     /// (it declares <c>index: root</c>); then <c>domain.md</c>, <c>actors.md</c>,
     /// <c>features.md</c> or <c>skills.md</c> — a context takes one of the two, so
     /// their relative order never shows — <c>requirements.md</c>,
-    /// <c>model.md</c>, <c>flow.md</c> and <c>dependencies.md</c>, and after all of
-    /// them the additional pages the convention does not name. A legacy
+    /// <c>model.md</c> and <c>dependencies.md</c>, and after all of them the
+    /// additional pages the convention does not name — a legacy <c>flow.md</c>
+    /// among them, since devbook contract 37 retired it. A legacy
     /// <c>index.md</c>, which some contexts used as their root before contract 11,
     /// reads straight after the model narrative, where it always has, and a
     /// contract-16 <c>invariants.md</c> after the requirements, where it did.</para>
@@ -65,7 +66,6 @@ public sealed class DomainDevbookStore : IDisposable
         DomainDevbookDocumentKind.Requirements,
         DomainDevbookDocumentKind.Invariants,
         DomainDevbookDocumentKind.Model,
-        DomainDevbookDocumentKind.Flow,
         DomainDevbookDocumentKind.Dependencies,
         DomainDevbookDocumentKind.Page
     ];
@@ -82,8 +82,7 @@ public sealed class DomainDevbookStore : IDisposable
         ["skills"] = DomainDevbookDocumentKind.Skills,
         ["requirements"] = DomainDevbookDocumentKind.Requirements,
         ["invariants"] = DomainDevbookDocumentKind.Invariants,
-        ["model"] = DomainDevbookDocumentKind.Model,
-        ["flow"] = DomainDevbookDocumentKind.Flow
+        ["model"] = DomainDevbookDocumentKind.Model
     };
 
     /// <summary>Re-published from the folder source so an open panel can reload
@@ -622,7 +621,6 @@ public sealed class DomainDevbookStore : IDisposable
         "requirements.md" => DomainDevbookDocumentKind.Requirements,
         "invariants.md" => DomainDevbookDocumentKind.Invariants,
         "model.md" => DomainDevbookDocumentKind.Model,
-        "flow.md" => DomainDevbookDocumentKind.Flow,
         "dependencies.md" => DomainDevbookDocumentKind.Dependencies,
         "index.md" => DomainDevbookDocumentKind.Other,
         var name when IsInvariantsSubpage(name) => DomainDevbookDocumentKind.Invariants,
@@ -781,7 +779,6 @@ public sealed record DomainDevbookDocument(string Path, string Title, DomainDevb
         DomainDevbookDocumentKind.Requirements => "Requirements",
         DomainDevbookDocumentKind.Invariants => "Invariants",
         DomainDevbookDocumentKind.Model => "Structural model",
-        DomainDevbookDocumentKind.Flow => "Flow",
         DomainDevbookDocumentKind.Dependencies => "Dependencies",
         // A scenario page is an additional page that says what it is.
         DomainDevbookDocumentKind.Page when DevbookTypeMarkers.IsScenario(Metadata.GetValueOrDefault("type")) => "Scenario page",
@@ -812,7 +809,6 @@ public enum DomainDevbookDocumentKind
     Requirements,
     Invariants,
     Model,
-    Flow,
     Dependencies,
 
     /// <summary>A file the convention does not name, added by the context for
@@ -833,7 +829,7 @@ public enum DomainDevbookDocumentKind
 /// The two lists say the same thing in two vocabularies, and this is the single
 /// place they meet. The alternative — a second filename-to-slug switch wherever a
 /// mark is wanted — is how the tree and the panel would come to disagree about
-/// what <c>flow.md</c> is.
+/// what <c>model.md</c> is.
 /// </para>
 /// <para>
 /// An additional page has no fixed value: its type is its own filename, so
@@ -874,7 +870,6 @@ public static class DomainDevbookFileTypes
         DomainDevbookDocumentKind.Requirements => "requirements",
         DomainDevbookDocumentKind.Invariants => "invariants",
         DomainDevbookDocumentKind.Model => "model",
-        DomainDevbookDocumentKind.Flow => "flow",
         DomainDevbookDocumentKind.Dependencies => "dependencies",
         _ => null
     };

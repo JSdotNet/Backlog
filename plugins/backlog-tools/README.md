@@ -1,13 +1,13 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or devbook tooling. Eleven skills: one for each direction of a plan,
+general-purpose or devbook tooling. Twelve skills: one for each direction of a plan,
 one for running a whole plan, one for checking it once it has run, one for closing the entries
 whose pull request merged, one for bringing another tool's items into the Inbox, one for the
 remarks a person leaves while reading, one that dispatches the session requests the app
-queues, one that tends a person's Brain, one that reports what the week's runs cost, and one
-that levels a devbook and its code in the direction Backlog keeps — and a pane that follows a
-running plan.
+queues, one that tends a person's Brain, one that reports what the week's runs cost, one
+that levels a devbook and its code in the direction Backlog keeps, and one that keeps a
+person's goals current — and a pane that follows a running plan.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -232,22 +232,48 @@ running plan.
   resolver. Every pull request it opens is a draft; it never sets a direction. Its test runs
   under `node --test plugins/backlog-tools/tests/devbook-sweep-select.test.mjs`. Not a flow:
   it is the target of the routine below, and run by hand the same way.
+- **`track-goals`** — keeps a person's goals current, so the stand-up and the weekly update
+  read correct facts and each goal says what to do next (local ADR 0035:
+  `.devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md`). Run once ("update my
+  goals") or as `/loop /backlog-tools:track-goals`. Each tick reads the last and next
+  iteration, each goal's standing and the open impediments through `read_iterations`, and what
+  each goal holds through `list_goals`. It finds the work no goal holds yet: tasks in progress
+  (`list_entries`), pull requests updated since the last iteration began (`gh pr list`, each
+  resolved to its entry with `find_item`), and roadmap plans with an open entry. Work a goal
+  already counts — directly, or through a held plan's `+tag` or a held task's pull request — is
+  skipped, and a task is never attached past its plan, which would move its count. A pull request
+  not yet linked to an entry, whose branch or body names an entry id or plan tag a goal holds, is
+  that held work: attaching it would count it twice, so the skill proposes linking it to that entry
+  (`link_change`) instead. The skill attaches a task or plan itself only when it depends on at
+  least one item and exactly one goal holds all of them. One with no dependencies, a title match,
+  or an unlinked pull request that names nothing held is only a proposal. It also proposes raising an impediment for a held task blocked for 2 worked days
+  or a held pull request whose checks have failed for a day, and resolving one that reads ready to
+  resolve; both thresholds are arguments with these defaults. A proposal is applied only on the person's yes: in chat when they
+  started the run, else through `ask` and the answer `get_answer` reads or `dispatch-sessions`
+  delivers (local ADR 0041). Raising and resolving stay the person's move, as ADR 0035 sets. It
+  reports per goal its standing, what finished in the last iteration, the next step and its open
+  impediments, then what needs the person; `weekly` reads a week and words it for a stakeholder.
+  It never transitions, tags or edits an entry, never deletes a goal, creates or edits one or links a
+  pull request only on a yes, and keeps no state file: Backlog's store is its state. Model-invoked; it changes no file
+  and is no flow. `tests/track-goals-tools.test.mjs` holds every tool it names to a tool the
+  server has.
 
 `import-plan`, `import-inbox`, `run-plan-item`, `execute-plan`, `final-check`, `close-merged`,
-`handle-remarks` and `tend-brain` open what they hand back with the `show-me` skill's
-orientation card when it has one, and read as before without it. `devbook-sweep` and
+`handle-remarks`, `tend-brain` and `track-goals` open what they hand back with the `show-me`
+skill's orientation card when it has one, and read as before without it. `devbook-sweep` and
 `dispatch-sessions` run with nobody present and `weekly-cost-analysis` keeps its fixed shape, so
 those three skip it.
 
 `resources/standing-session.md` is how a skill a person keeps running under `/loop` stands out
-as a long-running agent: on its first turn `dispatch-sessions` and `tend-brain` title their own
-Claude Desktop session with an icon and an ALL CAPS name (`📡 SESSION DISPATCHER`,
-`🧠 BRAIN TENDER`), file it under the `Agents` sidebar section and pin it, skipping any step the
+as a long-running agent: on its first turn `dispatch-sessions`, `tend-brain` and `track-goals`
+title their own Claude Desktop session with an icon and an ALL CAPS name (`📡 SESSION DISPATCHER`,
+`🧠 BRAIN TENDER`, `🎯 GOAL TRACKER`), file it under the `Agents` sidebar section and pin it, skipping any step the
 host lacks. `tests/loop-skills.test.mjs` holds every `/loop`-started skill to it.
 
-`resources/chat-reports.md` is the one statement of how short a skill's chat report is. Nine
-skills point to it from their report step; `devbook-sweep` and `dispatch-sessions` run with
-nobody present, so they do not.
+`resources/chat-reports.md` is the one statement of how short a skill's chat report is. Ten
+skills point to it from their report step — `track-goals` except for its `weekly` report, which a
+stakeholder reads in full sentences; `devbook-sweep` and `dispatch-sessions` run with nobody
+present, so they do not.
 
 ### The devbook sweep routine
 

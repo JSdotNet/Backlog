@@ -99,10 +99,12 @@ default: off
 related: [".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md"]
 ```
 
-Turning it on offers a queue icon on an entry and on a plan's roadmap item, maps
-`GET /session-requests/wait` on the MCP listener, and adds the tools a dispatcher
-claims and reports with. Off, the action is not shown, the route answers `404` and the
-tools leave the endpoint.
+Turning it on offers a queue icon on an entry and on a plan's roadmap item, marks each
+plan chip on the Tasks filter bar whose plan waits for a session, and shows the filter
+bar's session queue. It maps `GET /session-requests/wait` on the MCP listener and
+records each dispatcher's wait there as contact, and adds the tools a dispatcher claims
+and reports with. Off, the action, the marks and the queue are not shown, the route
+answers `404` and records nothing, and the tools leave the endpoint.
 
 It is off by default while the dispatchers are built
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).

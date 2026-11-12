@@ -158,6 +158,21 @@ Escape closes it and puts the focus back on the trigger; so does a click anywher
         </div>
     </Story>
 
+    <Story Name="PopoverButton closed by the host"
+           Description="A row inside the panel that takes the reader somewhere else closes it, the way a link that leaves the page closes it by leaving. The host holds a reference to the popover and calls `CloseAsync` from the row's own handler; the focus goes where the host puts it, not back to the trigger. A switch flipped beside it still leaves the panel open. The Tasks pane's session queue closes this way when a row jumps to its entry or plan. A host whose panel loses the control that held the focus, with nothing left in it to take it, calls `FocusAsync` instead: the focus goes to the trigger and the panel stays open, as the session queue does after its last Cancel."
+           Code="@PopoverCloseCode">
+        <div class="sb-row">
+            <PopoverButton @ref="_jumpPopover" AriaLabel="Recent places" TestId="story-popover-jump">
+                <Trigger><ListIcon /></Trigger>
+                <ChildContent>
+                    <AppButton Variant="ButtonVariant.Ghost" TestId="story-popover-jump-inbox" OnClick="@(() => JumpAsync("Inbox"))">Inbox</AppButton>
+                    <AppButton Variant="ButtonVariant.Ghost" TestId="story-popover-jump-roadmap" OnClick="@(() => JumpAsync("Roadmap"))">Roadmap</AppButton>
+                </ChildContent>
+            </PopoverButton>
+        </div>
+        <p class="sb-state" data-testid="popover-jump-state">Went to: @(_popoverJumpedTo ?? "nowhere yet")</p>
+    </Story>
+
     @*
         The sheet is the third thing here and the one that is not a takeover. A
         modal stops the page to ask something; a sheet sits beside a surface and
@@ -255,6 +270,40 @@ Escape closes it and puts the focus back on the trigger; so does a click anywher
                 <Toggle Label="Show archived" @bind-Checked="_archived" />
             </ChildContent>
         </PopoverButton>
+        """;
+
+    private PopoverButton? _jumpPopover;
+    private string? _popoverJumpedTo;
+
+    private async Task JumpAsync(string place)
+    {
+        _popoverJumpedTo = place;
+        if (_jumpPopover is not null) await _jumpPopover.CloseAsync();
+    }
+
+    private const string PopoverCloseCode = """
+        <PopoverButton @ref="_places" AriaLabel="Recent places">
+            <Trigger><ListIcon /></Trigger>
+            <ChildContent>
+                <AppButton Variant="ButtonVariant.Ghost" OnClick="@(() => GoAsync("Inbox"))">Inbox</AppButton>
+            </ChildContent>
+        </PopoverButton>
+
+        @code {
+            private PopoverButton? _places;
+
+            private async Task GoAsync(string place)
+            {
+                Navigate(place);
+                if (_places is not null) await _places.CloseAsync();
+            }
+
+            // The panel's last row went away under the focus: the trigger takes it.
+            private async Task AfterLastRowRemovedAsync()
+            {
+                if (_places is not null) await _places.FocusAsync();
+            }
+        }
         """;
 
     private bool _sheetOpen;

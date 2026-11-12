@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The Flow page's other diagrams (local ADR 0047): a flowchart laid out in ranks
+/// The view's other diagrams (local ADR 0047): a flowchart laid out in ranks
 /// and a sequence laid out as cards and lifelines, both in the lifecycle's cards,
 /// lines and arrowheads, and a Mermaid source neither can read left to Mermaid.
 /// </summary>

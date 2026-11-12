@@ -21,8 +21,7 @@
     entry a pull request belongs to, to the session it came from — go through the
     window's navigator, so they land in the window they were pressed in.
 *@
-<PullRequestsPane OnClose="OnClose"
-                  RepositoryScope="@(_state?.SelectedRepositoryAliases ?? [])"
+<PullRequestsPane RepositoryScope="@(_state?.SelectedRepositoryAliases ?? [])"
                   RepositoryAlias="@RepositoryAlias"
                   RepositoryColour="@RepositoryColour"
                   PullRequestTask="@(_references is { } references ? references.PullRequestTaskFor : null)"
@@ -45,7 +44,8 @@
     [Parameter]
     public IReadOnlyDictionary<string, string>? Query { get; set; }
 
-    /// <summary>Closes the surface: back to the main view, or the window closed.</summary>
+    /// <summary>The shell's close callback, declared because the shell hands it to
+    /// every surface. Unused: the list draws no close of its own.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
 

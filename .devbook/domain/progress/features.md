@@ -55,14 +55,14 @@ After an attach, a move or a detach made in it, a goal shows what it now holds a
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/requirements.md#setting-a-goal]
+related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/requirements.md#setting-a-goal, .devbook/domain/progress/features.md#goals-for-agents]
 ```
 
 Say what the work is for. **New goal** asks for a title, an optional one-line outcome
 and an optional due date, its field labelled **Due date (optional)**. A goal without a
 due date is due at the end of the iteration, as [Goal](domain.md#goal) says.
 
-A goal's row offers the same fields to edit, and **Delete goal…**, which asks first. Emptying the due date field and leaving it clears the date; typing a date sets it again. Deleting a goal frees what it held and changes no plan, task or pull request. Goals are set on the desktop only.
+A goal's row offers the same fields to edit, and **Delete goal…**, which asks first. Emptying the due date field and leaving it clears the date; typing a date sets it again. Deleting a goal frees what it held and changes no plan, task or pull request. Goals are set on the desktop and by an [agent](#goals-for-agents), never on the phone.
 
 ## Attaching work to a goal
 
@@ -86,7 +86,25 @@ The search leaves out a done task and a finished plan, one whose entries are all
 
 A No goal row can also be dragged by its grip onto a goal, open or folded. The goal under the pointer is outlined as the drop target; anywhere else the cursor says the drop is not allowed, and a drop there, or Escape, attaches nothing. Once attached, the board says "Attached ‹title› to ‹goal›." to a screen reader; a refused attach is not said. **Attach…** stays the keyboard's way in.
 
-An item another goal holds is not attached silently. The picker opens on the goal it was meant for, names the goal that holds the item and says attaching moves it from there. **Attach** then moves it. Attaching and detaching are desktop actions and change nothing on the task, plan, pull request or session. [Goal Progress](domain.md#goal-progress) says how the attached work is counted.
+An item another goal holds is not attached silently. The picker opens on the goal it was meant for, names the goal that holds the item and says attaching moves it from there. **Attach** then moves it. Attaching and detaching are desktop and [agent](#goals-for-agents) actions and change nothing on the task, plan, pull request or session. [Goal Progress](domain.md#goal-progress) says how the attached work is counted.
+
+### Goals for agents
+
+```meta
+type: sub-feature
+related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/features.md#setting-a-goal, .devbook/domain/progress/requirements.md#attaching-work-to-a-goal, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests]
+```
+
+Let an agent keep the goals its work is for. Behind the always-on Tasks key, beside the [impediment tools](#impediments-for-agents), an agent works with goals through MCP tools:
+
+- `list_goals` reads every goal with its title, outcome and due date, what it holds and its progress;
+- `create_goal` sets one with a title, an optional outcome and an optional due date, and refuses one without a title (`progress.goal_without_title`);
+- `update_goal` changes the fields it is given and keeps the rest;
+- `delete_goal` deletes one and frees what it held;
+- `attach_to_goal` and `detach_from_goal` attach or detach one plan by its tag, one task by its id, or one pull request by its repository and number.
+
+An agent attaches no session: a session attaches on the desktop alone (local [ADR 0037](../../arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)). An item another goal holds is refused, naming that goal (`progress.item_in_other_goal`), unless the agent asks to move it. Then it leaves that goal and joins this one, as **Attach** in the picker moves it.
 
 ## Choosing the iteration
 
@@ -139,6 +157,23 @@ related: [.devbook/domain/progress/requirements.md#the-stand-up]
 - "n resolved" after Impediments.
 
 Every line is a fixed template filled from the reading; none is written by a model. Copying is a desktop action. Formatted (HTML) copy is a later addition.
+
+### Reading the stand-up as an agent
+
+```meta
+type: sub-feature
+related: [.devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/context.md#iteration-length, .devbook/domain/progress/requirements.md#the-stand-up, .devbook/domain/progress/features.md#impediments-for-agents]
+```
+
+Let an agent report the figures the person sees. Behind the always-on Tasks key, `read_iterations` answers from the same [stand-up reading](domain.md#stand-up-reading) the Goals view draws from:
+
+- the last and next windows;
+- each goal with its standing, On track or At risk, the day it lands, and its progress as `done/total` with how many items are doing, blocked and to do and how many were done in the last window;
+- the items finished in the last window and planned for the next, grouped by goal as the stand-up groups them;
+- the planned effort against the capacity of the [points tag](#the-stand-up), and how many impediments were resolved in the last window;
+- each open impediment, as [Impediments for agents](#impediments-for-agents) says.
+
+Without a length, the agent reads by the person's own [Iteration length](context.md#iteration-length). It may name `day`, `week`, `two-weeks` or `month` instead, and then reads that length as of today. Any other length is refused (`progress.iteration_length_unknown`), and nothing is read. The reading moves nothing.
 
 ## Tracking an impediment
 
@@ -200,16 +235,19 @@ The mark is a cue, not a move. The impediment keeps its state and place, and the
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/requirements.md#tracking-an-impediment]
+related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/requirements.md#tracking-an-impediment, .devbook/domain/progress/features.md#reading-the-stand-up-as-an-agent, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 ```
 
 Let an agent track a blocker it runs into. Behind the always-on Tasks key that `set_blocked` answers to, an agent works with impediments through MCP tools:
 
 - `raise_impediment` raises one with its title, a note and the tasks, pull requests and plans it holds back;
-- one tool links a task, pull request or plan, and another unlinks one;
-- `set_impediment_state` moves one to reported, escalated, being-handled or resolved, with who it is with.
+- `link_to_impediment` links a task, pull request or plan, and `unlink_from_impediment` unlinks one;
+- `set_impediment_state` moves one to reported, escalated, being-handled or resolved, with who it is with;
+- `read_iterations` reads the open ones, as [reading the stand-up](#reading-the-stand-up-as-an-agent) does.
 
 An agent names a pull request by its repository and number, and a plan by its tag. `set_blocked` marks a task only and raises no impediment.
+
+For each open impediment, the reading gives who it is with, its days open, its check-again date, the goal it holds back and its note. It lists each item the impediment holds back and whether that item is [settled](domain.md#settled), and says whether the impediment reads [ready to resolve](#seeing-an-impediment-ready-to-resolve). Resolving stays the person's move: an agent calls `set_impediment_state` to resolve one only on the person's yes (local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)).
 
 ### Raising an impediment from a blocked task
 
@@ -263,7 +301,7 @@ An impediment opens on its own page. It shows its age, the goal it holds back, i
 
 The phone reads goals, the stand-up and impediments. It changes only an impediment's state, check-again date and note, through the device outbox as its task edits go. The state list offers only the moves the impediment may make. Until a desktop has applied a change, the impediment's page shows what was asked, with Waiting beside it while the change is still on the phone.
 
-These are desktop actions:
+The phone leaves these to the desktop:
 
 - setting a goal;
 - attaching work;
