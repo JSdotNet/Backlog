@@ -68,9 +68,6 @@ public sealed class NotificationViewProjection : IDisposable
     /// feature on, so a phone paired to desktops without it never shows the tab.</summary>
     public bool HoldsAny => Notifications().Count > 0;
 
-    /// <summary>How many open questions this phone could answer now.</summary>
-    public int Waiting => Notifications().Count(notification => notification.Standing == NotificationStanding.Answerable);
-
     /// <summary>
     /// Every notification the phone shows: the open ones first, newest first, then the settled
     /// ones by when they settled, newest first. A record this build cannot read, and a settled

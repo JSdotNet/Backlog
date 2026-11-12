@@ -422,26 +422,26 @@ type: requirement
 related: [.devbook/domain/notifications/domain.md#acknowledgement, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
 ```
 
-The system SHALL let any paired viewer acknowledge an open alert, mark it Acknowledged only when its owner takes the acknowledgement, then move it from every device's open stack to settled in its list.
+The system SHALL let any paired viewer acknowledge an open alert, mark it Acknowledged only when its owner takes the acknowledgement, then move it from every device's open stack to settled.
 
 #### Scenario: Dismissing an alert on the phone
 
 - **Given** Desktop A owns an open alert, and the phone and Desktop B are paired
 - **When** the person taps Dismiss on the alert in the phone's pager
 - **Then** the alert leaves the phone's stack at once, Desktop A marks it Acknowledged, and it leaves Desktop A's open notifications, its Windows notification and Desktop B's open notifications
-- **And** the phone's list keeps it, reading "Acknowledged on this phone"
+- **And** its detail on the phone reads "Acknowledged on this phone"
 
 #### Scenario: The owner is offline
 
 - **Given** Desktop A owns an open alert and is asleep
 - **When** the person taps Dismiss on the phone
-- **Then** the alert leaves the phone's stack, the phone's list reads "delivers on wake", and Desktop A marks it Acknowledged when it wakes
+- **Then** the alert leaves the phone's stack, its detail on the phone reads "delivers on wake", and Desktop A marks it Acknowledged when it wakes
 
 #### Scenario: The phone is offline
 
 - **Given** the phone has no network
 - **When** the person taps Dismiss on an open alert
-- **Then** the acknowledgement waits in the device outbox, the alert leaves the phone's stack, and the list reads "Sending" until the outbox delivers it
+- **Then** the acknowledgement waits in the device outbox, the alert leaves the phone's stack, and its detail reads "Sending" until the outbox delivers it
 
 #### Scenario: The alert closed first
 
@@ -501,19 +501,19 @@ type: requirement
 related: [.devbook/domain/notifications/domain.md#origin, .devbook/domain/notifications/context.md#owner-screens]
 ```
 
-The system SHALL let the person narrow both views of the phone's Notifications tab by From, the system a notification came from, and by Repository, the repository its owner published or the Brain, and SHALL keep a notification whose repository is not known under every Repository choice.
+The system SHALL let the person narrow the pager on the phone's Notifications tab by From, the system a notification came from, and by Repository, the repository its owner published or the Brain, and SHALL keep a notification whose repository is not known under every Repository choice.
 
 #### Scenario: Picking a system
 
 - **Given** the phone holds open questions from Claude Code and from spec-manager
 - **When** the person picks Claude Code under From
-- **Then** the list shows only Claude Code's notifications, and the pager's stack, its position and its end screen count only Claude Code's waiting questions
+- **Then** the pager's stack, its position and its end screen count only Claude Code's waiting questions
 
 #### Scenario: Picking the Brain
 
 - **Given** the phone holds a pairing question and a question about the repository "Backlog"
 - **When** the person picks Brain under Repository
-- **Then** both views show the pairing question and not the one about "Backlog"
+- **Then** the pager shows the pairing question and not the one about "Backlog"
 
 #### Scenario: A repository not known
 
@@ -525,15 +525,22 @@ The system SHALL let the person narrow both views of the phone's Notifications t
 
 ```meta
 type: requirement
+related: [.devbook/domain/notifications/requirements.md#requirement-phone-filters-never-hide-what-waits]
 ```
 
-The system SHALL show beside each option of a phone filter how many notifications it would keep under the other filter, and SHALL not show a filter with fewer than two options.
+The system SHALL show beside each option of a phone filter how many waiting notifications it would keep under the other filter, and SHALL not show a filter with fewer than two options.
 
 #### Scenario: Counts under the other filter
 
-- **Given** Repository is set to "Backlog", which holds two Claude Code notifications and one from spec-manager
+- **Given** Repository is set to "Backlog", which holds two waiting Claude Code notifications and one from spec-manager
 - **When** the person opens From
 - **Then** Claude Code reads 2 and spec-manager reads 1
+
+#### Scenario: A settled notification
+
+- **Given** the only spec-manager notification on the phone has been answered
+- **When** the person opens From
+- **Then** spec-manager is still offered and reads 0
 
 #### Scenario: One system only
 
@@ -547,19 +554,19 @@ The system SHALL show beside each option of a phone filter how many notification
 type: requirement
 ```
 
-The system SHALL keep the phone's From and Repository choices on the device across both views and across restarts, and SHALL set both back to All when the person presses Clear filters.
+The system SHALL keep the phone's From and Repository choices on the device across restarts, and SHALL set both back to All when the person presses Clear filters.
 
 #### Scenario: Filters survive a restart
 
 - **Given** the person picked Claude Code under From
 - **When** they close the app and open it again on the Notifications tab
-- **Then** From still reads Claude Code, in the pager and in the list
+- **Then** From still reads Claude Code, and the pager holds only Claude Code's waiting questions
 
 #### Scenario: A filter that leaves nothing
 
-- **Given** the person picked a repository whose notifications have all been closed
+- **Given** the person picked a system no notification on the phone comes from any longer
 - **When** the tab has nothing left to show
-- **Then** it shows an empty state with Clear filters instead of "No notifications", and pressing Clear filters shows every notification again
+- **Then** it shows an empty state with Clear filters instead of "No notifications", and pressing Clear filters brings the pager back with everything that waits
 
 ### Requirement: Phone filters never hide what waits
 
@@ -567,13 +574,19 @@ The system SHALL keep the phone's From and Repository choices on the device acro
 type: requirement
 ```
 
-The system SHALL count every open question in the tab's waiting count and SHALL push every notification to the phone, whatever the phone's filters hold.
+The system SHALL mark the phone's filter button, to the eye and in its accessible name, while a filter narrows the tab, SHALL show on it how many items waiting on the person the filters leave out, and SHALL push every notification to the phone, whatever the phone's filters hold.
 
 #### Scenario: A question outside the filter
 
-- **Given** the person picked spec-manager under From
+- **Given** the person picked spec-manager under From, which leaves out two of three waiting notifications
 - **When** Desktop A publishes a Claude Code question
-- **Then** the phone's tray shows it, and the waiting count counts it, though neither view lists it
+- **Then** the phone's tray shows it and the filter button reads 3, though the pager does not hold it
+
+#### Scenario: A filter that leaves nothing waiting out
+
+- **Given** every waiting notification came from Claude Code, and a settled one from spec-manager
+- **When** the person picks Claude Code under From
+- **Then** the filter button shows and says that filters are on, and carries no number
 
 ### Requirement: Android is the only phone platform
 

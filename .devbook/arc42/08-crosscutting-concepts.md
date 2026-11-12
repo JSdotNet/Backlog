@@ -415,7 +415,7 @@ These parts are built:
   exchange, and the desktops' Web PubSub nudge.
 - **The first publishers:** a run's Personal Validation, the device that redeemed a
   pairing code, and a remark left on another device.
-- **The screens:** the desktop's notification centre and the phone's list and answer
+- **The screens:** the desktop's notification centre and the phone's pager and answer
   screens.
 - **The Android phone push:** deployed on 2026-11-04. No push reaches a phone until the
   hub has its FCM credential.
@@ -465,7 +465,7 @@ These parts are built:
 - **Who may answer.** The sync API accepts a reply only from a device under the
   same owner, and the owner checks again. Any paired viewer may answer, critical
   questions included, unless the question says `answerOn: owner`.
-- **The flag is per device.** Off on a phone means no push and no list. Off on a
+- **The flag is per device.** Off on a phone means no push and no Notifications tab. Off on a
   desktop means its sources fall back to toasts, and an MCP `ask` answers that
   notifications are not available.
 - **The sync service still scales to zero.** No connection to the sync service

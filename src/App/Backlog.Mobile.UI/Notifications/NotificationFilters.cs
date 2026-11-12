@@ -22,7 +22,8 @@ public sealed record NotificationFilter(string? From, string? Repository)
 /// <summary>
 /// The phone's From and Repository filters
 /// (<c>.devbook/domain/notifications/features.md#answering-from-another-device</c>): the options
-/// each offers, what a choice keeps, and how many each option would keep under the other filter.
+/// each offers, what a choice keeps, how many waiting notifications each option would keep under
+/// the other filter, and how many wait in all.
 /// Pure, so the rules are tested without a screen. From is the desktop centre's rule, shared
 /// through <see cref="NotificationOrigins.From"/>; Repository reads the repository the owner
 /// published (local ADR 0039 §6) and keeps one it could not work out under every choice, as the
@@ -132,23 +133,36 @@ public static class NotificationFilters
         return [.. notifications.Where(notification => KeepsFrom(notification, filter.From) && KeepsRepository(notification, filter.Repository))];
     }
 
-    /// <summary>How many notifications the From option <paramref name="from"/> — null for All —
-    /// keeps under <paramref name="filter"/>'s Repository choice.</summary>
+    /// <summary>How many notifications waiting on the person the From option
+    /// <paramref name="from"/> — null for All — keeps under <paramref name="filter"/>'s Repository
+    /// choice. A settled one adds nothing, so the option counts what the waiting count counts.</summary>
     public static int CountFrom(IEnumerable<PhoneNotification> notifications, NotificationFilter filter, string? from)
     {
-        ArgumentNullException.ThrowIfNull(notifications);
         ArgumentNullException.ThrowIfNull(filter);
 
-        return notifications.Count(notification => KeepsRepository(notification, filter.Repository) && KeepsFrom(notification, from));
+        return CountWaiting(notifications, filter with { From = from });
     }
 
-    /// <summary>How many notifications the Repository option <paramref name="repository"/> — null
-    /// for All — keeps under <paramref name="filter"/>'s From choice.</summary>
+    /// <summary>How many notifications waiting on the person the Repository option
+    /// <paramref name="repository"/> — null for All — keeps under <paramref name="filter"/>'s From
+    /// choice. A settled one adds nothing, so the option counts what the waiting count counts.</summary>
     public static int CountRepository(IEnumerable<PhoneNotification> notifications, NotificationFilter filter, string? repository)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        return CountWaiting(notifications, filter with { Repository = repository });
+    }
+
+    /// <summary>How many of <paramref name="notifications"/> wait on the person
+    /// (<see cref="NotificationStack.IsWaiting"/>) among those <paramref name="filter"/> keeps:
+    /// every one of them under <see cref="NotificationFilter.None"/> — the lede's total, which the
+    /// pager's equals — and the "n" of the lede's "n of N" under a filter.</summary>
+    public static int CountWaiting(IEnumerable<PhoneNotification> notifications, NotificationFilter filter)
     {
         ArgumentNullException.ThrowIfNull(notifications);
         ArgumentNullException.ThrowIfNull(filter);
 
-        return notifications.Count(notification => KeepsFrom(notification, filter.From) && KeepsRepository(notification, repository));
+        return notifications.Count(notification => NotificationStack.IsWaiting(notification)
+            && KeepsFrom(notification, filter.From) && KeepsRepository(notification, filter.Repository));
     }
 }
