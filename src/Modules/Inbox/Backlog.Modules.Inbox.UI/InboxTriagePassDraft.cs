@@ -60,7 +60,7 @@ public sealed class InboxTriagePassDraft
         })];
         _filings = [.. pass.Filings.Select(filing => new InboxPassProposal(filing.ItemId, filing.Reason, filing.Confidence) { ListId = filing.ListId })];
         _archives = [.. pass.Archives.Select(archive => new InboxPassProposal(archive.ItemId, archive.Reason, archive.Confidence))];
-        _outcomes = [.. pass.Outcomes.Select(outcome => new InboxPassProposal(outcome.ItemId, outcome.Reason, outcome.Confidence) { Outcome = outcome.Outcome })];
+        _outcomes = [.. pass.Outcomes.Select(outcome => new InboxPassProposal(outcome.ItemId, outcome.Reason, outcome.Confidence) { Outcome = outcome.Outcome, Who = outcome.Who })];
         _unplaced = [.. pass.Unplaced.Distinct()];
 
         // The pass's own items are the ones it read; the ones it was not asked
@@ -78,7 +78,7 @@ public sealed class InboxTriagePassDraft
 
     public IReadOnlyList<InboxPassProposal> Archives => _archives;
 
-    /// <summary>The items to take Someday or Done now (local ADR 0054), in the
+    /// <summary>The items to take Someday, Done now or Waiting for (local ADR 0054), in the
     /// pass's order.</summary>
     public IReadOnlyList<InboxPassProposal> Outcomes => _outcomes;
 
@@ -106,7 +106,7 @@ public sealed class InboxTriagePassDraft
         + _routes.Count(route => route.Accepted)
         + _filings.Count(filing => filing.Accepted)
         + _archives.Count(archive => archive.Accepted)
-        + _outcomes.Count(outcome => outcome.Accepted);
+        + _outcomes.Count(outcome => outcome.Accepted && outcome.Appliable);
 
     /// <summary>How many decisions Apply will run — one per accepted proposal.</summary>
     public int DecisionCount => AcceptedCount;
@@ -168,8 +168,11 @@ public sealed class InboxTriagePassDraft
             .Select(archive => new InboxTriageArchiveDecision(TitleOf(archive.ItemId), archive.ItemId)));
 
         decisions.AddRange(_outcomes
-            .Where(outcome => outcome.Accepted)
-            .Select(outcome => new InboxTriageOutcomeDecision(TitleOf(outcome.ItemId), outcome.ItemId, outcome.Outcome!.Value)));
+            .Where(outcome => outcome.Accepted && outcome.Appliable)
+            .Select(outcome => new InboxTriageOutcomeDecision(TitleOf(outcome.ItemId), outcome.ItemId, outcome.Outcome!.Value)
+            {
+                Who = outcome.Outcome == InboxClarifyOutcome.WaitingFor ? outcome.Who?.Trim() : null,
+            }));
 
         return decisions;
     }
@@ -466,8 +469,16 @@ public sealed class InboxPassProposal
     /// <summary>A filing's list.</summary>
     public Guid? ListId { get; init; }
 
-    /// <summary>An outcome proposal's kind: Someday or Done now.</summary>
+    /// <summary>An outcome proposal's kind: Someday, Done now or Waiting for.</summary>
     public InboxClarifyOutcome? Outcome { get; init; }
+
+    /// <summary>Who a Waiting for waits on: the model's name at first, the
+    /// reader's once they change it. Null for every other proposal.</summary>
+    public string? Who { get; set; }
+
+    /// <summary>Whether Apply can take the proposal: always, but for a Waiting
+    /// for whose name is blank or holds a backtick, which the route refuses.</summary>
+    public bool Appliable => Outcome != InboxClarifyOutcome.WaitingFor || new InboxWaitingForDto(Who ?? string.Empty).IsValid;
 }
 
 /// <summary>The filings into one list, drawn as one row: "File n in list".</summary>

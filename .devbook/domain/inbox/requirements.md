@@ -551,6 +551,34 @@ The system SHALL show no AI card for an item whose model call failed and SHALL l
 - **When** the reader opens an item in triage
 - **Then** the item is shown with its suggestions and its decisions, and with no AI card
 
+### Requirement: A Waiting for card asks who before it routes
+
+```meta
+type: requirement
+related: [.devbook/domain/inbox/features.md#ai-triage-cards, .devbook/domain/inbox/requirements.md#clarify-outcomes]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.The_waiting_for_card_opens_the_dialog_filled_with_who_and_confirming_routes_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.Cancelling_the_dialog_the_waiting_for_card_opened_routes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.Dismissing_the_waiting_for_card_hides_it_and_routes_nothing, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.A_waiting_for_card_is_read_with_who_it_waits_on, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.A_waiting_for_that_names_no_one_writable_is_dropped]
+```
+
+The system SHALL show a Waiting for card only when the model names who the item waits on, and SHALL take its main act by opening the Waiting for dialog filled with that name and no follow-up date, routing nothing until the reader confirms.
+
+#### Scenario: Confirming the name
+
+- **Given** triage shows the card "Waiting on Sam the roofer" for an item
+- **When** the reader presses its main act, changes the name to "Sam Jones" and confirms
+- **Then** the item is routed as **w** routes it, to a task waiting on "Sam Jones" with no follow-up date
+
+#### Scenario: Cancelling
+
+- **Given** the Waiting for card opened the dialog
+- **When** the reader cancels it
+- **Then** the item is still unprocessed and still shown
+
+#### Scenario: No one named
+
+- **Given** the model reads an item as Waiting for but names no one
+- **When** triage shows the item
+- **Then** no Waiting for card is shown
+
 ## Merge into a task
 
 ```meta
@@ -863,6 +891,28 @@ The system SHALL stop Apply at the first decision refused, keep every decision a
 - **Given** the reader applies a route, a merge and an archive, and the backlog refuses the merge's comment
 - **When** Apply runs
 - **Then** the route stays, the archive is not tried, and the screen says it could not merge the item, naming it
+
+### Requirement: A Waiting for proposal applies with the name the reader leaves
+
+```meta
+type: requirement
+related: [.devbook/domain/inbox/features.md#ai-triage-pass, .devbook/domain/inbox/requirements.md#clarify-outcomes]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.A_waiting_for_proposal_shows_who_for_the_reader_to_change_then_applies_and_undoes, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassDraftTests.A_waiting_for_carries_the_name_the_reader_left_and_counts_only_while_it_can_be_written, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.Waiting_for_goes_through_the_route_w_takes_with_the_name_and_no_dates, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.A_waiting_for_with_no_name_stops_apply_and_names_the_item]
+```
+
+The system SHALL show each Waiting for proposal with who the item waits on in a field the reader may change, SHALL leave it out of Apply while that name is blank or holds a backtick, and SHALL apply it through the route **w** takes, with that name and no follow-up date.
+
+#### Scenario: A name changed before Apply
+
+- **Given** the pass proposes Waiting for on "Sam" for an item
+- **When** the reader changes the name to "Sam the roofer" and presses Apply
+- **Then** the item becomes a task waiting on "Sam the roofer", with no follow-up date, and **u** takes it back as it takes back Move to backlog
+
+#### Scenario: A name cleared
+
+- **Given** the pass proposes Waiting for on "Sam" and the reader clears the name
+- **When** the reader looks at the header
+- **Then** the field says to name who it waits on and Apply does not count the proposal
 
 ## Capture attachments
 

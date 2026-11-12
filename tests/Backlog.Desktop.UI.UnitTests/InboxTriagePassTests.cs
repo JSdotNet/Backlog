@@ -317,6 +317,46 @@ public sealed class InboxTriagePassTests
         pane.WaitForAssertion(() => Assert.Contains(("unlink", someday.Id), harness.Inbox.Undos));
     }
 
+    /// <summary>A Waiting for proposal is a row of its own in The rest with who it
+    /// waits on in a field the reader may change; Apply routes it as w does, with
+    /// the edited name, and it undoes as Move to backlog does.</summary>
+    [Fact]
+    public async Task A_waiting_for_proposal_shows_who_for_the_reader_to_change_then_applies_and_undoes()
+    {
+        using var harness = Harness.Create();
+        var waiting = harness.Inbox.Seed("Quote for the roof");
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriagePassAnswer = Result.Success(InboxTriagePassDto.Nothing with
+        {
+            Outcomes = [new InboxTriageOutcomeProposalDto(waiting.Id, InboxClarifyOutcome.WaitingFor, "Sam sends the quote.", 0.9) { Who = "Sam" }],
+        });
+        var pane = await harness.StartTriageAsync();
+        await ProposeAsync(pane);
+
+        var row = pane.Find("[data-testid='inbox-pass-waiting-for']");
+        Assert.Contains("Waiting for: Quote for the roof", Squash(row.TextContent), StringComparison.Ordinal);
+        Assert.Equal("Sam", pane.Find("[data-testid='inbox-pass-waiting-for-who'] input").GetAttribute("value"));
+        Assert.Equal("1 of 1 accepted", Count(pane));
+
+        await pane.Find("[data-testid='inbox-pass-waiting-for-who'] input").InputAsync(new() { Value = " " });
+        pane.WaitForAssertion(() => Assert.Contains(InboxTriagePass.WhoRequired, pane.Find("[data-testid='inbox-pass-waiting-for']").TextContent, StringComparison.Ordinal));
+        Assert.Contains("Apply 0 decisions", pane.Find("[data-testid='inbox-pass-apply']").TextContent, StringComparison.Ordinal);
+
+        await pane.Find("[data-testid='inbox-pass-waiting-for-who'] input").InputAsync(new() { Value = "Sam the roofer" });
+        await pane.Find("[data-testid='inbox-pass-apply']").ClickAsync(new());
+
+        pane.WaitForAssertion(() =>
+        {
+            var (id, waitingFor, schedule) = Assert.Single(harness.Inbox.WaitingForRoutes);
+            Assert.Equal(waiting.Id, id);
+            Assert.Equal(new InboxWaitingForDto("Sam the roofer"), waitingFor);
+            Assert.Null(schedule);
+        });
+
+        await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("u"));
+        pane.WaitForAssertion(() => Assert.Contains(("return", waiting.Id), harness.Inbox.Undos));
+    }
+
     [Fact]
     public async Task A_side_filed_in_a_list_is_labelled_with_the_list_and_an_unfiled_one_with_the_inbox()
     {
