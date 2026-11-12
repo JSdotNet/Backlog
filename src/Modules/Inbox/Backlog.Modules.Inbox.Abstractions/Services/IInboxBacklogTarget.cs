@@ -125,4 +125,17 @@ public interface IInboxBacklogTarget
     /// </summary>
     Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, bool madeDone, CancellationToken cancellationToken = default) =>
         DeleteRoutedTasksAsync(taskIds, cancellationToken);
+
+    /// <summary>
+    /// Undoing Create plan with a project note: as
+    /// <see cref="DeleteRoutedTasksAsync(IReadOnlyList{Guid}, CancellationToken)"/>,
+    /// and the Roadmap Item the plan's <c>plan</c> entry laid out goes too — all or
+    /// none. Refused with <see cref="InboxErrors.UndoPlanEdited"/> once a person has
+    /// changed that item, and with <see cref="InboxErrors.UndoTaskStarted"/> once a
+    /// task has started; either leaves the tasks and the item in place. No item
+    /// under the tag is already what the undo asks. A target with no roadmap
+    /// answers the plain delete.
+    /// </summary>
+    Task<Result> DeleteRoutedPlanAsync(IReadOnlyList<Guid> taskIds, InboxLaidOutPlanDto plan, CancellationToken cancellationToken = default) =>
+        DeleteRoutedTasksAsync(taskIds, cancellationToken);
 }

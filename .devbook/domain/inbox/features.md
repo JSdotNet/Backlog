@@ -466,7 +466,7 @@ decision](#undo-a-decision)).
 type: sub-feature
 related: [.devbook/domain/inbox/requirements.md#undo-a-decision, .devbook/domain/inbox/features.md#triage-mode]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxUndoRouteTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxUndoRouteTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.CreatePlanUndoAcrossRoadmapTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Undoing_a_plan_with_a_project_note_takes_its_roadmap_item_back_too]
 ```
 
 ```mermaid
@@ -484,12 +484,13 @@ app closes:
 - defer;
 - move to a list;
 - move to the backlog;
+- Create plan;
 - merge into a task;
 - To Brain and Someday;
 - Done now;
 - Waiting for, which is undone as Move to backlog is.
 
-Three decisions reach outside the Inbox, and undoing them is bounded by that:
+Four decisions reach outside the Inbox, and undoing them is bounded by that:
 
 - **Move to backlog.** Undo deletes the tasks the move made, but only while
   none of them has started. Once one has, the undo is refused with a sentence
@@ -497,6 +498,13 @@ Three decisions reach outside the Inbox, and undoing them is bounded by that:
 - **Done now.** Undo deletes the ticked task it made while that task is still
   Done; once it is archived, the undo is refused the same way. To Brain and
   Someday leave the note they wrote, which is the person's file by then.
+- **Create plan.** Undo deletes the tasks the plan made, as Move to backlog
+  does. With a project note, the Roadmap Item the plan's `plan` entry laid out
+  goes too, while nobody has changed it: its title, repositories, priority,
+  Knowledge Ref, notes, lane and window are still the import's, and nothing
+  waits on it. Once a task has started or the item was changed, the undo is
+  refused with a sentence that names it, and nothing changes. The project note
+  stays in the Brain, as To Brain's does.
 - **Merge into a task.** Undo restores the capture as it was. The comment stays
   on the task, because by then it may have been read or answered.
 

@@ -322,4 +322,15 @@ public static class InboxErrors
     public static Error UndoTaskStarted(string taskTitle) => Error.Validation(
         UndoTaskStartedCode,
         $"Can't undo — {taskTitle} has started");
+
+    /// <summary>The code <see cref="UndoPlanEdited"/> answers with.</summary>
+    public const string UndoPlanEditedCode = "inbox.undo.plan_edited";
+
+    /// <summary>Undoing Create plan would remove the Roadmap Item its <c>plan</c>
+    /// entry laid out, and a person has changed that item since — renamed it,
+    /// moved it, or planned around it. Their planning is not the undo's to throw
+    /// away, so nothing was deleted and the item stays routed.</summary>
+    public static Error UndoPlanEdited(string itemTitle) => Error.Validation(
+        UndoPlanEditedCode,
+        $"Can't undo — the roadmap item {itemTitle} has been changed");
 }

@@ -135,6 +135,15 @@ public interface IInboxItems
     /// does not count as started. Archived still refuses.</summary>
     Task<Result> ReturnDoneNowToInboxAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Takes Create plan back when it started a project note: as
+    /// <see cref="ReturnToInboxAsync(Guid, bool, CancellationToken)"/> with its
+    /// entries deleted, and the Roadmap Item the plan laid out removed with them —
+    /// refused, with nothing changed, once a person has edited that item
+    /// (<c>inbox.undo.plan_edited</c>) or a task has started. The project note
+    /// stays in the Brain.</summary>
+    Task<Result> ReturnPlanToInboxAsync(Guid id, CancellationToken cancellationToken = default) =>
+        ReturnToInboxAsync(id, deleteTasks: true, cancellationToken);
+
     /// <summary>The resurface sweep: every deferred item whose review date is
     /// today or earlier becomes unprocessed. Answers how many moved. The pane
     /// runs it when it opens; nothing schedules it.</summary>

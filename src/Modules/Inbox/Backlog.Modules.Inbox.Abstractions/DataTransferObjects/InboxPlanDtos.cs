@@ -52,4 +52,10 @@ public sealed record InboxPlanDraftDto(string PlanMarkdown);
 /// Tasks context created for it. The pane raises this so the shell can refresh
 /// the Tasks pane without knowing what changed there. A plan created with a
 /// project note also names that note's path relative to the Brain's root.</summary>
+/// <summary>The plan Create plan laid out on the roadmap, as its undo names it: the
+/// plan tag Create plan minted, which the Roadmap Item carries, and the title and
+/// repositories its <c>plan</c> entry gave that item — what the item must still
+/// read for the undo to take it back.</summary>
+public sealed record InboxLaidOutPlanDto(string PlanTag, string Title, IReadOnlyList<string> RepoIds);
+
 public sealed record InboxRoutedDto(Guid InboxItemId, IReadOnlyList<Guid> TaskIds, string? ProjectNotePath = null);
