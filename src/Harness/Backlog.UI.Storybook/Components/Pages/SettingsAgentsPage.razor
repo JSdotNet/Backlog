@@ -1,0 +1,179 @@
+@page "/settings-agents"
+
+<PageTitle>Agents — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Agents"
+           Summary="AgentGrantRow, AgentScopeSwitches and AgentRegistration: the MCP server page's Agents card — one row per agent with its role, source, last use and scopes, its switches opened in place, Revoke confirmed in place, and the registration a new agent is given."
+           Guidelines="@Rules">
+
+    <Story Name="A list of agents"
+           Description="One row per agent that can reach Backlog. The line under the name says its role, where it came from and when it was last used; the chips are its scopes, so the row says what the agent may do without opening it. A scope that reaches furthest, agents:grant or tasks:admin, wears the alert tone.
+
+Edit scopes opens the agent's switches under its row and reads Done while they are open; one row is open at a time. Each switch stores at once, so there is no Save button. Revoke asks first, in the row's own place: the second Revoke acts, Keep puts the row back."
+           Code="@ListCode">
+        <div class="sb-stack" data-testid="settings-agents-list">
+            <SettingsCard Title="Agents" Description="Each agent reaches Backlog with a grant of its own.">
+                <ul class="agent-list" aria-label="Agents">
+                    @foreach (var agent in _agents)
+                    {
+                        <AgentGrantRow @key="agent.Id"
+                                       Name="@agent.Name"
+                                       GrantId="@agent.Id"
+                                       Meta="@agent.Meta"
+                                       Scopes="@agent.Scopes"
+                                       Highlighted="@Highlighted"
+                                       Expanded="@(_editing == agent.Id)"
+                                       EditorId="@($"sb-agent-editor-{agent.Id}")"
+                                       OnEditScopes="() => _editing = _editing == agent.Id ? null : agent.Id"
+                                       OnRevoke="() => Revoke(agent)">
+                            <AgentScopeSwitches Options="@Options"
+                                                Selected="@agent.Scopes"
+                                                IdPrefix="@($"sb-agent-{agent.Id}")"
+                                                AriaLabel="@($"Scopes of {agent.Name}")"
+                                                OnChanged="change => Flip(agent, change)" />
+                        </AgentGrantRow>
+                    }
+                </ul>
+                @if (_agents.Count == 0)
+                {
+                    <p class="sb-state" data-testid="settings-agents-list-empty">Every agent revoked. Reload the page for the samples.</p>
+                }
+            </SettingsCard>
+        </div>
+    </Story>
+
+    <Story Name="Scope switches"
+           Description="One switch per scope with the line saying what it opens. A locked scope is drawn disabled as the grant holds it: devbook:decide is a boundary no agent crosses, and a list that left it out would let a reader think it was forgotten. The switches flow into as many columns as the card has room for."
+           Code="@SwitchesCode">
+        <div class="sb-stack" data-testid="settings-agents-switches">
+            <AgentScopeSwitches Options="@Options"
+                                Selected="@_selected"
+                                IdPrefix="sb-scopes"
+                                AriaLabel="Scopes of the sample agent"
+                                OnChanged="FlipSample" />
+            <p class="sb-state" data-testid="settings-agents-switches-state">On: @string.Join(", ", _selected)</p>
+        </div>
+    </Story>
+
+    <Story Name="The registration"
+           Description="The second step of Add agent. The block names the grant and never a secret: the token comes from Backlog's broker each time a session connects, so the line is safe on screen and in a screenshot. Each client files the entry its own way, so each has its own copy; Done closes the step, because the grant was stored when the first step made it."
+           Code="@RegistrationCode">
+        <div class="sb-stack" data-testid="settings-agents-registration">
+            <AgentRegistration Name="Copilot CLI · Backlog"
+                               Snippet="@ClaudeSnippet"
+                               ClaudeCode="@ClaudeSnippet"
+                               Copilot="@CopilotSnippet"
+                               OnDone="() => _done++" />
+            <p class="sb-state" data-testid="settings-agents-registration-state">Done pressed @_done time(s)</p>
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("settings-pages.md#lists-that-expand-in-place", "Why an agent's switches open under its row, and why its Edit scopes reads Done while they are."),
+        new("settings-pages.md#saved-as-you-go", "Why a switch stores on change and the card has no Save button."),
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Which buttons a settings card may carry: acts such as Add, Create and Revoke, never Save."),
+        new("color-scheme.md#badge-and-chip-tones", "What the quiet and alert tones on the scope chips say.")
+    ];
+
+    private static readonly IReadOnlyList<AgentScopeOption> Options =
+    [
+        new("tasks:read", "Find and read items, goals, the roadmap"),
+        new("tasks:write", "Create, comment, transition, block"),
+        new("devbook:read", "Chapters, notes, states"),
+        new("devbook:write", "Post and resolve notes, set to draft"),
+        new("notify:ask", "Ask you a question, tell you something"),
+        new("runs:write", "Report delivery runs"),
+        new("inbox:capture", "Capture into your Inbox"),
+        new("agents:grant", "Grant other agents a subset of its own scopes", Locked: true),
+        new("devbook:decide", "Never for an agent: approve and accept happen in the app", Locked: true)
+    ];
+
+    private static readonly IReadOnlyList<string> Highlighted = ["agents:grant", "tasks:admin"];
+
+    private sealed record SampleAgent(string Id, string Name, string Meta, IReadOnlyList<string> Scopes);
+
+    private List<SampleAgent> _agents =
+    [
+        new("g_delivery", "Backlog delivery", "Role: Delivery flow · added in Settings · last used 4 min ago", ["tasks:read", "tasks:write", "devbook:read", "notify:ask", "runs:write"]),
+        new("g_personal", "Personal assistant", "Role: Read-only + capture · added in Settings · last used yesterday", ["tasks:read", "devbook:read", "inbox:capture"]),
+        new("g_manager", "Manager session", "Role: Custom · created by setup · not used yet", ["tasks:read", "tasks:write", "agents:grant"])
+    ];
+
+    private string? _editing;
+
+    private List<string> _selected = ["tasks:read", "devbook:read"];
+
+    private int _done;
+
+    private void Revoke(SampleAgent agent)
+    {
+        _agents = [.. _agents.Where(candidate => candidate.Id != agent.Id)];
+        if (_editing == agent.Id) _editing = null;
+    }
+
+    private void Flip(SampleAgent agent, AgentScopeChange change)
+    {
+        var scopes = change.On ? [.. agent.Scopes, change.Scope] : agent.Scopes.Where(scope => scope != change.Scope).ToList();
+        _agents = [.. _agents.Select(candidate => candidate.Id == agent.Id ? candidate with { Scopes = scopes, Meta = "Role: Custom · added in Settings · last used 4 min ago" } : candidate)];
+    }
+
+    private void FlipSample(AgentScopeChange change) =>
+        _selected = change.On ? [.. _selected, change.Scope] : [.. _selected.Where(scope => scope != change.Scope)];
+
+    private const string ClaudeSnippet = """
+        "backlog": {
+          "type": "http",
+          "url": "http://127.0.0.1:5757/mcp",
+          "headersHelper": "node tools/mcp/backlog-mcp-headers.mjs --grant g_7f3k2abcdq4mnz6h"
+        }
+        """;
+
+    private const string CopilotSnippet = """
+        "backlog": {
+          "type": "http",
+          "url": "http://127.0.0.1:5757/mcp",
+          "headersHelper": "node tools/mcp/backlog-mcp-headers.mjs --grant g_7f3k2abcdq4mnz6h",
+          "tools": [
+            "*"
+          ]
+        }
+        """;
+
+    private const string ListCode = """
+        <ul class="agent-list" aria-label="Agents">
+            @foreach (var agent in agents)
+            {
+                <AgentGrantRow @key="agent.Id"
+                               Name="@agent.Name"
+                               Meta="@agent.Meta"
+                               Scopes="@agent.Scopes"
+                               Highlighted="@highlighted"
+                               Expanded="@(editing == agent.Id)"
+                               OnEditScopes="() => Toggle(agent)"
+                               OnRevoke="() => Revoke(agent)">
+                    <AgentScopeSwitches Options="@options"
+                                        Selected="@agent.Scopes"
+                                        OnChanged="change => Store(agent, change)" />
+                </AgentGrantRow>
+            }
+        </ul>
+        """;
+
+    private const string SwitchesCode = """
+        <AgentScopeSwitches Options="@options"
+                            Selected="@selected"
+                            AriaLabel="Scopes of the new agent"
+                            OnChanged="change => Store(change)" />
+        """;
+
+    private const string RegistrationCode = """
+        <AgentRegistration Name="@grant.Name"
+                           Snippet="@claudeCode"
+                           ClaudeCode="@claudeCode"
+                           Copilot="@copilot"
+                           OnDone="Close" />
+        """;
+}

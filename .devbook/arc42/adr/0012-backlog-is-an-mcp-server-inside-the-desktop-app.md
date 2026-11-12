@@ -162,8 +162,9 @@ A request the listener turns away before any tool is named — a foreign `Origin
 or wrong token — is a warning in the app's log, not an audit record; only the bearer lockout below is audited.
 
 **Rotate and the bearer limit are built (2026-11-11, plan `zero-trust-auth` entry 6).** The
-**Bearer token** card has a **Rotate** that replaces `mcpServer.token` at once and says so
-on the card. The listener reads the token per request, so the old one is refused from the
+**Bearer token** card had a **Rotate** that replaced `mcpServer.token` at once and said so
+on the card; on 2026-11-12 (entry 10) the **Agents** card took that card's place (ADR 0052
+§3), and Settings no longer shows or rotates the shared token while it lasts. The listener reads the token per request, so the old one is refused from the
 next request. The `headersHelper` re-reads `settings.json` after that 401 and picks up the
 new one; a registration that names the token itself needs the new copy. Ten failed bearer
 attempts within 60 seconds lock the listener out: every bearer request answers 429 with

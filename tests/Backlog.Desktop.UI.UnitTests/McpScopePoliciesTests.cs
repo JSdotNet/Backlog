@@ -203,6 +203,8 @@ public sealed class McpScopePoliciesTests
 
         public McpGrant Create(string name, IReadOnlyList<string> scopes, string createdBy) => throw new NotSupportedException();
 
+        public McpGrant? SetScopes(string id, IReadOnlyList<string> scopes) => throw new NotSupportedException();
+
         public McpGrant? Revoke(string id) => throw new NotSupportedException();
     }
 }

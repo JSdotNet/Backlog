@@ -1,9 +1,13 @@
 @*
     One page of the Settings screen: this machine's own MCP server (local ADR
     0012) - whether it holds its port, the address a client registers, the port
-    itself, why nothing is listening when nothing is, and the bearer token every
-    registration carries, and the latest tool calls the audit log holds (local ADR
-    0052, Phase 0).
+    itself, why nothing is listening when nothing is, the agents that can reach it
+    each by a grant of its own (local ADR 0052 §3), and the latest tool calls the
+    audit log holds (local ADR 0052, Phase 0).
+
+    The Agents card took the Bearer token card's place. The shared token still
+    works beside the grants until the step that retires it, but this page no longer
+    shows or rotates it: a registration made from here names a grant instead.
 
     Offered whatever any feature says. The server is always on while the app runs,
     and the person who needs this page most is the one whose client was just
@@ -23,6 +27,7 @@
 @using Backlog.Modules.DevPc.Abstractions
 @using Backlog.SharedKernel.Mcp
 @using Backlog.UI.Components.Data
+@using Backlog.UI.Components.Selects
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
 @implements IDisposable
@@ -106,58 +111,126 @@
         }
     </SettingsCard>
 
-    <SettingsCard Title="@TokenCardTitle"
-                  Id="mcp-server-token-title"
-                  Description="What every registration sends, so the server knows a request comes from you."
-                  TestId="mcp-server-token-card">
-        @if (_source is null)
+    @* The agents that can reach Backlog, each by a grant of its own (local ADR 0052 §3),
+       in the Bearer token card's old place. Grants are made, changed and revoked here and
+       nowhere else: nothing in Dev PC or the Tools pane reads or writes one. A host that
+       composes no grant store - the browser harness, which asks for no token - says so
+       and offers nothing to add. *@
+    <SettingsCard Title="@AgentsCardTitle"
+                  Id="mcp-server-agents-title"
+                  Description="Each agent reaches Backlog with a grant of its own: the scopes it may use, and a Revoke that cuts off that agent alone."
+                  TestId="mcp-server-agents-card"
+                  Action="@AgentsAction">
+        @if (_grants is null)
         {
-            <p class="setting__note" data-testid="mcp-server-token-note">This host asks for no token.</p>
-        }
-        else if (_source.CurrentToken is { } token)
-        {
-            @* Hidden on screen and whole on the clipboard: the token is a secret,
-               and a page that drew it would put it in every screenshot of
-               Settings. *@
-            <p class="setting__label" id="mcp-server-token-label">Token</p>
-            <div class="setting__body">
-                <code data-testid="mcp-server-token" aria-labelledby="mcp-server-token-label">@HiddenToken</code>
-                <CopyButton Text="@token"
-                            Label="Copy the token"
-                            TestId="mcp-server-token-copy" />
-            </div>
-            <p class="setting__note" data-testid="mcp-server-token-note">
-                A registration sends it as <code>Authorization: Bearer</code> and the token.
-                The copy holds the token itself, where the one above shows it hidden.
-            </p>
-            @* Rotate replaces the token at once and says so here, in place: the listener
-               refuses the old one from its next request (local ADR 0052, Phase 0). *@
-            <div class="setting__actions">
-                <AppButton TestId="mcp-server-token-rotate" OnClick="RotateToken">
-                    Rotate
-                </AppButton>
-            </div>
-            <Alert BaseClass="setting__status"
-                   CssClass="@(_rotated && _rotateNote is null ? "setting__status--ok" : null)"
-                   Role="status"
-                   Id="mcp-server-token-status"
-                   TestId="mcp-server-token-status"
-                   Message="@TokenStatus" />
+            <p class="setting__note" data-testid="mcp-server-agents-note">This host asks for no token, so it keeps no agents.</p>
         }
         else
         {
-            @* Drawing the page never mints one: a secret written to this machine
-               because a settings page was opened is one nobody asked for. The
-               server makes it when it starts, so this is the rare case of a
-               listener that never got that far. *@
-            <p class="setting__note" data-testid="mcp-server-token-note">
-                No token yet. The server creates one when it starts; create it now to copy it.
-            </p>
-            <div class="setting__actions">
-                <AppButton TestId="mcp-server-token-create" OnClick="CreateToken">
-                    Create the token
-                </AppButton>
-            </div>
+            @if (_agentsError is not null)
+            {
+                <Alert BaseClass="setting__status"
+                       CssClass="setting__status--error"
+                       Role="status"
+                       TestId="mcp-server-agents-error"
+                       Message="@_agentsError" />
+            }
+
+            @if (_adding == AddStep.Details)
+            {
+                @* Step 1 of 2. Create agent is the act that makes the grant; the switches
+                   here only shape it, so nothing is stored until then. *@
+                <article class="repo-card" id="mcp-agent-add" data-testid="mcp-server-agent-add" aria-labelledby="mcp-agent-add-title">
+                    <header class="repo-card__header">
+                        <h3 class="repo-card__title" id="mcp-agent-add-title">Add agent</h3>
+                    </header>
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="@SettingsScreenContext.SettingInputClass(_newError)"
+                               Label="Name"
+                               Id="mcp-agent-name"
+                               data-testid="mcp-agent-name-input"
+                               autocomplete="off"
+                               spellcheck="false"
+                               aria-describedby="mcp-agent-name-status"
+                               Placeholder="Copilot CLI · Backlog"
+                               Value="@_newName"
+                               ValueChanged="value => _newName = value"
+                               @onkeydown="OnNewNameKeyDown" />
+                    <Alert BaseClass="setting__status"
+                           CssClass="@(_newError is not null ? "setting__status--error" : null)"
+                           Role="status"
+                           Id="mcp-agent-name-status"
+                           TestId="mcp-agent-name-status"
+                           Message="@(_newError ?? NameHint)" />
+                    <SelectField Form="true"
+                                 Label="Role"
+                                 Id="mcp-agent-role"
+                                 TestId="mcp-agent-role-select"
+                                 LabelCssClass="setting__label"
+                                 SelectCssClass="setting__input"
+                                 CurrentValue="@_newRole"
+                                 Options="@RoleOptions"
+                                 HelpText="A role fills in the switches below. Changing a switch turns the role into Custom."
+                                 OnChanged="ApplyRole" />
+                    <AgentScopeSwitches Options="@McpAgents.Scopes"
+                                        Selected="@_newScopes"
+                                        IdPrefix="mcp-agent-new"
+                                        AriaLabel="Scopes of the new agent"
+                                        TestId="mcp-agent-new-scopes"
+                                        OnChanged="ChangeNewScope" />
+                    <div class="setting__actions">
+                        <AppButton Variant="ButtonVariant.Primary" TestId="mcp-agent-create" OnClick="CreateAgent">
+                            Create agent
+                        </AppButton>
+                    </div>
+                </article>
+            }
+            else if (_adding == AddStep.Register && _created is { } created)
+            {
+                @* Step 2 of 2: what the new agent's configuration takes. It names the grant
+                   and never a secret, so it is safe on screen. *@
+                <AgentRegistration Name="@created.Name"
+                                   Snippet="@ClaudeCodeRegistration(created)"
+                                   ClaudeCode="@ClaudeCodeRegistration(created)"
+                                   Copilot="@CopilotRegistration(created)"
+                                   Footnote="@RegistrationFootnote"
+                                   TestId="mcp-server-agent-registration"
+                                   OnDone="CloseAdd" />
+            }
+
+            @if (_agents.Count == 0)
+            {
+                <p class="setting__note" data-testid="mcp-server-agents-none">
+                    No agent yet. Until you add one, a registration reaches Backlog with the shared token.
+                </p>
+            }
+            else
+            {
+                <ul class="agent-list" aria-label="@AgentsCardTitle" data-testid="mcp-server-agents">
+                    @foreach (var grant in _agents)
+                    {
+                        <AgentGrantRow @key="grant.Id"
+                                       Name="@grant.Name"
+                                       GrantId="@grant.Id"
+                                       Meta="@AgentMeta(grant)"
+                                       Scopes="@McpAgents.Ordered(grant.Scopes)"
+                                       Highlighted="@McpAgents.Highlighted"
+                                       Expanded="@(_editing == grant.Id)"
+                                       EditorId="@($"mcp-agent-editor-{grant.Id}")"
+                                       TestId="mcp-server-agent"
+                                       OnEditScopes="() => ToggleEditing(grant)"
+                                       OnRevoke="() => Revoke(grant)">
+                            <AgentScopeSwitches Options="@McpAgents.Scopes"
+                                                Selected="@grant.Scopes"
+                                                IdPrefix="@($"mcp-agent-{grant.Id}")"
+                                                AriaLabel="@($"Scopes of {grant.Name}")"
+                                                TestId="mcp-server-agent-scopes"
+                                                OnChanged="change => SetScope(grant, change)" />
+                        </AgentGrantRow>
+                    }
+                </ul>
+            }
         }
     </SettingsCard>
 
@@ -203,13 +276,9 @@
     /// one of the page's <c>SettingsSection.CardTitles</c>.</summary>
     public const string EndpointCardTitle = "MCP endpoint";
 
-    /// <summary>The card with the bearer token - the other of the page's
+    /// <summary>The card with the agents and their grants - the second of the page's
     /// <c>SettingsSection.CardTitles</c>.</summary>
-    public const string TokenCardTitle = "Bearer token";
-
-    /// <summary>What the page shows in the token's place: the mask the Claude
-    /// Code page uses for the same token.</summary>
-    public const string HiddenToken = "••••••••";
+    public const string AgentsCardTitle = "Agents";
 
     /// <summary>The card with the latest tool calls - the last of the page's
     /// <c>SettingsSection.CardTitles</c>.</summary>
@@ -313,12 +382,14 @@
         ? new Uri(new Uri(Navigation.BaseUri), HostRelativeEndpoint)
         : _source.Endpoint ?? BacklogMcpServerRegistration.EndpointUri(_source.Port);
 
-    /// <summary>The sentence the frame shows over this page: the listener's
-    /// state and the port it is about.</summary>
+    /// <summary>The sentence the frame shows over this page: how many agents can reach
+    /// Backlog while the listener holds its port, and the listener's state and port while it
+    /// does not - then no agent can, and the port is the news.</summary>
     private string Headline => _source is null
         ? "The MCP server answers on this app's own address."
         : State switch
         {
+            ListenerState.Listening when _grants is not null && _agentsError is null => AgentsHeadline(_agents.Count),
             ListenerState.Listening => $"The MCP server is listening on port {_source.Port}.",
             ListenerState.Starting => $"The MCP server is starting on port {_source.Port}.",
             _ => $"The MCP server is not listening on port {_source.Port}.",
@@ -330,6 +401,7 @@
         if (_audit is not null) _audit.Changed += OnAuditChanged;
 
         StartSource();
+        StartGrants();
 
         await LoadActivityAsync();
     }
@@ -395,31 +467,246 @@
     /// once: the bind is queued off this thread.</summary>
     private void Retry() => _source?.Retry();
 
-    private void CreateToken() => _ = _source?.EnsureToken();
+    /// <summary>The grants, or null in a host that composes none - the browser harness.</summary>
+    private IMcpGrantStore? _grants;
 
-    /// <summary>True once this page has rotated the token, so its status line says so.</summary>
-    private bool _rotated;
+    /// <summary>Where "last used" is measured from.</summary>
+    private TimeProvider _clock = TimeProvider.System;
 
-    /// <summary>What the store said about the rotation it made - that the new token
-    /// could not be saved for next time - or null.</summary>
-    private string? _rotateNote;
+    /// <summary>The grants not revoked, in the order they were made, as last read.</summary>
+    private IReadOnlyList<McpGrant> _agents = [];
 
-    /// <summary>What the token's status line says before any rotation.</summary>
-    private const string RotateHint = "Rotate replaces the token at once, and the old one stops working.";
+    /// <summary>Why the grants could not be read or changed, or null.</summary>
+    private string? _agentsError;
 
-    /// <summary>What the token's status line says once rotated and saved.</summary>
-    public const string RotatedNote =
-        "Token rotated. The old one is refused now; a registration using the headers helper picks up the new one after its next 401, and any that names the token itself needs the new copy.";
+    /// <summary>The grant whose switches are open under its row, or null. One at a time.</summary>
+    private string? _editing;
 
-    private string TokenStatus => _rotated ? _rotateNote ?? RotatedNote : RotateHint;
-
-    private void RotateToken()
+    /// <summary>Where Add agent stands.</summary>
+    private enum AddStep
     {
-        if (_source is null) return;
-
-        _rotateNote = _source.RotateToken();
-        _rotated = true;
+        Closed,
+        Details,
+        Register
     }
+
+    private AddStep _adding;
+
+    /// <summary>What the Add agent form holds until Create agent.</summary>
+    private string _newName = string.Empty;
+
+    private string _newRole = McpAgents.Roles[0].Name;
+
+    private List<string> _newScopes = [];
+
+    /// <summary>Why the name typed was refused, or null.</summary>
+    private string? _newError;
+
+    /// <summary>The grant the form just made, while its registration is on screen.</summary>
+    private McpGrant? _created;
+
+    /// <summary>What the name's status line says when there is nothing else to say.</summary>
+    private const string NameHint = "What this agent is listed as here and named as in the activity log.";
+
+    /// <summary>What the registration step says under its buttons: where the helper it
+    /// names lives.</summary>
+    public const string RegistrationFootnote =
+        "The helper path is the one in a Backlog checkout. In another repository, point it at your copy of backlog-mcp-headers.mjs.";
+
+    /// <summary>The sentence a failed read or write of the grants leaves on the card.</summary>
+    public const string AgentsUnreadable = "The agents could not be read or changed. Check mcp-grants.json in the app's data folder.";
+
+    private static readonly IReadOnlyList<SelectorOption> RoleOptions =
+        [.. McpAgents.Roles.Select(role => new SelectorOption(role.Name, role.Name))];
+
+    /// <summary>Whether this is a Debug build, whose broker answers on a pipe of its own, so a
+    /// registration written here must ask the helper for it.</summary>
+    private static readonly bool DebugBroker =
+        !string.Equals(Backlog.Infrastructure.FileSystem.WorkspaceSettingsStore.DefaultAppDataFolderName, "Backlog", StringComparison.Ordinal);
+
+    /// <summary>The headline while the listener holds its port and this host keeps grants: how
+    /// many agents can reach Backlog, which is the list the Agents card draws.</summary>
+    public static string AgentsHeadline(int count) => count switch
+    {
+        0 => "No agent can reach Backlog yet.",
+        1 => "1 agent can reach Backlog.",
+        _ => $"{count.ToString(System.Globalization.CultureInfo.InvariantCulture)} agents can reach Backlog.",
+    };
+
+    /// <summary>Add agent while the form is closed, Close while it is open: the one action of
+    /// the card, in its header's corner. Nothing in a host that keeps no grants.</summary>
+    private RenderFragment? AgentsAction => _grants is null
+        ? null
+        : @<AppButton TestId="mcp-agent-add-toggle"
+                      aria-expanded="@(_adding != AddStep.Closed ? "true" : "false")"
+                      aria-controls="@(_adding == AddStep.Details ? "mcp-agent-add" : null)"
+                      OnClick="ToggleAdd">
+               @(_adding == AddStep.Closed ? "Add agent" : "Close")
+           </AppButton>;
+
+    private void StartGrants()
+    {
+        _grants = Services.GetService<IMcpGrantStore>();
+        if (_grants is null) return;
+
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
+
+        // A grant changes from here, and from the broker's own writes - a reseal, and later
+        // an agent that registers itself: the card follows both.
+        _grants.Changed += OnGrantsChanged;
+        LoadAgents();
+    }
+
+    private void LoadAgents()
+    {
+        if (_grants is null) return;
+
+        try
+        {
+            _agents = [.. _grants.List().Where(grant => !grant.Revoked)];
+            _agentsError = null;
+            if (_editing is not null && _agents.All(grant => grant.Id != _editing)) _editing = null;
+        }
+#pragma warning disable CA1031 // The card says the grants could not be read; the rest of the page still works.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            _agentsError = AgentsUnreadable;
+        }
+    }
+
+    /// <summary>Runs one write to the grants, saying so on the card when it throws. The store
+    /// raises Changed on success, which reloads the list.</summary>
+    private T? Write<T>(Func<IMcpGrantStore, T?> write) where T : class
+    {
+        if (_grants is null) return null;
+
+        try
+        {
+            var written = write(_grants);
+            _agentsError = null;
+            LoadAgents();
+            return written;
+        }
+#pragma warning disable CA1031 // A file the person must mend; the card says so and keeps what it drew.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            _agentsError = AgentsUnreadable;
+            return null;
+        }
+    }
+
+    private string AgentMeta(McpGrant grant) =>
+        McpAgents.Meta(grant, LastUsed.TryGetValue(grant.Id, out var at) ? at : null, _clock.GetUtcNow());
+
+    /// <summary>When each agent last made a call, from the records the Activity card already
+    /// holds.</summary>
+    private IReadOnlyDictionary<string, DateTimeOffset> LastUsed => McpAgents.LastUsed(_agents, _activity);
+
+    private void ToggleEditing(McpGrant grant) => _editing = _editing == grant.Id ? null : grant.Id;
+
+    /// <summary>Stores one switch at once: the grant takes its new scopes and a new version,
+    /// so the agent's next request fetches a token that carries them.</summary>
+    private void SetScope(McpGrant grant, AgentScopeChange change)
+    {
+        var current = _agents.FirstOrDefault(agent => agent.Id == grant.Id)?.Scopes ?? grant.Scopes;
+        var scopes = change.On
+            ? McpAgents.Writable([.. current, change.Scope])
+            : McpAgents.Writable(current.Where(scope => scope != change.Scope));
+
+        Write(store => store.SetScopes(grant.Id, scopes));
+    }
+
+    private void Revoke(McpGrant grant)
+    {
+        Write(store => store.Revoke(grant.Id));
+        if (_created?.Id == grant.Id) CloseAdd();
+    }
+
+    private void ToggleAdd()
+    {
+        if (_adding == AddStep.Closed)
+        {
+            _newName = string.Empty;
+            _newError = null;
+            ApplyRole(McpAgents.Roles[0].Name);
+            _created = null;
+            _adding = AddStep.Details;
+        }
+        else
+        {
+            CloseAdd();
+        }
+    }
+
+    private void CloseAdd()
+    {
+        _adding = AddStep.Closed;
+        _created = null;
+    }
+
+    /// <summary>A role fills the switches with its preset; Custom keeps them as they are.</summary>
+    private void ApplyRole(string? role)
+    {
+        _newRole = role ?? McpAgents.Custom;
+        if (McpAgents.PresetOf(_newRole) is { } preset) _newScopes = [.. preset];
+    }
+
+    /// <summary>A switch flipped by hand makes the scopes the person's own, so the role reads
+    /// Custom from then on.</summary>
+    private void ChangeNewScope(AgentScopeChange change)
+    {
+        _newScopes = change.On
+            ? [.. McpAgents.Ordered([.. _newScopes, change.Scope])]
+            : [.. _newScopes.Where(scope => scope != change.Scope)];
+        _newRole = McpAgents.RoleOf(_newScopes);
+    }
+
+    private void OnNewNameKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") CreateAgent();
+    }
+
+    /// <summary>Makes the grant, then shows what to register. A blank name, or one an agent
+    /// already has, is refused beside the field: two rows of one name could not be told apart,
+    /// in this list or in the activity log.</summary>
+    private void CreateAgent()
+    {
+        var name = _newName.Trim();
+
+        if (name.Length == 0)
+        {
+            _newError = "Give the agent a name.";
+            return;
+        }
+
+        if (_agents.Any(agent => string.Equals(agent.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            _newError = $"An agent is already called {name}.";
+            return;
+        }
+
+        _newError = null;
+
+        if (Write(store => store.Create(name, McpAgents.Writable(_newScopes), McpAgents.CreatedInSettings)) is not { } created) return;
+
+        _created = created;
+        _adding = AddStep.Register;
+    }
+
+    private string ClaudeCodeRegistration(McpGrant grant) => McpAgents.ClaudeCode(Address, grant.Id, DebugBroker);
+
+    private string CopilotRegistration(McpGrant grant) => McpAgents.Copilot(Address, grant.Id, DebugBroker);
+
+    /// <summary>Raised on whichever thread wrote the grants, so it marshals.</summary>
+    private void OnGrantsChanged() => _ = InvokeAsync(() =>
+    {
+        if (_disposed) return;
+
+        LoadAgents();
+        StateHasChanged();
+    });
 
     private static string PortText(int port) => port.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
@@ -500,5 +787,6 @@
         _disposed = true;
         if (_source is not null) _source.Changed -= OnSourceChanged;
         if (_audit is not null) _audit.Changed -= OnAuditChanged;
+        if (_grants is not null) _grants.Changed -= OnGrantsChanged;
     }
 }

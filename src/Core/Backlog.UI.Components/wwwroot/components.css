@@ -26520,6 +26520,136 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     min-width: 0;
 }
 
+/* --- Agents (MCP server page, local ADR 0052 §3) ------------------------- */
+
+/* One row per agent: who it is and its scopes on the left, its actions on the
+   right, and its switches under both while Edit scopes is open. Rows are divided
+   by a hairline; the actions wrap under the name in a narrow card rather than
+   squeeze it. */
+.agent-list {
+    container: agent-list / inline-size;
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.agent-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--spacing-xs) var(--spacing-md);
+    align-items: start;
+    padding-block: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.agent-row:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.agent-row__who {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.agent-row__name {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.agent-row__meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.agent-row__scopes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-2xs) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.agent-row__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+    max-width: 22rem;
+}
+
+.agent-row__confirm {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    text-align: end;
+}
+
+.agent-row__editor {
+    grid-column: 1 / -1;
+    padding-top: var(--spacing-xs);
+}
+
+@container agent-list (max-width: 30rem) {
+    .agent-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .agent-row__actions {
+        justify-content: flex-start;
+        max-width: none;
+    }
+
+    .agent-row__confirm {
+        text-align: start;
+    }
+}
+
+/* The scope switches: as many columns as the card has room for, each switch
+   with its one-line description. A locked scope is dimmed as well as disabled,
+   so the boundary reads at a glance. */
+.agent-scopes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.agent-scopes__switch--locked {
+    opacity: 0.65;
+}
+
+/* The second step of Add agent: the registration to paste, then the copies. */
+.agent-registration {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.agent-registration__title {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.agent-registration__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.agent-registration__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
 /*
   The pull request status line (.devbook/design/color-scheme.md#pull-request-status-marks):
   the #n pill in the gh family, then a checks mark and an approvals mark, each a glyph and
