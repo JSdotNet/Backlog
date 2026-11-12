@@ -26650,6 +26650,39 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     gap: var(--spacing-xs);
 }
 
+/* An agent's request for access (local ADR 0052 §5): an agent row with Decline and
+   Allow with Hello. In the request window the switches are its content, so the row
+   gives its whole width to them under the name. */
+.agent-request--window {
+    grid-template-columns: minmax(0, 1fr);
+    border-top: 0;
+    padding-top: 0;
+}
+
+.agent-request--window .agent-row__actions {
+    order: 3;
+    max-width: none;
+}
+
+.agent-request--window .agent-row__editor {
+    order: 2;
+}
+
+.agent-request__status {
+    grid-column: 1 / -1;
+    order: 4;
+}
+
+.agent-request__status--error {
+    color: var(--color-error-text);
+}
+
+/* The card that holds the requests waiting for the person: the warning ink on its
+   border, so a request reads as needing an answer before the agents below it. */
+.settings-card--pending {
+    border-color: var(--color-warning);
+}
+
 /*
   The pull request status line (.devbook/design/color-scheme.md#pull-request-status-marks):
   the #n pill in the gh family, then a checks mark and an approvals mark, each a glyph and

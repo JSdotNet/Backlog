@@ -40,6 +40,7 @@ public sealed class McpGrantTokens
     public const string AuthenticationType = "mcp-grant";
 
     private readonly IMcpGrantStore _grants;
+    private readonly IMcpAccessRequestStore? _requests;
     private readonly TimeProvider _clock;
     private readonly SymmetricSecurityKey _key;
     private readonly JsonWebTokenHandler _handler = new();
@@ -48,6 +49,14 @@ public sealed class McpGrantTokens
     public McpGrantTokens(IMcpGrantStore grants, TimeProvider clock)
         : this(grants, clock, RandomNumberGenerator.GetBytes(32))
     {
+    }
+
+    /// <summary>With the access requests (local ADR 0052 §5), so a grant whose registration the
+    /// person has not answered yet mints nothing and validates nothing: it is pending.</summary>
+    public McpGrantTokens(IMcpGrantStore grants, TimeProvider clock, IMcpAccessRequestStore? requests)
+        : this(grants, clock, RandomNumberGenerator.GetBytes(32))
+    {
+        _requests = requests;
     }
 
     /// <summary>With the signing key given rather than drawn, so a test can sign a token this
@@ -87,6 +96,16 @@ public sealed class McpGrantTokens
 
         if (grant is null) return McpGrantMint.Refused(McpGrantRefusal.UnknownGrant);
         if (grant.Revoked) return McpGrantMint.Refused(McpGrantRefusal.Revoked);
+
+        try
+        {
+            if (IsPending(grant)) return McpGrantMint.Refused(McpGrantRefusal.Pending);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Requests that cannot be read now cannot say the grant is not pending: no token.
+            return McpGrantMint.Refused(McpGrantRefusal.StoreUnavailable);
+        }
 
         // Whole seconds, because that is all a JWT's times hold: the expiry this reports is
         // then exactly the one the token carries.
@@ -140,10 +159,12 @@ public sealed class McpGrantTokens
         if (now >= jwt.ValidTo) return McpGrantValidation.Refused(McpGrantRefusal.Expired);
 
         McpGrant? grant;
+        bool pending;
 
         try
         {
             grant = string.IsNullOrWhiteSpace(jwt.Subject) ? null : _grants.Find(jwt.Subject);
+            pending = grant is not null && IsPending(grant);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -154,6 +175,7 @@ public sealed class McpGrantTokens
 
         if (grant is null) return McpGrantValidation.Refused(McpGrantRefusal.UnknownGrant);
         if (grant.Revoked) return McpGrantValidation.Refused(McpGrantRefusal.Revoked);
+        if (pending) return McpGrantValidation.Refused(McpGrantRefusal.Pending);
 
         if (!jwt.TryGetPayloadValue<int>(McpGrantClaims.Version, out var version) || version < grant.Version)
         {
@@ -165,6 +187,12 @@ public sealed class McpGrantTokens
 
         return McpGrantValidation.Valid(grant, new ClaimsPrincipal(result.ClaimsIdentity));
     }
+
+    /// <summary>Whether <paramref name="grant"/> is a registration the person has not allowed
+    /// (local ADR 0052 §5). An open request for more scopes leaves its grant working. Without
+    /// the requests — a host that composes none — only a self-registered grant is pending.</summary>
+    private bool IsPending(McpGrant grant) =>
+        McpAccessRules.IsPending(_requests?.List() ?? [], grant);
 }
 
 /// <summary>Why a grant token was not minted or not accepted.</summary>
@@ -186,7 +214,11 @@ public enum McpGrantRefusal
     StaleVersion,
 
     /// <summary>The grant store could not be read, so the grant could not be checked.</summary>
-    StoreUnavailable
+    StoreUnavailable,
+
+    /// <summary>For a grant an agent registered and the person has not allowed yet (local ADR
+    /// 0052 §5): it gets no token until they do.</summary>
+    Pending
 }
 
 /// <summary>A minted token and when it expires.</summary>

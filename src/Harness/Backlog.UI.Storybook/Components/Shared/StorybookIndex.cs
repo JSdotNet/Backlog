@@ -561,7 +561,7 @@ internal static class StorybookIndex
             new("settings-card", "Settings card", "SettingsCard: one card on a settings page — a heading, a sentence saying what it is for, an action in its corner, and the controls."),
             new("settings-menu", "Settings menu", "SettingsMenuGroup: one group of the settings menu — a small uppercase label and a link per page, the page on screen marked current."),
             new("settings-frame", "Settings frame", "SettingsFrame and SettingsHeadline: the panel, the way back, the group and the one-sentence headline a page writes, Saved as you go, and the menu beside the page."),
-            new("settings-agents", "Agents", "AgentGrantRow, AgentScopeSwitches and AgentRegistration: the MCP server page's agents, each with its scopes, switches opened in place, Revoke confirmed in place, and the registration a new agent is given.")
+            new("settings-agents", "Agents", "AgentGrantRow, AgentScopeSwitches, AgentRegistration and AgentAccessRequest: the MCP server page's agents, each with its scopes, switches opened in place, Revoke confirmed in place, the registration a new agent is given, and a request waiting for the person.")
         ]),
 
         // Last, and last by the rule rather than by convention: every page here

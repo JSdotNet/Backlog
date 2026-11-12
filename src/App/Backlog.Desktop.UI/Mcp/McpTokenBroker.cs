@@ -21,7 +21,15 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <b>Wire format.</b> One UTF-8 JSON line each way per connection, then the connection
 /// ends. The request is <c>{"grant":"g_…"}</c>, at most <see cref="MaxRequestBytes"/>. The
 /// reply is <c>{"token":"…","expiresAt":"…"}</c>, or <c>{"error":"…"}</c> with
-/// <c>unknown-grant</c>, <c>revoked</c>, <c>bad-request</c> or <c>forbidden</c>.
+/// <c>unknown-grant</c>, <c>revoked</c>, <c>pending</c>, <c>bad-request</c> or <c>forbidden</c>.
+/// </para>
+/// <para>
+/// <b>Two requests more, for an agent registering itself</b> (local ADR 0052 §5), served when
+/// the broker has the access desk. <c>{"register":{"name":…,"scopes":[…],"folder":…,"parentPid":…}}</c>
+/// makes a pending grant and answers <c>{"grant":"g_…","request":"r_…","state":"pending"}</c>.
+/// <c>{"request":"g_…"}</c> brings that grant's request window forward and answers
+/// <c>{"opened":true|false}</c>. A refusal is <c>{"error":"…","message":"…"}</c>. Neither
+/// changes a grant that exists: no request on the pipe allows, declines or edits one.
 /// </para>
 /// <para>
 /// <b>Three defences, in order.</b> The pipe's ACL holds one rule, for the SID this process
@@ -58,6 +66,7 @@ public sealed class McpTokenBroker : IDisposable
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     private readonly McpGrantTokens _tokens;
+    private readonly McpAccessDesk? _desk;
     private readonly ILogger _log;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly Lock _gate = new();
@@ -76,15 +85,23 @@ public sealed class McpTokenBroker : IDisposable
     {
     }
 
+    /// <summary>The broker for this installation and Windows user, serving an agent's own
+    /// registration and request window through <paramref name="desk"/> (local ADR 0052 §5).</summary>
+    public McpTokenBroker(McpGrantTokens tokens, McpAccessDesk? desk, ILogger<McpTokenBroker>? log = null)
+        : this(tokens, PipeNameFor(WorkspaceSettingsStore.DefaultAppDataFolderName, Environment.UserName), log, desk: desk)
+    {
+    }
+
     /// <summary>The broker on <paramref name="pipeName"/>, for a test that must not take the
     /// installed app's name, and with a shorter <paramref name="connectionTimeout"/> for one that
     /// must not wait five seconds. Internal, so the container never picks it.</summary>
-    internal McpTokenBroker(McpGrantTokens tokens, string pipeName, ILogger? log, TimeSpan? connectionTimeout = null)
+    internal McpTokenBroker(McpGrantTokens tokens, string pipeName, ILogger? log, TimeSpan? connectionTimeout = null, McpAccessDesk? desk = null)
     {
         ArgumentNullException.ThrowIfNull(tokens);
         ArgumentException.ThrowIfNullOrWhiteSpace(pipeName);
 
         _tokens = tokens;
+        _desk = desk;
         PipeName = pipeName;
         _log = log ?? NullLogger.Instance;
         _connectionTimeout = connectionTimeout ?? DefaultConnectionTimeout;
@@ -183,6 +200,10 @@ public sealed class McpTokenBroker : IDisposable
         {
             _log.LogWarning("The MCP token broker refused a client that is not this Windows user.");
             reply = new ErrorReply("forbidden");
+        }
+        else if (ParseAccess(request) is { } access)
+        {
+            reply = await AnswerAccessAsync(access, cancellationToken).ConfigureAwait(false);
         }
         else if (ParseGrantId(request) is not { } grantId)
         {
@@ -471,10 +492,119 @@ public sealed class McpTokenBroker : IDisposable
     {
         McpGrantRefusal.UnknownGrant => "unknown-grant",
         McpGrantRefusal.Revoked => "revoked",
+        McpGrantRefusal.Pending => "pending",
         McpGrantRefusal.BadToken or McpGrantRefusal.Expired or McpGrantRefusal.StaleVersion or McpGrantRefusal.StoreUnavailable or null => "bad-request"
     };
+
+    /// <summary>
+    /// A <c>register</c> or <c>request</c> answered through the desk. Without one, each is
+    /// <c>bad-request</c>, as any request this broker does not serve is.
+    /// </summary>
+    private async Task<object> AnswerAccessAsync(AccessRequest access, CancellationToken cancellationToken)
+    {
+        if (_desk is null) return new ErrorReply("bad-request");
+
+        if (access.Register is { } register)
+        {
+            var outcome = await _desk.RegisterAsync(
+                register.Name,
+                register.Scopes,
+                ExecutableOf(register.ParentPid),
+                register.Folder,
+                cancellationToken).ConfigureAwait(false);
+
+            if (outcome.Refused)
+            {
+                _log.LogWarning("The MCP token broker refused a registration: {Refusal}.", outcome.Refusal);
+                return new AccessErrorReply(outcome.Refusal!, outcome.Message);
+            }
+
+            return new RegisteredReply(outcome.Grant!.Id, outcome.Request!.Id, "pending");
+        }
+
+        var shown = await _desk.ShowAsync(access.RequestFor).ConfigureAwait(false);
+
+        return shown.Refused
+            ? new AccessErrorReply(shown.Refusal!, shown.Message)
+            : new OpenedReply(shown.WindowOpened);
+    }
+
+    /// <summary>The file name of the program that ran the helper, read from the process id the
+    /// helper names as its parent: what the request window shows as "from claude.exe". The
+    /// helper's own word for which process, so a label and never an identity (§5); null when
+    /// that process cannot be read.</summary>
+    private static string? ExecutableOf(int? parentPid)
+    {
+        if (parentPid is not { } pid || pid <= 0) return null;
+
+        try
+        {
+            using var process = System.Diagnostics.Process.GetProcessById(pid);
+            var path = process.MainModule?.FileName;
+            return string.IsNullOrWhiteSpace(path) ? process.ProcessName : Path.GetFileName(path);
+        }
+#pragma warning disable CA1031 // Gone, or not ours to read: the request shows no program.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            return null;
+        }
+    }
+
+    /// <summary>A <c>register</c> or <c>request</c> request, or null for anything else — the
+    /// grant request included, which <see cref="ParseGrantId"/> reads.</summary>
+    private static AccessRequest? ParseAccess(byte[]? request)
+    {
+        if (request is null) return null;
+
+        try
+        {
+            var reader = new Utf8JsonReader(request);
+            using var document = JsonDocument.ParseValue(ref reader);
+
+            if (reader.Read() || document.RootElement.ValueKind != JsonValueKind.Object) return null;
+
+            var root = document.RootElement;
+
+            if (root.TryGetProperty("register", out var register))
+            {
+                if (register.ValueKind != JsonValueKind.Object) return new AccessRequest(new RegisterRequest(null, null, null, null), null);
+
+                IReadOnlyList<string>? scopes = register.TryGetProperty("scopes", out var list) && list.ValueKind == JsonValueKind.Array
+                    ? [.. list.EnumerateArray().Select(scope => scope.ValueKind == JsonValueKind.String ? scope.GetString() ?? string.Empty : string.Empty)]
+                    : null;
+                int? parent = register.TryGetProperty("parentPid", out var pid) && pid.ValueKind == JsonValueKind.Number && pid.TryGetInt32(out var id) ? id : null;
+
+                return new AccessRequest(new RegisterRequest(StringOf(register, "name"), scopes, StringOf(register, "folder"), parent), null);
+            }
+
+            if (root.TryGetProperty("request", out var grant))
+            {
+                return new AccessRequest(null, grant.ValueKind == JsonValueKind.String ? grant.GetString() : null);
+            }
+
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? StringOf(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    private sealed record AccessRequest(RegisterRequest? Register, string? RequestFor);
+
+    private sealed record RegisterRequest(string? Name, IReadOnlyList<string>? Scopes, string? Folder, int? ParentPid);
 
     private sealed record TokenReply(string Token, string ExpiresAt);
 
     private sealed record ErrorReply(string Error);
+
+    private sealed record AccessErrorReply(string Error, string Message);
+
+    private sealed record RegisteredReply(string Grant, string Request, string State);
+
+    private sealed record OpenedReply(bool Opened);
 }

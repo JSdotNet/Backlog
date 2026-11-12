@@ -12309,3 +12309,25 @@ a.pull-request-detail-checks__name:hover {
         padding: var(--spacing-xs) var(--spacing-sm);
     }
 }
+
+/* The agent request window (local ADR 0052 §5): one request, read in a pop-out of its
+   own, with its switches as the content and Decline and Allow with Hello under them. */
+.agent-request-window {
+    display: grid;
+    gap: var(--spacing-md);
+    max-width: 46rem;
+    margin-inline: auto;
+    padding: var(--spacing-lg) var(--spacing-md);
+}
+
+.agent-request-window__title {
+    margin: 0;
+    font-size: var(--font-size-xl);
+    overflow-wrap: anywhere;
+}
+
+.agent-request-window__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}

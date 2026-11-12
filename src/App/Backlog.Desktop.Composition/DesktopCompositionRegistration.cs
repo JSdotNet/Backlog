@@ -372,6 +372,9 @@ public static class DesktopCompositionRegistration
         services.AddNotificationsSurface();
         services.AddToolsSurface();
         services.AddAtlasSurface();
+        // The agent request window (local ADR 0052 §5), opened on a request and never offered
+        // in the header. Its desk is the desktop head's; a host without one says so in it.
+        global::Backlog.Desktop.UI.Mcp.AgentRequestSurfaceRegistration.AddAgentRequestSurface(services);
         // What those takeovers read from the window they are shown in — its scope,
         // its entries, the Inbox's Capture — built from the window's own state, so a
         // takeover draws the same in a window of its own.

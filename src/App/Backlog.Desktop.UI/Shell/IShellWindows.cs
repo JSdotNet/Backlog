@@ -23,6 +23,12 @@ public interface IShellWindows
     /// exists.</summary>
     Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null);
 
+    /// <summary>Brings forward the popped-out window that shows <paramref name="surfaceId"/>
+    /// with exactly <paramref name="query"/>, or opens one when none does, and answers whether
+    /// one is on screen: what the request window of local ADR 0052 §5 needs, where opening it
+    /// again focuses the open one. A host that cannot tell its windows apart opens another.</summary>
+    Task<bool> FocusOrOpenAsync(string surfaceId, IReadOnlyDictionary<string, string> query) => OpenAsync(surfaceId, query);
+
     /// <summary>Closes the popped-out window <paramref name="windowKey"/> names. The
     /// main window is never closed this way.</summary>
     void Close(string windowKey);

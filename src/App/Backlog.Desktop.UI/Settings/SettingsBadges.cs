@@ -58,6 +58,16 @@ public static class SettingsBadges
         false => "Starting",
     };
 
+    /// <summary>
+    /// The MCP server page's badge with the agents' requests waiting for the person (local ADR
+    /// 0052 §5) beside the listener's state - <c>Listening · 1 waiting</c> - or the state alone
+    /// while none waits. Null where <paramref name="isListening"/> is.
+    /// </summary>
+    public static string? McpServer(bool? isListening, bool failed, int waiting) =>
+        McpServer(isListening, failed) is { } state && waiting > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"{state} · {waiting} waiting")
+            : McpServer(isListening, failed);
+
     /// <summary>A count as its figure, zero included: an empty list says so.</summary>
     public static string Count(int count) => count.ToString(CultureInfo.InvariantCulture);
 

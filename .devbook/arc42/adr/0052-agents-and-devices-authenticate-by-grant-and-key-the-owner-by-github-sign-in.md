@@ -255,6 +255,18 @@ stateDiagram-v2
   **Allow** sits only in the desktop window and asks for Windows Hello, which a
   script or UI automation cannot pass. A request for more scopes is a new request.
 
+*Built 2026-11-12 by entry 11 (`agent-self-registration`).* Requests live in
+`mcp-access-requests.json` beside the grants. A registration's grant holds no scope,
+and the broker refuses it a token as `pending` while its request is open. The
+request window is the `agent-request` surface, outside the header. Opening it again
+for the same request brings that window forward. A waiting request also shows as a
+card on the MCP server page, as "1 waiting" on its menu badge, and as an ADR 0039
+alert, which the phone shows and cannot answer. `request_access` passes the `/mcp`
+caller policy, not a scope policy, because an agent that lacks a scope is the one
+that must ask. Allow asks `IUserConsent`: the desktop head answers it with
+`UserConsentVerifier`, and the web harness answers "not available", which refuses
+every Allow.
+
 **An agent the person gives `agents:grant` may answer other agents' requests.**
 Switching it on asks for Windows Hello. The broker holds such a granter to five
 rules:
@@ -409,6 +421,7 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-12 | Built §5's self-registration: `--register` makes a pending grant that mints no token, `--request` and `request_access` open or focus the request window, and the waiting request shows on the MCP server page, its badge and an alert. The limits are one per name, five open and a day after a decline. Allow asks for Windows Hello, and no pipe command or tool answers a request. | Plan `zero-trust-auth` entry 11, Phase 1. |
 | 2026-11-12 | Built §3's Agents card on the MCP server page in the Bearer token card's place: rows with role, source, last use and scopes, switches that store on change and raise the grant's version, Revoke confirmed in place, and Add agent with its registration. | Plan `zero-trust-auth` entry 10, Phase 1. |
 | 2026-11-12 | Built §4's scopes: one named policy per scope under fallback-deny, per tool and per route, a principal on every admitted request, and an audit record naming the grant. `devbook:decide` is in no grant, token or policy. | Plan `zero-trust-auth` entry 8, Phase 1. |
 | 2026-11-11 | Built §3's token broker and grants beside the shared token: a named pipe for the person's SID alone mints 15-minute JWTs, and the listener refuses one older than its grant's version. Scopes are not enforced yet. | Plan `zero-trust-auth` entry 7, Phase 1. |

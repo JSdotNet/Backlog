@@ -1,0 +1,183 @@
+@*
+    An agent asking the person for access (local ADR 0052 §5): its name, the program and
+    folder it asked from, when it asked, and the scopes it asked for - then Decline and
+    Allow with Hello, the only two answers. The agent cannot press either: Allow asks
+    for Windows Hello, which a script or UI automation cannot pass.
+
+    Two shapes, one component. On the MCP server page the request is a row of the
+    waiting card: its scopes as chips, and Trim scopes opening the switches under the
+    row, the way Edit scopes opens an agent's (.devbook/design/settings-pages.md#lists-that-expand-in-place).
+    In the request window the switches are the content, always open, and there is no
+    Trim scopes: the switches already are it.
+
+    The host owns the switches' state: it hands in which scopes are on and hears each
+    flip. agents:grant starts off whatever was asked - the host's rule, which this
+    component draws without knowing it. Allow is disabled while no switch is on, since
+    allowing nothing is a Decline.
+
+    The host's sentence - a refusal, or Windows Hello not being available - stands
+    above the buttons as a status, so a screen reader hears why Allow did nothing.
+*@
+
+<div class="@ClassValue" role="@(Trimmable ? "listitem" : null)" data-testid="@TestId" data-request="@RequestId">
+    <div class="agent-row__who">
+        <span class="agent-row__name" data-testid="agent-request-name">@Name</span>
+        @if (!string.IsNullOrWhiteSpace(Meta))
+        {
+            <span class="agent-row__meta" data-testid="agent-request-meta">@Meta</span>
+        }
+        @if (!SwitchesOpen)
+        {
+            <ul class="agent-row__scopes" aria-label="@($"Scopes {Name} asks for")" data-testid="agent-request-scopes">
+                @foreach (var scope in Asked)
+                {
+                    <li @key="scope.Name">
+                        <Badge Kind="tone"
+                               Slug="@ChipTone(scope.Name)"
+                               TestId="agent-request-scope">@ChipLabel(scope.Name)</Badge>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+
+    <div class="agent-row__actions">
+        @if (Trimmable)
+        {
+            <AppButton TestId="agent-request-trim"
+                       aria-expanded="@(Trimming ? "true" : "false")"
+                       aria-controls="@(Trimming ? EditorId : null)"
+                       Disabled="@Busy"
+                       OnClick="OnTrim">
+                @(Trimming ? "Done" : "Trim scopes…")
+            </AppButton>
+        }
+        <DeleteButton Label="Decline"
+                      ShowIcon="false"
+                      AriaLabel="@($"Decline {Name}")"
+                      Disabled="@Busy"
+                      TestId="agent-request-decline"
+                      OnClick="OnDecline" />
+        <AppButton Variant="ButtonVariant.Primary"
+                   TestId="agent-request-allow"
+                   Disabled="@(Busy || Selected.Count == 0)"
+                   aria-label="@($"Allow {Name} with Windows Hello")"
+                   OnClick="OnAllow">
+            Allow with Hello
+        </AppButton>
+    </div>
+
+    @if (SwitchesOpen)
+    {
+        <div class="agent-row__editor" id="@EditorId" data-testid="agent-request-editor">
+            <AgentScopeSwitches Options="@Asked"
+                                Selected="@Selected"
+                                IdPrefix="@($"{EditorId}-scope")"
+                                AriaLabel="@($"Scopes to allow {Name}")"
+                                Disabled="@Busy"
+                                TestId="agent-request-switches"
+                                OnChanged="OnChanged" />
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <Alert BaseClass="agent-row__confirm agent-request__status"
+               CssClass="@(MessageIsError ? "agent-request__status--error" : null)"
+               Role="status"
+               TestId="agent-request-status"
+               Message="@Message" />
+    }
+</div>
+
+@code {
+    /// <summary>The name the agent registered under.</summary>
+    [Parameter, EditorRequired]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>The request's id, written on the element so a test or a link can find it.</summary>
+    [Parameter]
+    public string? RequestId { get; set; }
+
+    /// <summary>One line on where it came from and when: the program, the folder, how long ago.
+    /// The host writes it, because the library holds no clock.</summary>
+    [Parameter]
+    public string? Meta { get; set; }
+
+    /// <summary>The scopes it asked for, each with its line, in the order to draw them.</summary>
+    [Parameter]
+    public IReadOnlyList<AgentScopeOption> Asked { get; set; } = [];
+
+    /// <summary>The scopes switched on: what Allow would grant.</summary>
+    [Parameter]
+    public IReadOnlyCollection<string> Selected { get; set; } = [];
+
+    /// <summary>The scopes drawn in the alert tone, for one that reaches furthest.</summary>
+    [Parameter]
+    public IReadOnlyCollection<string> Highlighted { get; set; } = [];
+
+    /// <summary>Whether the row offers Trim scopes (the MCP server page); false keeps the
+    /// switches open as the content (the request window).</summary>
+    [Parameter]
+    public bool Trimmable { get; set; }
+
+    /// <summary>Whether Trim scopes has the switches open under the row.</summary>
+    [Parameter]
+    public bool Trimming { get; set; }
+
+    /// <summary>Every button and switch disabled, while an answer is being made.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>The host's sentence about the last answer, or null.</summary>
+    [Parameter]
+    public string? Message { get; set; }
+
+    /// <summary>Whether <see cref="Message"/> is a refusal, drawn in the error tone.</summary>
+    [Parameter]
+    public bool MessageIsError { get; set; }
+
+    /// <summary>The open switches' id, which Trim scopes names through aria-controls.</summary>
+    [Parameter]
+    public string EditorId { get; set; } = "agent-request-" + Guid.NewGuid().ToString("N")[..8];
+
+    [Parameter]
+    public EventCallback OnTrim { get; set; }
+
+    [Parameter]
+    public EventCallback<AgentScopeChange> OnChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnDecline { get; set; }
+
+    [Parameter]
+    public EventCallback OnAllow { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private bool SwitchesOpen => !Trimmable || Trimming;
+
+    private string ClassValue
+    {
+        get
+        {
+            var shape = Trimmable ? " agent-request--row" : " agent-request--window";
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+
+            return $"agent-row agent-request{shape}{extra}";
+        }
+    }
+
+    private bool IsOn(string scope) => Selected.Contains(scope, StringComparer.Ordinal);
+
+    /// <summary>A chip says whether Allow would grant its scope: on in the quiet tone, or the
+    /// alert tone for a far-reaching one; off reads "off", so a trimmed scope still shows.</summary>
+    private string ChipTone(string scope) =>
+        !IsOn(scope) ? "archived" : Highlighted.Contains(scope, StringComparer.Ordinal) ? "alert" : "quiet";
+
+    private string ChipLabel(string scope) => IsOn(scope) ? scope : $"{scope} · off";
+}
