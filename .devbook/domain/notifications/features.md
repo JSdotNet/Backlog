@@ -190,7 +190,8 @@ related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts
 
 Three contexts reach the person through notifications. A delivery run that
 reaches Personal Validation asks to be approved, and the answer is recorded on the
-run; the pull request is still opened at the desktop. A device that redeems a
+run. The desktop session then opens the pull request, or marks ready for review the
+draft one it already opened. A device that redeems a
 pairing code is asked about on the desktop that showed the code, and only there:
 Allow keeps it, Refuse revokes it. A remark left on a Devbook chapter on another
 device raises an alert that links to the chapter.
@@ -198,9 +199,16 @@ device raises an alert that links to the chapter.
 The Personal Validation question carries the gate's handoff as its body, so the
 person can review the run from the phone. The handoff is what the stage reports
 for the person: its review links, what to check, the acceptance criteria and the
-paths of the evidence. It travels as text, and no image is attached. The question
-is asked on the first report of the stage that carries links or handoff text.
-A gate that has only gone in progress has nothing to show yet.
+paths of the evidence. The run's pull request comes first, whether the gate links it
+or an earlier stage did. Then come what each answer does and the other review links.
+A link only the desktop can open, such as a local address or a file, is marked
+desktop only. The handoff travels as text, and no image is attached.
+
+The question is asked on the first report of the stage that carries links or
+handoff text. A gate that has only gone in progress has nothing to show yet. A run
+whose pull request already merged or closed is asked nothing, because the answer
+would change nothing. A question already asked closes itself once the pull request
+merges or closes, or once every session of the run is archived.
 
 | Answer | Recorded on the run | What follows |
 | --- | --- | --- |

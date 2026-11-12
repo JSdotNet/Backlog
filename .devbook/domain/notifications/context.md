@@ -72,7 +72,7 @@ adapter that notices the end calls `CloseForSubjectAsync`:
 
 | Context | Adapter | Notices the end in |
 | --- | --- | --- |
-| Sessions | `Backlog.Infrastructure.Sessions` | the session reading, and `finish_run` |
+| Sessions | `Backlog.Infrastructure.Sessions` | the session reading, `finish_run`, and a look every five minutes at the runs an open validation question is about |
 | Sessions (pull requests) | `Backlog.Desktop.UI` | the session card's pull request reading |
 | Tasks | `Backlog.Infrastructure.Sqlite` | the task store, which the sync merge also writes through |
 | Devbook | `Backlog.Infrastructure.Devbook` | a decorator over the remark store |
@@ -83,7 +83,7 @@ answer handler for their source:
 
 | Context | Publishes | About | Answer handler |
 | --- | --- | --- | --- |
-| Sessions | "Approve the validation of *run*?", when a run's Personal Validation stage first reports a handoff | the run | `SessionValidationAnswers` |
+| Sessions | "*repository* · *run* · Approve or revise", when a run's Personal Validation stage first reports a handoff | the run | `SessionValidationAnswers` |
 | Sync | "Pair *device name*?": Allow or Refuse, `answerOn: owner`, when a device redeems this desktop's code | the pairing | `PairingAnswers` revokes the device on Refuse, then ends the pairing |
 | Devbook | An info alert "Remark left on *chapter*", when a remark left on another device syncs in | the remark | none |
 
@@ -97,7 +97,10 @@ answer handler for their source:
 
 Sessions asks on the first report of the gate that carries a handoff: its review
 links, or the handoff text. A gate that only moved into progress has nothing to
-show. After a rejection set the approval back to
+show. Sessions asks nothing while every pull request the run linked reads merged or
+closed. A later report asks once one reads open again, or cannot be read.
+
+After a rejection set the approval back to
 pending, Sessions asks again on the next report that carries a handoff, once
 its earlier question is settled. A handoff longer than the 32 KB body is cut
 to fit and ends with a line saying so. Approve + follow-up is offered only when the
@@ -253,7 +256,12 @@ contract, as an open host service.
 
 - **Sessions.** It closes by subject when a
   session is archived or deleted, a run finishes, or a pull request merges or
-  closes, and it answers the startup probe for all three. A choice's text reaches
+  closes. It also closes a run still in progress once the run's pull requests all
+  merge or close, or the run's sessions are all archived. It answers the startup
+  probe for all three, and asks it again every five minutes about the runs an open
+  validation question is about. It reads a pull request's state (open, draft,
+  merged or closed) through `ISessionPullRequestStates`, which the desktop shell
+  implements over Repository Management's `IPullRequests` (local ADR 0042). A choice's text reaches
   the handler with the answer. Closing by subject also closes the MCP tools'
   notifications about a session.
 - **MCP server, publishing.** `notify` and `ask` publish keyed by the call. A

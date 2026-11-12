@@ -610,10 +610,10 @@ related: [.devbook/domain/notifications/features.md#asking-from-the-contexts, .d
 ```meta
 type: requirement
 related: [.devbook/domain/tasks/requirements.md#requirement-a-follow-up-is-filed-once-after-the-gated-entry]
-tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_first_gate_report_with_a_handoff_asks_to_approve_the_run_with_the_handoff_as_its_body, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_that_goes_in_progress_with_no_links_and_no_handoff_asks_nothing_until_a_report_carries_one, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_handoff_longer_than_the_body_holds_is_cut_to_fit_and_ends_with_a_line_that_says_so, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_its_entry_is_offered_approve_approve_with_a_follow_up_revise_and_reject, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_no_entry_is_offered_approve_revise_and_reject_with_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_reported_twice_with_its_handoff_asks_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.After_a_revise_round_the_gate_asks_again_with_only_the_new_attempts_handoff, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Re_reporting_the_gate_after_it_was_approved_asks_nothing_more, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_answer_is_recorded_on_the_run_as_its_gate_decision, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Approve_with_a_follow_up_files_one_entry_after_the_gated_entry_and_records_its_id, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_answer_delivered_twice_leaves_the_run_unchanged_and_files_no_second_entry, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_whose_gated_entry_is_gone_records_the_approval_with_the_words_and_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_replayed_answer_changes_nothing_and_the_next_gate_asks_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_decision_the_desktop_recorded_after_the_question_wins_over_a_late_answer_and_files_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_desktop_decision_taken_while_the_follow_up_is_filed_stands, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_gate_moving_on_at_the_desktop_closes_the_unanswered_question, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Get_run_carries_the_gate_decision_the_answer_chosen_and_the_follow_up_entry]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_first_gate_report_with_a_handoff_asks_to_approve_the_run_with_the_handoff_as_its_body, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_that_goes_in_progress_with_no_links_and_no_handoff_asks_nothing_until_a_report_carries_one, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_handoff_longer_than_the_body_holds_is_cut_to_fit_and_ends_with_a_line_that_says_so, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_its_entry_is_offered_approve_approve_with_a_follow_up_revise_and_reject, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_no_entry_is_offered_approve_revise_and_reject_with_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_reported_twice_with_its_handoff_asks_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.After_a_revise_round_the_gate_asks_again_with_only_the_new_attempts_handoff, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Re_reporting_the_gate_after_it_was_approved_asks_nothing_more, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_answer_is_recorded_on_the_run_as_its_gate_decision, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Approve_with_a_follow_up_files_one_entry_after_the_gated_entry_and_records_its_id, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_answer_delivered_twice_leaves_the_run_unchanged_and_files_no_second_entry, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_whose_gated_entry_is_gone_records_the_approval_with_the_words_and_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_replayed_answer_changes_nothing_and_the_next_gate_asks_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_decision_the_desktop_recorded_after_the_question_wins_over_a_late_answer_and_files_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_desktop_decision_taken_while_the_follow_up_is_filed_stands, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_gate_moving_on_at_the_desktop_closes_the_unanswered_question, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Get_run_carries_the_gate_decision_the_answer_chosen_and_the_follow_up_entry, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_pull_request_the_gate_passes_comes_first_under_its_own_heading_in_the_order_sent, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_pull_request_the_run_recorded_earlier_is_shown_when_the_gate_passes_none, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.With_a_pull_request_approving_reads_as_marking_it_ready_and_without_one_it_is_still_opened_at_the_desktop, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_link_only_the_desktop_can_open_stays_a_link_marked_desktop_only, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ReviewLinksTests.An_address_only_this_machine_can_open_is_desktop_only, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ReviewLinksTests.A_github_pull_request_address_is_the_pull_request, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ReviewLinksTests.Any_other_address_is_a_page_anyone_can_open, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_whose_pull_request_already_merged_or_closed_asks_nothing_at_its_gate, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_whose_pull_request_ended_stays_armed_and_asks_once_a_later_report_reads_it_open_or_unread, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_whose_pull_request_is_open_a_draft_or_unread_asks_as_before, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_pull_request_read_that_fails_asks_as_before_and_a_run_with_none_reads_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_pull_request_read_that_outlasts_the_gates_budget_asks_as_before, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_gates_budget_is_for_every_pull_request_the_run_recorded_together_not_for_each]
 ```
 
-The system SHALL ask "Approve the validation of *run*?" with the run's gate handoff as its body and the choices Approve, Approve + follow-up, Revise and Reject when a delivery run's Personal Validation stage first reports a handoff, and SHALL record the answer on the run as its gate decision.
+The system SHALL ask "*repository* · *run* · Approve or revise" with the run's gate handoff as its body and the choices Approve, Approve + follow-up, Revise and Reject when a delivery run's Personal Validation stage first reports a handoff and its pull request has not already merged or closed, and SHALL record the answer on the run as its gate decision.
 
 #### Scenario: The handoff is the body
 
@@ -633,11 +633,35 @@ The system SHALL ask "Approve the validation of *run*?" with the run's gate hand
 - **When** the question is asked
 - **Then** the body holds the handoff cut to fit, ending with a line that says it was truncated
 
+#### Scenario: The pull request comes first
+
+- **Given** a delivery run at Personal Validation whose gate links the app, a draft pull request and a page
+- **When** the question is asked
+- **Then** its body opens with the pull request under "Pull request", before what each answer does and the other review links, and says approving lets the desktop session mark it ready for review
+
+#### Scenario: A pull request an earlier stage linked
+
+- **Given** a delivery run that linked its pull request on an earlier stage
+- **When** its Personal Validation stage reports a handoff with no pull request link
+- **Then** the body still shows that pull request first
+
+#### Scenario: A link only the desktop can open
+
+- **Given** a gate handoff that links `http://localhost:5000` and a screenshot file
+- **When** the question is asked
+- **Then** both stay links in the body, each marked "(desktop only)", and a link to a public page is not marked
+
+#### Scenario: A run whose pull request already merged
+
+- **Given** a delivery run whose pull request, linked on an earlier stage, has merged
+- **When** its Personal Validation stage reports a handoff
+- **Then** no question is asked, and a later report asks it once the pull request reads open again or cannot be read
+
 #### Scenario: Approved from the phone
 
 - **Given** a delivery run on Desktop A reaches Personal Validation
 - **When** the person taps Approve on the phone, and Desktop A accepts it
-- **Then** the run records the approval, and the pull request is still opened at Desktop A
+- **Then** the run records the approval, and Desktop A's session opens the pull request, or marks ready for review the draft one the run already linked
 
 #### Scenario: Approved with a follow-up
 
@@ -732,7 +756,7 @@ The system SHALL let the source that published a notification close it, and SHAL
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeSubjectTests.A_task_marked_done_on_the_phone_closes_its_notifications_on_the_owner, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.TaskSubjectClosureTests.Marking_a_task_done_closes_the_notifications_about_it, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.TaskSubjectClosureTests.A_task_that_comes_back_closes_nothing_and_ending_it_again_closes_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.A_session_seen_open_and_then_archived_closes_its_notifications_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.Finishing_a_run_closes_the_notifications_about_it_whatever_it_finished_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestSubjectsTests.A_reading_that_finds_it_merged_or_closed_closes_the_notifications_about_it_once, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.RemarkNotificationStoreTests.A_resolve_synced_in_from_another_device_closes_them_the_same_way, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_code_that_expires_unredeemed_closes_the_notifications_about_its_pairing, unit:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_a_subject_probe_for_every_context_that_owns_subjects, unit:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_an_answer_handler_for_every_context_that_asks]
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeSubjectTests.A_task_marked_done_on_the_phone_closes_its_notifications_on_the_owner, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.TaskSubjectClosureTests.Marking_a_task_done_closes_the_notifications_about_it, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.TaskSubjectClosureTests.A_task_that_comes_back_closes_nothing_and_ending_it_again_closes_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.A_session_seen_open_and_then_archived_closes_its_notifications_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.Finishing_a_run_closes_the_notifications_about_it_whatever_it_finished_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestSubjectsTests.A_reading_that_finds_it_merged_or_closed_closes_the_notifications_about_it_once, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.RemarkNotificationStoreTests.A_resolve_synced_in_from_another_device_closes_them_the_same_way, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_code_that_expires_unredeemed_closes_the_notifications_about_its_pairing, unit:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_a_subject_probe_for_every_context_that_owns_subjects, unit:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_an_answer_handler_for_every_context_that_asks, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.A_run_still_in_progress_whose_pull_request_merged_or_closed_has_ended_with_that_reason, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.A_run_whose_pull_request_is_open_a_draft_or_unread_stays_live, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.A_run_every_one_of_whose_sessions_is_known_and_archived_has_ended_as_finished, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.A_run_naming_a_session_no_source_knows_stays_live, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.A_run_whose_session_is_only_stalled_or_reaped_stays_live_however_long, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.The_probe_names_why_each_kind_of_subject_ended, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.RunPullRequestsTests.A_run_file_and_its_reading_name_the_same_pull_requests_once_each_in_stage_order, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.RunPullRequestsTests.A_pull_request_named_only_by_the_runs_issue_field_or_summary_is_not_the_runs_own, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.RunPullRequestsTests.The_pull_requests_ended_only_once_every_one_merged_or_closed, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.RunPullRequestsTests.No_pull_request_or_one_that_reads_as_nothing_has_not_ended, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.RunSubjectWatchTests.A_question_whose_run_pull_request_merged_closes_on_the_next_tick_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.RunSubjectWatchTests.It_looks_no_more_often_than_every_five_minutes_and_reads_nothing_while_no_validation_question_is_open, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.RunSubjectWatchTests.A_read_that_fails_leaves_the_question_open_and_the_next_tick_tries_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.RunSubjectWatchTests.A_read_that_never_answers_is_abandoned_within_the_tick_and_later_ticks_still_run, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.RunSubjectWatchTests.A_tick_that_finds_the_previous_one_still_running_is_skipped, unit:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_one_watch_over_the_runs_open_questions_wait_on]
 ```
 
 The system SHALL close every Open notification about a subject when the context that owns the subject reports that it ended, wherever the end happened.
@@ -742,3 +766,27 @@ The system SHALL close every Open notification about a subject when the context 
 - **Given** an Open question about task T-123, owned by Desktop A
 - **When** the person marks T-123 Done on the phone, and the change syncs to Desktop A
 - **Then** Desktop A closes the question with the reason "Task done"
+
+#### Scenario: A run's pull request merged
+
+- **Given** an Open validation question about a run on Desktop A, whose run file is still in progress and whose pull request is open
+- **When** the pull request merges on GitHub
+- **Then** the first of Desktop A's five-minute looks that reads the pull request merged closes the question with the reason "Pull request merged", or "Pull request closed" for one closed without merging
+
+#### Scenario: Every session of a run archived
+
+- **Given** an Open validation question about a run still in progress, every session of which the Claude desktop app knows
+- **When** the person archives each of them
+- **Then** Desktop A closes the question with the reason "Run finished"
+
+#### Scenario: A run whose session only went quiet
+
+- **Given** an Open validation question about a run whose session is stalled, reaped by the desktop app, or known to no source
+- **When** any amount of time passes
+- **Then** the question stays open
+
+#### Scenario: A pull request that cannot be read
+
+- **Given** an Open validation question about a run whose pull request's state cannot be read
+- **When** Desktop A next looks
+- **Then** the question stays open, and the following look tries again

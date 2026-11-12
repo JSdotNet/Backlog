@@ -427,7 +427,8 @@ These parts are built:
 - **Ending:** The context that owns a notification's subject calls `CloseForSubjectAsync`
   from wherever it notices the end, a change synced in from another device included.
   The context applies that change itself. Its `INotificationSubjectProbe` answers
-  at startup and after a sync, to catch an end the owner missed.
+  at startup and after a sync, to catch an end the owner missed. Sessions also asks its
+  own probe every five minutes about the runs that open Personal Validation questions are about.
 - **Storage:** The owner keeps SQLite as its local store, and notifications replicate
   through the `notifications` container, which expires them 30 days after they close.
   Replies wait in `notificationReplies` until the owner deletes them.

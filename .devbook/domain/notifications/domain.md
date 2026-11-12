@@ -144,7 +144,7 @@ The subjects a notification can be about, and when each ends:
 | Subject | Owning context | Ends when | Closed with |
 | --- | --- | --- | --- |
 | `sessions` / `session` / session id | Sessions | archived or deleted in the Claude desktop app | "Session archived" |
-| `sessions` / `run` / run id | Sessions | the delivery run finishes on any status, or no run file holds it any more | "Run finished" |
+| `sessions` / `run` / run id | Sessions | the delivery run finishes on any status, no run file holds it any more, or it ends while still in progress | "Run finished", or "Pull request merged" or "Pull request closed" |
 | `sessions` / `pull-request` / `owner/name#number` | Sessions | merged, or closed without merging | "Pull request merged", or "Pull request closed" |
 | `tasks` / `task` / task id | Tasks | marked Done or Archived, or deleted | "Task done" |
 | `devbook` / `remark` / remark id | Devbook | resolved or deleted | "Remark resolved" |
@@ -152,6 +152,12 @@ The subjects a notification can be about, and when each ends:
 | `spec-manager` / `question` / question id | The spec-manager adapter, for a question whose item is no linked task | answered, deleted or reassigned away in spec-manager | "Answered in spec-manager by &lt;name&gt;: &lt;answer&gt;", or "Withdrawn in spec-manager" |
 
 - **`sync` / `pairing`.** A pairing from an earlier run stays live.
+- **`sessions` / `run`.** A run still in progress ends when every pull request it
+  linked on a stage merged or closed, or when every session it names is archived.
+  Its pull requests ending closes it as "Pull request merged" when any one of them
+  merged, else as "Pull request closed"; its sessions ending closes it as "Run
+  finished". A session that is only stalled, reaped by the desktop app, or known to
+  no source keeps the run live: time alone never ends it.
 - **`spec-manager` / `question`.** One that reaches the person again is a new
   notification.
 
@@ -159,7 +165,9 @@ A spec-manager question whose item is a linked task is about that task instead,
 `tasks` / `task` / the task's id, and closes when the item is finished or archived.
 
 The owning context reports the end where it notices it, and answers a probe
-about each subject at startup for the ends it missed. The probe may name
+about each subject at startup for the ends it missed. A run's pull request ends
+outside the app, so Sessions also asks its probe every five minutes about each run
+an open validation question is about. The probe may name
 why a subject ended, and its notifications close with that reason, as the table gives; without one they close as "Subject ended". An end made on
 another device reaches the owner instance as that context's own change, and
 closes there the same way.
