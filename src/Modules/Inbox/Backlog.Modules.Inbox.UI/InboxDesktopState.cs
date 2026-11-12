@@ -65,6 +65,11 @@ public sealed class InboxDesktopState : IDisposable
     private readonly IToastChannel? _toasts;
     private readonly TimeProvider _clock;
 
+    /// <summary>Where a write outside the pane is announced, or null in a host
+    /// that composes none. See <see cref="OnWrittenElsewhere"/>.</summary>
+    private readonly IInboxChangeSignal? _writesElsewhere;
+    private volatile bool _disposed;
+
     private readonly HashSet<string> _kindFilter = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Which groups are folded shut. Open is the default, so the set
@@ -83,9 +88,12 @@ public sealed class InboxDesktopState : IDisposable
         IToastChannel? toasts = null,
         TimeProvider? clock = null,
         IBacklogTagSource? backlogTags = null,
-        IShowArchivedRepositories? showArchived = null)
+        IShowArchivedRepositories? showArchived = null,
+        IInboxChangeSignal? writesElsewhere = null)
     {
         _inbox = inbox;
+        _writesElsewhere = writesElsewhere;
+        if (_writesElsewhere is not null) _writesElsewhere.Changed += OnWrittenElsewhere;
         _gitHubSettings = gitHubSettings;
         _showArchived = showArchived;
         if (_showArchived is not null) _showArchived.Changed += OnShowArchivedChanged;
@@ -112,6 +120,19 @@ public sealed class InboxDesktopState : IDisposable
     /// shell refreshes the Tasks pane and they leave it. Not raised for an undone
     /// link, which deleted nothing.</summary>
     public event Action? RouteUndone;
+
+    /// <summary>Raised when the Inbox was written somewhere other than this pane —
+    /// the MCP server capturing or archiving for an assistant — on the thread that
+    /// wrote it. The shell answers with <see cref="ReloadAsync"/> on its own
+    /// dispatcher, which keeps the chosen row and leaves focus alone. Not raised
+    /// before the first snapshot: the first load reads the write anyway.</summary>
+    public event Action? WrittenElsewhere;
+
+    /// <summary>Raised when the Waiting for card's main act — its button or its
+    /// number key — asks for the Waiting for dialog, with the name the model
+    /// read. Triage opens the dialog filled with it and no follow-up date, so the
+    /// reader confirms or edits before anything is routed.</summary>
+    public event Action<string>? WaitingForAsked;
 
     // --- The snapshot -------------------------------------------------------
 
@@ -288,6 +309,34 @@ public sealed class InboxDesktopState : IDisposable
         }
     }
 
+    /// <summary>The notes waiting in the Brain's inbox area as of the last reload, or
+    /// null while no Brain is set or readable — then the queue health bar says
+    /// nothing about the Brain (features.md#queue-health-bar).</summary>
+    public InboxBrainUnfiledDto? BrainUnfiled { get; private set; }
+
+    /// <summary>The Brain's count, or none when the Brain could not be read: a Brain
+    /// that fails to answer hides its line rather than failing the Inbox's reload.</summary>
+    private async Task<InboxBrainUnfiledDto?> BrainUnfiledOrNoneAsync()
+    {
+        try
+        {
+            return await _inbox.BrainUnfiledNotesAsync();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Security.SecurityException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>How many notes the Brain's inbox area holds; zero without a Brain.</summary>
+    public int BrainUnfiledCount => BrainUnfiled?.Count ?? 0;
+
+    /// <summary>The queue health bar's Brain line: "3 notes to file in the Brain",
+    /// or null when there is no Brain or nothing in its inbox area to file.</summary>
+    public string? BrainUnfiledLine => BrainUnfiledCount > 0
+        ? $"{Counted(BrainUnfiledCount, "note", "notes")} to file in the Brain"
+        : null;
+
     /// <summary>The header's short form of the queue's health: "3 waiting ·
     /// oldest 12 days", or "Nothing waiting".</summary>
     public string WaitingSummary
@@ -389,7 +438,19 @@ public sealed class InboxDesktopState : IDisposable
     /// <summary>Lets go of the show-archived port, which outlives this state.</summary>
     public void Dispose()
     {
+        _disposed = true;
         if (_showArchived is not null) _showArchived.Changed -= OnShowArchivedChanged;
+        if (_writesElsewhere is not null) _writesElsewhere.Changed -= OnWrittenElsewhere;
+    }
+
+    /// <summary>Only passed on, never answered here: the signal arrives on a
+    /// request thread, and a reload replaces the snapshot the renderer reads, so it
+    /// belongs on the shell's dispatcher — as with Tasks' <c>WrittenElsewhere</c>.</summary>
+    private void OnWrittenElsewhere()
+    {
+        if (_disposed || !Loaded) return;
+
+        WrittenElsewhere?.Invoke();
     }
 
     /// <summary>The configured repositories a picker offers: the active ones, and the
@@ -456,6 +517,7 @@ public sealed class InboxDesktopState : IDisposable
         await _inbox.EnsureDefaultOrganizerAsync();
         await ResurfaceDueItemsAsync();
         await ReloadAsync();
+        await RefreshBrainDestinationsAsync();
     }
 
     /// <summary>Called by the shell each time the pane is shown again after
@@ -476,6 +538,7 @@ public sealed class InboxDesktopState : IDisposable
         {
             await ResurfaceDueItemsAsync();
             await ReloadAsync();
+            await RefreshBrainDestinationsAsync();
         }
         finally
         {
@@ -548,10 +611,15 @@ public sealed class InboxDesktopState : IDisposable
     {
         var version = ++_reloadVersion;
 
+        // The Brain's inbox area travels with the snapshot too: a note routed To
+        // Brain, or filed away in the Brain, moves the count on the next reload.
+        // Started first, as it is a folder walk the other reads need not wait on.
+        var brainCount = BrainUnfiledOrNoneAsync();
         var snapshot = await _inbox.GetSnapshotAsync();
         // The backlog's tags travel with the snapshot, and are dropped with it
         // when a later reload has overtaken this one.
         var backlogTags = await _backlogTags.TagsInUseAsync();
+        var brainUnfiled = await brainCount;
 
         if (version != _reloadVersion) return;
 
@@ -559,6 +627,7 @@ public sealed class InboxDesktopState : IDisposable
         Lists = snapshot.Lists;
         Groups = snapshot.Groups;
         BacklogTags = backlogTags;
+        BrainUnfiled = brainUnfiled;
         Loaded = true;
 
         // A capture that arrived in the slice being triaged is counted after
@@ -1235,6 +1304,40 @@ public sealed class InboxDesktopState : IDisposable
     /// so. The item stays selected: its detail now says where it went.</summary>
     public Task RouteToBacklogAsync() => RouteSelectedAsync(previousRepoIds: null);
 
+    /// <summary>The due date and My Day chosen beside Move to backlog, per item,
+    /// until the item is routed. Held here rather than in either view so the
+    /// column's detail, triage and the <c>r</c> key all route with the same
+    /// choice. An item with no entry has chosen neither.</summary>
+    private readonly Dictionary<Guid, InboxRouteScheduleDto> _routeSchedules = [];
+
+    private static readonly InboxRouteScheduleDto NoSchedule = new();
+
+    /// <summary>The due date and My Day the selected item will be routed with;
+    /// empty when neither is chosen, which routes it the plain way.</summary>
+    public InboxRouteScheduleDto RouteSchedule => SelectedItem is { } item ? ScheduleOf(item.Id) : NoSchedule;
+
+    private InboxRouteScheduleDto ScheduleOf(Guid itemId) =>
+        _routeSchedules.TryGetValue(itemId, out var schedule) ? schedule : NoSchedule;
+
+    /// <summary>Chooses the due date the selected item's tasks get when it is
+    /// moved to the backlog, or none with null.</summary>
+    public void SetRouteDue(DateOnly? dueOn) => SetRouteSchedule(schedule => schedule with { DueOn = dueOn });
+
+    /// <summary>Chooses whether the selected item's tasks go into today's My Day
+    /// when it is moved to the backlog.</summary>
+    public void SetRouteToMyDay(bool on) => SetRouteSchedule(schedule => schedule with { AddToMyDay = on });
+
+    private void SetRouteSchedule(Func<InboxRouteScheduleDto, InboxRouteScheduleDto> change)
+    {
+        if (SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
+
+        var next = change(ScheduleOf(item.Id));
+        if (next.IsEmpty) _routeSchedules.Remove(item.Id);
+        else _routeSchedules[item.Id] = next;
+
+        Changed?.Invoke();
+    }
+
     /// <summary><see cref="RouteToBacklogAsync"/>, with the repositories the item
     /// had before a write made for this route, for its undo to put back.</summary>
     private async Task RouteSelectedAsync(IReadOnlyList<string>? previousRepoIds)
@@ -1248,8 +1351,11 @@ public sealed class InboxDesktopState : IDisposable
 
         try
         {
-            var routed = await _inbox.RouteToBacklogAsync(item.Id);
+            var schedule = ScheduleOf(item.Id);
+            var routed = await _inbox.RouteToBacklogAsync(item.Id, schedule: schedule.IsEmpty ? null : schedule);
             if (Report(routed)) return;
+
+            _routeSchedules.Remove(item.Id);
 
             _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Move to backlog", item.Id, DeleteTasks: true, DeferralOf(item), previousRepoIds));
 
@@ -1265,13 +1371,37 @@ public sealed class InboxDesktopState : IDisposable
     }
 
     /// <summary>
-    /// To Brain: writes the selected item into the person's Brain as a note and
-    /// moves on, as a route to the backlog does. A Brain that is not set up, or
-    /// cannot be written, is said in a toast in the Brain's own words, and the
-    /// item stays where it was. Its undo returns the item to the queue; the note
-    /// is the person's file now, in their own folder, and stays.
+    /// To Brain into the Brain's inbox area: what the destination picker starts
+    /// on, and what taking the <i>Keep as knowledge</i> suggestion does.
     /// </summary>
-    public async Task RouteToBrainAsync()
+    public Task RouteToBrainAsync() => RouteToBrainAsync(folder: null);
+
+    /// <summary>
+    /// To Brain: writes the selected item into the person's Brain as a note — into
+    /// <paramref name="folder"/>, a destination the picker listed
+    /// (<see cref="LoadBrainDestinationsAsync"/>), or the inbox area when it is
+    /// null — and moves on, as a route to the backlog does. The toast names the
+    /// area and the note. A Brain that is not set up, or cannot be written, is said
+    /// in a toast in the Brain's own words, and the item stays where it was. Its
+    /// undo returns the item to the queue; the note is the person's file now, in
+    /// their own folder, and stays.
+    /// </summary>
+    public Task RouteToBrainAsync(string? folder) => RouteToBrainAsync(folder, ToBrainLabel);
+
+    /// <summary>
+    /// Someday (<c>s</c>, local ADR 0054): To Brain with the Brain's
+    /// <c>someday</c> area chosen, in one press — no picker. Everything else is
+    /// To Brain's: routed once, the toast names the area and the note, the undo
+    /// returns the item and leaves the note. A Brain whose areas have no
+    /// <c>someday</c> is not asked (<see cref="SomedayUnavailableReason"/>), and
+    /// one that refuses all the same says so in its own words while the item stays
+    /// where it was.
+    /// </summary>
+    public Task RouteToSomedayAsync() => SomedayUnavailableReason is null
+        ? RouteToBrainAsync(InboxBrainDestinationDto.SomedayFolder, SomedayLabel)
+        : Task.CompletedTask;
+
+    private async Task RouteToBrainAsync(string? folder, string label)
     {
         if (SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
 
@@ -1282,14 +1412,14 @@ public sealed class InboxDesktopState : IDisposable
 
         try
         {
-            var routed = await _inbox.RouteToBrainAsync(item.Id);
+            var routed = await _inbox.RouteToBrainAsync(item.Id, string.IsNullOrWhiteSpace(folder) ? null : folder);
             if (Report(routed, BrainErrorTestId)) return;
 
-            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToBrain, ToBrainLabel, item.Id, DeleteTasks: false, DeferralOf(item)));
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToBrain, label, item.Id, DeleteTasks: false, DeferralOf(item)));
 
             await ReloadAsync();
             if (TriageMode) AdvancePast(before, item.Id);
-            _toasts?.Publish(ToastMessage.Info($"Kept \"{ItemTitle(item)}\" in your Brain as {routed.Value.NotePath}.", "inbox-brain-routed"));
+            _toasts?.Publish(ToastMessage.Info(BrainRoutedMessage(ItemTitle(item), routed.Value), "inbox-brain-routed"));
         }
         finally
         {
@@ -1298,13 +1428,194 @@ public sealed class InboxDesktopState : IDisposable
         }
     }
 
+    /// <summary>
+    /// Done now (<c>n</c>, local ADR 0054 — the two-minute rule): routes the
+    /// selected item to one task created already ticked, Done and
+    /// <c>completed:</c> today, carrying the item's id as its provenance, and
+    /// moves on as Move to backlog does. A due date or My Day chosen beside Move
+    /// to backlog is not given to it: the work is over. Its undo deletes that task
+    /// while it is still Done, and returns the item to the queue.
+    /// </summary>
+    public async Task DoneNowAsync()
+    {
+        if (SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
+
+        var before = VisibleItems;
+        RememberPosition();
+        RouteRunning = true;
+        Changed?.Invoke();
+
+        try
+        {
+            var routed = await _inbox.RouteDoneNowAsync(item.Id);
+            if (Report(routed)) return;
+
+            _routeSchedules.Remove(item.Id);
+
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, DoneNowLabel, item.Id, DeleteTasks: true, DeferralOf(item)) { MadeDone = true });
+
+            await ReloadAsync();
+            if (TriageMode) AdvancePast(before, item.Id);
+            Routed?.Invoke(routed.Value);
+            _toasts?.Publish(ToastMessage.Info($"Recorded \"{ItemTitle(item)}\" as done.", DoneNowToastTestId));
+        }
+        finally
+        {
+            RouteRunning = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// Waiting for (<c>w</c>, local ADR 0054 §4): routes the selected item as Move
+    /// to backlog does — one task per repository, with the due date and My Day
+    /// chosen beside it — every task waiting on <paramref name="who"/>, free
+    /// text, with the optional <paramref name="followUpOn"/> day to chase them.
+    /// Moves on, and undoes, as Move to backlog does. A blank who, or one holding
+    /// a backtick, is not sent: the dialog asking for it keeps its button off
+    /// until the name can be written. In triage the repositories ticked there are
+    /// written first, as triage's Move to backlog writes them, and the undo puts
+    /// back the ones the item had.
+    /// </summary>
+    /// <returns>Whether the item was routed, so the dialog knows to close.</returns>
+    public async Task<bool> WaitingForAsync(string who, DateOnly? followUpOn)
+    {
+        var waitingFor = new InboxWaitingForDto(who ?? string.Empty, followUpOn);
+        if (!waitingFor.IsValid || SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return false;
+
+        IReadOnlyList<string>? previousRepoIds = null;
+        var picked = TriageRepositories;
+        if (TriageMode && !SameRepositories(picked, item.RepoIds))
+        {
+            if (!await TryAssignRepositoriesAsync(item.Id, picked)) return false;
+            previousRepoIds = item.RepoIds;
+        }
+
+        var before = VisibleItems;
+        RememberPosition();
+        RouteRunning = true;
+        Changed?.Invoke();
+
+        try
+        {
+            var schedule = ScheduleOf(item.Id);
+            var routed = await _inbox.RouteWaitingForAsync(item.Id, waitingFor, schedule.IsEmpty ? null : schedule);
+            if (Report(routed)) return false;
+
+            _routeSchedules.Remove(item.Id);
+
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, WaitingForLabel, item.Id, DeleteTasks: true, DeferralOf(item), previousRepoIds));
+
+            await ReloadAsync();
+            if (TriageMode) AdvancePast(before, item.Id);
+            Routed?.Invoke(routed.Value);
+            _toasts?.Publish(ToastMessage.Info($"\"{ItemTitle(item)}\" is waiting on {waitingFor.Who.Trim()}.", WaitingForToastTestId));
+            return true;
+        }
+        finally
+        {
+            RouteRunning = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>Waiting for's name, on its buttons, its dialog and its undo.</summary>
+    public const string WaitingForLabel = "Waiting for";
+
+    /// <summary>What the Waiting for buttons say on hover: the act and its key.</summary>
+    public const string WaitingForTitle = "Someone else has the next step: a task that waits on them (w)";
+
+    /// <summary>The toast a Waiting for publishes.</summary>
+    public const string WaitingForToastTestId = "inbox-waiting-for-routed";
+
+    /// <summary>The Brain's destinations as last listed — each time the pane is
+    /// opened or shown again, and each time the destination picker opens — or
+    /// null before the first.</summary>
+    private IReadOnlyList<InboxBrainDestinationDto>? _brainDestinations;
+
+    /// <summary>
+    /// Why Someday cannot be taken now, or null while it can: To Brain's own
+    /// reason while the Brain cannot take a note, or — for a Brain whose areas,
+    /// as last listed, have no <c>someday</c> (one that declares its own) — that
+    /// it has none. Asked on render, so the buttons, <c>s</c> and the outcome card
+    /// are disabled with the reason rather than offered and then refused.
+    /// </summary>
+    public string? SomedayUnavailableReason =>
+        ToBrainUnavailableReason
+        ?? (_brainDestinations is { Count: > 0 } listed
+            && !listed.Any(destination => string.Equals(destination.Folder, InboxBrainDestinationDto.SomedayFolder, StringComparison.OrdinalIgnoreCase))
+                ? NoSomedayArea
+                : null);
+
+    /// <summary>What Someday says while the Brain has no <c>someday</c> area.</summary>
+    public const string NoSomedayArea = "Your Brain has no someday area. Declare one in its CONVENTIONS.md to keep possibilities there.";
+
+    /// <summary>Someday's name, on its button and its undo.</summary>
+    public const string SomedayLabel = "Someday";
+
+    /// <summary>What the Someday buttons say on hover: the act and its key.</summary>
+    public const string SomedayTitle = "Keep it in your Brain's someday area, not committed to (s)";
+
+    /// <summary>Done now's name, on its button and its undo.</summary>
+    public const string DoneNowLabel = "Done now";
+
+    /// <summary>What the Done now buttons say on hover: the act and its key.</summary>
+    public const string DoneNowTitle = "Done in two minutes: record it as a task already ticked (n)";
+
+    /// <summary>The toast a Done now publishes.</summary>
+    public const string DoneNowToastTestId = "inbox-done-now-routed";
+
+    /// <summary>What the toast after a route To Brain says: the item, the area it
+    /// went into, and the note it became.</summary>
+    internal static string BrainRoutedMessage(string title, InboxBrainRoutedDto routed) =>
+        $"Kept \"{title}\" in your Brain's {routed.Area} area as {routed.NotePath}.";
+
+    /// <summary>
+    /// Where To Brain can file the selected item, in the order its destination
+    /// picker lists them: the Brain's inbox area first — the one the picker starts
+    /// on — then its other areas in tab order and its projects. Read each time the
+    /// picker opens, so an area or a project note made a moment ago is offered.
+    /// With nothing listed — a Brain that answers none — the inbox area alone is,
+    /// so the picker always has today's route on it.
+    /// </summary>
+    public async Task<IReadOnlyList<InboxBrainDestinationDto>> LoadBrainDestinationsAsync()
+    {
+        var listed = await _inbox.ListBrainDestinationsAsync();
+        _brainDestinations = listed;
+        if (listed.Count == 0) return [DefaultBrainDestination];
+
+        var inbox = listed.FirstOrDefault(destination => destination.IsInbox);
+        return inbox is null || ReferenceEquals(inbox, listed[0])
+            ? listed
+            : [inbox, .. listed.Where(destination => !ReferenceEquals(destination, inbox))];
+    }
+
+    /// <summary>Lists the Brain's destinations for <see cref="SomedayUnavailableReason"/>
+    /// when the pane opens or is shown again. A Brain that cannot be listed
+    /// leaves the last answer standing rather than failing the pane's open: the
+    /// route itself still refuses in the Brain's own words.</summary>
+    private async Task RefreshBrainDestinationsAsync()
+    {
+        try
+        {
+            await LoadBrainDestinationsAsync();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    /// <summary>The picker's one row when the Brain lists no destination: the
+    /// inbox area, whichever folder the Brain names it.</summary>
+    internal static InboxBrainDestinationDto DefaultBrainDestination { get; } = new(string.Empty, "Inbox", IsInbox: true);
+
     /// <summary>To Brain's name, on its button and its undo.</summary>
     public const string ToBrainLabel = "To Brain";
 
     /// <summary>What the To Brain buttons say on hover: the act and its key, or —
     /// while the Brain cannot take a note — why not, in the words the route would
     /// refuse in.</summary>
-    public const string ToBrainTitle = "Keep it as a note in your Brain (b)";
+    public const string ToBrainTitle = "Keep it as a note in your Brain, in the area you pick (b)";
 
     /// <summary>Why To Brain cannot be taken now, or null while it can. Asked on
     /// render, so a Brain folder set a moment ago enables the button at once.</summary>
@@ -1326,15 +1637,18 @@ public sealed class InboxDesktopState : IDisposable
 
         try
         {
-            var routed = await _inbox.CreatePlanAsync(item.Id);
+            // Asked only while the Brain can take a note: the checkbox is disabled
+            // otherwise, and a choice made before the Brain went away is not one
+            // the reader can see any more.
+            var startProjectNote = StartProjectNote && ToBrainUnavailableReason is null;
+            var routed = await _inbox.CreatePlanAsync(item.Id, startProjectNote);
             if (Report(routed)) return;
 
+            StartProjectNote = false;
             _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Create plan", item.Id, DeleteTasks: true, DeferralOf(item)));
 
             await ReloadAsync();
-            _toasts?.Publish(ToastMessage.Info(
-                $"Planned {Counted(routed.Value.TaskIds.Count, "entry", "entries")} from \"{item.Title}\".",
-                "inbox-plan-created"));
+            _toasts?.Publish(ToastMessage.Info(PlanCreatedMessage(item.Title, routed.Value), "inbox-plan-created"));
             Routed?.Invoke(routed.Value);
         }
         finally
@@ -1343,6 +1657,33 @@ public sealed class InboxDesktopState : IDisposable
             Changed?.Invoke();
         }
     }
+
+    /// <summary>Whether the next Create plan also starts a project note in the
+    /// Brain — <b>Also start a project note</b>, off until the reader ticks it, and
+    /// off again once a plan is made.</summary>
+    public bool StartProjectNote { get; private set; }
+
+    /// <summary>Ticks or clears <b>Also start a project note</b>.</summary>
+    public void SetStartProjectNote(bool on)
+    {
+        if (StartProjectNote == on) return;
+
+        StartProjectNote = on;
+        Changed?.Invoke();
+    }
+
+    /// <summary>The label of the Create plan option that starts a project note.</summary>
+    public const string StartProjectNoteLabel = "Also start a project note";
+
+    /// <summary>What the option says on hover while the Brain can take a note.</summary>
+    public const string StartProjectNoteTitle = "Write a note for the plan in your Brain's projects area, and link the plan to it";
+
+    /// <summary>What the toast after Create plan says: the entries, and the project
+    /// note when one was started.</summary>
+    internal static string PlanCreatedMessage(string title, InboxRoutedDto routed) =>
+        routed.ProjectNotePath is { Length: > 0 } note
+            ? $"Planned {Counted(routed.TaskIds.Count, "entry", "entries")} from \"{title}\", with its project note {note}."
+            : $"Planned {Counted(routed.TaskIds.Count, "entry", "entries")} from \"{title}\".";
 
     // --- Triage, one item at a time ---------------------------------------------
     //
@@ -1402,7 +1743,13 @@ public sealed class InboxDesktopState : IDisposable
             plan = members.Count >= 2 ? plan with { ItemIds = members } : null;
         }
 
-        var current = advice with { Duplicate = duplicate, Plan = plan };
+        var outcome = _dismissedTriageCards.Contains((itemId, InboxTriageCardKind.Outcome)) ? null : advice.Outcome;
+
+        // A Waiting for card must name who: one that names no one the route can
+        // write is not shown, whatever advisor sent it.
+        if (outcome is { Outcome: InboxClarifyOutcome.WaitingFor } waitingFor && !new InboxWaitingForDto(waitingFor.Who ?? string.Empty).IsValid) outcome = null;
+
+        var current = advice with { Duplicate = duplicate, Plan = plan, Outcome = outcome };
         return current.HasCards ? current : null;
     }
 
@@ -1526,6 +1873,23 @@ public sealed class InboxDesktopState : IDisposable
         // rather than opening an empty screen.
         if (pass is not null)
         {
+            // Someday cannot be taken while the Brain has no someday area or
+            // cannot take a note, so the pass does not offer it either: those
+            // items are left for the reader rather than stopping Apply.
+            if (SomedayUnavailableReason is not null && pass.Outcomes.Any(outcome => outcome.Outcome == InboxClarifyOutcome.Someday))
+            {
+                var proposed = pass;
+                var dropped = proposed.Outcomes
+                    .Where(outcome => outcome.Outcome == InboxClarifyOutcome.Someday && !proposed.Unplaced.Contains(outcome.ItemId))
+                    .Select(outcome => outcome.ItemId)
+                    .ToList();
+                pass = proposed with
+                {
+                    Outcomes = [.. proposed.Outcomes.Where(outcome => outcome.Outcome != InboxClarifyOutcome.Someday)],
+                    Unplaced = [.. proposed.Unplaced, .. dropped],
+                };
+            }
+
             var draft = new InboxTriagePassDraft(pass, Items, Lists);
             if (draft.IsEmpty) _triagePassError = NothingProposed;
             else _triagePassDraft = draft;
@@ -1736,6 +2100,15 @@ public sealed class InboxDesktopState : IDisposable
                 var previous = before.TryGetValue(filing.ItemId, out var filed) ? filed.ListId : null;
                 if (previous != filing.ListId) _undo.Record(new InboxMoveUndoStep("Move to list", filing.ItemId, previous));
                 break;
+            case InboxTriageOutcomeDecision { Outcome: InboxClarifyOutcome.Someday } someday:
+                _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToBrain, SomedayLabel, someday.ItemId, DeleteTasks: false, Deferral(someday.ItemId)));
+                break;
+            case InboxTriageOutcomeDecision { Outcome: InboxClarifyOutcome.WaitingFor } waiting:
+                _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, WaitingForLabel, waiting.ItemId, DeleteTasks: true, Deferral(waiting.ItemId)));
+                break;
+            case InboxTriageOutcomeDecision doneNow:
+                _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, DoneNowLabel, doneNow.ItemId, DeleteTasks: true, Deferral(doneNow.ItemId)) { MadeDone = true });
+                break;
         }
     }
 
@@ -1883,9 +2256,10 @@ public sealed class InboxDesktopState : IDisposable
         {
             if (!TriageMode || SelectedItem is not { } item || !IsUndecided(item) || TriageAdvice is not { } advice) return [];
 
-            var cards = new List<InboxTriageCardKind>(2);
+            var cards = new List<InboxTriageCardKind>(3);
             if (advice.Duplicate is not null) cards.Add(InboxTriageCardKind.Duplicate);
             if (advice.Plan is not null) cards.Add(InboxTriageCardKind.Plan);
+            if (advice.Outcome is not null) cards.Add(InboxTriageCardKind.Outcome);
             return cards;
         }
     }
@@ -1916,6 +2290,30 @@ public sealed class InboxDesktopState : IDisposable
             case InboxTriageCardKind.Plan:
                 await MakeTriagePlanAsync();
                 break;
+
+            case InboxTriageCardKind.Outcome:
+                await TakeTriageOutcomeAsync();
+                break;
+        }
+    }
+
+    /// <summary>The outcome card's main act: Someday or Done now, the decision
+    /// the card names, taken as its button and key take it. Waiting for decides
+    /// nothing yet: it asks for the Waiting for dialog (<see cref="WaitingForAsked"/>)
+    /// filled with the name the model read.</summary>
+    public Task TakeTriageOutcomeAsync()
+    {
+        switch (TriageAdvice?.Outcome)
+        {
+            case { Outcome: InboxClarifyOutcome.Someday }:
+                return RouteToSomedayAsync();
+            case { Outcome: InboxClarifyOutcome.DoneNow }:
+                return DoneNowAsync();
+            case { Outcome: InboxClarifyOutcome.WaitingFor, Who: { } who }:
+                if (SelectedItem is { } item && IsOpen(item) && !RoutingInFlight) WaitingForAsked?.Invoke(who);
+                return Task.CompletedTask;
+            default:
+                return Task.CompletedTask;
         }
     }
 
@@ -2157,7 +2555,10 @@ public sealed class InboxDesktopState : IDisposable
             InboxDeferUndoStep => "Deferred",
             InboxMoveUndoStep => item?.ListId is { } listId ? FindList(listId)?.Name ?? "a list" : "Inbox",
             InboxRouteUndoStep { Kind: InboxDecisionKind.LinkToTask } => "Linked to a task",
+            InboxRouteUndoStep { Kind: InboxDecisionKind.ToBrain, Label: SomedayLabel } => "Someday",
             InboxRouteUndoStep { Kind: InboxDecisionKind.ToBrain } => "Brain",
+            InboxRouteUndoStep { MadeDone: true } => "Done",
+            InboxRouteUndoStep { Kind: InboxDecisionKind.MoveToBacklog, Label: WaitingForLabel } => "Waiting for",
             InboxRouteUndoStep => "Backlog",
             _ => step.Label,
         };
@@ -2322,12 +2723,15 @@ public sealed class InboxDesktopState : IDisposable
     /// <summary>Whether the inbox-zero screen takes the place of the rows and
     /// the detail: the unfiled Inbox is open, nothing in it is still waiting,
     /// and the session has decided something. Not while a route, a bulk act or
-    /// a list's confirmation is under way — their panels live in the rows.</summary>
+    /// a list's confirmation is under way — their panels live in the rows. Nor
+    /// while the Brain's inbox area still holds notes: the inbox is only clear when
+    /// both are (features.md#inbox-zero).</summary>
     public bool ShowsInboxZero =>
         Loaded
         && !DeferredSelected
         && SelectedListId is null
         && InboxCount == 0
+        && BrainUnfiledCount == 0
         && SessionDecisionTotal > 0
         && !SelectionMode
         && !RoutingInFlight
@@ -2573,6 +2977,7 @@ public sealed class InboxDesktopState : IDisposable
         InboxDeferUndoStep { WasDeferred: true } defer => _inbox.DeferAsync(defer.ItemId, defer.PreviousUntil),
         InboxDeferUndoStep defer => _inbox.ResurfaceAsync(defer.ItemId),
         InboxMoveUndoStep move => _inbox.MoveToListAsync(move.ItemId, move.PreviousListId),
+        InboxRouteUndoStep { MadeDone: true } doneNow => _inbox.ReturnDoneNowToInboxAsync(doneNow.ItemId),
         InboxRouteUndoStep route => _inbox.ReturnToInboxAsync(route.ItemId, route.DeleteTasks),
         _ => throw new InvalidOperationException($"No way back for {step.GetType().Name}."),
     };
@@ -3510,6 +3915,9 @@ public enum InboxTriageCardKind
 
     /// <summary>"Group into a plan".</summary>
     Plan,
+
+    /// <summary>"Someday", "Done now" or "Waiting on" (local ADR 0054).</summary>
+    Outcome,
 }
 
 /// <summary>The session's latest decision as triage's "Just decided" reads it:

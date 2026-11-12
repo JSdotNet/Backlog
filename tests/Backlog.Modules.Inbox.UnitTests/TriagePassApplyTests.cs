@@ -24,6 +24,7 @@ public sealed class TriagePassApplyTests : IDisposable
 
     private readonly InMemoryInboxStore _store = new();
     private readonly FakeBacklogTarget _target = new();
+    private readonly RecordingBrain _brain = new();
     private readonly ServiceProvider _provider;
 
     public TriagePassApplyTests()
@@ -33,6 +34,7 @@ public sealed class TriagePassApplyTests : IDisposable
             .AddSingleton<IInboxItemRepository>(_store)
             .AddSingleton<IInboxOrganizerRepository>(_store)
             .AddSingleton<IInboxBacklogTarget>(_target)
+            .AddSingleton<IInboxBrainTarget>(_brain)
             .AddInboxModule()
             .BuildServiceProvider();
     }
@@ -357,6 +359,112 @@ public sealed class TriagePassApplyTests : IDisposable
         Assert.Empty(_target.BatchRequests);
         Assert.Empty(_target.Requests);
         Assert.Empty(_store.ItemWrites);
+    }
+
+    /// <summary>Someday is To Brain into the someday area, and Done now one
+    /// entry ticked today: the acts the decision bar takes (local ADR 0054).</summary>
+    [Fact]
+    public async Task Someday_and_done_now_go_through_the_acts_the_decision_bar_takes()
+    {
+        var someday = Seed("Learn the cello");
+        var doneNow = Seed("Reply to Sam", repoIds: ["acme/web", "acme/sync"]);
+
+        var outcome = await ApplyAsync(
+            new InboxTriageOutcomeDecision(someday.Title, someday.Id, InboxClarifyOutcome.Someday),
+            new InboxTriageOutcomeDecision(doneNow.Title, doneNow.Id, InboxClarifyOutcome.DoneNow));
+
+        Assert.Null(outcome.Failure);
+        Assert.Equal(2, outcome.Applied.Count);
+
+        var note = Assert.Single(_brain.Requests);
+        Assert.Equal(someday.Id, note.InboxItemId);
+        Assert.Equal(InboxBrainDestinationDto.SomedayFolder, note.Folder);
+        Assert.NotNull(outcome.Applied[0].Brain);
+        Assert.Equal(RoutingDomain.Devbook, someday.Routing!.Domain);
+
+        var request = Assert.Single(_target.Requests);
+        Assert.Equal(doneNow.Id, request.InboxItemId);
+        Assert.NotNull(request.CompletedOn);
+        Assert.Equal(["acme/web"], request.RepoIds);
+        Assert.Single(outcome.Applied[1].Routed!.TaskIds);
+        Assert.Equal(InboxStatus.Triaged, doneNow.Status);
+    }
+
+    /// <summary>Waiting for goes through the w decision's route: a task that
+    /// waits on the name the reader left, with no follow-up date, due date or
+    /// My Day (local ADR 0054 §4).</summary>
+    [Fact]
+    public async Task Waiting_for_goes_through_the_route_w_takes_with_the_name_and_no_dates()
+    {
+        var item = Seed("Hear back from Sam", repoIds: ["acme/web"]);
+
+        var outcome = await ApplyAsync(
+            new InboxTriageOutcomeDecision(item.Title, item.Id, InboxClarifyOutcome.WaitingFor) { Who = "Sam" });
+
+        Assert.Null(outcome.Failure);
+        var applied = Assert.Single(outcome.Applied);
+        Assert.Single(applied.Routed!.TaskIds);
+
+        var request = Assert.Single(_target.Requests);
+        Assert.Equal(item.Id, request.InboxItemId);
+        Assert.Equal(new InboxWaitingForDto("Sam"), request.WaitingFor);
+        Assert.Null(request.CompletedOn);
+        Assert.Equal(InboxStatus.Triaged, item.Status);
+    }
+
+    [Fact]
+    public async Task A_waiting_for_with_no_name_stops_apply_and_names_the_item()
+    {
+        var item = Seed("Hear back");
+        var next = Seed("Archive me");
+
+        var outcome = await ApplyAsync(
+            new InboxTriageOutcomeDecision(item.Title, item.Id, InboxClarifyOutcome.WaitingFor) { Who = " " },
+            new InboxTriageArchiveDecision(next.Title, next.Id));
+
+        Assert.Empty(outcome.Applied);
+        Assert.Equal(item.Id, outcome.Failure!.ItemId);
+        Assert.Equal(InboxErrors.WaitingForWhoRequiredCode, outcome.Failure.Error.Code);
+        Assert.StartsWith("Couldn't move \"Hear back\" to the backlog as waiting for:", outcome.Failure.Sentence, StringComparison.Ordinal);
+        Assert.Empty(_target.Requests);
+        Assert.Null(item.Routing);
+    }
+
+    [Fact]
+    public async Task A_someday_the_brain_refuses_stops_apply_and_names_the_item()
+    {
+        _brain.RefuseWith = "Your Brain has no someday area.";
+        var item = Seed("Learn the cello");
+        var next = Seed("Archive me");
+
+        var outcome = await ApplyAsync(
+            new InboxTriageOutcomeDecision(item.Title, item.Id, InboxClarifyOutcome.Someday),
+            new InboxTriageArchiveDecision(next.Title, next.Id));
+
+        Assert.Empty(outcome.Applied);
+        Assert.NotNull(outcome.Failure);
+        Assert.Equal(item.Id, outcome.Failure.ItemId);
+        Assert.Equal(1, outcome.NotTried);
+        Assert.StartsWith("Couldn't keep \"Learn the cello\" for someday: Your Brain has no someday area.", outcome.Failure.Sentence, StringComparison.Ordinal);
+        Assert.Null(item.Routing);
+    }
+
+    private sealed class RecordingBrain : IInboxBrainTarget
+    {
+        public List<InboxBrainNoteRequestDto> Requests { get; } = [];
+
+        public string? RefuseWith { get; set; }
+
+        public string? UnavailableReason => null;
+
+        public Task<Result<InboxBrainNoteWrittenDto>> WriteNoteAsync(InboxBrainNoteRequestDto request, CancellationToken cancellationToken = default)
+        {
+            Requests.Add(request);
+
+            return Task.FromResult(RefuseWith is { } refusal
+                ? Result.Failure<InboxBrainNoteWrittenDto>(InboxErrors.BrainUnavailable(refusal))
+                : Result.Success(new InboxBrainNoteWrittenDto((request.Folder ?? "_inbox") + "/note.md", "Someday")));
+        }
     }
 
     private Task<InboxTriagePassOutcome> ApplyAsync(params InboxTriageDecision[] decisions) =>

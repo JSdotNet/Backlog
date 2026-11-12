@@ -16,6 +16,11 @@
 @using global::Backlog.UI.Components.Goals
 @using global::Backlog.UI.Components.Icons
 @using global::Backlog.UI.Components.Integrations
+@* BrainNoteChip and the #brain: address its gathered Brain notes are keyed by
+   (local ADR 0053): the library's chip and the shared kernel's spelling, never a
+   Brain project. *@
+@using global::Backlog.UI.Components.Brain
+@using BrainNoteAddress = global::Backlog.SharedKernel.BrainNoteAddress
 @implements IDisposable
 
 <Modal Open="@Open"
@@ -178,15 +183,16 @@
                 </div>
             }
 
-            @* Free-typed chapter references — a path, or a path and a heading slug.
-               Stored as written and never resolved, so a reference to something not yet
+            @* Free-typed chapter references — a path, or a path and a heading slug, or a
+               note in the owner's Brain written #brain:<path> (local ADR 0053). Stored
+               as written and never resolved, so a reference to something not yet
                written is an ordinary state rather than an error. *@
             <TagMultiSelect Label="Knowledge"
                             Options="@KnowledgeOptions"
                             SelectedValues="@_knowledge"
                             SelectedValuesChanged="values => _knowledge = values"
                             AllowCreate="true"
-                            Placeholder="e.g. .devbook/domain/tasks/domain.md#task"
+                            Placeholder="e.g. .devbook/domain/tasks/domain.md#task or #brain:projects/sync.md"
                             TestId="roadmap-item-knowledge-input" />
 
             @if (!IsNew && DependencyOptions.Count > 0)
@@ -262,6 +268,23 @@
                                 @foreach (var link in Rollup.KnowledgeChapters)
                                 {
                                     @GatheredRow(link)
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @* The owner's Brain notes (local ADR 0053), apart from the repository's
+                       chapters: they are read from this device's Brain alone. Each is a
+                       Brain chip; a resolved one opens the note in the Devbook pane, an
+                       unresolved one shows its address and says why it does not open. *@
+                    @if (Rollup.BrainNotes.Count > 0)
+                    {
+                        <div class="roadmap-gathered__group">
+                            <p class="roadmap-gathered__group-title">Brain notes</p>
+                            <ul class="roadmap-gathered__list" data-testid="roadmap-item-linked-brain">
+                                @foreach (var link in Rollup.BrainNotes)
+                                {
+                                    @BrainRow(link)
                                 }
                             </ul>
                         </div>
@@ -494,6 +517,12 @@
     [Parameter]
     public EventCallback<Guid> OnOpenTasks { get; set; }
 
+    /// <summary>Raised with a gathered Brain note — <c>&lt;path&gt;[#slug]</c> inside
+    /// the Brain — when the person presses its chip, for the host to open it in the
+    /// Devbook pane, Brain side. With no handler the chips are text.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenBrainNote { get; set; }
+
     /// <summary>Raised with the item's id when the person completes work no task carries.
     /// The band records today and closes the dialog, or refuses through
     /// <see cref="Refuse"/>.</summary>
@@ -585,6 +614,59 @@
                 <span class="roadmap-gathered__unestimated">not estimated</span>
             }
         </li>;
+
+    /// <summary>One gathered Brain note: a Brain chip in place of the title, then the
+    /// same origin and effort a gathered row shows. A chip opens only when it resolved
+    /// and the host can open it; an unresolved one says why, in the reason the gathering
+    /// found.</summary>
+    private RenderFragment BrainRow(RoadmapGatheredLink link) =>
+        @<li class="roadmap-gathered__item">
+            <BrainNoteChip Reference="@link.Key"
+                           Title="@link.Title"
+                           Unresolved="@(link.Unresolved || !BrainNoteAddress.TryParse(link.Key, out _))"
+                           Problem="@BrainProblem(link)"
+                           OnOpen="@(OnOpenBrainNote.HasDelegate ? BrainChipPressed : default(EventCallback<string>))"
+                           Disabled="@HasUnsavedChanges"
+                           DisabledReason="@OpenTasksWaitReason"
+                           CssClass="roadmap-gathered__title"
+                           TestId="roadmap-item-brain-note" />
+            <Badge Kind="origin" Slug="@OriginSlug(link.Origin)" CssClass="roadmap-gathered__origin">@OriginLabel(link.Origin)</Badge>
+            @if (link.Effort is int points)
+            {
+                <Badge Kind="effort" CssClass="roadmap-gathered__points">@points @Points(points)</Badge>
+            }
+            else
+            {
+                <span class="roadmap-gathered__unestimated">not estimated</span>
+            }
+        </li>;
+
+    /// <summary>
+    /// Why a gathered Brain note does not open, in the library chip's words for the
+    /// reason the gathering found: no Brain readable here, a Brain that holds no such
+    /// note, or no Brain address at all. Null for a note that resolved.
+    /// </summary>
+    private static string? BrainProblem(RoadmapGatheredLink link)
+    {
+        var parsed = BrainNoteAddress.TryParse(link.Key, out var address);
+
+        return link.UnresolvedBecause switch
+        {
+            RoadmapUnresolvedReason.NoBrain => BrainNoteChip.NotInYourBrain,
+            RoadmapUnresolvedReason.NotInBrain => BrainNoteChip.NotInThisBrain(address?.Chapter ?? link.Key),
+            RoadmapUnresolvedReason.NotAnAddress => BrainNoteChip.NotABrainAddress,
+            null when !parsed => BrainNoteChip.NotABrainAddress,
+            null => null
+        };
+    }
+
+    /// <summary>A resolved chip pressed: the note's path inside the Brain, handed to the
+    /// host.</summary>
+    private EventCallback<string> BrainChipPressed =>
+        EventCallback.Factory.Create<string>(this, reference =>
+            BrainNoteAddress.TryParse(reference, out var address)
+                ? OnOpenBrainNote.InvokeAsync(address.Chapter)
+                : Task.CompletedTask);
 
     private static string OriginSlug(RollupOrigin origin) => origin switch
     {

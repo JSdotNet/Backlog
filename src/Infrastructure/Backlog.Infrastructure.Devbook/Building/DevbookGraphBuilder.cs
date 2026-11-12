@@ -61,7 +61,7 @@ internal static partial class DevbookGraphBuilder
                 // A cloud-only file is a node by its name alone until it is
                 // hydrated (DevbookBuildFiles.IsCloudOnly).
                 var markdown = DevbookBuildFiles.ReadHydratedText(repositoryRoot, relativePath);
-                var document = markdown is null ? new DevbookParsedDocument(null, null, []) : DevbookMarkdown.Parse(markdown);
+                var document = markdown is null ? new DevbookParsedDocument(null, null, []) : DevbookMarkdown.Parse(markdown, layout.Profile.BlockListFields);
 
                 if (markdown is not null) documents.Add(new DevbookC4Graph.Document(relativePath, markdown, document.Chapters));
 
@@ -345,6 +345,8 @@ internal static partial class DevbookGraphBuilder
     /// fields through.</summary>
     private sealed class NodeFields(DevbookGraphNode node, IReadOnlyDictionary<string, object?>? meta) : IDevbookNodeFields
     {
+        public bool IsFile => node.Type == "file";
+
         public bool Has(string field) => meta?.GetValueOrDefault(field) is not null;
 
         public string? Scalar(string field) =>

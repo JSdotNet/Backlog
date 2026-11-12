@@ -4,6 +4,7 @@ using Backlog.Infrastructure.Devbook.Building;
 using Backlog.Infrastructure.Devbook.Scenarios;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.Devbook;
 
@@ -158,6 +159,15 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
         DevbookDatabase? database,
         CancellationToken cancellationToken)
     {
+        // A note in the owner's Brain (local ADR 0053 §1 and §3) is never looked up
+        // in a repository's devbook: this resolver cannot read a Brain, so nobody
+        // looked. A host that composes a Brain answers it with an adapter of its
+        // own, around this one.
+        if (BrainNoteAddress.Is(reference))
+        {
+            return ResolvedDevbookReference.BrainNote(reference, DevbookReferenceState.Unverified);
+        }
+
         if (Parse(reference) is not { } parsed)
         {
             return new ResolvedDevbookReference(reference, reference, null, DevbookReferenceState.UnknownPage, reference, null, null);

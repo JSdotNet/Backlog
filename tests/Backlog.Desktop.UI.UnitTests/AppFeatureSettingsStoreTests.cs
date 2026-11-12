@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 
 using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
@@ -112,6 +112,7 @@ public sealed class AppFeatureSettingsStoreTests
                 // Product areas
                 TasksFeatures.Tasks,
                 AppFeatures.InboxPane,
+                Backlog.Modules.Progress.Abstractions.ProgressFeatures.WeeklyReview,
                 RoadmapFeatures.Roadmap,
                 DevbookFeatures.RepositoryDevbook,
                 DevbookFeatures.ArchifyDiagrams,

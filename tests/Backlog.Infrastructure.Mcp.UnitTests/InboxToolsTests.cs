@@ -10,9 +10,10 @@ using ModelContextProtocol;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// <c>list_inbox_items</c>, <c>read_inbox_item</c> and <c>archive_inbox_item</c>: the filters,
-/// the shape of each answer, and that an archive is the module's own and never a delete.
-/// The same three over the real module and SQLite are in
+/// <c>list_inbox_items</c>, <c>read_inbox_item</c>, <c>archive_inbox_item</c> and
+/// <c>capture_to_inbox</c>: the filters, the shape of each answer, that an archive is the
+/// module's own and never a delete, and that a capture is Add by hand's own.
+/// The same tools over the real module and SQLite are in
 /// <c>Backlog.Desktop.UI.UnitTests/InboxMcpToolsOverSqliteTests</c>.
 /// </summary>
 public class InboxToolsTests
@@ -134,6 +135,97 @@ public class InboxToolsTests
         Assert.Contains("inbox.item.invalid_transition", refused.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Capture_goes_through_add_by_hand_as_a_manual_capture_and_answers_its_id()
+    {
+        var inbox = FakeInbox.Over();
+
+        var answer = await new InboxTools(inbox).CaptureAsync(
+            "Call Anna about the invoice", "Before Friday.", "https://example.test/invoice/42", Cancel);
+
+        var fake = (FakeInbox)(object)inbox;
+        var call = Assert.Single(fake.Captures);
+        Assert.Equal(("Call Anna about the invoice", "Before Friday.", "manual", "https://example.test/invoice/42"), call);
+        Assert.Equal(["CaptureAsync"], fake.Writes);
+
+        var captured = Assert.Single(fake.Items);
+        Assert.Equal(captured.Id, answer.Id);
+        Assert.Equal("unprocessed", answer.Status);
+        Assert.Equal("manual", answer.Channel);
+        Assert.Equal("Call Anna about the invoice", answer.Title);
+    }
+
+    [Fact]
+    public async Task Capture_with_a_title_alone_sends_no_notes_and_no_link()
+    {
+        var inbox = FakeInbox.Over();
+
+        await new InboxTools(inbox).CaptureAsync("Book the dentist", cancellationToken: Cancel);
+
+        var call = Assert.Single(((FakeInbox)(object)inbox).Captures);
+        Assert.Equal(("Book the dentist", (string?)null, "manual", (string?)null), call);
+    }
+
+    [Fact]
+    public async Task Capture_passes_the_modules_refusal_on_and_keeps_nothing()
+    {
+        var inbox = FakeInbox.Over();
+
+        var refused = await Assert.ThrowsAsync<McpException>(() => new InboxTools(inbox).CaptureAsync("   ", cancellationToken: Cancel));
+
+        Assert.Contains(InboxErrors.ItemNeedsTitle.Code, refused.Message, StringComparison.Ordinal);
+        Assert.Empty(((FakeInbox)(object)inbox).Items);
+    }
+
+    /// <summary>A capture and an archive that landed are announced, so an open Inbox
+    /// reloads; a refused one changed nothing and says nothing; a read says nothing.</summary>
+    [Fact]
+    public async Task Each_write_that_lands_is_announced_and_nothing_else_is()
+    {
+        var item = Item("filed", Day);
+        var signal = new CountingSignal();
+        var tools = new InboxTools(FakeInbox.Over(item), signal);
+
+        await tools.ListAsync(cancellationToken: Cancel);
+        await tools.ReadAsync(item.Id, Cancel);
+        Assert.Equal(0, signal.Raised);
+
+        await tools.CaptureAsync("Remind me to call the plumber", cancellationToken: Cancel);
+        Assert.Equal(1, signal.Raised);
+
+        await tools.ArchiveAsync(item.Id, Cancel);
+        Assert.Equal(2, signal.Raised);
+
+        await Assert.ThrowsAsync<McpException>(() => tools.CaptureAsync("   ", cancellationToken: Cancel));
+        await Assert.ThrowsAsync<McpException>(() => tools.ArchiveAsync(item.Id, Cancel));
+        Assert.Equal(2, signal.Raised);
+    }
+
+    private sealed class CountingSignal : IInboxChangeSignal
+    {
+        public int Raised { get; private set; }
+
+        public event Action? Changed;
+
+        public void Raise()
+        {
+            Raised++;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>The description is what an assistant chooses by: an action to clarify
+    /// later comes here, a note already judged knowledge goes to <c>capture_note</c>.</summary>
+    [Fact]
+    public void Capture_is_described_against_capture_note()
+    {
+        var description = typeof(InboxTools).GetMethod(nameof(InboxTools.CaptureAsync))!
+            .GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()!.Description;
+
+        Assert.Contains("clarif", description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("capture_note", description, StringComparison.Ordinal);
+    }
+
     private static InboxTools Tools(params InboxItemDto[] items) => new(FakeInbox.Over(items));
 
     private static InboxItemDto Item(string title, DateTimeOffset at, string channel = "mobile", string kind = "note", string body = "text") =>
@@ -148,6 +240,10 @@ public class InboxToolsTests
         private List<InboxItemDto> _items = [];
 
         public List<string> Writes { get; } = [];
+
+        public List<(string Title, string? Notes, string Channel, string? SourceUrl)> Captures { get; } = [];
+
+        public IReadOnlyList<InboxItemDto> Items => _items;
 
         public static IInboxItems Over(params InboxItemDto[] items)
         {
@@ -174,6 +270,16 @@ public class InboxToolsTests
 
                     _items[index] = _items[index] with { Status = InboxStatus.Archived };
                     return Task.FromResult(Result.Success());
+
+                case nameof(IInboxItems.CaptureAsync) when args is [string title, var notes, string channel, var source, ..]:
+                    Writes.Add(targetMethod.Name);
+                    Captures.Add((title, (string?)notes, channel, (string?)source));
+                    if (string.IsNullOrWhiteSpace(title)) return Task.FromResult(Result.Failure<InboxItemDto>(InboxErrors.ItemNeedsTitle));
+
+                    var made = Item(title.Trim(), DateTimeOffset.UtcNow, channel: channel, body: (string?)notes ?? string.Empty)
+                        with { SourceUrl = (string?)source };
+                    _items.Add(made);
+                    return Task.FromResult(Result.Success(made));
 
                 default:
                     throw new InvalidOperationException($"The Inbox tools should not call {targetMethod?.Name}.");

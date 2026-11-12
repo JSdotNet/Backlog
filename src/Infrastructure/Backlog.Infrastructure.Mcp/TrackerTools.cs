@@ -209,7 +209,11 @@ public sealed class TrackerTools(
             entry.Title,
             EnumMap.ToWire(entry.Status),
             EntryTextParser.ToRawText(entry),
-            entry.DevbookReferences);
+            entry.DevbookReferences)
+        {
+            WaitingFor = entry.WaitingFor?.Who,
+            FollowUpOn = entry.WaitingFor?.FollowUpOn
+        };
     }
 
     /// <summary>
@@ -614,7 +618,8 @@ public sealed class TrackerTools(
         + "current list (list_devbook_references) with it appended. Existence is not checked on write: a reference "
         + "to a page or heading that is not there is kept and comes back with a broken state. A part of a journey "
         + "is referenced as <context>/scenarios.md#<part> and comes back with its run state, as list_devbook_references "
-        + "answers it.")]
+        + "answers it. A note in the person's own Brain is referenced as #brain:<path from the Brain's root>[#heading] "
+        + "and comes back with scope #brain.")]
     public async Task<DevbookReferencesPayload> SetDevbookReferencesAsync(
         [Description("The entry's id, as a GUID.")]
         Guid id,
@@ -622,8 +627,9 @@ public sealed class TrackerTools(
         string repository,
         [Description(
             "Every reference the entry should keep, in order: a repository-relative page path, optionally followed "
-            + "by #heading-slug for one chapter, e.g. .devbook/domain/tasks/domain.md#task. Repeats are dropped; a "
-            + "value with neither a folder nor a .md ending is refused.")]
+            + "by #heading-slug for one chapter, e.g. .devbook/domain/tasks/domain.md#task, or a Brain note as "
+            + "#brain:<path>[#heading-slug], e.g. #brain:projects/sync.md. Repeats are dropped; a value with neither a "
+            + "folder nor a .md ending, and a #brain: value naming no note, is refused.")]
         string[] references,
         CancellationToken cancellationToken = default)
     {
@@ -649,7 +655,11 @@ public sealed class TrackerTools(
         + "scenarios file, or a requirement whose "
         + "Proved by: lines name parts carries parts: each part's run state (passed, failed, stale, never-run) and "
         + "last run; acceptance counts them and says proved when every part passed on a current signature. "
-        + "Proved never changes the entry's status. Read-only.")]
+        + "Proved never changes the entry's status. A reference written #brain:<path>[#heading] is a note in the "
+        + "person's own Brain, never looked up in the repository: it carries scope #brain and path, the note's path "
+        + "from the Brain's root - read it with read_knowledge_chapter, repository #brain and that path as chapterPath; "
+        + "page or chapter when this device's Brain holds it, unknown-page or unknown-heading when it does not, "
+        + "unverified where no Brain is readable here. Read-only.")]
     public async Task<DevbookReferencesPayload> ListDevbookReferencesAsync(
         [Description("The entry's id, as a GUID.")]
         Guid id,

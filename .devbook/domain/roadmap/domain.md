@@ -283,6 +283,13 @@ A direct reference from the item to a devbook chapter that informs it:
 `<path>#<slug>`, naming a chapter in one of the devbook folders. Equality is by
 value; an item may hold several or none.
 
+It may also name a note in the person's Brain as `#brain:<path from the Brain's
+root>`, with an optional `#slug`. No repository path starts with `#`, so a Brain
+address never matches a repository chapter. It resolves only for the Brain's
+owner, from their own Brain. For anyone else, and where no Brain is set, it
+reads as unresolved, never as an error. The address travels with the plan to the
+person's other devices, and the note's content never does (local ADR 0053).
+
 It is the knowledge counterpart of the `Task Link` and behaves the same way. The
 chapter can be moved, renamed, or deleted while the plan still points at where it
 was, so the reference
@@ -361,18 +368,20 @@ type: domain-service
 related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#shared-value-objects, .devbook/domain/sessions/domain.md#agent-session, .devbook/domain/roadmap/domain.invariants.md#roadmap-item-gathering]
 ```
 
-Assembles, for one Roadmap Item, everything it reaches across Tasks and Devbook,
-and totals the registered story points over the result. It reaches work two ways:
+Assembles, for one Roadmap Item, everything it reaches across Tasks, Devbook and,
+for the Brain's owner, the Brain, and totals the registered story points over the result. It reaches work two ways:
 
 - **By name**: the task its [Task Link](#task-link) names, and the chapters its
   [Knowledge Refs](#knowledge-ref) list. The item wrote these references down
   outright.
 - **By tag**: every Task filed under its [Roadmap Tag](#roadmap-tag), and every
   devbook chapter whose own `roadmap` list names that tag. The item reaches
-  these without naming them.
+  these without naming them. For the Brain's owner, it also reaches every Brain
+  note whose `roadmap` list names the tag (local ADR 0053).
 
-It is a service because none of this is in the item's own state: Tasks and
-Devbook hold the entries and chapters and register the effort. Like
+It is a service because none of this is in the item's own state: Tasks,
+Devbook and the Brain hold the entries, chapters and notes and register the
+effort. Like
 [Repository Scope Resolution](#repository-scope-resolution), it reads foreign data
 on the read path and holds none, so an unreachable supplier degrades a total and
 never corrupts a plan.
@@ -391,7 +400,7 @@ only a total. Progress is the plan's own four-state reading: planned, ready, in
 progress, done. A dependency is the key of another gathered thing, never a foreign
 identifier. A supplier's vocabulary is translated once, at the boundary.
 
-A thing that registers no progress, such as a devbook chapter,
+A thing that registers no progress, such as a devbook chapter or a Brain note,
 [is never read as finished](domain.invariants.md#invariant-unknown-progress-is-never-finished).
 A dependency on work this item did not gather
 [is dropped](domain.invariants.md#invariant-a-wait-on-work-the-item-did-not-gather-is-dropped):

@@ -123,6 +123,12 @@ internal sealed class FakeInboxItems : IInboxItems
     /// take a note.</summary>
     public string? BrainUnavailableReason { get; set; }
 
+    /// <summary>What the Brain's inbox area holds; null by default, no Brain set.</summary>
+    public InboxBrainUnfiledDto? BrainUnfiled { get; set; }
+
+    public Task<InboxBrainUnfiledDto?> BrainUnfiledNotesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(BrainUnfiled);
+
     /// <summary>What the advisor answers per item; an item with no entry is
     /// answered with no cards.</summary>
     public Dictionary<Guid, Result<InboxTriageAdviceDto>> TriageAdvice { get; } = [];
@@ -173,6 +179,9 @@ internal sealed class FakeInboxItems : IInboxItems
 
     /// <summary>How many entries "Create plan" pretends to import.</summary>
     public int PlanEntries { get; set; } = 2;
+
+    /// <summary>Whether each "Create plan" asked for a project note, in order.</summary>
+    public List<bool> PlanProjectNoteAsks { get; } = [];
 
     /// <summary>The next capture's kind and URL, for a test seeding a video or
     /// an article through the capture field. Reset after one use.</summary>
@@ -326,7 +335,7 @@ internal sealed class FakeInboxItems : IInboxItems
     /// what the pane does when the module says no. Reset after one use.</summary>
     public Error? NextCaptureError { get; set; }
 
-    public Task<Result<InboxItemDto>> CaptureAsync(string title, string? notes = null, string channel = "manual", CancellationToken cancellationToken = default)
+    public Task<Result<InboxItemDto>> CaptureAsync(string title, string? notes = null, string channel = "manual", string? sourceUrl = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(title)) return Task.FromResult(Result.Failure<InboxItemDto>(InboxErrors.ItemNeedsTitle));
 
@@ -665,10 +674,12 @@ internal sealed class FakeInboxItems : IInboxItems
     public async Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
         Guid id,
         string? entryType = null,
+        InboxRouteScheduleDto? schedule = null,
         CancellationToken cancellationToken = default)
     {
         SingleRouteCalls++;
         SingleRoutes.Add((id, entryType));
+        SingleRouteSchedules.Add(schedule);
         if (BeforeRoute is { } gate) await gate();
 
         if (Fails("route", id, out var refused)) return Result.Failure<InboxRoutedDto>(refused);
@@ -688,15 +699,117 @@ internal sealed class FakeInboxItems : IInboxItems
         return new InboxRoutedDto(id, taskIds);
     }
 
+    /// <summary>Every item Done now was asked for, in order.</summary>
+    public List<Guid> DoneNowRoutes { get; } = [];
+
+    /// <summary>The module's Done now, restated: refused through
+    /// <see cref="FailAct"/> under <c>"done-now"</c>, else the item is routed to
+    /// one task, whatever its repositories.</summary>
+    public async Task<Result<InboxRoutedDto>> RouteDoneNowAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        DoneNowRoutes.Add(id);
+        if (BeforeRoute is { } gate) await gate();
+
+        if (Fails("done-now", id, out var refused)) return Result.Failure<InboxRoutedDto>(refused);
+
+        if (Find(id) is not { } item) return Result.Failure<InboxRoutedDto>(InboxErrors.ItemNotFound);
+        if (item.Routing is not null) return Result.Failure<InboxRoutedDto>(InboxErrors.InvalidTransition("Already routed."));
+
+        List<Guid> taskIds = [Guid.NewGuid()];
+        OnRouted?.Invoke(item, taskIds);
+
+        await Update(id, current => current with
+        {
+            Status = InboxStatus.Triaged,
+            Routing = new InboxRoutingDto(RoutingDomain.Tasks, current.RepoIds, taskIds, Now)
+        });
+
+        return new InboxRoutedDto(id, taskIds);
+    }
+
+    /// <summary>Every Waiting for asked for, in order: the item, who it waits on
+    /// and the schedule it went with.</summary>
+    public List<(Guid Id, InboxWaitingForDto WaitingFor, InboxRouteScheduleDto? Schedule)> WaitingForRoutes { get; } = [];
+
+    /// <summary>The module's Waiting for, restated: refused through
+    /// <see cref="FailAct"/> under <c>"waiting-for"</c>, a blank who refused as
+    /// the module refuses it, else Move to backlog's route.</summary>
+    public async Task<Result<InboxRoutedDto>> RouteWaitingForAsync(
+        Guid id,
+        InboxWaitingForDto waitingFor,
+        InboxRouteScheduleDto? schedule = null,
+        CancellationToken cancellationToken = default)
+    {
+        WaitingForRoutes.Add((id, waitingFor, schedule));
+        if (BeforeRoute is { } gate) await gate();
+
+        if (Fails("waiting-for", id, out var refused)) return Result.Failure<InboxRoutedDto>(refused);
+        if (!waitingFor.IsValid) return Result.Failure<InboxRoutedDto>(InboxErrors.WaitingForWhoRequired);
+
+        if (Find(id) is not { } item) return Result.Failure<InboxRoutedDto>(InboxErrors.ItemNotFound);
+        if (item.Routing is not null) return Result.Failure<InboxRoutedDto>(InboxErrors.InvalidTransition("Already routed."));
+
+        var taskIds = Enumerable.Range(0, Math.Max(1, item.RepoIds.Count)).Select(_ => Guid.NewGuid()).ToList();
+        OnRouted?.Invoke(item, taskIds);
+
+        await Update(id, current => current with
+        {
+            Status = InboxStatus.Triaged,
+            Routing = new InboxRoutingDto(RoutingDomain.Tasks, current.RepoIds, taskIds, Now)
+        });
+
+        return new InboxRoutedDto(id, taskIds);
+    }
+
+    /// <summary>Done now's undo, restated as a return that deletes its task,
+    /// recorded as <c>"return-done"</c>.</summary>
+    public Task<Result> ReturnDoneNowToInboxAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        Undos.Add(("return-done", id));
+        ThrowIfUndoFails(id);
+
+        if (Find(id) is { Routing: null })
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Only a routed item can return.")));
+        }
+
+        if (RefuseReturn is { } refusal && (RefuseReturnOf.Count == 0 || RefuseReturnOf.Contains(id)))
+        {
+            return Task.FromResult(Result.Failure(refusal));
+        }
+
+        return Update(id, current => current with { Status = InboxStatus.Unprocessed, Routing = null });
+    }
+
     /// <summary>Every item To Brain was asked for, in order.</summary>
     public List<Guid> BrainRoutes { get; } = [];
 
+    /// <summary>The destination each route To Brain named, in order: null for
+    /// the inbox area.</summary>
+    public List<string?> BrainFolders { get; } = [];
+
+    /// <summary>What <see cref="ListBrainDestinationsAsync"/> answers: the PARA
+    /// areas and one project, the inbox first, unless a test sets its own.</summary>
+    public IReadOnlyList<InboxBrainDestinationDto> BrainDestinations { get; set; } =
+    [
+        new("_inbox", "Inbox", IsInbox: true),
+        new("projects", "Projects"),
+        new("projects/launch", "Projects › launch/brief", IsProject: true),
+        new("someday", "Someday"),
+        new("resources", "Resources"),
+    ];
+
+    public Task<IReadOnlyList<InboxBrainDestinationDto>> ListBrainDestinationsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(BrainDestinations);
+
     /// <summary>The module's To Brain, restated: refused with
     /// <c>inbox.brain.unavailable</c> through <see cref="FailAct"/> under
-    /// <c>"brain"</c>, else the item is routed to the Brain with no task.</summary>
-    public async Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default)
+    /// <c>"brain"</c>, else the item is routed to the Brain with no task, into
+    /// the destination named or the inbox area.</summary>
+    public async Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, string? folder = null, CancellationToken cancellationToken = default)
     {
         BrainRoutes.Add(id);
+        BrainFolders.Add(folder);
         if (BeforeRoute is { } gate) await gate();
 
         if (Fails("brain", id, out var refused)) return Result.Failure<InboxBrainRoutedDto>(refused);
@@ -710,7 +823,9 @@ internal sealed class FakeInboxItems : IInboxItems
             Routing = new InboxRoutingDto(RoutingDomain.Devbook, [], [], Now)
         });
 
-        return new InboxBrainRoutedDto(id, "_inbox/" + id.ToString("N") + ".md");
+        var destination = BrainDestinations.FirstOrDefault(candidate => candidate.Folder == folder);
+        var area = folder is null ? "Inbox" : (destination?.Label.Split(" › ")[0] ?? folder);
+        return new InboxBrainRoutedDto(id, (folder ?? "_inbox") + "/" + id.ToString("N") + ".md", area);
     }
 
     /// <summary>What Tasks refuses the next batch's document with, if anything:
@@ -753,6 +868,10 @@ internal sealed class FakeInboxItems : IInboxItems
     /// <summary>Every single route asked of the port, with the entry type it
     /// named — null when none was given.</summary>
     public List<(Guid Id, string? EntryType)> SingleRoutes { get; } = [];
+
+    /// <summary>The schedule every single route was asked with, in the order
+    /// asked — null when none was given.</summary>
+    public List<InboxRouteScheduleDto?> SingleRouteSchedules { get; } = [];
 
     /// <summary>The module's proposal, restated: the tag minted as the route
     /// would, decided items refused, the seeded dependencies among the rest.</summary>
@@ -907,14 +1026,20 @@ internal sealed class FakeInboxItems : IInboxItems
         return new InboxBatchRoutedDto(tag, routed, failed) { Archived = archived };
     }
 
-    public async Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, bool startProjectNote = false, CancellationToken cancellationToken = default)
     {
+        PlanProjectNoteAsks.Add(startProjectNote);
+
         if (!PlanDrafterAvailability.Available)
         {
             return Result.Failure<InboxRoutedDto>(InboxErrors.PlanNotConfigured(PlanDrafterAvailability.Reason));
         }
 
         if (Find(id) is not { } item) return Result.Failure<InboxRoutedDto>(InboxErrors.ItemNotFound);
+        if (startProjectNote && BrainUnavailableReason is { } brainReason)
+        {
+            return Result.Failure<InboxRoutedDto>(InboxErrors.BrainUnavailable(brainReason));
+        }
 
         var taskIds = Enumerable.Range(0, PlanEntries).Select(_ => Guid.NewGuid()).ToList();
         OnRouted?.Invoke(item, taskIds);
@@ -925,7 +1050,7 @@ internal sealed class FakeInboxItems : IInboxItems
             Routing = new InboxRoutingDto(RoutingDomain.Tasks, current.RepoIds, taskIds, Now)
         });
 
-        return new InboxRoutedDto(id, taskIds);
+        return new InboxRoutedDto(id, taskIds, startProjectNote ? "projects/" + item.Title.ToLowerInvariant().Replace(' ', '-') + ".md" : null);
     }
 
     public Task<Result<InboxListDto>> CreateListAsync(string name, Guid? groupId = null, CancellationToken cancellationToken = default)

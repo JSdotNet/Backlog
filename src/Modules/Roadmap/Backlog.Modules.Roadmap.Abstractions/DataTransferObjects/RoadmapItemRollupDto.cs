@@ -99,6 +99,11 @@ public enum RoadmapProgress
 /// <param name="CreatedOn">The local date the entry was created — a fallback start
 /// for work stamped before <c>started:</c> existed. Null for a knowledge
 /// chapter.</param>
+/// <param name="UnresolvedBecause">Why the reference names nothing this reader can find
+/// — a Brain note on a device with no Brain readable, one the Brain does not hold, or a
+/// reference that is no Brain address (local ADR 0053 §3) — or null for everything that
+/// resolved. It is still listed, titled by the address, with no effort; the reason lets
+/// a reader say truly why it does not open.</param>
 public sealed record RoadmapGatheredLink(
     string Key,
     string Title,
@@ -109,8 +114,12 @@ public sealed record RoadmapGatheredLink(
     IReadOnlyList<string>? RepositoryIds = null,
     DateOnly? StartedOn = null,
     DateOnly? CompletedOn = null,
-    DateOnly? CreatedOn = null)
+    DateOnly? CreatedOn = null,
+    RoadmapUnresolvedReason? UnresolvedBecause = null)
 {
+    /// <summary>Whether the reference named nothing this reader can find.</summary>
+    public bool Unresolved => UnresolvedBecause is not null;
+
     /// <summary>The gathered keys this waits on, never null.</summary>
     public IReadOnlyList<string> Waits => DependsOn ?? [];
 
@@ -123,10 +132,29 @@ public sealed record RoadmapGatheredLink(
 }
 
 /// <summary>
+/// Why a gathered Brain note reads as unresolved (local ADR 0053 §3) — the fact a
+/// reader is told, so the Brain's owner is never told that only the owner can open
+/// their own deleted note.
+/// </summary>
+public enum RoadmapUnresolvedReason
+{
+    /// <summary>No Brain is readable on this device: none is set, or its index cannot
+    /// be read. Whoever owns the note can open it where their Brain is.</summary>
+    NoBrain,
+
+    /// <summary>This device's Brain was read and holds no such note or heading.</summary>
+    NotInBrain,
+
+    /// <summary>The reference wears the <c>#brain:</c> prefix but names no note — an
+    /// empty path, or one that climbs out of the Brain with <c>..</c>.</summary>
+    NotAnAddress
+}
+
+/// <summary>
 /// Everything a roadmap item gathers, and the arithmetic over the effort those
 /// things registered.
 /// <para>
-/// The two lists are already de-duplicated and merged: a thing reached both
+/// The lists are already de-duplicated and merged: a thing reached both
 /// directly and by tag appears once, wearing <see cref="RollupOrigin.Both"/>. The
 /// totals are read off those lists, so <see cref="TotalEffort"/> and
 /// <see cref="UnestimatedCount"/> never disagree with what is drawn.
@@ -142,20 +170,34 @@ public sealed record RoadmapGatheredLink(
 /// effort alone would read as further along than the plan is the moment finished
 /// work turned out to be unsized.
 /// </para>
+/// <para>
+/// Brain notes are their own list (local ADR 0053 §5), never matched against a
+/// repository's chapters: they count toward the effort like a chapter does, and like
+/// a chapter they have no status, so they never make the item finished.
+/// </para>
 /// </summary>
+/// <param name="BacklogEntries">The backlog entries gathered.</param>
+/// <param name="KnowledgeChapters">The repository devbook chapters gathered.</param>
+/// <param name="BrainNoteLinks">The owner's Brain notes gathered, or null for none —
+/// read through <see cref="BrainNotes"/>.</param>
 public sealed record RoadmapItemRollupDto(
     IReadOnlyList<RoadmapGatheredLink> BacklogEntries,
-    IReadOnlyList<RoadmapGatheredLink> KnowledgeChapters)
+    IReadOnlyList<RoadmapGatheredLink> KnowledgeChapters,
+    IReadOnlyList<RoadmapGatheredLink>? BrainNoteLinks = null)
 {
     /// <summary>Nothing gathered — the honest state of an item nothing points at
     /// yet.</summary>
     public static RoadmapItemRollupDto Empty { get; } = new([], []);
 
-    private IEnumerable<RoadmapGatheredLink> All => BacklogEntries.Concat(KnowledgeChapters);
+    /// <summary>The Brain notes gathered, never null. Each one's
+    /// <see cref="RoadmapGatheredLink.Progress"/> is null: a note has no status.</summary>
+    public IReadOnlyList<RoadmapGatheredLink> BrainNotes => BrainNoteLinks ?? [];
 
-    /// <summary>How many things were gathered in total, backlog and knowledge
+    private IEnumerable<RoadmapGatheredLink> All => BacklogEntries.Concat(KnowledgeChapters).Concat(BrainNotes);
+
+    /// <summary>How many things were gathered in total, backlog, knowledge and Brain
     /// together. Each is counted once regardless of how it was reached.</summary>
-    public int GatheredCount => BacklogEntries.Count + KnowledgeChapters.Count;
+    public int GatheredCount => BacklogEntries.Count + KnowledgeChapters.Count + BrainNotes.Count;
 
     /// <summary>The sum of the story points every gathered thing registered.
     /// Things that registered none contribute nothing; <c>0</c> contributes
@@ -190,8 +232,8 @@ public sealed record RoadmapItemRollupDto(
 
     /// <summary>
     /// Whether the item's work is over: it gathered at least one backlog entry and
-    /// every one of them is done. Devbook chapters are not asked — a chapter has no
-    /// status, and an item made only of references has no work to finish.
+    /// every one of them is done. Devbook chapters and Brain notes are not asked — they
+    /// have no status, and an item made only of references has no work to finish.
     /// </summary>
     public bool IsFinished => BacklogEntries.Count > 0 && BacklogEntries.All(link => link.IsDone);
 

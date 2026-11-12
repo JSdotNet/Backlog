@@ -402,6 +402,19 @@ internal sealed partial class InboxBacklogTarget(
     /// go ahead of the notes, one line each with their title and link, through
     /// Tasks' prose writer as the sibling lines do.
     /// </para>
+    /// <para>
+    /// A due date and a My Day date on the request become the <c>due:</c> and
+    /// <c>myday:</c> tokens, on every entry the request makes; without them the
+    /// metadata line is the plain route's.
+    /// </para>
+    /// <para>
+    /// A completed date on the request — Done now — makes the entry <c>!done</c>
+    /// and writes the tick as <c>completed:</c>, instead of <c>!draft</c>.
+    /// </para>
+    /// <para>
+    /// A waiting-for on the request — Waiting for — becomes the
+    /// <c>waiting:</c> and <c>followup:</c> tokens on every entry it makes.
+    /// </para>
     /// </summary>
     internal static string Compose(
         InboxRouteRequestDto request,
@@ -416,7 +429,9 @@ internal sealed partial class InboxBacklogTarget(
         var siblings = Siblings(request, repo);
 
         text.Append("# ").Append(title).Append('\n');
-        text.Append('`').Append(TypeWord(request.EntryType)).Append("` `!draft`");
+        // Done now's entry is born over and ticked, the way the Tasks pane's
+        // checkbox leaves one: `!done` and `completed:` the day it was decided.
+        text.Append('`').Append(TypeWord(request.EntryType)).Append(request.CompletedOn is null ? "` `!draft`" : "` `!done`");
 
         IEnumerable<string> tags = request.Tags;
         if (siblings.Count > 0) tags = tags.Append(SiblingTag(request.InboxItemId));
@@ -435,6 +450,19 @@ internal sealed partial class InboxBacklogTarget(
         if (!string.IsNullOrWhiteSpace(repo)) text.Append(" `repo:").Append(repo.Trim()).Append('`');
         if (!string.IsNullOrWhiteSpace(importItemId)) text.Append(" `id:").Append(importItemId).Append('`');
         foreach (var value in after ?? []) text.Append(" `after:").Append(value).Append('`');
+
+        // A single route's schedule, in the grammar's own date spelling: the
+        // due date, and the day the entry was picked for in My Day.
+        if (request.DueOn is { } dueOn) text.Append(" `due:").Append(EntryTextParser.DateToken(dueOn)).Append('`');
+        if (request.InMyDayOn is { } inMyDayOn) text.Append(" `myday:").Append(EntryTextParser.DateToken(inMyDayOn)).Append('`');
+        if (request.CompletedOn is { } completedOn) text.Append(" `completed:").Append(EntryTextParser.DateToken(completedOn)).Append('`');
+
+        // Waiting for: who the entry waits on and the follow-up day, through
+        // Tasks' own token writer so the spelling is the one its parser reads.
+        if (request.WaitingFor is { } waitingFor && WaitingFor.From(waitingFor.Who, waitingFor.FollowUpOn) is { } waiting)
+        {
+            foreach (var token in EntryTextParser.WaitingForTokens(waiting)) text.Append(" `").Append(token).Append('`');
+        }
 
         text.Append('\n');
 
@@ -523,7 +551,15 @@ internal sealed partial class InboxBacklogTarget(
     /// backlog has moved on with it, and the undo is not the place to discard
     /// that. An id the backlog no longer lists is already deleted.
     /// </summary>
-    public async Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, CancellationToken cancellationToken = default)
+    public Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, CancellationToken cancellationToken = default) =>
+        DeleteRoutedTasksAsync(taskIds, madeDone: false, cancellationToken);
+
+    /// <summary>
+    /// The undo's delete, as above. With <paramref name="madeDone"/> — undoing
+    /// Done now, whose entry was born Done — Done is the state the route left it
+    /// in, so it is deleted too; archived is still the backlog having moved on.
+    /// </summary>
+    public async Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, bool madeDone, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(taskIds);
         if (taskIds.Count == 0) return Result.Success();
@@ -531,7 +567,7 @@ internal sealed partial class InboxBacklogTarget(
         var byId = (await tasks.ListAsync(cancellationToken).ConfigureAwait(false)).ToDictionary(task => task.Id);
         var present = taskIds.Distinct().Where(byId.ContainsKey).Select(id => byId[id]).ToList();
 
-        if (present.FirstOrDefault(task => task.Status is not (EntryStatus.Draft or EntryStatus.Ready)) is { } started)
+        if (present.FirstOrDefault(task => !(task.Status is EntryStatus.Draft or EntryStatus.Ready || (madeDone && task.Status is EntryStatus.Done))) is { } started)
         {
             return Result.Failure(InboxErrors.UndoTaskStarted(WhitespaceRun().Replace(started.Title.Trim(), " ")));
         }

@@ -4,7 +4,7 @@
 type: invariants
 ```
 
-What each aggregate on [`domain.md`](domain.md) enforces, one chapter per aggregate: each rule, where it is enforced, and the unit test that proves it.
+What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each: each rule, where it is enforced, and the unit test that proves it.
 
 ## Knowledge Note
 
@@ -36,6 +36,7 @@ type: invariant
 ```
 
 A note's links to tasks and to other notes change only through the note.
+Even [Cross-Linking](#cross-linking) changes them by writing into the note, never by keeping a link anywhere else.
 
 Enforced at: open
 
@@ -95,4 +96,60 @@ A folder `CONVENTIONS.md` lists under `## Ignore`, matched case-insensitively, i
 Ignore wins over a declaration, so one line keeps a folder of templates or attachments off the tabs.
 
 Enforced at: `BrainConventions`, in `Backlog.Modules.Devbook.Abstractions`
+
+## Cross-Linking
+
+```meta
+type: invariants
+related: [.devbook/domain/brain/domain.md#cross-linking, .devbook/arc42/adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md]
+```
+
+> The rules [Cross-Linking](domain.md#cross-linking) keeps when it writes a link
+> into an existing note. They narrow [Links change through the note](#invariant-links-change-through-the-note):
+> the link still changes through the note, and only by an append.
+
+### Invariant: Only the two lists change
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_task_id_appended_to_a_flow_list_changes_only_that_line, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_roadmap_tag_appended_to_an_empty_flow_list_stays_a_flow_list, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_block_list_stays_a_block_list_with_its_own_indentation, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_missing_field_lands_as_the_last_line_of_the_top_block, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.Every_byte_outside_the_list_is_kept, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_block_list_append_keeps_every_other_byte_and_the_byte_order_mark, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_bare_field_with_no_items_becomes_a_flow_list, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_trailing_comma_in_a_flow_list_gets_no_second_comma, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_field_only_a_lower_block_carries_is_added_to_the_top_block, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_file_with_mixed_line_endings_keeps_each_one, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.Links_written_at_once_into_one_note_all_land, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteLinksParityTests.An_appended_task_id_is_in_the_file_s_block_as_the_parse_reads_it, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteLinksParityTests.A_missing_roadmap_field_is_added_where_the_parse_reads_it]
+```
+
+A link write changes only the `tasks` or `roadmap` list in the note's top `meta` block, and leaves every other byte of the file as it was.
+The body, the other fields, their key order, comments, blank lines and the list's flow or block style are the person's.
+
+Enforced at: `BrainNoteLinks.Append()`, which changes only the list's line or adds one line, and `BrainNoteLinkWriter`, which writes the edit back byte for byte as strict UTF-8 with its byte order mark kept, one write at a time
+
+### Invariant: A present value is not added again
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_present_task_id_leaves_the_file_unchanged, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_present_roadmap_tag_in_a_block_list_leaves_the_file_unchanged, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_repeated_link_writes_once]
+```
+
+A task id or Roadmap Tag the list already holds is not appended again, so a repeated link leaves the file unchanged.
+
+Enforced at: `BrainNoteLinks.Append()`, which answers `AlreadyPresent` for a value the list holds, and `BrainNoteLinkWriter`, which then writes nothing
+
+### Invariant: A written link is read back in either list style
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainBlockListLinkTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookBuilderParityTests.The_app_matches_the_node_writer_on_a_brain]
+```
+
+A `tasks`, `roadmap` or `repos` list the Brain's database indexes holds the same values whether the note writes it as a flow list (`[a, b]`) or as a block list (`- a` lines under the field), so a link the app appends in the note's own style is a link the app reads.
+
+Enforced at: `BrainCorpusProfile.BlockListFields`, which `DevbookGraphBuilder` hands `DevbookMarkdown.Parse()` to read block items for, and `readBlockLists` in `tools/devbook/brain.mjs`, the reference `DevbookBuilderParityTests` holds the builder to
+
+### Invariant: An unparsable block is not written
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_missing_or_unparsable_top_block_is_refused_with_its_reason, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_file_that_is_not_utf8_is_refused]
+```
+
+A note whose top `meta` block is missing or does not parse is not written.
+
+Enforced at: `BrainNoteLinks.Append()`, which refuses with the reason, and `BrainNoteLinkWriter`, which writes nothing on a refusal
 

@@ -27,11 +27,17 @@ public interface IInboxItems
     /// a person can use offline. <paramref name="notes"/> is what was written
     /// beneath the title and becomes the item's body; null or blank is a bare
     /// one-line capture. <paramref name="channel"/> is the capture source it is
-    /// filed under and defaults to the domain's word for "by hand".</summary>
+    /// filed under and defaults to the domain's word for "by hand".
+    /// <paramref name="sourceUrl"/> is the link the capture is about when the
+    /// caller names one — an assistant's <c>capture_to_inbox</c> does; null reads
+    /// it off the title. Fails with <c>inbox.item.needs_title</c> for a blank
+    /// title and <c>inbox.capture.source_not_a_link</c> for a link that is no
+    /// http or https address.</summary>
     Task<Result<InboxItemDto>> CaptureAsync(
         string title,
         string? notes = null,
         string channel = InboxEnumMap.ManualChannel,
+        string? sourceUrl = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Replaces the item's tags. Bare names; a name that reads as a
@@ -123,6 +129,12 @@ public interface IInboxItems
     /// Only a routed item; the session undo history is the one caller.</summary>
     Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default);
 
+    /// <summary>Takes Done now back: as
+    /// <see cref="ReturnToInboxAsync(Guid, bool, CancellationToken)"/> with its
+    /// entries deleted, where the one entry Done now made — born Done and ticked —
+    /// does not count as started. Archived still refuses.</summary>
+    Task<Result> ReturnDoneNowToInboxAsync(Guid id, CancellationToken cancellationToken = default);
+
     /// <summary>The resurface sweep: every deferred item whose review date is
     /// today or earlier becomes unprocessed. Answers how many moved. The pane
     /// runs it when it opens; nothing schedules it.</summary>
@@ -172,18 +184,53 @@ public interface IInboxItems
     /// <c>inbox.route.unknown_entry_type</c> before the backlog is asked. The
     /// captures archived as the item's duplicates go with it, title and link,
     /// written on every entry it becomes.
+    /// </para>
+    /// <para>
+    /// <paramref name="schedule"/>, when it sets anything, gives every entry
+    /// the due date it names and puts every entry in today's My Day when it
+    /// asks; null or empty leaves the entries exactly as a plain route makes
+    /// them.
     /// </para></summary>
     Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
         Guid id,
         string? entryType = null,
+        InboxRouteScheduleDto? schedule = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Done now (local ADR 0054, the two-minute rule): routes the item to
+    /// one task created already ticked — Done, <c>completed:</c> today — carrying
+    /// the item's id as its provenance, as Move to backlog does. One task however
+    /// many repositories the item names: its first, or none. An item routes
+    /// exactly once, and a failure on the Tasks side leaves it open.</summary>
+    Task<Result<InboxRoutedDto>> RouteDoneNowAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Waiting for (local ADR 0054 §4): routes the item as
+    /// <see cref="RouteToBacklogAsync(Guid, string?, InboxRouteScheduleDto?, CancellationToken)"/>
+    /// does — one task per repository, with <paramref name="schedule"/>'s due date
+    /// and My Day — every task carrying <paramref name="waitingFor"/>: who it
+    /// waits on and the optional follow-up date. A blank who, or one with a
+    /// backtick, answers <see cref="InboxErrors.WaitingForWhoRequiredCode"/> and
+    /// routes nothing. Its undo is Move to backlog's.</summary>
+    Task<Result<InboxRoutedDto>> RouteWaitingForAsync(
+        Guid id,
+        InboxWaitingForDto waitingFor,
+        InboxRouteScheduleDto? schedule = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>To Brain: writes the item into the person's Brain as a new note
-    /// in its inbox area, keeping its title and body, and records that it went
-    /// there. An item routes exactly once, whichever way. A Brain that is not set
-    /// up or cannot be written fails with <c>inbox.brain.unavailable</c>, in words
-    /// that say what to do, and the item stays open.</summary>
-    Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default);
+    /// — into <paramref name="folder"/>, a destination
+    /// <see cref="ListBrainDestinationsAsync"/> listed, or the inbox area when it
+    /// is null — keeping its title and body, and records that it went there. An
+    /// item routes exactly once, whichever way. A Brain that is not set up or
+    /// cannot be written fails with <c>inbox.brain.unavailable</c>, in words that
+    /// say what to do, and the item stays open.</summary>
+    Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, string? folder = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Where To Brain can file an item, in the order its destination
+    /// picker lists them, the inbox area first; empty while the Brain cannot take
+    /// a note.</summary>
+    Task<IReadOnlyList<InboxBrainDestinationDto>> ListBrainDestinationsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<InboxBrainDestinationDto>>([]);
 
     /// <summary>Routes several items as one batch — one plan import whose
     /// entries share a new plan tag. It overloads the single route by name, but
@@ -257,8 +304,12 @@ public interface IInboxItems
     /// <summary>Asks the plan drafter for an import plan about the item, hands
     /// the plan to Tasks' import, and records the entries it produced as the
     /// item's routing. Fails with <c>inbox.plan.not_configured</c> when
-    /// <see cref="PlanDrafterAvailability"/> says so.</summary>
-    Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <see cref="PlanDrafterAvailability"/> says so. With
+    /// <paramref name="startProjectNote"/> it also starts the plan's project note
+    /// in the Brain, which the plan references; refused with
+    /// <c>inbox.brain.unavailable</c> and the Brain's reason while
+    /// <see cref="BrainUnavailableReason"/> says so, before anything is drafted.</summary>
+    Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, bool startProjectNote = false, CancellationToken cancellationToken = default);
 
     /// <summary>Fetches one of the item's files again — the act behind Retry on a
     /// file row whose download failed. A file already on this machine with the
@@ -313,6 +364,12 @@ public interface IInboxItems
     /// null while the Brain can take a note. Read by the pane on render so To Brain
     /// is shown disabled with its reason rather than refused once pressed.</summary>
     string? BrainUnavailableReason => null;
+
+    /// <summary>The notes waiting in the Brain's inbox area, for the queue health
+    /// bar (<c>features.md#queue-health-bar</c>); null while no Brain is set or
+    /// readable, so nothing is shown. A folder walk, answered off the render thread.</summary>
+    Task<InboxBrainUnfiledDto?> BrainUnfiledNotesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<InboxBrainUnfiledDto?>(null);
 
     /// <summary>Whether a triage advisor is registered and can run. Unlike
     /// <see cref="PlanDrafterAvailability"/> there is no reason to show: while it

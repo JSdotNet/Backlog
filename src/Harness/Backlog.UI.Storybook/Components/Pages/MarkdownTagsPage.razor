@@ -210,8 +210,9 @@ Linked rather than repeated: each of those pages is the one place its component'
     private const string PatternCode = """
         @* One alternative of MarkdownPreview's inline pattern. The lookbehind is
            what makes the hash a sigil rather than a character — it has to open a
-           word — and the letter after it is what keeps `#1` a number. *@
-        @"|(?<tag>(?<!\S)#[A-Za-z][\w-]*)"
+           word — and the letter after it is what keeps `#1` a number. An `@`
+           between them is a context, `#@pc` (local ADR 0054 §5). *@
+        @"|(?<tag>(?<!\S)#@?[A-Za-z][\w-]*)"
 
         @* And the record it becomes. The stored text keeps the hash: the tag is
            what the author typed, and the chip is only how it is drawn. *@

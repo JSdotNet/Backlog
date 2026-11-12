@@ -50,5 +50,6 @@ public sealed record InboxPlanDraftDto(string PlanMarkdown);
 
 /// <summary>What routing produced: the item that was routed and the entries the
 /// Tasks context created for it. The pane raises this so the shell can refresh
-/// the Tasks pane without knowing what changed there.</summary>
-public sealed record InboxRoutedDto(Guid InboxItemId, IReadOnlyList<Guid> TaskIds);
+/// the Tasks pane without knowing what changed there. A plan created with a
+/// project note also names that note's path relative to the Brain's root.</summary>
+public sealed record InboxRoutedDto(Guid InboxItemId, IReadOnlyList<Guid> TaskIds, string? ProjectNotePath = null);

@@ -69,6 +69,41 @@ public sealed class CaptureItemTests
         Assert.Empty(store.Items);
     }
 
+    /// <summary>A source link named beside the title is the item's link, and the
+    /// kind is read off it rather than off the words — an assistant's capture
+    /// over MCP names one this way (<c>capture_to_inbox</c>).</summary>
+    [Fact]
+    public async Task A_named_source_link_is_the_items_link_and_its_kind()
+    {
+        var store = new InMemoryInboxStore();
+
+        var result = await new CaptureItemCommandHandler(store, Clock)
+            .Handle(
+                new CaptureItemCommand("Watch the keynote", SourceUrl: "  https://www.youtube.com/watch?v=abc  "),
+                TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("https://www.youtube.com/watch?v=abc", result.Value.SourceUrl);
+        Assert.Equal(ContentKind.YouTube, result.Value.Kind);
+        Assert.Equal(InboxEnumMap.ManualChannel, result.Value.Channel);
+    }
+
+    [Theory]
+    [InlineData("not a link")]
+    [InlineData("/relative/path")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("file:///C:/secret.txt")]
+    public async Task A_source_link_that_is_no_web_address_is_refused(string sourceUrl)
+    {
+        var store = new InMemoryInboxStore();
+
+        var result = await new CaptureItemCommandHandler(store, Clock)
+            .Handle(new CaptureItemCommand("Something", SourceUrl: sourceUrl), TestContext.Current.CancellationToken);
+
+        Assert.Equal(InboxErrors.SourceUrlNotALink.Code, result.Error.Code);
+        Assert.Empty(store.Items);
+    }
+
     [Fact]
     public async Task A_person_among_the_tags_is_a_validation_message()
     {

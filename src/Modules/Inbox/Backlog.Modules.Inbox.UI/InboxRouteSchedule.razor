@@ -1,0 +1,110 @@
+@* What a single Move to backlog may also set on the tasks it makes (local ADR
+   0054): a due date and Add to My Day. Rendered beside Move to backlog in the
+   column's detail and in triage; both read and write the one choice the state
+   holds per item, so the r key routes with it too. A batch route has neither. *@
+@using System.Globalization
+
+<div class="inbox-pane__route-schedule" role="group" aria-label="When" data-testid="@TestId"
+     @onkeydown:stopPropagation="true">
+    <SelectField CurrentValue="@DueChoice"
+                 Options="@DueOptions"
+                 Label="Due"
+                 Form="true"
+                 IncludeEmptyOption="true"
+                 EmptyLabel="No due date"
+                 Disabled="@Disabled"
+                 CssClass="inbox-pane__route-schedule-due"
+                 OnChanged="OnDueChosen"
+                 TestId="@($"{TestId}-due")" />
+    @if (DueChoice == OnADate)
+    {
+        <TextField Label="Due on"
+                   Type="date"
+                   Compact="true"
+                   Value="@DateValue"
+                   ValueChanged="OnDateTyped"
+                   Disabled="@Disabled"
+                   CssClass="inbox-pane__route-schedule-date"
+                   TestId="@($"{TestId}-date")" />
+    }
+    <Checkbox Label="Add to My Day"
+              Checked="@State.RouteSchedule.AddToMyDay"
+              CheckedChanged="State.SetRouteToMyDay"
+              Disabled="@Disabled"
+              CssClass="inbox-pane__route-schedule-my-day"
+              TestId="@($"{TestId}-my-day")" />
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public InboxDesktopState State { get; set; } = default!;
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string TestId { get; set; } = "inbox-route-schedule";
+
+    internal const string Today = "today";
+    internal const string Tomorrow = "tomorrow";
+    internal const string NextWeek = "next-week";
+    internal const string OnADate = "date";
+
+    /// <summary>"On a date" chosen with no date typed yet, for the item it was
+    /// chosen on, so the field stays open while the reader picks one.</summary>
+    private Guid? _pickingDateFor;
+
+    private DateOnly TodayDate => State.Today;
+
+    private IReadOnlyList<SelectorOption> DueOptions =>
+    [
+        new(Today, $"Today · {Day(TodayDate)}"),
+        new(Tomorrow, $"Tomorrow · {Day(TodayDate.AddDays(1))}"),
+        new(NextWeek, $"Next week · {Day(TodayDate.AddDays(7))}"),
+        new(OnADate, "On a date…"),
+    ];
+
+    /// <summary>The choice the select shows, read off the date the state holds:
+    /// a date that is one of the quick ones shows as that one.</summary>
+    private string? DueChoice
+    {
+        get
+        {
+            if (_pickingDateFor is { } id && id == State.SelectedItem?.Id) return OnADate;
+            if (State.RouteSchedule.DueOn is not { } due) return null;
+
+            if (due == TodayDate) return Today;
+            if (due == TodayDate.AddDays(1)) return Tomorrow;
+            if (due == TodayDate.AddDays(7)) return NextWeek;
+            return OnADate;
+        }
+    }
+
+    private string? DateValue => State.RouteSchedule.DueOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private void OnDueChosen(string? value)
+    {
+        _pickingDateFor = value == OnADate ? State.SelectedItem?.Id : null;
+
+        State.SetRouteDue(value switch
+        {
+            Today => TodayDate,
+            Tomorrow => TodayDate.AddDays(1),
+            NextWeek => TodayDate.AddDays(7),
+            // "On a date…" keeps a date already typed and waits for one otherwise.
+            OnADate => State.RouteSchedule.DueOn,
+            _ => null,
+        });
+    }
+
+    private void OnDateTyped(string value)
+    {
+        _pickingDateFor = State.SelectedItem?.Id;
+
+        State.SetRouteDue(DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : null);
+    }
+
+    private static string Day(DateOnly date) => date.ToString("ddd d MMM", CultureInfo.InvariantCulture);
+}

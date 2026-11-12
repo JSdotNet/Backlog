@@ -12,6 +12,7 @@ using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
@@ -2184,6 +2185,102 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal(
                 component.Find("[data-testid='inbox-pane-option']"),
                 badge.ParentElement);
+        });
+    }
+
+    /// <summary>
+    /// The weekly review is offered only behind its own flag, which is off until asked
+    /// for (.devbook/domain/progress/features.md#the-weekly-review).
+    /// </summary>
+    [Fact]
+    public void The_weekly_review_option_is_absent_while_its_flag_is_off()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']"));
+            Assert.Empty(component.FindAll("[data-testid='weekly-review-option']"));
+        });
+        Assert.False(AppFeatures.All.Single(feature => feature.Key == ProgressFeatures.WeeklyReview).EnabledByDefault);
+    }
+
+    /// <summary>
+    /// Switched on, the option stands right after the Inbox's, before the view switch,
+    /// and wears the DEV flag on the control itself.
+    /// </summary>
+    [Fact]
+    public void The_weekly_review_option_follows_the_inbox_and_carries_its_dev_flag()
+    {
+        using var harness = CreateHarness(features =>
+        {
+            features.SetEnabled(AppFeatures.InboxPane, true);
+            features.SetEnabled(ProgressFeatures.WeeklyReview, true);
+        });
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            var workspace = component.Find("[data-testid='workspace-navigation']").Children
+                .Select(child => child.GetAttribute("data-testid")).ToList();
+            Assert.Equal(["inbox-header-item", "weekly-review-header-item", "view-switch", "devbook-header-item"], workspace);
+
+            var badge = component.Find("[data-testid='weekly-review-feature-status']");
+            Assert.Equal("DEV", badge.TextContent.ToUpperInvariant());
+            Assert.Equal(component.Find("[data-testid='weekly-review-option']"), badge.ParentElement);
+            Assert.Contains("header-group__option--loose", component.Find("[data-testid='weekly-review-option']").ClassName);
+        });
+    }
+
+    /// <summary>
+    /// A press gives the review the whole screen in place of the view, as the Inbox's
+    /// does; a second press returns to the view, kept underneath.
+    /// </summary>
+    [Fact]
+    public void The_weekly_review_takes_the_screen_over_the_view_and_a_second_press_returns_to_it()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(ProgressFeatures.WeeklyReview, true));
+        var component = Render(harness);
+
+        OpenTheRoadmap(component);
+
+        component.Find("[data-testid='weekly-review-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='weekly-review-surface'] [data-testid='weekly-review']"));
+            Assert.Empty(component.FindAll("[data-testid='workspace']"));
+            Assert.Equal("true", component.Find("[data-testid='weekly-review-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("Back to Roadmap", component.Find("[data-testid='weekly-review-option']").GetAttribute("title"));
+        });
+
+        component.Find("[data-testid='weekly-review-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='weekly-review-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
+        });
+    }
+
+    /// <summary>The review keeps no key of its own, so Escape heard at the document
+    /// closes it, as it closes every takeover but the Inbox.</summary>
+    [Fact]
+    public async Task Escape_heard_at_the_document_closes_the_weekly_review()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(ProgressFeatures.WeeklyReview, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='weekly-review-option']")));
+        component.Find("[data-testid='weekly-review-option']").Click();
+        component.WaitForAssertion(() =>
+            Assert.True(component.Find("[data-testid='weekly-review-surface']").HasAttribute("data-escape-closes")));
+
+        await component.InvokeAsync(component.Instance.CloseSurfaceOnEscapeAsync);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='weekly-review-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
         });
     }
 

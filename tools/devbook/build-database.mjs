@@ -654,7 +654,7 @@ export async function buildDatabase(repoRoot, target, generator = null) {
             problems.push({ scope: REPO_SCOPE, ...problem });
         }
 
-        // A Brain adds `para`, `repos` and `tasks` (brain.mjs); a devbook adds none.
+        // A Brain adds `para`, `repos`, `tasks` and `review` (brain.mjs); a devbook adds none.
         counts = insertGraph(db, graph, generator.listAttributes ?? []);
         counts.outline_entry = 0;
 

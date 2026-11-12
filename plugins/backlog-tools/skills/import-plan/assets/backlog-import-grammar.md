@@ -55,7 +55,7 @@ Named tokens (`name:value`):
 | `repo:<name>` | target repository, resolved by name; Import auto-registers an unrecognized name | yes |
 | `due:<YYYY-MM-DD>` | due date | no |
 | `effort:<points>` | size in story points; a non-negative whole number, and the app's picker offers `1`, `2`, `3`, `5`, `8`, `13`, `21` | no |
-| `devbook:<path>[#anchor]` | a Devbook page or chapter the step is about, repository-relative (e.g. `devbook:.devbook/domain/tasks/domain.md#task`); the path needs a folder or a `.md` ending, else Import refuses the plan. Import moves it into the task's Devbook references and it leaves the entry text; a re-import that writes at least one `devbook:` token on the entry replaces the list, and one that writes none keeps the references the task has. Written only when the source names the chapter | yes |
+| `devbook:<path>[#anchor]` | a Devbook page or chapter the step is about, repository-relative (e.g. `devbook:.devbook/domain/tasks/domain.md#task`), or a [Brain note](#brain-note-address) (`devbook:#brain:projects/sync.md`); a repository path needs a folder or a `.md` ending, and a Brain address a path that stays inside the Brain, else Import refuses the plan. On a step, Import moves it into the task's Devbook references and it leaves the entry text; a re-import that writes at least one `devbook:` token on the step replaces the list, and one that writes none keeps the references the task has. On a `plan` entry it becomes the Roadmap Item's Knowledge Ref, set only when Import creates the item ([Two levels](#two-levels)). Written only when the source names the chapter or note | yes |
 
 A plan states `!ready` and an `effort:` on every step entry; a `plan` entry states
 neither (see [Two levels](#two-levels)). The order of the work is carried by
@@ -130,7 +130,11 @@ carries:
 - `due:` only when the source states a date — it is the item's end; there is no start
   token, the importer places the start;
 - `after:` on other `plan` entries, by their `id:`. `id:` defaults to the tag, so a `plan`
-  entry need not write one.
+  entry need not write one;
+- `devbook:` once per chapter or [Brain note](#brain-note-address) the plan is made from — the
+  item's Knowledge Refs. Import sets them when it creates the item and leaves an existing
+  item's refs alone on a re-import; a token Import cannot read refuses the document
+  (`import.invalid_devbook_reference`).
 
 It carries **no** `effort:` (an item's size is the effort its steps gather; the token is
 reported and ignored), no `!status`, `@area` or `#tag` (ignored), no marker, no
@@ -302,6 +306,8 @@ Read first: `<path>[#anchor]`[, `<path>[#anchor]`…][, <url>…].
   design file, with the `#anchor` of the section when one section answers. On an entry with
   one `repo:` it is relative to that repository; any other file, and every file named by an
   entry with several `repo:`, is `` `owner/name:path` ``.
+- A **Brain note** is its [address](#brain-note-address), `` `#brain:<path>[#anchor]` ``,
+  always in backticks: never relative to a repository, and never prefixed `owner/name:`.
 - A **URL** is a design, prototype, mockup or artifact the step's work must match, written
   bare so it stays a link.
 - Name the sections this step implements, shows or checks, not the whole source; the
@@ -313,6 +319,54 @@ Read first: `<path>[#anchor]`[, `<path>[#anchor]`…][, <url>…].
 - A `devbook:` token on the metadata line names the same chapter for the app; Import moves
   it into the task's Devbook references and out of the text, so this line is what a copied
   entry still carries.
+
+## Brain note address
+
+A note in the person's Brain (local ADR 0026) is no repository file, so it has an address of
+its own (local ADR 0053, `.devbook/domain/brain/features.md#mcp-brain-scope` in the Backlog
+product repository):
+
+```
+#brain:<path from the Brain's root>[#anchor]
+```
+
+- The path runs from the Brain's root — `#brain:projects/sync.md` — never under a dot-folder
+  and never out of the folder. The prefix is matched without regard to case. Write it
+  lower-case, the spelling a task's Devbook reference is stored in.
+- It is `#brain:`, never a bare `brain:`, which a repository could be called; no repository
+  name holds a `#`, so the address never matches one.
+- It goes where a chapter goes: `devbook:#brain:<path>` on a step's metadata line becomes one
+  of the task's Devbook references, on a `plan` entry the item's Knowledge Ref; in a
+  [read-first line](#read-first-line) it is `` `#brain:<path>` ``.
+- In body prose it is always in backticks. Bare, after a space, `#brain` is scanned as a
+  general tag.
+- It resolves only for the Brain's owner, from their own Brain; for anyone else, and where no
+  Brain is set, it reads as unresolved, never as an error. An assistant reads the note with
+  the knowledge read tool, `repository` `#brain` and the path without its prefix.
+- Import never writes into the note. The plan's Roadmap Tag reaches the note's `roadmap` list
+  only through the app's Plan this project (local ADR 0052).
+
+A plan made from a project note, its `plan` entry and a step:
+
+```markdown
+# Sync rework
+
+`plan` `+sync-rework` `repo:backlog-sync` `devbook:#brain:projects/sync.md`
+
+# 1 - Batch the replica pushes
+
+`prompt` `!ready` `+sync-rework` `id:batch-pushes` `repo:backlog-sync` `devbook:#brain:projects/sync.md` `effort:3`
+
+Backlog plan item `batch-pushes` of plan `sync-rework` for `backlog-sync` — run it with the `run-plan-item` skill.
+
+Title this session `sync-rework:1 - Batch the replica pushes` before you start.
+
+Read first: `#brain:projects/sync.md#batching`.
+
+Send the replica's pending changes as one batch per push.
+
+## Update backlog-sync's own devbook once this prompt lands
+```
 
 ## Ticket line
 

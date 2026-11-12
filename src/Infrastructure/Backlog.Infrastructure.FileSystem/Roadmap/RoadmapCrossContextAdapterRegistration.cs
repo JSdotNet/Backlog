@@ -5,6 +5,7 @@ using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
 
@@ -66,12 +67,28 @@ public static class RoadmapCrossContextAdapterRegistration
         // taking the backlog in the constructor deadlocks the scope, as for the
         // finished work below. The session source is optional: it dates work its entry
         // left undated, and a host without one draws the entries' own dates, as before.
+        //
+        // The Brain's notes are read through Roadmap's own port (local ADR 0053): none
+        // in a host without a Brain, the Brain's database where its adapters replace
+        // this empty answer. A singleton either way — it holds no scoped service.
+        services.TryAddSingleton<IRoadmapBrainNotes, NoRoadmapBrainNotes>();
         services.AddScoped<IRoadmapItemRollup>(sp =>
             new RoadmapItemRollupService(
                 () => sp.GetRequiredService<ITaskItems>(),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
                 sp.GetService<IAgentSessionSource>(),
-                sp.GetService<TimeProvider>()));
+                sp.GetService<TimeProvider>(),
+                sp.GetService<IRoadmapBrainNotes>()));
+
+        // A finished plan's project note and its move to the archive (local ADR 0052 §5),
+        // scoped as the rollup it reads is. The Brain's areas are its adapter's answer:
+        // a host that composed no Brain has none, so nothing is ever finished there.
+        services.AddScoped<IRoadmapProjectNoteArchive>(sp =>
+            new RoadmapProjectNoteArchive(
+                sp.GetRequiredService<IRoadmapPlanning>(),
+                sp.GetRequiredService<IRoadmapItemRollup>(),
+                sp.GetService<IRoadmapProjectNotes>(),
+                sp.GetService<ShellNavigationStore>()));
 
         // The shelf of plans not yet on the roadmap reads the backlog the same way,
         // so it is scoped for the same reason: ITaskItems is.

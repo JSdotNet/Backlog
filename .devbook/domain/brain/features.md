@@ -20,13 +20,14 @@ Store notes, references, ideas and learnings as Markdown from inbox triage, manu
 ```meta
 type: feature
 depends-on: [.devbook/domain/brain/features.md#knowledge-capture]
-related: [.devbook/domain/brain/domain.md#para-category, .devbook/domain/brain/features.md#brain-folder-setup]
+related: [.devbook/domain/brain/domain.md#para-category, .devbook/domain/brain/features.md#brain-folder-setup, .devbook/domain/brain/requirements.md#para-default-gains-someday, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
 Organize notes into areas, one top folder and one tab each. The areas the Brain's `CONVENTIONS.md` declares come first. A Brain that declares none uses the PARA set:
 
 - an inbox for what is not filed yet;
 - Projects (active, deadline);
+- Someday (possibilities not committed to; local ADR 0054);
 - Areas (ongoing);
 - Resources (reference);
 - People;
@@ -36,6 +37,8 @@ Organize notes into areas, one top folder and one tab each. The areas the Brain'
 Every other top folder that holds a note follows as an area named after its folder, so a note filed into a new folder shows at once. A folder `CONVENTIONS.md` lists under `## Ignore` never becomes a tab.
 
 A dated area lists newest first: the `journal` folder, or any area whose `Holds` line in `CONVENTIONS.md` says *dated*. Its entries are named by date, so name descending is date descending at every level; other areas list by name.
+
+The Brain holds what is not actionable, and the backlog every commitment (local ADR 0054). A note points at the tasks it is about and holds none of them itself.
 
 Moving a note to another area is moving its file to another folder. A note may name its area in its `para` field instead, which wins over the folder.
 
@@ -63,7 +66,7 @@ These discovery tags are the context's own `#keyword`s, not a chapter's [Roadmap
 
 ```meta
 type: feature
-related: [.devbook/domain/brain/requirements.md#bi-directional-linking, .devbook/domain/brain/domain.md#task-link, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/tasks/features.md#search-filter-and-organize]
+related: [.devbook/domain/brain/requirements.md#bi-directional-linking, .devbook/domain/brain/domain.md#task-link, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/arc42/adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md, .devbook/domain/brain/domain.invariants.md#cross-linking, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
 Link a Brain note to the tasks it is about, and see the link from both ends. A note names its tasks in its `tasks` field, one [Task Link](domain.md#task-link) per task, by the task's stored id. The Brain's database carries the field, and the app reads it both ways:
@@ -71,7 +74,7 @@ Link a Brain note to the tasks it is about, and see the link from both ends. A n
 - **From the note.** Under its links into devbooks, the note shows a **Tasks** section. Each task this backlog holds is a gold chip reading its title, which opens the task in the task list. An id this backlog does not hold is a dashed chip reading *not in this backlog*. It is never an error, because one Brain is read beside more than one backlog.
 - **From the task.** A task row, in the Brain scope and a repository scope, carries a teal **◆ n note** badge counting the Brain notes that name it. With one note, pressing it opens the Devbook on the Brain side at that note; with several, it lists them to pick from. Where the Devbook is off or has no Brain to read, the press shows a *not available* toast and opens nothing.
 
-The reverse is read, never written: a task's record carries no note. The badge is drawn only for the Brain's owner, from their own Brain (local ADR 0027 §6), so another reader of the same backlog sees none. Embedding a note's content in a task's details is not built.
+The link is written into the note only: a task's record carries no note. When the app makes a task from a note, through the pane's **Create task**, it appends the task's id to the note's `tasks` field. For a plan, made by **Plan this project**, it appends the plan's [Roadmap Tag](../tasks/domain.md#roadmap-tag) to the `roadmap` field ([Brain mode of the Devbook pane](#brain-mode-of-the-devbook-pane)). It changes nothing else in the file and adds no value the list already holds. A list written one `- id` per line stays that way, and the Brain's database reads it back as it reads `[a, b]`. It refuses a note whose top `meta` block it cannot parse (local ADR 0052). The badge is drawn only for the Brain's owner, from their own Brain (local ADR 0027 §6), so another reader of the same backlog sees none. Embedding a note's content in a task's details is not built.
 
 ## Brain scope
 
@@ -121,6 +124,12 @@ Read and write the Brain in the same pane that reads a repository's devbook. [Ar
 **Show hidden** in the menu brings back what the Brain hides. Every folder `CONVENTIONS.md` lists under `## Ignore` and every dot-folder gets a tab after the rest, marked hidden, and an area's menu lists its dot-entries too. It is off by default, and the app remembers it per device in its own settings, never in the folder. It changes only what the pane shows: search, the atlas and the Brain database still leave hidden folders out.
 
 The tree, the rendered chapter and the editor are the ones a repository devbook uses, and a Brain note is always editable. The reader leaves a remark on a note's block as on a chapter's, and edits, resolves or deletes it there. A Brain remark is stored under the Brain's scope, by the note's path from the Brain's root, so the agent lists and resolves it on `#brain`.
+
+A note picks work up from above its body. **Create task** makes a draft task titled by the line the reader selected in the note, its list marker or checkbox dropped, or by the note's title when nothing is selected. The task is filed in the Brain scope, or once in each repository the note's `repos` field names. Each task carries `#brain:<path>` in its Devbook references, and its id is appended to the note's `tasks` ([Bi-directional linking](#bi-directional-linking)).
+
+On a note under the projects area, **Plan this project** asks the plan drafter [Create plan](../inbox/features.md#create-plan-from-an-item) uses. Its input is the note with the Brain notes its `related` field names. The drafter's entries are imported under a `plan` entry titled from the note, which carries a fresh [Roadmap Tag](../tasks/domain.md#roadmap-tag) and the note as its Knowledge Ref. The tag is then appended to the note's `roadmap`. A plan naming a repository the note's `repos` does not is refused whole, as Create plan refuses one. Either action makes nothing while `repos` names a repository this workspace does not have, so a typo never registers one. Each drafted step is filed under the plan's tag at Draft, whatever the drafter wrote.
+
+The line beside the buttons says what the press made. Once the press links the note, the open note is read again, so its Tasks section lists the new task at once. A note whose top `meta` block does not parse keeps the task or plan, and the line says the link was not written and why. Create task is disabled while no Brain folder is set; Plan this project also while no drafter is configured. Each says why in its tooltip.
 
 What only a repository has is absent: branch updates, sync verdicts, scenario marks and opening the folder in an editor. Search is the same [Unified search](../devbook/features.md#unified-search) wherever it is opened. The **Atlas** button opens the Brain's own map ([Atlas edges](#atlas-edges)). Ask AI takes no Brain note as the open chapter.
 
@@ -327,8 +336,8 @@ Building runs the refresher that builds the index in the background. The map tak
 ```meta
 type: feature
 depends-on: [.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane]
-related: [.devbook/domain/brain/requirements.md#capture-into-the-brain, .devbook/domain/inbox/features.md#route-to-brain, .devbook/domain/inbox/domain.md#itemtriaged]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_capture_lands_in_the_inbox_area_and_reads_back_as_written]
+related: [.devbook/domain/brain/requirements.md#capture-into-the-brain, .devbook/domain/inbox/features.md#route-to-brain, .devbook/domain/inbox/features.md#create-plan-from-an-item, .devbook/domain/inbox/domain.md#itemtriaged]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainCaptureTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteTextTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_project_note_lands_in_the_projects_area_naming_the_plan_s_tag, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteDestinationsTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests.A_capture_lands_in_the_inbox_area_and_reads_back_as_written]
 ```
 
 ```mermaid
@@ -336,14 +345,17 @@ flowchart LR
     Capture[Capture in the pane] --> Writer
     Triage[To Brain from Inbox triage] --> Writer
     Tool[capture_note over MCP] --> Writer
-    Writer[One writer, IBrainNoteWriter] --> Note[A new note in the Brain's inbox area]
+    Plan[Create plan's project note] --> Writer
+    Writer[One writer, IBrainNoteWriter] --> Note[A new note in the inbox area, or the area or project named]
 ```
 
 Get a thought into the Brain without leaving what is on screen. In Brain mode the pane header carries **Capture**: a title and a Markdown body, written as a new note with its `meta` block in the Brain's inbox area. That area is `_inbox` under the PARA default, or the area `CONVENTIONS.md` marks as the inbox. Inbox triage writes the same kind of note through its **To Brain** route, from a capture or an Inbox note, keeping the title and body.
 
+The writer takes a target area: an area's folder, or a folder below one such as a project's (`someday`, `projects/launch`). With none it writes into the inbox area. A target that is not one of the Brain's areas, or climbs out of the Brain or into a dot-folder, is refused in words and nothing is written. The writer also lists where a note can go, which is the list To Brain's destination picker shows ([Route to Brain](../inbox/features.md#route-to-brain)). Create plan's **Also start a project note** writes through it too, into the projects area, with the plan's Roadmap Tag already in the note's `roadmap` list ([Create plan from an item](../inbox/features.md#create-plan-from-an-item)).
+
 Whatever the person typed stays text. A heading, fence or meta block typed into a capture gets a zero-width space just before its marker. The space is invisible when read, and no reader takes the line for structure.
 
-The note's file is named after its title (`Ideas for the sync` is `ideas-for-the-sync.md`). A name already taken gets `-2`, `-3` and on, so nothing in the Brain is ever overwritten. Its `meta` block says `type: note` and its [source](domain.md#note-source), `manual` from Capture and `inbox` from To Brain. Once written, the pane opens it. An assistant calls the capture tool over MCP ([MCP Brain scope](#mcp-brain-scope)).
+The note's file is named after its title (`Ideas for the sync` is `ideas-for-the-sync.md`), in whichever folder it lands. A name already taken gets `-2`, `-3` and on, so capture never overwrites a note already in the Brain. Capture only creates notes; appending a link to an existing note is [Cross-Linking](domain.md#cross-linking)'s job, beside it ([Bi-directional linking](#bi-directional-linking), local ADR 0052). Its `meta` block says `type: note` and its [source](domain.md#note-source), `manual` from Capture and `inbox` from To Brain. Once written, the pane opens it. An assistant calls the capture tool over MCP ([MCP Brain scope](#mcp-brain-scope)).
 
 ## MCP Brain scope
 
@@ -351,7 +363,7 @@ The note's file is named after its title (`Ideas for the sync` is `ideas-for-the
 type: feature
 depends-on: [.devbook/domain/brain/features.md#capture-into-the-brain]
 related: [.devbook/domain/brain/requirements.md#mcp-brain-scope, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#review-notes-in-a-chapter]
-tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.McpToolCreationTests.A_host_without_the_brain_ports_still_builds_the_devbook_tools]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainScopeToolsTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainReviewToolTests, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.McpToolCreationTests.A_host_without_the_brain_ports_still_builds_the_devbook_tools]
 ```
 
 Let an assistant read and write the Brain through the same tools it uses on a repository devbook. The knowledge tools the app serves over MCP take the Brain as `#brain` in place of a repository's `owner/name`. They list the contexts, read a chapter, and list and resolve the reader's [remarks](../devbook/domain.md#remark).
@@ -360,5 +372,11 @@ The spelling is not the empty string the shell stores for the Brain (local ADR 0
 
 A Brain note is named by its path from the Brain's root (`projects/plan.md`), never under a dot-folder and never through a link out of the folder. The remarks on it are the ones the reader left on the Brain, and a remark is resolved only under the scope it belongs to.
 
+The same spelling addresses a note from outside the Brain: `#brain:<path from the Brain's root>`. A plan's Knowledge Ref and a task's Devbook references may hold it ([Knowledge Ref](../roadmap/domain.md#knowledge-ref), local ADR 0053). An assistant that lists a task's references gets the address, and reads the note by passing `#brain` and the path to the read tool. It resolves only for the Brain's owner; for anyone else, and where no Brain is set, it reads as unresolved.
+
 The capture tool, `capture_note`, writes a new note into the Brain's inbox area through the writer the pane's Capture uses. It applies the same guard on the text and writes source `manual`. A second capture with the same title is a second note. The tool answers the note's path from the Brain's root, which the read tool takes as it is. Where no Brain is set, or the host has none, the tools say so in words rather than failing.
+
+An action an assistant hears goes to the Inbox instead, through `capture_to_inbox`, so it reaches clarify ([Work the queue over MCP](../inbox/features.md#work-the-queue-over-mcp), local ADR 0054).
+
+`list_brain_reviews` answers the notes whose `review` date has come, oldest first, each with its path from the Brain's root ([A note's review date comes due](requirements.md#requirement-a-notes-review-date-comes-due), local ADR 0054 §6). It compares against today unless the call names a day. A note whose value is no `YYYY-MM-DD` date is listed under warnings and left out, never an error. Like `capture_note` it is the Brain's alone and takes no scope, and like it, it says so in words when no Brain is set or the host has none. Under `toArchive` it also lists every finished plan's project note still in the projects area, with the plan that gathers it ([Archiving a finished plan's project note](../roadmap/features.md#archiving-a-finished-plans-project-note), local ADR 0052 §5).
 

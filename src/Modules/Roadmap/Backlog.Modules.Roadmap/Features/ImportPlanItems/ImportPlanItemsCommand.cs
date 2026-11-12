@@ -343,7 +343,8 @@ public sealed class ImportPlanItemsCommandHandler(
                 ImportPlacement.Effort,
                 entry.Priority,
                 scope,
-                entry.Notes);
+                entry.Notes,
+                KnowledgeReferences.Of(entry.KnowledgeRefs));
 
             return added.IsFailure
                 ? Result.Failure<Touched>(added.Error)

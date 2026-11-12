@@ -401,6 +401,13 @@ related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 | No redundant save toasts | Routine auto-saves MUST NOT spam toasts, which are for failures and notable events only. |
 | Inline confirmation | Prefer subtle inline confirmation over a toast for small edits. |
 | Above an open dialog | A toast raised while a `Modal` is open MUST be seen above it. |
+| One action | An offer MAY carry one button that names its act; the press runs it and takes the toast down. Dismissing never runs it. |
+
+- **One action:** an offer the person can safely miss, because another screen
+  lists the same thing, is the only kind. It keeps the longer dwell an error
+  takes. The example is the roadmap's archive offer for a finished plan's project
+  note (`.devbook/domain/roadmap/features.md#archiving-a-finished-plans-project-note`),
+  which the weekly review lists again.
 
 - **Inline confirmation:** an example is a brief saved-confirmation flash on a
   saved inline edit, per `#motion-and-reduced-motion`.

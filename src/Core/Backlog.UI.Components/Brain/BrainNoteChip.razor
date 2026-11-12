@@ -1,0 +1,158 @@
+@*
+    A note in its owner's Brain that something else holds — a roadmap item gathering
+    it (local ADR 0053 §2 and §5) — drawn as a chip.
+
+    The shape of DevbookReferenceChip, not the component: that one reads its
+    reference through DevbookReference and judges a status against a devbook folder,
+    and a Brain address has neither. This one wears the Brain's accent
+    (.devbook/design/color-scheme.md#the-brains-accent): the Brain badge with the word
+    Brain printed, so the teal is never the only thing saying where the note lives.
+
+    Resolved, the label is a button that opens the note in the Devbook pane, Brain
+    side. Unresolved — no Brain on this device, or the note is not in it — the chip
+    shows the address, opens nothing, and says why three ways and never by colour
+    alone: a dashed edge, a mark whose accessible name is the reason, and the reason
+    again after the address in the tooltip.
+*@
+
+@using Backlog.SharedKernel
+
+<span class="@ClassValue"
+      data-testid="@TestId"
+      data-note="@Reference"
+      data-resolved="@(Unresolved ? "false" : "true")"
+      @attributes="AdditionalAttributes">
+    <Badge Kind="brain" CssClass="brain-note-chip__badge">@BrainScope.Name</Badge>
+
+    @if (!Unresolved && OnOpen.HasDelegate)
+    {
+        <button type="button"
+                class="brain-note-chip__label"
+                title="@OpenTooltip"
+                aria-label="@OpenName"
+                disabled="@Disabled"
+                @onclick="OpenAsync">@Text</button>
+    }
+    else
+    {
+        <span class="brain-note-chip__label" title="@Tooltip">@Text</span>
+    }
+
+    @if (Unresolved)
+    {
+        <span class="brain-note-chip__unresolved" role="img" aria-label="@ProblemText" title="@ProblemText">!</span>
+    }
+
+    @if (OnRemove.HasDelegate)
+    {
+        @* The holder's own remove, as a task's Devbook reference carries one — the
+           same control and look as DevbookReferenceChip's. *@
+        <IconButton AriaLabel="@RemoveName"
+                    BaseClass="devbook-chip__remove"
+                    Disabled="@Disabled"
+                    OnClick="RemoveAsync">&#215;</IconButton>
+    }
+</span>
+
+@code {
+    /// <summary>Why a chip is unresolved where no Brain is readable on this device —
+    /// and what it says when the host gives no reason of its own.</summary>
+    public const string NotInYourBrain = "No Brain is readable on this device: only the Brain's owner can open this note, where their Brain is set.";
+
+    /// <summary>Why a chip is unresolved when the reference wears the Brain's prefix
+    /// but names no note in it.</summary>
+    public const string NotABrainAddress = "Not a Brain note address: write #brain: and the note's path inside the Brain, optionally followed by #heading.";
+
+    /// <summary>Why a chip is unresolved when this device's Brain was read and holds no
+    /// note at <paramref name="note"/> — its path inside the Brain, heading
+    /// included.</summary>
+    public static string NotInThisBrain(string note) => $"Not in your Brain: it holds no note at {note}.";
+
+    /// <summary>The address as it is stored: <c>#brain:&lt;path&gt;[#slug]</c>. The
+    /// tooltip, and what <see cref="OnOpen"/> is raised with.</summary>
+    [Parameter, EditorRequired]
+    public string Reference { get; set; } = string.Empty;
+
+    /// <summary>What the note reads as — its title, read from the owner's Brain. Null,
+    /// or an unresolved note, shows <see cref="Reference"/>.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>Whether this device could not find the note.</summary>
+    [Parameter]
+    public bool Unresolved { get; set; }
+
+    /// <summary>Why it is unresolved, in a sentence. Read only while
+    /// <see cref="Unresolved"/> is set.</summary>
+    [Parameter]
+    public string? Problem { get; set; }
+
+    /// <summary>Raised with <see cref="Reference"/> when a resolved chip's label is
+    /// pressed. With no handler the label is text, not a control that would have to
+    /// refuse the click.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpen { get; set; }
+
+    /// <summary>Raised with <see cref="Reference"/> when the remove control is
+    /// pressed — resolved or not, since an address that names nothing is still the
+    /// holder's to drop. With no handler there is no remove control.</summary>
+    [Parameter]
+    public EventCallback<string> OnRemove { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>Why a resolved chip is <see cref="Disabled"/> just now — the host's
+    /// words, said in the label's tooltip and name, so a chip that will not open is
+    /// never silent about it.</summary>
+    [Parameter]
+    public string? DisabledReason { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Text => Unresolved || string.IsNullOrWhiteSpace(Title) ? Reference : Title;
+
+    private string ProblemText => string.IsNullOrWhiteSpace(Problem) ? NotInYourBrain : Problem;
+
+    private string Tooltip => Unresolved ? $"{Reference} — {ProblemText}" : Reference;
+
+    /// <summary>The title and, where it says something the title does not, the
+    /// address after it — two notes may share a title.</summary>
+    private string OpenName
+    {
+        get
+        {
+            var name = string.Equals(Text, Reference, StringComparison.Ordinal)
+                ? $"Open the Brain note {Text}"
+                : $"Open the Brain note {Text} ({Reference})";
+            return Waiting ? $"{name} — {DisabledReason}" : name;
+        }
+    }
+
+    private bool Waiting => Disabled && !string.IsNullOrWhiteSpace(DisabledReason);
+
+    private string OpenTooltip => Waiting ? $"{Reference} — {DisabledReason}" : Reference;
+
+    private string ClassValue
+    {
+        get
+        {
+            var classes = Unresolved ? "brain-note-chip brain-note-chip--unresolved" : "brain-note-chip";
+            return string.IsNullOrWhiteSpace(CssClass) ? classes : $"{classes} {CssClass}";
+        }
+    }
+
+    private Task OpenAsync() => OnOpen.InvokeAsync(Reference);
+
+    private Task RemoveAsync() => OnRemove.InvokeAsync(Reference);
+
+    private string RemoveName =>
+        Unresolved ? $"Remove the Brain note {Text} — {ProblemText}" : $"Remove the Brain note {Text}";
+}

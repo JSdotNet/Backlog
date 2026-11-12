@@ -43,6 +43,10 @@ public sealed record DevbookRepoLinkRow(string Type, string Source, string Targe
 /// file it is in and the file's title.</summary>
 public sealed record DevbookTaskLinkRow(string NotePath, string Value, string? NoteTitle);
 
+/// <summary>The value of a Brain note's <c>review</c> field, as written, with the
+/// file it is in and the file's title.</summary>
+public sealed record DevbookReviewDateRow(string NotePath, string Value, string? NoteTitle);
+
 /// <summary>One row of <c>node_attribute</c> — a list-valued field of a
 /// <c>meta</c> block flattened to one row per value.</summary>
 public sealed record DevbookNodeAttributeRow(string NodeId, string Name, string Value);

@@ -346,6 +346,25 @@ public sealed partial class DevbookDatabase : IDisposable
             reader => new DevbookTaskLinkRow(reader.GetString(0), reader.GetString(1), Text(reader, 2)));
 
     /// <summary>
+    /// Every Brain note's <c>review</c> value (local ADR 0054 §6), as written, with
+    /// the file's path and title. Only a file's top block carries the field. In
+    /// note path order. Empty for a repository's database, which stores no such
+    /// field.
+    /// </summary>
+    public IReadOnlyList<DevbookReviewDateRow> ReviewDates() =>
+        Query(
+            """
+            SELECT node.path, node_attribute.value,
+                   (SELECT chapter.title FROM chapter WHERE chapter.path = node.path AND chapter.level = 1 ORDER BY chapter.line LIMIT 1)
+            FROM node_attribute
+            JOIN node ON node.id = node_attribute.node_id
+            WHERE node_attribute.name = 'review' AND node.type = 'file' AND node.path IS NOT NULL
+            ORDER BY node.path, node_attribute.rowid
+            """,
+            _ => { },
+            reader => new DevbookReviewDateRow(reader.GetString(0), reader.GetString(1), Text(reader, 2)));
+
+    /// <summary>
     /// Every value of one list-valued <c>meta</c> field, by node — <c>roadmap</c>,
     /// <c>feature-flag</c>, <c>aliases</c>, <c>alternatives</c>, <c>tests</c>.
     /// Asked one name at a time because a caller wants one: the roadmap rollup

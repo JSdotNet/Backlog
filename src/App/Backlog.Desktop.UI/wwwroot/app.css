@@ -2049,7 +2049,8 @@ h1, h2, h3 {
    the reason `.badge--glob` gives: a date token is a machine string. It was never
    right on a select whose options are "Weekly", "medium" and "critical". */
 .entry-doc__schedule-input,
-.entry-doc__schedule-select {
+.entry-doc__schedule-select,
+.entry-doc__area-picker {
     align-self: flex-start;
     margin-left: var(--spacing-lg);
     font-size: var(--font-size-xs);
@@ -4535,6 +4536,70 @@ h1, h2, h3 {
     gap: var(--spacing-md);
     min-width: 0;
     padding: var(--spacing-md) 0 var(--spacing-lg);
+}
+
+/* The weekly review takeover (.devbook/domain/progress/features.md#the-weekly-review):
+   one column read top to bottom — the stage switch, then the stage on screen and its
+   lines, each line its subject, its check and its buttons. */
+.weekly-review {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--spacing-md) 0 var(--spacing-lg);
+}
+
+.weekly-review__stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.weekly-review__lines {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--color-border);
+}
+
+.weekly-review__line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--spacing-xs) var(--spacing-md);
+    align-items: center;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.weekly-review__subject {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.weekly-review__check {
+    grid-column: 1;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.weekly-review__actions {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    justify-content: flex-end;
+}
+
+.weekly-review__steps {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
 }
 
 /* Choosing which colour each band takes.
@@ -7171,6 +7236,26 @@ a.pull-request-detail-checks__name:hover {
     flex-wrap: wrap;
     gap: var(--spacing-xs);
     margin: 0;
+}
+
+/* Picking work up from a Brain note: Create task and Plan this project, then the
+   line saying what the last one did, wrapping under the buttons in a narrow pane. */
+.brain-note__pickup {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0 0 var(--spacing-sm);
+}
+
+.brain-note__pickup-status {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.brain-note__pickup-status--warning {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
 }
 
 .devbook-stack__repositories,

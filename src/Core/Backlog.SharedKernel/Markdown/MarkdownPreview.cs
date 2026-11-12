@@ -104,7 +104,9 @@ public static partial class MarkdownPreview
         // footnote reference has no `(...)` after it to be confused with one.
         "|" + FootnotePattern +
         "|" + LinkPattern +
-        @"|(?<tag>(?<!\S)#[A-Za-z][\w-]*)")]
+        // `#@pc` is a context, the tag `@pc` (local ADR 0054 §5), as the entry
+        // parser reads it.
+        @"|(?<tag>(?<!\S)#@?[A-Za-z][\w-]*)")]
     private static partial Regex InlineRegex();
 
     // Only the constructs GFM reads before it looks for an extended autolink, in

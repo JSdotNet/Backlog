@@ -102,6 +102,12 @@ internal sealed class InboxItems(
     public string? BrainUnavailableReason =>
         brainTarget is null ? InboxErrors.NoBrainHere : brainTarget.UnavailableReason;
 
+    /// <summary>The Brain target's count of its inbox area; with none, no Brain.</summary>
+    public Task<InboxBrainUnfiledDto?> BrainUnfiledNotesAsync(CancellationToken cancellationToken = default) =>
+        brainTarget is null
+            ? Task.FromResult<InboxBrainUnfiledDto?>(null)
+            : brainTarget.UnfiledNotesAsync(cancellationToken);
+
     public Task<InboxSnapshotDto> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
         snapshot.Handle(new GetInboxQuery(), cancellationToken);
 
@@ -109,8 +115,9 @@ internal sealed class InboxItems(
         string title,
         string? notes = null,
         string channel = InboxEnumMap.ManualChannel,
+        string? sourceUrl = null,
         CancellationToken cancellationToken = default) =>
-        capture.Handle(new CaptureItemCommand(title, notes, channel), cancellationToken);
+        capture.Handle(new CaptureItemCommand(title, notes, channel, sourceUrl), cancellationToken);
 
     public Task<Result> SetTagsAsync(Guid id, IReadOnlyList<string> tags, CancellationToken cancellationToken = default) =>
         setTags.Handle(new SetTagsCommand(id, tags), cancellationToken);
@@ -157,6 +164,9 @@ internal sealed class InboxItems(
     public Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default) =>
         returnToInbox.Handle(new ReturnToInboxCommand(id, deleteTasks), cancellationToken);
 
+    public Task<Result> ReturnDoneNowToInboxAsync(Guid id, CancellationToken cancellationToken = default) =>
+        returnToInbox.Handle(new ReturnToInboxCommand(id, DeleteTasks: true, MadeDone: true), cancellationToken);
+
     public Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default) =>
         resurfaceDue.Handle(new ResurfaceDueItemsCommand(), cancellationToken);
 
@@ -192,11 +202,28 @@ internal sealed class InboxItems(
     public Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
         Guid id,
         string? entryType = null,
+        InboxRouteScheduleDto? schedule = null,
         CancellationToken cancellationToken = default) =>
-        routeToBacklog.Handle(new RouteToBacklogCommand(id, entryType), cancellationToken);
+        routeToBacklog.Handle(new RouteToBacklogCommand(id, entryType, schedule), cancellationToken);
 
-    public Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, CancellationToken cancellationToken = default) =>
-        routeToBrain.Handle(new RouteToBrainCommand(id), cancellationToken);
+    public Task<Result<InboxRoutedDto>> RouteDoneNowAsync(Guid id, CancellationToken cancellationToken = default) =>
+        routeToBacklog.Handle(new RouteToBacklogCommand(id, DoneNow: true), cancellationToken);
+
+    public Task<Result<InboxRoutedDto>> RouteWaitingForAsync(
+        Guid id,
+        InboxWaitingForDto waitingFor,
+        InboxRouteScheduleDto? schedule = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(waitingFor);
+        return routeToBacklog.Handle(new RouteToBacklogCommand(id, Schedule: schedule, WaitingFor: waitingFor), cancellationToken);
+    }
+
+    public Task<Result<InboxBrainRoutedDto>> RouteToBrainAsync(Guid id, string? folder = null, CancellationToken cancellationToken = default) =>
+        routeToBrain.Handle(new RouteToBrainCommand(id, folder), cancellationToken);
+
+    public Task<IReadOnlyList<InboxBrainDestinationDto>> ListBrainDestinationsAsync(CancellationToken cancellationToken = default) =>
+        brainTarget?.ListDestinationsAsync(cancellationToken) ?? Task.FromResult<IReadOnlyList<InboxBrainDestinationDto>>([]);
 
     public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
         IReadOnlyList<Guid> ids,
@@ -220,8 +247,8 @@ internal sealed class InboxItems(
         CancellationToken cancellationToken = default) =>
         routeBatchToBacklog.Handle(new RouteBatchToBacklogCommand(ids, listId, choices, planTitle), cancellationToken);
 
-    public Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default) =>
-        createPlan.Handle(new CreatePlanCommand(id), cancellationToken);
+    public Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, bool startProjectNote = false, CancellationToken cancellationToken = default) =>
+        createPlan.Handle(new CreatePlanCommand(id, startProjectNote), cancellationToken);
 
     public Task<Result> RetryAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
         retryAttachment.Handle(new RetryAttachmentCommand(id, attachmentId), cancellationToken);

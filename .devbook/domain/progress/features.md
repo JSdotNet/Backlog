@@ -7,7 +7,7 @@ type: features
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-Every feature here is always on. Why goals and impediments are the model is local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md).
+Every feature here is always on but [the weekly review](#the-weekly-review), behind the [Weekly review](context.md#weekly-review) flag. Why goals and impediments are the model is local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md).
 
 ## The Goals view
 
@@ -271,6 +271,50 @@ tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManage
 Goal rows show the status Repository Management publishes. Every pull request row in Progress carries its number and the checks and approvals marks of [Pull request status](../repository-management/features.md#pull-request-status). A merged one reads "merged" instead of both. An open or draft one that asks for your review ends on "your review", on a goal and in the phone's stand-up alike. A pull request so reads the same on a goal as in the [pull requests pane](../repository-management/features.md#pull-request-readiness). An open or draft one on a goal's desktop row also shows its title above that line; with no title known, the line stands alone.
 
 Progress defines neither mark: it names a pull request by its repository and number, and Repository Management answers with its status and title. The title stays on the desktop: the stand-up context a phone reads leaves it out. The marks used to be defined here (local ADR 0035 §7); local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract) moved them to the context that reads pull requests. The rows draw as before.
+
+## The weekly review
+
+```meta
+type: feature
+related: [.devbook/domain/progress/requirements.md#the-weekly-review, .devbook/domain/progress/context.md#weekly-review, .devbook/domain/inbox/context.md#inbox-pane, .devbook/domain/tasks/features.md#next-actions, .devbook/domain/roadmap/features.md#archiving-a-finished-plans-project-note, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewChecklistBuilderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_weekly_review_takes_the_screen_over_the_view_and_a_second_press_returns_to_it]
+```
+
+```mermaid
+flowchart LR
+    Option["Weekly review option, after the Inbox"] --> Clear["Get clear"]
+    Clear -->|Next| Current["Get current"]
+    Current -->|Next| Creative["Get creative"]
+    Clear & Current & Creative --> Line["Line: subject, check, action"]
+    Line -->|shows| Away["Inbox, note, task, Goals, plan"]
+    Line -->|writes, reads again| Same["Mark next action, Move to archive"]
+```
+
+Walk the GTD weekly review over the three homes — the Inbox, the Brain and the backlog — in the app, the checks the `weekly-review` skill of `backlog-tools` reports. **Weekly review** stands in the Home shell's header right after **Inbox**. It is a takeover, like the Inbox: a press gives the review the whole screen in place of the main view, which waits underneath. A second press, a view option, another takeover or Escape returns to that view. It is offered while the [Weekly review](context.md#weekly-review) flag is on.
+
+The review walks three stages, one at a time: **Get clear**, **Get current** and **Get creative**. A switch at the top shows which stage is on screen and how many lines each holds; **Next** and **Back** step through them. Each line names what it is about — an item or an entry by its title, a note by its path, a plan by its tag — what the check found, and the actions that answer it, in place:
+
+| Stage | A line for | Its action |
+|---|---|---|
+| Get clear | each unprocessed Inbox item | **Open the Inbox** |
+| Get clear | each note in the Brain's inbox area | **Open the note** |
+| Get clear | each deferred Inbox item due by the sixth day from today | **Open the Inbox** |
+| Get current | each plan with open entries and no [next action](../tasks/features.md#next-actions) | **Mark next action** on its first draft step that can move, else **Open the task** of its first open step |
+| Get current | each roadmap plan no entry carries | **Open the plan** |
+| Get current | each `projects/` note whose `roadmap` names no plan the roadmap or the backlog carries | **Open the note**, **Move to archive** |
+| Get current | each finished plan's project note still in `projects/` | **Move to archive**, **Open the note** |
+| Get current | each open entry whose follow-up date has passed | **Open the task** |
+| Get current | each open entry whose due date has passed | **Open the task** |
+| Get current | each goal with open items, past its due date or with an item blocked | **Open Goals** |
+| Get creative | each note in the `someday` area | **Open the note** |
+| Get creative | each note whose `review` date has come, or whose value is no date | **Open the note** |
+| Get creative | each `areas/` note none of whose tasks was created, started or completed in the last 30 days | **Open the note** |
+
+A press that shows something leaves the review for it: the Inbox, the note in the Devbook on the Brain, the entry in the Tasks view, the Goals view, or the Tasks view on the plan. A press that writes stays and reads the review again, so the line it answered goes. **Mark next action** makes the step ready. **Move to archive** moves the note unchanged into the Brain's archive area, and a finished plan's note has its plan's `#brain:` Knowledge Refs pointed at the new path, as the [roadmap's offer](../roadmap/features.md#archiving-a-finished-plans-project-note) does. A refused action says why on the review and leaves the line.
+
+A stage with nothing left reads done: its option carries a check and the word "done", and the stage says **Clear**. The review reads when it opens, on **Refresh**, after a press that writes, and when the Brain's setting moves or its index is rebuilt. With no Brain readable, or no goals in the host, the review says which part it left out and checks the rest. The areas are found by name or folder from the Brain's conventions, the PARA default otherwise. The tasks are every entry in the backlog, whatever the header's repository scope, since the plans are the whole roadmap's. A read that fails says so and draws no stage as done.
+
+The review lives in the Progress UI, which reaches none of the modules it reads. The window's shell gathers what it checks and carries out each action.
 
 ## Goals on the phone
 

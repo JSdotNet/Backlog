@@ -19,6 +19,12 @@ public static class InboxErrors
         "inbox.item.needs_title",
         "A capture needs some text before it can be kept.");
 
+    /// <summary>A source link named beside a capture that is no absolute http
+    /// or https address.</summary>
+    public static readonly Error SourceUrlNotALink = Error.Validation(
+        "inbox.capture.source_not_a_link",
+        "The source link has to be a web address, starting with http:// or https://.");
+
     /// <summary>Only a note changes after it is captured
     /// (<c>.devbook/domain/inbox/domain.md#content-kind</c>).</summary>
     public static readonly Error NotANote = Error.Validation(
@@ -284,6 +290,15 @@ public static class InboxErrors
     public static Error BatchMergeSaveFailed(string detail) => Error.Unexpected(
         "inbox.batch.merge_save_failed",
         $"The item it duplicates was routed, but this one could not be archived ({detail}). It is still in the Inbox.");
+
+    /// <summary>The code <see cref="WaitingForWhoRequired"/> answers with.</summary>
+    public const string WaitingForWhoRequiredCode = "inbox.route.waiting_for_who_required";
+
+    /// <summary>Waiting for was asked with nobody to wait on, or with a name
+    /// holding a backtick, which entry text cannot carry. Nothing was routed.</summary>
+    public static Error WaitingForWhoRequired { get; } = Error.Validation(
+        WaitingForWhoRequiredCode,
+        "Name who it waits on, without a backtick, so nothing was routed.");
 
     /// <summary>The code <see cref="UnknownEntryType"/> answers with.</summary>
     public const string UnknownEntryTypeCode = "inbox.route.unknown_entry_type";

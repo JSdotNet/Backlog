@@ -3,6 +3,8 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -19,8 +21,8 @@ public static class BrainAdapterRegistration
 {
     /// <summary>
     /// Registers the Brain's adapters: its settings file, its folder source under
-    /// the Brain's port and Devbook's personal-source port, the note writer, the
-    /// backlink and task-link readers, the folder watch, Show hidden, and the
+    /// the Brain's port and Devbook's personal-source port, the note writer and the
+    /// link writer, the backlink and task-link readers, the folder watch, Show hidden, and the
     /// Inbox's To Brain target. Call after the
     /// <see cref="DevbookDatabaseRefresher"/> is registered, which the watch
     /// resolves; each head starts the watch after <c>Build()</c>.
@@ -64,11 +66,33 @@ public static class BrainAdapterRegistration
         // Capture, triage's To Brain and the capture tool all go through it.
         services.AddSingleton<IBrainNoteWriter>(sp => new BrainNoteWriter(sp.GetRequiredService<BrainFolderSource>()));
 
+        // The second writer (local ADR 0052): a link appended to an existing note's
+        // tasks or roadmap list, and a finished project note moved to the archive.
+        services.AddSingleton<IBrainNoteLinkWriter>(sp => new BrainNoteLinkWriter(sp.GetRequiredService<BrainFolderSource>()));
+
         // The Brain notes that link to a repository chapter, read in reverse from
         // the Brain's own database (local ADR 0027 §6) — so the repository's
         // devbook shows its owner "From your Brain" and nothing is written there.
         services.AddSingleton<IBrainBacklinks>(sp => new BrainBacklinkReader(sp.GetRequiredService<IBrainFolderSource>()));
         services.AddSingleton<IBrainTaskLinks>(sp => new BrainTaskLinkReader(sp.GetRequiredService<IBrainFolderSource>()));
+
+        // The notes whose review date has come (local ADR 0054 §6): list_brain_reviews
+        // reads it today, and the weekly review is to. Read only: no writer sets it.
+        services.AddSingleton<IBrainReviewDates>(sp => new BrainReviewDateReader(sp.GetRequiredService<IBrainFolderSource>()));
+
+        // The notes a roadmap item gathers (local ADR 0053), from the same database.
+        // Replace rather than TryAdd, as for To Brain below: the roadmap's
+        // cross-context registration leaves an empty answer for a host without a
+        // Brain, and whichever of the two runs first, this one wins. A singleton, as
+        // that one is: it holds no scoped service.
+        services.Replace(ServiceDescriptor.Singleton<IRoadmapBrainNotes>(sp =>
+            new BrainRoadmapNoteReader(sp.GetRequiredService<IBrainFolderSource>())));
+
+        // A finished plan's project note and its move to the archive (local ADR 0052
+        // §5), through the link writer above. Roadmap's port; absent in a host with no
+        // Brain, where no plan is ever offered the move.
+        services.AddSingleton<IRoadmapProjectNotes>(sp =>
+            new BrainRoadmapProjectNotes(sp.GetRequiredService<BrainFolderSource>(), sp.GetRequiredService<IBrainNoteLinkWriter>()));
 
         // The watch ties the setting to the refresher; each head starts it after Build().
         services.AddSingleton(sp => new BrainFolderWatch(
@@ -81,7 +105,19 @@ public static class BrainAdapterRegistration
         // Inbox's cross-context registration leaves a refusing target for a host
         // without a Brain, and whichever of the two runs first, this one wins.
         services.Replace(ServiceDescriptor.Scoped<IInboxBrainTarget>(sp =>
-            new InboxBrainTarget(sp.GetRequiredService<IBrainNoteWriter>(), sp.GetService<IDevbookPersonalSource>())));
+            new InboxBrainTarget(sp.GetRequiredService<IBrainNoteWriter>(), sp.GetService<IDevbookPersonalSource>(), sp.GetService<IBrainFolderSource>())));
+
+        // Work picked up from a note — Create task, Plan this project — over the
+        // backlog, the Inbox's plan drafter and the link writer above. Scoped, as
+        // To Brain is: the backlog it writes to is a scoped service. The backlog and
+        // the drafter are optional, so a host without either composes, and the
+        // pane's actions read as unavailable with the reason.
+        services.TryAddScoped<IBrainPickup>(sp => new BrainPickup(
+            sp.GetService<ITaskItems>(),
+            sp.GetRequiredService<IBrainFolderSource>(),
+            sp.GetRequiredService<IBrainNoteLinkWriter>(),
+            sp.GetService<IInboxPlanDrafter>(),
+            sp.GetService<IRepositoryDirectory>()));
 
         return services;
     }
