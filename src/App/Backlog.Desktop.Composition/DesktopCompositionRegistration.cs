@@ -189,6 +189,15 @@ public static class DesktopCompositionRegistration
             sp.GetService<INotifications>,
             sp.GetService<ILogger<PullRequestSubjects>>()));
         services.AddSingleton<ISessionPullRequestStates>(sp => sp.GetRequiredService<PullRequestSubjects>());
+        // And while the app runs: an open Personal Validation question closes once its run's
+        // pull request merged or closed, or every session of the run is archived, through the
+        // same Sessions probe. The heads resolve it once, as they do the relay's timer.
+        services.AddSingleton(sp => new RunSubjectWatch(
+            sp.GetService<INotificationReplication>,
+            sp.GetServices<INotificationSubjectProbe>().First(probe => probe is SessionSubjectProbe),
+            sp.GetService<INotifications>,
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<RunSubjectWatch>>()));
         // The MCP ask tool's questions: the asking session polls get_answer, so its handler
         // only takes the answer, which stops the startup pass replaying it on every start.
         services.AddNotificationAnswerHandler<McpNotificationAnswers>();

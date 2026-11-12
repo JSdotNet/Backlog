@@ -353,6 +353,21 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// A validation question about a run whose pull request merged closes while the app runs,
+    /// not only at the next start: the harness composes the watch that asks the Sessions
+    /// probe about the open questions' runs, one instance for the process.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_one_watch_over_the_runs_open_questions_wait_on()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        var watch = harness.Services.GetRequiredService<Backlog.Infrastructure.Sessions.RunSubjectWatch>();
+
+        Assert.Same(watch, harness.Services.GetRequiredService<Backlog.Infrastructure.Sessions.RunSubjectWatch>());
+    }
+
+    /// <summary>
     /// Every reader of a pull request goes through Repository Management's one contract
     /// (local ADR 0042): the harness composes the module, one instance for the process,
     /// with GitHub behind it rather than the module's not-configured fallbacks, and the

@@ -33,6 +33,8 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     private readonly Func<INotifications?>? _notifications;
     private readonly ILogger _logger;
     private readonly ISessionRepositoryResolver? _repositories;
+    private readonly Func<ISessionPullRequestStates?>? _pullRequests;
+    private readonly TimeProvider _clock;
 
     /// <summary>What a host composes: the dashboards' folders under the signed-in
     /// profile, this device's identity, whatever is showing the application — which
@@ -41,14 +43,19 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     /// verdicts either way. And Notifications, told when a run finishes so a question
     /// about it closes — nothing, on a host that composed no notifications. And which
     /// registered clone a worktree lies in, for the run's question when the run sent no
-    /// repository — nothing, on a head without a repository list.</summary>
+    /// repository — nothing, on a head without a repository list. And what state a pull
+    /// request is in, so a run whose pull request already ended asks no question — nothing,
+    /// on a host that reads no GitHub. And the clock that budget is kept by: the system's,
+    /// unless a test passes its own.</summary>
     internal LocalDeliverySurfaceLifecycle(
         IDeviceIdentitySource identity,
         ISessionsSurfaceActivator? shell = null,
         IDevbookSyncVerdicts? verdicts = null,
         Func<INotifications?>? notifications = null,
         ILogger? logger = null,
-        ISessionRepositoryResolver? repositories = null)
+        ISessionRepositoryResolver? repositories = null,
+        Func<ISessionPullRequestStates?>? pullRequests = null,
+        TimeProvider? clock = null)
         : this(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"),
             IdOf(identity),
@@ -57,7 +64,9 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
             verdicts,
             notifications,
             logger,
-            repositories)
+            repositories,
+            pullRequests,
+            clock)
     {
     }
 
@@ -71,7 +80,9 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         IDevbookSyncVerdicts? verdicts = null,
         Func<INotifications?>? notifications = null,
         ILogger? logger = null,
-        ISessionRepositoryResolver? repositories = null)
+        ISessionRepositoryResolver? repositories = null,
+        Func<ISessionPullRequestStates?>? pullRequests = null,
+        TimeProvider? clock = null)
     {
         _store = new DeliveryRunStore(home);
         _reader = new DeliveryRunReader(home, environmentId, environment);
@@ -80,6 +91,8 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         _notifications = notifications;
         _logger = logger ?? NullLogger.Instance;
         _repositories = repositories;
+        _pullRequests = pullRequests;
+        _clock = clock ?? TimeProvider.System;
     }
 
     private static string IdOf(IDeviceIdentitySource identity)
@@ -491,7 +504,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         // run in the same write. What this call passes, not what the stage holds: an
         // earlier attempt's links and output are still on it.
         await ValidationQuestions.OnStageAsync(
-            run, Text(stage, "name") ?? string.Empty, previousStatus, status, output, links, worktree, runId, _notifications, _logger, _repositories, cancellationToken).ConfigureAwait(false);
+            run, Text(stage, "name") ?? string.Empty, previousStatus, status, output, links, worktree, runId, _notifications, _logger, _repositories, _pullRequests, _clock, cancellationToken).ConfigureAwait(false);
 
         WritePhaseDoneCounts(run);
 

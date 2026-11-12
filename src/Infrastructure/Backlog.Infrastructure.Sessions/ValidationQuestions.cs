@@ -14,7 +14,9 @@ namespace Backlog.Infrastructure.Sessions;
 /// the choices Approve, Approve + follow-up, Revise and Reject
 /// (<c>.devbook/domain/notifications/requirements.md#requirement-a-run-at-personal-validation-asks-to-be-approved</c>).
 /// It is about the run, so the run's end closes it, and its answer is recorded on the run
-/// file as the gate decision — the pull request is still opened at the desktop.
+/// file as the gate decision — the desktop session then opens the pull request, or marks
+/// the draft one it already opened ready for review. That pull request is shown first, and a
+/// review link only the desktop can open is marked so (<see cref="ReviewLinks"/>).
 /// <para>
 /// The run file remembers the question under <c>validationQuestion</c>: the notification's
 /// id, when it was asked, whether it was answered or closed, and whether the gate's current
@@ -69,6 +71,8 @@ internal static class ValidationQuestions
         Func<INotifications?>? notifications,
         ILogger logger,
         ISessionRepositoryResolver? repositories = null,
+        Func<ISessionPullRequestStates?>? pullRequests = null,
+        TimeProvider? clock = null,
         CancellationToken cancellationToken = default)
     {
         if (notifications is null || !DeliveryRunStageResolution.IsGate(stageName)) return;
@@ -100,6 +104,15 @@ internal static class ValidationQuestions
                 var shown = links?.Where(link => !string.IsNullOrWhiteSpace(link.Url)).ToList() ?? [];
 
                 if (asked is null || !Flag(asked, "armed") || (handoff is null && shown.Count == 0)) return;
+
+                // A question about a run whose pull request already merged or closed is moot
+                // before it is asked. The attempt stays armed, so a later report asks once the
+                // pull request reads open again — or reads as nothing.
+                if (await PullRequestsEndedAsync(run, pullRequests, clock ?? TimeProvider.System, logger, runId, cancellationToken).ConfigureAwait(false))
+                {
+                    logger.LogDebug("The run {Run}'s pull request already ended; its validation question is not asked.", runId);
+                    return;
+                }
 
                 var published = await port.PublishAsync(Draft(run, runId, worktree, handoff, shown, repositories), cancellationToken).ConfigureAwait(false);
 
@@ -251,14 +264,22 @@ internal static class ValidationQuestions
         var repository = string.IsNullOrWhiteSpace(sent) ? repositories?.RepositoryOf(worktree) : sent;
         var followUp = GatedEntryOf(run) is not null;
 
+        // The pull request this call passes; else the one the run recorded on any stage —
+        // under delivery 1.35.0 there is none yet, and the copy then says so.
+        var pulls = links.Where(link => ReviewLinks.Classify(link.Url) is ReviewLinkKind.PullRequest).ToList();
+        if (pulls.Count == 0) pulls = [.. RunPullRequests.Of(run).Select(pull => pull.Link)];
+        var review = links.Where(link => ReviewLinks.Classify(link.Url) is not ReviewLinkKind.PullRequest).ToList();
+
         return new NotificationDraft(
             new NotificationSource(SessionNotificationSubjects.Context, SessionNotificationSubjects.ValidationSourceKey(runId, worktree)),
             new NotificationSubject(SessionNotificationSubjects.Context, SessionNotificationSubjects.Run, runId),
             NotificationKind.Question,
             NotificationSeverity.Info,
             NotificationText.Glance(repository, title, TitleAsk, MaxTitleLength),
-            "The run reached Personal Validation. Your answer is recorded on the run; the pull request is still opened at the desktop.",
-            Body(title, repository, followUp, handoff, links),
+            pulls.Count > 0
+                ? "The run reached Personal Validation. Your answer is recorded on the run; approving lets the desktop session mark the pull request ready for review."
+                : "The run reached Personal Validation. Your answer is recorded on the run; the pull request is still opened at the desktop.",
+            Body(title, repository, followUp, handoff, pulls, review),
             new AnswerSpec(
                 [
                     new AnswerChoice(SessionNotificationSubjects.ApproveChoice, "Approve", AnswerChoiceStyle.Primary),
@@ -274,22 +295,42 @@ internal static class ValidationQuestions
     }
 
     /// <summary>
-    /// The handoff as Markdown: what the answers do, then the review links (label, address,
-    /// description) and the handoff text — cut to <see cref="MaxBodyBytes"/>, ending with a
-    /// line that says so, when it is longer.
+    /// The handoff as Markdown: the pull request first, where there is one, so it is what a
+    /// phone shows before anything else; what the answers do; then the other review links
+    /// (label, address, description), each one only the desktop can open marked so; and the
+    /// handoff text — cut to <see cref="MaxBodyBytes"/>, ending with a line that says so,
+    /// when it is longer.
     /// </summary>
-    private static string Body(string title, string? repository, bool followUp, string? handoff, IReadOnlyList<DeliveryStageLink> links)
+    private static string Body(
+        string title,
+        string? repository,
+        bool followUp,
+        string? handoff,
+        IReadOnlyList<DeliveryStageLink> pulls,
+        IReadOnlyList<DeliveryStageLink> links)
     {
         var body = new StringBuilder();
 
         body.Append(CultureInfo.InvariantCulture, $"**{title}** reached Personal Validation{(string.IsNullOrWhiteSpace(repository) ? string.Empty : $" in `{repository}`")}.\n\n");
+
+        if (pulls.Count > 0)
+        {
+            body.Append("## Pull request\n\n");
+            foreach (var pull in pulls) AppendLink(body, pull, PullRequestLabel(pull));
+
+            // Its own heading, so the answers do not read as part of the pull request's list.
+            body.Append("\n## Your answer\n\n");
+        }
+
         body.Append("- **Approve** records the approval on the run.\n");
         if (followUp) body.Append("- **Approve + follow-up** approves and files your words as a follow-up entry after this one.\n");
         body.Append("- **Revise** sends it back with your words for another round.\n");
         body.Append(followUp
             ? "- **Reject** records a rejection, and the entry is blocked.\n\n"
             : "- **Reject** records a rejection and ends the run without a revise round.\n\n");
-        body.Append("Opening the pull request still happens at the desktop, in the session that runs it.\n");
+        body.Append(pulls.Count > 0
+            ? "Approving lets the desktop session mark the pull request ready for review.\n"
+            : "Opening the pull request still happens at the desktop, in the session that runs it.\n");
 
         if (links.Count > 0)
         {
@@ -297,10 +338,7 @@ internal static class ValidationQuestions
 
             foreach (var link in links)
             {
-                var label = string.IsNullOrWhiteSpace(link.Label) ? link.Url : OneLine(link.Label);
-                body.Append(CultureInfo.InvariantCulture, $"- [{label}]({link.Url})");
-                if (!string.IsNullOrWhiteSpace(link.Description)) body.Append(CultureInfo.InvariantCulture, $" — {OneLine(link.Description)}");
-                body.Append('\n');
+                AppendLink(body, link, string.IsNullOrWhiteSpace(link.Label) ? link.Url! : OneLine(link.Label));
             }
         }
 
@@ -310,6 +348,66 @@ internal static class ValidationQuestions
         }
 
         return Fit(body.ToString());
+    }
+
+    /// <summary>One list line: the link, the desktop-only mark where only the machine that
+    /// runs the session can open it, and its description.</summary>
+    private static void AppendLink(StringBuilder body, DeliveryStageLink link, string label)
+    {
+        body.Append(CultureInfo.InvariantCulture, $"- [{label}]({link.Url})");
+        if (ReviewLinks.Classify(link.Url) is ReviewLinkKind.DesktopOnly) body.Append(" (desktop only)");
+        if (!string.IsNullOrWhiteSpace(link.Description)) body.Append(CultureInfo.InvariantCulture, $" — {OneLine(link.Description)}");
+        body.Append('\n');
+    }
+
+    private static string PullRequestLabel(DeliveryStageLink pull) =>
+        !string.IsNullOrWhiteSpace(pull.Label) ? OneLine(pull.Label)
+        : ReviewLinks.PullRequestOf(pull.Url) is { } named ? string.Create(CultureInfo.InvariantCulture, $"PR #{named.Number}")
+        : pull.Url!;
+
+    /// <summary>How long the gate waits on the run's pull requests, all of them together. It
+    /// runs inside the run's gate, which other writers wait on, so it is bounded; the reads go
+    /// through Repository Management's cache, so it is usually instant.</summary>
+    internal static readonly TimeSpan PullRequestReadBudget = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Whether every pull request the run recorded reads merged or closed
+    /// (<see cref="RunPullRequests"/>, the set the Sessions probe reads too). False without the
+    /// port, without a recorded pull request, or as soon as one reads open or as nothing, the
+    /// reads together outlast <see cref="PullRequestReadBudget"/>, or one fails: the question
+    /// is then asked as before.
+    /// </summary>
+    private static async Task<bool> PullRequestsEndedAsync(
+        JsonObject run,
+        Func<ISessionPullRequestStates?>? pullRequests,
+        TimeProvider clock,
+        ILogger logger,
+        string runId,
+        CancellationToken cancellationToken)
+    {
+        var recorded = RunPullRequests.Of(run);
+        if (recorded.Count == 0 || pullRequests?.Invoke() is not { } port) return false;
+
+        using var budget = new CancellationTokenSource(PullRequestReadBudget, clock);
+        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, budget.Token);
+
+        try
+        {
+            return await RunPullRequests.EndAsync(recorded, port, bounded.Token).ConfigureAwait(false) is not null;
+        }
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            if (budget.IsCancellationRequested)
+            {
+                logger.LogDebug(exception, "Reading the pull requests of run {Run} outlasted the gate's budget; its validation question is asked.", runId);
+            }
+            else
+            {
+                logger.LogDebug(exception, "Reading the pull requests of run {Run} failed; its validation question is asked.", runId);
+            }
+
+            return false;
+        }
     }
 
     /// <summary>The body as it is when it fits; otherwise cut on a character boundary so
