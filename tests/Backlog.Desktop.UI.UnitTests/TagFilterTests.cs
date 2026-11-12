@@ -1610,6 +1610,35 @@ public sealed class TagFilterTests
             pane.Find("[data-testid='tag-filter-more']").GetAttribute("aria-controls"));
     }
 
+    /// <summary>The strip and its toggle share a row of their own, last on the bar:
+    /// the strip first, More or Fewer straight after it at the row's end, open or
+    /// shut. The row is only a wrapper — the strip is still the group components.js
+    /// measures, and More still its sibling, which the CSS that hides More and the
+    /// focus hand-back both find it by.</summary>
+    [Fact]
+    public async Task The_strip_and_its_toggle_share_the_last_row_of_the_bar()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        var pane = host.Render();
+
+        foreach (var open in new[] { false, true })
+        {
+            var row = pane.Find(".filter-bar > [data-testid='tag-filter-row']");
+            Assert.Null(row.GetAttribute("role"));
+            Assert.Equal(["tag-filter-strip", null], row.Children.Select(child => child.GetAttribute("id")));
+            Assert.Equal("tag-filter-more", row.Children[1].GetAttribute("data-testid"));
+            Assert.Equal(
+                "tag-filter-row",
+                pane.Find(".filter-bar").Children.Last(child => !child.ClassList.Contains("region-refresh")).GetAttribute("data-testid"));
+
+            if (!open) await pane.Find("[data-testid='tag-filter-more']").ClickAsync(new());
+        }
+
+        Assert.Equal("Fewer", pane.Find("[data-testid='tag-filter-more']").TextContent.Trim());
+    }
+
     /// <summary>The plan in view is something a reader pastes elsewhere — a session
     /// title, a commit, a chat — so while one is pressed the bar offers its tag,
     /// sigil and all, one press from the clipboard.</summary>

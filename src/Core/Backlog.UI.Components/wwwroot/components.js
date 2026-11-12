@@ -45,6 +45,22 @@
         attempt(focusFrames);
     };
 
+    // backlogFocus, but only for a focus that is lost: on nothing, on an element
+    // already taken out of the page, or inside one of `heldBy` — a control the
+    // render that asks is removing. A focus the reader has put somewhere else (an
+    // outside click that closed a menu) is left where it is. Checked when the call
+    // arrives, before the frames backlogFocus may wait for the element.
+    window.backlogFocusIfLost = (id, ...heldBy) => {
+        const focused = document.activeElement;
+        const lost = !focused
+            || focused === document.body
+            || focused === document.documentElement
+            || !focused.isConnected
+            || heldBy.some((selector) => focused.closest?.(selector));
+
+        if (lost) window.backlogFocus(id);
+    };
+
     // A list opened on one row — the pull requests list from a task's card — has to
     // show that row, which may sit far down a long table. The nearest scroll
     // container is scrolled until the row is inside it, and nothing above that: the
@@ -2924,10 +2940,10 @@
     //
     // A pressed first chip — a pressed plan, which the state puts first whether
     // "Open in Tasks" showed it or the reader pressed it — also gets its own width
-    // reserved, as `--tag-strip-lead`: the strip only takes what the other groups
-    // leave, and with every repository in scope that can be nothing, which would
-    // clip the one chip that says why the list is short. Reserved, the bar wraps a
-    // group onto its next row instead.
+    // reserved, as `--tag-strip-lead`: the strip has a row of its own on the Tasks
+    // bar, but shares it with the More toggle, and a column narrower than the pair
+    // would clip the one chip that says why the list is short. Reserved, the strip
+    // keeps that chip whole.
     //
     // The first child is not always the chip itself: a host may fuse a pressed chip
     // with a control of its own in one wrapper (the Tasks bar pairs a pressed plan
@@ -3130,6 +3146,111 @@
         },
         dispose(key) {
             backlogPaneOwners.delete(key);
+        }
+    };
+
+    // An open PopoverButton's outside click, heard on the window rather than by its
+    // backdrop. The backdrop is `position: fixed; inset: 0`, which is the whole
+    // window only while no ancestor is a containing block for it — and a query
+    // container is one, so inside the Tasks list column the backdrop covered the
+    // column and a click in the entry beside it reached whatever it landed on.
+    //
+    // Capture on the window runs before any handler in the page, Blazor's
+    // included. A pointer press that starts outside the component is taken there
+    // — its down, up and click never reach the page, and the click's default
+    // (a link's navigation) is cancelled — and the click closes the panel: the
+    // contract's "an outside click only closes". Focus still moves where the press
+    // put it, since nothing cancels the pointer's own default. A press inside the
+    // component, the backdrop among it, is left alone: the backdrop's own click
+    // closes the panel as before. A click with no press before it is a key's, which
+    // the backdrop never caught either, so it is let through.
+    //
+    // Only a primary press arms the watch, and anything that means its click is not
+    // coming disarms it — a cancelled pointer (a touch pan), a context menu (Ctrl
+    // and a press on a Mac), a drag, a key. Left armed, the next Enter on a control
+    // outside would be taken for the click and swallowed.
+    const backlogPopoverWatches = new Map();
+
+    window.backlogPopoverOutside = {
+        watch(id, root, dotnet, method) {
+            this.unwatch(id);
+            if (!root || !dotnet) return;
+
+            let armed = false;
+            const outside = (event) => event.target instanceof Node && !root.contains(event.target);
+            const onPress = (event) => {
+                armed = event.button === 0 && outside(event);
+                if (armed) event.stopPropagation();
+            };
+            const onRest = (event) => {
+                if (armed) event.stopPropagation();
+            };
+            const onDisarm = () => {
+                armed = false;
+            };
+            const onClick = (event) => {
+                if (!armed) return;
+                armed = false;
+                event.preventDefault();
+                event.stopPropagation();
+                dotnet.invokeMethodAsync(method).catch(() => undefined);
+            };
+
+            const listeners = [
+                ['pointerdown', onPress],
+                ['mousedown', onRest],
+                ['pointerup', onRest],
+                ['mouseup', onRest],
+                ['click', onClick],
+                ['pointercancel', onDisarm],
+                ['contextmenu', onDisarm],
+                ['dragstart', onDisarm],
+                ['keydown', onDisarm],
+            ];
+            for (const [name, listener] of listeners) window.addEventListener(name, listener, true);
+            backlogPopoverWatches.set(id, () => {
+                for (const [name, listener] of listeners) window.removeEventListener(name, listener, true);
+            });
+        },
+        unwatch(id) {
+            backlogPopoverWatches.get(id)?.();
+            backlogPopoverWatches.delete(id);
+        }
+    };
+
+    // Whether an element is at or under a width, told to .NET when that answer
+    // changes and never otherwise. For a layout a container query cannot do: a
+    // query restyles an element but never moves it to another parent, so a host
+    // that draws a different shape on a narrow column — the Tasks bar folding Source
+    // and Type into one Filter menu below the 48rem step its stylesheet keys on —
+    // has to hear the crossing and render it. The threshold is the host's, in rem,
+    // the same number as its query's, so the two flip together. A box of no width
+    // is not on screen (a takeover hid it) and says nothing either way.
+    const backlogWidthWatches = new Map();
+
+    window.backlogWidthWatch = {
+        watch(id, element, dotnet, method, thresholdRem) {
+            this.unwatch(id);
+            if (!element || !dotnet || typeof ResizeObserver !== 'function') return;
+
+            let reported = null;
+            const observer = new ResizeObserver((entries) => {
+                const width = entries[entries.length - 1].contentRect.width;
+                if (width <= 0) return;
+
+                const narrow = width <= thresholdRem * backlogRootFontSize();
+                if (narrow === reported) return;
+
+                reported = narrow;
+                dotnet.invokeMethodAsync(method, narrow).catch(() => undefined);
+            });
+
+            observer.observe(element);
+            backlogWidthWatches.set(id, observer);
+        },
+        unwatch(id) {
+            backlogWidthWatches.get(id)?.disconnect();
+            backlogWidthWatches.delete(id);
         }
     };
 

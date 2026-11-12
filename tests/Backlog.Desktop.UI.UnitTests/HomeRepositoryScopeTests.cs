@@ -11,6 +11,8 @@ using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.Tasks;
 using Bunit;
+using System.Runtime.CompilerServices;
+using Microsoft.AspNetCore.Components.Sections;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -591,7 +593,7 @@ public sealed class HomeRepositoryScopeTests
         Assert.Empty(component.FindAll("[data-testid='repository-filter-option']"));
         Assert.Empty(component.FindAll("[data-testid='brain-scope-divider']"));
         OpenDisplayOptions(component);
-        Assert.Empty(component.FindAll("[data-testid='repository-colours-toggle']"));
+        Assert.Empty(Gear(component).FindAll("[data-testid='repository-colours-toggle']"));
         Assert.NotNull(component.Find(".app-header__identity [aria-label='Repository scope']"));
     }
 
@@ -1503,12 +1505,12 @@ public sealed class HomeRepositoryScopeTests
     private static void DocsArchived(GitHubSettingsStore settings) =>
         Assert.Null(settings.SetRepositoryArchived("docs", archived: true));
 
-    /// <summary>The Show archived switch, inside the header's gear menu — which is
+    /// <summary>The Show archived switch, inside the footer's gear menu — which is
     /// opened first, the way anybody reaching for it has to.</summary>
     private static IElement ShowArchivedToggle(IRenderedComponent<Home> component)
     {
         OpenDisplayOptions(component);
-        return component.WaitForElement("[data-testid='show-archived-toggle'] [role='switch']");
+        return Gear(component).WaitForElement("[data-testid='show-archived-toggle'] [role='switch']");
     }
 
     /// <summary>Scenario "The repository scope": the Brain chip and backlog, no chip
@@ -1528,7 +1530,7 @@ public sealed class HomeRepositoryScopeTests
     }
 
     /// <summary>
-    /// Show archived sits with Colors in the header's gear menu, not in the row: both
+    /// Show archived sits with Colors in the footer's gear menu, not in the header row: both
     /// are occasional choices. Inside, it is the shared switch named by the
     /// words beside it, outside the scope group where it would read as one more
     /// repository, and flipping it leaves the panel open.
@@ -1540,23 +1542,23 @@ public sealed class HomeRepositoryScopeTests
         var component = Render(harness);
 
         Chips(component);
-        Assert.Empty(component.FindAll("[data-testid='show-archived-toggle']"));
+        Assert.Empty(Gear(component).FindAll("[data-testid='show-archived-toggle']"));
 
         var toggle = ShowArchivedToggle(component);
 
         Assert.Equal("switch", toggle.GetAttribute("role"));
         Assert.Equal("false", toggle.GetAttribute("aria-checked"));
         Assert.Null(toggle.GetAttribute("aria-label"));
-        Assert.Equal("Show archived", component.Find("#" + toggle.GetAttribute("aria-labelledby")).TextContent.Trim());
-        Assert.NotNull(toggle.Closest("[data-testid='settings-menu-panel'][role='group']"));
+        Assert.Equal("Show archived", Gear(component).Find("#" + toggle.GetAttribute("aria-labelledby")).TextContent.Trim());
+        Assert.NotNull(toggle.Closest("[data-testid='app-settings-menu-panel'][role='group']"));
         Assert.Null(toggle.Closest(".app-header__repository-scope"));
 
         toggle.Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("true", component.Find("[data-testid='show-archived-toggle'] [role='switch']").GetAttribute("aria-checked"));
-            Assert.NotNull(component.Find("[data-testid='settings-menu-panel']"));
+            Assert.Equal("true", Gear(component).Find("[data-testid='show-archived-toggle'] [role='switch']").GetAttribute("aria-checked"));
+            Assert.NotNull(Gear(component).Find("[data-testid='app-settings-menu-panel']"));
         });
     }
 
@@ -1572,28 +1574,28 @@ public sealed class HomeRepositoryScopeTests
         var trigger = DisplayOptionsTrigger(component);
         Assert.Equal("Settings", trigger.GetAttribute("aria-label"));
         Assert.Equal("false", trigger.GetAttribute("aria-expanded"));
-        Assert.Empty(component.FindAll("[data-testid='settings-menu-panel']"));
+        Assert.Empty(Gear(component).FindAll("[data-testid='app-settings-menu-panel']"));
 
         trigger.Click();
         component.WaitForAssertion(() =>
             Assert.Equal("true", DisplayOptionsTrigger(component).GetAttribute("aria-expanded")));
         Assert.Equal(
             DisplayOptionsTrigger(component).GetAttribute("aria-controls"),
-            component.Find("[data-testid='settings-menu-panel']").Id);
-        var settings = component.Find("[data-testid='settings-menu-panel'] a[data-testid='settings-link']");
+            Gear(component).Find("[data-testid='app-settings-menu-panel']").Id);
+        var settings = Gear(component).Find("[data-testid='app-settings-menu-panel'] a[data-testid='settings-link']");
         Assert.Equal("settings", settings.GetAttribute("href"));
         Assert.Equal("Settings", settings.TextContent.Trim());
 
-        component.Find("[data-testid='repository-colours-toggle'] [role='switch']")
+        Gear(component).Find("[data-testid='repository-colours-toggle'] [role='switch']")
             .KeyDown(new KeyboardEventArgs { Key = "Escape" });
         component.WaitForAssertion(() =>
-            Assert.Empty(component.FindAll("[data-testid='settings-menu-panel']")));
+            Assert.Empty(Gear(component).FindAll("[data-testid='app-settings-menu-panel']")));
 
         DisplayOptionsTrigger(component).Click();
-        component.Find("[data-testid='settings-menu-backdrop']").Click();
+        Gear(component).Find("[data-testid='app-settings-menu-backdrop']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='settings-menu-panel']"));
+            Assert.Empty(Gear(component).FindAll("[data-testid='app-settings-menu-panel']"));
             Assert.Equal("false", DisplayOptionsTrigger(component).GetAttribute("aria-expanded"));
         });
     }
@@ -1610,7 +1612,7 @@ public sealed class HomeRepositoryScopeTests
         var toggle = ShowArchivedToggle(component);
 
         Assert.True(toggle.HasAttribute("disabled"));
-        Assert.Contains("No archived repositories", component.Find("[data-testid='show-archived-toggle']").TextContent);
+        Assert.Contains("No archived repositories", Gear(component).Find("[data-testid='show-archived-toggle']").TextContent);
     }
 
     [Fact]
@@ -1622,7 +1624,7 @@ public sealed class HomeRepositoryScopeTests
         var toggle = ShowArchivedToggle(component);
 
         Assert.False(toggle.HasAttribute("disabled"));
-        Assert.DoesNotContain("No archived repositories", component.Find("[data-testid='show-archived-toggle']").TextContent);
+        Assert.DoesNotContain("No archived repositories", Gear(component).Find("[data-testid='show-archived-toggle']").TextContent);
     }
 
     /// <summary>Scenarios "Show archived is on" and "A restart": the chip comes back
@@ -1727,7 +1729,7 @@ public sealed class HomeRepositoryScopeTests
 
     // --- The repository colour visualization ----------------------------------
     //
-    // The switch is here, on the main page, in the header's gear menu rather than
+    // The switch is here, on the main page, in the footer's gear menu rather than
     // in the Settings page.
     // What it flips is not a shell concern though — it is the settings store's answer to
     // "which hue", which is why turning it off has to empty every surface at once rather
@@ -1739,14 +1741,14 @@ public sealed class HomeRepositoryScopeTests
     // alone would name only half of it.
 
     [Fact]
-    public void The_header_offers_the_colour_visualization_switch_in_its_gear_menu()
+    public void The_main_page_offers_the_colour_visualization_switch_in_its_gear_menu()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
         var switchElement = ColourSwitch(component);
-        var control = component.Find("[data-testid='repository-colours-toggle']");
-        Assert.NotNull(control.Closest("[data-testid='settings-menu-panel']"));
+        var control = Gear(component).Find("[data-testid='repository-colours-toggle']");
+        Assert.NotNull(control.Closest("[data-testid='app-settings-menu-panel']"));
 
         // A switch and not a disclosure or a selection: nothing opens, nothing is picked
         // out of a set, a fact about the whole workspace changes. So role=switch with
@@ -1760,7 +1762,7 @@ public sealed class HomeRepositoryScopeTests
         Assert.Null(switchElement.GetAttribute("aria-label"));
         var labelId = switchElement.GetAttribute("aria-labelledby");
         Assert.False(string.IsNullOrWhiteSpace(labelId));
-        Assert.Equal("Colors", component.Find("#" + labelId).TextContent.Trim());
+        Assert.Equal("Colors", Gear(component).Find("#" + labelId).TextContent.Trim());
         Assert.Contains("Colors", control.TextContent);
     }
 
@@ -1929,19 +1931,19 @@ public sealed class HomeRepositoryScopeTests
             component.FindComponent<SessionsPane>().Instance.RepositoryColour!("JSdotNet/Backlog")));
     }
 
-    /// <summary>The switch inside the header's colour control. Found through the
+    /// <summary>The switch inside the gear menu's colour control. Found through the
     /// control's test id rather than by its own, because that is where the shared Toggle
     /// puts one — see the section comment above.</summary>
     private static IElement ColourSwitch(IRenderedComponent<Home> component)
     {
         OpenDisplayOptions(component);
-        return component.WaitForElement("[data-testid='repository-colours-toggle'] [role='switch']");
+        return Gear(component).WaitForElement("[data-testid='repository-colours-toggle'] [role='switch']");
     }
 
     private static IElement DisplayOptionsTrigger(IRenderedComponent<Home> component) =>
-        component.WaitForElement("button[data-testid='settings-menu-button']");
+        Gear(component).WaitForElement("button[data-testid='app-settings-menu-button']");
 
-    /// <summary>Opens the header's gear menu, where Colors and Show archived live,
+    /// <summary>Opens the footer's gear menu, where Colors and Show archived live,
     /// unless it is already open.</summary>
     private static void OpenDisplayOptions(IRenderedComponent<Home> component)
     {
@@ -1949,18 +1951,57 @@ public sealed class HomeRepositoryScopeTests
         if (trigger.GetAttribute("aria-expanded") == "true") return;
 
         trigger.Click();
-        component.WaitForElement("[data-testid='settings-menu-panel']");
+        Gear(component).WaitForElement("[data-testid='app-settings-menu-panel']");
     }
 
     /// <summary>Turns the identity-hue visualization on, the way somebody using the
-    /// header switch would have before this screen was opened.</summary>
+    /// gear menu's switch would have before this screen was opened.</summary>
     private static void ShowingColours(GitHubSettingsStore settings) =>
         Assert.Null(settings.SetShowRepositoryColours(true));
 
     private static IRenderedComponent<Home> Render(Harness harness)
     {
         harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
-        return harness.Context.Render<Home>();
+
+        // The footer band's end, where Home draws its Settings gear. Rendered beside
+        // Home as MainLayout renders the footer beside the page, so the gear's
+        // markup is found here and never in Home's own.
+        var footerEnd = harness.Context.Render<SectionOutlet>(parameters => parameters.Add(outlet => outlet.SectionName, AppFooter.EndSection));
+        var home = harness.Context.Render<Home>();
+        FooterEnds.Add(home, footerEnd);
+        return home;
+    }
+
+    private static readonly ConditionalWeakTable<IRenderedComponent<Home>, IRenderedComponent<SectionOutlet>> FooterEnds = new();
+
+    /// <summary>The footer band's end the rendered Home fills: where the Settings
+    /// gear, its panel and its switches are drawn.</summary>
+    private static IRenderedComponent<SectionOutlet> Gear(IRenderedComponent<Home> component) =>
+        FooterEnds.TryGetValue(component, out var footerEnd)
+            ? footerEnd
+            : throw new InvalidOperationException("Render Home through Render(harness), which draws the footer end beside it.");
+
+    /// <summary>The gear has left the header for the footer band: Home's own markup
+    /// holds no Settings menu, and the band's end holds it, last, opening upward.</summary>
+    [Fact]
+    public void The_settings_gear_is_drawn_at_the_footer_end_and_not_in_the_header()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        Chips(component);
+        Assert.Empty(component.FindAll("[data-testid='app-settings-menu']"));
+        Assert.Empty(component.FindAll(".app-header [data-testid='settings-link']"));
+
+        var trigger = DisplayOptionsTrigger(component);
+        Assert.Equal("Settings", trigger.GetAttribute("aria-label"));
+        Assert.Contains("header-util", trigger.ClassList);
+
+        OpenDisplayOptions(component);
+        var panel = Gear(component).Find("[data-testid='app-settings-menu-panel']");
+        Assert.Contains("popover-button__panel--up", panel.ClassList);
+        Assert.Contains("popover-button__panel--end", panel.ClassList);
+        Assert.Equal("app-settings-menu-panel", panel.Id);
     }
 
     private static Harness CreateHarness(

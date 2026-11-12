@@ -380,8 +380,9 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
     /// <summary>The Source filter's chips: local work, then one per connector — every
     /// installed one, and any connector id a task carries that this build does not
-    /// know. Empty while no connector is installed and no task is linked, so a
-    /// backlog that never connected anything has no Source group at all.</summary>
+    /// know — each only while it has open work or is the pressed one. Empty while that
+    /// leaves fewer than two and none is pressed, so a backlog that never connected
+    /// anything, or whose connectors hold nothing open, has no Source group at all.</summary>
     public IReadOnlyList<SourceFilterOption> SourceFilters { get; private set; } = [];
 
     /// <summary>Narrows the view to one source, or widens it again for null.</summary>
@@ -400,10 +401,11 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     /// </summary>
     public EntryType? SelectedType { get; private set; }
 
-    /// <summary>The type filter's chips: one per task type in what the scopes ahead
-    /// of it left in view, with how many of those rows of it are still open — the
-    /// completed ones go in the tooltip — in the type's own order. Empty while that is fewer than two types and none is picked, so a
-    /// backlog of one type has no chip that could not narrow anything.</summary>
+    /// <summary>The type filter's chips: one per task type with open rows in what the
+    /// scopes ahead of it left in view, plus the pressed type at any count, with how
+    /// many of those rows are still open — the completed ones go in the tooltip — in
+    /// the type's own order. Empty while that is fewer than two types and none is
+    /// picked, so a backlog of one open type has no chip that could not narrow anything.</summary>
     public IReadOnlyList<TypeFilterOption> TypeFilters { get; private set; } = [];
 
     /// <summary>Narrows the view to one task type, or widens it again for null.</summary>
@@ -415,19 +417,31 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
     private void RebuildTypeFilters(IReadOnlyCollection<EntryRow> scoped)
     {
-        // Every type in scope gets a chip, a finished one included; the face counts
-        // what is still to do, as a tag chip's does.
+        // A type gets a chip while it has something still to do; the face counts
+        // that, as a tag chip's does. The pressed type keeps its chip at 0, because
+        // that chip is the only thing on the bar saying the list is narrowed.
         var counts = scoped.Where(row => row.IsPersisted)
             .GroupBy(row => row.PreviewType)
             .ToDictionary(group => group.Key, group => (Open: group.Count(row => !IsFinished(row)), Completed: group.Count(IsFinished)));
         if (SelectedType is { } selected) counts.TryAdd(selected, (0, 0));
 
-        TypeFilters = counts.Count < 2 && SelectedType is null
-            ? []
-            : [.. Enum.GetValues<EntryType>()
-                .Where(counts.ContainsKey)
-                .Select(type => new TypeFilterOption(type, type.ToString(), counts[type].Open, counts[type].Completed))];
+        var chips = Enum.GetValues<EntryType>()
+            .Where(type => counts.TryGetValue(type, out var count) && EarnsAChip(count.Open, type == SelectedType))
+            .Select(type => new TypeFilterOption(type, type.ToString(), counts[type].Open, counts[type].Completed))
+            .ToList();
+
+        TypeFilters = WorthAGroup(chips.Count, SelectedType is not null) ? chips : [];
     }
+
+    /// <summary>One chip narrows nothing, so a Source or Type group is drawn only
+    /// with two to choose between — or with one pressed, which must stay pressable
+    /// to widen the list again.</summary>
+    private static bool WorthAGroup(int chips, bool pressed) => chips >= 2 || pressed;
+
+    /// <summary>A Source or Type value gets a chip while it has open work, or while
+    /// it is the pressed one: that chip is the only thing on the bar saying the list
+    /// is narrowed, and the way to widen it again.</summary>
+    private static bool EarnsAChip(int open, bool pressed) => open > 0 || pressed;
 
     /// <summary>Whether a row is in the source <paramref name="source"/> names.</summary>
     public static bool IsFromSource(EntryRow row, string source) =>
@@ -451,7 +465,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         }
 
         var local = Rows.Where(row => row.IsPersisted && row.SourceRef is null).ToList();
-        SourceFilters =
+        List<SourceFilterOption> every =
         [
             new SourceFilterOption(LocalSource, "Local", local.Count(row => !IsFinished(row)), local.Count(IsFinished)),
             .. connectorIds.Select(id =>
@@ -461,7 +475,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             })
         ];
 
-        if (SelectedSource is { } selected && SourceFilters.All(option => option.Value != selected)) SelectedSource = null;
+        // A source this build no longer knows lets go of the press; one with nothing
+        // open only loses its chip, and keeps it while pressed — the type group's rule.
+        if (SelectedSource is { } selected && every.All(option => option.Value != selected)) SelectedSource = null;
+
+        var chips = every.Where(option => EarnsAChip(option.OpenCount, option.Value == SelectedSource)).ToList();
+        SourceFilters = WorthAGroup(chips.Count, SelectedSource is not null) ? chips : [];
     }
 
     /// <summary>Raised whenever rows or save state change from a background

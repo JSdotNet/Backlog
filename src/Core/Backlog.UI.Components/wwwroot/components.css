@@ -10479,9 +10479,9 @@ select.field__input {
     box-shadow: var(--shadow-lg);
 }
 
-/* PopoverButton: a trigger with a small panel of the host's controls under it,
-   lined up with the trigger's start edge, or with its end edge (AlignEnd) so it
-   opens inward from the end of a row. The
+/* PopoverButton: a trigger with a small panel of the host's controls under it
+   (over it with OpenUpward), lined up with the trigger's start edge, or with its
+   end edge (AlignEnd) so it opens inward from the end of a row. The
    backdrop is the context menu's, for the same reason: it catches the closing
    click, and it covers the trigger so a second press closes the panel too. */
 .popover-button {
@@ -10518,6 +10518,14 @@ select.field__input {
 .popover-button__panel--end {
     right: 0;
     left: auto;
+}
+
+/* OpenUpward: the panel's bottom edge on the trigger's top, for a trigger on the
+   window's bottom edge — the footer band's gear — where opening down runs off
+   the screen. */
+.popover-button__panel--up {
+    top: auto;
+    bottom: calc(100% + var(--spacing-xs));
 }
 
 .nav-list__items {

@@ -219,8 +219,10 @@ depends-on: [.devbook/domain/tasks/features.md#effort-registration]
 related: [.devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort, .devbook/domain/tasks/features.md#task-dependencies]
 ```
 
-Say how much work is open, not only how it splits. The total sits at the end of the filter bar as one line: how many tasks
-are open, the points they carry, and how many carry none.
+Say how much work is open, not only how it splits. The total is one line: how many tasks
+are open, the points they carry, and how many carry none. It sits at the end of the
+filter bar. In a narrow list it moves beside **New entry**, so the bar keeps its room for filters.
+The Board and the Calendar have no **New entry** row, so there it stays on the bar.
 
 It counts what the
 repository scope leaves in view, before any status, tag or other filter narrows
@@ -786,8 +788,11 @@ these three views only. The app reopens on the view last
 chosen, and on Tasks by default. The Inbox and the Devbook open
 beside any of them.
 
-The tags on the filter bar sit in one row, and the strip shows a
-**More** toggle only while its tags overflow it. A pressed
+The source and type filters offer only what has open work, plus the one pressed.
+In a narrow list, both fold into one **Filter** menu on the bar.
+
+The tags on the filter bar sit in one row of their own, below the other filters,
+and the strip shows a **More** toggle only while its tags overflow it. A pressed
 [plan](../roadmap/domain.md#roadmap-tag) leads the strip, whether the reader pressed it on the bar or arrived with it pressed from the roadmap. The plan
 carries a copy button fused to its chip, which copies the plan tag verbatim,
 `+` and all, while the

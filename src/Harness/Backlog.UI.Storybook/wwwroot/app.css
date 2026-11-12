@@ -678,6 +678,16 @@ html, body {
     }
 }
 
+/* A bottom band with room above it, so a panel that opens upward from a trigger
+   at its end has somewhere to open into, as it does over the app's footer. */
+.sb-footer-band {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 10rem;
+    padding-bottom: var(--spacing-xs);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
 /* Gives an example a definite height to fill. A component that sizes itself to
    its container has nothing to show inside a box that just grows to fit it. */
 .sb-tall {

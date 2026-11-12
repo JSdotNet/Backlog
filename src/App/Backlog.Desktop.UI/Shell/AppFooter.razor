@@ -1,6 +1,7 @@
 ﻿@implements IDisposable
 @using Backlog.Infrastructure.Sync
 @using Backlog.Infrastructure.Sync.Sessions
+@using Microsoft.AspNetCore.Components.Sections
 @inject IAppUpdateService Updates
 @inject IServiceProvider Services
 
@@ -12,7 +13,8 @@
     you look at it: whether the window is saving, and what the cloud sync loops
     last did. The sync phrase opens a window listing what moved and which way,
     which is the log a person reaches for when a count alone does not explain
-    what changed.
+    what changed. Its end is an outlet the page on screen may fill: Home puts
+    its Settings gear there, so the main window's band closes on it.
 
     Both used to live in Home's header, in among the repository scope, the view
     switcher and the pane strip — a region that is entirely about the work on
@@ -113,6 +115,13 @@
        one state machine, and it is the component that owns it. What changed is
        how many places mount it — one, here — not what it is. *@
     <FeedbackReportButton />
+
+    @* The band's end, which a page may fill: Home draws its Settings gear here,
+       last on the band. An outlet rather than the gear itself, because the gear
+       is Home's — its switches are that screen's configuration — and the band is
+       on every route and in every popped-out window, where the gear has no
+       business. With no page filling it, it renders nothing. *@
+    <SectionOutlet SectionName="@EndSection" />
 </footer>
 
 @* The update window is a sibling of the band rather than a child of it, exactly
@@ -293,6 +302,10 @@
 </Modal>
 
 @code {
+    /// <summary>The section at the band's end that a page fills with its own
+    /// control — Home's Settings gear.</summary>
+    public const string EndSection = "app-footer-end";
+
     // Null in an installed build, where no host registers one and the footer
     // shows the version instead.
     private DevelopmentWorkspaceLabel? _workspace;
