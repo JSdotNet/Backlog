@@ -221,16 +221,19 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   but never where it is, so the skill lists an area's notes from the folder given as
   `brain:<path>`, or from the working directory when it holds a `CONVENTIONS.md`. Without either,
   the note-listing lines say so, and the review dates still come from `list_brain_reviews`. It reports three sections. **Get clear** covers the
-  open Inbox items, the notes in the Brain's inbox area and the deferred items. **Get current**
+  open Inbox items, the notes in the Brain's inbox area, and each deferred item whose review day
+  falls this week or that has none ("No review date: look at it again", as the app's review
+  says). **Get current**
   covers each plan with open entries but no next action (an entry ready or in progress, not
   waiting, not marked blocked, every `after:` done), each roadmap plan with no entry at all, each `projects/` note no plan gathers, each
   finished plan's project note still to archive, each waiting-for past its follow-up date, each
-  overdue due date, and each goal with open items past its due date or blocked. **Get creative**
+  overdue due date, and each goal with open items whose forecast is at risk. **Get creative**
   covers the `someday` area, the notes whose `review` date has come (and a `review` value that is
   no date), and each `areas/` note with no linked entry created, started or completed in 30 days.
-  Every line names the entry or note and the action to take. Two answers are proxies, and the
-  report says so: the Inbox answer carries no deferred item's review day, and the goals answer
-  carries no forecast. Model- and user-invoked. It writes nothing anywhere, so it is no flow.
+  Every line names the entry or note and the action to take. The review day is the Inbox
+  answer's `deferredUntil`, the forecast the goals answer's `forecast` — the one the Goals view
+  draws; `node --test plugins/backlog-tools/tests/weekly-review-fields.test.mjs` holds the skill to
+  both. Model- and user-invoked. It writes nothing anywhere, so it is no flow.
 - **`weekly-cost-analysis`** — reports what the delivery runs on this machine cost in tokens
   over a window — 7 days, or an ISO range — across every repository, grouped by repository
   first, with the changes that would save the most. It reads the `backlog` server's

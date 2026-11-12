@@ -1086,6 +1086,21 @@ The system SHALL show the lines of one stage at a time — Get clear, Get curren
 - **When** the person presses Next
 - **Then** Get current lists "Taxes"
 
+### Requirement: A deferral with no review date is looked at every week
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewChecklistBuilderTests.Get_clear_lists_a_deferred_item_with_no_review_date_as_one_to_look_at_again]
+```
+
+The system SHALL list on Get clear each deferred Inbox item that has no review date, as one to look at again, in the words the `weekly-review` skill reports it in.
+
+#### Scenario: One deferral undated, one due this week
+
+- **Given** "Learn the cello" was deferred with no date and "Renew passport" was deferred to 13 November
+- **When** the review opens
+- **Then** Get clear lists "Learn the cello" with "No review date: look at it again." and "Renew passport" with "Deferred to 13 Nov 2026: look at it again."
+
 ### Requirement: Each line carries its action in place
 
 ```meta

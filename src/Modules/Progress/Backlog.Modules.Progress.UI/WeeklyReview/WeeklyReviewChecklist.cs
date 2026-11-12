@@ -8,7 +8,7 @@ namespace Backlog.Modules.Progress.UI.WeeklyReview;
 public enum WeeklyReviewStage
 {
     /// <summary>Empty the trays: the Inbox, the Brain's inbox area, the deferred items
-    /// due this week.</summary>
+    /// due this week and those with no review date.</summary>
     GetClear,
 
     /// <summary>Bring the commitments up to date: plans, project notes, waiting-for,
@@ -105,7 +105,7 @@ public sealed record WeeklyReviewChecklist(IReadOnlyList<WeeklyReviewLine> Lines
     /// <summary>What the stage is for, said under its name.</summary>
     public static string PurposeOf(WeeklyReviewStage stage) => stage switch
     {
-        WeeklyReviewStage.GetClear => "Empty the Inbox, the Brain's inbox and the deferred items due this week.",
+        WeeklyReviewStage.GetClear => "Empty the Inbox, the Brain's inbox, the deferred items due this week and those with no review date.",
         WeeklyReviewStage.GetCurrent => "Give every plan a next action, every project note a plan, and chase what is late.",
         _ => "Look again at someday notes, notes due for review and areas gone quiet.",
     };
