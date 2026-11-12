@@ -1,4 +1,6 @@
 ﻿using AngleSharp.Dom;
+using Backlog.Modules.Calendar.Abstractions.Services;
+using Backlog.Modules.Calendar.Extensions;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.AzureFoundry;
@@ -1619,6 +1621,58 @@ public sealed class HomeWorkspaceSurfaceTests
             }
 
             Assert.DoesNotContain("calendarRange", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// A navigation file written while the Calendar was a layout of the Tasks pane reopens
+    /// on the Calendar, now its own module's view (local ADR 0055 §4: every stored name
+    /// stays): on its Week range, with Show plans and Show events ticked as they were, and
+    /// the file still saying all of it under the same names.
+    /// </summary>
+    [Fact]
+    public void A_shell_navigation_file_written_before_the_calendar_module_reopens_the_calendar_on_its_range_and_choices()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            WriteShellNavigation(path, """
+                {"lastSurface":"Workspace","lastView":"calendar","calendarRange":"Week","calendarPlansShown":true,"calendarEventsShown":true}
+                """);
+            var shellNavigation = new ShellNavigationStore(path);
+            var today = DateOnly.FromDateTime(DateTime.Now);
+
+            using var harness = CreateHarness(
+                shellNavigation: shellNavigation,
+                configureServices: services =>
+                {
+                    services.AddCalendarModule();
+                    services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(today));
+                    services.AddSingleton<Backlog.Modules.Tasks.Abstractions.Services.ICalendarEvents>(
+                        new FakeCalendarEvents(today, shellNavigation));
+                });
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("true", component.Find("[data-testid='task-calendar-range-week']").GetAttribute("aria-pressed"));
+                Assert.Equal(7, component.FindAll("[data-testid='task-calendar'] [data-calendar-day]").Count);
+                Assert.True(component.Find("[data-testid='task-calendar-show-plans'] input").HasAttribute("checked"));
+                Assert.NotEmpty(component.FindAll($"[data-testid='task-calendar-plan-{FakeCalendarPlans.PlanId:N}']"));
+                Assert.True(component.Find("[data-testid='task-calendar-show-events'] input").HasAttribute("checked"));
+            });
+
+            using var written = System.Text.Json.JsonDocument.Parse(ShellNavigationStoreTests.Written(path));
+            Assert.Equal("calendar", written.RootElement.GetProperty("lastView").GetString());
+            Assert.Equal("Week", written.RootElement.GetProperty("calendarRange").GetString());
+            Assert.True(written.RootElement.GetProperty("calendarPlansShown").GetBoolean());
+            Assert.True(written.RootElement.GetProperty("calendarEventsShown").GetBoolean());
         }
         finally
         {

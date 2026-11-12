@@ -29,7 +29,7 @@ public class InfrastructureGraphTests
     /// </summary>
     internal static readonly (string Project, int ModuleReferences, string Reason)[] WideAdapters =
     [
-        ("Backlog.Infrastructure.FileSystem", 11,
+        ("Backlog.Infrastructure.FileSystem", 12,
             "The workspace folder's stores — feature settings, device identity, transcript caches, devbook "
             + "snapshots, working hours, planning velocity — each answer a different module's port from the "
             + "one folder that knows the workspace root. It is several adapters in one project; splitting "
@@ -44,7 +44,9 @@ public class InfrastructureGraphTests
             + "knowledge event through IKnowledgeEvents beside the Inbox's other routes, and for the "
             + "cross-context joins under Events/ that file an event's prep tasks and read its task chips "
             + "through Tasks' ITaskItems (local ADR 0050 §3) and answer the Calendar's events layer, Tasks' "
-            + "ICalendarEvents, over Events' read contract (local ADR 0050 §7)."),
+            + "ICalendarEvents, over Events' read contract (local ADR 0050 §7). The twelfth is the Calendar's "
+            + "published surface, for the joins under Calendar/ that answer its Plans layer and working-week "
+            + "ports, ICalendarPlans and ICalendarCapacity, over Roadmap's abstractions (local ADR 0055 §2)."),
         ("Backlog.Infrastructure.Sqlite", 7,
             "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
             + "Planning, the Inbox, Sessions, Progress, Notifications and Events — each answering that module's own repository "

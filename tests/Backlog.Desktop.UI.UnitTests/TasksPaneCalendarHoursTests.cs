@@ -1,6 +1,6 @@
 using System.Globalization;
+using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.UI.Components.Tasks;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,8 +11,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// Planned hours through the Tasks pane, over a real store in a temporary folder: a
 /// block made, changed and removed from a Calendar day and from the detail panel's
 /// Planned hours section, each written to the entry as its own field and read back
-/// from the store; the day's total against the capacity Tasks' port answers, and the
-/// mark for a day over it; and the filter bar and the repository colours, which the
+/// from the store; the day's total against the capacity the Calendar's port answers and
+/// hands its Tasks part, and the mark for a day over it; and the filter bar and the repository colours, which the
 /// blocks follow as the chips do.
 /// <para>
 /// Dates are relative to the real today, because the pane reads its own clock, and
@@ -167,7 +167,7 @@ public sealed class TasksPaneCalendarHoursTests
         await host.State.SetPlannedHoursAsync(sync, Day, 3m);
         await host.State.SetPlannedHoursAsync(docs, Day, 4m);
 
-        var pane = RenderCalendar(host);
+        var pane = host.WithCalendarSurface().RenderCalendarSurface();
 
         var total = pane.Find($"[data-testid='task-calendar-day-{Iso(Day)}-hours']");
         Assert.Equal("7h / 8h", total.QuerySelector("[aria-hidden='true']")!.TextContent.Trim());
@@ -231,17 +231,5 @@ public sealed class TasksPaneCalendarHoursTests
         pane.Render();
 
         Assert.Contains("repo-mark--1", pane.Find($"[data-testid='{BlockTestId(row, Day)}']").ClassName);
-    }
-
-    /// <summary>A working week of the same hours every day, changed by the test.</summary>
-    private sealed class FakeCalendarCapacity(decimal hours) : ICalendarCapacity
-    {
-        public event Action? Changed;
-
-        public decimal Hours { get; set; } = hours;
-
-        public decimal HoursOn(DateOnly day) => Hours;
-
-        public void RaiseChanged() => Changed?.Invoke();
     }
 }

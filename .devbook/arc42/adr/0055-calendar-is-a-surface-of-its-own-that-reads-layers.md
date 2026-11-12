@@ -1,14 +1,15 @@
 # ADR 0055: Calendar is a surface of its own that reads layers
 
 ```meta
-date: 2026-11-11
+date: 2026-11-12
 related: [".devbook/domain/calendar/context.md", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/calendar/features.md#planned-hours", ".devbook/domain/tasks/features.md#tasks-on-the-calendar", ".devbook/domain/events/features.md#events-on-the-calendar", ".devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#1-one-main-view-always", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md#7-the-code-is-one-module-trio", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md"]
 c4-touches: [backlog.desktop.shell]
 ```
 
 The Calendar is a surface of its own, and the Calendar context owns it. It owns no
 data and stores nothing but its own view choices. Each source draws on it as a
-**layer**, through a layer port the Calendar owns: Tasks, Plans and Events. The
+**layer**: Tasks, Plans and Events. Plans and Events come through layer ports the
+Calendar owns, and Tasks offers its layer as a part the Calendar hosts. The
 Calendar keeps its slot in the header, and every stored name stays as it is.
 
 ## Status
@@ -18,9 +19,11 @@ Calendar keeps its slot in the header, and every stored name stays as it is.
 
 Proposed, 2026-11-11, by the flow-spec run of step 11 of the `knowledge-events` plan,
 run unattended. The decisions were settled with the repository owner before the plan
-was imported, and this record writes them down. A specification change only: the
-chapters move to `.devbook/domain/calendar/`, and the code still draws the Calendar as
-a layout of the Tasks pane. A later `flow-code` change builds it.
+was imported, and this record writes them down. The chapters live in
+`.devbook/domain/calendar/`. The `flow-code` run of step 12 built the module trio and
+the Tasks and Plans layers. The Events layer and the Show events choice still reach
+the Calendar through Tasks' `ICalendarEvents`, drawn by the Tasks part, until step 13
+of the plan builds them.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. Numbers 0051 to 0054 were skipped, because open branches claim
@@ -71,7 +74,7 @@ that way and stores nothing of theirs.
 
 ```mermaid
 flowchart LR
-    Tasks["Tasks"] -->|"Tasks layer, adapter"| Calendar["Calendar<br/>layer ports, view choices"]
+    Tasks["Tasks"] -->|"Tasks layer, a part"| Calendar["Calendar<br/>layer ports, view choices"]
     Roadmap["Roadmap Planning"] -->|"Plans layer, adapter"| Calendar
     Events["Events"] -->|"Events layer, adapter"| Calendar
     Calendar -->|"view-group ShellSurface"| Shell["Desktop shell"]
@@ -103,23 +106,28 @@ The date shown is never stored, as today.
 ```meta
 ```
 
-The layer ports live in `Backlog.Modules.Calendar.Abstractions`, one per layer. An
-adapter under `src/Infrastructure/` answers each one over its source's published
-contract. So the Calendar references no source module, and no source references the
-Calendar: there is no cycle (ADR 0042).
+The layer ports live in `Backlog.Modules.Calendar.Abstractions`. An adapter under
+`src/Infrastructure/` answers each one over its source's published contract. The Tasks
+layer is the exception: Tasks offers it as a part, registered through a host contract
+in `Backlog.UI.Components`, and the Calendar surface renders it. It is a part because
+the filter bar and the open task come with it (§3). So the Calendar references no
+source module, and no source references the Calendar: there is no cycle (ADR 0042).
 
-| Layer | Port answered by an adapter over | Today's port |
+| Layer | Reaches the Calendar through | As built |
 | --- | --- | --- |
-| Tasks | Tasks' published task contract | None: the Tasks pane draws it |
-| Tasks, the hours worked each day | Roadmap's working week and days off | `ICalendarCapacity` in Tasks |
-| Plans | Roadmap's plans | `ICalendarPlans` in Tasks |
-| Events | Events' `IKnowledgeEventReader` | `ICalendarEvents` in Tasks |
+| Tasks | A part Tasks offers | `TasksCalendarPart`, registered as `CalendarTasksLayer` |
+| Tasks, the hours worked each day | A port, over Roadmap's working week and days off | `ICalendarCapacity`, answered by `RoadmapCalendarCapacity` |
+| Plans | A port, over Roadmap's plans | `ICalendarPlans`, answered by `RoadmapCalendarPlans` |
+| Events | A port, over Events' `IKnowledgeEventReader` | Not built: `ICalendarEvents` in Tasks, answered by `EventsCalendarEvents` |
 
-The three Tasks-owned ports move to the Calendar. Tasks' `.Abstractions` then names no
-plan window, no working week and no event.
+Both Roadmap adapters sit in `Backlog.Infrastructure.FileSystem/Calendar/`. Two of the
+three Tasks-owned ports have moved to the Calendar, and `ICalendarEvents` moves at
+step 13. Tasks' `.Abstractions` then names no plan window, no working week and no
+event.
 
-A layer writes only back through its source. The port carries the source's own
-command, and the source decides whether it is taken:
+A layer writes only back through its source, and the source decides whether a write
+is taken. The Tasks part calls Tasks' own commands, and a port carries its source's
+command:
 
 - **Tasks:** a due date set by a drag, and planned hours set, changed or removed.
 - **Plans:** a shelf plan's window started on a day. The roadmap works out its end.
@@ -216,10 +224,11 @@ Negative:
   by accident.
 - **Each layer needs a write path.** The drag and the hours go through Tasks' commands,
   and a shelf plan's start through the roadmap's.
-- **There is more to build.** A module trio and four adapters join the system.
-- **The chapters run ahead of the code.** Until the `flow-code` change lands,
-  [the Calendar's chapters](../../domain/calendar/context.md) describe a context the
-  code still draws inside Tasks.
+- **There is more to build.** A module trio, three adapters and the Tasks part join
+  the system.
+- **The chapters run ahead of the code for the Events layer.** Until step 13 lands,
+  [the Calendar's chapters](../../domain/calendar/context.md) describe an Events layer
+  the code still reads through Tasks' `ICalendarEvents` and draws in the Tasks part.
 
 Neutral:
 
@@ -276,4 +285,5 @@ Look for these in the specification and, once built, in the code:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-12 | Tasks and Plans layers built: the `Backlog.Modules.Calendar` trio and its view-group surface; `ICalendarPlans` and `ICalendarCapacity` moved to the Calendar, answered by `RoadmapCalendarPlans` and `RoadmapCalendarCapacity`; the range and Show plans as the Calendar's own view choices. §2 amended: the Tasks layer is a part Tasks offers, `TasksCalendarPart` through `CalendarTasksLayer` in `Backlog.UI.Components`, not a port. The Events layer stays with Tasks until step 13. | The filter bar and the open task must come with the Tasks layer, as the Negative consequences foresaw, and a port carries neither. Step 12 of the `knowledge-events` plan. |
 | 2026-11-11 | Proposed: the Calendar is a surface of its own that reads the Tasks, Plans and Events layers through ports it owns, storing only its view choices. Supersedes ADR 0022 §1's one-pane rule for the Calendar. | Each new source was one more Tasks-owned port, and the next sources have nothing to do with tasks. |
