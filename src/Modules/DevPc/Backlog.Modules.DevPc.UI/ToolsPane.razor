@@ -612,7 +612,7 @@
                 <TextField Label="URL"
                            Value="@_draftServerUrl"
                            ValueChanged="value => _draftServerUrl = value"
-                           HelpText="Where the server answers. ${BACKLOG_MCP_PORT} and ${BACKLOG_MCP_TOKEN} are filled in per machine; nothing else is, and never an environment variable."
+                           HelpText="Where the server answers. ${BACKLOG_MCP_PORT} is filled in per machine, and ${BACKLOG_MCP_TOKEN} only where the debug escape hatch is on; nothing else is. Backlog itself takes a grant: register it from Settings, MCP server."
                            ErrorMessage="@_draftCommandError"
                            TestId="tools-add-server-url" />
                 <TextArea Label="Headers"

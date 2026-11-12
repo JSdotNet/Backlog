@@ -1079,8 +1079,9 @@ merges that page's block into the `env` of their user-level `~/.claude/settings.
 The block:
 
 - turns telemetry on;
-- sets the OTLP logs exporter, the logs protocol, the endpoint and the bearer token as
-  a header;
+- sets the OTLP logs exporter, the logs protocol and the endpoint;
+- names an `otelHeadersHelper` that fetches a short-lived token for the app's Telemetry
+  grant, so the block itself holds no token;
 - sets `OTEL_LOG_TOOL_DETAILS=1`, so each request names the sub-agent and the skill it
   ran under.
 

@@ -139,14 +139,11 @@ public sealed class McpScopePoliciesTests
     }
 
     [Fact]
-    public void The_static_tokens_hold_what_they_reached_before_grants()
+    public void The_escape_hatch_and_the_harness_hold_every_grantable_scope()
     {
-        var shared = McpScopePolicies.ScopesOf(McpScopePolicies.SharedTokenCaller);
-        Assert.DoesNotContain(McpScopes.TelemetryWrite, shared);
-        Assert.Equal(McpScopes.Grantable.Count - 1, shared.Count);
-
-        Assert.Equal([McpScopes.NotifyAsk], McpScopePolicies.ScopesOf(McpScopePolicies.QuestionHookCaller));
-        Assert.Equal([McpScopes.TelemetryWrite], McpScopePolicies.ScopesOf(McpScopePolicies.TelemetryCaller));
+        // The BACKLOG_MCP_TOKEN escape hatch stands in for no particular agent (local ADR 0052,
+        // Phase 1); the hook and telemetry callers went with the tokens they named.
+        Assert.Equal(McpScopes.Grantable.Count, McpScopePolicies.ScopesOf(McpScopePolicies.SharedTokenCaller).Count);
         Assert.Equal(McpScopes.Grantable.Count, McpScopePolicies.ScopesOf(McpScopePolicies.HarnessCaller).Count);
 
         Assert.Equal(McpAudit.SharedTokenCaller, McpScopePolicies.CallerOf(McpScopePolicies.SharedTokenCaller));

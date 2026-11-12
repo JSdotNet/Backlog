@@ -15,9 +15,8 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <c>/mcp</c> endpoint.
 /// <para>
 /// <b>Every caller is a principal.</b> The listener puts one on every request it admits: a
-/// grant token's own, or the fixed one for the static token it matched
-/// (<see cref="SharedTokenCaller"/>, <see cref="QuestionHookCaller"/>,
-/// <see cref="TelemetryCaller"/>); the web harness, which asks for no token, puts
+/// grant token's own, or <see cref="SharedTokenCaller"/> for the <c>BACKLOG_MCP_TOKEN</c> escape
+/// hatch where a debug setting switched it on; the web harness, which asks for no token, puts
 /// <see cref="HarnessCaller"/> on. A request with none is refused by every policy here.
 /// </para>
 /// <para>
@@ -49,18 +48,11 @@ public static class McpScopePolicies
     /// <summary>The policy name for <paramref name="scope"/>: <see cref="Prefix"/> and the scope.</summary>
     public static string PolicyName(string scope) => Prefix + scope;
 
-    /// <summary>The shared bearer token every registration carried before grants (ADR 0012
-    /// §1): every grantable scope but <see cref="McpScopes.TelemetryWrite"/>, which is the
-    /// telemetry token's, so it reaches what it reached before. Retired by a later step.</summary>
-    public static ClaimsPrincipal SharedTokenCaller { get; } = Static(
-        McpAudit.SharedTokenCaller,
-        McpScopes.Grantable.Where(scope => scope != McpScopes.TelemetryWrite));
-
-    /// <summary>The <c>ask-backlog</c> hook's token: the question tools alone.</summary>
-    public static ClaimsPrincipal QuestionHookCaller { get; } = Static("question hook token", [McpScopes.NotifyAsk]);
-
-    /// <summary>Claude Code's exporter's token: the OTLP logs route alone.</summary>
-    public static ClaimsPrincipal TelemetryCaller { get; } = Static("telemetry token", [McpScopes.TelemetryWrite]);
+    /// <summary>The <c>BACKLOG_MCP_TOKEN</c> escape hatch (local ADR 0052, Phase 1): a dev or CI
+    /// run's static token, accepted only where a debug setting switched it on. Every grantable
+    /// scope, as the harness's caller has, since it stands in for no particular agent; audited
+    /// as <see cref="McpAudit.SharedTokenCaller"/>, the name the retired shared token had.</summary>
+    public static ClaimsPrincipal SharedTokenCaller { get; } = Static(McpAudit.SharedTokenCaller, McpScopes.Grantable);
 
     /// <summary>The web harness's caller, which presents nothing: every grantable scope, since
     /// the harness keeps no auth (ADR 0052) and its tools are QA's.</summary>

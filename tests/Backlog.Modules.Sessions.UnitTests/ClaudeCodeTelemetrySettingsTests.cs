@@ -16,11 +16,11 @@ namespace Backlog.Modules.Sessions.UnitTests;
 /// </summary>
 public sealed class ClaudeCodeTelemetrySettingsTests
 {
-    private sealed class FixedEndpoint(Uri endpoint, string token) : IClaudeCodeTelemetryEndpoint
+    private sealed class FixedEndpoint(Uri endpoint, string headersHelper) : IClaudeCodeTelemetryEndpoint
     {
         public Uri LogsEndpoint { get; } = endpoint;
 
-        public string EnsureToken() => token;
+        public string? HeadersHelper => headersHelper;
     }
 
     private static IRenderedComponent<ClaudeCodeTelemetrySettings> Render(BunitContext context)
@@ -29,26 +29,30 @@ public sealed class ClaudeCodeTelemetrySettingsTests
         return context.Render<ClaudeCodeTelemetrySettings>();
     }
 
+    private const string Helper = "node \"C:/Users/me/AppData/Local/Backlog/hooks/backlog-mcp-headers.mjs\" --grant g_t";
+
+    /// <summary>The desktop block names the headers helper for the Telemetry grant (local ADR
+    /// 0052, Phase 1) and carries no token: drawn and copied the same, with nothing to hide.</summary>
     [Fact]
-    public void The_desktop_endpoint_is_shown_with_the_token_the_listener_checks()
+    public void The_desktop_endpoint_is_shown_with_the_headers_helper_for_the_telemetry_grant()
     {
         using var context = new BunitContext();
         context.Services.AddSingleton<IClaudeCodeTelemetryEndpoint>(
-            new FixedEndpoint(new Uri("http://127.0.0.1:5757/v1/logs"), "secret-token"));
+            new FixedEndpoint(new Uri("http://127.0.0.1:5757/v1/logs"), Helper));
 
         var page = Render(context);
 
         Assert.Equal("http://127.0.0.1:5757/v1/logs", page.Find("[data-testid='claude-code-telemetry-endpoint']").TextContent.Trim());
 
-        // On screen the token is hidden; the copied block carries it.
         var shown = page.Find("[data-testid='claude-code-telemetry-settings']").TextContent;
-        Assert.Contains("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", shown, StringComparison.Ordinal);
-        Assert.Contains("Authorization=Bearer " + ClaudeCodeTelemetrySnippet.HiddenToken, shown, StringComparison.Ordinal);
-        Assert.DoesNotContain("secret-token", page.Markup, StringComparison.Ordinal);
+        Assert.Contains("otelHeadersHelper", shown, StringComparison.Ordinal);
+        Assert.Contains("--grant g_t", shown, StringComparison.Ordinal);
+        Assert.DoesNotContain("Authorization", shown, StringComparison.Ordinal);
 
         var copy = page.FindComponents<Backlog.UI.Components.Buttons.CopyButton>()
             .Single(button => button.Instance.TestId == "claude-code-telemetry-settings-copy");
-        Assert.Contains("Authorization=Bearer secret-token", copy.Instance.Text, StringComparison.Ordinal);
+        Assert.Contains("--grant g_t", copy.Instance.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Authorization", copy.Instance.Text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -66,16 +70,19 @@ public sealed class ClaudeCodeTelemetrySettingsTests
     [Fact]
     public void The_settings_block_is_valid_json_with_the_logs_signal_s_own_variables()
     {
-        var json = ClaudeCodeTelemetrySnippet.Settings(new Uri("http://127.0.0.1:5757/v1/logs"), "t");
+        var json = ClaudeCodeTelemetrySnippet.Settings(new Uri("http://127.0.0.1:5757/v1/logs"), Helper);
 
         using var document = JsonDocument.Parse(json);
         var env = document.RootElement.GetProperty("env");
+        Assert.Equal(Helper, document.RootElement.GetProperty("otelHeadersHelper").GetString());
+        // Under the 15-minute life of a grant token.
+        Assert.Equal("600000", env.GetProperty("CLAUDE_CODE_OTEL_HEADERS_HELPER_DEBOUNCE_MS").GetString());
 
         Assert.Equal("1", env.GetProperty("CLAUDE_CODE_ENABLE_TELEMETRY").GetString());
         Assert.Equal("otlp", env.GetProperty("OTEL_LOGS_EXPORTER").GetString());
         Assert.Equal("http/protobuf", env.GetProperty("OTEL_EXPORTER_OTLP_LOGS_PROTOCOL").GetString());
         Assert.Equal("http://127.0.0.1:5757/v1/logs", env.GetProperty("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT").GetString());
-        Assert.Equal("Authorization=Bearer t", env.GetProperty("OTEL_EXPORTER_OTLP_LOGS_HEADERS").GetString());
+        Assert.False(env.TryGetProperty("OTEL_EXPORTER_OTLP_LOGS_HEADERS", out _));
         Assert.False(env.TryGetProperty("OTEL_EXPORTER_OTLP_HEADERS", out _));
     }
 
@@ -84,7 +91,7 @@ public sealed class ClaudeCodeTelemetrySettingsTests
     [Fact]
     public void The_settings_block_asks_for_the_tool_details_that_name_each_requests_sub_agent()
     {
-        foreach (var token in new[] { "t", null })
+        foreach (var token in new[] { Helper, null })
         {
             using var document = JsonDocument.Parse(ClaudeCodeTelemetrySnippet.Settings(new Uri("http://127.0.0.1:5757/v1/logs"), token));
 

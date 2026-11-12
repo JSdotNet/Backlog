@@ -8,8 +8,8 @@ namespace Backlog.Modules.DevPc.Abstractions;
 /// port in this project is one: the worker lives in the desktop head, which no
 /// test project references and no other host has. What a row needs is two facts
 /// and a way to be told they changed — which port the server is configured on,
-/// and why nothing is listening when nothing is — plus the token a registration
-/// has to carry. Whether there is a server at all is not a question: it is always
+/// and why nothing is listening when nothing is — plus the escape hatch's token,
+/// where one is switched on. Whether there is a server at all is not a question: it is always
 /// on while the desktop app runs. None of those needs a
 /// <c>Microsoft.Extensions.Hosting</c> reference to say, so this project takes no
 /// new dependency for it.</para>
@@ -77,33 +77,20 @@ public interface IMcpEndpointSource
     void Retry();
 
     /// <summary>
-    /// The token a registration has to carry, minted and persisted if this
-    /// machine has none yet.
+    /// What a <c>${BACKLOG_MCP_TOKEN}</c> placeholder is filled with: the
+    /// <c>BACKLOG_MCP_TOKEN</c> escape hatch's token where a debug setting switched it on
+    /// (local ADR 0052, Phase 1), else <see langword="null"/> — and null leaves the
+    /// placeholder unresolved, so the row reports it rather than registering a token the
+    /// listener refuses. Nothing is minted: since the shared token was retired a
+    /// registration names a grant, which the MCP server's own Settings page makes.
     /// </summary>
-    /// <remarks>On demand, and a method rather than a property, because it has a
-    /// side effect worth seeing at the call site: it writes a secret to this
-    /// machine's settings. Describing a row must never call it — see the two
-    /// resolvers on <see cref="McpPlaceholders"/> — or drawing a table would
-    /// persist a credential nobody asked for.</remarks>
-    string EnsureToken();
+    /// <remarks>A method rather than a property, because it is the moment a registration
+    /// asks for a secret — see the two resolvers on <see cref="McpPlaceholders"/>.</remarks>
+    string? EnsureToken();
 
-    /// <summary>The token this machine already has, or <see langword="null"/>
-    /// when none has been minted — read, never created.</summary>
-    /// <remarks>For masking rather than registering: a value that has to be kept
-    /// out of what is written down, such as the last run's transcript, is only a
-    /// secret if it exists, and minting one in order to hide it would persist a
-    /// credential nobody asked for.</remarks>
+    /// <summary>The same token, read for masking rather than registering: a value that has
+    /// to be kept out of what is written down, such as the last run's transcript.</summary>
     string? CurrentToken { get; }
-
-    /// <summary>
-    /// Replaces the token with a fresh one, at once: the listener refuses the old one
-    /// from its next request on. <see langword="null"/>, or the sentence saying the new
-    /// token holds for this run but could not be saved for next time.
-    /// </summary>
-    /// <remarks>Only from a Rotate a person pressed (local ADR 0052, Phase 0). Every
-    /// registration that names the token itself has to be given the new one; the
-    /// headers helper re-reads it after its next 401.</remarks>
-    string? RotateToken();
 
     /// <summary>Raised when any of the above has changed, so a pane that drew
     /// them can draw them again. The port is a setting a person edits while the

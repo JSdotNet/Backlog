@@ -141,7 +141,7 @@ public sealed class McpServerSettingsPageTests
     }
 
     [Fact]
-    public void The_page_neither_draws_nor_mints_nor_rotates_the_shared_token()
+    public void The_page_neither_draws_nor_asks_for_the_escape_hatch_token()
     {
         var server = new FakeMcpServer { IsListening = true, CurrentToken = "secret-token" };
         using var context = Context(server);
@@ -152,7 +152,6 @@ public sealed class McpServerSettingsPageTests
         Assert.Empty(page.FindAll("[data-testid='mcp-server-token-card']"));
         Assert.Empty(page.FindAll("[data-testid='mcp-server-token-rotate']"));
         Assert.Equal(0, server.TokensMinted);
-        Assert.Equal(0, server.Rotations);
     }
 
     [Fact]
@@ -447,18 +446,6 @@ public sealed class McpServerSettingsPageTests
 
             Unavailable = null;
             Raise();
-        }
-
-        public int Rotations { get; private set; }
-
-        /// <summary>Like the store: replaces the token and says so synchronously,
-        /// answering <see cref="SaveFailure"/> for a store that could not write it.</summary>
-        public string? RotateToken()
-        {
-            Rotations++;
-            CurrentToken = $"rotated-token-{Rotations}";
-            Raise();
-            return SaveFailure;
         }
 
         public string EnsureToken()

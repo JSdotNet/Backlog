@@ -542,14 +542,14 @@ references, they stay node attributes and produce no edges in the knowledge grap
 related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0052-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
 ```
 
-Local ADR 0052 decides how each principal proves itself. It is not yet built, and
+Local ADR 0052 decides how each principal proves itself. It is partly built, and
 each item below says where the code stands.
 
 | Principal | Proven by | Today |
 | --- | --- | --- |
 | The owner | GitHub sign-in, matched by numeric user id, at first-device enrolment and recovery only | Registration is anonymous |
 | A device | A non-exportable key (TPM through CNG, Android Keystore), exchanged by `private_key_jwt` | A stored registration credential |
-| A local agent | A grant; a named-pipe token broker mints 15-minute JWTs with scopes | One shared bearer token |
+| A local agent | A grant; a named-pipe token broker mints 15-minute JWTs with scopes | Built |
 | A remote agent | OAuth 2.1 on the sync service, one static client for the claude.ai connector | Not built |
 
 - **No account is required** for personal use in standalone mode. The desktop app
@@ -567,14 +567,15 @@ each item below says where the code stands.
 - **The MCP listener checks scopes, not one token.** Each tool group requires a scope
   under fallback-deny, behind the loopback `Origin` check, and every call is audited.
   This is built: every tool and route requires a scope by a named policy, and the audit
-  names the grant. The listener still takes the one bearer token of local ADR 0012 §1
-  beside grants, held to every scope but `telemetry:write`.
+  names the grant. The listener takes grant tokens only: a named pipe for the person's SID
+  mints a grant's 15-minute JWT, and the listener refuses one older than its grant's version.
+  The shared, question-hook and telemetry tokens are retired, and `settings.json` holds
+  only grant ids. A debug setting can let the listener accept `BACKLOG_MCP_TOKEN`; it is off
+  by default.
   The audit is built already: one record per tool call the listener admits, in a per-installation
   `mcp-audit.db`, kept 30 days, the latest 200 on the MCP server Settings page.
-  A Rotate for the token and a limit on failed bearer attempts are built too: ten within 60
-  seconds answer every bearer request 429 for 60 seconds, and the trip is audited.
-  The token broker is built beside the shared token: a named pipe for the person's SID
-  mints a grant's 15-minute JWT, and the listener refuses one older than its grant's version.
+  A limit on failed bearer attempts is built too: ten within 60 seconds answer every bearer
+  request 429 for 60 seconds, and the trip is audited.
 - **Windows Hello confirms what is hard to undo:** a `tasks:admin` tool, revoking a
   device, minting a pairing code, allowing an agent's grant, and switching
   `agents:grant` on. A transition to Done asks for none.
@@ -585,8 +586,8 @@ each item below says where the code stands.
 - **Credentials at rest are sealed by the OS.** Every third-party key or token the
   app stores is sealed under the signed-in Windows user with DPAPI, or in the
   platform secure store on Android. The settings files seal only the secret value
-  and stay legible otherwise. The MCP server's loopback token is the one exception
-  until local ADR 0052 retires it. Local ADR 0030 has the threat model.
+  and stay legible otherwise. No MCP credential is stored in plaintext since local
+  ADR 0052 retired the loopback token. Local ADR 0030 has the threat model.
 
 For the cloud service specifically, three inherited decisions apply:
 

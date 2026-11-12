@@ -296,8 +296,6 @@ public sealed class DevToolLastRunTests : IDisposable
 
         public string? CurrentToken => token;
 
-        public string? RotateToken() => throw new NotSupportedException();
-
         public string EnsureToken()
         {
             TokensMinted++;

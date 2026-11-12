@@ -5,9 +5,9 @@
     each by a grant of its own (local ADR 0052 §3), and the latest tool calls the
     audit log holds (local ADR 0052, Phase 0).
 
-    The Agents card took the Bearer token card's place. The shared token still
-    works beside the grants until the step that retires it, but this page no longer
-    shows or rotates it: a registration made from here names a grant instead.
+    The Agents card took the Bearer token card's place. The shared token is retired
+    (local ADR 0052, Phase 1): a registration made from here names a grant, and the
+    first start after the upgrade made three for what the app installs itself.
 
     Offered whatever any feature says. The server is always on while the app runs,
     and the person who needs this page most is the one whose client was just
@@ -202,7 +202,7 @@
             @if (_agents.Count == 0)
             {
                 <p class="setting__note" data-testid="mcp-server-agents-none">
-                    No agent yet. Until you add one, a registration reaches Backlog with the shared token.
+                    No agent yet. A registration reaches Backlog only with a grant: add one for it.
                 </p>
             }
             else

@@ -4,13 +4,12 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
 /// The MCP server's half of the workspace settings file: which loopback port the
-/// listener takes, and the bearer token it demands.
+/// listener takes, the grants the app made for what it installs, and the escape hatch's
+/// debug setting.
 /// <para>
-/// The token is the part worth being careful about. Local ADR 0012 §1 has the
-/// app generate it once and keep it, and every registration that talks to this
-/// server names it — so "generated once" and "then stable" are two separate
-/// claims and both are asserted here, across a restart rather than only within
-/// one store.
+/// Since the shared token was retired (local ADR 0052, Phase 1) the file holds no MCP
+/// secret: a token an earlier build wrote is read only to be retired, and dropped once the
+/// migration has rewritten what names it.
 /// </para>
 /// <para>
 /// Every store is built on the test-seam constructor, which names the settings
@@ -34,16 +33,15 @@ public class WorkspaceMcpServerSettingsTests : IDisposable
     private WorkspaceSettingsStore Store() => new(_root, SettingsFile, _ => null);
 
     [Fact]
-    public void An_untouched_workspace_listens_on_the_default_port_and_has_no_token()
+    public void An_untouched_workspace_listens_on_the_default_port_and_has_no_token_and_no_grants()
     {
         var store = Store();
 
         Assert.Equal(WorkspaceSettingsStore.DefaultMcpServerPort, store.McpServerPort);
         Assert.Equal(5757, store.McpServerPort);
-
-        // Not generated at construction: a secret on disk for a feature nobody
-        // switched on is a secret with no reason to exist.
-        Assert.Null(store.McpServerToken);
+        Assert.Empty(store.RetiredMcpTokens);
+        Assert.Null(store.McpServerGrants);
+        Assert.False(store.McpServerAcceptsEnvironmentToken);
     }
 
     [Fact]
@@ -110,115 +108,90 @@ public class WorkspaceMcpServerSettingsTests : IDisposable
         Assert.Equal(port, store.McpServerPort);
     }
 
+    /// <summary>A settings.json an earlier build wrote: its three tokens are read as retired,
+    /// kept through an unrelated save so the migration can still recognise what names them, and
+    /// gone from the file once <see cref="WorkspaceSettingsStore.ForgetRetiredMcpTokens"/> ran.</summary>
     [Fact]
-    public void A_token_is_generated_on_first_need_and_then_stable()
+    public void The_shared_tokens_of_an_earlier_build_are_retired_then_dropped()
     {
+        File.WriteAllText(SettingsFile, """
+            { "mcpServer": { "token": "shared", "hookToken": "hook", "telemetryToken": "telemetry", "port": 6060 } }
+            """);
+
         var store = Store();
+        Assert.Equal(["shared", "hook", "telemetry"], store.RetiredMcpTokens);
+        Assert.Equal(6060, store.McpServerPort);
 
-        var first = store.EnsureMcpServerToken();
+        // An unrelated save before the migration ran keeps them, field by field.
+        _ = store.SetBackupSchedule(BackupSchedule.Off with { Cadence = BackupCadence.Daily });
+        Assert.Equal(["shared", "hook", "telemetry"], Store().RetiredMcpTokens);
 
-        Assert.False(string.IsNullOrWhiteSpace(first));
+        Assert.Null(store.ForgetRetiredMcpTokens());
+        Assert.Empty(store.RetiredMcpTokens);
 
-        // Asking again is not asking for another one.
-        Assert.Equal(first, store.EnsureMcpServerToken());
-        Assert.Equal(first, store.McpServerToken);
+        var text = File.ReadAllText(SettingsFile);
+        Assert.DoesNotContain("shared", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("token", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(Store().RetiredMcpTokens);
+        Assert.Equal(6060, Store().McpServerPort);
     }
 
-    /// <summary>
-    /// The question hook and the telemetry exporter each get a token of their own, kept in
-    /// the same settings.json row as the MCP token: three different 256-bit values, none
-    /// minted until first need, each stable across a restart.
-    /// </summary>
+    /// <summary>The grants the migration made are recorded by id, survive a restart, and are
+    /// announced; a row missing any of the three reads as no migration yet.</summary>
     [Fact]
-    public void The_hook_and_telemetry_tokens_are_their_own_and_survive_a_restart()
-    {
-        var store = Store();
-        Assert.Null(store.QuestionHookToken);
-        Assert.Null(store.TelemetryToken);
-
-        var mcp = store.EnsureMcpServerToken();
-        var hook = store.EnsureQuestionHookToken();
-        var telemetry = store.EnsureTelemetryToken();
-
-        Assert.Equal(3, new[] { mcp, hook, telemetry }.Distinct(StringComparer.Ordinal).Count());
-        Assert.All([hook, telemetry], token => Assert.Equal(43, token.Length));
-        Assert.Equal(hook, store.EnsureQuestionHookToken());
-        Assert.Equal(telemetry, store.EnsureTelemetryToken());
-
-        var reopened = Store();
-        Assert.Equal(mcp, reopened.McpServerToken);
-        Assert.Equal(hook, reopened.QuestionHookToken);
-        Assert.Equal(telemetry, reopened.TelemetryToken);
-
-        using var document = JsonDocument.Parse(File.ReadAllText(SettingsFile));
-        var row = document.RootElement.GetProperty("mcpServer");
-        Assert.Equal(hook, row.GetProperty("hookToken").GetString());
-        Assert.Equal(telemetry, row.GetProperty("telemetryToken").GetString());
-    }
-
-    [Fact]
-    public void A_generated_token_survives_a_restart()
-    {
-        var first = Store().EnsureMcpServerToken();
-
-        var reopened = Store();
-
-        Assert.Equal(first, reopened.McpServerToken);
-        Assert.Equal(first, reopened.EnsureMcpServerToken());
-    }
-
-    /// <summary>Two workspaces are two tokens. It reads like a tautology and is
-    /// not: a token derived from the machine, the user or the path would pass
-    /// every other test in this file and hand every installation the same
-    /// secret.</summary>
-    [Fact]
-    public void Two_workspaces_do_not_share_a_token()
-    {
-        var other = Path.Combine(_root, "other");
-        Directory.CreateDirectory(other);
-
-        var mine = Store().EnsureMcpServerToken();
-        var theirs = new WorkspaceSettingsStore(other, Path.Combine(other, "settings.json"), _ => null)
-            .EnsureMcpServerToken();
-
-        Assert.NotEqual(mine, theirs);
-    }
-
-    /// <summary>256 bits of Base64Url, which is 43 characters and no padding —
-    /// the same construction <c>IRegistrationCredentialGenerator</c> uses. The
-    /// length is asserted because it is what makes the fixed-time comparison's
-    /// length leak worth nothing.</summary>
-    [Fact]
-    public void A_token_is_256_bits_of_url_safe_text()
-    {
-        var token = Store().EnsureMcpServerToken();
-
-        Assert.Equal(43, token.Length);
-        Assert.DoesNotContain('+', token);
-        Assert.DoesNotContain('/', token);
-        Assert.DoesNotContain('=', token);
-    }
-
-    [Fact]
-    public void Generating_a_token_announces_it()
+    public void The_installed_grants_are_recorded_by_id_and_survive_a_restart()
     {
         var store = Store();
         var raised = 0;
         store.McpChanged += () => raised++;
 
-        _ = store.EnsureMcpServerToken();
+        Assert.Null(store.SetMcpServerGrants(new McpInstalledGrants("g_d", "g_q", "g_t")));
         Assert.Equal(1, raised);
 
-        // The second ask generates nothing, so it announces nothing.
-        _ = store.EnsureMcpServerToken();
-        Assert.Equal(1, raised);
+        Assert.Equal(new McpInstalledGrants("g_d", "g_q", "g_t"), Store().McpServerGrants);
+
+        using (var document = JsonDocument.Parse(File.ReadAllText(SettingsFile)))
+        {
+            var grants = document.RootElement.GetProperty("mcpServer").GetProperty("grants");
+            Assert.Equal("g_q", grants.GetProperty("questionHook").GetString());
+            Assert.Equal("g_d", grants.GetProperty("delivery").GetString());
+            Assert.Equal("g_t", grants.GetProperty("telemetry").GetString());
+        }
+
+        File.WriteAllText(SettingsFile, """{ "mcpServer": { "grants": { "delivery": "g_d", "questionHook": "g_q" } } }""");
+        Assert.Null(Store().McpServerGrants);
+    }
+
+    /// <summary>The BACKLOG_MCP_TOKEN escape hatch: off unless the hand-edited debug setting is
+    /// on, and then the environment variable's value — never anything from the file.</summary>
+    [Fact]
+    public void The_environment_token_is_accepted_only_where_the_debug_setting_is_on()
+    {
+        var environment = new Dictionary<string, string?> { ["BACKLOG_MCP_TOKEN"] = "from-env" };
+
+        var off = new WorkspaceSettingsStore(_root, SettingsFile, _ => null) { ReadEnvironment = name => environment.GetValueOrDefault(name) };
+        Assert.False(off.McpServerAcceptsEnvironmentToken);
+        Assert.Null(off.EnvironmentMcpToken);
+
+        File.WriteAllText(SettingsFile, """{ "mcpServer": { "token": "retired", "acceptEnvironmentToken": true } }""");
+
+        var on = new WorkspaceSettingsStore(_root, SettingsFile, _ => null) { ReadEnvironment = name => environment.GetValueOrDefault(name) };
+        Assert.True(on.McpServerAcceptsEnvironmentToken);
+        Assert.Equal("from-env", on.EnvironmentMcpToken);
+
+        environment["BACKLOG_MCP_TOKEN"] = " ";
+        Assert.Null(on.EnvironmentMcpToken);
+
+        // And a save keeps the setting, and drops nothing it should keep.
+        Assert.Null(on.ForgetRetiredMcpTokens());
+        Assert.True(Store().McpServerAcceptsEnvironmentToken);
     }
 
     /// <summary>A workspace nobody has switched the server on in keeps producing
     /// the settings file it always did — no row, so no reader of that file has to
     /// learn about a feature nobody chose.</summary>
     [Fact]
-    public void The_default_port_and_no_token_write_no_row()
+    public void The_default_port_and_no_grants_write_no_row()
     {
         var store = Store();
 
@@ -228,23 +201,6 @@ public class WorkspaceMcpServerSettingsTests : IDisposable
         using var document = JsonDocument.Parse(File.ReadAllText(SettingsFile));
 
         Assert.False(document.RootElement.TryGetProperty("mcpServer", out _));
-    }
-
-    [Fact]
-    public void A_token_is_written_even_at_the_default_port()
-    {
-        var store = Store();
-        var token = store.EnsureMcpServerToken();
-
-        using var document = JsonDocument.Parse(File.ReadAllText(SettingsFile));
-
-        var row = document.RootElement.GetProperty("mcpServer");
-
-        Assert.Equal(token, row.GetProperty("token").GetString());
-
-        // The port is null while it is the default, so moving the default later
-        // moves this workspace with it.
-        Assert.Equal(JsonValueKind.Null, row.GetProperty("port").ValueKind);
     }
 
     /// <summary>A hand-edited port outside the range reads as the default rather
@@ -258,54 +214,15 @@ public class WorkspaceMcpServerSettingsTests : IDisposable
     {
         File.WriteAllText(
             SettingsFile,
-            $$"""{ "rootDirectory": {{JsonSerializer.Serialize(_root)}}, "mcpServer": { "token": "kept", "port": {{port}} } }""");
+            $$"""{ "rootDirectory": {{JsonSerializer.Serialize(_root)}}, "mcpServer": { "grants": { "delivery": "g_d", "questionHook": "g_q", "telemetry": "g_t" }, "port": {{port}} } }""");
 
         var store = Store();
 
         Assert.Equal(WorkspaceSettingsStore.DefaultMcpServerPort, store.McpServerPort);
 
-        // And the token beside it is still read: one unusable field does not
+        // And the grants beside it are still read: one unusable field does not
         // discard the row.
-        Assert.Equal("kept", store.McpServerToken);
-    }
-
-    /// <summary>
-    /// The documented sharp edge, asserted rather than left to be discovered.
-    /// <para>
-    /// <c>ReadSettings</c> answers null for a file it cannot parse as well as for
-    /// one that is not there — by design, so a broken file never stops the app
-    /// opening — and the store cannot tell those apart. So a corrupt file reads
-    /// as "no token yet" and the next need writes a fresh one, which every
-    /// existing registration then fails to authenticate with. This test exists to
-    /// make that a decision somebody took rather than a surprise; see
-    /// <c>EnsureMcpServerToken</c>'s remarks.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void A_corrupt_settings_file_rotates_the_token()
-    {
-        var original = Store().EnsureMcpServerToken();
-
-        File.WriteAllText(SettingsFile, "{ this is not json");
-
-        var reopened = Store();
-
-        Assert.Null(reopened.McpServerToken);
-        Assert.NotEqual(original, reopened.EnsureMcpServerToken());
-    }
-
-    /// <summary>An absent file is the ordinary first run, and is not a
-    /// rotation of anything: there was nothing to rotate.</summary>
-    [Fact]
-    public void An_absent_settings_file_is_a_first_run_rather_than_a_rotation()
-    {
-        Assert.False(File.Exists(SettingsFile));
-
-        var store = Store();
-
-        Assert.Null(store.McpServerToken);
-        Assert.False(string.IsNullOrWhiteSpace(store.EnsureMcpServerToken()));
-        Assert.True(File.Exists(SettingsFile));
+        Assert.Equal("g_d", store.McpServerGrants?.Delivery);
     }
 
     public void Dispose()
