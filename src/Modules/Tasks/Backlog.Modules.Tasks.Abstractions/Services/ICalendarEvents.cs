@@ -4,7 +4,7 @@ namespace Backlog.Modules.Tasks.Abstractions.Services;
 
 /// <summary>
 /// The knowledge events as the Tasks Calendar draws them: each decided event across its
-/// days, and each of their key dates on its day. A sibling of <see cref="ICalendarPlans"/>,
+/// days, and each of their key dates on its day. A sibling of <c>ICalendarPlans</c> (the Calendar's Plans port),
 /// and read-only: the Calendar changes no event.
 /// <para>
 /// A port on Tasks' own surface rather than a reference to the Events context (local ADR

@@ -3,7 +3,7 @@
   <!--
     Cross-cutting file-system adapter: the settings, feature flags and knowledge
     folders that genuinely are files on local disk, plus the cross-context joins
-    under Roadmap/, Dashboard/ and Inbox/ that only an adapter seeing both sides
+    under Roadmap/, Calendar/, Dashboard/ and Inbox/ that only an adapter seeing both sides
     may hold. The tasks, the roadmap plan and the inbox all live in
     Backlog.Infrastructure.Sqlite. Implements ports declared by the modules and by
     the shared kernel; no module may reference this project except through its
@@ -54,6 +54,10 @@
          implementation is reachable through the Sqlite adapter below. -->
 
     <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
+    <!-- The Calendar's published surface, for the joins under Calendar/ that answer its
+         Plans layer and working-week ports, ICalendarPlans and ICalendarCapacity, over
+         Roadmap's abstractions (local ADR 0055 §2). The published surface only. -->
+    <ProjectReference Include="..\..\Modules\Calendar\Backlog.Modules.Calendar.Abstractions\Backlog.Modules.Calendar.Abstractions.csproj" />
     <!-- The cross-context join under Dashboard/ - the Sessions context supplies the
          assistant-session facts the Dashboard's sessions part reports on. Two
          published surfaces and no implementation: the adapter is the only thing in

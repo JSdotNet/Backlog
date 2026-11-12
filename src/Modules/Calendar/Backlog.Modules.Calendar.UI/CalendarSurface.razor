@@ -1,0 +1,171 @@
+@implements IDisposable
+@inject IServiceProvider Services
+@inject IToastChannel Toasts
+
+@*
+    The Calendar as a shell surface (local ADR 0043 §1, local ADR 0055): a view of its own
+    that hosts the Tasks layer as the part Tasks offers (CalendarTasksLayer) and hands it the
+    layers the Calendar reads — the Plans layer and the hours worked a day — with the range
+    and Show plans it keeps (ICalendarViewPreferences). It owns no data.
+
+    It draws no element of its own around the part, so the shell's pane and every selector
+    under it stay what they were when the Calendar was a layout of the Tasks pane. With no
+    part composed it draws nothing.
+*@
+@if (_part is { } part)
+{
+    <DynamicComponent Type="part.Component" Parameters="PartParameters()" />
+}
+
+@code {
+    /// <summary>The test id of the toast a refused shelf drop raises.</summary>
+    public const string PlanRefusedTestId = "calendar-plan-refused";
+
+    /// <summary>Unused: the Calendar accepts no query. Declared because the shell hands
+    /// every surface one.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Unused: a view is replaced, never closed. Declared because the shell
+    /// hands every surface one.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private CalendarTasksLayer? _part;
+    private ICalendarPlansLayer? _plans;
+    private ICalendarCapacity? _capacity;
+    private ICalendarViewPreferences? _preferences;
+
+    /// <summary>The choices this run keeps when the host composed no preferences.</summary>
+    private CalendarRange _range = CalendarRange.Month;
+    private bool _plansShown;
+
+    /// <summary>The host's clock, or the system's: what "today" is for the plans' read.</summary>
+    private TimeProvider _clock = TimeProvider.System;
+
+    private DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
+
+    private CalendarRange Range => _preferences?.Range ?? _range;
+
+    private bool PlansShown => _preferences?.PlansShown ?? _plansShown;
+
+    protected override void OnInitialized()
+    {
+        _part = Services.GetService<CalendarTasksLayer>();
+        _plans = Services.GetService<ICalendarPlansLayer>();
+        _capacity = Services.GetService<ICalendarCapacity>();
+        _preferences = Services.GetService<ICalendarViewPreferences>();
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
+
+        if (_plans is not null)
+        {
+            // Arriving owes a read, whatever the window read before it left.
+            _plans.Arrive();
+            _plans.Changed += HandlePlansChanged;
+        }
+
+        if (_capacity is not null) _capacity.Changed += HandleCapacityChanged;
+    }
+
+    /// <summary>The plans are read on arriving, when a read is owed and on a new day —
+    /// never on every render, because a read gathers the backlog per plan.</summary>
+    protected override Task OnParametersSetAsync() => ReadPlansIfOwedAsync();
+
+    /// <summary>The read the plans are owed, if any: asked on every way the surface draws
+    /// again — its parameters, a press of its own and the port's signal — because its own
+    /// redraw does not pass through its parameters, and a Calendar left open past midnight
+    /// must not keep yesterday's windows.</summary>
+    private Task ReadPlansIfOwedAsync() => _plans?.ReadIfOwedAsync(Today) ?? Task.CompletedTask;
+
+    private Dictionary<string, object?> PartParameters() =>
+        new(StringComparer.Ordinal) { [CalendarTasksLayer.LayerParameter] = Inputs() };
+
+    /// <summary>What the part draws the Calendar's layers from: the plans as last read in
+    /// the calendar's own shapes, each window with its repositories so the part can colour
+    /// it, and the hours a day is set against.</summary>
+    private CalendarLayerInputs Inputs()
+    {
+        var read = _plans?.Plans ?? CalendarPlansDto.Empty;
+
+        return new CalendarLayerInputs(
+            Range,
+            EventCallback.Factory.Create<CalendarRange>(this, SetRange),
+            new CalendarPlansInputs(
+                _plans?.Available ?? false,
+                PlansShown,
+                [
+                    .. read.Windows.Select(window => new CalendarPlanWindow(
+                        new CalendarPlan(
+                            window.Id.ToString("N"),
+                            window.Title,
+                            window.Tag,
+                            window.Start,
+                            window.End,
+                            window.DonePoints,
+                            window.TotalPoints),
+                        window.RepositoryAliases))
+                ],
+                [.. read.Milestones.Select(milestone => new CalendarMilestone(milestone.Id.ToString("N"), milestone.Title, milestone.On))],
+                [
+                    .. read.Shelf.Select(plan => new CalendarShelfPlan(
+                        plan.Tag,
+                        plan.Title,
+                        plan.TaskCount,
+                        plan.TotalEffort,
+                        plan.UnestimatedCount))
+                ],
+                EventCallback.Factory.Create<bool>(this, SetPlansShownAsync),
+                EventCallback.Factory.Create<CalendarPlanStart>(this, StartPlanAsync)),
+            _capacity is { } capacity ? day => capacity.HoursOn(day) : null);
+    }
+
+    private Task SetRange(CalendarRange range)
+    {
+        _range = range;
+        _preferences?.SetRange(range);
+        return ReadPlansIfOwedAsync();
+    }
+
+    /// <summary>Show plans ticked or unticked: remembered on this device, and ticked reads
+    /// the plans at once.</summary>
+    private async Task SetPlansShownAsync(bool shown)
+    {
+        if (_plans is not { Offered: true } plans) return;
+
+        _plansShown = shown;
+        _preferences?.SetPlansShown(shown);
+        if (shown) await plans.ReadAsync(Today);
+        else await ReadPlansIfOwedAsync();
+    }
+
+    /// <summary>A shelf plan dropped on a day: the roadmap places its window from there, by
+    /// its own placement. A refusal is said in a toast; the plan stays on the shelf. The
+    /// redraw comes from the plan's own change signal, which a stored window raises and a
+    /// refusal does not, so the plan is read once.</summary>
+    private async Task StartPlanAsync(CalendarPlanStart start)
+    {
+        if (_plans is null) return;
+
+        if (await _plans.StartAsync(start.Tag, start.Start) is { } refusal)
+        {
+            Toasts.Publish(ToastMessage.Warning($"+{start.Tag} could not be planned: {refusal}", PlanRefusedTestId));
+        }
+
+        await ReadPlansIfOwedAsync();
+    }
+
+    private void HandlePlansChanged() =>
+        _ = InvokeAsync(async () =>
+        {
+            await ReadPlansIfOwedAsync();
+            StateHasChanged();
+        });
+
+    private void HandleCapacityChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        if (_plans is not null) _plans.Changed -= HandlePlansChanged;
+        if (_capacity is not null) _capacity.Changed -= HandleCapacityChanged;
+    }
+}

@@ -32,6 +32,9 @@
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
     <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events\Backlog.Modules.Events.csproj" />
+    <!-- The Calendar (local ADR 0055): AddCalendarModule registers its Plans layer's
+         read policy. -->
+    <ProjectReference Include="..\..\Modules\Calendar\Backlog.Modules.Calendar\Backlog.Modules.Calendar.csproj" />
     <!-- Dev PC Management's port, which each head answers differently and hands in
          through the options. -->
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
@@ -40,6 +43,9 @@
     <ProjectReference Include="..\..\Modules\Brain\Backlog.Modules.Brain.UI\Backlog.Modules.Brain.UI.csproj" />
     <!-- The Events pane (local ADR 0050): AddEventsSurface registers its takeover. -->
     <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.UI\Backlog.Modules.Events.UI.csproj" />
+    <!-- The Calendar view (local ADR 0055): AddCalendarSurface registers it, and it hosts
+         the Tasks part. -->
+    <ProjectReference Include="..\..\Modules\Calendar\Backlog.Modules.Calendar.UI\Backlog.Modules.Calendar.UI.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Capture\Backlog.Infrastructure.Capture.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />

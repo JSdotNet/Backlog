@@ -329,6 +329,12 @@
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )"
         }
       },
+      "backlog.modules.calendar.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
       "backlog.modules.capture.abstractions": {
         "type": "Project",
         "dependencies": {

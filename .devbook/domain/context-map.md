@@ -2,7 +2,7 @@
 
 ```meta
 type: context-map
-related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md]
 ```
 
 > Strategic view of the Backlog domain: context roles, subdomain classification, and the relationships that carry work, knowledge, standards, and signals. System context: `.devbook/arc42/03-context-and-scope.md`. Containers: `.devbook/arc42/05-building-block-view.md#container-view`.
@@ -155,10 +155,9 @@ flowchart LR
     %% harvest task is built. Sync -> Events is built: the knowledge event
     %% replica, and the phone's attachment requests on the task feed, reach
     %% Events through IKnowledgeEventReplication and IEventAttachmentRequests.
-    %% The code still draws the Calendar as a layout of the Tasks pane (ADR 0022),
-    %% so the events layer lands on Tasks until ADR 0055 is built. The two Tasks
-    %% edges run through different parts. See
-    %% .devbook/domain/events/context.md.
+    %% The events layer lands on Tasks, whose part draws it on the Calendar,
+    %% until ADR 0055's Events layer is built. The two Tasks edges run through
+    %% different parts. See .devbook/domain/events/context.md.
     Inbox -.->|"OHS + Published Language<br/>ItemTriaged: To Event"| Events
     Capture -.->|"OHS + Published Language<br/>Event facts on the capture, through the Inbox. Watched pages stay Capture's targets"| Events
     Tasks -.->|"Customer/Supplier<br/>File and complete tasks under the Brain scope, task by id. Tasks never shows the event"| Events
@@ -166,9 +165,14 @@ flowchart LR
     Events -->|"Customer/Supplier<br/>The events layer on the Calendar view, through a Tasks-owned port and an adapter"| Tasks
     Sync -->|"Conformist<br/>Knowledge event replica, and attachment requests on the task feed"| Events
 
-    %% Calendar (local ADR 0055) is not drawn until its module is built: the
-    %% plans and events still reach it through Tasks-owned ports, as above. See
-    %% the strategic rules.
+    %% Calendar. Local ADR 0055. Its Tasks and Plans layers are built: Tasks
+    %% offers the Tasks layer as a part the Calendar hosts, and adapters under
+    %% Infrastructure.FileSystem/Calendar/ answer its own ports over Roadmap's
+    %% abstractions. The events still reach it through Tasks, above, until
+    %% that layer moves. It is not drawn: ContextMapLayout cannot place it
+    %% between Tasks and Roadmap without running the Tasks-Roadmap line under
+    %% its card, a layout follow-up. Its relationships are the dependency
+    %% table in .devbook/domain/calendar/context.md.
 ```
 
 ## Published languages and contracts
@@ -339,14 +343,21 @@ flowchart LR
 
   The links run one way. `Tasks` and `Brain` know no event, and no task or note
   field, tag or link names one. Its documents ride `Sync` as Notifications' do,
-  on a replica container of their own that Sync never reads. Until local ADR 0055
-  is built, `Tasks` draws the Calendar's events layer through its own port, over
+  on a replica container of their own that Sync never reads. Until ADR 0055's Events
+  layer is built, `Tasks` draws the Calendar's events layer through its own port, over
   Events' read contract; the port then moves to the Calendar. Events and Tasks supply each other through
   different parts, so the two edges make no cycle of modules. Events publishes no
   domain event.
-- `Calendar` reads layers and owns no data (local ADR 0055, proposed and not
-  built). `Tasks`, `Roadmap Planning` and `Events` each answer a layer port the
-  [Calendar](calendar/context.md) owns, through an adapter, and its writes go
-  back through the source. The Calendar references no source and no source
-  references it, so the edges make no cycle. It joins the landscape and the
-  diagram with the change that builds its module.
+- `Calendar` reads layers and owns no data
+  (`.devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md`,
+  proposed; its Tasks and Plans layers are built). Each layer reaches the
+  [Calendar](calendar/context.md) in its own way:
+  - `Roadmap Planning` answers its layer ports through adapters;
+  - `Tasks` offers the Tasks layer as a part the Calendar hosts;
+  - `Events` reaches it through Tasks' port until that layer moves.
+
+  Its writes go back through the source. The Calendar references no source and no
+  source references it, so the edges make no cycle. It is not drawn on the map:
+  the layout cannot place it between Tasks and Roadmap Planning without hiding the
+  line between those two, so its relationships are its own
+  [dependency table](calendar/context.md#dependencies).

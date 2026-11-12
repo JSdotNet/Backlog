@@ -121,6 +121,10 @@
     <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
     <!-- The Events takeover's registration, read by the takeover tests. -->
     <ProjectReference Include="..\..\src\Modules\Events\Backlog.Modules.Events.UI\Backlog.Modules.Events.UI.csproj" />
+    <!-- The Calendar's view and its Plans layer's read policy, rendered with the real Tasks
+         part by CalendarSurfaceTests. -->
+    <ProjectReference Include="..\..\src\Modules\Calendar\Backlog.Modules.Calendar\Backlog.Modules.Calendar.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Calendar\Backlog.Modules.Calendar.UI\Backlog.Modules.Calendar.UI.csproj" />
     <!-- The phone's note view and outbox, for the tests that pair a phone with a
          desktop through one replica (NoteSyncBetweenPhoneAndDesktopTests). -->
     <ProjectReference Include="..\..\src\App\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />

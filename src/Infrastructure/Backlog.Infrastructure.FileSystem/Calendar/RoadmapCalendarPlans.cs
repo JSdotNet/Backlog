@@ -1,15 +1,15 @@
+using Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
+using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 
-namespace Backlog.Infrastructure.FileSystem.Roadmap;
+namespace Backlog.Infrastructure.FileSystem.Calendar;
 
 /// <summary>
-/// ADAPTER — answers Tasks' <see cref="ICalendarPlans"/> from the Roadmap context's own
-/// abstractions: the plan through <see cref="IRoadmapPlanning"/>, its windows as the
+/// ADAPTER — answers the Calendar's <see cref="ICalendarPlans"/> (local ADR 0055 §2) from
+/// the Roadmap context's own abstractions: the plan through <see cref="IRoadmapPlanning"/>, its windows as the
 /// keep-up projection reads them today (<see cref="EffortWindow"/>), what each item
 /// gathered through <see cref="IRoadmapItemRollup"/>, and the shelf through
 /// <see cref="IImportedPlanSource"/>.
@@ -37,10 +37,8 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
     private readonly IPlanningVelocity _velocity;
     private readonly IImportedPlanSource _imported;
     private readonly IAppFeatureSettings? _features;
-    private readonly ShellNavigationStore? _store;
     private readonly IRoadmapWorkChanges? _work;
     private readonly IPlanningPace? _pace;
-    private bool _shown;
 
     public RoadmapCalendarPlans(
         IRoadmapPlanning planning,
@@ -48,7 +46,6 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
         IPlanningVelocity velocity,
         IImportedPlanSource imported,
         IAppFeatureSettings? features = null,
-        ShellNavigationStore? store = null,
         IRoadmapWorkChanges? work = null,
         IPlanningPace? pace = null)
     {
@@ -62,7 +59,6 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
         _velocity = velocity;
         _imported = imported;
         _features = features;
-        _store = store;
         _work = work;
         _pace = pace;
         _planning.Changed += OnPlanChanged;
@@ -71,19 +67,6 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
     }
 
     public event Action? Changed;
-
-    public bool Shown => _store?.CalendarPlansShown ?? _shown;
-
-    public void SetShown(bool shown)
-    {
-        if (_store is null)
-        {
-            _shown = shown;
-            return;
-        }
-
-        _store.SetCalendarPlansShown(shown);
-    }
 
     public async Task<CalendarPlansDto> ReadAsync(DateOnly today, CancellationToken cancellationToken = default)
     {

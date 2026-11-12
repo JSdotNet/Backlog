@@ -19,12 +19,14 @@ type: ubiquitous-language
 ```meta
 type: term
 aliases: [layer, Tasks layer, Plans layer, Events layer]
-related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/tasks/features.md#tasks-on-the-calendar, .devbook/domain/events/features.md#events-on-the-calendar]
+related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/tasks/features.md#tasks-on-the-calendar, .devbook/domain/events/features.md#events-on-the-calendar, .devbook/domain/calendar/context.md]
 ```
 
-What one source draws on the Calendar's days, read through a port the Calendar owns.
-There are three: the **Tasks layer**, always drawn, the **Plans layer** and the
-**Events layer**. A layer writes only back through its source.
+What one source draws on the Calendar's days. There are three: the **Tasks layer**,
+always drawn, the **Plans layer** and the **Events layer**. The Plans layer is read
+through a port the Calendar owns, and the Events layer through Tasks' port until it
+[moves](context.md). The Tasks layer is drawn by a part Tasks offers, which the Calendar
+hosts. A layer writes only back through its source.
 
 ### Layer Choice
 

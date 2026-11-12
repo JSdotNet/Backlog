@@ -1,7 +1,7 @@
-namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+namespace Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
 
 /// <summary>
-/// The roadmap's plans in the Calendar's words: Tasks' own shape, so nothing of
+/// The roadmap's plans in the Calendar's words: the Calendar's own shape, so nothing of
 /// Roadmap's crosses into this module.
 /// </summary>
 /// <param name="Windows">Every Roadmap Item, with the window the roadmap draws it with

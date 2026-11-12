@@ -265,8 +265,9 @@
                         <span class="header-nav-label header-nav-label--tier-4">Board</span>
                     </ToggleButton>)
 
-                    @* The Calendar: the Tasks pane's filtered rows on a month by due
-                       date. Board sits between it and Tasks. *@
+                    @* The Calendar: its own module's view (local ADR 0055), drawing the
+                       Tasks pane's filtered rows by due date as its Tasks layer. Board
+                       sits between it and Tasks. *@
                     @HeaderItem(CalendarViewId, @<ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(CalendarViewId)"
@@ -1108,7 +1109,7 @@
     /// header, and never their components.</summary>
     private const string TasksViewId = TasksSurfaceQuery.SurfaceId;
     private const string BoardViewId = TasksSurfaceQuery.BoardId;
-    private const string CalendarViewId = TasksSurfaceQuery.CalendarId;
+    private const string CalendarViewId = Backlog.Modules.Calendar.UI.CalendarSurfaceRegistration.SurfaceId;
     private const string RoadmapViewId = RoadmapSurfaceQuery.SurfaceId;
     private const string GoalsViewId = Backlog.Modules.Progress.UI.Goals.GoalsSurfaceQuery.SurfaceId;
 

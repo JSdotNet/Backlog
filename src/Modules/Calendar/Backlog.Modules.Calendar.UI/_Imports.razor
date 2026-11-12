@@ -1,0 +1,13 @@
+@* Calendar UI. Every Backlog.* import is written as @@using global::Backlog.Something,
+   for the reason the Events UI's imports give: this project's root namespace is
+   Backlog.Modules.Calendar.UI, and a bare "Backlog" inside it would bind to
+   Backlog.Modules. *@
+@using global::Backlog.Modules.Calendar.Abstractions.Services
+@using global::Backlog.Modules.Calendar.Abstractions.DataTransferObjects
+@using global::Backlog.SharedKernel
+@using global::Backlog.UI.Components.Calendar
+@using global::Backlog.UI.Components.Tasks
+@using global::Backlog.UI.Components.Feedback
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.Extensions.DependencyInjection

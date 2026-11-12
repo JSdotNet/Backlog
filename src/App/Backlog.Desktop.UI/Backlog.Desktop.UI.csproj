@@ -94,6 +94,9 @@
     <!-- Events' published surface, for the same reason: its feature key. There is no
          Events pane yet, so nothing references Backlog.Modules.Events.UI. -->
     <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
+    <!-- The Calendar's UI (local ADR 0055): the shell names its view id, and answers its
+         view choices over the shell's navigation file. -->
+    <ProjectReference Include="..\..\Modules\Calendar\Backlog.Modules.Calendar.UI\Backlog.Modules.Calendar.UI.csproj" />
     <!-- Inbox's published surface, for one record: the shell hears that an item
          was routed and reloads the Tasks pane on it. It reads nothing else. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />

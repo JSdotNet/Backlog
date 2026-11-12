@@ -10,6 +10,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.FileSystem.Calendar;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Events;
 using Backlog.Infrastructure.FileSystem.Inbox;
@@ -24,6 +25,8 @@ using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
+using Backlog.Modules.Calendar.Extensions;
+using Backlog.Modules.Calendar.UI;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
@@ -216,6 +219,11 @@ public static class DesktopCompositionRegistration
         // behind the same feature; it has no settings section or Ask AI source yet.
         services.AddEventsModule();
 
+        // Calendar (local ADR 0055): it owns no data, and its one service is the Plans
+        // layer's read policy, one per window. Its view is the surface AddCalendarSurface
+        // registers below, which hosts the Tasks part.
+        services.AddCalendarModule();
+
         // Capture: the module brings the run, and the head decides where the
         // monitored sources and what past runs said are kept. The source adapters
         // and the delivery come further down, after the Inbox they deliver into.
@@ -228,6 +236,10 @@ public static class DesktopCompositionRegistration
         // because only an adapter may see both contexts. Scoped, like the module
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
+
+        // The Calendar's Plans layer and working week, answered over Roadmap's ports;
+        // after the Roadmap module and its adapters, whose ports these resolve.
+        services.AddCalendarCrossContextAdapters();
 
         // The tasks goals name, read through Tasks' published ITaskItems.
         services.AddProgressCrossContextAdapters();
@@ -248,9 +260,9 @@ public static class DesktopCompositionRegistration
 
         // Events' task target over Tasks' published port, Scoped like the port it holds, after
         // AddTasksModule(); and a stand-in for its Brain notes that the Brain's registration
-        // further down replaces. The same call answers the Calendar's events layer, Tasks'
-        // port over Events' read contract (local ADR 0050 §7), which offers nothing while the
-        // `events` area is off.
+        // further down replaces. The same call answers the Calendar's events layer through
+        // Tasks' port over Events' read contract (local ADR 0050 §7) until that layer moves
+        // to the Calendar; it offers nothing while the `events` area is off.
         services.AddEventsCrossContextAdapters();
 
         // Half of a repository's configuration is workspace data and follows the
@@ -371,12 +383,15 @@ public static class DesktopCompositionRegistration
 
         // The shell's surfaces (local ADR 0043 §1): each module's .UI registers its
         // ShellSurface, one catalog holds them, and each window jumps between them
-        // through a navigator of its own (§3). The five views — Tasks, Board and
-        // Calendar from Tasks, the Roadmap, Goals — and the takeovers: the Inbox, the
-        // Devbook, Events, Sessions, the Dashboard, the notification centre, Tools and the
-        // Lobes atlas from their modules, and the pull requests from the shell's own project, which
-        // reads GitHub for them.
+        // through a navigator of its own (§3). The five views — Tasks and Board from
+        // Tasks, the Calendar from its own module, which hosts Tasks' part (local ADR
+        // 0055), the Roadmap, Goals — and the takeovers: the Inbox, the Devbook, Events,
+        // Sessions, the Dashboard, the notification centre, Tools and the Lobes atlas from
+        // their modules, and the pull requests from the shell's own project, which reads
+        // GitHub for them.
         services.AddTasksSurfaces();
+        services.AddTasksCalendarLayer();
+        services.AddCalendarSurface();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
         services.AddDevbookSurface();
@@ -395,11 +410,15 @@ public static class DesktopCompositionRegistration
         // Which window a scope belongs to, for a head service that stands over the
         // window a request came from.
         services.Add(new ServiceDescriptor(typeof(CurrentShellWindow), typeof(CurrentShellWindow), options.WindowStateLifetime));
-        // What the views read beside the list: the Board's columns and the Calendar's
-        // range from the shell's navigation file, and the Goals view's candidates from
+        // What the views read beside the list: the Board's columns, and the Calendar's
+        // range and Show plans, from the shell's navigation file, and the Goals view's candidates from
         // the window's own task list and reader of pull requests.
         services.AddSingleton<ITasksViewPreferences>(sp =>
             new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
+        // The Calendar's own view choices (local ADR 0055 §1, §4) — its range and Show
+        // plans — in the same per-device file, under the names they always had.
+        services.AddSingleton<ICalendarViewPreferences>(sp =>
+            new ShellCalendarViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
         // The notification centre's Group by and filters, per device in the same file.
         services.AddSingleton<INotificationCentrePreferences>(sp =>
             new ShellNotificationCentrePreferences(sp.GetRequiredService<ShellNavigationStore>()));

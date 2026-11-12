@@ -1,8 +1,10 @@
 using Backlog.Desktop.UI.Tasks;
+using Backlog.Infrastructure.FileSystem.Calendar;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sqlite.Roadmap;
+using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -58,6 +60,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         services.AddTasksModule();
         services.AddRoadmapModule();
         services.AddRoadmapCrossContextAdapters();
+        services.AddCalendarCrossContextAdapters();
 
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
     }
@@ -177,7 +180,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         Assert.Equal(EffortWindow.EndFrom(b.Start, 3, 7m, WorkingHours.Default), b.End);
     }
 
-    /// <summary>The Calendar's shelf drop, through Tasks' own port and the real adapter:
+    /// <summary>The Calendar's shelf drop, through the Calendar's port and the real adapter:
     /// the plan whose tasks arrived first is on the shelf, and dropping it on a day has the
     /// roadmap's own import open its window there, sized from its points at the pace.</summary>
     [Fact]
@@ -247,7 +250,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
     }
 
     /// <summary>The Calendar reads a day's capacity from the roadmap's working week through
-    /// Tasks' own port, as the composed adapter answers it: nine to half five on a weekday,
+    /// the Calendar's own port, as the composed adapter answers it: nine to half five on a weekday,
     /// nothing at the weekend.</summary>
     [Fact]
     public void The_calendar_reads_a_days_capacity_from_the_roadmaps_working_week()
