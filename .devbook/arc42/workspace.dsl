@@ -28,49 +28,62 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
 
         me = person "ME" "Personal owner of the system, across projects and devices."
 
-        backlog = softwareSystem "Prompt Backlog" "Local-first personal productivity system: capture, triage, backlog, roadmap, knowledge and monitoring." {
+        backlog = softwareSystem "Prompt Backlog" "Local-first personal productivity system: capture, triage, tasks, roadmap, devbook and monitoring." {
 
-            desktop = container "Desktop App" "Windows client, and the only channel that runs the fetch workers and manages every domain." ".NET MAUI Blazor Hybrid" {
-                shell = component "Shell" "Hosts the panes, holds the pane selection, and decides which sections are offered." "Blazor"
-                inbox = component "Inbox" "Triage of arriving items: classify, route, promote or discard." "Razor Class Library"
-                backlogModule = component "Backlog" "Entries, sub-items and the entry text language." "Razor Class Library"
-                roadmap = component "Roadmap" "The timeline view over planned work." "Razor Class Library"
-                devbook = component "Devbook" "Reads the repository devbook folders and draws their chapters and diagrams." "Razor Class Library"
-                dashboard = component "Dashboard" "Monitoring signals and saved dashboards." "Razor Class Library"
-                devPc = component "Dev PC Management" "The machines this system knows about and what is installed on them." "Razor Class Library"
+            desktop = container "Desktop App" "Windows client, and the only channel that runs the capture sources and manages every domain." ".NET MAUI Blazor Hybrid" {
+                shell = component "Shell" "Hosts the panes, the settings screen and the Ask AI panel, and decides which areas are offered." "Blazor"
+                tasks = component "Tasks" "Entries, sub-items and the entry text language." "Class Library, Razor Class Library"
+                inbox = component "Inbox" "Triage of arriving items: classify, route, promote or discard." "Class Library, Razor Class Library"
+                capture = component "Capture" "Source monitors for YouTube channels, website feeds and import manifests, delivering into the inbox." "Class Library, Razor Class Library"
+                roadmap = component "Roadmap" "The timeline view over planned work." "Class Library, Razor Class Library"
+                progress = component "Progress" "Goals and impediments, and the pull requests that move them." "Class Library, Razor Class Library"
+                devbook = component "Devbook" "Builds and reads the devbook database and draws the chapters, diagrams and C4 model." "Razor Class Library"
+                brain = component "Brain" "The personal notes folder, read as a devbook beside the repositories." "Razor Class Library"
+                dashboard = component "Dashboard" "Monitoring signals, usage and cost, and saved dashboards." "Class Library, Razor Class Library"
+                devPc = component "Dev PC Management" "The tools installed on this PC and their configuration." "Razor Class Library"
                 sessions = component "Sessions" "The record of Claude and Copilot sessions on this PC." "Razor Class Library"
+                notifications = component "Notifications" "Notifications raised on any device, read and dismissed here." "Class Library, Razor Class Library"
                 repositoryManagement = component "Repository Management" "Pull-request state of the registered repositories: status, readiness verdict, stacks, merge commands and one cache." "Class Library"
+                sync = component "Sync Client" "Device pairing and the push and pull loops against the cloud service." "Class Library, Razor Class Library"
+                mcp = component "MCP Server" "Loopback-only MCP endpoint through which agents read and write tasks, roadmap, devbook and sessions." "ASP.NET Core, Kestrel"
                 components = component "UI Components" "The shared control library every screen renders through." "Razor Class Library"
-                workers = component "Fetch Workers" "Polling for YouTube, websites, email, GitHub sync and stale detection." "Background services"
-                persistence = component "Local Persistence" "The task store and the settings files." "SQLite, JSON"
+                workers = component "Background Workers" "The sync loops, the daily backup, the devbook import and the MCP listener host." "Background services"
+                persistence = component "Local Persistence" "The task store, the backups and the settings files." "SQLite, JSON"
             }
 
             mobile = container "Mobile App" "Capture-first client with offline storage." ".NET MAUI Blazor Hybrid"
 
-            ide = container "IDE Extensions" "VS Code, Visual Studio and Copilot App integrations." "TypeScript, C#"
+            ide = container "IDE Extension" "VS Code extension that captures into the inbox as a paired device." "TypeScript"
 
-            cloud = container "Cloud Service" "Thin optional sync layer: device sync, webhook forwarding, push, PC registry." "ASP.NET Core" {
+            cloud = container "Cloud Service" "Thin optional sync layer: device sync, attachments, dictation transcription and push." "ASP.NET Core" {
                 gateway = component "API Gateway & Auth" "Minimal REST surface, device sessions and rate limiting." "ASP.NET Core"
                 syncService = component "Sync Service" "The only domain-aware service: stores sync state and serves the delta feeds." "ASP.NET Core"
+                transcription = component "Dictation Transcription" "Relays dictation audio to Foundry and keeps none of it." "ASP.NET Core"
                 webhookReceiver = component "GitHub Webhook Receiver" "Validates and forwards GitHub webhook events; not built." "ASP.NET Core"
                 notificationService = component "Notification Service" "Tells a device to pull notifications, and carries no document itself." "Web PubSub, Notification Hubs"
             }
 
-            taskStore = container "Local Task Store" "Canonical store for tasks; a task's content is markdown text inside the database." "SQLite" "Database"
+            taskStore = container "Local Task Store" "Canonical desktop store for tasks, inbox and roadmap; a task's content is markdown text inside the database." "SQLite (backlog.db)" "Database"
 
-            cloudDb = container "Cloud Database" "Sync state, webhook events, machine registry." "Cosmos DB / PostgreSQL" "Database"
-            localStore = container "Local Storage" "Desktop canonical data store — tasks, inbox and roadmap plans; task content is markdown text in the database" "SQLite (backlog.db)" "Database"
-            attachments = container "Attachments" "Capture attachments, owner-scoped, beside the replica" "Azure Blob Storage, container attachments" "Database"
+            cloudDb = container "Cloud Database" "Sync state, the replica containers and the device registry." "Cosmos DB" "Database"
+            attachments = container "Attachments" "Capture attachments, owner-scoped, beside the replica." "Azure Blob Storage" "Database"
         }
 
         group "Capture sources" {
             youtube = softwareSystem "YouTube" "Subscription feed for content capture." "External"
-            email = softwareSystem "Email / IMAP" "Email capture inbox." "External"
+            email = softwareSystem "Email / IMAP" "Email capture inbox; not built." "External"
             websites = softwareSystem "Websites / RSS" "Web content monitoring by RSS and DOM diff." "External"
         }
 
         group "Work tracking" {
-            github = softwareSystem "GitHub" "Issue tracking, repository management and webhook events." "External"
+            github = softwareSystem "GitHub" "Issues, pull requests, repository management and webhook events." "External"
+            specManager = softwareSystem "Spec Manager" "A product backlog whose items arrive as linked tasks." "External"
+        }
+
+        group "AI" {
+            azureFoundry = softwareSystem "Azure AI Foundry" "Chat, plan drafting, triage advice and dictation transcription." "External"
+            claude = softwareSystem "Claude" "Usage and cost reporting." "External"
+            codingAgents = softwareSystem "Coding Agents" "Claude Code and Copilot sessions on this PC." "External"
         }
 
         group "Operations" {
@@ -80,53 +93,84 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
 
         # --- how the channels are used -------------------------------------------
 
-        me -> backlog.desktop "Captures, triages, manages backlog, roadmap and knowledge" "local"
+        me -> backlog.desktop "Captures, triages, manages tasks, roadmap and devbook" "local"
         me -> backlog.mobile "Captures on the move" "touch / voice"
-        me -> backlog.ide "Browses backlog and knowledge; captures from IDE and Copilot sessions" "IDE commands"
+        me -> backlog.ide "Captures from the editor" "IDE commands"
 
         # --- desktop ------------------------------------------------------------
 
+        backlog.desktop.shell -> backlog.desktop.tasks "Offers the pane"
         backlog.desktop.shell -> backlog.desktop.inbox "Offers the pane"
-        backlog.desktop.shell -> backlog.desktop.backlogModule "Offers the pane"
+        backlog.desktop.shell -> backlog.desktop.capture "Offers the pane"
         backlog.desktop.shell -> backlog.desktop.roadmap "Offers the pane"
+        backlog.desktop.shell -> backlog.desktop.progress "Offers the pane"
         backlog.desktop.shell -> backlog.desktop.devbook "Offers the pane"
+        backlog.desktop.shell -> backlog.desktop.brain "Offers the pane"
         backlog.desktop.shell -> backlog.desktop.dashboard "Offers the pane"
         backlog.desktop.shell -> backlog.desktop.devPc "Offers the pane"
         backlog.desktop.shell -> backlog.desktop.sessions "Offers the pane"
+        backlog.desktop.shell -> backlog.desktop.notifications "Offers the pane"
+        backlog.desktop.shell -> backlog.desktop.sync "Offers the Devices settings"
+        backlog.desktop.shell -> backlog.desktop.components "Renders through"
+        backlog.desktop.shell -> backlog.desktop.repositoryManagement "Reads pull-request status and verdict; runs the merge commands"
 
-        backlog.desktop.inbox -> backlog.desktop.components "Renders through"
-        backlog.desktop.backlogModule -> backlog.desktop.components "Renders through"
-        backlog.desktop.roadmap -> backlog.desktop.components "Renders through"
-        backlog.desktop.devbook -> backlog.desktop.components "Renders through"
-        backlog.desktop.dashboard -> backlog.desktop.components "Renders through"
-
+        backlog.desktop.tasks -> backlog.desktop.persistence "Reads and writes entries"
         backlog.desktop.inbox -> backlog.desktop.persistence "Reads and writes items"
-        backlog.desktop.backlogModule -> backlog.desktop.persistence "Reads and writes entries"
         backlog.desktop.roadmap -> backlog.desktop.persistence "Reads planned work"
-        backlog.desktop.workers -> backlog.desktop.inbox "Delivers captured items"
+        backlog.desktop.progress -> backlog.desktop.persistence "Reads and writes goals"
+        backlog.desktop.inbox -> backlog.desktop.tasks "Routes items to the backlog, through a port"
+        backlog.desktop.capture -> backlog.desktop.inbox "Delivers captured items"
+        backlog.desktop.tasks -> backlog.desktop.repositoryManagement "Reads linked pull-request state, through an adapter"
+        backlog.desktop.progress -> backlog.desktop.repositoryManagement "Reads goal pull-request state, through an adapter"
+        backlog.desktop.repositoryManagement -> backlog.desktop.persistence "Remembers merged pull requests"
+        backlog.desktop.brain -> backlog.desktop.devbook "Is indexed and read by the devbook builder"
         backlog.desktop.persistence -> backlog.taskStore "Reads and writes" "file system"
 
-        backlog.desktop.shell -> backlog.desktop.repositoryManagement "Reads pull-request status and verdict; runs the merge commands"
-        backlog.desktop.backlogModule -> backlog.desktop.repositoryManagement "Reads linked pull-request state, through an adapter"
-        backlog.desktop.repositoryManagement -> backlog.desktop.persistence "Remembers merged pull requests"
-        backlog.desktop.repositoryManagement -> github "Reads pull requests, checks and reviews; sends merge commands" "HTTPS / gh CLI"
+        backlog.desktop.workers -> backlog.desktop.sync "Runs the task, session, annotation and notification sync loops"
+        backlog.desktop.workers -> backlog.desktop.persistence "Commits the daily backup"
+        backlog.desktop.workers -> backlog.desktop.mcp "Hosts the listener"
+        backlog.desktop.sync -> backlog.desktop.inbox "Hands over synced captures"
+        backlog.desktop.sync -> backlog.desktop.notifications "Hands over synced notifications"
+        backlog.desktop.mcp -> backlog.desktop.tasks "Reads and writes entries"
+        backlog.desktop.mcp -> backlog.desktop.roadmap "Reads and writes plans"
+        backlog.desktop.mcp -> backlog.desktop.devbook "Reads chapters and notes"
+        backlog.desktop.mcp -> backlog.desktop.sessions "Records runs and questions"
 
-        backlog.desktop.workers -> youtube "Polls the subscription feed" "HTTPS"
-        backlog.desktop.workers -> websites "Monitors by RSS and DOM diff" "HTTPS"
-        backlog.desktop.workers -> email "Ingests" "IMAP"
-        backlog.desktop.workers -> github "Syncs issues" "HTTPS / gh CLI"
+        backlog.desktop.capture -> youtube "Polls the subscription feed" "HTTPS"
+        backlog.desktop.capture -> websites "Monitors by RSS and DOM diff" "HTTPS"
+        backlog.desktop.capture -> email "Ingests; not built" "IMAP"
+        backlog.desktop.tasks -> github "Syncs issues as linked tasks" "HTTPS / gh CLI"
+        backlog.desktop.tasks -> specManager "Links backlog items as tasks" "HTTPS, OAuth"
+        backlog.desktop.repositoryManagement -> github "Reads pull requests, checks and reviews; sends merge commands" "HTTPS / gh CLI"
+        backlog.desktop.inbox -> azureFoundry "Drafts plans and advises triage" "HTTPS, optional"
+        backlog.desktop.shell -> azureFoundry "Answers Ask AI questions" "HTTPS, optional"
         backlog.desktop.dashboard -> appInsights "Reads telemetry signals" "HTTPS"
-        backlog.desktop -> backlog.cloud "Pushes state snapshots" "HTTPS, optional"
+        backlog.desktop.dashboard -> claude "Reads usage and cost" "HTTPS, optional"
+        backlog.desktop.sessions -> codingAgents "Reads session transcripts" "file system"
+        backlog.desktop.tasks -> codingAgents "Starts a Copilot session" "CLI"
+        backlog.desktop.devPc -> codingAgents "Writes tool configuration and hooks" "file system"
+        codingAgents -> backlog.desktop.mcp "Calls tools" "HTTP on loopback"
+        backlog.desktop.sync -> backlog.cloud.gateway "Pairs, pushes and pulls state" "HTTPS"
 
         # --- the other channels --------------------------------------------------
 
-        backlog.mobile -> backlog.cloud "Syncs items and pulls state" "HTTPS"
-        backlog.ide -> backlog.desktop "Reads backlog and knowledge" "local API / file system"
+        backlog.mobile -> backlog.cloud.gateway "Syncs captures, notes and state" "HTTPS"
+        backlog.ide -> backlog.cloud.gateway "Pairs and posts inbox items as a device" "HTTPS /api/sync/inbox, Bearer"
 
-        backlog.cloud -> backlog.cloudDb "Reads and writes sync state" "TCP"
-        backlog.cloud -> pushProvider "Sends notifications" "HTTPS"
-        github -> backlog.cloud "Delivers webhooks" "HTTPS"
-        backlog.cloud -> backlog.desktop "Forwards webhook events" "SSE / WebSocket, optional"
+        # --- cloud ---------------------------------------------------------------
+
+        backlog.cloud.gateway -> backlog.cloud.syncService "Routes requests"
+        backlog.cloud.gateway -> backlog.cloud.transcription "Routes dictation audio"
+        backlog.cloud.syncService -> backlog.cloudDb "Reads and writes sync state" "TCP"
+        backlog.cloud.syncService -> backlog.attachments "Uploads and downloads, owner-prefixed" "Blob SDK"
+        backlog.cloud.transcription -> azureFoundry "Transcribes dictation audio" "HTTPS"
+        github -> backlog.cloud.webhookReceiver "Delivers webhooks; not built" "HTTPS"
+        backlog.cloud.webhookReceiver -> backlog.cloud.syncService "Forwards the event"
+        backlog.cloud.syncService -> backlog.cloud.notificationService "Asks for a nudge"
+        backlog.cloud.notificationService -> pushProvider "Sends push notifications" "HTTPS"
+        backlog.cloud.notificationService -> backlog.mobile "Pull now" "Notification Hubs to FCM"
+        backlog.cloud.notificationService -> backlog.desktop "Pull now" "Web PubSub"
+        backlog.cloud -> backlog.desktop "Forwards webhook events; not built" "SSE / WebSocket, optional"
 
         # --- deployment ----------------------------------------------------------
 
@@ -141,7 +185,7 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
                     clones = infrastructureNode "Repository working copies" "The devbook folders are read in place, wherever the repository was cloned." "Git"
                 }
 
-                vscode = deploymentNode "VS Code / Visual Studio" "The IDE extension host on the same machine; the extension talks to the sync service, not the desktop store." "Extension host" {
+                vscode = deploymentNode "VS Code" "The IDE extension host on the same machine; the extension talks to the sync service, not the desktop store." "Extension host" {
                     containerInstance backlog.ide
                 }
             }
@@ -171,42 +215,26 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
                 }
             }
         }
-        externalSources = softwareSystem "External Sources" "YouTube, Email, Websites / RSS" "External"
-        azureFoundry = softwareSystem "Azure AI Foundry" "Chat, embeddings, plan drafting and dictation transcription; resource cost" "External"
-        claude = softwareSystem "Claude" "Usage and cost reporting" "External"
-
-        me -> backlog "Captures, triages, manages backlog and knowledge"
-        backlog -> github "Syncs issues; receives webhook events"
-        backlog -> youtube "Polls subscription feed"
-        backlog -> email "Ingests via IMAP"
-        backlog -> websites "Monitors via RSS and DOM diff"
-        backlog -> appInsights "Reads telemetry signals"
-        backlog -> pushProvider "Sends push notifications"
-        backlog.desktop -> backlog.localStore "Reads and writes" "SQLite"
-        backlog.desktop -> github "Syncs issues" "HTTPS / gh CLI"
-        backlog.desktop -> externalSources "Polls for new content" "HTTPS / IMAP"
-        backlog.desktop -> azureFoundry "Drafts plans and reads cost" "HTTPS, optional"
-        backlog.desktop -> claude "Reads usage" "HTTPS, optional"
-        backlog.ide -> backlog.cloud "Reads and posts inbox items as a paired device" "HTTPS /api/sync/inbox, Bearer"
-        backlog.cloud -> backlog.attachments "Stores and serves attachments" "Blob SDK"
-        backlog.cloud -> github "Receives webhooks" "HTTPS"
-        backlog.mobile -> backlog.cloud.gateway "Syncs captures" "HTTPS"
-        backlog.desktop -> backlog.cloud.gateway "Syncs state" "HTTPS"
-        backlog.ide -> backlog.cloud.gateway "Syncs state" "HTTPS"
-        backlog.cloud.gateway -> backlog.cloud.syncService "Routes requests"
-        backlog.cloud.syncService -> backlog.cloudDb "Reads and writes sync state" "TCP"
-        backlog.cloud.syncService -> backlog.attachments "Uploads and downloads, owner-prefixed" "Blob SDK"
-        github -> backlog.cloud.webhookReceiver "Delivers webhooks" "HTTPS"
-        backlog.cloud.webhookReceiver -> backlog.cloud.syncService "Forwards the event"
-        backlog.cloud.syncService -> backlog.cloud.notificationService "Asks for a nudge"
-        backlog.cloud.notificationService -> backlog.mobile "Pull now" "Notification Hubs to FCM"
-        backlog.cloud.notificationService -> backlog.desktop "Pull now" "Web PubSub"
-        backlog.cloud -> azureFoundry "Transcribes dictation audio" "HTTPS"
     }
 
     views {
 
+        systemContext backlog "business-context" "System Context — Backlog" {
+            include *
+            autolayout lr
+        }
+
+        container backlog "container-view" "Container Diagram — Backlog" {
+            include *
+            autolayout lr
+        }
+
         component backlog.desktop "components-desktop" "Component Diagram — Desktop App" {
+            include *
+            autolayout tb
+        }
+
+        component backlog.cloud "components-cloud" "Component Diagram — Cloud Service" {
             include *
             autolayout tb
         }
@@ -215,19 +243,9 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
             me -> backlog.desktop "Captures an entry"
             backlog.desktop -> backlog.taskStore "Writes the entry"
             backlog.desktop -> github "Creates the issue"
-            github -> backlog.cloud "Delivers the webhook"
-            backlog.cloud -> backlog.desktop "Forwards the event"
+            github -> backlog.cloud "Delivers the webhook (not built)"
+            backlog.cloud -> backlog.desktop "Forwards the event (not built)"
             autolayout lr
-        }
-
-        deployment backlog "Local machine" "deployment-local" "Local Deployment — the canonical one" {
-            include *
-            autolayout tb
-        }
-
-        component backlog.cloud "components-cloud" "Component Diagram — Cloud Service" {
-            include *
-            autolayout tb
         }
 
         dynamic backlog "state-sync" "Syncing task state between devices" {
@@ -272,19 +290,14 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
             autolayout lr
         }
 
-        deployment backlog "Azure" "deployment-azure" "Cloud Deployment — optional and additive" {
+        deployment backlog "Local machine" "deployment-local" "Local Deployment — the canonical one" {
             include *
             autolayout tb
         }
-        systemContext backlog business-context {
-            title "System Context — Backlog"
-            include me github youtube email websites appInsights pushProvider
-            autolayout lr
-        }
-        container backlog container-view {
-            title "Container Diagram — Backlog"
-            include me backlog.desktop backlog.mobile backlog.ide backlog.cloud backlog.localStore backlog.cloudDb backlog.attachments github pushProvider externalSources azureFoundry claude
-            autolayout lr
+
+        deployment backlog "Azure" "deployment-azure" "Cloud Deployment — optional and additive" {
+            include *
+            autolayout tb
         }
     }
 }

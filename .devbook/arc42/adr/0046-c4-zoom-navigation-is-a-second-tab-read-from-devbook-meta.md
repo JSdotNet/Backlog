@@ -191,10 +191,10 @@ devbook folders on disk but no source, so its Code view finds no types.
   where a block's code sits. The C# builder follows the reference builder, as
   `DevbookBuilderParityTests` requires, in the same pull request that adopts each
   field.
-- **`_c4/references.json` is retiring.** The embeds carry every arc42 entry it
-  lists. Its one remaining reach is the domain context map's link to the container
-  view. The file is removed in the change that stops the code and its tests reading
-  it.
+- **`_c4/references.json` is removed.** The embeds carry every arc42 entry it
+  listed, and the domain context map reaches the container view through its plain
+  link to chapter 05. The reader still treats a missing file as no references, so
+  removing it needed no code change.
 - **The Code view is fast and approximate.** Parsing one component's syntax trees
   takes no build and no restore, so opening level 4 needs nothing but the source.
   In exchange it shows declarations, not a semantic model: a partial type is
@@ -275,10 +275,7 @@ itself recommends generating level 4.
 ```meta
 ```
 
-- `_c4/references.json`'s last entry links the domain context map to the container
-  view. `devbook-arc42.md` lets only chapter 05 or a building block embed a
-  container view, so that entry has no embed to move to. Its owner decides whether
-  the link is dropped or written as a plain link to chapter 05.
+None.
 
 ## History
 
@@ -287,6 +284,7 @@ itself recommends generating level 4.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-12 | `_c4/references.json` removed; its open question closed by the context map's existing plain link to chapter 05. | The owner retired the file; every entry it held was carried elsewhere. |
 | 2026-11-09 | §1: one architecture surface in place of the tabs while `c4-zoom` is on. §2: the links are read from the chapter files, and a chapter's views come from its embeds and the retiring `references.json`. §3: code folders come from a building block. Status brought up to date. | PR #1610 and PR #1456 changed what this record described, and it still read as the earlier shape. |
 | 2026-11-06 | Status: built, still proposed. | The plan has built what this record decides, and this section still read "not yet built". |
 | 2026-11-05 | Renumbered from 0045 to 0046. | `main` took 0045 for the dictation relay while this record was still on its plan branch. |
