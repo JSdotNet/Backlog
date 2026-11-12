@@ -390,6 +390,46 @@ public sealed class TriagePassApplyTests : IDisposable
         Assert.Equal(InboxStatus.Triaged, doneNow.Status);
     }
 
+    /// <summary>Waiting for goes through the w decision's route: a task that
+    /// waits on the name the reader left, with no follow-up date, due date or
+    /// My Day (local ADR 0054 §4).</summary>
+    [Fact]
+    public async Task Waiting_for_goes_through_the_route_w_takes_with_the_name_and_no_dates()
+    {
+        var item = Seed("Hear back from Sam", repoIds: ["acme/web"]);
+
+        var outcome = await ApplyAsync(
+            new InboxTriageOutcomeDecision(item.Title, item.Id, InboxClarifyOutcome.WaitingFor) { Who = "Sam" });
+
+        Assert.Null(outcome.Failure);
+        var applied = Assert.Single(outcome.Applied);
+        Assert.Single(applied.Routed!.TaskIds);
+
+        var request = Assert.Single(_target.Requests);
+        Assert.Equal(item.Id, request.InboxItemId);
+        Assert.Equal(new InboxWaitingForDto("Sam"), request.WaitingFor);
+        Assert.Null(request.CompletedOn);
+        Assert.Equal(InboxStatus.Triaged, item.Status);
+    }
+
+    [Fact]
+    public async Task A_waiting_for_with_no_name_stops_apply_and_names_the_item()
+    {
+        var item = Seed("Hear back");
+        var next = Seed("Archive me");
+
+        var outcome = await ApplyAsync(
+            new InboxTriageOutcomeDecision(item.Title, item.Id, InboxClarifyOutcome.WaitingFor) { Who = " " },
+            new InboxTriageArchiveDecision(next.Title, next.Id));
+
+        Assert.Empty(outcome.Applied);
+        Assert.Equal(item.Id, outcome.Failure!.ItemId);
+        Assert.Equal(InboxErrors.WaitingForWhoRequiredCode, outcome.Failure.Error.Code);
+        Assert.StartsWith("Couldn't move \"Hear back\" to the backlog as waiting for:", outcome.Failure.Sentence, StringComparison.Ordinal);
+        Assert.Empty(_target.Requests);
+        Assert.Null(item.Routing);
+    }
+
     [Fact]
     public async Task A_someday_the_brain_refuses_stops_apply_and_names_the_item()
     {

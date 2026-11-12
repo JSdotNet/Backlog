@@ -300,6 +300,33 @@
                             </div>
                         }
 
+                        @* Waiting for, one row per item: each names who it
+                           waits on, a field the reader may change before Apply. *@
+                        @foreach (var waiting in draft.Outcomes.Where(proposal => proposal.Outcome == InboxClarifyOutcome.WaitingFor))
+                        {
+                            var one = waiting;
+                            var title = draft.TitleOf(one.ItemId);
+                            <div class="inbox-pass__rest-row" @key="one.ItemId" data-testid="inbox-pass-waiting-for">
+                                <div class="inbox-pass__rest-line">
+                                    <span class="inbox-pass__rest-text">
+                                        @InboxDesktopState.WaitingForLabel: <strong>@title</strong>
+                                        @if (!string.IsNullOrWhiteSpace(one.Reason))
+                                        {
+                                            @(" — ")<em class="inbox-pass__rest-reason">@one.Reason</em>
+                                        }
+                                    </span>
+                                    @Accept(one.Accepted, on => one.Accepted = on, "inbox-pass-waiting-for-accept", busy, $"{InboxDesktopState.WaitingForLabel} {title}")
+                                </div>
+                                <TextField Label="Waiting on"
+                                           Value="@one.Who"
+                                           ValueChanged="value => one.Who = value"
+                                           Disabled="@busy"
+                                           ErrorMessage="@(one.Appliable ? null : WhoRequired)"
+                                           Id="@($"inbox-pass-waiting-for-{one.ItemId:N}-who")"
+                                           TestId="inbox-pass-waiting-for-who" />
+                            </div>
+                        }
+
                         @if (draft.Unplaced.Count > 0)
                         {
                             <div class="inbox-pass__rest-row" data-testid="inbox-pass-left">
@@ -335,6 +362,10 @@
         (InboxClarifyOutcome.Someday, InboxDesktopState.SomedayLabel, "someday"),
         (InboxClarifyOutcome.DoneNow, InboxDesktopState.DoneNowLabel, "done-now"),
     ];
+
+    /// <summary>What a Waiting for row's field says while its name cannot be
+    /// written; Apply leaves the row out until it can.</summary>
+    public const string WhoRequired = "Name who it waits on, with no backtick.";
 
     /// <summary>An Accept toggle: "Accepted" with a tick when on, "Accept" when
     /// off — the state is <c>aria-pressed</c>, the words and the tick say it to

@@ -174,9 +174,9 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     }
 
     [Fact]
-    public async Task An_outcome_with_an_unknown_word_is_dropped_and_the_prompts_name_both_words()
+    public async Task An_outcome_with_an_unknown_word_is_dropped_and_the_prompts_name_all_three_words()
     {
-        var client = new StubTriageClient { Answer = """{ "outcome": { "outcome": "waiting-for", "reason": "x" } }""" };
+        var client = new StubTriageClient { Answer = """{ "outcome": { "outcome": "later", "reason": "x" } }""" };
 
         var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
 
@@ -185,7 +185,43 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
         {
             Assert.Contains("\"someday\"", prompt, StringComparison.Ordinal);
             Assert.Contains("\"done-now\"", prompt, StringComparison.Ordinal);
+            Assert.Contains("\"waiting-for\"", prompt, StringComparison.Ordinal);
+            Assert.Contains("\"who\"", prompt, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public async Task A_waiting_for_card_is_read_with_who_it_waits_on()
+    {
+        var client = new StubTriageClient { Answer = """{ "outcome": { "outcome": "waiting-for", "who": "  Sam\nat the bank ", "reason": "Sam has the next step." } }""" };
+
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+
+        Assert.Equal(new InboxTriageOutcomeDto(InboxClarifyOutcome.WaitingFor, "Sam has the next step.") { Who = "Sam at the bank" }, advice.Outcome);
+        Assert.True(advice.HasCards);
+    }
+
+    [Theory]
+    [InlineData("""{ "outcome": { "outcome": "waiting-for", "reason": "x" } }""")]
+    [InlineData("""{ "outcome": { "outcome": "waiting-for", "who": "  ", "reason": "x" } }""")]
+    [InlineData("""{ "outcome": { "outcome": "waiting-for", "who": "Sam `x`", "reason": "x" } }""")]
+    public async Task A_waiting_for_that_names_no_one_writable_is_dropped(string answer)
+    {
+        var client = new StubTriageClient { Answer = answer };
+
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+
+        Assert.Null(advice.Outcome);
+    }
+
+    [Fact]
+    public async Task Someday_and_done_now_name_no_one_even_when_the_model_does()
+    {
+        var client = new StubTriageClient { Answer = """{ "outcome": { "outcome": "someday", "who": "Sam", "reason": "x" } }""" };
+
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+
+        Assert.Null(advice.Outcome!.Who);
     }
 
     [Fact]
@@ -199,7 +235,9 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
                     { "itemId": "{{ItemId}}", "outcome": "done-now", "reason": "Two minutes.", "confidence": 0.8 },
                     { "itemId": "{{OtherId}}", "outcome": "someday", "reason": "One day.", "confidence": 0.7 },
                     { "itemId": "{{OtherId}}", "outcome": "later", "reason": "x", "confidence": 0.7 },
-                    { "itemId": "not-a-guid", "outcome": "someday", "reason": "x", "confidence": 0.7 }
+                    { "itemId": "not-a-guid", "outcome": "someday", "reason": "x", "confidence": 0.7 },
+                    { "itemId": "{{ItemId}}", "outcome": "waiting-for", "who": "Sam", "reason": "Sam replies.", "confidence": 0.9 },
+                    { "itemId": "{{OtherId}}", "outcome": "waiting-for", "reason": "Nobody named.", "confidence": 0.9 }
                   ]
                 }
                 """,
@@ -211,6 +249,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
             [
                 new InboxTriageOutcomeProposalDto(ItemId, InboxClarifyOutcome.DoneNow, "Two minutes.", 0.8),
                 new InboxTriageOutcomeProposalDto(OtherId, InboxClarifyOutcome.Someday, "One day.", 0.7),
+                new InboxTriageOutcomeProposalDto(ItemId, InboxClarifyOutcome.WaitingFor, "Sam replies.", 0.9) { Who = "Sam" },
             ],
             pass.Outcomes);
     }

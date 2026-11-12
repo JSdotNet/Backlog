@@ -305,6 +305,134 @@ public sealed class InboxSomedayDoneNowTests
         Assert.Null(harness.Inbox.Find(items[0].Id)!.Routing);
     }
 
+    /// <summary>The Waiting for card names who; its main act — the button or its
+    /// number — routes nothing yet but opens the Waiting for dialog filled with
+    /// that name and no follow-up date, and confirming routes as w does.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_waiting_for_card_opens_the_dialog_filled_with_who_and_confirming_routes_it(bool byNumber)
+    {
+        using var harness = Harness.Create();
+        var items = harness.SeedNewestFirst("Quote for the roof", "Next one");
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriageAdvice[items[0].Id] = Result.Success(InboxTriageAdviceDto.None(items[0].Id) with
+        {
+            Outcome = new InboxTriageOutcomeDto(InboxClarifyOutcome.WaitingFor, "Sam sends the quote.") { Who = "Sam the roofer" },
+        });
+        var pane = await harness.StartTriageAsync();
+
+        pane.WaitForAssertion(() =>
+        {
+            var card = pane.Find("[data-testid='inbox-triage-card-outcome']").TextContent;
+            Assert.Contains("Waiting on Sam the roofer", card, StringComparison.Ordinal);
+            Assert.Contains("Sam sends the quote.", card, StringComparison.Ordinal);
+        });
+
+        if (byNumber) await pane.InvokeAsync(() => harness.State.TakeTriageCardAsync(0));
+        else await pane.Find("[data-testid='inbox-triage-take-outcome']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='inbox-waiting-for-dialog']")));
+        Assert.Empty(harness.Inbox.WaitingForRoutes);
+        Assert.Null(harness.Inbox.Find(items[0].Id)!.Routing);
+        Assert.Equal("Sam the roofer", pane.Find("[data-testid='inbox-waiting-for-who'] input").GetAttribute("value"));
+        Assert.True(string.IsNullOrEmpty(pane.Find("[data-testid='inbox-waiting-for-follow-up'] input").GetAttribute("value")));
+
+        await pane.Find("[data-testid='inbox-waiting-for-who'] input").InputAsync(new() { Value = "Sam Jones" });
+        await pane.Find("[data-testid='inbox-waiting-for-form']").SubmitAsync();
+
+        pane.WaitForAssertion(() =>
+        {
+            var (id, waitingFor, _) = Assert.Single(harness.Inbox.WaitingForRoutes);
+            Assert.Equal(items[0].Id, id);
+            Assert.Equal(new InboxWaitingForDto("Sam Jones"), waitingFor);
+            Assert.Equal(items[1].Id, harness.State.SelectedItemId);
+        });
+    }
+
+    [Fact]
+    public async Task Cancelling_the_dialog_the_waiting_for_card_opened_routes_nothing()
+    {
+        using var harness = Harness.Create();
+        var items = harness.SeedNewestFirst("Quote for the roof", "Next one");
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriageAdvice[items[0].Id] = Result.Success(InboxTriageAdviceDto.None(items[0].Id) with
+        {
+            Outcome = new InboxTriageOutcomeDto(InboxClarifyOutcome.WaitingFor, "Sam sends the quote.") { Who = "Sam" },
+        });
+        var pane = await harness.StartTriageAsync();
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='inbox-triage-card-outcome']")));
+
+        await pane.Find("[data-testid='inbox-triage-take-outcome']").ClickAsync(new());
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='inbox-waiting-for-dialog']")));
+        await pane.Find("[data-testid='inbox-waiting-for-cancel']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-waiting-for-dialog']")));
+        Assert.Empty(harness.Inbox.WaitingForRoutes);
+        Assert.Equal(items[0].Id, harness.State.SelectedItemId);
+        Assert.Null(harness.Inbox.Find(items[0].Id)!.Routing);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("  ")]
+    [InlineData("Sam `x`")]
+    public async Task A_waiting_for_card_that_names_no_one_writable_is_not_shown(string? who)
+    {
+        using var harness = Harness.Create();
+        var items = harness.SeedNewestFirst("Quote for the roof", "Next one");
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriageAdvice[items[0].Id] = Result.Success(InboxTriageAdviceDto.None(items[0].Id) with
+        {
+            Outcome = new InboxTriageOutcomeDto(InboxClarifyOutcome.WaitingFor, "Someone else.") { Who = who },
+        });
+        var pane = await harness.StartTriageAsync();
+
+        await pane.InvokeAsync(harness.State.LoadTriageAdviceAsync);
+
+        Assert.Empty(harness.State.TriageCards);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-triage-card-outcome']"));
+    }
+
+    [Fact]
+    public async Task W_after_the_card_still_opens_the_dialog_empty()
+    {
+        using var harness = Harness.Create();
+        var items = harness.SeedNewestFirst("Quote for the roof", "Next one");
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriageAdvice[items[0].Id] = Result.Success(InboxTriageAdviceDto.None(items[0].Id) with
+        {
+            Outcome = new InboxTriageOutcomeDto(InboxClarifyOutcome.WaitingFor, "Sam sends the quote.") { Who = "Sam" },
+        });
+        var pane = await harness.StartTriageAsync();
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='inbox-triage-card-outcome']")));
+
+        await PressAsync(pane, "w");
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='inbox-waiting-for-dialog']")));
+        Assert.True(string.IsNullOrEmpty(pane.Find("[data-testid='inbox-waiting-for-who'] input").GetAttribute("value")));
+    }
+
+    [Fact]
+    public async Task Dismissing_the_waiting_for_card_hides_it_and_routes_nothing()
+    {
+        using var harness = Harness.Create();
+        var items = harness.SeedNewestFirst("Quote for the roof", "Next one");
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriageAdvice[items[0].Id] = Result.Success(InboxTriageAdviceDto.None(items[0].Id) with
+        {
+            Outcome = new InboxTriageOutcomeDto(InboxClarifyOutcome.WaitingFor, "Sam sends the quote.") { Who = "Sam" },
+        });
+        var pane = await harness.StartTriageAsync();
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='inbox-triage-card-outcome']")));
+
+        await pane.Find("[data-testid='inbox-triage-dismiss-outcome']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-triage-card-outcome']")));
+        Assert.Empty(harness.Inbox.WaitingForRoutes);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-waiting-for-dialog']"));
+    }
+
     private static Task PressAsync(IRenderedComponent<InboxPane> pane, string key) =>
         pane.InvokeAsync(() => pane.Instance.OnShortcutAsync(key));
 
