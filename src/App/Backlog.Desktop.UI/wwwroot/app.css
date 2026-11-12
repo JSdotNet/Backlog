@@ -12175,7 +12175,15 @@ a.pull-request-detail-checks__name:hover {
    it and the column that scrolls takes the height it is given rather than its
    content's: the surface, the explorer, and in the document column the chapter's
    layout, whose article and right-hand panel each scroll on their own — the
-   chapter is never cut off at the pane's edge with no scrollbar to reach the end. */
+   chapter is never cut off at the pane's edge with no scrollbar to reach the end.
+
+   The pane holding the surface takes the section's whole height rather than its
+   content's: the C4 picture fills what the column leaves, so a short nav and aside
+   must not leave the pane, and the picture with it, short of the section's foot. */
+.devbook-stack__section > .devbook-pane--arc42:has(> .arc42-surface) {
+    height: 100%;
+}
+
 .devbook-stack__section > .devbook-pane--arc42 > .arc42-surface {
     display: flex;
     flex: 1 1 auto;
