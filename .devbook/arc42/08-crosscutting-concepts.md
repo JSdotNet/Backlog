@@ -566,7 +566,9 @@ each item below says where the code stands.
   [Task Sync](#task-sync) has the pairing flow that issues the token.
 - **The MCP listener checks scopes, not one token.** Each tool group requires a scope
   under fallback-deny, behind the loopback `Origin` check, and every call is audited.
-  Until that is built, the listener takes the one bearer token of local ADR 0012 §1.
+  This is built: every tool and route requires a scope by a named policy, and the audit
+  names the grant. The listener still takes the one bearer token of local ADR 0012 §1
+  beside grants, held to every scope but `telemetry:write`.
   The audit is built already: one record per tool call the listener admits, in a per-installation
   `mcp-audit.db`, kept 30 days, the latest 200 on the MCP server Settings page.
   A Rotate for the token and a limit on failed bearer attempts are built too: ten within 60

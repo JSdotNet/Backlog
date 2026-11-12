@@ -10,6 +10,7 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Mcp;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -612,8 +613,8 @@ public sealed class McpServerWorker : IDisposable
             if (Socket.OSSupportsIPv6) options.Listen(IPAddress.IPv6Loopback, port);
         });
 
-        // The audit names the shared bearer token (§1) as the caller of every call, grant
-        // tokens included, until the audit names the grant (local ADR 0052 §3, a later step).
+        // The audit names the caller the guard's principal carries — a grant by its name and
+        // id — and the shared token only for a call whose principal names nobody (ADR 0052 §3).
         builder.Services.AddBacklogMcpServer(McpAudit.SharedTokenCaller).WithHttpTransport();
 
         // The pop-out pages' own services, before the bridge: what the listener
@@ -946,9 +947,34 @@ public sealed class McpServerWorker : IDisposable
             return;
         }
 
-        // Who the call is, for what reads the request after the guard. The audit still names
-        // the shared token as the caller; naming the grant there is a later step.
-        if (credential == McpCredential.Grant && grant?.Principal is { } principal) context.User = principal;
+        // Who the call is: a grant's own principal, or the fixed one of the static token it
+        // matched. The route's named policy is asked of it here, and each tool's by the call
+        // filter after it; the audit names its caller (local ADR 0052 §3, §4).
+        var principal = credential switch
+        {
+            McpCredential.Grant => grant!.Principal!,
+            McpCredential.Mcp => McpScopePolicies.SharedTokenCaller,
+            McpCredential.QuestionHook => McpScopePolicies.QuestionHookCaller,
+            McpCredential.Telemetry => McpScopePolicies.TelemetryCaller,
+            _ => throw new InvalidOperationException($"No principal is defined for the credential {credential}.")
+        };
+
+        var policies = context.RequestServices.GetRequiredService<IAuthorizationService>();
+
+        if (!await McpScopePolicies.AuthorizeRouteAsync(policies, principal, context.Request.Path.Value).ConfigureAwait(false))
+        {
+            // Forbidden with insufficient_scope, as RFC 6750 §3.1 words it: the token is good,
+            // and a new one for the same grant would be refused the same way.
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.Headers.WWWAuthenticate = "Bearer error=\"insufficient_scope\"";
+            _log.LogWarning(
+                "An MCP request from {Caller} was refused: its scopes do not reach {Path}.",
+                McpScopePolicies.CallerOf(principal),
+                context.Request.Path.Value);
+            return;
+        }
+
+        context.User = principal;
 
         await next(context).ConfigureAwait(false);
     }

@@ -153,8 +153,9 @@ now carries that short-lived token, which the `headersHelper` asks the broker fo
 
 **The audit log is built (2026-11-11, plan `zero-trust-auth` entry 5).** Both hosts write
 one record per `tools/call` from the call filter `AddBacklogMcpServer` installs first:
-time, caller, tool, target id, outcome and correlation id. Until grants land the caller is
-`shared token` in the app and `web harness, no token` in the harness. The records live in
+time, caller, tool, target id, outcome and correlation id. The caller is the grant, by its
+name and id, for a grant token; `shared token` for the shared token, and
+`web harness, no token` in the harness. The records live in
 `mcp-audit.db` in the installation's own app-data folder, never in `backlog.db`, and are
 kept 30 days. The MCP server's Settings page shows the latest 200 on its **Activity** card.
 A request the listener turns away before any tool is named — a foreign `Origin`, a missing
@@ -180,10 +181,22 @@ is the person's SID, and also refuses a client whose SID differs. It answers a g
 with a 15-minute HS256 JWT signed by a key held in memory. The listener accepts that token
 when no static token matched, and refuses an expired one, one from another key, and one
 whose `ver` is below the stored grant's version or whose grant is revoked.
-`tools/mcp/backlog-mcp-headers.mjs --grant <id>` asks the pipe for the header. Scopes are
-carried, not yet enforced, and the audit still names the caller `shared token`: both are
-entry 8. Nothing creates a grant at runtime yet; entries 9 to 11 do. The web harness
-composes neither (ADR 0052 §9).
+`tools/mcp/backlog-mcp-headers.mjs --grant <id>` asks the pipe for the header. Nothing
+creates a grant at runtime yet; entries 9 to 11 do. The web harness composes neither
+(ADR 0052 §9).
+
+**Scopes are enforced (2026-11-12, plan `zero-trust-auth` entry 8).** Every served tool
+requires one scope of ADR 0052 §4 (`McpToolScopes`), and each scope is a named policy,
+`mcp:<scope>`. A tool or route that names no scope meets `mcp:fallback-deny`, which admits
+nobody. The listener puts a principal on every request it admits. A grant token brings its
+own; the shared token holds every grantable scope but `telemetry:write`, the question hook's
+token `notify:ask`, and the telemetry token `telemetry:write`. The guard then asks the
+route's policy: the logs route needs `telemetry:write`, `/telemetry` `runs:write`, the wait
+route `sessions:dispatch`, and the hook script `notify:ask`. A refusal answers 403 with
+`insufficient_scope`. The call filter, after the feature gates and before the argument
+check, asks the tool's policy, so a switched-off tool stays unknown whatever the caller holds.
+The tool list is not filtered by scope. No grant holds `devbook:decide`, and no token or
+policy carries it. The harness puts a caller holding every grantable scope on its requests.
 
 ### 2. The host code: a framework reference in `Backlog.Desktop` only, started the way `TaskSyncWorker` is
 
@@ -450,6 +463,7 @@ day this record was accepted. A row marked **Built** is one the plan has closed.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-12 | Built §1's scope policies: every tool and route requires one ADR 0052 §4 scope by a named policy under fallback-deny, every admitted request carries a principal, and the audit names the grant. | Plan `zero-trust-auth` entry 8, ADR 0052 Phase 1. |
 | 2026-11-11 | Built §1's token broker and grants beside the shared token: a named pipe for the person's SID alone mints 15-minute JWTs for grants in `mcp-grants.json`, and the listener refuses an expired token or one older than its grant's version. | Plan `zero-trust-auth` entry 7, ADR 0052 Phase 1. |
 | 2026-11-11 | Built §1's Rotate on the **Bearer token** card and the limit on failed bearer attempts: ten within 60 seconds answer every bearer request 429 for 60 seconds, with one audit record. | Plan `zero-trust-auth` entry 6, ADR 0052 Phase 0. |
 | 2026-11-11 | The decision group drops `devbook_approve` and `devbook_accept` (local ADR 0052 §7): five operations, `devbook_set_state` to `draft` alone. | Plan `zero-trust-auth`: an agent could approve its own change under the person's name. |
