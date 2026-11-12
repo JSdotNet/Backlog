@@ -23,11 +23,16 @@ namespace Backlog.Infrastructure.Mcp;
 /// here deletes.
 /// </para>
 /// <para>
+/// Each write is announced on <see cref="IInboxChangeSignal"/> once it lands, so an open
+/// Inbox pane reloads and shows it without the person reopening the pane. The signal is
+/// optional only so a host composing none still serves the tools.
+/// </para>
+/// <para>
 /// Its own group behind the Inbox pane's key: switching the pane off withdraws these too.
 /// </para>
 /// </summary>
 [McpServerToolType]
-public sealed class InboxTools(IInboxItems inbox)
+public sealed class InboxTools(IInboxItems inbox, IInboxChangeSignal? changes = null)
 {
     internal const string ListInboxItems = "list_inbox_items";
     internal const string ReadInboxItem = "read_inbox_item";
@@ -105,6 +110,8 @@ public sealed class InboxTools(IInboxItems inbox)
         var archived = await inbox.ArchiveAsync(id, cancellationToken).ConfigureAwait(false);
         if (archived.IsFailure) throw RepositoryScope.Failure(archived.Error);
 
+        changes?.Raise();
+
         return InboxItemSummaryPayload.From(await FindAsync(id, cancellationToken).ConfigureAwait(false));
     }
 
@@ -137,6 +144,9 @@ public sealed class InboxTools(IInboxItems inbox)
             .CaptureAsync(title, body, InboxEnumMap.ManualChannel, sourceUrl, cancellationToken)
             .ConfigureAwait(false);
         if (captured.IsFailure) throw RepositoryScope.Failure(captured.Error);
+
+        // Heard by an open Inbox, which reloads; the pane learns of no other way.
+        changes?.Raise();
 
         return InboxItemSummaryPayload.From(captured.Value);
     }

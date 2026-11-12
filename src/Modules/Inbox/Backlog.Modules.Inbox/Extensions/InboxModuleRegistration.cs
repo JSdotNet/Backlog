@@ -75,6 +75,10 @@ public static class InboxModuleRegistration
         // decision in time. TryAdd, so a host that already chose one keeps it.
         services.TryAddSingleton(TimeProvider.System);
 
+        // One for the process, so a capture the MCP server makes reaches every
+        // window's open Inbox (see IInboxChangeSignal).
+        services.TryAddSingleton<IInboxChangeSignal, InboxChangeSignal>();
+
         services.AddScoped<IQueryHandler<GetInboxQuery, InboxSnapshotDto>, GetInboxQueryHandler>();
         services.AddScoped<ICommandHandler<CaptureItemCommand, Result<InboxItemDto>>, CaptureItemCommandHandler>();
         services.AddScoped<ICommandHandler<SetTagsCommand, Result>, SetTagsCommandHandler>();

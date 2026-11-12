@@ -899,6 +899,7 @@
         InboxState.Routed += HandleInboxRouted;
         InboxState.BatchRouted += HandleInboxBatchRouted;
         InboxState.RouteUndone += HandleInboxRouteUndone;
+        InboxState.WrittenElsewhere += HandleInboxWrittenElsewhere;
         Features.Changed += HandleFeaturesChanged;
         Navigator.ShowRequested += HandleSurfaceRequested;
         _gitHubIntegrationWasOn = IsFeatureEnabled(TasksFeatures.GitHubIntegration);
@@ -2589,6 +2590,30 @@
     /// one owed behind it. Only touched on the renderer's dispatcher.</summary>
     private readonly CoalescedReload _tasksReload = new();
 
+    /// <summary>
+    /// The Inbox was written somewhere other than its pane — an assistant
+    /// capturing or archiving over MCP — so the Inbox reloads from the store and
+    /// the row, and the queue health counts, follow without a reload by hand.
+    /// The Tasks answer's shape: on the renderer's dispatcher, coalesced so a burst
+    /// reads once. The reload keeps the chosen row while it is still there and
+    /// moves no focus.
+    /// </summary>
+    private void HandleInboxWrittenElsewhere() => _ = InvokeAsync(async () =>
+    {
+        try
+        {
+            await _inboxReload.RunAsync(InboxState.ReloadAsync);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Publish(ToastMessage.Error($"The Inbox could not be refreshed after a change made outside it: {ex.Message}", InboxReloadErrorTestId));
+        }
+    });
+
+    /// <summary>The reload <see cref="HandleInboxWrittenElsewhere"/> runs, and the
+    /// one owed behind it. Only touched on the renderer's dispatcher.</summary>
+    private readonly CoalescedReload _inboxReload = new();
+
     /// <summary>Where the two discarded reloads report a failure, for a test
     /// to find and a reader to read.</summary>
     private const string InboxReloadErrorTestId = "inbox-reload-error";
@@ -2964,6 +2989,7 @@
         InboxState.Routed -= HandleInboxRouted;
         InboxState.BatchRouted -= HandleInboxBatchRouted;
         InboxState.RouteUndone -= HandleInboxRouteUndone;
+        InboxState.WrittenElsewhere -= HandleInboxWrittenElsewhere;
         Features.Changed -= HandleFeaturesChanged;
         Navigator.ShowRequested -= HandleSurfaceRequested;
         if (_taskSync is not null) _taskSync.Changed -= HandleTaskSyncChanged;
