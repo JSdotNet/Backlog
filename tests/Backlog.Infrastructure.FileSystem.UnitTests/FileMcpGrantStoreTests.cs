@@ -68,6 +68,52 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     }
 
     [Fact]
+    public void Setting_a_grant_s_scopes_stores_them_and_raises_its_version()
+    {
+        var store = Store();
+        var grant = store.Create("Copilot", ["tasks:read"], "jobsc");
+
+        var changed = store.SetScopes(grant.Id, ["tasks:read", "devbook:read"]);
+
+        Assert.NotNull(changed);
+        Assert.Equal(["tasks:read", "devbook:read"], changed.Scopes);
+        Assert.Equal(2, changed.Version);
+        Assert.False(changed.Revoked);
+        Assert.Equal(["tasks:read", "devbook:read"], Store().Find(grant.Id)?.Scopes);
+        Assert.Equal(2, Store().Find(grant.Id)?.Version);
+    }
+
+    [Fact]
+    public void A_revoked_or_unknown_grant_takes_no_scopes()
+    {
+        var store = Store();
+        var grant = store.Create("Copilot", ["tasks:read"], "jobsc");
+        store.Revoke(grant.Id);
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        Assert.Null(store.SetScopes(grant.Id, ["tasks:write"]));
+        Assert.Null(store.SetScopes("g_aaaaaaaaaaaaaaaa", ["tasks:write"]));
+
+        Assert.Equal(["tasks:read"], store.Find(grant.Id)?.Scopes);
+        Assert.Equal(2, store.Find(grant.Id)?.Version);
+        Assert.Equal(0, raised);
+    }
+
+    [Fact]
+    public void Setting_scopes_raises_Changed()
+    {
+        var store = Store();
+        var grant = store.Create("one", [], "jobsc");
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        store.SetScopes(grant.Id, ["tasks:read"]);
+
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
     public void An_unknown_grant_is_not_found_and_revokes_nothing()
     {
         var store = Store();

@@ -1,0 +1,80 @@
+@*
+    The second step of Add agent (local ADR 0052 §3): the registration line the new
+    agent's MCP configuration takes, and a copy of it for each client. It carries the
+    grant's id and never a secret, because the token comes from the app's broker each
+    time a session connects - which is also why it is safe on screen and in a
+    screenshot, where the bearer token it replaces was not.
+
+    One block on screen and two copies, because the two clients file the same entry
+    under different shapes: the host hands in each one whole, and this component only
+    draws and copies what it is given.
+
+    Done is the act that closes the step; there is nothing to save, because the grant
+    was stored when the first step created it.
+*@
+
+<div class="@ClassValue" data-testid="@TestId">
+    <p class="agent-registration__title" data-testid="agent-registration-title">Register "@Name"</p>
+    <p class="agent-registration__note">
+        Paste this into the agent's MCP configuration. It carries the grant id only.
+        The token comes from Backlog each time a session connects.
+    </p>
+    <CodeView Source="@Snippet"
+              Language="json"
+              AllowCopy="false"
+              AriaLabel="@($"Registration for {Name}")"
+              TestId="agent-registration-snippet" />
+    <div class="agent-registration__actions">
+        <CopyButton Text="@ClaudeCode"
+                    Label="Copy for Claude Code"
+                    ButtonBaseClass="btn btn--secondary"
+                    TestId="agent-registration-copy-claude">Copy for Claude Code</CopyButton>
+        <CopyButton Text="@Copilot"
+                    Label="Copy for Copilot"
+                    ButtonBaseClass="btn btn--secondary"
+                    TestId="agent-registration-copy-copilot">Copy for Copilot</CopyButton>
+        <AppButton Variant="ButtonVariant.Primary" TestId="agent-registration-done" OnClick="OnDone">
+            Done
+        </AppButton>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Footnote))
+    {
+        <p class="agent-registration__note">@Footnote</p>
+    }
+</div>
+
+@code {
+    /// <summary>The agent's name, as the step's title says it.</summary>
+    [Parameter, EditorRequired]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>The registration as drawn.</summary>
+    [Parameter, EditorRequired]
+    public string Snippet { get; set; } = string.Empty;
+
+    /// <summary>What Copy for Claude Code puts on the clipboard.</summary>
+    [Parameter, EditorRequired]
+    public string ClaudeCode { get; set; } = string.Empty;
+
+    /// <summary>What Copy for Copilot puts on the clipboard.</summary>
+    [Parameter, EditorRequired]
+    public string Copilot { get; set; } = string.Empty;
+
+    /// <summary>A sentence under the buttons, such as what the row will say once a session
+    /// connects.</summary>
+    [Parameter]
+    public string? Footnote { get; set; }
+
+    /// <summary>Raised by Done.</summary>
+    [Parameter]
+    public EventCallback OnDone { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? "agent-registration" : $"agent-registration {CssClass}";
+}

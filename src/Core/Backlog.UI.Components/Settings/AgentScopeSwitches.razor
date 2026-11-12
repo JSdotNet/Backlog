@@ -1,0 +1,73 @@
+@*
+    The scopes an agent holds, one switch each with the line saying what it opens
+    (local ADR 0052 §4; .devbook/design/settings-pages.md#saved-as-you-go). A switch
+    raises its change at once and the host stores it, so there is no Save button
+    anywhere near it.
+
+    A locked scope is drawn disabled, as the grant holds it. It is there to be seen:
+    devbook:decide is a boundary no agent crosses, and a list that left it out would
+    let a reader think it was forgotten rather than refused.
+
+    A group, named for the agent, so a screen reader hears whose scopes these are
+    before the first switch. The switches flow into as many columns as the card has
+    room for and stack at phone width.
+*@
+
+<div class="@ClassValue" role="group" aria-label="@AriaLabel" data-testid="@TestId">
+    @foreach (var option in Options)
+    {
+        <Toggle @key="option.Name"
+                Id="@SwitchId(option)"
+                CssClass="@(option.Locked ? "agent-scopes__switch agent-scopes__switch--locked" : "agent-scopes__switch")"
+                Label="@option.Name"
+                Description="@option.Description"
+                Checked="@IsOn(option.Name)"
+                Disabled="@(Disabled || option.Locked)"
+                TestId="@($"agent-scope-{Slug(option.Name)}")"
+                data-scope="@option.Name"
+                data-locked="@(option.Locked ? "true" : null)"
+                CheckedChanged="on => OnChanged.InvokeAsync(new AgentScopeChange(option.Name, on))" />
+    }
+</div>
+
+@code {
+    /// <summary>Every scope the host offers, in the order to draw them.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<AgentScopeOption> Options { get; set; } = [];
+
+    /// <summary>The scopes switched on.</summary>
+    [Parameter]
+    public IReadOnlyCollection<string> Selected { get; set; } = [];
+
+    /// <summary>Raised when one switch is flipped, with the scope and its new state.</summary>
+    [Parameter]
+    public EventCallback<AgentScopeChange> OnChanged { get; set; }
+
+    /// <summary>Every switch disabled, while the host cannot store a change.</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>What the group is called: whose scopes these are.</summary>
+    [Parameter]
+    public string AriaLabel { get; set; } = "Scopes";
+
+    /// <summary>The prefix each switch's id is made from, so two lists on one page — an
+    /// agent's row and the Add agent form — never share an id.</summary>
+    [Parameter]
+    public string IdPrefix { get; set; } = "agent-scope";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "agent-scopes" : $"agent-scopes {CssClass}";
+
+    private bool IsOn(string scope) => Selected.Contains(scope, StringComparer.Ordinal);
+
+    private string SwitchId(AgentScopeOption option) => $"{IdPrefix}-{Slug(option.Name)}";
+
+    /// <summary>The scope with its colon as a dash, for an id and a test id.</summary>
+    internal static string Slug(string scope) => scope.Replace(':', '-');
+}

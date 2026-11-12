@@ -12,8 +12,8 @@ namespace Backlog.Infrastructure.FileSystem;
 /// under the Windows user (local ADR 0030 §2).
 /// <para>
 /// <b>Read from the file on every call.</b> The listener checks every grant token against the
-/// stored version, and a person who bumps a version in the file by hand — the only way to
-/// revoke a grant until the Agents card exists — expects the next request to be refused. The
+/// stored version, and a person who bumps a version in the file by hand — beside the Agents
+/// card on the MCP server settings page — expects the next request to be refused. The
 /// file is a few hundred bytes, so a cache would buy nothing that matters and cost that.
 /// </para>
 /// <para>
@@ -114,6 +114,29 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
             };
 
             file.Records.Add(record);
+            Save(file);
+            grant = ToGrant(record);
+        }
+
+        Changed?.Invoke();
+        return grant;
+    }
+
+    /// <inheritdoc />
+    /// <exception cref="UnreadableMcpGrantFileException">The file exists and does not parse.</exception>
+    public McpGrant? SetScopes(string id, IReadOnlyList<string> scopes)
+    {
+        ArgumentNullException.ThrowIfNull(scopes);
+
+        McpGrant grant;
+
+        lock (_gate)
+        {
+            var file = LoadForWrite();
+            if (FindRecord(file, id) is not { Revoked: false } record) return null;
+
+            record.Scopes = [.. scopes];
+            record.Version++;
             Save(file);
             grant = ToGrant(record);
         }

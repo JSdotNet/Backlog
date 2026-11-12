@@ -174,6 +174,14 @@ Grants are created, listed and revoked on the MCP server's own Settings page. Th
 `.devbook/design/settings-pages.md`. Nothing in the Dev PC catalog or the Tools
 pane reads or writes a grant.
 
+*Agents card built 2026-11-12 by entry 10 (`agents-card`).* A grant stores scopes,
+not a role: the roles are presets that fill the switches. A scope switch raises the
+grant's version as well as storing the scope, so a token minted under the old scopes
+is refused and the headers helper fetches one under the new. `agents:grant` is drawn
+locked until switching it on asks for Windows Hello (§5, §6). The card's
+registration names the repository's `tools/mcp/backlog-mcp-headers.mjs`. The page no
+longer shows or rotates the shared token, which still works until it is retired.
+
 ### 4. Scopes decide who may call a tool that is switched on
 
 ```meta
@@ -389,5 +397,6 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-12 | Built §3's Agents card on the MCP server page in the Bearer token card's place: rows with role, source, last use and scopes, switches that store on change and raise the grant's version, Revoke confirmed in place, and Add agent with its registration. | Plan `zero-trust-auth` entry 10, Phase 1. |
 | 2026-11-11 | Built §3's token broker and grants beside the shared token: a named pipe for the person's SID alone mints 15-minute JWTs, and the listener refuses one older than its grant's version. Scopes are not enforced yet. | Plan `zero-trust-auth` entry 7, Phase 1. |
 | 2026-11-11 | Proposed: the owner is one GitHub account matched by numeric id, devices hold hardware-bound keys, agents hold grants with 15-minute scoped tokens, Windows Hello confirms what is hard to undo, devbook decisions are human-only, and remote MCP goes through OAuth 2.1 on the sync service. Amends ADR 0012 §1, 0043 §7 and 0044 §6, and retires ADR 0030 §6's exception. | The always-on listener's one plaintext token opened every tool, including approving an agent's own devbook change. |

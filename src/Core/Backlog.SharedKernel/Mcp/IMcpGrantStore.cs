@@ -7,7 +7,7 @@ namespace Backlog.SharedKernel.Mcp;
 /// </summary>
 public interface IMcpGrantStore
 {
-    /// <summary>Raised after a grant is created or revoked.</summary>
+    /// <summary>Raised after a grant is created, given new scopes or revoked.</summary>
     event Action? Changed;
 
     /// <summary>Every grant, revoked ones included, in the order they were created.</summary>
@@ -18,6 +18,12 @@ public interface IMcpGrantStore
 
     /// <summary>A new grant at version 1, with a new id and its own sealed secret.</summary>
     McpGrant Create(string name, IReadOnlyList<string> scopes, string createdBy);
+
+    /// <summary>Replaces the grant's scopes and raises its version, so a token minted under the
+    /// old scopes is refused on its next request and the client's headers helper fetches one
+    /// with the new scopes. Null when there is no such grant, or it is revoked: a revoked grant
+    /// stays as it was revoked.</summary>
+    McpGrant? SetScopes(string id, IReadOnlyList<string> scopes);
 
     /// <summary>Marks the grant revoked and raises its version, so a token minted before the
     /// revoke is refused on its next request. Null when there is no such grant.</summary>
