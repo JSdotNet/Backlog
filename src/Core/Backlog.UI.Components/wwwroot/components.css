@@ -31187,9 +31187,62 @@ button.domain-field-rules[aria-expanded="true"] {
     flex: 0 0 auto;
 }
 
+/* On the surface the picture takes the height the main column has left after the
+   hint, the heading, the doors and the footer, rather than a height of its own:
+   the column is one scroller, and it scrolls only below the frame's floor.
+
+   The body carries the frame's old height as its flex basis, so a host that gives
+   the column no height (the storybook's stage, the stacked layout under 60rem)
+   draws the picture exactly as tall as before. The frame grows from nothing to fill
+   the body, and its floor is its own min-height. The body and the stage keep their
+   automatic minimum, which is that floor (and the environment tabs over it): a zero
+   minimum would let them shrink under the floor and the frame spill over the footer.
+   With more than one environment the open panel takes the stage's height; the
+   hidden ones keep display: none from the rule above. */
+.c4-zoom-explorer--surface .c4-zoom-explorer__main > :not(.c4-zoom-explorer__body) {
+    flex: 0 0 auto;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__main > .c4-zoom-explorer__body {
+    flex: 1 1 clamp(24rem, 60vh, 44rem);
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__stage {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__environments {
+    flex: 0 0 auto;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__environment:not([hidden]) {
+    flex: 1 1 0;
+}
+
 .c4-zoom-explorer--surface .c4-zoom-explorer__frame {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 20rem;
     overflow: auto;
     border: var(--border-width) solid var(--color-border);
+}
+
+/* The hint over the picture, kept short so the picture has the room: the four ways
+   to move in two columns, at the small size, inside a tighter edge. */
+.c4-zoom-explorer--surface .c4-zoom-explorer__hint {
+    padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__moves {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 var(--spacing-lg);
+    font-size: var(--font-size-sm);
 }
 
 .c4-zoom-explorer__canvas {
@@ -31217,6 +31270,10 @@ button.domain-field-rules[aria-expanded="true"] {
     .c4-zoom-explorer__aside {
         max-height: none;
         overflow: visible;
+    }
+
+    .c4-zoom-explorer--surface .c4-zoom-explorer__moves {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
