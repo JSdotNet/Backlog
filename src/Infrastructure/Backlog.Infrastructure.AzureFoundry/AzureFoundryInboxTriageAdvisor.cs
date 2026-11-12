@@ -139,9 +139,11 @@ public sealed class AzureFoundryInboxTriageAdvisor(IAzureFoundryTriageClient cli
         }
 
         InboxTriageOutcomeDto? outcome = null;
-        if (Object(root, "outcome") is { } clarified && Outcome(String(clarified, "outcome")) is { } kindOfOutcome)
+        if (Object(root, "outcome") is { } clarified
+            && Outcome(String(clarified, "outcome")) is { } kindOfOutcome
+            && Named(kindOfOutcome, clarified, out var who))
         {
-            outcome = new InboxTriageOutcomeDto(kindOfOutcome, String(clarified, "reason") ?? string.Empty);
+            outcome = new InboxTriageOutcomeDto(kindOfOutcome, String(clarified, "reason") ?? string.Empty) { Who = who };
         }
 
         return new InboxTriageAdviceDto(item.Id, duplicate, plan, Strings(root, "repositories")) { Outcome = outcome };
@@ -190,9 +192,11 @@ public sealed class AzureFoundryInboxTriageAdvisor(IAzureFoundryTriageClient cli
             .ToList();
 
         var outcomes = Array(root, "outcomes")
-            .Select(proposal => Id(String(proposal, "itemId")) is { } itemId && Outcome(String(proposal, "outcome")) is { } kind
-                ? new InboxTriageOutcomeProposalDto(itemId, kind, Reason(proposal), Confidence(proposal))
-                : null)
+            .Select(proposal => Id(String(proposal, "itemId")) is { } itemId
+                && Outcome(String(proposal, "outcome")) is { } kind
+                && Named(kind, proposal, out var who)
+                    ? new InboxTriageOutcomeProposalDto(itemId, kind, Reason(proposal), Confidence(proposal)) { Who = who }
+                    : null)
             .OfType<InboxTriageOutcomeProposalDto>()
             .ToList();
 
@@ -208,8 +212,25 @@ public sealed class AzureFoundryInboxTriageAdvisor(IAzureFoundryTriageClient cli
     {
         "someday" => InboxClarifyOutcome.Someday,
         "done-now" or "donenow" => InboxClarifyOutcome.DoneNow,
+        "waiting-for" or "waitingfor" => InboxClarifyOutcome.WaitingFor,
         _ => null,
     };
+
+    /// <summary>Who a Waiting for waits on, as the model named it: one line,
+    /// trimmed. False — the outcome is dropped — when a Waiting for names no one
+    /// the route can write, blank or holding a backtick, since the model must
+    /// name who. The other outcomes always pass, with no one named.</summary>
+    private static bool Named(InboxClarifyOutcome outcome, JsonElement proposal, out string? who)
+    {
+        who = null;
+        if (outcome != InboxClarifyOutcome.WaitingFor) return true;
+
+        var named = String(proposal, "who")?.ReplaceLineEndings(" ");
+        if (named is null || !new InboxWaitingForDto(named).IsValid) return false;
+
+        who = named;
+        return true;
+    }
 
     private static JsonElement? Object(JsonElement parent, string name) =>
         parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Object ? value : null;

@@ -58,6 +58,11 @@
     [Parameter]
     public EventCallback<bool> OpenChanged { get; set; }
 
+    /// <summary>The name the Waiting on field opens with — the one the AI
+    /// card read — or null to open it empty.</summary>
+    [Parameter]
+    public string? InitialWho { get; set; }
+
     /// <summary>The id of the Waiting on field, which the dialog focuses as it opens.</summary>
     public const string WhoInputId = "inbox-waiting-for-who-input";
 
@@ -81,9 +86,10 @@
     protected override void OnParametersSet()
     {
         // Each opening asks afresh: the last item's answer is not this one's.
+        // The AI card's name, when it opened the dialog, is only a start.
         if (Open && !_wasOpen)
         {
-            _who = null;
+            _who = InitialWho;
             _followUp = null;
             _focusOnRender = true;
         }

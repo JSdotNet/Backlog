@@ -131,6 +131,17 @@ A task id or Roadmap Tag the list already holds is not appended again, so a repe
 
 Enforced at: `BrainNoteLinks.Append()`, which answers `AlreadyPresent` for a value the list holds, and `BrainNoteLinkWriter`, which then writes nothing
 
+### Invariant: A written link is read back in either list style
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainBlockListLinkTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookBuilderParityTests.The_app_matches_the_node_writer_on_a_brain]
+```
+
+A `tasks`, `roadmap` or `repos` list the Brain's database indexes holds the same values whether the note writes it as a flow list (`[a, b]`) or as a block list (`- a` lines under the field), so a link the app appends in the note's own style is a link the app reads.
+
+Enforced at: `BrainCorpusProfile.BlockListFields`, which `DevbookGraphBuilder` hands `DevbookMarkdown.Parse()` to read block items for, and `readBlockLists` in `tools/devbook/brain.mjs`, the reference `DevbookBuilderParityTests` holds the builder to
+
 ### Invariant: An unparsable block is not written
 
 ```meta

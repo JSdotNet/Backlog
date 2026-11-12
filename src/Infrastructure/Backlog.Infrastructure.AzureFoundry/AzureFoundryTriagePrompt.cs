@@ -52,9 +52,9 @@ public static class AzureFoundryTriagePrompt
           "duplicate": { "kind": "task" | "item", "id": "<id of the open task or the other inbox item it repeats>", "reason": "<one sentence>" } or null,
           "plan": { "title": "<a short plan title>", "itemIds": ["<the item's id>", "<the id of each other inbox item that belongs in the same plan>"], "reason": "<one sentence>" } or null,
           "repositories": ["<owner/name the item should go to>"],
-          "outcome": { "outcome": "someday" | "done-now", "reason": "<one sentence>" } or null
+          "outcome": { "outcome": "someday" | "done-now" | "waiting-for", "who": "<for waiting-for: who has the next step>", "reason": "<one sentence>" } or null
         }
-        Propose a duplicate only when the capture asks for the same work as that task or item, not merely the same topic. Propose a plan only when at least one other inbox item belongs in it with this one. Propose "someday" for a possibility the reader is not committing to now, and "done-now" for an action of two minutes or less the reader has likely already done or can do at once.
+        Propose a duplicate only when the capture asks for the same work as that task or item, not merely the same topic. Propose a plan only when at least one other inbox item belongs in it with this one. Propose "someday" for a possibility the reader is not committing to now, "done-now" for an action of two minutes or less the reader has likely already done or can do at once, and "waiting-for" when someone else has the next step, naming that person or party in "who".
         """;
 
     /// <summary>The system message for the pass over a slice.</summary>
@@ -72,10 +72,10 @@ public static class AzureFoundryTriagePrompt
           "routes": [ { "itemId": "<id from items>", "entryType": "prompt" | "task" | "test", "repositories": ["<owner/name>"], "reason": "<one sentence>", "confidence": <0 to 1> } ],
           "filings": [ { "itemId": "<id from items>", "listId": "<id from lists>", "reason": "<one sentence>", "confidence": <0 to 1> } ],
           "archives": [ { "itemId": "<id from items>", "reason": "<one sentence>", "confidence": <0 to 1> } ],
-          "outcomes": [ { "itemId": "<id from items>", "outcome": "someday" | "done-now", "reason": "<one sentence>", "confidence": <0 to 1> } ],
+          "outcomes": [ { "itemId": "<id from items>", "outcome": "someday" | "done-now" | "waiting-for", "who": "<for waiting-for: who has the next step>", "reason": "<one sentence>", "confidence": <0 to 1> } ],
           "unplaced": ["<id from items>"]
         }
-        "someday" keeps a possibility the reader is not committing to in their Brain's someday area; "done-now" records an action of two minutes or less as a task already ticked.
+        "someday" keeps a possibility the reader is not committing to in their Brain's someday area; "done-now" records an action of two minutes or less as a task already ticked; "waiting-for" makes a task that waits on "who", the person or party with the next step.
         "merge-into-task" is only for a duplicate of an open task. A route's entry type is "prompt" for an instruction an agent can carry out in a repository, "task" for a step a person does, "test" for something a person checks. Confidence is how sure you are; below 0.6 the reader sees the proposal unticked.
         """;
 

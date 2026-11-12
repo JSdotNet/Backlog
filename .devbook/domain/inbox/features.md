@@ -396,7 +396,7 @@ Tags and repositories are not decisions and leave the reader where they are. Esc
 ```meta
 type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#triage-mode]
-related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage, .devbook/domain/inbox/features.md#merge-into-a-task, .devbook/domain/inbox/features.md#route-a-batch-to-tasks]
+related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage, .devbook/domain/inbox/features.md#merge-into-a-task, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests]
 ```
@@ -427,6 +427,12 @@ settles what is sent, and when.
   **Keep for someday** or **Record as done**, takes [Someday](#route-to-brain)
   or [Done now](#route-to-tasks) as the decision bar does; Keep for someday is
   disabled, with the reason, while Someday is. **Dismiss** turns the card down.
+- **Waiting on *who*.** The model reads the item as Waiting for and names who
+  has the next step, with the reason; a reading that names no one shows no
+  card. Its main act, **Set up waiting for**, opens the Waiting for dialog
+  filled with that name and no follow-up date. The reader confirms or edits
+  it, and confirming routes the item as **w** does. **Dismiss** turns the card
+  down.
 
 The model is asked once per item per app session. **Ask again**, in the AI
 section, would ask again for the item shown and replace the cards; it is
@@ -594,7 +600,9 @@ The screen groups the proposals:
 - **The rest**: items to file, one row per list, items to archive, and items to
   take [Someday](#route-to-brain) or [Done now](#route-to-tasks), one row each.
   Each row is accepted as a whole, and **Show** opens it to accept them one by
-  one. The
+  one. Items to take **Waiting for** are one row per item, with who it waits
+  on in a field the reader may change; a row whose name is blank or holds a
+  backtick is left out of Apply until it is fixed. The
   items the model could not place are **Left for you**, with **Triage them**.
 
 Every proposal carries its reason, and a toggle accepts it or not. A duplicate
@@ -615,7 +623,9 @@ the screen lists them:
 - a single route, by writing its repositories to the item and moving it to the
   backlog;
 - a filing or an archive, through its own act;
-- a Someday or a Done now, through the act its decision-bar button takes.
+- a Someday or a Done now, through the act its decision-bar button takes;
+- a Waiting for, through the route **w** takes, with the name on its row and
+  no follow-up date, due date or My Day.
 
 [AI triage pass Apply](features.md#ai-triage-pass) shows what happens when a
 decision is refused. Each decision lands as one step of the

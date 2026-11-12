@@ -23,7 +23,8 @@ namespace Backlog.Desktop.WebHarness;
 /// <item><b>Plan.</b> Items sharing a tag group into one plan named for the
 /// tag.</item>
 /// <item><b>Outcome.</b> An item tagged <see cref="SomedayTag"/> is taken
-/// Someday, one tagged <see cref="QuickTag"/> Done now — on its card too.</item>
+/// Someday, one tagged <see cref="QuickTag"/> Done now, one tagged
+/// <see cref="WaitingTag"/> Waiting for — on its card too.</item>
 /// <item><b>List.</b> An item with a tag that names one of the reader's lists
 /// is filed there.</item>
 /// <item><b>Route.</b> An item with repositories is routed as a <c>prompt</c>;
@@ -141,7 +142,7 @@ public sealed class FakeInboxTriageAdvisor : IInboxTriageAdvisor
             if (OutcomeOf(item) is { } outcome)
             {
                 placed.Add(item.Id);
-                outcomes.Add(new InboxTriageOutcomeProposalDto(item.Id, outcome.Outcome, outcome.Reason, HighConfidence));
+                outcomes.Add(new InboxTriageOutcomeProposalDto(item.Id, outcome.Outcome, outcome.Reason, HighConfidence) { Who = outcome.Who });
             }
             else if (context.Lists.FirstOrDefault(list => item.Tags.Contains(list.Name, StringComparer.OrdinalIgnoreCase)) is { } list)
             {
@@ -178,11 +179,19 @@ public sealed class FakeInboxTriageAdvisor : IInboxTriageAdvisor
     }
 
     /// <summary>The outcome an item's tag names: <see cref="SomedayTag"/> for
-    /// Someday, <see cref="QuickTag"/> for Done now; null for neither.</summary>
+    /// Someday, <see cref="QuickTag"/> for Done now, <see cref="WaitingTag"/> for
+    /// Waiting for on <see cref="WaitingWho"/>; null for none.</summary>
     private static InboxTriageOutcomeDto? OutcomeOf(InboxTriageItemDto item) =>
         HasTag(item, SomedayTag) ? new InboxTriageOutcomeDto(InboxClarifyOutcome.Someday, $"It is tagged {SomedayTag}: a possibility, not a commitment.")
         : HasTag(item, QuickTag) ? new InboxTriageOutcomeDto(InboxClarifyOutcome.DoneNow, $"It is tagged {QuickTag}: two minutes' work, done at once.")
+        : HasTag(item, WaitingTag) ? new InboxTriageOutcomeDto(InboxClarifyOutcome.WaitingFor, $"It is tagged {WaitingTag}: someone else has the next step.") { Who = WaitingWho }
         : null;
+
+    /// <summary>The tag that reads as Waiting for.</summary>
+    public const string WaitingTag = "waiting";
+
+    /// <summary>Who an item tagged <see cref="WaitingTag"/> waits on.</summary>
+    public const string WaitingWho = "Sam";
 
     /// <summary>The tag that reads as Someday.</summary>
     public const string SomedayTag = "someday";

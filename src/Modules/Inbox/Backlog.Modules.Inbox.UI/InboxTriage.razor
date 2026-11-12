@@ -1,4 +1,5 @@
 @using global::Backlog.UI.Components.Icons
+@implements IDisposable
 @*
     Triage mode's body: one item at a time, with everything a decision on it
     needs on one screen (features.md#triage-mode, artboard B).
@@ -289,20 +290,21 @@
                             var number = Number(cards, InboxTriageCardKind.Outcome);
                             var someday = outcome.Outcome == InboxClarifyOutcome.Someday;
                             var somedayUnavailable = someday ? State.SomedayUnavailableReason : null;
+                            var (cardTitle, actTitle, actLabel) = OutcomeCard(outcome);
                             <Card Compact="true" CssClass="inbox-triage__card" TestId="inbox-triage-card-outcome" aria-labelledby="inbox-triage-card-outcome-title">
                                 <div class="inbox-triage__card-head">
                                     <kbd class="inbox-pane__key" aria-hidden="true">@number</kbd>
-                                    <span class="inbox-triage__card-title" id="inbox-triage-card-outcome-title">@(someday ? "Someday, not now" : "Done in two minutes")</span>
+                                    <span class="inbox-triage__card-title" id="inbox-triage-card-outcome-title">@cardTitle</span>
                                     <span class="inbox-triage__card-reason">@outcome.Reason</span>
                                 </div>
                                 <ButtonGroup AriaLabel="Outcome actions" CssClass="inbox-triage__card-acts">
                                     <AppButton Variant="ButtonVariant.Primary"
                                                Size="ButtonSize.Small"
                                                Disabled="@(Busy || somedayUnavailable is not null)"
-                                               Title="@(somedayUnavailable ?? (someday ? InboxDesktopState.SomedayTitle : InboxDesktopState.DoneNowTitle))"
+                                               Title="@(somedayUnavailable ?? actTitle)"
                                                aria-keyshortcuts="@number"
                                                OnClick="State.TakeTriageOutcomeAsync"
-                                               TestId="inbox-triage-take-outcome">@(someday ? "Keep for someday" : "Record as done")</AppButton>
+                                               TestId="inbox-triage-take-outcome">@actLabel</AppButton>
                                     <AppButton Size="ButtonSize.Small"
                                                Variant="ButtonVariant.Ghost"
                                                OnClick="() => State.DismissTriageCard(item.Id, InboxTriageCardKind.Outcome)"
@@ -558,6 +560,7 @@
                           OpenChanged="value => _brainOpen = value" />
 
         <InboxWaitingForDialog State="State"
+                               InitialWho="@_waitingForWho"
                                Open="@_waitingForOpen"
                                OpenChanged="value => _waitingForOpen = value" />
 
@@ -632,15 +635,53 @@
     /// <summary>Opens Waiting for's question — who, and when to follow up — as
     /// <c>w</c> and the button do. Confirming routes with the repositories
     /// ticked here, as R does.</summary>
-    public void OpenWaitingFor()
+    public void OpenWaitingFor() => OpenWaitingFor(null);
+
+    /// <summary>Opens the Waiting for dialog with <paramref name="who"/> in its
+    /// Waiting on field and no follow-up date — the Waiting for card's main act —
+    /// or empty for <c>w</c> and the decision button.</summary>
+    private void OpenWaitingFor(string? who)
     {
         if (!CanDecide) return;
 
+        _waitingForWho = who;
         _waitingForOpen = true;
         _ = InvokeAsync(StateHasChanged);
     }
 
     private bool _waitingForOpen;
+
+    private string? _waitingForWho;
+
+    private InboxDesktopState? _subscribed;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_subscribed, State)) return;
+
+        if (_subscribed is not null) _subscribed.WaitingForAsked -= OnWaitingForAsked;
+        State.WaitingForAsked += OnWaitingForAsked;
+        _subscribed = State;
+    }
+
+    private void OnWaitingForAsked(string who) => OpenWaitingFor(who);
+
+    public void Dispose()
+    {
+        if (_subscribed is not null) _subscribed.WaitingForAsked -= OnWaitingForAsked;
+    }
+
+    /// <summary>The outcome card's title, its main act's hover text and its
+    /// label: "Someday, not now", "Done in two minutes", or "Waiting on <i>who</i>".</summary>
+    private static (string Title, string ActTitle, string ActLabel) OutcomeCard(InboxTriageOutcomeDto outcome) => outcome.Outcome switch
+    {
+        InboxClarifyOutcome.Someday => ("Someday, not now", InboxDesktopState.SomedayTitle, "Keep for someday"),
+        InboxClarifyOutcome.WaitingFor => ($"Waiting on {outcome.Who}", WaitingForCardTitle, "Set up waiting for"),
+        _ => ("Done in two minutes", InboxDesktopState.DoneNowTitle, "Record as done"),
+    };
+
+    /// <summary>What the Waiting for card's main act says on hover.</summary>
+    public const string WaitingForCardTitle = "Ask who it waits on, filled in, before it moves to the backlog";
 
     /// <summary>Asks for what triage shows about the item on screen: the AI
     /// cards, the suggestions and the relations. Each is a no-op once the

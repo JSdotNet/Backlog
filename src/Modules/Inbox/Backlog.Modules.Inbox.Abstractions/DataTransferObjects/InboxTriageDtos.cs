@@ -107,10 +107,20 @@ public enum InboxClarifyOutcome
     /// <summary>Done now: work of two minutes or less, recorded as a task
     /// created already ticked.</summary>
     DoneNow,
+
+    /// <summary>Waiting for: someone else has the next step, so the item becomes
+    /// a task that waits on them (local ADR 0054 §4). The advisor names who.</summary>
+    WaitingFor,
 }
 
-/// <summary>The outcome card: Someday or Done now, and one sentence saying why.</summary>
-public sealed record InboxTriageOutcomeDto(InboxClarifyOutcome Outcome, string Reason);
+/// <summary>The outcome card: Someday, Done now or Waiting for, and one sentence saying why.</summary>
+public sealed record InboxTriageOutcomeDto(InboxClarifyOutcome Outcome, string Reason)
+{
+    /// <summary>Who the item waits on, for <see cref="InboxClarifyOutcome.WaitingFor"/>;
+    /// null for the other outcomes. A member rather than a positional parameter,
+    /// so an advisor builds the other outcomes as it always did.</summary>
+    public string? Who { get; init; }
+}
 
 /// <summary>
 /// The advisor's answer about one item opened in triage: at most one duplicate,
@@ -180,8 +190,13 @@ public sealed record InboxTriageListFilingDto(Guid ItemId, Guid ListId, string R
 /// <summary>An item the pass would archive.</summary>
 public sealed record InboxTriageArchiveDto(Guid ItemId, string Reason, double Confidence);
 
-/// <summary>An item the pass would take Someday or Done now (local ADR 0054).</summary>
-public sealed record InboxTriageOutcomeProposalDto(Guid ItemId, InboxClarifyOutcome Outcome, string Reason, double Confidence);
+/// <summary>An item the pass would take Someday, Done now or Waiting for (local ADR 0054).</summary>
+public sealed record InboxTriageOutcomeProposalDto(Guid ItemId, InboxClarifyOutcome Outcome, string Reason, double Confidence)
+{
+    /// <summary>Who the item waits on, for <see cref="InboxClarifyOutcome.WaitingFor"/>;
+    /// null for the other outcomes.</summary>
+    public string? Who { get; init; }
+}
 
 /// <summary>
 /// The AI triage pass: a decision proposed for every item it could place, and

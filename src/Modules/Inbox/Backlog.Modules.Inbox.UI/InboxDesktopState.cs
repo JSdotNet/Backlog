@@ -128,6 +128,12 @@ public sealed class InboxDesktopState : IDisposable
     /// before the first snapshot: the first load reads the write anyway.</summary>
     public event Action? WrittenElsewhere;
 
+    /// <summary>Raised when the Waiting for card's main act — its button or its
+    /// number key — asks for the Waiting for dialog, with the name the model
+    /// read. Triage opens the dialog filled with it and no follow-up date, so the
+    /// reader confirms or edits before anything is routed.</summary>
+    public event Action<string>? WaitingForAsked;
+
     // --- The snapshot -------------------------------------------------------
 
     /// <summary>Every item the module knows, archived included. Which of them a
@@ -1739,6 +1745,10 @@ public sealed class InboxDesktopState : IDisposable
 
         var outcome = _dismissedTriageCards.Contains((itemId, InboxTriageCardKind.Outcome)) ? null : advice.Outcome;
 
+        // A Waiting for card must name who: one that names no one the route can
+        // write is not shown, whatever advisor sent it.
+        if (outcome is { Outcome: InboxClarifyOutcome.WaitingFor } waitingFor && !new InboxWaitingForDto(waitingFor.Who ?? string.Empty).IsValid) outcome = null;
+
         var current = advice with { Duplicate = duplicate, Plan = plan, Outcome = outcome };
         return current.HasCards ? current : null;
     }
@@ -2093,6 +2103,9 @@ public sealed class InboxDesktopState : IDisposable
             case InboxTriageOutcomeDecision { Outcome: InboxClarifyOutcome.Someday } someday:
                 _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToBrain, SomedayLabel, someday.ItemId, DeleteTasks: false, Deferral(someday.ItemId)));
                 break;
+            case InboxTriageOutcomeDecision { Outcome: InboxClarifyOutcome.WaitingFor } waiting:
+                _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, WaitingForLabel, waiting.ItemId, DeleteTasks: true, Deferral(waiting.ItemId)));
+                break;
             case InboxTriageOutcomeDecision doneNow:
                 _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, DoneNowLabel, doneNow.ItemId, DeleteTasks: true, Deferral(doneNow.ItemId)) { MadeDone = true });
                 break;
@@ -2285,13 +2298,24 @@ public sealed class InboxDesktopState : IDisposable
     }
 
     /// <summary>The outcome card's main act: Someday or Done now, the decision
-    /// the card names, taken as its button and key take it.</summary>
-    public Task TakeTriageOutcomeAsync() => TriageAdvice?.Outcome?.Outcome switch
+    /// the card names, taken as its button and key take it. Waiting for decides
+    /// nothing yet: it asks for the Waiting for dialog (<see cref="WaitingForAsked"/>)
+    /// filled with the name the model read.</summary>
+    public Task TakeTriageOutcomeAsync()
     {
-        InboxClarifyOutcome.Someday => RouteToSomedayAsync(),
-        InboxClarifyOutcome.DoneNow => DoneNowAsync(),
-        _ => Task.CompletedTask,
-    };
+        switch (TriageAdvice?.Outcome)
+        {
+            case { Outcome: InboxClarifyOutcome.Someday }:
+                return RouteToSomedayAsync();
+            case { Outcome: InboxClarifyOutcome.DoneNow }:
+                return DoneNowAsync();
+            case { Outcome: InboxClarifyOutcome.WaitingFor, Who: { } who }:
+                if (SelectedItem is { } item && IsOpen(item) && !RoutingInFlight) WaitingForAsked?.Invoke(who);
+                return Task.CompletedTask;
+            default:
+                return Task.CompletedTask;
+        }
+    }
 
     /// <summary>The duplicate card's main act: merge the item into the backlog
     /// task it repeats, or archive it as a duplicate of the inbox item it
@@ -3892,7 +3916,7 @@ public enum InboxTriageCardKind
     /// <summary>"Group into a plan".</summary>
     Plan,
 
-    /// <summary>"Someday" or "Done now" (local ADR 0054).</summary>
+    /// <summary>"Someday", "Done now" or "Waiting on" (local ADR 0054).</summary>
     Outcome,
 }
 
