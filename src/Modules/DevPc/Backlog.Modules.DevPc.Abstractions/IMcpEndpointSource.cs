@@ -95,6 +95,16 @@ public interface IMcpEndpointSource
     /// credential nobody asked for.</remarks>
     string? CurrentToken { get; }
 
+    /// <summary>
+    /// Replaces the token with a fresh one, at once: the listener refuses the old one
+    /// from its next request on. <see langword="null"/>, or the sentence saying the new
+    /// token holds for this run but could not be saved for next time.
+    /// </summary>
+    /// <remarks>Only from a Rotate a person pressed (local ADR 0052, Phase 0). Every
+    /// registration that names the token itself has to be given the new one; the
+    /// headers helper re-reads it after its next 401.</remarks>
+    string? RotateToken();
+
     /// <summary>Raised when any of the above has changed, so a pane that drew
     /// them can draw them again. The port is a setting a person edits while the
     /// pane is open.</summary>

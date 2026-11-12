@@ -127,6 +127,11 @@ public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
     public string? CurrentToken => _settings.McpServerToken;
 
     /// <inheritdoc />
+    /// <remarks>Not under <see cref="_minting"/>: a rotation is news the page
+    /// redraws on, unlike the first mint an apply makes in passing.</remarks>
+    public string? RotateToken() => _settings.RotateMcpServerToken();
+
+    /// <inheritdoc />
     /// <remarks>
     /// Written out rather than left to the compiler because the <c>add</c> has
     /// something of its own to do — see <see cref="Listen"/>. The combine and

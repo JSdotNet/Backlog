@@ -976,7 +976,8 @@ public sealed class WorkspaceSettingsStore
     /// — and a secret written to disk for a feature nobody switched on is a
     /// secret with no reason to exist. Once written it is kept: the token is
     /// named by every registration that talks to this server, so rotating it
-    /// silently would break them all with nothing on screen to say why.
+    /// silently would break them all with nothing on screen to say why. Only
+    /// <see cref="RotateMcpServerToken"/> replaces it, from a Rotate a person pressed.
     /// </para>
     /// <para>
     /// 256 bits from the OS random source, Base64Url-encoded — the same
@@ -1015,6 +1016,24 @@ public sealed class WorkspaceSettingsStore
         McpChanged?.Invoke();
 
         return McpServerToken;
+    }
+
+    /// <summary>
+    /// Replaces the MCP server's bearer token with a fresh one, at once (local ADR 0052,
+    /// Phase 0). The listener reads the token per request, so the old one is refused
+    /// from the next request on; the headers helper re-reads it after its next 401.
+    /// <para>
+    /// Answers null, or the sentence saying the new token holds for this run but
+    /// could not be saved for next time — the way <see cref="SetMcpServerPort"/> answers.
+    /// </para>
+    /// </summary>
+    public string? RotateMcpServerToken()
+    {
+        McpServerToken = NewToken();
+
+        var error = SaveSettings("Token rotated, but the new one couldn't be saved for next time.");
+        McpChanged?.Invoke();
+        return error;
     }
 
     /// <summary>256 bits, which is what

@@ -671,5 +671,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         public string EnsureToken() => string.Empty;
 
         public string? CurrentToken => null;
+
+        public string? RotateToken() => throw new NotSupportedException();
     }
 }

@@ -161,6 +161,10 @@ public sealed class McpServerWorker : IDisposable
     /// return without waiting on the head's container.</summary>
     private volatile WindowLinkTokens? _windowLinkTokens;
 
+    /// <summary>The limit on failed bearer attempts, kept by the worker rather than a
+    /// listener so a port change does not reset a lockout under way.</summary>
+    private readonly McpBearerLimiter _bearerLimiter;
+
     public McpServerWorker(
         IServiceProvider services,
         WorkspaceSettingsStore settings,
@@ -171,13 +175,15 @@ public sealed class McpServerWorker : IDisposable
 
     /// <summary>The worker with the pop-out pages' files read through
     /// <paramref name="staticWebAssetsManifest"/> when it is given — for a test,
-    /// which has no head output to serve them from. Internal, so the container
+    /// which has no head output to serve them from — and the bearer limit's clock
+    /// <paramref name="time"/>, the system's when null. Internal, so the container
     /// never picks it.</summary>
     internal McpServerWorker(
         IServiceProvider services,
         WorkspaceSettingsStore settings,
         ILogger<McpServerWorker>? log,
-        string? staticWebAssetsManifest)
+        string? staticWebAssetsManifest,
+        TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(settings);
@@ -186,6 +192,8 @@ public sealed class McpServerWorker : IDisposable
         _settings = settings;
         _log = log ?? NullLogger<McpServerWorker>.Instance;
         _staticWebAssetsManifest = staticWebAssetsManifest;
+        _bearerLimiter = new McpBearerLimiter(time);
+        _knownToken = settings.McpServerToken;
 
         // The port can move while the app is running, and somebody changing it
         // is watching to see whether the listener followed.
@@ -329,7 +337,21 @@ public sealed class McpServerWorker : IDisposable
         Changed?.Invoke();
     }
 
-    private void OnGateChanged() => ApplyGates();
+    private void OnGateChanged()
+    {
+        // A rotated token: the old one gets its grace in the bearer limit, so the
+        // registrations still sending it cannot lock the listener out. A first mint
+        // replaces no token, and Retire ignores the null it hands over.
+        var token = _settings.McpServerToken;
+        var previous = Interlocked.Exchange(ref _knownToken, token);
+        if (!string.Equals(previous, token, StringComparison.Ordinal)) _bearerLimiter.Retire(previous);
+
+        ApplyGates();
+    }
+
+    /// <summary>The token as the store last announced it, to tell a rotation apart
+    /// from every other change it announces.</summary>
+    private string? _knownToken;
 
     /// <summary>
     /// Stops a listener and gives its port back.
@@ -825,6 +847,20 @@ public sealed class McpServerWorker : IDisposable
             return;
         }
 
+        // Locked out after too many failed attempts: every bearer request is refused,
+        // the right token included, before the token is even compared (local ADR 0052,
+        // Phase 0).
+        if (_bearerLimiter.RetryAfter() is { } wait)
+        {
+            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.Response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds))
+                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+            // Debug, not Warning: the trip was the warning, and a minute of every
+            // session's retries would bury it.
+            _log.LogDebug("An MCP request was refused with 429: failed bearer attempts locked the listener out.");
+            return;
+        }
+
         var authorization = context.Request.Headers.Authorization;
 
         // Three tokens, each held to its own routes: the MCP token everywhere but the
@@ -859,10 +895,43 @@ public sealed class McpServerWorker : IDisposable
                     ? "An MCP request was refused: no valid bearer token."
                     : "An MCP request was refused: its token does not reach {Path}.",
                 context.Request.Path.Value);
+
+            if (credential == McpCredential.None
+                && _bearerLimiter.Fail(authorization.Count == 0 ? null : authorization[0]) is { } tripped)
+            {
+                // Only a request no token admits counts towards the lockout: a real token
+                // sent where it does not reach is a misconfiguration, not a guess.
+                await RecordLockoutAsync(tripped).ConfigureAwait(false);
+            }
             return;
         }
 
         await next(context).ConfigureAwait(false);
+    }
+
+    /// <summary>Says a lockout started, in the log and in the audit log. A write the
+    /// audit log refuses goes to the log instead: the lockout holds either way.</summary>
+    private async Task RecordLockoutAsync(McpAuditRecord record)
+    {
+        _log.LogWarning(
+            "{Failures} failed bearer attempts within {Window}s: every bearer request is refused for {Lockout}s.",
+            McpBearerLimiter.MaxFailures,
+            McpBearerLimiter.Window.TotalSeconds,
+            McpBearerLimiter.Lockout.TotalSeconds);
+
+        try
+        {
+            if (_services.GetService<IMcpAuditLog>() is { } audit)
+            {
+                await audit.AppendAsync(record, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+#pragma warning disable CA1031 // The audit write must never be the reason the guard fails.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            _log.LogError(ex, "The bearer lockout could not be written to the audit log.");
+        }
     }
 
     /// <summary>The most of a question-hook request the guard reads to tell which tool it

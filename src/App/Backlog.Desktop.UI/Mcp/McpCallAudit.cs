@@ -117,7 +117,7 @@ public static class McpCallAudit
 
     /// <summary>The request's W3C trace id when a trace is running, so a record joins
     /// the request's logs and spans; else a fresh id that is at least unique.</summary>
-    private static string CorrelationId() =>
+    internal static string CorrelationId() =>
         Activity.Current is { IdFormat: ActivityIdFormat.W3C } activity
             ? activity.TraceId.ToHexString()
             : Guid.NewGuid().ToString("N");

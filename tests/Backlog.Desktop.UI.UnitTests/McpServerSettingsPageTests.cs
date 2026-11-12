@@ -172,6 +172,49 @@ public sealed class McpServerSettingsPageTests
     }
 
     [Fact]
+    public void Rotate_replaces_the_token_at_once_and_says_so_in_place()
+    {
+        var server = new FakeMcpServer { IsListening = true, CurrentToken = "first-token" };
+        using var context = Context(server);
+        var page = context.Render<McpServerSettingsPage>();
+
+        Assert.Contains("old one stops working", Text(page, "mcp-server-token-status"), StringComparison.Ordinal);
+
+        page.Find("[data-testid='mcp-server-token-rotate']").Click();
+
+        Assert.Equal(1, server.Rotations);
+        Assert.Equal("rotated-token-1", Copy(page, "mcp-server-token-copy").Text);
+        Assert.Equal(McpServerSettingsPage.HiddenToken, Text(page, "mcp-server-token"));
+        Assert.Equal(McpServerSettingsPage.RotatedNote, Text(page, "mcp-server-token-status"));
+        Assert.Contains("setting__status--ok", page.Find("[data-testid='mcp-server-token-status']").ClassName, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_rotation_not_saved_for_next_time_says_so_instead()
+    {
+        const string NotSaved = "Token rotated, but the new one couldn't be saved for next time.";
+        var server = new FakeMcpServer { IsListening = true, CurrentToken = "first-token", SaveFailure = NotSaved };
+        using var context = Context(server);
+        var page = context.Render<McpServerSettingsPage>();
+
+        page.Find("[data-testid='mcp-server-token-rotate']").Click();
+
+        Assert.Equal(NotSaved, Text(page, "mcp-server-token-status"));
+        Assert.DoesNotContain("setting__status--ok", page.Find("[data-testid='mcp-server-token-status']").ClassName, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void No_token_yet_offers_no_rotate()
+    {
+        var server = new FakeMcpServer { IsListening = true };
+        using var context = Context(server);
+        var page = context.Render<McpServerSettingsPage>();
+
+        Assert.Empty(page.FindAll("[data-testid='mcp-server-token-rotate']"));
+        Assert.Equal(0, server.TokensMinted);
+    }
+
+    [Fact]
     public async Task The_page_redraws_when_the_listener_changes_on_another_thread()
     {
         var server = new FakeMcpServer();
@@ -462,6 +505,18 @@ public sealed class McpServerSettingsPageTests
 
             Unavailable = null;
             Raise();
+        }
+
+        public int Rotations { get; private set; }
+
+        /// <summary>Like the store: replaces the token and says so synchronously,
+        /// answering <see cref="SaveFailure"/> for a store that could not write it.</summary>
+        public string? RotateToken()
+        {
+            Rotations++;
+            CurrentToken = $"rotated-token-{Rotations}";
+            Raise();
+            return SaveFailure;
         }
 
         public string EnsureToken()
