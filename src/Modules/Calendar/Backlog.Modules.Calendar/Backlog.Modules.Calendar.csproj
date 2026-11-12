@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Calendar module — the Calendar bounded context (.devbook/domain/calendar, local
+    ADR 0055). It owns no data (ADR 0055 §6): the Calendar reads layers its sources
+    answer through the ports in its Abstractions, and keeps only its view choices,
+    which the host stores.
+      Services/    CalendarPlansLayer, the Plans layer's read policy: when a read of
+                   ICalendarPlans is owed, and what a failed one leaves
+      Extensions/  AddCalendarModule()
+    This project may reference the shared kernel and its own Abstractions, and
+    nothing else in the solution.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Calendar</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Calendar.Abstractions\Backlog.Modules.Calendar.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddCalendarModule(); the read policy knows nothing about the container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.Calendar.UnitTests" />
+  </ItemGroup>
+
+</Project>

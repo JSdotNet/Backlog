@@ -2,8 +2,8 @@ namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
 /// The ids the Tasks module's views register in the surface catalog, and the query
-/// keys they accept (local ADR 0043 §1, §6). Tasks, Board and Calendar are three
-/// views of one task list, so the module registers all three.
+/// keys they accept (local ADR 0043 §1, §6). Tasks and Board are two views of one task
+/// list, so the module registers both. The Calendar's id is the Calendar module's.
 /// </summary>
 public static class TasksSurfaceQuery
 {
@@ -12,9 +12,6 @@ public static class TasksSurfaceQuery
 
     /// <summary>The filtered tasks in columns of cards.</summary>
     public const string BoardId = "board";
-
-    /// <summary>The filtered tasks on a month or a week by their due date.</summary>
-    public const string CalendarId = "calendar";
 
     /// <summary><c>plan=&lt;tag&gt;</c>: open on that plan chip, with or without its
     /// <c>+</c> (local ADR 0043 §6). Tasks and Board.</summary>

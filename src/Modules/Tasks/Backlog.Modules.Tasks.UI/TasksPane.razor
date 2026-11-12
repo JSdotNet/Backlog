@@ -576,19 +576,19 @@
                         <TaskCalendar @ref="_calendar"
                                       Tasks="@CalendarTasks()"
                                       Today="@Today"
-                                      Range="@CalendarRange"
-                                      RangeChanged="OnCalendarRangeChangedAsync"
+                                      Range="@CalendarInputs.Range"
+                                      RangeChanged="@CalendarInputs.RangeChanged"
                                       MyDayCount="@MyDayCount"
                                       SelectedId="@SelectedTaskId"
                                       OnOpen="OnEntrySelectedAsync"
                                       OnDueChanged="OnCalendarDueChangedAsync"
-                                      PlansAvailable="@CalendarPlansAvailable"
-                                      ShowPlans="@(_calendarPlans?.Shown ?? false)"
-                                      ShowPlansChanged="OnShowPlansChangedAsync"
+                                      PlansAvailable="@CalendarInputs.Plans.Available"
+                                      ShowPlans="@CalendarInputs.Plans.Shown"
+                                      ShowPlansChanged="@CalendarInputs.Plans.ShownChanged"
                                       Plans="@CalendarPlanWindows()"
-                                      Milestones="@CalendarMilestones()"
-                                      ShelfPlans="@CalendarShelf()"
-                                      OnPlanStarted="OnCalendarPlanStartedAsync"
+                                      Milestones="@CalendarInputs.Plans.Milestones"
+                                      ShelfPlans="@CalendarInputs.Plans.Shelf"
+                                      OnPlanStarted="@CalendarInputs.Plans.OnStarted"
                                       EventsAvailable="@CalendarEventsAvailable"
                                       ShowEvents="@(_calendarEvents?.Shown ?? false)"
                                       ShowEventsChanged="OnShowEventsChangedAsync"
@@ -596,7 +596,7 @@
                                       KeyDates="@CalendarKeyDates()"
                                       HoursAvailable="true"
                                       HoursBlocks="@CalendarHoursBlocks()"
-                                      CapacityOn="@CalendarCapacityOn"
+                                      CapacityOn="@CalendarInputs.CapacityOn"
                                       OnHoursChanged="OnCalendarHoursChangedAsync"
                                       AriaLabel="Tasks by due date"
                                       TestId="task-calendar" />
@@ -876,22 +876,16 @@
     /// focus goes back to its selected chip where it would go back to a row.</summary>
     private TaskCalendar? _calendar;
 
-    /// <summary>How much of the calendar shows — its Month | Week control. The shell
-    /// holds the choice, as it holds the Board's columns, and hands it back here.</summary>
+    /// <summary>What the Calendar hands the Tasks part (local ADR 0055 §3) — the range it
+    /// keeps, the Plans layer it reads and the hours worked a day; null outside the
+    /// Calendar.</summary>
     [Parameter]
-    public CalendarRange CalendarRange { get; set; } = CalendarRange.Month;
+    public CalendarLayerInputs? CalendarLayer { get; set; }
 
-    /// <summary>Raised when the reader picks the other range in the calendar's bar.</summary>
-    [Parameter]
-    public EventCallback<CalendarRange> CalendarRangeChanged { get; set; }
-
-    private async Task OnCalendarRangeChangedAsync(CalendarRange range)
-    {
-        // Taken at once, as the Board's columns are, so a host that does not hand
-        // the choice back still sees the calendar keep it.
-        CalendarRange = range;
-        await CalendarRangeChanged.InvokeAsync(range);
-    }
+    /// <summary>The Calendar's inputs, or none: a month, no plans and no capacity. The
+    /// calendar takes a range press at once on its own, so a host that does not hand the
+    /// choice back still sees it kept.</summary>
+    private CalendarLayerInputs CalendarInputs => CalendarLayer ?? CalendarLayerInputs.None;
 
     /// <summary>The open entry's panel, held for the same reason and in the other
     /// direction: it is where the focus goes when the reader tabs off the selected
@@ -1004,13 +998,7 @@
         State.Changed += HandleStateChanged;
         Features.Changed += HandleFeaturesChanged;
 
-        _calendarPlans = Services.GetService(typeof(ICalendarPlans)) as ICalendarPlans;
-        if (_calendarPlans is not null) _calendarPlans.Changed += HandleCalendarPlansChanged;
-
         _calendarEvents = Services.GetService(typeof(ICalendarEvents)) as ICalendarEvents;
-
-        _calendarCapacity = Services.GetService(typeof(ICalendarCapacity)) as ICalendarCapacity;
-        if (_calendarCapacity is not null) _calendarCapacity.Changed += HandleCalendarCapacityChanged;
 
         _sessionRequests = new TasksSessionRequests(
             Services.GetService(typeof(IEntrySessionRequests)) as IEntrySessionRequests,
@@ -1208,20 +1196,16 @@
             _ => false
         };
 
-    /// <summary>A feature switched — the roadmap or the events among them — so the
-    /// Calendar's plans and events are read again before it next draws them. That read is
-    /// what brings the "Show events" box in and out as the events area is switched.</summary>
+    /// <summary>A feature switched — the events among them — so the Calendar's events are
+    /// read again before it next draws them. That read is what brings the "Show events"
+    /// box in and out as the events area is switched. The plans are the Calendar's own
+    /// to read again.</summary>
     private void HandleFeaturesChanged()
     {
-        _calendarPlansStale = true;
         _calendarEventsStale = true;
         _ = InvokeAsync(async () =>
         {
-            if (Layout == TasksLayout.Calendar)
-            {
-                await ReadCalendarPlansAsync();
-                await ReadCalendarEventsAsync();
-            }
+            if (Layout == TasksLayout.Calendar) await ReadCalendarEventsAsync();
             StateHasChanged();
         });
 
@@ -1290,13 +1274,9 @@
     }
 
     // --- Planned hours on the Calendar -------------------------------------------
-
-    /// <summary>
-    /// The hours a Calendar day is set against — the roadmap's working week and days
-    /// off, through Tasks' own port, read-only — or null in a host that composed none,
-    /// when a day total stands alone and is never over.
-    /// </summary>
-    private ICalendarCapacity? _calendarCapacity;
+    // The hours a day is set against come from the Calendar (CalendarInputs.CapacityOn),
+    // which redraws the part when the working week changes; with none, a day total stands
+    // alone and is never over.
 
     /// <summary>Every block of planned hours in the filtered rows, each on its day: the
     /// filter bar narrows them as it narrows the chips, and the repository mark follows
@@ -1310,9 +1290,6 @@
                 held.Block.Hours,
                 State.RepositoryMarkClass(held.Row)))
         ];
-
-    private Func<DateOnly, decimal?>? CalendarCapacityOn =>
-        _calendarCapacity is { } capacity ? day => capacity.HoursOn(day) : null;
 
     /// <summary>Hours set, changed or removed on a Calendar day: written to the entry
     /// through the module, as the detail panel's Planned hours writes them. The
@@ -1329,12 +1306,6 @@
         }
 
         await State.SetPlannedHoursAsync(row, change.On, change.Hours);
-    }
-
-    private void HandleCalendarCapacityChanged()
-    {
-        if (Layout != TasksLayout.Calendar) return;
-        _ = InvokeAsync(StateHasChanged);
     }
 
     // --- Session requests (local ADR 0038) ---------------------------------
@@ -1632,131 +1603,22 @@
                                Title="@SessionRequestTitle(request)"
                                TestId="@testId" />;
 
-    /// <summary>
-    /// The roadmap's plans for the Calendar, through Tasks' own port — null in a host
-    /// that composed no roadmap, when the Calendar offers no plans at all. The port's
-    /// adapter reads Roadmap's abstractions; nothing here sizes or places a window.
-    /// </summary>
-    private ICalendarPlans? _calendarPlans;
-
-    /// <summary>The plans as last read, and whether a read is owed before the Calendar
-    /// next draws them.</summary>
-    private Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto _calendarPlansRead =
-        Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto.Empty;
-    private bool _calendarPlansStale = true;
-    private DateOnly? _calendarPlansReadOn;
-    private TasksLayout? _calendarPlansLayout;
-
-    private bool CalendarPlansAvailable => _calendarPlans is not null && _calendarPlansRead.Available;
-
-    /// <summary>
-    /// Reads the plans while the Calendar shows them: on arriving at the Calendar, when
-    /// the plan, its work or the pace changed, and when the day did — not on every
-    /// render, because reading gathers the backlog per plan.
-    /// </summary>
-    protected override async Task OnParametersSetAsync()
-    {
-        var arrived = _calendarPlansLayout != Layout && Layout == TasksLayout.Calendar;
-        _calendarPlansLayout = Layout;
-
-        if (Layout == TasksLayout.Calendar && (arrived || _calendarPlansStale || _calendarPlansReadOn != Today))
-        {
-            await ReadCalendarPlansAsync();
-        }
-
-        if (Layout == TasksLayout.Calendar && (arrived || _calendarEventsStale || _calendarEventsReadOn != Today))
-        {
-            await ReadCalendarEventsAsync();
-        }
-    }
-
-    private async Task ReadCalendarPlansAsync()
-    {
-        if (_calendarPlans is null) return;
-
-        _calendarPlansStale = false;
-        _calendarPlansReadOn = Today;
-        try
-        {
-            _calendarPlansRead = await _calendarPlans.ReadAsync(Today);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // A plan that cannot be read — a file gone, a document that does not parse —
-            // leaves the tasks on the Calendar; the bars are what goes missing, not the
-            // month or the pane.
-            _calendarPlansRead = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto.Empty;
-        }
-    }
-
-    private void HandleCalendarPlansChanged()
-    {
-        _calendarPlansStale = true;
-        if (Layout != TasksLayout.Calendar) return;
-
-        _ = InvokeAsync(async () =>
-        {
-            await ReadCalendarPlansAsync();
-            StateHasChanged();
-        });
-    }
-
-    private async Task OnShowPlansChangedAsync(bool shown)
-    {
-        if (_calendarPlans is null) return;
-
-        _calendarPlans.SetShown(shown);
-        if (shown) await ReadCalendarPlansAsync();
-    }
-
-    /// <summary>Each window as a bar, wearing the band colour of the first of its
-    /// repositories that has one — <c>RepositoryColours</c> is empty while the colours
-    /// are hidden, so the bar is then neutral grey.</summary>
+    /// <summary>Each window the Calendar handed down as a bar, wearing the band colour of
+    /// the first of its repositories that has one — <c>RepositoryColours</c> is empty while
+    /// the colours are hidden, so the bar is then neutral grey. The colours are this
+    /// window's, which the Calendar cannot see.</summary>
     private IReadOnlyList<CalendarPlan> CalendarPlanWindows()
     {
         var colours = State.RepositoryColours;
         return
         [
-            .. _calendarPlansRead.Windows.Select(window => new CalendarPlan(
-                window.Id.ToString("N"),
-                window.Title,
-                window.Tag,
-                window.Start,
-                window.End,
-                window.DonePoints,
-                window.TotalPoints,
-                window.RepositoryAliases
+            .. CalendarInputs.Plans.Windows.Select(window => window.Plan with
+            {
+                Band = window.RepositoryAliases
                     .Select(alias => colours.TryGetValue(alias, out var band) ? band : (int?)null)
-                    .FirstOrDefault(band => band is not null)))
+                    .FirstOrDefault(band => band is not null),
+            })
         ];
-    }
-
-    private IReadOnlyList<CalendarMilestone> CalendarMilestones() =>
-        [.. _calendarPlansRead.Milestones.Select(milestone => new CalendarMilestone(milestone.Id.ToString("N"), milestone.Title, milestone.On))];
-
-    private IReadOnlyList<CalendarShelfPlan> CalendarShelf() =>
-        [
-            .. _calendarPlansRead.Shelf.Select(plan => new CalendarShelfPlan(
-                plan.Tag,
-                plan.Title,
-                plan.TaskCount,
-                plan.TotalEffort,
-                plan.UnestimatedCount))
-        ];
-
-    /// <summary>A shelf plan dropped on a day: the roadmap places its window from there,
-    /// by its own placement. A refusal is said in a toast; the plan stays on the shelf.
-    /// The redraw comes from the plan's own change signal, which a stored window raises
-    /// and a refusal does not, so the plan is read once.</summary>
-    private async Task OnCalendarPlanStartedAsync(CalendarPlanStart start)
-    {
-        if (_calendarPlans is null) return;
-
-        var refusal = await _calendarPlans.StartAsync(start.Tag, start.Start);
-        if (refusal is not null)
-        {
-            Toasts.Publish(ToastMessage.Warning($"+{start.Tag} could not be planned: {refusal}", "calendar-plan-refused"));
-        }
     }
 
     /// <summary>
@@ -1777,8 +1639,25 @@
         Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarEventsDto.Off;
     private bool _calendarEventsStale = true;
     private DateOnly? _calendarEventsReadOn;
+    private TasksLayout? _calendarLayout;
 
     private bool CalendarEventsAvailable => _calendarEvents is not null && _calendarEventsRead.Available;
+
+    /// <summary>
+    /// Reads the events while the Calendar shows them: on arriving at the Calendar, when a
+    /// read is owed, and when the day changed — not on every render. The plans are the
+    /// Calendar's own to read.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        var arrived = _calendarLayout != Layout && Layout == TasksLayout.Calendar;
+        _calendarLayout = Layout;
+
+        if (Layout == TasksLayout.Calendar && (arrived || _calendarEventsStale || _calendarEventsReadOn != Today))
+        {
+            await ReadCalendarEventsAsync();
+        }
+    }
 
     private async Task ReadCalendarEventsAsync()
     {
@@ -5738,8 +5617,6 @@
         // the list, Ask AI's Tasks area — reads them with it applied again.
         State.SetStatusFilterSuspended(false);
         Features.Changed -= HandleFeaturesChanged;
-        if (_calendarPlans is not null) _calendarPlans.Changed -= HandleCalendarPlansChanged;
-        if (_calendarCapacity is not null) _calendarCapacity.Changed -= HandleCalendarCapacityChanged;
         _sessionRequests.Changed -= HandleSessionRequestsChanged;
         _sessionRequests.Dispose();
         _planSessions.Changed -= HandleSessionRequestsChanged;

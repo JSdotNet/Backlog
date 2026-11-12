@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.Tasks;
 /// task's sessions and pull requests (local ADR 0043 §3).
 /// <para>
 /// One per window, with the window's view state. The main window's shell fills it when
-/// it opens, and the Tasks, Board and Calendar surfaces read it as they draw; a window
+/// it opens, and the Tasks and Board surfaces and the Calendar's Tasks part read it as they draw; a window
 /// whose shell fills nothing draws the list without them, as a host that composes none
 /// of them does.
 /// </para>

@@ -1,10 +1,10 @@
-namespace Backlog.Modules.Tasks.Abstractions.Services;
+namespace Backlog.Modules.Calendar.Abstractions.Services;
 
 /// <summary>
-/// How many hours the person works on a day, as the Tasks Calendar sets a day's planned
-/// hours against it.
+/// The hours worked a day, as the Calendar sets a day's planned hours against it (local
+/// ADR 0055 §2).
 /// <para>
-/// A port on Tasks' own surface, the shape <see cref="ICalendarPlans"/> takes: an
+/// A port on the Calendar's own surface, the shape <see cref="ICalendarPlans"/> takes: an
 /// infrastructure adapter answers it from the Roadmap's Hours and Days off settings
 /// through Roadmap's own abstractions, read-only. Nothing the Calendar plans is handed
 /// back the other way — the planned hours never reach the roadmap's pace or its

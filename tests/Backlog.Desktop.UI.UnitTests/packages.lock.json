@@ -817,6 +817,8 @@
           "Backlog.Infrastructure.Sqlite": "[1.0.0, )",
           "Backlog.Infrastructure.Sync": "[1.0.0, )",
           "Backlog.Modules.Brain.UI": "[1.0.0, )",
+          "Backlog.Modules.Calendar": "[1.0.0, )",
+          "Backlog.Modules.Calendar.UI": "[1.0.0, )",
           "Backlog.Modules.Capture": "[1.0.0, )",
           "Backlog.Modules.Dashboard": "[1.0.0, )",
           "Backlog.Modules.DevPc.Abstractions": "[1.0.0, )",
@@ -841,6 +843,7 @@
           "Backlog.Infrastructure.Mcp": "[1.0.0, )",
           "Backlog.Infrastructure.Sync": "[1.0.0, )",
           "Backlog.Modules.Brain.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Calendar.UI": "[1.0.0, )",
           "Backlog.Modules.Capture.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Capture.UI": "[1.0.0, )",
           "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
@@ -974,6 +977,7 @@
           "Backlog.Infrastructure.Devbook": "[1.0.0, )",
           "Backlog.Infrastructure.GitHub": "[1.0.0, )",
           "Backlog.Infrastructure.Sqlite": "[1.0.0, )",
+          "Backlog.Modules.Calendar.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Capture.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Backlog.Modules.DevPc.Abstractions": "[1.0.0, )",
@@ -1114,6 +1118,28 @@
           "Microsoft.AspNetCore.Components.Web": "[10.0.14, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )"
+        }
+      },
+      "backlog.modules.calendar": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Calendar.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
+        }
+      },
+      "backlog.modules.calendar.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.calendar.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Calendar.Abstractions": "[1.0.0, )",
+          "Backlog.UI.Components": "[1.0.0, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.14, )"
         }
       },
       "backlog.modules.capture": {

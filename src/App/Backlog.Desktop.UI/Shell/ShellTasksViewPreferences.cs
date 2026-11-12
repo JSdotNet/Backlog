@@ -1,13 +1,12 @@
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.FileSystem;
-using Backlog.UI.Components.Tasks;
 
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
-/// The Board's columns and the Calendar's range, kept per device in the shell's own
-/// navigation file beside the view it reopens on — the Tasks views'
-/// <see cref="ITasksViewPreferences"/>.
+/// The Board's columns, kept per device in the shell's own navigation file beside the
+/// view it reopens on — the Tasks views' <see cref="ITasksViewPreferences"/>. The
+/// Calendar's range is kept beside them by <see cref="ShellCalendarViewPreferences"/>.
 /// <para>
 /// The file keeps each by its enum member's name, below the module that owns the
 /// vocabulary. A name this build does not define — a newer build's, or a number — reads
@@ -18,11 +17,7 @@ public sealed class ShellTasksViewPreferences(ShellNavigationStore store) : ITas
 {
     public TaskBoardGrouping BoardGrouping => Remembered(store.BoardColumns, TaskBoardGrouping.Status);
 
-    public CalendarRange CalendarRange => Remembered(store.CalendarRange, CalendarRange.Month);
-
     public void SetBoardGrouping(TaskBoardGrouping grouping) => store.SetBoardColumns(grouping.ToString());
-
-    public void SetCalendarRange(CalendarRange range) => store.SetCalendarRange(range.ToString());
 
     /// <summary>
     /// A choice stored by its enum name, read back as that member, or

@@ -591,6 +591,66 @@ public class ModuleBoundaryTests
     }
 
     /// <summary>
+    /// Calendar is one module trio (local ADR 0055 §6): <c>Backlog.Modules.Calendar</c>, its
+    /// <c>.Abstractions</c> and its <c>.UI</c>, on the Events precedent above. It reads every
+    /// layer through a port it owns, so the core and the UI reach nothing under
+    /// <c>src/Modules</c> but the Calendar's own Abstractions, and the Abstractions reach
+    /// nothing there at all — no Tasks, Roadmap or Events project. And no project under
+    /// <c>src/Modules</c> outside the Calendar's folder references any of the three: the
+    /// sources do not know the Calendar draws them; Tasks offers its part through the shared
+    /// library and Roadmap is read by an infrastructure adapter.
+    /// </summary>
+    [Fact]
+    public void Backlog_Modules_Calendar_is_one_trio_that_no_other_module_references()
+    {
+        const string module = "Backlog.Modules.Calendar";
+        const string abstractions = "Backlog.Modules.Calendar.Abstractions";
+        const string ui = "Backlog.Modules.Calendar.UI";
+        const string tests = "Backlog.Modules.Calendar.UnitTests";
+        string[] trio = [module, abstractions, ui];
+
+        var modules = Repository.ProjectsUnder("src", "Modules")
+            .ToDictionary(project => Path.GetFileNameWithoutExtension(project.Name), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var name in trio)
+        {
+            Assert.True(modules.ContainsKey(name), $"{name} is not under src/Modules/Calendar.");
+            Assert.Equal("Calendar", modules[name].Directory!.Parent!.Name);
+        }
+
+        foreach (var name in new[] { module, ui })
+        {
+            var reached = Repository.ReferencedProjectNames(modules[name])
+                .Where(modules.ContainsKey)
+                .ToList();
+
+            Assert.Equal([abstractions], reached, StringComparer.OrdinalIgnoreCase);
+        }
+
+        Assert.DoesNotContain(Repository.ReferencedProjectNames(modules[abstractions]), modules.ContainsKey);
+
+        var referencingTheTrio = modules.Values
+            .Where(project => project.Directory!.Parent!.Name != "Calendar")
+            .Where(project => Repository.ReferencedProjectNames(project).Any(name => trio.Contains(name, StringComparer.OrdinalIgnoreCase)))
+            .Select(project => project.Name)
+            .ToList();
+
+        Assert.True(
+            referencingTheTrio.Count == 0,
+            "A project under src/Modules references the Calendar; no source context knows the Calendar draws it: "
+            + string.Join(", ", referencingTheTrio));
+
+        var solution = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.sln"));
+        var filter = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.WithoutAppHeads.slnf"));
+
+        foreach (var name in new[] { module, abstractions, ui, tests })
+        {
+            Assert.Contains($"\\{name}.csproj\"", solution, StringComparison.Ordinal);
+            Assert.Contains($"\\\\{name}.csproj\"", filter, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
     /// The join between Capture and the Inbox runs through
     /// <c>Backlog.Infrastructure.Capture</c> and nowhere else: it answers
     /// Capture's ports — declared in the module implementation, next to the
@@ -686,6 +746,46 @@ public class ModuleBoundaryTests
         Assert.Contains(reached, entry =>
             entry.Assembly.Equals(EventsImplementation, StringComparison.OrdinalIgnoreCase)
             && entry.Type.EndsWith(".IKnowledgeEventRepository", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The Calendar's Plans layer and working week are answered in
+    /// <c>Backlog.Infrastructure.FileSystem</c>, under <c>Calendar/</c>, through the
+    /// Calendar's own ports and Roadmap's <em>published</em> surface (local ADR 0055 §2) — never
+    /// Roadmap's implementation, and nothing of Tasks: the ports moved out of Tasks with this
+    /// module. The same compiled-assembly scan as the events join above, for the same reason:
+    /// FileSystem references Roadmap's implementation for other joins, so a project-reference
+    /// rule cannot draw the line.
+    /// </summary>
+    [Fact]
+    public void Backlog_Infrastructure_FileSystem_answers_the_calendars_plans_through_roadmaps_published_surface()
+    {
+        var reached = TypesNamedFrom(
+            "Backlog.Infrastructure.FileSystem",
+            "Backlog.Infrastructure.FileSystem.Calendar",
+            out var scanned);
+
+        Assert.Contains("RoadmapCalendarPlans", scanned);
+        Assert.Contains("RoadmapCalendarCapacity", scanned);
+        Assert.Contains("CalendarCrossContextAdapterRegistration", scanned);
+
+        // The adapters do answer the Calendar: through its own port.
+        Assert.Contains(reached, entry =>
+            entry.Assembly.Equals("Backlog.Modules.Calendar.Abstractions", StringComparison.OrdinalIgnoreCase)
+            && entry.Type.EndsWith(".ICalendarPlans", StringComparison.Ordinal));
+
+        string[] forbidden = ["Backlog.Modules.Roadmap", "Backlog.Modules.Tasks", "Backlog.Modules.Tasks.Abstractions"];
+        var offenders = reached
+            .Where(entry => forbidden.Contains(entry.Assembly, StringComparer.OrdinalIgnoreCase))
+            .Select(entry => $"{entry.Member} names {entry.Type}")
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "Backlog.Infrastructure.FileSystem.Calendar reads Roadmap's implementation or Tasks; it reads the Calendar's ports "
+            + "and Roadmap's published surface only:\n"
+            + string.Join('\n', offenders));
     }
 
     private const string EventsImplementation = "Backlog.Modules.Events";

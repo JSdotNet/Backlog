@@ -1,15 +1,15 @@
+using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
 
-namespace Backlog.Infrastructure.FileSystem.Roadmap;
+namespace Backlog.Infrastructure.FileSystem.Calendar;
 
 /// <summary>
-/// ADAPTER — answers Tasks' <see cref="ICalendarCapacity"/> from the working week the
-/// Roadmap keeps (local ADR 0019): its Hours and its Days off, read through
+/// ADAPTER — answers the Calendar's <see cref="ICalendarCapacity"/> (local ADR 0055 §2)
+/// from the working week the Roadmap keeps (local ADR 0019): its Hours and its Days off, read through
 /// <see cref="IPlanningVelocitySettings.WorkingWeek"/> and never written.
 /// <para>
 /// One way only. The Calendar's planned hours are the person's own plan; nothing here,
-/// and nothing in Tasks, hands them to the roadmap, so a block can never move a window
+/// and nothing in the Calendar or in Tasks, hands them to the roadmap, so a block can never move a window
 /// or change a pace.
 /// </para>
 /// <para>

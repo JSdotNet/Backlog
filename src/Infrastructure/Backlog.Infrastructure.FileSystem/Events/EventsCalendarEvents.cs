@@ -10,7 +10,7 @@ namespace Backlog.Infrastructure.FileSystem.Events;
 /// <summary>
 /// ADAPTER — answers Tasks' <see cref="ICalendarEvents"/> from the Events context's
 /// published read contract, <see cref="IKnowledgeEventReader"/> (local ADR 0050 §7), the way
-/// <see cref="Roadmap.RoadmapCalendarPlans"/> answers the plans from Roadmap's.
+/// <see cref="Calendar.RoadmapCalendarPlans"/> answers the plans from Roadmap's.
 /// <para>
 /// It holds no event rule: which events are decided is the contract's answer. It only puts
 /// them in the Calendar's words — Considering tentative and the rest filled, the place as the

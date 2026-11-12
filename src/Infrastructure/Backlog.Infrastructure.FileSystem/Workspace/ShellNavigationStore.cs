@@ -237,20 +237,20 @@ public sealed class ShellNavigationStore
     /// </summary>
     public string BoardColumns { get; private set; }
 
-    /// <summary>Whether the Tasks Calendar draws the roadmap's plans — its "Show plans"
+    /// <summary>Whether the Calendar draws the roadmap's plans — its "Show plans"
     /// box: off until the reader turns it on on this device. A file that carries no
     /// choice reads as off; one that says <c>false</c>, as a file from when the box
     /// was on by default does once it was turned off, reads as off too.</summary>
     public bool CalendarPlansShown { get; private set; }
 
-    /// <summary>Whether the Tasks Calendar draws the knowledge events — its "Show events"
+    /// <summary>Whether the Calendar draws the knowledge events — its "Show events"
     /// box (local ADR 0050 §7): off until the reader turns it on on this device, and a
     /// choice apart from <see cref="CalendarPlansShown"/>. A file that carries no choice
     /// reads as off.</summary>
     public bool CalendarEventsShown { get; private set; }
 
     /// <summary>
-    /// The Tasks Calendar's range — <c>Month</c> or <c>Week</c> — as the reader last
+    /// The Calendar's range — <c>Month</c> or <c>Week</c> — as the reader last
     /// left it on this device; <see cref="DefaultCalendarRange"/> until changed. A name,
     /// for the reason <see cref="BoardColumns"/> is one: the shell reads a name it does
     /// not know as Month. Only the range is kept, never the date it showed.

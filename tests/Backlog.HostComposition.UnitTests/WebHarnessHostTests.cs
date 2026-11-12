@@ -495,6 +495,41 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// The Calendar is its own module's view (local ADR 0055): one view-group surface with
+    /// id <c>calendar</c> at order 30 from Calendar.UI, the Tasks part it hosts, its Plans and
+    /// working-week ports answered from Roadmap under the Calendar's namespace, one Plans
+    /// layer per window, and its view choices over the shell's file. The Events layer still
+    /// reaches it through Tasks' port until it moves.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_the_calendar_surface_and_its_layers()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+        using var first = harness.Services.CreateScope();
+        using var second = harness.Services.CreateScope();
+        var services = first.ServiceProvider;
+
+        var calendar = Assert.Single(services.GetServices<Backlog.SharedKernel.ShellSurface>(), surface => surface.Id == "calendar");
+        Assert.Equal(Backlog.SharedKernel.ShellSurfaceGroup.View, calendar.Group);
+        Assert.Equal(30, calendar.Order);
+        Assert.Equal("Backlog.Modules.Calendar.UI", calendar.Component.Assembly.GetName().Name);
+
+        Assert.Equal("TasksCalendarPart", services.GetRequiredService<Backlog.UI.Components.Calendar.CalendarTasksLayer>().Component.Name);
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Calendar.RoadmapCalendarPlans>(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlans>());
+        Assert.Same(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarCapacity>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarCapacity>());
+        Assert.NotSame(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlansLayer>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlansLayer>());
+        Assert.IsType<Backlog.Desktop.UI.Shell.ShellCalendarViewPreferences>(
+            services.GetRequiredService<Backlog.Modules.Calendar.UI.ICalendarViewPreferences>());
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Events.EventsCalendarEvents>(
+            services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ICalendarEvents>());
+    }
+
+    /// <summary>
     /// The mobile harness, which has no <c>ITaskRepository</c> and never will:
     /// the phone carries the Inbox, not a local task database. It composes the
     /// pairing surface and nothing of replication, and it has to start.
