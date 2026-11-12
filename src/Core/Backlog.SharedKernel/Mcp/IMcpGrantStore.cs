@@ -16,13 +16,16 @@ public interface IMcpGrantStore
     /// <summary>The grant with <paramref name="id"/>, or null when there is none.</summary>
     McpGrant? Find(string id);
 
-    /// <summary>A new grant at version 1, with a new id and its own sealed secret.</summary>
+    /// <summary>A new grant at version 1, with a new id and its own sealed secret. Refuses
+    /// any scope outside <see cref="McpScopes.Grantable"/> — <see cref="McpScopes.DevbookDecide"/>
+    /// among them — with an <see cref="ArgumentException"/> (local ADR 0052 §4).</summary>
     McpGrant Create(string name, IReadOnlyList<string> scopes, string createdBy);
 
     /// <summary>Replaces the grant's scopes and raises its version, so a token minted under the
     /// old scopes is refused on its next request and the client's headers helper fetches one
     /// with the new scopes. Null when there is no such grant, or it is revoked: a revoked grant
-    /// stays as it was revoked.</summary>
+    /// stays as it was revoked. Refuses any scope outside <see cref="McpScopes.Grantable"/> with
+    /// an <see cref="ArgumentException"/>, as <see cref="Create"/> does.</summary>
     McpGrant? SetScopes(string id, IReadOnlyList<string> scopes);
 
     /// <summary>Marks the grant revoked and raises its version, so a token minted before the

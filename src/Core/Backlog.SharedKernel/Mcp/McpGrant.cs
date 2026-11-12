@@ -14,7 +14,8 @@ namespace Backlog.SharedKernel.Mcp;
 /// <param name="Id">The label a registration carries: <c>g_</c> and 16 random characters.
 /// A label, not a password (§5).</param>
 /// <param name="Name">What the person sees the grant as in Settings.</param>
-/// <param name="Scopes">What the grant's tokens claim. Not enforced yet: scope policies are §4's.</param>
+/// <param name="Scopes">What the grant's tokens claim, from <see cref="McpScopes.Grantable"/>; the
+/// listener holds every tool and route to one of them by a named policy (§4).</param>
 /// <param name="Version">Starts at 1; every revoke and every change of scopes raises it by one.</param>
 /// <param name="CreatedBy">Who created it, for the Agents card.</param>
 /// <param name="CreatedAt">When it was created.</param>

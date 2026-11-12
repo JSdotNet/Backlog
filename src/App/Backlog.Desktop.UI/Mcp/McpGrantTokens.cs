@@ -103,7 +103,9 @@ public sealed class McpGrantTokens
             Claims = new Dictionary<string, object>(StringComparer.Ordinal)
             {
                 [JwtRegisteredClaimNames.Sub] = grant.Id,
-                [McpGrantClaims.Scope] = string.Join(' ', grant.Scopes),
+                // Only scopes a grant may hold: devbook:decide, or a name no policy knows, is
+                // never written into a token, whatever the stored grant says (ADR 0052 §4).
+                [McpGrantClaims.Scope] = string.Join(' ', grant.Scopes.Where(McpScopes.IsGrantable).Distinct(StringComparer.Ordinal)),
                 [McpGrantClaims.Version] = grant.Version
             },
             SigningCredentials = new SigningCredentials(_key, SecurityAlgorithms.HmacSha256)
@@ -157,6 +159,9 @@ public sealed class McpGrantTokens
         {
             return McpGrantValidation.Refused(McpGrantRefusal.StaleVersion);
         }
+
+        // The grant as the audit log names it, so every call it makes says which grant made it.
+        result.ClaimsIdentity.AddClaim(new Claim(McpScopePolicies.CallerClaim, McpScopePolicies.GrantCaller(grant)));
 
         return McpGrantValidation.Valid(grant, new ClaimsPrincipal(result.ClaimsIdentity));
     }

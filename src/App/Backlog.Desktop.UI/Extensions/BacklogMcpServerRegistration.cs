@@ -6,9 +6,11 @@ using Backlog.Infrastructure.Mcp;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Mcp;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Backlog.Desktop.UI.Extensions;
@@ -120,14 +122,19 @@ public static class BacklogMcpServerRegistration
     /// </para>
     /// </summary>
     /// <param name="services">The host's container.</param>
-    /// <param name="caller">Who the host's accepted calls come from, as the audit log
-    /// names them: <see cref="McpAudit.SharedTokenCaller"/> in the desktop app, whose
-    /// listener admits only the shared bearer token, and
-    /// <see cref="McpAudit.HarnessCaller"/> in the web harness, which asks for none.</param>
+    /// <param name="caller">Who a call comes from when its principal names nobody, as the
+    /// audit log names it: <see cref="McpAudit.SharedTokenCaller"/> in the desktop app and
+    /// <see cref="McpAudit.HarnessCaller"/> in the web harness. A principal the host put on the
+    /// request names its own caller — a grant by its name and id (local ADR 0052 §3) — and the
+    /// record says that instead.</param>
     public static IMcpServerBuilder AddBacklogMcpServer(this IServiceCollection services, string caller)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(caller);
+
+        // The scope policies the call filter below and the desktop listener's guard both ask
+        // (local ADR 0052 §4).
+        services.AddMcpScopePolicies();
 
         return services
             .AddMcpServer()
@@ -142,7 +149,10 @@ public static class BacklogMcpServerRegistration
             // answered.
             .WithRequestFilters(filters => filters.AddCallToolFilter(next => McpCallAudit.Filter(next, caller)))
             .WithRequestFilters(ApplyFeatureGates)
-            // After the gates, so a switched-off tool is unknown before its
+            // After the gates, so a switched-off tool is unknown whatever the caller holds,
+            // and before the argument check, so a call no scope admits reads nothing.
+            .WithRequestFilters(filters => filters.AddCallToolFilter(ApplyScopePolicy))
+            // After the scopes, so a switched-off tool is unknown before its
             // arguments are read. See ToolArguments for why the surface's are read
             // here at all: the SDK answers a binding failure with no reason.
             .WithRequestFilters(filters => filters.AddCallToolFilter(ToolArguments.Filter));
@@ -201,6 +211,39 @@ public static class BacklogMcpServerRegistration
             return await next(request, cancellationToken).ConfigureAwait(false);
         });
     }
+
+    /// <summary>
+    /// The scope half of local ADR 0052 §4: a call is dispatched only when the request's
+    /// principal passes the named policy of the tool's scope (<see cref="McpScopePolicies.ToolPolicy"/>),
+    /// and a tool no scope serves meets the fallback-deny policy. The principal is the one the
+    /// host put on the HTTP request — a grant's, a static token's, or the harness's.
+    /// <para>
+    /// <b>The tool list is left alone.</b> A scope decides who may call a listed tool; what
+    /// is listed is the feature flags' (§4, ADR 0012 §7), and those filters run first.
+    /// </para>
+    /// </summary>
+    private static McpRequestHandler<CallToolRequestParams, CallToolResult> ApplyScopePolicy(
+        McpRequestHandler<CallToolRequestParams, CallToolResult> next) => async (request, cancellationToken) =>
+        {
+            var name = request.Params?.Name;
+            var authorization = request.Services?.GetService<IAuthorizationService>()
+                ?? throw new InvalidOperationException(
+                    "The MCP request carries no authorization service, so its scope cannot be checked. "
+                    + "AddBacklogMcpServer registers it; leave McpServerOptions.ScopeRequests at its default.");
+
+            if (!await McpScopePolicies.AuthorizeToolAsync(authorization, request.User, name).ConfigureAwait(false))
+            {
+                // Names the scope and not what the caller holds: the caller knows its own
+                // grant, and a refusal is not where to list it.
+                var scope = McpToolScopes.ScopeOf(name);
+
+                throw new McpException(scope is null
+                    ? $"The tool '{name}' is served under no scope, so no grant may call it."
+                    : $"The tool '{name}' needs the scope '{scope}', which this caller does not hold.");
+            }
+
+            return await next(request, cancellationToken).ConfigureAwait(false);
+        };
 
     /// <summary>The feature switches for this request, out of the request's own
     /// scope. Resolved per call rather than captured when the filter was built,

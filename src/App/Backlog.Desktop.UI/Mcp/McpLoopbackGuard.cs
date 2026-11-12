@@ -257,12 +257,13 @@ public static class McpLoopbackGuard
     /// all. The MCP token reaches every path but <see cref="TelemetryPath"/>; the telemetry
     /// token only a <c>POST</c> to it; the question-hook token only a <c>POST</c> to
     /// <see cref="McpPath"/>, where <see cref="IsQuestionHookCall"/> then reads which tool.
-    /// A grant token reaches what the MCP token does: its scopes are not enforced until the
-    /// per-group policies of local ADR 0052 §4 exist.
+    /// A grant token passes here on every path: what it reaches is its scopes', which the
+    /// listener asks of <see cref="McpScopePolicies.RoutePolicy"/> next (local ADR 0052 §4).
     /// </summary>
     public static bool Reaches(McpCredential credential, string method, string path) => credential switch
     {
-        McpCredential.Mcp or McpCredential.Grant => !IsPath(path, TelemetryPath),
+        McpCredential.Grant => true,
+        McpCredential.Mcp => !IsPath(path, TelemetryPath),
         McpCredential.Telemetry => IsPost(method) && IsPath(path, TelemetryPath),
         McpCredential.QuestionHook => IsPost(method) && IsPath(path, McpPath),
         _ => false

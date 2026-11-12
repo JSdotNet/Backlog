@@ -200,8 +200,8 @@ public sealed class SurfaceWindowPagesTests : IDisposable
 
     /// <summary>The routes assembly also holds the main window and the Settings screen;
     /// the listener serves popped-out surfaces and nothing else. Neither path is a
-    /// page's, so it is held to the bearer token first, and with one it is still not
-    /// found.</summary>
+    /// page's, so it is held to the bearer token first, and with one it still meets the
+    /// fallback-deny policy no caller passes (local ADR 0052 §4).</summary>
     [Theory]
     [InlineData("/")]
     [InlineData("/settings")]
@@ -224,7 +224,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", listener.Settings.EnsureMcpServerToken());
         using var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     /// <summary>

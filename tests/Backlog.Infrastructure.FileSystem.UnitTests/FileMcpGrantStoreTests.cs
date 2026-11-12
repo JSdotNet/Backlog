@@ -100,6 +100,24 @@ public sealed class FileMcpGrantStoreTests : IDisposable
         Assert.Equal(0, raised);
     }
 
+    [Theory]
+    [InlineData("devbook:decide")]
+    [InlineData("tasks:reed")]
+    public void A_scope_no_grant_may_hold_is_refused_and_the_grant_is_left_as_it_was(string scope)
+    {
+        var store = Store();
+        var grant = store.Create("Copilot", ["tasks:read"], "jobsc");
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        var refusal = Assert.Throws<ArgumentException>(() => store.SetScopes(grant.Id, ["tasks:read", scope]));
+
+        Assert.Contains(scope, refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(["tasks:read"], Store().Find(grant.Id)?.Scopes);
+        Assert.Equal(1, Store().Find(grant.Id)?.Version);
+        Assert.Equal(0, raised);
+    }
+
     [Fact]
     public void Setting_scopes_raises_Changed()
     {
@@ -127,14 +145,14 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     [Fact]
     public void A_fresh_store_reads_the_grants_another_one_wrote()
     {
-        var written = Store().Create("question hook", ["questions"], "jobsc");
-        Store().Revoke(Store().Create("telemetry", ["telemetry"], "jobsc").Id);
+        var written = Store().Create("question hook", ["notify:ask"], "jobsc");
+        Store().Revoke(Store().Create("telemetry", ["telemetry:write"], "jobsc").Id);
 
         var read = Store().List();
 
         Assert.Equal(2, read.Count);
         Assert.Equal(written.Id, read[0].Id);
-        Assert.Equal(["questions"], read[0].Scopes);
+        Assert.Equal(["notify:ask"], read[0].Scopes);
         Assert.Equal(Now, read[0].CreatedAt);
         Assert.False(read[0].Revoked);
         Assert.True(read[1].Revoked);

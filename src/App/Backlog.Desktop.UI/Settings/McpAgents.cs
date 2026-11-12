@@ -26,48 +26,58 @@ public static class McpAgents
     /// say where it came from.</summary>
     public const string CreatedInSettings = "Settings";
 
-    /// <summary>The scope that approves and accepts devbook decisions. No grant holds it and no
-    /// tool is served under it (ADR 0052 §7); it is drawn locked so the boundary shows.</summary>
-    public const string DevbookDecide = "devbook:decide";
+    /// <summary>The scopes drawn locked: <see cref="McpScopes.DevbookDecide"/>, which no grant
+    /// holds and no tool serves (ADR 0052 §7), so the boundary shows; and
+    /// <see cref="McpScopes.AgentsGrant"/>, until switching it on asks for Windows Hello (ADR 0052
+    /// §5 and §6), which the delegation step brings.</summary>
+    public static IReadOnlyList<string> Locked { get; } = [McpScopes.DevbookDecide, McpScopes.AgentsGrant];
 
-    /// <summary>The scope that lets an agent grant others. Locked here until switching it on
-    /// asks for Windows Hello (ADR 0052 §5 and §6), which the delegation step brings.</summary>
-    public const string AgentsGrant = "agents:grant";
+    /// <summary>What each scope lets the agent do, one line per name in <see cref="McpScopes.All"/>.</summary>
+    private static readonly Dictionary<string, string> Descriptions = new(StringComparer.Ordinal)
+    {
+        [McpScopes.TasksRead] = "Find and read items, goals, the roadmap",
+        [McpScopes.TasksWrite] = "Create, comment, transition, block",
+        [McpScopes.TasksAdmin] = "Delete goals, bulk changes; Windows Hello each time",
+        [McpScopes.DevbookRead] = "Chapters, notes, states",
+        [McpScopes.DevbookWrite] = "Post and resolve notes, set to draft",
+        [McpScopes.DevbookDecide] = "Never for an agent: approve and accept happen in the app",
+        [McpScopes.RunsWrite] = "Report delivery runs",
+        [McpScopes.NotifyAsk] = "Ask you a question, tell you something",
+        [McpScopes.UiOpen] = "Open a Backlog window or page",
+        [McpScopes.SessionsDispatch] = "Only for the Manager session",
+        [McpScopes.TelemetryWrite] = "Send log records; only for the telemetry hook",
+        [McpScopes.InboxCapture] = "Capture into your Inbox",
+        [McpScopes.AgentsGrant] = "Grant other agents a subset of its own scopes; not switchable yet, it will ask for Windows Hello",
+    };
 
-    /// <summary>Every scope a grant can hold, in the order the switches are drawn, with what
-    /// each lets the agent do. The names are ADR 0052 §4's table.</summary>
+    /// <summary>Every scope ADR 0052 §4 names, as <see cref="McpScopes.All"/> orders them, with
+    /// what each lets the agent do and whether it is drawn locked. A scope added there without a
+    /// line here fails the first read of this list.</summary>
     public static IReadOnlyList<AgentScopeOption> Scopes { get; } =
-    [
-        new("tasks:read", "Find and read items, goals, the roadmap"),
-        new("tasks:write", "Create, comment, transition, block"),
-        new("devbook:read", "Chapters, notes, states"),
-        new("devbook:write", "Post and resolve notes, set to draft"),
-        new("notify:ask", "Ask you a question, tell you something"),
-        new("ui:open", "Open a Backlog window or page"),
-        new("runs:write", "Report delivery runs"),
-        new("inbox:capture", "Capture into your Inbox"),
-        new("sessions:dispatch", "Only for the Manager session"),
-        new("telemetry:write", "Send log records; only for the telemetry hook"),
-        new("tasks:admin", "Delete goals, bulk changes; Windows Hello each time"),
-        new(AgentsGrant, "Grant other agents a subset of its own scopes; not switchable yet, it will ask for Windows Hello", Locked: true),
-        new(DevbookDecide, "Never for an agent: approve and accept happen in the app", Locked: true),
-    ];
+        [.. McpScopes.All.Select(name => new AgentScopeOption(name, Descriptions[name], Locked.Contains(name, StringComparer.Ordinal)))];
 
     /// <summary>The scopes drawn in the alert tone on a row: the ones that reach furthest.</summary>
-    public static IReadOnlyList<string> Highlighted { get; } = [AgentsGrant, "tasks:admin"];
+    public static IReadOnlyList<string> Highlighted { get; } = [McpScopes.AgentsGrant, McpScopes.TasksAdmin];
 
     /// <summary>The role that matches no preset, and the one a changed switch turns any role into.</summary>
     public const string Custom = "Custom";
 
-    /// <summary>The roles the Add agent form offers, each with the scopes it fills in, Custom last.</summary>
+    /// <summary>The roles the Add agent form offers, each with the scopes it fills in, Custom last.
+    /// Every preset holds only <see cref="McpScopes.Grantable"/> scopes that are not locked.</summary>
     public static IReadOnlyList<McpAgentRole> Roles { get; } =
     [
-        new("Coding agent", ["tasks:read", "tasks:write", "devbook:read", "devbook:write", "notify:ask", "ui:open"]),
-        new("Delivery flow", ["tasks:read", "tasks:write", "runs:write", "devbook:read", "notify:ask"]),
-        new("Read-only + capture", ["tasks:read", "devbook:read", "inbox:capture"]),
-        new("Manager", ["sessions:dispatch", "tasks:read", "tasks:write"]),
+        new("Coding agent", [McpScopes.TasksRead, McpScopes.TasksWrite, McpScopes.DevbookRead, McpScopes.DevbookWrite, McpScopes.NotifyAsk, McpScopes.UiOpen]),
+        new("Delivery flow", [McpScopes.TasksRead, McpScopes.TasksWrite, McpScopes.RunsWrite, McpScopes.DevbookRead, McpScopes.NotifyAsk]),
+        new("Read-only + capture", [McpScopes.TasksRead, McpScopes.DevbookRead, McpScopes.InboxCapture]),
+        new("Manager", [McpScopes.SessionsDispatch, McpScopes.TasksRead, McpScopes.TasksWrite]),
         new(Custom, []),
     ];
+
+    /// <summary>The scopes a grant may be written with: <paramref name="scopes"/> in the switches'
+    /// order, less any the store would refuse — a name a hand-written grant carries that no
+    /// policy knows grants nothing, and is dropped on the next change rather than refusing it.</summary>
+    public static IReadOnlyList<string> Writable(IEnumerable<string> scopes) =>
+        [.. Ordered(scopes).Where(McpScopes.IsGrantable)];
 
     /// <summary>The scopes switched on, in the switches' order: the order a grant stores them
     /// in, whatever order they were flipped.</summary>
@@ -114,13 +124,10 @@ public static class McpAgents
     }
 
     /// <summary>
-    /// When each grant last made a call, from the audit log: the newest record whose caller is
-    /// the grant's id or its name. A grant with none is not in the map.
-    /// <para>
-    /// Both, because the audit record names the caller and the step that names grants there
-    /// may write either; until it lands every call is the shared token's, and every agent reads
-    /// "not used yet".
-    /// </para>
+    /// When each grant last made a call, from the audit log: the newest record whose caller
+    /// names the grant's id — <c>McpScopePolicies.GrantCaller</c> writes <c>name (id)</c>. By id
+    /// and not by name, so an agent added under a revoked agent's name never borrows its time.
+    /// A grant with none is not in the map.
     /// </summary>
     public static IReadOnlyDictionary<string, DateTimeOffset> LastUsed(
         IEnumerable<McpGrant> grants,
@@ -130,15 +137,19 @@ public static class McpAgents
 
         foreach (var grant in grants)
         {
-            var record = newestFirst.FirstOrDefault(call =>
-                string.Equals(call.Caller, grant.Id, StringComparison.Ordinal)
-                || string.Equals(call.Caller, grant.Name, StringComparison.Ordinal));
+            var record = newestFirst.FirstOrDefault(call => NamesGrant(call.Caller, grant.Id));
 
             if (record is not null) used[grant.Id] = record.At;
         }
 
         return used;
     }
+
+    /// <summary>Whether an audit caller is the grant with <paramref name="id"/>: the id alone, or
+    /// a name followed by the id in brackets.</summary>
+    private static bool NamesGrant(string caller, string id) =>
+        string.Equals(caller, id, StringComparison.Ordinal)
+        || caller.EndsWith($"({id})", StringComparison.Ordinal);
 
     /// <summary>The headers helper a registration runs, naming the grant: the repository's own
     /// <c>tools/mcp/backlog-mcp-headers.mjs</c>, with <c>--debug</c> for a Debug build, whose

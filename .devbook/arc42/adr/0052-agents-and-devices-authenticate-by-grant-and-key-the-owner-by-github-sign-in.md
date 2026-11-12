@@ -177,8 +177,10 @@ pane reads or writes a grant.
 *Agents card built 2026-11-12 by entry 10 (`agents-card`).* A grant stores scopes,
 not a role: the roles are presets that fill the switches. A scope switch raises the
 grant's version as well as storing the scope, so a token minted under the old scopes
-is refused and the headers helper fetches one under the new. `agents:grant` is drawn
-locked until switching it on asks for Windows Hello (§5, §6). The card's
+is refused and the headers helper fetches one under the new. The switches are §4's
+scopes as `McpScopes` lists them, and a change of scopes is refused like a new grant
+for any scope no grant may hold. `devbook:decide` is drawn locked, and so is
+`agents:grant` until switching it on asks for Windows Hello (§5, §6). The card's
 registration names the repository's `tools/mcp/backlog-mcp-headers.mjs`. The page no
 longer shows or rotates the shared token, which still works until it is retired.
 
@@ -205,6 +207,16 @@ decides which grant may call a tool that is listed. The names are a starting cut
 | `telemetry:write` | the OTLP logs route (ADR 0024) | the telemetry exporter |
 | `inbox:capture` | a capture into the Inbox | personal assistants, the remote connector (§8) |
 | `agents:grant` | `list_agent_requests`, `grant_agent`, `edit_agent_scopes`, `revoke_agent` | none (§5) |
+
+*Built 2026-11-12 by entry 8 (`scope-policies`).* ADR 0012 §1 records how. The table is
+per tool, not per group, because a flag's group can hold reads and writes. Tools the table
+leaves out are placed so: `list_devbook_references` is `tasks:read`, and
+`set_devbook_references`, `create_goal`, `update_goal` and the impediment tools are
+`tasks:write`. `list_knowledge_contexts` is `devbook:read` and `list_sessions` is
+`runs:write`. Reading the Inbox is `tasks:read` and archiving a capture `tasks:write`,
+because `inbox:capture` is write-only and no local tool captures yet. `inbox:capture` and
+`agents:grant` are policies with no tool until §8 and entry 12. A grant that asks for a scope
+outside the table is refused when it is created.
 
 **A pop-out link is minted under `ui:open`.** This amends ADR 0043 §7. The cookie a
 link buys now expires after 8 idle hours, and the app logs every link
@@ -398,5 +410,6 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 | Date | Change | Why |
 | --- | --- | --- |
 | 2026-11-12 | Built §3's Agents card on the MCP server page in the Bearer token card's place: rows with role, source, last use and scopes, switches that store on change and raise the grant's version, Revoke confirmed in place, and Add agent with its registration. | Plan `zero-trust-auth` entry 10, Phase 1. |
+| 2026-11-12 | Built §4's scopes: one named policy per scope under fallback-deny, per tool and per route, a principal on every admitted request, and an audit record naming the grant. `devbook:decide` is in no grant, token or policy. | Plan `zero-trust-auth` entry 8, Phase 1. |
 | 2026-11-11 | Built §3's token broker and grants beside the shared token: a named pipe for the person's SID alone mints 15-minute JWTs, and the listener refuses one older than its grant's version. Scopes are not enforced yet. | Plan `zero-trust-auth` entry 7, Phase 1. |
 | 2026-11-11 | Proposed: the owner is one GitHub account matched by numeric id, devices hold hardware-bound keys, agents hold grants with 15-minute scoped tokens, Windows Hello confirms what is hard to undo, devbook decisions are human-only, and remote MCP goes through OAuth 2.1 on the sync service. Amends ADR 0012 §1, 0043 §7 and 0044 §6, and retires ADR 0030 §6's exception. | The always-on listener's one plaintext token opened every tool, including approving an agent's own devbook change. |

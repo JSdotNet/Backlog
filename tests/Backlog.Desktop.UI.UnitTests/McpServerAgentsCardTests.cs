@@ -61,8 +61,9 @@ public sealed class McpServerAgentsCardTests
         var delivery = grants.Create("Backlog delivery", ["runs:write", "notify:ask", "devbook:read", "tasks:write", "tasks:read"], McpAgents.CreatedInSettings);
         grants.Create("Hand-made", ["tasks:read", "agents:grant"], "setup");
         var audit = new FakeAuditLog(
-            new McpAuditRecord(Now.AddMinutes(-30), delivery.Id, "read_item", "1", McpCallOutcome.Succeeded, "t-1"),
-            new McpAuditRecord(Now.AddMinutes(-4), delivery.Id, "comment", "1", McpCallOutcome.Succeeded, "t-2"));
+            new McpAuditRecord(Now.AddMinutes(-30), $"Backlog delivery ({delivery.Id})", "read_item", "1", McpCallOutcome.Succeeded, "t-1"),
+            new McpAuditRecord(Now.AddMinutes(-4), $"Backlog delivery ({delivery.Id})", "comment", "1", McpCallOutcome.Succeeded, "t-2"),
+            new McpAuditRecord(Now.AddMinutes(-1), "Hand-made", "comment", "1", McpCallOutcome.Succeeded, "t-3"));
         using var context = Context(new FakeMcpServer { IsListening = true }, audit, grants);
         context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Now));
 
@@ -75,7 +76,7 @@ public sealed class McpServerAgentsCardTests
 
         var rows = page.FindAll("[data-testid='mcp-server-agent']");
         Assert.Equal(
-            ["tasks:read", "tasks:write", "devbook:read", "notify:ask", "runs:write"],
+            ["tasks:read", "tasks:write", "devbook:read", "runs:write", "notify:ask"],
             rows[0].QuerySelectorAll("[data-testid='agent-row-scope']").Select(chip => chip.TextContent.Trim()));
         Assert.Contains("badge--tone-alert", rows[1].QuerySelectorAll("[data-testid='agent-row-scope']")[1].ClassName, StringComparison.Ordinal);
         Assert.Equal(delivery.Id, rows[0].GetAttribute("data-grant"));
@@ -166,6 +167,35 @@ public sealed class McpServerAgentsCardTests
     }
 
     [Fact]
+    public void The_switches_are_McpScopes_in_its_order_and_every_role_holds_only_grantable_unlocked_scopes()
+    {
+        Assert.Equal(McpScopes.All, McpAgents.Scopes.Select(option => option.Name));
+        Assert.Equal([McpScopes.DevbookDecide, McpScopes.AgentsGrant], McpAgents.Scopes.Where(option => option.Locked).Select(option => option.Name));
+        Assert.All(McpAgents.Scopes, option => Assert.False(string.IsNullOrWhiteSpace(option.Description)));
+        Assert.All(McpAgents.Roles.SelectMany(role => role.Scopes), scope =>
+        {
+            Assert.True(McpScopes.IsGrantable(scope), scope);
+            Assert.DoesNotContain(scope, McpAgents.Locked);
+        });
+    }
+
+    [Fact]
+    public void A_scope_no_grant_may_hold_is_dropped_on_the_next_change_rather_than_refusing_it()
+    {
+        var grants = new FakeGrantStore();
+        var old = grants.Create("Old hook", ["notify:ask"], "setup");
+        grants.Smuggle(old.Id, ["questions", "notify:ask"]);
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
+        var page = context.Render<McpServerSettingsPage>();
+        page.Find("[data-testid='agent-row-edit']").Click();
+
+        Switch(page, "mcp-server-agent-scopes", "tasks:read").Click();
+
+        Assert.Equal(["tasks:read", "notify:ask"], grants.Find(old.Id)?.Scopes);
+        Assert.Empty(page.FindAll("[data-testid='mcp-server-agents-error']"));
+    }
+
+    [Fact]
     public void Devbook_decide_and_agents_grant_are_drawn_locked()
     {
         var grants = new FakeGrantStore();
@@ -220,7 +250,7 @@ public sealed class McpServerAgentsCardTests
 
         var created = Assert.Single(grants.List());
         Assert.Equal("Copilot CLI · Backlog", created.Name);
-        Assert.Equal(["tasks:read", "tasks:write", "devbook:read", "notify:ask", "runs:write"], created.Scopes);
+        Assert.Equal(["tasks:read", "tasks:write", "devbook:read", "runs:write", "notify:ask"], created.Scopes);
         Assert.Equal(McpAgents.CreatedInSettings, created.CreatedBy);
 
         Assert.Empty(page.FindAll("[data-testid='mcp-server-agent-add']"));
@@ -369,6 +399,7 @@ public sealed class McpServerAgentsCardTests
         public McpGrant Create(string name, IReadOnlyList<string> scopes, string createdBy)
         {
             Fail();
+            Grantable(scopes);
             McpGrant grant;
             lock (_gate)
             {
@@ -380,8 +411,20 @@ public sealed class McpServerAgentsCardTests
             return grant;
         }
 
-        public McpGrant? SetScopes(string id, IReadOnlyList<string> scopes) =>
-            Replace(id, grant => grant.Revoked ? null : grant with { Scopes = [.. scopes], Version = grant.Version + 1 });
+        public McpGrant? SetScopes(string id, IReadOnlyList<string> scopes)
+        {
+            Grantable(scopes);
+            return Replace(id, grant => grant.Revoked ? null : grant with { Scopes = [.. scopes], Version = grant.Version + 1 });
+        }
+
+        /// <summary>The file store's refusal: a scope no grant may hold.</summary>
+        private static void Grantable(IReadOnlyList<string> scopes)
+        {
+            if (scopes.FirstOrDefault(scope => !McpScopes.IsGrantable(scope)) is { } refused)
+            {
+                throw new ArgumentException($"No grant may hold '{refused}'.", nameof(scopes));
+            }
+        }
 
         public McpGrant? Revoke(string id)
         {
@@ -404,6 +447,16 @@ public sealed class McpServerAgentsCardTests
 
             _changed?.Invoke();
             return changed;
+        }
+
+        /// <summary>Writes scopes past the refusal, the way a hand-edited file holds them.</summary>
+        public void Smuggle(string id, IReadOnlyList<string> scopes)
+        {
+            lock (_gate)
+            {
+                var index = _grants.FindIndex(grant => grant.Id == id);
+                _grants[index] = _grants[index] with { Scopes = [.. scopes] };
+            }
         }
 
         private void Fail()

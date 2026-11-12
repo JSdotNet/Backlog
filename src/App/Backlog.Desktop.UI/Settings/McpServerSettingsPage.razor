@@ -612,8 +612,8 @@
     {
         var current = _agents.FirstOrDefault(agent => agent.Id == grant.Id)?.Scopes ?? grant.Scopes;
         var scopes = change.On
-            ? McpAgents.Ordered([.. current, change.Scope])
-            : McpAgents.Ordered(current.Where(scope => scope != change.Scope));
+            ? McpAgents.Writable([.. current, change.Scope])
+            : McpAgents.Writable(current.Where(scope => scope != change.Scope));
 
         Write(store => store.SetScopes(grant.Id, scopes));
     }
@@ -689,7 +689,7 @@
 
         _newError = null;
 
-        if (Write(store => store.Create(name, McpAgents.Ordered(_newScopes), McpAgents.CreatedInSettings)) is not { } created) return;
+        if (Write(store => store.Create(name, McpAgents.Writable(_newScopes), McpAgents.CreatedInSettings)) is not { } created) return;
 
         _created = created;
         _adding = AddStep.Register;
