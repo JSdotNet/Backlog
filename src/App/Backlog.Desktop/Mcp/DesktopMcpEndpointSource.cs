@@ -9,11 +9,11 @@ namespace Backlog.Desktop.Mcp;
 /// <summary>
 /// This machine's own MCP server, answered for the tools pane and the Settings
 /// screen's MCP server page: the configured port, whether and where the listener
-/// holds it, why nothing is listening when nothing is, and the token a
-/// registration has to carry.
+/// holds it, why nothing is listening when nothing is, and the escape hatch's
+/// token where a debug setting switched it on.
 /// <para>
 /// Two sources, because the facts genuinely live in two places. The port and
-/// the token are the workspace settings, and why the socket was not taken is
+/// the escape hatch are the workspace settings, and why the socket was not taken is
 /// the only thing the worker knows. Nothing here decides any of them; it reads
 /// them and says when one moved.
 /// </para>
@@ -42,25 +42,6 @@ public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
     /// </para>
     /// </summary>
     private readonly Func<McpServerWorker> _worker;
-
-    /// <summary>
-    /// Set while this source is inside its own <see cref="EnsureToken"/>.
-    /// <para>
-    /// <c>EnsureMcpServerToken</c> raises <c>McpChanged</c> when it mints, and
-    /// the worker turns that into a <c>Changed</c> of its own — so an apply that
-    /// mints a token would tell the pane its listing had gone stale, from inside
-    /// the apply that is still running. The guard in the pane's handler is what
-    /// makes that survivable; this is what makes it not happen.
-    /// </para>
-    /// <para>
-    /// Thread-static because it is exact: both raises are synchronous, on the
-    /// thread that called in here, so suppressing per thread suppresses this
-    /// mint and nothing else. An instance field would swallow a genuine port
-    /// change another thread made at the same moment.
-    /// </para>
-    /// </summary>
-    [ThreadStatic]
-    private static bool _minting;
 
     private bool _listening;
     private bool _disposed;
@@ -106,30 +87,12 @@ public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
     public void Retry() => _worker().Retry();
 
     /// <inheritdoc />
-    public string EnsureToken()
-    {
-        // Set before the call and cleared after it in a finally, so a save that
-        // threw cannot leave this thread deaf to every later change.
-        var restore = _minting;
-        _minting = true;
-
-        try
-        {
-            return _settings.EnsureMcpServerToken();
-        }
-        finally
-        {
-            _minting = restore;
-        }
-    }
+    /// <remarks>The store's, which reads it off this process's environment and only while the
+    /// debug setting is on; nothing is minted or saved.</remarks>
+    public string? EnsureToken() => _settings.EnvironmentMcpToken;
 
     /// <inheritdoc />
-    public string? CurrentToken => _settings.McpServerToken;
-
-    /// <inheritdoc />
-    /// <remarks>Not under <see cref="_minting"/>: a rotation is news the page
-    /// redraws on, unlike the first mint an apply makes in passing.</remarks>
-    public string? RotateToken() => _settings.RotateMcpServerToken();
+    public string? CurrentToken => _settings.EnvironmentMcpToken;
 
     /// <inheritdoc />
     /// <remarks>
@@ -203,10 +166,5 @@ public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
         _worker().Changed += OnChanged;
     }
 
-    private void OnChanged()
-    {
-        if (_minting) return;
-
-        _changed?.Invoke();
-    }
+    private void OnChanged() => _changed?.Invoke();
 }

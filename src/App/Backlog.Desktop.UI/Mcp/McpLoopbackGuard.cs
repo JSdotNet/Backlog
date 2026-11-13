@@ -1,14 +1,13 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
 /// The two checks local ADR 0012 §1 puts in front of the desktop MCP listener:
 /// an <c>Origin</c> that must be absent or loopback, and a bearer token that
-/// must match the one the app generated.
+/// must be a grant token the broker minted (local ADR 0052).
 /// <para>
 /// Pure predicates over header values, deliberately. The listener itself lives
 /// in <c>Backlog.Desktop</c>, which is a MAUI <c>WinExe</c> on a platform TFM
@@ -185,14 +184,13 @@ public static class McpLoopbackGuard
     /// <para>
     /// It still reveals whether the two lengths matched, which
     /// <see cref="CryptographicOperations.FixedTimeEquals"/> cannot hide and no
-    /// comparison could. The token is a fixed 43 characters, so there is nothing
-    /// there to learn.
+    /// comparison could. The one static token left is the escape hatch's, set by
+    /// whoever switched it on: a long random one leaves nothing there to learn.
     /// </para>
     /// <para>
-    /// An empty expected token is refused rather than matched. It means the app
-    /// has not generated one, and a server that answered every unauthenticated
-    /// request while it had no secret would be open for exactly as long as it
-    /// took the first caller to arrive.
+    /// An empty expected token is refused rather than matched. It means there is
+    /// no static token — the escape hatch is off — and a server that answered every
+    /// unauthenticated request while it had no secret would be open to anyone.
     /// </para>
     /// </summary>
     public static bool IsAuthorized(string? authorization, string? expected)
@@ -208,31 +206,18 @@ public static class McpLoopbackGuard
             Encoding.UTF8.GetBytes(expected));
     }
 
-    /// <summary>The question tools the hook token may call (local ADR 0041 §1, §3).</summary>
-    public static IReadOnlySet<string> QuestionTools { get; } =
-        new HashSet<string>(["notify", "ask", "get_answer", "close"], StringComparer.Ordinal);
-
-    /// <summary>The OTLP/HTTP logs path, the one route the telemetry token reaches
-    /// (local ADR 0024 §1).</summary>
-    public const string TelemetryPath = ClaudeCodeLogsEndpoint.RoutePath;
-
-    /// <summary>The MCP endpoint path the hook token reaches.</summary>
+    /// <summary>The MCP endpoint path.</summary>
     public const string McpPath = "/mcp";
 
     /// <summary>
-    /// Which of the listener's three tokens the request presented, or
-    /// <see cref="McpCredential.None"/>. Each is compared through
-    /// <see cref="IsAuthorized"/>, so each comparison is fixed-time; a token that is not
-    /// minted yet matches nothing.
+    /// Whether the request presented the <c>BACKLOG_MCP_TOKEN</c> escape hatch's token —
+    /// <see cref="McpCredential.Mcp"/> — or not. Compared through <see cref="IsAuthorized"/>, so
+    /// fixed-time; with the escape hatch off <paramref name="environmentToken"/> is null and
+    /// nothing matches. No token kept in <c>settings.json</c> is ever passed here: the shared
+    /// token and the hook and telemetry tokens were retired (local ADR 0052, Phase 1).
     /// </summary>
-    public static McpCredential Identify(string? authorization, string? mcpToken, string? questionHookToken, string? telemetryToken)
-    {
-        if (IsAuthorized(authorization, mcpToken)) return McpCredential.Mcp;
-        if (IsAuthorized(authorization, questionHookToken)) return McpCredential.QuestionHook;
-        if (IsAuthorized(authorization, telemetryToken)) return McpCredential.Telemetry;
-
-        return McpCredential.None;
-    }
+    public static McpCredential Identify(string? authorization, string? environmentToken) =>
+        IsAuthorized(authorization, environmentToken) ? McpCredential.Mcp : McpCredential.None;
 
     /// <summary>
     /// The bearer value of <paramref name="authorization"/> when it has the shape of a JWT —
@@ -251,101 +236,6 @@ public static class McpLoopbackGuard
 
         return segments.Length == 3 && segments[0].Length > 0 && segments[1].Length > 0 ? presented : null;
     }
-
-    /// <summary>
-    /// Whether a credential reaches <paramref name="path"/> with <paramref name="method"/> at
-    /// all. The MCP token reaches every path but <see cref="TelemetryPath"/>; the telemetry
-    /// token only a <c>POST</c> to it; the question-hook token only a <c>POST</c> to
-    /// <see cref="McpPath"/>, where <see cref="IsQuestionHookCall"/> then reads which tool.
-    /// A grant token passes here on every path: what it reaches is its scopes', which the
-    /// listener asks of <see cref="McpScopePolicies.RoutePolicy"/> next (local ADR 0052 §4).
-    /// </summary>
-    public static bool Reaches(McpCredential credential, string method, string path) => credential switch
-    {
-        McpCredential.Grant => true,
-        McpCredential.Mcp => !IsPath(path, TelemetryPath),
-        McpCredential.Telemetry => IsPost(method) && IsPath(path, TelemetryPath),
-        McpCredential.QuestionHook => IsPost(method) && IsPath(path, McpPath),
-        _ => false
-    };
-
-    /// <summary>
-    /// Whether a JSON-RPC body sent with the question-hook token is one it may send: a
-    /// single message whose method is <c>initialize</c>, <c>ping</c> or a
-    /// <c>notifications/</c> one — the protocol's own housekeeping, which runs no tool — or
-    /// a <c>tools/call</c> naming one of <see cref="QuestionTools"/>. A batch, a body that
-    /// does not parse, <c>tools/list</c> and every other tool are refused.
-    /// <para>
-    /// <c>method</c>, <c>params</c> and the tool's <c>name</c> must each appear exactly once
-    /// and spelled exactly so, with no second key that differs only in case: the MCP SDK binds
-    /// its parameters case-insensitively, last key winning, so <c>{"name":"ask","Name":"x"}</c>
-    /// would read as <c>ask</c> here and run <c>x</c> there.
-    /// </para>
-    /// </summary>
-    public static bool IsQuestionHookCall(ReadOnlySpan<byte> body)
-    {
-        try
-        {
-            var reader = new Utf8JsonReader(body);
-            using var document = JsonDocument.ParseValue(ref reader);
-
-            // One value and nothing after it: a body a second reader could read differently
-            // is not one the guard has read.
-            if (reader.Read()) return false;
-
-            var root = document.RootElement;
-
-            if (root.ValueKind != JsonValueKind.Object) return false;
-            if (!TryGetSingle(root, "method", out var method) || method.ValueKind != JsonValueKind.String) return false;
-            if (!IsAbsentOrSingle(root, "params")) return false;
-
-            var name = method.GetString()!;
-
-            if (name is "initialize" or "ping" || name.StartsWith("notifications/", StringComparison.Ordinal)) return true;
-            if (name != "tools/call") return false;
-
-            return TryGetSingle(root, "params", out var parameters)
-                && parameters.ValueKind == JsonValueKind.Object
-                && TryGetSingle(parameters, "name", out var tool)
-                && tool.ValueKind == JsonValueKind.String
-                && QuestionTools.Contains(tool.GetString()!);
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
-
-    /// <summary>The one property spelled exactly <paramref name="key"/>, when the object
-    /// holds exactly one property matching it in any case.</summary>
-    private static bool TryGetSingle(JsonElement element, string key, out JsonElement value)
-    {
-        value = default;
-        var found = 0;
-
-        foreach (var property in element.EnumerateObject())
-        {
-            if (!property.NameEquals(key) && !string.Equals(property.Name, key, StringComparison.OrdinalIgnoreCase)) continue;
-            if (++found > 1 || !property.NameEquals(key)) return false;
-
-            value = property.Value;
-        }
-
-        return found == 1;
-    }
-
-    /// <summary>Whether <paramref name="key"/> is absent in every case, or present once as
-    /// <see cref="TryGetSingle"/> requires.</summary>
-    private static bool IsAbsentOrSingle(JsonElement element, string key) =>
-        !element.EnumerateObject().Any(property => string.Equals(property.Name, key, StringComparison.OrdinalIgnoreCase))
-        || TryGetSingle(element, key, out _);
-
-    private static bool IsPost(string method) => string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>The path itself or a trailing-slash spelling of it, case-insensitively as
-    /// ASP.NET routes; never a path below it.</summary>
-    private static bool IsPath(string path, string expected) =>
-        string.Equals(path.TrimEnd('/'), expected, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>Which of the listener's tokens a request presented. Beside the guard because
@@ -355,18 +245,13 @@ public enum McpCredential
     /// <summary>None of them, or no <c>Authorization</c> at all.</summary>
     None,
 
-    /// <summary>The MCP server's own token, the one every registration carries.</summary>
+    /// <summary>The <c>BACKLOG_MCP_TOKEN</c> escape hatch's token, where a debug setting
+    /// switched it on (local ADR 0052, Phase 1).</summary>
     Mcp,
-
-    /// <summary>The <c>ask-backlog</c> question hook's token.</summary>
-    QuestionHook,
-
-    /// <summary>Claude Code's OpenTelemetry exporter's token.</summary>
-    Telemetry,
 
     /// <summary>A grant token the broker minted (local ADR 0052 §3), validated by
     /// <see cref="McpGrantTokens"/> rather than by <see cref="McpLoopbackGuard.Identify"/>:
-    /// it is checked only once none of the three static tokens matched, so a static token
+    /// it is checked only once the escape hatch's token did not match, so a static token
     /// is never parsed as a JWT and its fixed-time comparison stays as it was.</summary>
     Grant
 }

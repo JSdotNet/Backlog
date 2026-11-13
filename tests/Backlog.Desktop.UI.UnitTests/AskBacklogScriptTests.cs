@@ -61,11 +61,39 @@ public sealed class AskBacklogScriptTests : IDisposable
     private static JsonObject Unavailable() => new() { ["status"] = 503 };
 
     /// <summary>
-    /// With no token in the environment the hook reads the app's settings.json beside its
-    /// folder and presents the question hook's own token, never the MCP server's.
+    /// With no token in the environment the hook reads the Question hook grant's id from the
+    /// app's settings.json beside its folder, asks the broker for a token for it, and presents
+    /// that (local ADR 0052, Phase 1) — never a token settings.json still carries from before.
     /// </summary>
     [Fact]
-    public void The_hook_presents_the_question_hook_token_from_settings_and_never_the_mcp_token()
+    public async Task The_hook_presents_a_broker_token_for_the_question_hook_grant_and_never_a_retired_token()
+    {
+        File.WriteAllText(Path.Combine(_root, "settings.json"), """
+            { "mcpServer": { "token": "mcp-token", "hookToken": "hook-token",
+                             "grants": { "delivery": "g_d", "questionHook": "g_q", "telemetry": "g_t" } } }
+            """);
+        var pipe = "ask-backlog-test-" + Guid.NewGuid().ToString("N");
+        var requests = new List<string>();
+        using var stop = new CancellationTokenSource();
+        var broker = ServeBrokerAsync(pipe, """{"token":"broker.token.x","expiresAt":"2026-11-12T10:15:00Z"}""", requests, stop.Token);
+
+        var run = Run(
+            Replies(("ask", [Asked(DialogId, "session")])),
+            new Dictionary<string, string> { ["BACKLOG_MCP_TOKEN"] = "", ["BACKLOG_MCP_BROKER_PIPE"] = pipe },
+            Step("pre", PreInput()));
+
+        await stop.CancelAsync();
+        await broker;
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.Equal("Bearer broker.token.x", Assert.Single(run.Calls).Authorization);
+        Assert.Equal("""{"grant":"g_q"}""", Assert.Single(requests));
+    }
+
+    /// <summary>A settings.json from before the upgrade, with the retired tokens and no grant yet:
+    /// the hook sends nothing rather than a token the listener refuses, and the dialog opens.</summary>
+    [Fact]
+    public void Without_a_recorded_grant_the_hook_asks_nothing()
     {
         File.WriteAllText(Path.Combine(_root, "settings.json"), """
             { "mcpServer": { "token": "mcp-token", "hookToken": "hook-token" } }
@@ -73,11 +101,39 @@ public sealed class AskBacklogScriptTests : IDisposable
 
         var run = Run(
             Replies(("ask", [Asked(DialogId, "session")])),
-            new Dictionary<string, string> { ["BACKLOG_HOOK_TOKEN"] = "" },
+            new Dictionary<string, string> { ["BACKLOG_MCP_TOKEN"] = "" },
             Step("pre", PreInput()));
 
         Assert.Equal(0, run.ExitCode);
-        Assert.Equal("Bearer hook-token", Assert.Single(run.Calls).Authorization);
+        Assert.Equal(string.Empty, run.Output(0));
+        Assert.Empty(run.Calls);
+    }
+
+    /// <summary>A stand-in for the token broker: answers every connection on <paramref name="pipe"/>
+    /// with <paramref name="reply"/> and records the line it was sent, until stopped.</summary>
+    private static async Task ServeBrokerAsync(string pipe, string reply, List<string> requests, CancellationToken stop)
+    {
+        while (!stop.IsCancellationRequested)
+        {
+            using var server = new System.IO.Pipes.NamedPipeServerStream(
+                pipe, System.IO.Pipes.PipeDirection.InOut, 1, System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
+            try
+            {
+                await server.WaitForConnectionAsync(stop);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            using var reader = new StreamReader(server, leaveOpen: true);
+            var line = await reader.ReadLineAsync(stop);
+            if (line is not null) lock (requests) requests.Add(line);
+
+            var bytes = System.Text.Encoding.UTF8.GetBytes(reply + "\n");
+            await server.WriteAsync(bytes, stop);
+            await server.FlushAsync(stop);
+        }
     }
 
     // ---- pre ---------------------------------------------------------------------------
@@ -564,7 +620,7 @@ public sealed class AskBacklogScriptTests : IDisposable
     {
         var environment = new JsonObject
         {
-            ["BACKLOG_HOOK_TOKEN"] = "test-token",
+            ["BACKLOG_MCP_TOKEN"] = "test-token",
             ["ASK_BACKLOG_STATE_DIR"] = Path.Combine(_root, "state"),
             ["ASK_BACKLOG_RETRY_MS"] = "",
             // Never this machine's own settings.json, whatever the test sets.

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -9,9 +10,15 @@ namespace Backlog.Modules.Sessions.UI;
 /// app — what the Settings page shows to paste.
 /// <para>
 /// The logs signal's own variables rather than the generic ones: a person who already
-/// exports metrics somewhere keeps doing so, and the bearer token is sent to this
-/// endpoint and to no other. Protobuf, because it is the OTLP default and the smaller of
-/// the two encodings the endpoint reads.
+/// exports metrics somewhere keeps doing so. Protobuf, because it is the OTLP default and
+/// the smaller of the two encodings the endpoint reads, and because Claude Code applies an
+/// <c>otelHeadersHelper</c>'s headers to the HTTP protocols alone.
+/// </para>
+/// <para>
+/// <b>No token in it.</b> Since the shared tokens were retired (local ADR 0052, Phase 1) the
+/// block names a command, <c>otelHeadersHelper</c>, that asks the app's token broker for a
+/// short-lived token for the Telemetry grant — so the block is no secret, and a copy of it on
+/// another machine grants nothing there.
 /// </para>
 /// </summary>
 public static class ClaudeCodeTelemetrySnippet
@@ -19,12 +26,18 @@ public static class ClaudeCodeTelemetrySnippet
     /// <summary>The path OTLP/HTTP fixes for logs, relative to a listener's root.</summary>
     public const string LogsPath = "v1/logs";
 
-    /// <summary>What the page draws in the token's place.</summary>
-    public const string HiddenToken = "••••••••";
+    /// <summary>The environment key that sets how often Claude Code reruns
+    /// <c>otelHeadersHelper</c>.</summary>
+    public const string HeadersRefreshKey = "CLAUDE_CODE_OTEL_HEADERS_HELPER_DEBOUNCE_MS";
 
-    /// <summary>The <c>env</c> block, as indented JSON, for <paramref name="endpoint"/>
-    /// and — when the host checks one — <paramref name="token"/>.</summary>
-    public static string Settings(Uri endpoint, string? token)
+    /// <summary>How often it reruns it here: under the 15-minute life of a grant token, where
+    /// Claude Code's own default of 29 minutes would leave every export refused for the second
+    /// half of each interval.</summary>
+    public const int HeadersRefreshMilliseconds = 10 * 60 * 1000;
+
+    /// <summary>The block, as indented JSON, for <paramref name="endpoint"/> and — when the host
+    /// asks for a token — the <paramref name="headersHelper"/> command that fetches one.</summary>
+    public static string Settings(Uri endpoint, string? headersHelper)
     {
         ArgumentNullException.ThrowIfNull(endpoint);
 
@@ -40,11 +53,19 @@ public static class ClaudeCodeTelemetrySnippet
             ["OTEL_LOG_TOOL_DETAILS"] = "1"
         };
 
-        if (!string.IsNullOrEmpty(token)) env["OTEL_EXPORTER_OTLP_LOGS_HEADERS"] = $"Authorization=Bearer {token}";
+        var root = new JsonObject();
 
-        // Relaxed escaping, so the block reads as a person would type it: the default
-        // encoder writes the hidden token's dots, and a '+' in a token, as escapes.
-        return new JsonObject { ["env"] = env }.ToJsonString(new JsonSerializerOptions
+        if (!string.IsNullOrEmpty(headersHelper))
+        {
+            env[HeadersRefreshKey] = HeadersRefreshMilliseconds.ToString(CultureInfo.InvariantCulture);
+            root["otelHeadersHelper"] = headersHelper;
+        }
+
+        root["env"] = env;
+
+        // Relaxed escaping, so the block reads as a person would type it: the default encoder
+        // writes the command's quotes as escapes.
+        return root.ToJsonString(new JsonSerializerOptions
         {
             WriteIndented = true,
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping

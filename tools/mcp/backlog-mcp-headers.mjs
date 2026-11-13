@@ -1,15 +1,16 @@
 // headersHelper for the `backlog` server in .mcp.json: prints the Authorization header Claude
 // Code sends to the MCP endpoint inside the running desktop app.
 //
-// The token comes from BACKLOG_MCP_TOKEN, else from the app's own settings.json — the order
-// plugins/backlog-tools/hooks/telemetry-forwarder.mjs reads it in. A static
-// `Bearer ${BACKLOG_MCP_TOKEN}` header only works on a machine that copied the token into its
-// environment by hand, and every other session connects with an empty one and gets a 401.
-// Claude Code runs this at connect and again after a 401 or 403, so a token the app re-mints
-// is picked up without restarting the session.
+// With no --grant (this repository's .mcp.json, which no machine-specific id can go in), the
+// token is a broker token for the "Backlog delivery" grant the app recorded in its settings.json
+// as mcpServer.grants.delivery (local ADR 0052, Phase 1), else BACKLOG_MCP_TOKEN — the dev or CI
+// escape hatch for a machine with no app, which the app accepts only where a debug setting
+// switched it on. The grant comes first, so a machine that once copied the retired shared token
+// into its environment by hand is not left sending it. settings.json holds no token any more. Claude Code runs this at connect and again
+// after a 401 or 403, so an expired grant token is replaced without restarting the session.
 //
-// No token yet (the app has never served MCP here) exits 1 with the reason on stderr rather
-// than printing an empty header, so the failure says what to do instead of reading as a 401.
+// No grant recorded yet (the app has never started here since the upgrade) exits 1 with the
+// reason on stderr rather than printing an empty header, so the failure says what to do.
 //
 // --grant <id> (local ADR 0052 §3) asks the app's token broker for a 15-minute token for that
 // grant instead, and never reads settings.json or BACKLOG_MCP_TOKEN. The broker is a named
@@ -40,21 +41,27 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Where the app keeps settings.json: .NET's LocalApplicationData, then the Backlog folder.
-export function settingsPath(env = process.env, platform = process.platform, home = os.homedir()) {
+// Where the app keeps settings.json: .NET's LocalApplicationData, then the Backlog folder —
+// Backlog.Debug for a Debug build.
+export function settingsPath(env = process.env, platform = process.platform, home = os.homedir(), { debug = false } = {}) {
     const localData =
         platform === "win32"
             ? env.LOCALAPPDATA || path.join(home, "AppData", "Local")
             : platform === "darwin"
               ? path.join(home, "Library", "Application Support")
               : env.XDG_DATA_HOME || path.join(home, ".local", "share");
-    return path.join(localData, "Backlog", "settings.json");
+    return path.join(localData, debug ? "Backlog.Debug" : "Backlog", "settings.json");
 }
 
-export function resolveToken(env = process.env, readSettings = () => readFileSync(settingsPath(env), "utf8")) {
-    if (env.BACKLOG_MCP_TOKEN) return env.BACKLOG_MCP_TOKEN;
+// The escape hatch's token, or null. Never anything from settings.json.
+export function resolveToken(env = process.env) {
+    return env.BACKLOG_MCP_TOKEN || null;
+}
+
+// The "Backlog delivery" grant's id the app recorded in settings.json, or null.
+export function deliveryGrant(readSettings) {
     try {
-        return JSON.parse(readSettings()).mcpServer?.token || null;
+        return JSON.parse(readSettings()).mcpServer?.grants?.delivery || null;
     } catch {
         return null;
     }
@@ -291,23 +298,27 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
             process.stderr.write(`${error.message} (pipe ${pipePath(name)})\n`);
             process.exit(1);
         }
-    } else if (options.grant) {
-        const name = pipeName(process.env, { debug: options.debug });
-        try {
-            const token = await requestToken(options.grant, () => net.connect(pipePath(name)));
-            process.stdout.write(JSON.stringify({ Authorization: `Bearer ${token}` }));
-        } catch (error) {
-            process.stderr.write(`${error.message} (pipe ${pipePath(name)})\n`);
-            process.exit(1);
-        }
     } else {
-        const token = resolveToken();
-        if (!token) {
+        const grant =
+            options.grant || deliveryGrant(() => readFileSync(settingsPath(process.env, process.platform, os.homedir(), options), "utf8"));
+        const token = grant ? null : resolveToken();
+
+        if (token) {
+            process.stdout.write(JSON.stringify({ Authorization: `Bearer ${token}` }));
+        } else if (grant) {
+            const name = pipeName(process.env, { debug: options.debug });
+            try {
+                const minted = await requestToken(grant, () => net.connect(pipePath(name)));
+                process.stdout.write(JSON.stringify({ Authorization: `Bearer ${minted}` }));
+            } catch (error) {
+                process.stderr.write(`${error.message} (pipe ${pipePath(name)})\n`);
+                process.exit(1);
+            }
+        } else {
             process.stderr.write(
-                `No Backlog MCP token: set BACKLOG_MCP_TOKEN, or switch on the MCP server in the Backlog app so it writes one to ${settingsPath()}.\n`,
+                `No Backlog MCP grant: start the Backlog desktop app once so it records the "Backlog delivery" grant in ${settingsPath(process.env, process.platform, os.homedir(), options)}, or pass --grant <id> from Settings, MCP server.\n`,
             );
             process.exit(1);
         }
-        process.stdout.write(JSON.stringify({ Authorization: `Bearer ${token}` }));
     }
 }

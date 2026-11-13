@@ -47,7 +47,7 @@ internal static partial class McpPlaceholders
     /// on.</summary>
     internal const string PortName = "BACKLOG_MCP_PORT";
 
-    /// <summary>The token a registration has to carry. Resolving it mints one —
+    /// <summary>The escape hatch's token (local ADR 0052, Phase 1), filled in only where a debug setting switched it on —
     /// which is why only one of the two resolvers below will.</summary>
     internal const string TokenName = "BACKLOG_MCP_TOKEN";
 
@@ -164,7 +164,7 @@ internal sealed record McpExpansion(string Text, string? Unresolved)
     internal string? Problem => Unresolved switch
     {
         null => null,
-        McpPlaceholders.TokenName => "This registration needs the MCP server's token, and nothing that only reads a row may mint one.",
+        McpPlaceholders.TokenName => "This registration names ${BACKLOG_MCP_TOKEN}, which only the debug escape hatch fills in. Register Backlog with a grant from Settings, MCP server, instead.",
         McpPlaceholders.PortName => "This registration needs the MCP server's port, and nothing on this machine could answer it.",
         var name => $"\"{name}\" is not something this build fills in. Only ${{{McpPlaceholders.PortName}}} and ${{{McpPlaceholders.TokenName}}} are expanded, and never an environment variable."
     };

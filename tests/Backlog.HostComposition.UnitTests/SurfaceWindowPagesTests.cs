@@ -138,7 +138,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         using (var foreign = new HttpRequestMessage(HttpMethod.Post, McpServerWorker.EndpointPath) { Content = new StringContent("{}") })
         {
             foreign.Headers.Add("Origin", "https://example.com");
-            foreign.Headers.Authorization = new AuthenticationHeaderValue("Bearer", listener.Settings.EnsureMcpServerToken());
+            foreign.Headers.Authorization = new AuthenticationHeaderValue("Bearer", listener.GrantToken());
             using var refused = await client.SendAsync(foreign, TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
         }
@@ -221,7 +221,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
         }
 
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", listener.Settings.EnsureMcpServerToken());
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", listener.GrantToken());
         using var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -296,7 +296,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
                 @params = new { name = "open_window", arguments = new { surface = "probe", target = "web" } }
             })
         };
-        call.Headers.Authorization = new AuthenticationHeaderValue("Bearer", listener.Settings.EnsureMcpServerToken());
+        call.Headers.Authorization = new AuthenticationHeaderValue("Bearer", listener.GrantToken());
         call.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         call.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
 
@@ -574,6 +574,11 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         services.AddSingleton(new ShellSurface("probe","Probe", ShellSurfaceGroup.Takeover, 900, typeof(ProbeSurface), QueryKeys: ["keep"]));
         services.AddSingleton(new ShellSurface("probe-target", "Probe target", ShellSurfaceGroup.Takeover, 901, typeof(ProbeTargetSurface)));
         services.AddSingleton<ProbeSingleton>();
+        // The grants the listener validates bearer tokens against (local ADR 0052 §3): the
+        // shared token they replaced is retired, so a test's token is one minted here.
+        var grants = new FileMcpGrantStore(Path.Combine(_appData, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        services.AddSingleton<Backlog.SharedKernel.Mcp.IMcpGrantStore>(grants);
+        services.AddSingleton(new McpGrantTokens(grants, TimeProvider.System));
         services.AddSingleton(new DesktopServiceRegistrations([.. services]));
         _provider = services.BuildServiceProvider();
 
@@ -594,7 +599,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             await Task.Delay(TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
         }
 
-        return new Listener(worker, settings, _provider.GetRequiredService<WindowLinkTokens>());
+        return new Listener(worker, settings, _provider.GetRequiredService<WindowLinkTokens>(), _provider.GetRequiredService<McpGrantTokens>(), grants);
     }
 
     private static int FreePort()
@@ -604,9 +609,18 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         return ((IPEndPoint)probe.LocalEndpoint).Port;
     }
 
-    private sealed class Listener(McpServerWorker worker, WorkspaceSettingsStore settings, WindowLinkTokens tokens) : IDisposable
+    private sealed class Listener(
+        McpServerWorker worker,
+        WorkspaceSettingsStore settings,
+        WindowLinkTokens tokens,
+        McpGrantTokens grantTokens,
+        FileMcpGrantStore grants) : IDisposable
     {
         public WorkspaceSettingsStore Settings { get; } = settings;
+
+        /// <summary>A grant token with every grantable scope, as a registration presents one.</summary>
+        public string GrantToken() =>
+            grantTokens.Mint(grants.Create("Test agent", Backlog.SharedKernel.Mcp.McpScopes.Grantable, "test").Id).Token!.Value;
 
         public WindowLinkTokens Tokens { get; } = tokens;
 

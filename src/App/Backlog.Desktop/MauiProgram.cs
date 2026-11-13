@@ -410,6 +410,40 @@ public static class MauiProgram
                 // an up-to-date hook rather than not at all; the served route still answers.
                 hookLog?.LogError(ex, "The question hook script could not be written to the app data folder.");
             }
+
+            // And the headers helper beside it, then the shared token's retirement (local ADR
+            // 0052, Phase 1): on the first start after the upgrade, three grants in its place and
+            // Claude Code's own files rewritten to run the helper for them. Once the grants are
+            // recorded and nothing names a retired token, this does nothing.
+            try
+            {
+                var helper = McpHeadersHelperScript.Install(WorkspaceSettingsStore.DefaultAppDataDirectory);
+                var retirement = McpTokenRetirement.Run(
+                    app.Services.GetRequiredService<WorkspaceSettingsStore>(),
+                    app.Services.GetRequiredService<IMcpGrantStore>(),
+                    ClaudeConfigFiles.ForCurrentUser(),
+                    helper,
+                    McpHeadersHelperScript.IsDebugBuild);
+
+                foreach (var problem in retirement.Problems)
+                {
+                    hookLog?.LogWarning("The shared MCP token's retirement is not finished: {Problem}", problem);
+                }
+
+                if (retirement.RegistrationsRewritten > 0 || retirement.TelemetryRewritten)
+                {
+                    hookLog?.LogInformation(
+                        "The shared MCP token was retired: {Registrations} Claude Code registration(s) and {Telemetry} telemetry block now run the headers helper for a grant.",
+                        retirement.RegistrationsRewritten,
+                        retirement.TelemetryRewritten ? 1 : 0);
+                }
+            }
+            catch (Exception ex)
+            {
+                // The grants could not be made or recorded: the app runs, and every registration
+                // that still sends the retired token is refused until the next start manages it.
+                hookLog?.LogError(ex, "The shared MCP token could not be retired; the next start tries again.");
+            }
         });
 
         // And the devbook database refresher, which is nothing until something

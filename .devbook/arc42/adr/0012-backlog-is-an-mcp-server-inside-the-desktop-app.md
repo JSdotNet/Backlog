@@ -1,7 +1,7 @@
 # ADR 0012: Backlog is an MCP server hosted inside the running desktop application
 
 ```meta
-date: 2026-11-10
+date: 2026-11-12
 related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/guidelines/0007-minimal-apis-over-controllers.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/devbook/features.md#remarks-on-a-chapter", ".devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0052-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 c4: [backlog.desktop]
 c4-touches: [backlog.mobile, backlog.desktop.backlogModule, backlog.desktop.sessions]
@@ -118,8 +118,9 @@ record because reversing any of them means reworking the same host.
 The MCP server is a **Streamable HTTP** endpoint the desktop application
 listens on, bound to `127.0.0.1`, port **5757** by default and configurable in
 Settings. It is protected twice: an **`Origin` check** that refuses any request
-carrying an origin other than none or loopback, and a **bearer token** the app
-generates once and keeps in the workspace settings — the per-user
+carrying an origin other than none or loopback, and a **bearer token**, since
+2026-11-12 a grant's 15-minute token (below). The port and the grant ids live in the
+workspace settings — the per-user
 `settings.json` under `%LOCALAPPDATA%\Backlog` that `WorkspaceSettingsStore`
 owns, which is machine-local by construction and never travels with synced
 content (`08-crosscutting-concepts.md#feature-enablement` makes the same point
@@ -144,60 +145,93 @@ pasted plan item "is the whole input for now" — and opening Backlog is the
 whole of the repair. The listener runs as long as the process does, and closing the main
 window hides it to the tray rather than ending the process (local ADR 0043 §5).
 
-**Amended 2026-11-11 by local ADR 0052 §3 and §4, not yet built.** The one bearer
-token goes. Each registration holds a grant of its own, and a token broker on a named
-pipe mints it a 15-minute JWT with scopes. The listener keeps the `Origin` check and
-then requires each tool group's scope under fallback-deny. `mcpServer.token` leaves
-`settings.json`, and every call is audited. A registration's `Authorization` header
-now carries that short-lived token, which the `headersHelper` asks the broker for.
+**Amended 2026-11-11 by local ADR 0052 §3 and §4, built by 2026-11-12.** The one
+bearer token is gone. Each registration holds a grant of its own, and a token broker on
+a named pipe mints it a 15-minute JWT with scopes. The listener keeps the `Origin` check
+and then requires each tool group's scope under fallback-deny. `mcpServer.token` has
+left `settings.json`, and every call is audited. A registration's `Authorization`
+header carries that short-lived token, which the `headersHelper` asks the broker for.
 
 **The audit log is built (2026-11-11, plan `zero-trust-auth` entry 5).** Both hosts write
 one record per `tools/call` from the call filter `AddBacklogMcpServer` installs first:
 time, caller, tool, target id, outcome and correlation id. The caller is the grant, by its
-name and id, for a grant token; `shared token` for the shared token, and
+name and id, for a grant token; `shared token` for the `BACKLOG_MCP_TOKEN` escape hatch, and
 `web harness, no token` in the harness. The records live in
 `mcp-audit.db` in the installation's own app-data folder, never in `backlog.db`, and are
 kept 30 days. The MCP server's Settings page shows the latest 200 on its **Activity** card.
 A request the listener turns away before any tool is named — a foreign `Origin`, a missing
 or wrong token — is a warning in the app's log, not an audit record; only the bearer lockout below is audited.
 
-**Rotate and the bearer limit are built (2026-11-11, plan `zero-trust-auth` entry 6).** The
-**Bearer token** card had a **Rotate** that replaced `mcpServer.token` at once and said so
-on the card; on 2026-11-12 (entry 10) the **Agents** card took that card's place (ADR 0052
-§3), and Settings no longer shows or rotates the shared token while it lasts. The listener reads the token per request, so the old one is refused from the
-next request. The `headersHelper` re-reads `settings.json` after that 401 and picks up the
-new one; a registration that names the token itself needs the new copy. Ten failed bearer
+**The bearer limit is built (2026-11-11, plan `zero-trust-auth` entry 6).** The
+**Bearer token** card had a **Rotate** that replaced `mcpServer.token`; on 2026-11-12
+(entry 10) the **Agents** card took that card's place (ADR 0052 §3), and Rotate went
+with the shared token. Ten failed bearer
 attempts within 60 seconds lock the listener out: every bearer request answers 429 with
 `Retry-After` for 60 seconds, the right token included. The trip writes one audit record,
 caller `no valid token`, tool `bearer lockout`, outcome Refused. The limit is one for the
 whole listener: every caller is on loopback, so no address tells a guesser from an agent.
-For 60 seconds after a Rotate the old token is refused but not counted, so the sessions
-still sending it cannot lock the person out.
+A forged JWT always counts. A static bearer counts only while the escape hatch below is
+on: otherwise there is no static secret to guess, and the sessions still sending the
+retired token must not lock the person out.
 
 **The token broker and grants are built (2026-11-11, plan `zero-trust-auth` entry 7),
 beside the shared token.** The desktop app keeps grants in `mcp-grants.json` in its app-data folder, each with a
 `dpapi:`-sealed secret (local ADR 0030). `McpTokenBroker` serves the named pipe
 `backlog-mcp-broker-<user>` (`backlog-debug-…` for a Debug build), whose one access rule
 is the person's SID, and also refuses a client whose SID differs. It answers a grant id
-with a 15-minute HS256 JWT signed by a key held in memory. The listener accepts that token
-when no static token matched, and refuses an expired one, one from another key, and one
+with a 15-minute HS256 JWT signed by a key held in memory. The listener accepts that token,
+and refuses an expired one, one from another key, and one
 whose `ver` is below the stored grant's version or whose grant is revoked.
-`tools/mcp/backlog-mcp-headers.mjs --grant <id>` asks the pipe for the header. Nothing
-creates a grant at runtime yet; entries 9 to 11 do. The web harness composes neither
-(ADR 0052 §9).
+`tools/mcp/backlog-mcp-headers.mjs --grant <id>` asks the pipe for the header. The
+**Agents** card creates grants (entry 10). The web harness composes neither and keeps
+no auth beyond the `Origin` check, because it is not the installed app (ADR 0052 §9).
 
 **Scopes are enforced (2026-11-12, plan `zero-trust-auth` entry 8).** Every served tool
 requires one scope of ADR 0052 §4 (`McpToolScopes`), and each scope is a named policy,
 `mcp:<scope>`. A tool or route that names no scope meets `mcp:fallback-deny`, which admits
 nobody. The listener puts a principal on every request it admits. A grant token brings its
-own; the shared token holds every grantable scope but `telemetry:write`, the question hook's
-token `notify:ask`, and the telemetry token `telemetry:write`. The guard then asks the
+own, and the escape hatch's token holds every grantable scope. The guard then asks the
 route's policy: the logs route needs `telemetry:write`, `/telemetry` `runs:write`, the wait
 route `sessions:dispatch`, and the hook script `notify:ask`. A refusal answers 403 with
 `insufficient_scope`. The call filter, after the feature gates and before the argument
 check, asks the tool's policy, so a switched-off tool stays unknown whatever the caller holds.
 The tool list is not filtered by scope. No grant holds `devbook:decide`, and no token or
 policy carries it. The harness puts a caller holding every grantable scope on its requests.
+
+**The shared token is retired (2026-11-12, plan `zero-trust-auth`, ADR 0052 Phase 1).**
+`settings.json` holds no MCP token, and the listener accepts no static one: the shared,
+question-hook and telemetry tokens are read once only so the migration below can find
+what still carries them. On every start `McpTokenRetirement` does three things:
+
+- **Creates the app's own grants** while `mcpServer.grants` is unrecorded: **Backlog
+  delivery** (the Delivery flow role's scopes), **Question hook** (`notify:ask`) and
+  **Telemetry** (`telemetry:write`). It records their ids, which are labels and not
+  secrets, as `mcpServer.grants.delivery`, `questionHook` and `telemetry`. A revoked one
+  is never recreated.
+- **Rewrites what carries a retired token,** and only where the bearer is exactly that
+  token. The `backlog` server in `~/.claude.json`, at user and project scope, gets a
+  `headersHelper` running the installed helper with `--grant` for Backlog delivery. A
+  telemetry header in `~/.claude/settings.json` becomes an `otelHeadersHelper` for the
+  Telemetry grant (local ADR 0024 §5).
+- **Drops the retired tokens** from `settings.json`. A file it cannot parse or write keeps
+  them for the next start.
+
+The app installs the headers helper to `<app data>\hooks\backlog-mcp-headers.mjs` on every
+start, beside `ask-backlog.mjs`. Without `--grant` the helper uses `BACKLOG_MCP_TOKEN` when
+set, else the `mcpServer.grants.delivery` grant, so this repository's `.mcp.json` names no
+machine-specific id. The question hook takes its grant the same way (local ADR 0041 §4).
+
+**The escape hatch is a hand-edited debug setting.** The listener accepts the app
+process's `BACKLOG_MCP_TOKEN` only when `settings.json` has
+`"mcpServer": { "acceptEnvironmentToken": true }`, which the app never writes. Its caller
+holds every grantable scope and is audited as `shared token`. The Dev PC catalog's
+`${BACKLOG_MCP_TOKEN}` placeholder resolves only then; otherwise the row reports it
+unresolved.
+
+**Still open:** the `backlog-tools` plugin's `hooks/telemetry-forwarder.mjs` and
+`skills/dispatch-sessions/assets/wait-logic.mjs`, and the `delivery-surface-backlog`
+plugin's `backlog-client.mjs`, read `mcpServer.token` from `settings.json`. The listener
+refuses them until each moves to a grant.
 
 ### 2. The host code: a framework reference in `Backlog.Desktop` only, started the way `TaskSyncWorker` is
 
@@ -395,9 +429,9 @@ Negative, and accepted:
 - **A fixed default port can collide.** 5757 is configurable for that reason;
   a collision at start is reported on the row, not retried on another port,
   because every registration names the port.
-- **A token in a settings file.** Bearer over loopback is as strong as the
-  user account is; it is not a defence against a process already running as
-  that user, and does not claim to be.
+- **Bearer over loopback is as strong as the user account is.** Any process
+  running as that user can ask the token broker for a grant's token; the guard
+  is not a defence against such a process, and does not claim to be.
 - **Resolution is a two-step the session performs.** Write the fence, then
   resolve over MCP; a session that does one and not the other leaves a remark
   answered in the chapter and open in Backlog, or the reverse. The order
@@ -415,9 +449,9 @@ day this record was accepted. A row marked **Built** is one the plan has closed.
 
 | Decision | Where the code is today |
 |---|---|
-| 1 — in-process HTTP host | **Built.** `McpServerWorker` holds the loopback listener, `McpLoopbackGuard` enforces the absent-or-loopback `Origin` and the bearer token, and `WorkspaceSettingsStore` carries `McpServerPort` (default 5757), `McpServerToken` and `EnsureMcpServerToken()`, which mints on first need rather than on read. A port collision is reported on the row and never retried elsewhere, as this decision requires. |
+| 1 — in-process HTTP host | **Built.** `McpServerWorker` holds the loopback listener, `McpLoopbackGuard` enforces the absent-or-loopback `Origin` and the bearer token, and `WorkspaceSettingsStore` carries `McpServerPort` (default 5757) and the app's grant ids; since 2026-11-12 it keeps no token. A port collision is reported on the row and never retried elsewhere, as this decision requires. |
 | 2 — host code placement | **Built.** `Backlog.Desktop.csproj` carries the `Microsoft.AspNetCore.App` framework reference and nothing else does; `ModelContextProtocol.AspNetCore` is referenced by the two hosts alone. `AddBacklogMcpServer` in `Backlog.Desktop.UI` is the one registration both hosts call, and each adds its own transport — so the tools stay one implementation with two hosts. |
-| 3 — `backlog` server id | **Built.** `.mcp.json` at the repository root declares the project-scope registration, its bearer token supplied by the `headersHelper` `tools/mcp/backlog-mcp-headers.mjs` — `BACKLOG_MCP_TOKEN`, else the app's `settings.json`, re-read by Claude Code after a 401 — rather than a static `${BACKLOG_MCP_TOKEN}` header, which left every session whose environment lacked the variable unauthorized. The Dev PC catalog carries a `backlog` row that `DevToolService` applies as `claude mcp add --transport http --scope user backlog <url> --header "Authorization: Bearer <token>"`. `DevToolMcpMechanism` gained `Http` beside `DotNetTool`, `Command` and `Manual`. The catalog holds `${BACKLOG_MCP_PORT}`/`${BACKLOG_MCP_TOKEN}` placeholders rather than literals — it is committed and resolves out of a synced folder — and the host expands them at apply time, from a closed vocabulary that never reads the environment. |
+| 3 — `backlog` server id | **Built.** `.mcp.json` at the repository root declares the project-scope registration, its bearer token supplied by the `headersHelper` `tools/mcp/backlog-mcp-headers.mjs` — `BACKLOG_MCP_TOKEN`, else a broker token for the `mcpServer.grants.delivery` grant the app's `settings.json` names, fetched again by Claude Code after a 401 — rather than a static `${BACKLOG_MCP_TOKEN}` header, which left every session whose environment lacked the variable unauthorized. The Dev PC catalog carries a `backlog` row that `DevToolService` applies as `claude mcp add --transport http --scope user backlog <url> --header "Authorization: Bearer <token>"`. `DevToolMcpMechanism` gained `Http` beside `DotNetTool`, `Command` and `Manual`. The catalog holds `${BACKLOG_MCP_PORT}`/`${BACKLOG_MCP_TOKEN}` placeholders rather than literals — it is committed and resolves out of a synced folder — and the host expands them at apply time, from a closed vocabulary that never reads the environment. Since 2026-11-12 `${BACKLOG_MCP_TOKEN}` resolves only under the escape hatch of decision 1, and the app's start rewrites a registration that still carries the retired token to `headersHelper --grant`. |
 | 4 — `repository` argument | **Built.** `IRepositoryDirectory.Resolve` does the mapping and `RepositoryScope.Resolve` is what every repository-scoped tool calls before it reads or writes, so an unregistered `owner/name` is a refusal rather than an empty answer. `run-plan-item` step 2 now reads `repository` off the git remote and carries it on every connector call — the half this row recorded as missing. The delivery surface's eight tools are the documented exception and take a **`worktree`** instead: a run belongs to a checkout rather than to a repository, two worktrees of one clone hold two independent runs, and `start_run` reattaches per skill *within* a worktree. That is the same rule, not a departure from it — the caller still names the scope and the server still infers nothing. The devbook tools carry a second exception: they also take `#brain`, the Brain (local ADR 0027), matched before `RepositoryScope.Resolve` asks the directory. The caller still names the scope; `#brain` cannot be an `owner/name`, so it shadows no repository, and an empty argument is still refused rather than read as the Brain. |
 | 5 — status is a token | `EntryTextParser.WithStatus`, `SaveFromTextAsync` and `TaskItem.IsTransitionAllowed` / `NextStatusesFrom` all exist. `TaskItem.ChangeStatus`, the throwing form, has no caller in `src/`; the tool uses the predicate, not this method. Nothing today refuses a jump on the save path, so the refusal is the tool's to make. |
 | 6 — two annotation kinds | `IDevbookAnnotationStore` has `List`, `Find` and `SetResolved`. `annotations.mjs` is not installed in this repository: the checked-in generator under `.github/tools/knowledge-meta/` predates it, and the installed copy arrives with the devbook contract v6 adoption (`devbook-sync`), a standing follow-up. Until then a session writes the fence with the plugin's own copy of the tool. Since 2026-11-02 (plan entry 6), `devbook_post_note` writes a remark and no fence, and a repository's open fences on its default branch are imported once into remarks (local ADR 0011). `list_annotations` lists the remarks of the branch the repository is configured to read. |
@@ -464,6 +498,7 @@ day this record was accepted. A row marked **Built** is one the plan has closed.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-12 | Retired §1's shared, question-hook and telemetry tokens and Rotate: the app creates its three grants, rewrites the registrations that carry a retired token to the headers helper, and drops the tokens. `BACKLOG_MCP_TOKEN` is accepted only under a hand-edited debug setting. | Plan `zero-trust-auth`, ADR 0052 Phase 1: no long-lived MCP secret sits in a file. |
 | 2026-11-12 | Built §1's scope policies: every tool and route requires one ADR 0052 §4 scope by a named policy under fallback-deny, every admitted request carries a principal, and the audit names the grant. | Plan `zero-trust-auth` entry 8, ADR 0052 Phase 1. |
 | 2026-11-11 | Built §1's token broker and grants beside the shared token: a named pipe for the person's SID alone mints 15-minute JWTs for grants in `mcp-grants.json`, and the listener refuses an expired token or one older than its grant's version. | Plan `zero-trust-auth` entry 7, ADR 0052 Phase 1. |
 | 2026-11-11 | Built §1's Rotate on the **Bearer token** card and the limit on failed bearer attempts: ten within 60 seconds answer every bearer request 429 for 60 seconds, with one audit record. | Plan `zero-trust-auth` entry 6, ADR 0052 Phase 0. |

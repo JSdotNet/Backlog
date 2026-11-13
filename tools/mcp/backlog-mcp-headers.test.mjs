@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import net from "node:net";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+    deliveryGrant,
     grantFromConfig,
     openRequest,
     parseArgs,
@@ -25,27 +26,27 @@ import {
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "backlog-mcp-headers.mjs");
 const settings = (json) => () => JSON.stringify(json);
 
-test("the environment wins over settings.json", () => {
-    assert.equal(resolveToken({ BACKLOG_MCP_TOKEN: "from-env" }, settings({ mcpServer: { token: "from-file" } })), "from-env");
+test("only BACKLOG_MCP_TOKEN is a static token: the escape hatch", () => {
+    assert.equal(resolveToken({ BACKLOG_MCP_TOKEN: "from-env" }), "from-env");
+    assert.equal(resolveToken({}), null);
 });
 
-test("settings.json answers when the environment does not", () => {
-    assert.equal(resolveToken({}, settings({ mcpServer: { token: "from-file" } })), "from-file");
+test("settings.json answers the delivery grant's id, never a token (local ADR 0052, Phase 1)", () => {
+    assert.equal(deliveryGrant(settings({ mcpServer: { grants: { delivery: "g_d", questionHook: "g_q", telemetry: "g_t" } } })), "g_d");
+    // A file from before the upgrade: the retired token is not read.
+    assert.equal(deliveryGrant(settings({ mcpServer: { token: "retired" } })), null);
+    assert.equal(deliveryGrant(() => { throw new Error("ENOENT"); }), null);
+    assert.equal(deliveryGrant(() => "not json"), null);
 });
 
-test("no token anywhere resolves to null", () => {
-    assert.equal(resolveToken({}, settings({})), null);
-    assert.equal(resolveToken({}, () => { throw new Error("ENOENT"); }), null);
-    assert.equal(resolveToken({}, () => "not json"), null);
-});
-
-test("settings.json sits under LocalApplicationData/Backlog", () => {
+test("settings.json sits under LocalApplicationData/Backlog, or Backlog.Debug for --debug", () => {
     assert.equal(settingsPath({ LOCALAPPDATA: "C:\\L" }, "win32", "C:\\H"), join("C:\\L", "Backlog", "settings.json"));
+    assert.equal(settingsPath({ LOCALAPPDATA: "C:\\L" }, "win32", "C:\\H", { debug: true }), join("C:\\L", "Backlog.Debug", "settings.json"));
     assert.equal(settingsPath({}, "darwin", "/h"), join("/h", "Library", "Application Support", "Backlog", "settings.json"));
     assert.equal(settingsPath({}, "linux", "/h"), join("/h", ".local", "share", "Backlog", "settings.json"));
 });
 
-async function run(env, settingsJson) {
+async function run(env, settingsJson, args = []) {
     const root = await mkdtemp(join(tmpdir(), "backlog-mcp-headers-"));
     try {
         const base = { PATH: process.env.PATH, LOCALAPPDATA: root, XDG_DATA_HOME: root, HOME: root, USERPROFILE: root };
@@ -54,28 +55,35 @@ async function run(env, settingsJson) {
             await mkdir(dirname(file), { recursive: true });
             await writeFile(file, JSON.stringify(settingsJson));
         }
-        return spawnSync(process.execPath, [SCRIPT], { env: { ...base, ...env }, encoding: "utf8" });
+        return await runAsync(args, { ...base, ...env });
     } finally {
         await rm(root, { recursive: true, force: true });
     }
 }
 
-test("prints the Authorization header as the JSON object headersHelper expects", async () => {
-    const result = await run({}, { mcpServer: { token: "abc" } });
+test("BACKLOG_MCP_TOKEN prints as the Authorization header headersHelper expects", async () => {
+    const result = await run({ BACKLOG_MCP_TOKEN: "abc" }, null);
     assert.equal(result.status, 0);
     assert.deepEqual(JSON.parse(result.stdout), { Authorization: "Bearer abc" });
 });
 
-test("no token exits 1 with the reason, and prints no header", async () => {
+test("the retired mcpServer.token in settings.json is never printed", async () => {
+    const result = await run({}, { mcpServer: { token: "retired" } });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /No Backlog MCP grant/);
+});
+
+test("no grant recorded exits 1 with the reason, and prints no header", async () => {
     const result = await run({}, null);
     assert.equal(result.status, 1);
     assert.equal(result.stdout, "");
-    assert.match(result.stderr, /No Backlog MCP token/);
+    assert.match(result.stderr, /No Backlog MCP grant/);
 });
 
 // --grant (local ADR 0052 §3): the token comes from the desktop app's broker pipe.
 
-test("no flags is the shared-token path", () => {
+test("no flags is the recorded delivery grant, then the escape hatch", () => {
     assert.deepEqual(parseArgs([]), { grant: null, debug: false });
 });
 
@@ -185,6 +193,21 @@ test("--grant prints the broker's token as the header, without reading settings.
         const result = await runAsync(["--grant", "g_abc"], { BACKLOG_MCP_BROKER_PIPE: broker.name, BACKLOG_MCP_TOKEN: "shared" });
         assert.equal(result.status, 0, result.stderr);
         assert.deepEqual(JSON.parse(result.stdout), { Authorization: "Bearer a.b.c" });
+    } finally {
+        await broker.close();
+    }
+});
+
+test("no flags asks the broker for the delivery grant settings.json records", { skip: process.platform !== "win32" && "the broker is a Windows named pipe" }, async () => {
+    const broker = await fakeBroker(JSON.stringify({ token: "d.e.f", expiresAt: "2026-11-11T09:45:00Z" }) + "\n");
+    try {
+        const result = await run(
+            // A token copied into the environment by hand before the upgrade does not win.
+            { BACKLOG_MCP_BROKER_PIPE: broker.name, BACKLOG_MCP_TOKEN: "retired" },
+            { mcpServer: { token: "retired", grants: { delivery: "g_d", questionHook: "g_q", telemetry: "g_t" } } });
+        assert.equal(result.status, 0, result.stderr);
+        assert.deepEqual(JSON.parse(result.stdout), { Authorization: "Bearer d.e.f" });
+        assert.deepEqual(broker.requests, ['{"grant":"g_d"}\n']);
     } finally {
         await broker.close();
     }

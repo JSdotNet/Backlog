@@ -9,8 +9,8 @@ public static class McpAudit
     /// <summary>How many records the Settings page shows.</summary>
     public const int Shown = 200;
 
-    /// <summary>The caller of every call the desktop app admits today: the one bearer
-    /// token every registration carries (local ADR 0012 §1).</summary>
+    /// <summary>The caller of a call the desktop app admits on the BACKLOG_MCP_TOKEN escape
+    /// hatch, and before local ADR 0052, Phase 1 of every call: the shared bearer token.</summary>
     public const string SharedTokenCaller = "shared token";
 
     /// <summary>The caller of every call the web harness admits: it asks for no token,
