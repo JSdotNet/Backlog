@@ -40,6 +40,10 @@
     <None Remove="Mcp\ask-backlog.mjs" />
     <Content Remove="Mcp\ask-backlog.mjs" />
     <EmbeddedResource Include="Mcp\ask-backlog.mjs" LogicalName="Backlog.Desktop.UI.Mcp.ask-backlog.mjs" />
+    <!-- And the headers helper (local ADR 0052, Phase 1), the repository's own file, written
+         beside it so a user-scope registration and the telemetry exporter can name it by an
+         absolute path. The logical name is McpHeadersHelperScript.ResourceName's. -->
+    <EmbeddedResource Include="..\..\..\tools\mcp\backlog-mcp-headers.mjs" LogicalName="Backlog.Desktop.UI.Mcp.backlog-mcp-headers.mjs" Link="Mcp\backlog-mcp-headers.mjs" />
   </ItemGroup>
 
   <ItemGroup>

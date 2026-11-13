@@ -73,7 +73,8 @@ action, resource type and id, outcome, and correlation id.
 - **No audit log yet.** Sensitive-operation auditing is not implemented anywhere,
   local or cloud. Local ADR 0052 decides one for every MCP call, in its first
   delivery phase.
-- **The MCP listener still takes one shared token** until local ADR 0052's grants
-  are built.
+- **The MCP listener takes grant tokens only** (local ADR 0052 §3). The shared token
+  is retired; the listener accepts `BACKLOG_MCP_TOKEN` only under a debug setting that
+  is off by default.
 - Module-to-module calls do not carry a `ClaimsPrincipal`, since no in-process
   operation is security-relevant today.

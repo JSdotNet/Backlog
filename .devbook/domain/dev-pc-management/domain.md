@@ -125,7 +125,7 @@ Its invariants are:
 A missing or unreadable record reads as none.
 
 The transcript is redacted before the record is written, because the record can
-sit inside a synced storage root. This machine's MCP token is masked by value: it is read, never minted to be masked.
+sit inside a synced storage root. The MCP escape hatch's `BACKLOG_MCP_TOKEN`, where a debug setting switched it on, is masked by value.
 Every known secret shape a tool's output can carry is masked too, whoever passed it in:
 
 - a `Bearer` credential;
