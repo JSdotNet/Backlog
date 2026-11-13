@@ -3,7 +3,7 @@
 <PageTitle>Agents — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Agents"
-           Summary="AgentGrantRow, AgentScopeSwitches and AgentRegistration: the MCP server page's Agents card — one row per agent with its role, source, last use and scopes, its switches opened in place, Revoke confirmed in place, and the registration a new agent is given."
+           Summary="AgentGrantRow, AgentScopeSwitches, AgentRegistration and AgentAccessRequest: the MCP server page's Agents card — one row per agent with its role, source, last use and scopes, its switches opened in place, Revoke confirmed in place, the registration a new agent is given, and a request waiting for the person, on the page and in its own window."
            Guidelines="@Rules">
 
     <Story Name="A list of agents"
@@ -52,6 +52,54 @@ Edit scopes opens the agent's switches under its row and reads Done while they a
                                 AriaLabel="Scopes of the sample agent"
                                 OnChanged="FlipSample" />
             <p class="sb-state" data-testid="settings-agents-switches-state">On: @string.Join(", ", _selected)</p>
+        </div>
+    </Story>
+
+    <Story Name="A request waiting"
+           Description="An agent that registered itself, or wants more, waits for the person on the MCP server page: its name, where it asked from and when, and the scopes it asked for as chips. Trim scopes opens the switches under the row; a scope turned off reads off on its chip. agents:grant always starts off. Decline and Allow with Hello are the only answers, and Allow asks for Windows Hello - here it answers as a host with none would, so the refusal shows."
+           Code="@RequestRowCode">
+        <div class="sb-stack" data-testid="settings-agents-request">
+            <SettingsCard Title="Waiting for your approval" CssClass="settings-card--pending" Description="Allow saves the grant with the scopes switched on, after Windows Hello.">
+                <div class="agent-list" role="list" aria-label="Waiting for your approval">
+                    @if (!_requestAnswered)
+                    {
+                        <AgentAccessRequest Name="Copilot CLI · D:\Repos\Backlog"
+                                            RequestId="r_sample"
+                                            Meta="Registered itself 2 min ago · from copilot.exe · in D:\Repos\Backlog"
+                                            Asked="@RequestOptions"
+                                            Selected="@_requestSelected"
+                                            Highlighted="@Highlighted"
+                                            Trimmable="true"
+                                            Trimming="@_requestTrimming"
+                                            Message="@_requestMessage"
+                                            MessageIsError="true"
+                                            EditorId="sb-request-editor"
+                                            OnTrim="() => _requestTrimming = !_requestTrimming"
+                                            OnChanged="FlipRequest"
+                                            OnDecline="() => _requestAnswered = true"
+                                            OnAllow="@(() => _requestMessage = "Windows Hello is not available here, so nothing can be allowed.")" />
+                    }
+                    else
+                    {
+                        <p class="sb-state" data-testid="settings-agents-request-declined">Declined. Reload the page for the sample.</p>
+                    }
+                </div>
+            </SettingsCard>
+        </div>
+    </Story>
+
+    <Story Name="The request window"
+           Description="The pop-out an agent opens for its own request. The switches are its content, always open, so there is no Trim scopes. The agent cannot answer it: Allow asks for Windows Hello, which a script or UI automation cannot pass."
+           Code="@RequestWindowCode">
+        <div class="sb-stack" data-testid="settings-agents-request-window">
+            <AgentAccessRequest Name="Claude Code · Backlog"
+                                RequestId="r_window"
+                                Meta="Registered itself 10 seconds ago · from claude.exe · in D:\Repos\Backlog"
+                                Asked="@RequestOptions"
+                                Selected="@_windowSelected"
+                                Highlighted="@Highlighted"
+                                EditorId="sb-request-window"
+                                OnChanged="FlipWindow" />
         </div>
     </Story>
 
@@ -107,6 +155,53 @@ Edit scopes opens the agent's switches under its row and reads Done while they a
     private List<string> _selected = ["tasks:read", "devbook:read"];
 
     private int _done;
+
+    private static readonly IReadOnlyList<AgentScopeOption> RequestOptions =
+    [
+        new("tasks:read", "Find and read items, goals, the roadmap"),
+        new("tasks:write", "Create, comment, transition, block"),
+        new("devbook:read", "Chapters, notes, states"),
+        new("agents:grant", "Grant other agents a subset of its own scopes", Locked: true)
+    ];
+
+    private List<string> _requestSelected = ["tasks:read", "tasks:write", "devbook:read"];
+
+    private List<string> _windowSelected = ["tasks:read", "tasks:write", "devbook:read"];
+
+    private bool _requestTrimming;
+
+    private bool _requestAnswered;
+
+    private string? _requestMessage;
+
+    private void FlipRequest(AgentScopeChange change) =>
+        _requestSelected = change.On ? [.. _requestSelected, change.Scope] : [.. _requestSelected.Where(scope => scope != change.Scope)];
+
+    private void FlipWindow(AgentScopeChange change) =>
+        _windowSelected = change.On ? [.. _windowSelected, change.Scope] : [.. _windowSelected.Where(scope => scope != change.Scope)];
+
+    private const string RequestRowCode = """
+        <AgentAccessRequest Name="@request.Name"
+                            Meta="@meta"
+                            Asked="@options"
+                            Selected="@selected"
+                            Trimmable="true"
+                            Trimming="@trimming"
+                            OnTrim="ToggleTrim"
+                            OnChanged="Flip"
+                            OnDecline="Decline"
+                            OnAllow="AllowWithHello" />
+        """;
+
+    private const string RequestWindowCode = """
+        <AgentAccessRequest Name="@request.Name"
+                            Meta="@meta"
+                            Asked="@options"
+                            Selected="@selected"
+                            OnChanged="Flip"
+                            OnDecline="Decline"
+                            OnAllow="AllowWithHello" />
+        """;
 
     private void Revoke(SampleAgent agent)
     {

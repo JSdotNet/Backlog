@@ -113,7 +113,10 @@ public class BacklogMcpToolsTests
                 "archive_inbox_item",
 
                 // The surface windows (local ADR 0043 §7).
-                "open_window"
+                "open_window",
+
+                // An agent asking the person for more (local ADR 0052 §5).
+                "request_access"
             ],
             BacklogMcpTools.ToolNames);
     }
@@ -187,8 +190,8 @@ public class BacklogMcpToolsTests
     [Fact]
     public void Groups_share_a_key_only_where_they_are_one_area()
     {
-        // The one ungated group has no key to share: open_window is behind no flag.
-        Assert.Equal([BacklogMcpTools.Windows], BacklogMcpTools.Groups.Where(group => group.FeatureKey is null));
+        // The ungated groups have no key to share: open_window and request_access are behind no flag.
+        Assert.Equal([BacklogMcpTools.Windows, AccessTools.Group], BacklogMcpTools.Groups.Where(group => group.FeatureKey is null));
 
         var byKey = BacklogMcpTools.Groups
             .Where(group => group.FeatureKey is not null)
@@ -337,7 +340,8 @@ public class BacklogMcpToolsTests
             NotificationTools.Ask,
             NotificationTools.GetAnswer,
             NotificationTools.Close,
-            WindowTools.OpenWindow
+            WindowTools.OpenWindow,
+            AccessTools.RequestAccess
         ];
 
         string[] destructive = [GoalTools.DeleteGoal];

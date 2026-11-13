@@ -191,8 +191,30 @@ public static class MauiProgram
         // signing key in memory: the broker mints with it and the listener validates with
         // it, and a second instance would refuse every token the first one signed.
         builder.Services.TryAddSingleton<IMcpGrantStore>(_ => new FileMcpGrantStore(Path.Combine(appData, FileMcpGrantStore.FileName)));
-        builder.Services.TryAddSingleton(sp => new McpGrantTokens(sp.GetRequiredService<IMcpGrantStore>(), TimeProvider.System));
-        builder.Services.TryAddSingleton<McpTokenBroker>();
+        // The agents' requests for access beside them (local ADR 0052 §5): a registration's grant
+        // is pending, and mints nothing, while its request is open.
+        builder.Services.TryAddSingleton<IMcpAccessRequestStore>(_ => new FileMcpAccessRequestStore(Path.Combine(appData, FileMcpAccessRequestStore.FileName)));
+        builder.Services.TryAddSingleton(sp => new McpGrantTokens(
+            sp.GetRequiredService<IMcpGrantStore>(),
+            TimeProvider.System,
+            sp.GetRequiredService<IMcpAccessRequestStore>()));
+        // Allow asks for Windows Hello (§6), and the desk that holds a request to its limits
+        // opens the request window over these windows and raises its notification (ADR 0039).
+        builder.Services.TryAddSingleton<IUserConsent>(sp => new WindowsHelloUserConsent(sp.GetRequiredService<ShellWindows>()));
+        builder.Services.TryAddSingleton<IAgentRequestWindows>(sp => new ShellAgentRequestWindows(sp.GetRequiredService<IShellWindows>()));
+        builder.Services.TryAddSingleton(sp => new McpAccessDesk(
+            sp.GetRequiredService<IMcpGrantStore>(),
+            sp.GetRequiredService<IMcpAccessRequestStore>(),
+            sp.GetRequiredService<IUserConsent>(),
+            TimeProvider.System,
+            sp.GetRequiredService<IAgentRequestWindows>(),
+            sp.GetService<Backlog.Modules.Notifications.Abstractions.INotifications>(),
+            sp.GetService<ILogger<McpAccessDesk>>()));
+        builder.Services.TryAddSingleton<IAgentAccessRequests>(sp => sp.GetRequiredService<McpAccessDesk>());
+        builder.Services.TryAddSingleton(sp => new McpTokenBroker(
+            sp.GetRequiredService<McpGrantTokens>(),
+            sp.GetRequiredService<McpAccessDesk>(),
+            sp.GetService<ILogger<McpTokenBroker>>()));
         // The head's windows (local ADR 0043 §4): the main one App asks for, and every
         // surface popped out beside it. Twice over, so App reaches the concrete type
         // that makes the main window while every caller sees the port.

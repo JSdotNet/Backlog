@@ -8,6 +8,7 @@ using Backlog.SharedKernel.Mcp;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
@@ -136,6 +137,11 @@ public static class BacklogMcpServerRegistration
         // (local ADR 0052 §4).
         services.AddMcpScopePolicies();
 
+        // The caller's principal, per request, for the one tool that must know which grant
+        // called it: request_access (local ADR 0052 §5). Set by the filter below before any
+        // tool runs.
+        services.TryAddScoped<McpCallContext>();
+
         return services
             .AddMcpServer()
             // Read off the group table rather than named one by one, so a group
@@ -152,6 +158,12 @@ public static class BacklogMcpServerRegistration
             // After the gates, so a switched-off tool is unknown whatever the caller holds,
             // and before the argument check, so a call no scope admits reads nothing.
             .WithRequestFilters(filters => filters.AddCallToolFilter(ApplyScopePolicy))
+            .WithRequestFilters(filters => filters.AddCallToolFilter(next => (request, cancellationToken) =>
+            {
+                if (request.Services?.GetService<McpCallContext>() is { } call) call.User = request.User;
+
+                return next(request, cancellationToken);
+            }))
             // After the scopes, so a switched-off tool is unknown before its
             // arguments are read. See ToolArguments for why the surface's are read
             // here at all: the SDK answers a binding failure with no reason.

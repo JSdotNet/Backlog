@@ -30,6 +30,15 @@ public static class McpToolScopes
     public static IReadOnlyDictionary<string, string> All => ByTool;
 
     /// <summary>
+    /// The tools any admitted caller may call, whatever scopes it holds: <c>request_access</c>
+    /// alone, because an agent that lacks a scope is the one that must ask for it (local ADR
+    /// 0052 §5). Named here, beside the table, so a tool reaches no caller by being forgotten:
+    /// one in neither still meets the fallback-deny.
+    /// </summary>
+    public static IReadOnlySet<string> AnyCaller { get; } =
+        new HashSet<string>([AccessTools.RequestAccess], StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// The scope <paramref name="toolName"/> requires, or null for a tool this table does not
     /// name — which the call filter refuses rather than lets through. Matched without regard
     /// to case, for the reason <see cref="BacklogMcpTools.IsCallable"/> gives: a refusal must

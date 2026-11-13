@@ -126,9 +126,9 @@ public class McpServerCompositionTests
             BacklogMcpTools.Groups,
             group =>
             {
-                // The one group no flag gates — open_window, local ADR 0043 §7 — has
-                // no key to ask about.
-                if (ReferenceEquals(group, BacklogMcpTools.Windows))
+                // The groups no flag gates — open_window, local ADR 0043 §7, and
+                // request_access, local ADR 0052 §5 — have no key to ask about.
+                if (ReferenceEquals(group, BacklogMcpTools.Windows) || ReferenceEquals(group, AccessTools.Group))
                 {
                     Assert.Null(group.FeatureKey);
                     return;
