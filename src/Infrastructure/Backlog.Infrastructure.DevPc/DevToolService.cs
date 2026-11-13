@@ -2285,7 +2285,9 @@ public sealed class DevToolService : IDevToolService
             }
 
             target = resolved.Url;
-            addArguments = DevToolCommands.ClaudeMcpAddHttp(cli, name, target, resolved.Headers).LaunchArguments;
+            addArguments = (resolved.HeadersHelper is { } headersHelper
+                ? DevToolCommands.ClaudeMcpAddJsonHttp(cli, name, target, resolved.Headers, headersHelper)
+                : DevToolCommands.ClaudeMcpAddHttp(cli, name, target, resolved.Headers)).LaunchArguments;
         }
         else
         {
@@ -2453,7 +2455,7 @@ public sealed class DevToolService : IDevToolService
     /// succeed: what fails is every later call, on a machine, with nothing
     /// pointing at why.</para>
     /// </remarks>
-    private (DevToolActionResult? Failure, string Url, IReadOnlyList<KeyValuePair<string, string>> Headers) RegisterableEndpoint(
+    private (DevToolActionResult? Failure, string Url, IReadOnlyList<KeyValuePair<string, string>> Headers, string? HeadersHelper) RegisterableEndpoint(
         string name,
         JsonNode claude,
         CommandLog log)
@@ -2462,7 +2464,7 @@ public sealed class DevToolService : IDevToolService
 
         if (_mcp is not { } mcp)
         {
-            return (DevToolActionResult.Failed($"'{name}' was not registered. {EndpointUnresolvable}"), string.Empty, none);
+            return (DevToolActionResult.Failed($"'{name}' was not registered. {EndpointUnresolvable}"), string.Empty, none, null);
         }
 
         var declaredUrl = GetString(claude, "url");
@@ -2473,12 +2475,12 @@ public sealed class DevToolService : IDevToolService
 
         if (!url.Resolved)
         {
-            return (DevToolActionResult.Failed($"'{name}' was not registered. {url.Problem}"), string.Empty, none);
+            return (DevToolActionResult.Failed($"'{name}' was not registered. {url.Problem}"), string.Empty, none, null);
         }
 
         if (string.IsNullOrWhiteSpace(url.Text))
         {
-            return (DevToolActionResult.Failed($"'{name}' has no claude.url to register."), string.Empty, none);
+            return (DevToolActionResult.Failed($"'{name}' has no claude.url to register."), string.Empty, none, null);
         }
 
         // Whatever the query string expanded into is a credential on the same
@@ -2496,7 +2498,7 @@ public sealed class DevToolService : IDevToolService
 
             if (!expanded.Resolved)
             {
-                return (DevToolActionResult.Failed($"'{name}' was not registered. {expanded.Problem}"), string.Empty, none);
+                return (DevToolActionResult.Failed($"'{name}' was not registered. {expanded.Problem}"), string.Empty, none, null);
             }
 
             // The expansion, told to the log before the line that carries it is
@@ -2508,7 +2510,23 @@ public sealed class DevToolService : IDevToolService
             headers.Add(new KeyValuePair<string, string>(header, expanded.Text));
         }
 
-        return (null, url.Text, headers);
+        // A headers helper is a command, not a credential: it names a grant id at most, which
+        // is a label. It is expanded like the rest and refused the same way when it cannot be.
+        string? headersHelper = null;
+        if (GetString(claude, DevToolConfiguration.HeadersHelperPropertyName) is { Length: > 0 } declaredHelper
+            && !string.IsNullOrWhiteSpace(declaredHelper))
+        {
+            var helper = McpPlaceholders.Expand(declaredHelper.Trim(), resolve);
+
+            if (!helper.Resolved)
+            {
+                return (DevToolActionResult.Failed($"'{name}' was not registered. {helper.Problem}"), string.Empty, none, null);
+            }
+
+            headersHelper = helper.Text;
+        }
+
+        return (null, url.Text, headers, headersHelper);
     }
 
     /// <summary>

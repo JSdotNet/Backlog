@@ -228,4 +228,135 @@ public sealed class McpTokenRetirementTests : IDisposable
         Assert.Equal("{ not json", File.ReadAllText(Files.UserConfigPath));
         Assert.Equal(["shared-token", "hook-token", "telemetry-token"], Settings().RetiredMcpTokens);
     }
+
+    /// <summary>The delivery grant serves the delivery flows' review notes, the windows they open
+    /// and the Manager session's dispatch, so it carries those three beyond the Delivery flow preset.</summary>
+    [Fact]
+    public void The_delivery_grant_carries_devbook_write_ui_open_and_sessions_dispatch()
+    {
+        var grants = Grants();
+
+        var made = McpTokenRetirement.EnsureGrants(Settings(Upgraded), grants);
+
+        var scopes = grants.Find(made.Delivery)!.Scopes;
+        Assert.Contains(McpScopes.DevbookWrite, scopes);
+        Assert.Contains(McpScopes.UiOpen, scopes);
+        Assert.Contains(McpScopes.SessionsDispatch, scopes);
+        Assert.Superset(McpTokenRetirement.DeliveryPreset.ToHashSet(), scopes.ToHashSet());
+        Assert.Equal(scopes.Count, scopes.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    /// <summary>A delivery grant entry 9 already made holds the bare preset: the next start gives
+    /// it the three scopes once, raising its version so a token minted under the old scopes is
+    /// refused, and a start after that changes nothing.</summary>
+    [Fact]
+    public void An_already_migrated_delivery_grant_is_topped_up_once_on_the_next_start()
+    {
+        var made = MigratedBeforeTheAdditions();
+        var before = Grants().Find(made.Delivery)!;
+
+        var again = McpTokenRetirement.EnsureGrants(Settings(), Grants());
+
+        Assert.Equal(made, again);
+        var after = Grants().Find(made.Delivery)!;
+        Assert.Equal(McpTokenRetirement.DeliveryScopes.ToHashSet(), after.Scopes.ToHashSet());
+        Assert.True(after.Version > before.Version);
+
+        _ = McpTokenRetirement.EnsureGrants(Settings(), Grants());
+        Assert.Equal(after.Version, Grants().Find(made.Delivery)!.Version);
+        Assert.Equal(3, Grants().List().Count);
+    }
+
+    /// <summary>A delivery grant whose scopes the person changed on the Agents card keeps their
+    /// choice, and a revoked one stays as it was revoked.</summary>
+    [Fact]
+    public void A_delivery_grant_the_person_changed_or_revoked_is_not_topped_up()
+    {
+        var made = MigratedBeforeTheAdditions();
+        var edited = Grants().SetScopes(made.Delivery, [McpScopes.TasksRead])!;
+
+        _ = McpTokenRetirement.EnsureGrants(Settings(), Grants());
+
+        Assert.Equal([McpScopes.TasksRead], Grants().Find(made.Delivery)!.Scopes);
+        Assert.Equal(edited.Version, Grants().Find(made.Delivery)!.Version);
+
+        _ = Grants().SetScopes(made.Delivery, McpTokenRetirement.DeliveryPreset);
+        var revoked = Grants().Revoke(made.Delivery)!;
+
+        _ = McpTokenRetirement.EnsureGrants(Settings(), Grants());
+
+        var kept = Grants().Find(made.Delivery)!;
+        Assert.True(kept.Revoked);
+        Assert.Equal(revoked.Version, kept.Version);
+        Assert.DoesNotContain(McpScopes.SessionsDispatch, kept.Scopes);
+    }
+
+    /// <summary>
+    /// Claude Code writes <c>~/.claude.json</c> on its own while the app rewrites it. A write that
+    /// lands between the app's read and its replace is kept: the file is read again before the
+    /// replace, the edit is made again on what is there now, and no temporary file is left behind.
+    /// </summary>
+    [Fact]
+    public void A_write_made_while_the_file_is_rewritten_is_kept()
+    {
+        Write(Files.UserConfigPath, """{ "numStartups": 1, "mcpServers": { "backlog": { "headers": { "Authorization": "Bearer shared-token" } } } }""");
+        var problems = new List<string>();
+        var concurrent = 0;
+
+        McpTokenRetirement.Edit(
+            Files.UserConfigPath,
+            root => McpTokenRetirement.RewriteRegistrations(root, ["shared-token"], "helper") > 0,
+            problems,
+            beforeReplace: () =>
+            {
+                if (concurrent++ > 0) return;
+                File.WriteAllText(Files.UserConfigPath, """{ "numStartups": 2, "tipsHistory": { "x": 1 }, "mcpServers": { "backlog": { "headers": { "Authorization": "Bearer shared-token" } } } }""");
+            });
+
+        Assert.Empty(problems);
+        var config = Read(Files.UserConfigPath);
+        Assert.Equal(2, config["numStartups"]!.GetValue<int>());
+        Assert.Equal(1, config["tipsHistory"]!["x"]!.GetValue<int>());
+        Assert.Equal("helper", config["mcpServers"]!["backlog"]!["headersHelper"]!.GetValue<string>());
+        Assert.Single(Directory.GetFiles(_root, ".claude.json*"));
+    }
+
+    /// <summary>A file that changes under every attempt is left as its other writer last wrote it
+    /// and reported, so the retired tokens stay recorded and the next start tries again.</summary>
+    [Fact]
+    public void A_file_that_keeps_changing_is_left_for_the_next_start()
+    {
+        Write(Files.UserConfigPath, """{ "mcpServers": { "backlog": { "headers": { "Authorization": "Bearer shared-token" } } } }""");
+        var problems = new List<string>();
+        var writes = 0;
+        string Latest() => $$"""{ "numStartups": {{writes}}, "mcpServers": { "backlog": { "headers": { "Authorization": "Bearer shared-token" } } } }""";
+
+        McpTokenRetirement.Edit(
+            Files.UserConfigPath,
+            root => McpTokenRetirement.RewriteRegistrations(root, ["shared-token"], "helper") > 0,
+            problems,
+            beforeReplace: () =>
+            {
+                writes++;
+                File.WriteAllText(Files.UserConfigPath, Latest());
+            });
+
+        Assert.Equal(McpTokenRetirement.EditAttempts, writes);
+        Assert.Contains(problems, problem => problem.Contains("kept changing", StringComparison.Ordinal));
+        Assert.Equal(Latest(), File.ReadAllText(Files.UserConfigPath));
+        Assert.Single(Directory.GetFiles(_root, ".claude.json*"));
+    }
+
+    /// <summary>The state entry 9 left: grants recorded, the delivery grant holding the bare
+    /// Delivery flow preset it was made with then.</summary>
+    private McpInstalledGrants MigratedBeforeTheAdditions()
+    {
+        var grants = Grants();
+        var made = new McpInstalledGrants(
+            grants.Create(McpTokenRetirement.DeliveryGrantName, McpTokenRetirement.DeliveryPreset, McpTokenRetirement.CreatedBy).Id,
+            grants.Create(McpTokenRetirement.QuestionHookGrantName, [McpScopes.NotifyAsk], McpTokenRetirement.CreatedBy).Id,
+            grants.Create(McpTokenRetirement.TelemetryGrantName, [McpScopes.TelemetryWrite], McpTokenRetirement.CreatedBy).Id);
+        _ = Settings().SetMcpServerGrants(made);
+        return made;
+    }
 }

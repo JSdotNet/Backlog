@@ -88,6 +88,17 @@ public interface IMcpEndpointSource
     /// asks for a secret — see the two resolvers on <see cref="McpPlaceholders"/>.</remarks>
     string? EnsureToken();
 
+    /// <summary>
+    /// What a <c>${BACKLOG_MCP_HEADERS_HELPER}</c> placeholder is filled with: the command that
+    /// runs the app's installed headers helper for its "Backlog delivery" grant — node on the
+    /// helper's absolute path, then <c>--grant &lt;id&gt;</c> (local ADR 0052 §3) — or
+    /// <see langword="null"/> while the app has recorded no such grant, which leaves the
+    /// placeholder unresolved and the row reporting it. A grant id is a label, not a secret, and
+    /// the catalog never sees one: it carries the placeholder, and this answers it on the machine
+    /// that registers.
+    /// </summary>
+    string? HeadersHelper => null;
+
     /// <summary>The same token, read for masking rather than registering: a value that has
     /// to be kept out of what is written down, such as the last run's transcript.</summary>
     string? CurrentToken { get; }

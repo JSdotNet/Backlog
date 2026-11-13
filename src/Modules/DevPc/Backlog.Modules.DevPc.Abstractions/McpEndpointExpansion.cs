@@ -12,7 +12,7 @@ namespace Backlog.Modules.DevPc.Abstractions;
 internal delegate string? McpPlaceholderResolver(string name);
 
 /// <summary>
-/// The two placeholders a catalog entry may carry, and the one thing that fills
+/// The three placeholders a catalog entry may carry, and the one thing that fills
 /// them in.
 ///
 /// <para>The vocabulary is closed on purpose, and that is the whole design.
@@ -22,7 +22,7 @@ internal delegate string? McpPlaceholderResolver(string name);
 /// <c>Environment.GetEnvironmentVariable</c> would make that file a way to lift
 /// any environment variable of the machine reading it — a key, a connection
 /// string, a password — into both. So nothing here reads the environment, and
-/// two names are all that resolve.</para>
+/// three names are all that resolve.</para>
 ///
 /// <para><c>${NAME:-default}</c> is accepted because a person's first HTTP entry
 /// is pasted out of a <c>.mcp.json</c> and that is the syntax those files use.
@@ -51,6 +51,11 @@ internal static partial class McpPlaceholders
     /// which is why only one of the two resolvers below will.</summary>
     internal const string TokenName = "BACKLOG_MCP_TOKEN";
 
+    /// <summary>The command that runs the app's headers helper for its "Backlog delivery" grant
+    /// (local ADR 0052 §3): what the <c>backlog</c> row's <c>headersHelper</c> is filled with. It
+    /// names a grant id, which is no secret, so both resolvers below answer it.</summary>
+    internal const string HeadersHelperName = "BACKLOG_MCP_HEADERS_HELPER";
+
     /// <summary>
     /// The resolver for reading a row: the port, and never the token.
     ///
@@ -59,8 +64,12 @@ internal static partial class McpPlaceholders
     /// persist a credential nobody asked for — so this one refuses, the token
     /// placeholder stays literal, and the expansion says it did not resolve.</para>
     /// </summary>
-    internal static McpPlaceholderResolver Describing(IMcpEndpointSource source) =>
-        name => name == PortName ? source.Port.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
+    internal static McpPlaceholderResolver Describing(IMcpEndpointSource source) => name => name switch
+    {
+        PortName => source.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        HeadersHelperName => source.HeadersHelper,
+        _ => null
+    };
 
     /// <summary>The resolver for making a registration: both, because this is the
     /// moment a token is genuinely needed and the moment a person asked for
@@ -69,6 +78,7 @@ internal static partial class McpPlaceholders
     {
         PortName => source.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
         TokenName => source.EnsureToken(),
+        HeadersHelperName => source.HeadersHelper,
         _ => null
     };
 
@@ -94,13 +104,13 @@ internal static partial class McpPlaceholders
         {
             var name = match.Groups["name"].Value;
 
-            // Only these two may be asked of this machine, and nothing else ever
+            // Only these three may be asked of this machine, and nothing else ever
             // is: that closed vocabulary is what stops the catalog being a way to
             // lift an environment variable onto a command line. A blank answer is
             // read as no answer — an empty port is not a port, and a resolver that
             // returned one would produce `http://127.0.0.1:/mcp` and call it
             // resolved.
-            if (name is PortName or TokenName && resolve(name) is { } value && !string.IsNullOrWhiteSpace(value))
+            if (name is PortName or TokenName or HeadersHelperName && resolve(name) is { } value && !string.IsNullOrWhiteSpace(value))
             {
                 return value;
             }
@@ -166,6 +176,7 @@ internal sealed record McpExpansion(string Text, string? Unresolved)
         null => null,
         McpPlaceholders.TokenName => "This registration names ${BACKLOG_MCP_TOKEN}, which only the debug escape hatch fills in. Register Backlog with a grant from Settings, MCP server, instead.",
         McpPlaceholders.PortName => "This registration needs the MCP server's port, and nothing on this machine could answer it.",
-        var name => $"\"{name}\" is not something this build fills in. Only ${{{McpPlaceholders.PortName}}} and ${{{McpPlaceholders.TokenName}}} are expanded, and never an environment variable."
+        McpPlaceholders.HeadersHelperName => "This registration runs the headers helper for the \"Backlog delivery\" grant, which the desktop app makes on its first start. Start the app once, then register again.",
+        var name => $"\"{name}\" is not something this build fills in. Only ${{{McpPlaceholders.PortName}}}, ${{{McpPlaceholders.HeadersHelperName}}} and ${{{McpPlaceholders.TokenName}}} are expanded, and never an environment variable."
     };
 }
