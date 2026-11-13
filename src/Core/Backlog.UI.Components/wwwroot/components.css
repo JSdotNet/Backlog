@@ -26595,6 +26595,14 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     padding-top: var(--spacing-xs);
 }
 
+/* A grant another agent made, under its granter (local ADR 0052 §5): indented, with
+   a rule down its leading edge that ties it to the row above. */
+.agent-row--delegated {
+    margin-inline-start: var(--spacing-lg);
+    padding-inline-start: var(--spacing-sm);
+    border-inline-start: var(--border-width) solid var(--color-border);
+}
+
 @container agent-list (max-width: 30rem) {
     .agent-row {
         grid-template-columns: minmax(0, 1fr);

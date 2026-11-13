@@ -15,11 +15,11 @@ namespace Backlog.Infrastructure.Mcp;
 /// </para>
 /// <para>
 /// No tool requires <see cref="McpScopes.DevbookDecide"/>: approving and accepting are not
-/// served over MCP at all (§7). <see cref="McpScopes.TelemetryWrite"/>,
-/// <see cref="McpScopes.InboxCapture"/> and <see cref="McpScopes.AgentsGrant"/> have no tool
-/// yet: the first guards a route, the second is a capture into the Inbox — write-only, so the
-/// Inbox's reads and its archive are the backlog's <c>tasks:read</c> and <c>tasks:write</c> —
-/// and the third the granting tools a later step adds.
+/// served over MCP at all (§7). <see cref="McpScopes.TelemetryWrite"/> and
+/// <see cref="McpScopes.InboxCapture"/> have no tool yet: the first guards a route, the second
+/// is a capture into the Inbox — write-only, so the Inbox's reads and its archive are the
+/// backlog's <c>tasks:read</c> and <c>tasks:write</c>. <see cref="McpScopes.AgentsGrant"/>
+/// guards the granting tools, whose rules the host enforces beyond the scope.
 /// </para>
 /// </summary>
 public static class McpToolScopes
@@ -96,6 +96,9 @@ public static class McpToolScopes
             NotificationTools.Notify, NotificationTools.Ask, NotificationTools.GetAnswer, NotificationTools.Close);
 
         Map(McpScopes.UiOpen, WindowTools.OpenWindow);
+
+        Map(McpScopes.AgentsGrant,
+            GrantTools.ListAgentRequests, GrantTools.GrantAgent, GrantTools.EditAgentScopes, GrantTools.RevokeAgent);
 
         Map(McpScopes.SessionsDispatch,
             SessionRequestTools.ClaimSessionRequest, SessionRequestTools.MarkSessionRequest,

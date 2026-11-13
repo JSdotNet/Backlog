@@ -40,7 +40,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// id is derived from the request's, so the answer closes it after a restart too.
 /// </para>
 /// </summary>
-public sealed class McpAccessDesk : IAgentAccessRequests
+public sealed partial class McpAccessDesk : IAgentAccessRequests
 {
     /// <summary>The most requests open at once (§5).</summary>
     public const int MaxOpen = 5;
@@ -63,6 +63,7 @@ public sealed class McpAccessDesk : IAgentAccessRequests
     private readonly TimeProvider _clock;
     private readonly IAgentRequestWindows? _windows;
     private readonly INotifications? _notifications;
+    private readonly IMcpAuditLog? _audit;
     private readonly ILogger _log;
     private readonly Lock _gate = new();
 
@@ -73,7 +74,8 @@ public sealed class McpAccessDesk : IAgentAccessRequests
         TimeProvider clock,
         IAgentRequestWindows? windows = null,
         INotifications? notifications = null,
-        ILogger<McpAccessDesk>? log = null)
+        ILogger<McpAccessDesk>? log = null,
+        IMcpAuditLog? audit = null)
     {
         ArgumentNullException.ThrowIfNull(grants);
         ArgumentNullException.ThrowIfNull(requests);
@@ -86,6 +88,7 @@ public sealed class McpAccessDesk : IAgentAccessRequests
         _clock = clock;
         _windows = windows;
         _notifications = notifications;
+        _audit = audit;
         _log = (ILogger?)log ?? NullLogger.Instance;
     }
 
@@ -294,6 +297,13 @@ public sealed class McpAccessDesk : IAgentAccessRequests
         if (chosen.FirstOrDefault(scope => !request.Scopes.Contains(scope, StringComparer.Ordinal)) is { } extra)
         {
             return Refuse(McpAccessRefusals.NotAsked, $"{request.Name} did not ask for {extra}, so it cannot be allowed here.");
+        }
+
+        // A grant another agent made takes its scopes from its granter, so the person's Allow could
+        // add nothing a token would carry (local ADR 0052 §5): revoke it and allow it again instead.
+        if (request.Kind == McpAccessRequestKind.MoreScopes && _grants.Find(request.GrantId) is { IsDelegated: true })
+        {
+            return Refuse(McpAccessRefusals.Delegated, $"{request.Name} was granted by another agent, which sets its scopes. Revoke it and allow it yourself, or trim its granter.");
         }
 
         var consent = await _consent.VerifyAsync(ConsentMessage(request, chosen), cancellationToken).ConfigureAwait(false);
@@ -558,6 +568,18 @@ public static class McpAccessRefusals
     public const string HelloUnavailable = "hello-unavailable";
     public const string HelloDeclined = "hello-declined";
     public const string StoreUnavailable = "store-unavailable";
+
+    // A granter agent's refusals (local ADR 0052 §5, agents that grant other agents).
+    public const string NotGranter = "not-granter";
+    public const string OneLevel = "one-level-deep";
+    public const string NotDelegable = "not-delegable";
+    public const string NotHeld = "not-held";
+    public const string OwnGrant = "own-grant";
+    public const string GrantersGrant = "granters-grant";
+    public const string ReadOnly = "read-only";
+    public const string UnknownGrant = "unknown-grant";
+    public const string Expired = "expired";
+    public const string Delegated = "delegated";
 }
 
 /// <summary>The rules a grant and its requests are read by, wherever they are read.</summary>
