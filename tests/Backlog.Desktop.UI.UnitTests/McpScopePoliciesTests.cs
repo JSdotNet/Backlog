@@ -202,6 +202,8 @@ public sealed class McpScopePoliciesTests
 
         public McpGrant? SetScopes(string id, IReadOnlyList<string> scopes) => throw new NotSupportedException();
 
+        public McpGrant? Delegate(string id, IReadOnlyList<string> scopes, string grantedBy, DateTimeOffset expiresAt) => throw new NotSupportedException();
+
         public McpGrant? Revoke(string id) => throw new NotSupportedException();
     }
 }

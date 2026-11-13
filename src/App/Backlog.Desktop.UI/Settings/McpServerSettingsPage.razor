@@ -25,6 +25,7 @@
 @inherits SettingsPageBase
 @using Backlog.Desktop.UI.Extensions
 @using Backlog.Desktop.UI.Mcp
+@using Backlog.Infrastructure.Mcp
 @using Backlog.Modules.DevPc.Abstractions
 @using Backlog.SharedKernel.Mcp
 @using Backlog.UI.Components.Data
@@ -217,7 +218,7 @@
                                         TestId="mcp-agent-new-scopes"
                                         OnChanged="ChangeNewScope" />
                     <div class="setting__actions">
-                        <AppButton Variant="ButtonVariant.Primary" TestId="mcp-agent-create" OnClick="CreateAgent">
+                        <AppButton Variant="ButtonVariant.Primary" TestId="mcp-agent-create" OnClick="CreateAgentAsync">
                             Create agent
                         </AppButton>
                     </div>
@@ -245,17 +246,23 @@
             else
             {
                 <ul class="agent-list" aria-label="@AgentsCardTitle" data-testid="mcp-server-agents">
-                    @foreach (var grant in _agents)
+                    @* A grant another agent made sits indented under its granter, saying who
+                       granted it and when it expires, with Revoke alone: its scopes are its
+                       granter's to set, and trimming the granter trims it (local ADR 0052 §5). *@
+                    @foreach (var listed in McpAgents.Listed(_agents))
                     {
+                        var grant = listed.Grant;
                         <AgentGrantRow @key="grant.Id"
                                        Name="@grant.Name"
                                        GrantId="@grant.Id"
-                                       Meta="@AgentMeta(grant)"
+                                       Meta="@AgentMeta(listed)"
                                        Scopes="@McpAgents.Ordered(grant.Scopes)"
                                        Highlighted="@McpAgents.Highlighted"
-                                       Expanded="@(_editing == grant.Id)"
+                                       CanEditScopes="@(!listed.Delegated)"
+                                       CssClass="@(listed.Delegated ? "agent-row--delegated" : null)"
+                                       Expanded="@(!listed.Delegated && _editing == grant.Id)"
                                        EditorId="@($"mcp-agent-editor-{grant.Id}")"
-                                       TestId="mcp-server-agent"
+                                       TestId="@(listed.Delegated ? "mcp-server-agent-delegated" : "mcp-server-agent")"
                                        OnEditScopes="() => ToggleEditing(grant)"
                                        OnRevoke="() => Revoke(grant)">
                             <AgentScopeSwitches Options="@McpAgents.Scopes"
@@ -263,7 +270,7 @@
                                                 IdPrefix="@($"mcp-agent-{grant.Id}")"
                                                 AriaLabel="@($"Scopes of {grant.Name}")"
                                                 TestId="mcp-server-agent-scopes"
-                                                OnChanged="change => SetScope(grant, change)" />
+                                                OnChanged="change => SetScopeAsync(grant, change)" />
                         </AgentGrantRow>
                     }
                 </ul>
@@ -718,8 +725,36 @@
         }
     }
 
-    private string AgentMeta(McpGrant grant) =>
-        McpAgents.Meta(grant, LastUsed.TryGetValue(grant.Id, out var at) ? at : null, _clock.GetUtcNow());
+    private string AgentMeta(McpAgentListed listed)
+    {
+        var grant = listed.Grant;
+        DateTimeOffset? used = LastUsed.TryGetValue(grant.Id, out var at) ? at : null;
+
+        if (!grant.IsDelegated) return McpAgents.Meta(grant, used, _clock.GetUtcNow());
+
+        var granter = listed.Granter?.Name ?? _grants?.Find(grant.GrantedBy!)?.Name ?? grant.GrantedBy!;
+        return McpAgents.DelegatedMeta(grant, granter, used, _clock.GetUtcNow());
+    }
+
+    /// <summary>
+    /// Windows Hello before <c>agents:grant</c> is switched on (local ADR 0052 §5 and §6): true
+    /// when <paramref name="scopes"/> hold none that asks for it, or the person confirmed it.
+    /// Otherwise the card says why, and nothing is written.
+    /// </summary>
+    private async Task<bool> ConfirmGranterAsync(string name, IEnumerable<string> scopes)
+    {
+        if (!scopes.Any(scope => McpAgents.NeedsHello.Contains(scope, StringComparer.Ordinal))) return true;
+
+        var consent = Services.GetService<IUserConsent>();
+        var outcome = consent is null
+            ? UserConsentOutcome.NotAvailable
+            : await consent.VerifyAsync(McpAgents.GranterConsent(name));
+
+        if (outcome == UserConsentOutcome.Verified) return true;
+
+        _agentsError = outcome == UserConsentOutcome.NotAvailable ? McpAgents.GranterHelloUnavailable : McpAgents.GranterNotConfirmed;
+        return false;
+    }
 
     /// <summary>When each agent last made a call, from the records the Activity card already
     /// holds.</summary>
@@ -728,9 +763,12 @@
     private void ToggleEditing(McpGrant grant) => _editing = _editing == grant.Id ? null : grant.Id;
 
     /// <summary>Stores one switch at once: the grant takes its new scopes and a new version,
-    /// so the agent's next request fetches a token that carries them.</summary>
-    private void SetScope(McpGrant grant, AgentScopeChange change)
+    /// so the agent's next request fetches a token that carries them. Switching agents:grant on
+    /// asks for Windows Hello first.</summary>
+    private async Task SetScopeAsync(McpGrant grant, AgentScopeChange change)
     {
+        if (change.On && !await ConfirmGranterAsync(grant.Name, [change.Scope])) return;
+
         var current = _agents.FirstOrDefault(agent => agent.Id == grant.Id)?.Scopes ?? grant.Scopes;
         var scopes = change.On
             ? McpAgents.Writable([.. current, change.Scope])
@@ -784,15 +822,15 @@
         _newRole = McpAgents.RoleOf(_newScopes);
     }
 
-    private void OnNewNameKeyDown(KeyboardEventArgs e)
+    private async Task OnNewNameKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter") CreateAgent();
+        if (e.Key == "Enter") await CreateAgentAsync();
     }
 
     /// <summary>Makes the grant, then shows what to register. A blank name, or one an agent
     /// already has, is refused beside the field: two rows of one name could not be told apart,
     /// in this list or in the activity log.</summary>
-    private void CreateAgent()
+    private async Task CreateAgentAsync()
     {
         var name = _newName.Trim();
 
@@ -810,7 +848,10 @@
 
         _newError = null;
 
-        if (Write(store => store.Create(name, McpAgents.Writable(_newScopes), McpAgents.CreatedInSettings)) is not { } created) return;
+        var scopes = McpAgents.Writable(_newScopes);
+        if (!await ConfirmGranterAsync(name, scopes)) return;
+
+        if (Write(store => store.Create(name, scopes, McpAgents.CreatedInSettings)) is not { } created) return;
 
         _created = created;
         _adding = AddStep.Register;

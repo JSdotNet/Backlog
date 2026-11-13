@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.Mcp;
 using Backlog.SharedKernel.Mcp;
 using Backlog.UI.Components.Buttons;
 using Backlog.UI.Components.Settings;
@@ -170,7 +171,7 @@ public sealed class McpServerAgentsCardTests
     public void The_switches_are_McpScopes_in_its_order_and_every_role_holds_only_grantable_unlocked_scopes()
     {
         Assert.Equal(McpScopes.All, McpAgents.Scopes.Select(option => option.Name));
-        Assert.Equal([McpScopes.DevbookDecide, McpScopes.AgentsGrant], McpAgents.Scopes.Where(option => option.Locked).Select(option => option.Name));
+        Assert.Equal([McpScopes.DevbookDecide], McpAgents.Scopes.Where(option => option.Locked).Select(option => option.Name));
         Assert.All(McpAgents.Scopes, option => Assert.False(string.IsNullOrWhiteSpace(option.Description)));
         Assert.All(McpAgents.Roles.SelectMany(role => role.Scopes), scope =>
         {
@@ -196,7 +197,7 @@ public sealed class McpServerAgentsCardTests
     }
 
     [Fact]
-    public void Devbook_decide_and_agents_grant_are_drawn_locked()
+    public void Devbook_decide_is_drawn_locked_and_agents_grant_is_switchable()
     {
         var grants = new FakeGrantStore();
         grants.Create("Manager session", ["tasks:read", "agents:grant"], "setup");
@@ -209,8 +210,109 @@ public sealed class McpServerAgentsCardTests
 
         Assert.True(decide.HasAttribute("disabled"));
         Assert.Equal("false", decide.GetAttribute("aria-checked"));
-        Assert.True(grant.HasAttribute("disabled"));
+        Assert.False(grant.HasAttribute("disabled"));
         Assert.Equal("true", grant.GetAttribute("aria-checked"));
+    }
+
+    [Theory]
+    [InlineData(UserConsentOutcome.Verified, true)]
+    [InlineData(UserConsentOutcome.Declined, false)]
+    [InlineData(UserConsentOutcome.NotAvailable, false)]
+    public void Switching_agents_grant_on_asks_Windows_Hello_first(UserConsentOutcome answer, bool granted)
+    {
+        var grants = new FakeGrantStore();
+        var manager = grants.Create("Manager session", ["sessions:dispatch", "tasks:read"], McpAgents.CreatedInSettings);
+        var consent = new FakeConsent { Answer = answer };
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
+        context.Services.AddSingleton<IUserConsent>(consent);
+        var page = context.Render<McpServerSettingsPage>();
+        page.Find("[data-testid='agent-row-edit']").Click();
+
+        Switch(page, "mcp-server-agent-scopes", "agents:grant").Click();
+
+        Assert.Equal([McpAgents.GranterConsent("Manager session")], consent.Asked);
+        Assert.Equal(granted, grants.Find(manager.Id)!.Scopes.Contains(McpScopes.AgentsGrant));
+        Assert.Equal(granted ? "true" : "false", Switch(page, "mcp-server-agent-scopes", "agents:grant").GetAttribute("aria-checked"));
+        if (!granted) Assert.NotEmpty(page.FindAll("[data-testid='mcp-server-agents-error']"));
+
+        // Any other switch asks nothing.
+        Switch(page, "mcp-server-agent-scopes", "tasks:write").Click();
+        Assert.Single(consent.Asked);
+    }
+
+    [Fact]
+    public void Creating_an_agent_with_agents_grant_asks_Windows_Hello_and_a_decline_creates_nothing()
+    {
+        var grants = new FakeGrantStore();
+        var consent = new FakeConsent { Answer = UserConsentOutcome.Declined };
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
+        context.Services.AddSingleton<IUserConsent>(consent);
+        var page = context.Render<McpServerSettingsPage>();
+        page.Find("[data-testid='mcp-agent-add-toggle']").Click();
+        page.Find("[data-testid='mcp-agent-name-input']").Input("Manager session");
+        Switch(page, "mcp-agent-new-scopes", "agents:grant").Click();
+
+        page.Find("[data-testid='mcp-agent-create']").Click();
+
+        Assert.Single(consent.Asked);
+        Assert.Empty(grants.List());
+
+        consent.Answer = UserConsentOutcome.Verified;
+        page.Find("[data-testid='mcp-agent-create']").Click();
+
+        Assert.Contains(McpScopes.AgentsGrant, Assert.Single(grants.List()).Scopes);
+    }
+
+    [Fact]
+    public void A_delegated_agent_is_drawn_under_its_granter_with_who_granted_it_its_expiry_and_Revoke_only()
+    {
+        var grants = new FakeGrantStore();
+        var manager = grants.Create("Manager session", ["sessions:dispatch", "tasks:read", "tasks:write", "agents:grant"], McpAgents.CreatedInSettings);
+        grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
+        var worker = grants.Create("Worker · Copilot", [], "self-registration");
+        grants.Delegate(worker.Id, ["tasks:read", "tasks:write"], manager.Id, Now.AddDays(6).AddHours(2));
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Now));
+
+        var page = context.Render<McpServerSettingsPage>();
+
+        Assert.Equal(["Manager session", "Worker · Copilot", "Backlog delivery"], Column(page, "agent-row-name"));
+        var row = page.Find("[data-testid='mcp-server-agent-delegated']");
+        Assert.Contains("agent-row--delegated", row.ClassName, StringComparison.Ordinal);
+        Assert.Equal(worker.Id, row.GetAttribute("data-grant"));
+        Assert.Equal("Granted by Manager session · expires in 6 days · not used yet", row.QuerySelector("[data-testid='agent-row-meta']")!.TextContent.Trim());
+        Assert.Null(row.QuerySelector("[data-testid='agent-row-edit']"));
+        Assert.NotNull(row.QuerySelector("[data-testid='agent-row-revoke']"));
+    }
+
+    [Fact]
+    public void Revoking_a_granter_on_the_card_takes_the_agents_it_granted_with_it()
+    {
+        var grants = new FakeGrantStore();
+        var manager = grants.Create("Manager session", ["tasks:read", "agents:grant"], McpAgents.CreatedInSettings);
+        var worker = grants.Create("Worker · Copilot", [], "self-registration");
+        grants.Delegate(worker.Id, ["tasks:read"], manager.Id, Now.AddDays(7));
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
+        var page = context.Render<McpServerSettingsPage>();
+
+        page.Find("[data-testid='mcp-server-agent'] [data-testid='agent-row-revoke']").Click();
+        page.Find("[data-testid='mcp-server-agent'] [data-testid='agent-row-revoke-confirm']").Click();
+
+        Assert.True(grants.Find(worker.Id)!.Revoked);
+        Assert.Empty(page.FindAll("[data-testid='mcp-server-agent-delegated']"));
+    }
+
+    private sealed class FakeConsent : IUserConsent
+    {
+        public UserConsentOutcome Answer { get; set; } = UserConsentOutcome.Verified;
+
+        public List<string> Asked { get; } = [];
+
+        public Task<UserConsentOutcome> VerifyAsync(string message, CancellationToken cancellationToken = default)
+        {
+            Asked.Add(message);
+            return Task.FromResult(Answer);
+        }
     }
 
     [Fact]
@@ -426,10 +528,23 @@ public sealed class McpServerAgentsCardTests
             }
         }
 
+        public McpGrant? Delegate(string id, IReadOnlyList<string> scopes, string grantedBy, DateTimeOffset expiresAt)
+        {
+            Grantable(scopes);
+            return Replace(id, grant => grant.Revoked ? null : grant with { Scopes = [.. scopes], GrantedBy = grantedBy, ExpiresAt = expiresAt, Version = grant.Version + 1 });
+        }
+
         public McpGrant? Revoke(string id)
         {
             var revoked = Replace(id, grant => grant with { Revoked = true, Version = grant.Version + 1 });
-            if (revoked is not null) Revokes++;
+            if (revoked is null) return null;
+
+            Revokes++;
+            foreach (var delegated in List().Where(grant => !grant.Revoked && grant.GrantedBy == id).ToList())
+            {
+                Replace(delegated.Id, grant => grant with { Revoked = true, Version = grant.Version + 1 });
+            }
+
             return revoked;
         }
 

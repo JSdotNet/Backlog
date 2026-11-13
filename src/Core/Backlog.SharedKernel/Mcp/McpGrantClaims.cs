@@ -18,6 +18,10 @@ public static class McpGrantClaims
     /// the next 401 without asking anybody.</summary>
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(15);
 
+    /// <summary>How long a delegated grant mints before its granter must renew it (local ADR
+    /// 0052 §5). Each grant or renewal by the granter starts it again.</summary>
+    public static readonly TimeSpan DelegationLifetime = TimeSpan.FromDays(7);
+
     /// <summary>The grant's scopes, space-separated, as RFC 8693 writes <c>scope</c>.</summary>
     public const string Scope = "scope";
 

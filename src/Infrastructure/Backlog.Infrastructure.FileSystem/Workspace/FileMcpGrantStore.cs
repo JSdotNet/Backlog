@@ -150,6 +150,46 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
 
             record.Scopes = [.. scopes];
             record.Version++;
+
+            // A token a grant it delegated holds was cut to the old scopes: raising their versions
+            // in this write makes the next request mint again, under the new cut (local ADR 0052 §5).
+            foreach (var delegated in Delegated(file, record.Id)) delegated.Version++;
+
+            Save(file);
+            grant = ToGrant(record);
+        }
+
+        Changed?.Invoke();
+        return grant;
+    }
+
+    /// <inheritdoc />
+    /// <exception cref="UnreadableMcpGrantFileException">The file exists and does not parse.</exception>
+    public McpGrant? Delegate(string id, IReadOnlyList<string> scopes, string grantedBy, DateTimeOffset expiresAt)
+    {
+        ArgumentNullException.ThrowIfNull(scopes);
+        ArgumentException.ThrowIfNullOrWhiteSpace(grantedBy);
+
+        if (scopes.FirstOrDefault(scope => !McpScopes.IsDelegable(scope)) is { } refused)
+        {
+            throw new ArgumentException($"No delegated grant may hold '{refused}'.", nameof(scopes));
+        }
+
+        McpGrant grant;
+
+        lock (_gate)
+        {
+            var file = LoadForWrite();
+            if (FindRecord(file, id) is not { Revoked: false } record) return null;
+
+            // Under the lock a revoke takes too, so no grant is written under a granter revoked a
+            // moment ago, after its cascade ran; nor under one that was itself delegated.
+            if (FindRecord(file, grantedBy) is not { Revoked: false } granter || !string.IsNullOrWhiteSpace(granter.GrantedBy)) return null;
+
+            record.Scopes = [.. scopes];
+            record.GrantedBy = grantedBy;
+            record.ExpiresAt = expiresAt;
+            record.Version++;
             Save(file);
             grant = ToGrant(record);
         }
@@ -171,6 +211,15 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
 
             record.Revoked = true;
             record.Version++;
+
+            // Everything it granted goes with it, in this one write (local ADR 0052 §5): no
+            // moment exists in which the granter is revoked and a grant it made still mints.
+            foreach (var delegated in Delegated(file, record.Id))
+            {
+                delegated.Revoked = true;
+                delegated.Version++;
+            }
+
             Save(file);
             grant = ToGrant(record);
         }
@@ -188,6 +237,10 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
             return FindRecord(Load(), id) is { } record ? SecretEnvelope.Open(record.Secret, out _) : null;
         }
     }
+
+    /// <summary>The grants <paramref name="granterId"/> delegated that are not revoked.</summary>
+    private static List<GrantRecord> Delegated(GrantFile file, string? granterId) =>
+        [.. file.Grants.Where(candidate => !candidate.Revoked && string.Equals(candidate.GrantedBy, granterId, StringComparison.Ordinal))];
 
     private static GrantRecord? FindRecord(GrantFile file, string id) =>
         file.Grants.FirstOrDefault(candidate => string.Equals(candidate.Id, id, StringComparison.Ordinal));
@@ -270,7 +323,9 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
         record.Version,
         record.CreatedBy ?? string.Empty,
         record.CreatedAt,
-        record.Revoked);
+        record.Revoked,
+        string.IsNullOrWhiteSpace(record.GrantedBy) ? null : record.GrantedBy,
+        record.ExpiresAt);
 
     private static string NewId() =>
         McpGrantClaims.IdPrefix + new string(RandomNumberGenerator.GetItems<char>(IdAlphabet, IdLength));
@@ -320,6 +375,14 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
         public DateTimeOffset CreatedAt { get; set; }
 
         public bool Revoked { get; set; }
+
+        /// <summary>The granter's grant id, for a grant another agent made; absent for the person's.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? GrantedBy { get; set; }
+
+        /// <summary>When a delegated grant stops minting; absent for the person's.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public DateTimeOffset? ExpiresAt { get; set; }
 
         public string? Secret { get; set; }
 
