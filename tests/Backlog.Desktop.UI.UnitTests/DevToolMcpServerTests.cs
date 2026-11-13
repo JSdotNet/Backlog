@@ -624,7 +624,11 @@ public class DevToolMcpServerTests
         Assert.False(server.Installable);
         Assert.Equal(DevToolHosts.Claude, server.Hosts);
         Assert.Equal(BacklogServerUrl, server.Url);
-        Assert.Equal("Bearer ${BACKLOG_MCP_TOKEN}", Assert.Single(server.Headers).Value);
+
+        // A grant's headers helper, never a static bearer: since the shared token was retired
+        // (local ADR 0052, Phase 1) the listener refuses one.
+        Assert.Empty(server.Headers);
+        Assert.Equal($"${{{McpPlaceholders.HeadersHelperName}}}", server.HeadersHelper);
     }
 
     /// <summary>
@@ -659,10 +663,11 @@ public class DevToolMcpServerTests
 
     /// <summary>
     /// The catalog is a committed file, and on this machine it resolves out of a
-    /// synced folder — so neither half of the endpoint may be written into it
-    /// literally. The token because it is a secret; the port because it is one
-    /// machine's setting, and a literal there is that machine imposing it on
-    /// every other.
+    /// synced folder — so nothing machine-specific about the endpoint may be
+    /// written into it literally. Not the port, which is one machine's setting and
+    /// a literal there is that machine imposing it on every other; not the
+    /// headers helper's grant id, which is one machine's grant; and no token at
+    /// all, not even the retired escape hatch's placeholder.
     ///
     /// <para>The placeholders are the whole mechanism rather than a convenience:
     /// they are expanded at apply time, by a resolver that knows these two names
@@ -674,11 +679,13 @@ public class DevToolMcpServerTests
         var json = File.ReadAllText(RepositoryRoot.File(".tools", "ai-tools.json"));
 
         Assert.Contains("${BACKLOG_MCP_PORT}", json, StringComparison.Ordinal);
-        Assert.Contains("${BACKLOG_MCP_TOKEN}", json, StringComparison.Ordinal);
+        Assert.Contains("${BACKLOG_MCP_HEADERS_HELPER}", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("BACKLOG_MCP_TOKEN", json, StringComparison.Ordinal);
 
-        // Nothing bearer-shaped that is not the placeholder, and no loopback URL
-        // that has had a port baked into it.
-        Assert.DoesNotMatch(@"Bearer\s+(?!\$\{BACKLOG_MCP_TOKEN\})\S", json);
+        // Nothing bearer-shaped, no grant id, and no loopback URL that has had a
+        // port baked into it.
+        Assert.DoesNotMatch(@"Bearer\s", json);
+        Assert.DoesNotMatch(@"--grant", json);
         Assert.DoesNotMatch(@"127\.0\.0\.1:\d", json);
     }
 
