@@ -172,7 +172,7 @@ first keeps the broker down, and it then learns only the grant ids clients send 
 Grants are created, listed and revoked on the MCP server's own Settings page. The
 **Agents** card replaces the **Bearer token** card there, by the rules of
 `.devbook/design/settings-pages.md`. Nothing in the Dev PC catalog or the Tools
-pane reads or writes a grant.
+pane creates, changes or revokes a grant, and the catalog names none.
 
 *Agents card built 2026-11-12 by entry 10 (`agents-card`).* A grant stores scopes,
 not a role: the roles are presets that fill the switches. A scope switch raises the
@@ -193,6 +193,21 @@ hatch is the hand-edited debug setting `"mcpServer": { "acceptEnvironmentToken":
 which the app never writes. Two `backlog-tools` scripts and the `delivery-surface-backlog`
 plugin's client still read `mcpServer.token` and are refused until they move to a grant.
 
+*Delivery and Manager grants settled 2026-11-15 by entry 9b (`delivery-grant-scopes`).*
+The **Backlog delivery** grant holds the Delivery flow preset and `devbook:write` and
+`ui:open`, which the delivery flows call. A fourth grant, **Manager**, holds
+`sessions:dispatch`, `tasks:read` and `tasks:write`. The app records it as
+`mcpServer.grants.manager`, and only the dispatch-sessions Manager uses it. An install
+migrated before then gets both changes once, on its next start. The delivery grant gains
+its two scopes only while it still holds exactly the preset, and loses none. A revoked
+grant is never made or changed again.
+
+The Dev PC `backlog` row carries `${BACKLOG_MCP_HEADERS_HELPER}`, not a token. When the
+row registers, the desktop app fills it with the installed headers helper and `--grant`
+with the delivery grant's id. That id is all the Tools pane reads of a grant. The rewrite
+of Claude Code's files reads each file again before an atomic replace, so a write Claude
+Code makes in between is kept.
+
 ### 4. Scopes decide who may call a tool that is switched on
 
 ```meta
@@ -212,7 +227,7 @@ decides which grant may call a tool that is listed. The names are a starting cut
 | `runs:write` | the delivery surface tools, `link_*`, `list_run_usage` | delivery flows |
 | `notify:ask` | `notify`, `ask`, `get_answer`, `close` | coding agents, the question hook |
 | `ui:open` | `open_window` and its link tokens | coding agents |
-| `sessions:dispatch` | the session-request and answer-delivery tools, the wait route (ADR 0038, 0041) | the Manager session |
+| `sessions:dispatch` | the session-request and answer-delivery tools, the wait route (ADR 0038, 0041) | the Manager grant alone, never the delivery grant (§3) |
 | `telemetry:write` | the OTLP logs route (ADR 0024) | the telemetry exporter |
 | `inbox:capture` | a capture into the Inbox | personal assistants, the remote connector (§8) |
 | `agents:grant` | `list_agent_requests`, `grant_agent`, `edit_agent_scopes`, `revoke_agent` | none (§5) |
@@ -432,6 +447,7 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-15 | Settled the migration's grants: Backlog delivery gains `devbook:write` and `ui:open`, a Manager grant holds `sessions:dispatch` alone, and an install migrated before gets both once. The Dev PC row registers through the headers helper, and the rewrite of Claude Code's files keeps a concurrent write. | Plan `zero-trust-auth` entry 9b; the person chose a Manager grant over giving the delivery grant `sessions:dispatch`. |
 | 2026-11-12 | Built §5's self-registration: `--register` makes a pending grant that mints no token, `--request` and `request_access` open or focus the request window, and the waiting request shows on the MCP server page, its badge and an alert. The limits are one per name, five open and a day after a decline. Allow asks for Windows Hello, and no pipe command or tool answers a request. | Plan `zero-trust-auth` entry 11, Phase 1. |
 | 2026-11-12 | Retired the shared, question-hook and telemetry tokens: the app creates its three grants on start, rewrites the registrations that carry a retired token to the headers helper, and drops the tokens. `BACKLOG_MCP_TOKEN` is accepted only under a hand-edited debug setting. | Plan `zero-trust-auth` step `remove-settings-token`, Phase 1. |
 | 2026-11-12 | Built §3's Agents card on the MCP server page in the Bearer token card's place: rows with role, source, last use and scopes, switches that store on change and raise the grant's version, Revoke confirmed in place, and Add agent with its registration. | Plan `zero-trust-auth` entry 10, Phase 1. |

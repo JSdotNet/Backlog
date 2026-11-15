@@ -10,8 +10,8 @@ namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
 /// Retires the shared MCP token (local ADR 0052, Phase 1), once, on the first start after the
-/// upgrade. It makes the three grants the app's own installs use in its place — "Backlog
-/// delivery", "Question hook" and "Telemetry" — records their ids in <c>settings.json</c>, and
+/// upgrade. It makes the four grants the app's own installs use in its place — "Backlog
+/// delivery", "Question hook", "Telemetry" and the dispatch-sessions "Manager" — records their ids in <c>settings.json</c>, and
 /// rewrites what still names a retired token in Claude Code's own files: the <c>backlog</c>
 /// server the Dev PC row registered, and the telemetry block the Settings page had a person
 /// paste. Then it drops the retired tokens from <c>settings.json</c>.
@@ -39,7 +39,10 @@ public static class McpTokenRetirement
     /// <summary>The telemetry exporter's grant's name.</summary>
     public const string TelemetryGrantName = "Telemetry";
 
-    /// <summary>What the three grants record as their creator.</summary>
+    /// <summary>The dispatch-sessions Manager's grant's name.</summary>
+    public const string ManagerGrantName = "Manager";
+
+    /// <summary>What the migration's grants record as their creator.</summary>
     public const string CreatedBy = "Backlog, in place of the shared token";
 
     /// <summary>The Delivery flow role's preset: what the delivery grant was made with before
@@ -50,15 +53,22 @@ public static class McpTokenRetirement
 
     /// <summary>What the delivery grant holds beyond the Delivery flow preset, because the one
     /// registration it serves — a repository's <c>.mcp.json</c> with no <c>--grant</c>, and the
-    /// user-scope one the Dev PC row installs — is what the delivery flows and the Manager session
-    /// call through: <c>devbook:write</c> for their review notes, <c>ui:open</c> for the windows
-    /// they open, and <c>sessions:dispatch</c> for <c>dispatch-sessions</c>.</summary>
+    /// user-scope one the Dev PC row installs — is what the delivery flows call through:
+    /// <c>devbook:write</c> for their review notes and <c>ui:open</c> for the windows they open.
+    /// <c>sessions:dispatch</c> is not among them: it is the <see cref="ManagerGrantName"/>
+    /// grant's alone (local ADR 0052 §4).</summary>
     public static IReadOnlyList<string> DeliveryAdditions { get; } =
-        [McpScopes.DevbookWrite, McpScopes.UiOpen, McpScopes.SessionsDispatch];
+        [McpScopes.DevbookWrite, McpScopes.UiOpen];
 
     /// <summary>The delivery grant's scopes: the Delivery flow role's preset and
     /// <see cref="DeliveryAdditions"/>.</summary>
     public static IReadOnlyList<string> DeliveryScopes { get; } = [.. DeliveryPreset.Union(DeliveryAdditions, StringComparer.Ordinal)];
+
+    /// <summary>The Manager grant's scopes: the Manager role's preset, <c>sessions:dispatch</c>
+    /// with <c>tasks:read</c> and <c>tasks:write</c>. <c>agents:grant</c> is never granted at
+    /// start: switching it on asks for Windows Hello (local ADR 0052 §5).</summary>
+    public static IReadOnlyList<string> ManagerScopes { get; } = McpAgents.PresetOf("Manager")
+        ?? throw new InvalidOperationException("McpAgents has no Manager role.");
 
     /// <summary>The two environment keys a pasted telemetry block carried the token in.</summary>
     private static readonly string[] OtelHeaderKeys = ["OTEL_EXPORTER_OTLP_LOGS_HEADERS", "OTEL_EXPORTER_OTLP_HEADERS"];
@@ -75,10 +85,11 @@ public static class McpTokenRetirement
     private const string DevPcServerName = "backlog";
 
     /// <summary>
-    /// The three grants, made and recorded when <paramref name="settings"/> has none recorded,
-    /// else the recorded ones — revoked or not, they are the person's to keep or revoke. A
-    /// recorded delivery grant made before <see cref="DeliveryAdditions"/> existed is given them
-    /// once, by <see cref="TopUpDelivery"/>.
+    /// The four grants, made and recorded when <paramref name="settings"/> has none recorded,
+    /// else the recorded ones — revoked or not, they are the person's to keep or revoke. An
+    /// install migrated before the Manager grant existed gets it once, recorded beside the
+    /// others; a recorded delivery grant made before <see cref="DeliveryAdditions"/> existed is
+    /// given them once, by <see cref="TopUpDelivery"/>.
     /// </summary>
     public static McpInstalledGrants EnsureGrants(WorkspaceSettingsStore settings, IMcpGrantStore grants)
     {
@@ -88,17 +99,27 @@ public static class McpTokenRetirement
         if (settings.McpServerGrants is { } recorded)
         {
             _ = TopUpDelivery(grants, recorded.Delivery);
-            return recorded;
+            if (recorded.Manager is not null) return recorded;
+
+            // Recorded once, like the other three: a Manager grant the person revokes later is
+            // never made again.
+            var withManager = recorded with { Manager = CreateManager(grants) };
+            _ = settings.SetMcpServerGrants(withManager);
+            return withManager;
         }
 
         var made = new McpInstalledGrants(
             grants.Create(DeliveryGrantName, DeliveryScopes, CreatedBy).Id,
             grants.Create(QuestionHookGrantName, [McpScopes.NotifyAsk], CreatedBy).Id,
-            grants.Create(TelemetryGrantName, [McpScopes.TelemetryWrite], CreatedBy).Id);
+            grants.Create(TelemetryGrantName, [McpScopes.TelemetryWrite], CreatedBy).Id,
+            CreateManager(grants));
 
         _ = settings.SetMcpServerGrants(made);
         return made;
     }
+
+    private static string CreateManager(IMcpGrantStore grants) =>
+        grants.Create(ManagerGrantName, ManagerScopes, CreatedBy).Id;
 
     /// <summary>
     /// Gives an already-migrated delivery grant <see cref="DeliveryAdditions"/>, when it still
@@ -319,7 +340,7 @@ public sealed record ClaudeConfigFiles(string UserConfigPath, string UserSetting
 }
 
 /// <summary>What one run of <see cref="McpTokenRetirement.Run"/> did.</summary>
-/// <param name="Grants">The three grants, made now or recorded before.</param>
+/// <param name="Grants">The four grants, made now or recorded before.</param>
 /// <param name="RegistrationsRewritten">How many <c>backlog</c> registrations now run the headers helper.</param>
 /// <param name="TelemetryRewritten">Whether the telemetry block now runs it.</param>
 /// <param name="Problems">Every file left as it was, and why; the retired tokens stay recorded while there is one.</param>

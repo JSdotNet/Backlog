@@ -156,6 +156,16 @@ public class WorkspaceMcpServerSettingsTests : IDisposable
             Assert.Equal("g_q", grants.GetProperty("questionHook").GetString());
             Assert.Equal("g_d", grants.GetProperty("delivery").GetString());
             Assert.Equal("g_t", grants.GetProperty("telemetry").GetString());
+            Assert.False(grants.TryGetProperty("manager", out _));
+        }
+
+        // The Manager grant, recorded beside the three once the next start has made it.
+        Assert.Null(Store().SetMcpServerGrants(new McpInstalledGrants("g_d", "g_q", "g_t", "g_m")));
+        Assert.Equal(new McpInstalledGrants("g_d", "g_q", "g_t", "g_m"), Store().McpServerGrants);
+
+        using (var document = JsonDocument.Parse(File.ReadAllText(SettingsFile)))
+        {
+            Assert.Equal("g_m", document.RootElement.GetProperty("mcpServer").GetProperty("grants").GetProperty("manager").GetString());
         }
 
         File.WriteAllText(SettingsFile, """{ "mcpServer": { "grants": { "delivery": "g_d", "questionHook": "g_q" } } }""");

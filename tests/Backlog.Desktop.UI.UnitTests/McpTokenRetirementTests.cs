@@ -68,11 +68,14 @@ public sealed class McpTokenRetirementTests : IDisposable
         Assert.Equal("Question hook", grants.Find(made.QuestionHook)!.Name);
         Assert.Equal(["telemetry:write"], grants.Find(made.Telemetry)!.Scopes);
         Assert.Equal("Telemetry", grants.Find(made.Telemetry)!.Name);
+        var manager = grants.Find(made.Manager!)!;
+        Assert.Equal("Manager", manager.Name);
+        Assert.Equal(McpTokenRetirement.ManagerScopes, manager.Scopes);
 
         // Recorded, so the next start reads them back instead of making three more.
         Assert.Equal(made, Settings().McpServerGrants);
         Assert.Equal(made, McpTokenRetirement.EnsureGrants(Settings(), Grants()));
-        Assert.Equal(3, Grants().List().Count);
+        Assert.Equal(4, Grants().List().Count);
     }
 
     /// <summary>A grant the person revoked stays revoked: the migration never makes it again.</summary>
@@ -86,7 +89,7 @@ public sealed class McpTokenRetirementTests : IDisposable
 
         Assert.Equal(made, again);
         Assert.True(Grants().Find(made.Telemetry)!.Revoked);
-        Assert.Equal(3, Grants().List().Count);
+        Assert.Equal(4, Grants().List().Count);
     }
 
     /// <summary>
@@ -199,7 +202,7 @@ public sealed class McpTokenRetirementTests : IDisposable
         Assert.Equal(0, second.RegistrationsRewritten);
         Assert.False(second.TelemetryRewritten);
         Assert.Equal(written, File.GetLastWriteTimeUtc(Files.UserConfigPath));
-        Assert.Equal(3, Grants().List().Count);
+        Assert.Equal(4, Grants().List().Count);
     }
 
     /// <summary>A fresh install — no retired token, no Claude files — still gets its grants, so
@@ -229,10 +232,11 @@ public sealed class McpTokenRetirementTests : IDisposable
         Assert.Equal(["shared-token", "hook-token", "telemetry-token"], Settings().RetiredMcpTokens);
     }
 
-    /// <summary>The delivery grant serves the delivery flows' review notes, the windows they open
-    /// and the Manager session's dispatch, so it carries those three beyond the Delivery flow preset.</summary>
+    /// <summary>The delivery grant serves the delivery flows' review notes and the windows they
+    /// open, so it carries those two beyond the Delivery flow preset. Dispatching sessions is the
+    /// Manager grant's alone (local ADR 0052 §4).</summary>
     [Fact]
-    public void The_delivery_grant_carries_devbook_write_ui_open_and_sessions_dispatch()
+    public void The_delivery_grant_carries_devbook_write_and_ui_open_but_not_sessions_dispatch()
     {
         var grants = Grants();
 
@@ -241,7 +245,7 @@ public sealed class McpTokenRetirementTests : IDisposable
         var scopes = grants.Find(made.Delivery)!.Scopes;
         Assert.Contains(McpScopes.DevbookWrite, scopes);
         Assert.Contains(McpScopes.UiOpen, scopes);
-        Assert.Contains(McpScopes.SessionsDispatch, scopes);
+        Assert.DoesNotContain(McpScopes.SessionsDispatch, scopes);
         Assert.Superset(McpTokenRetirement.DeliveryPreset.ToHashSet(), scopes.ToHashSet());
         Assert.Equal(scopes.Count, scopes.Distinct(StringComparer.Ordinal).Count());
     }
@@ -257,14 +261,14 @@ public sealed class McpTokenRetirementTests : IDisposable
 
         var again = McpTokenRetirement.EnsureGrants(Settings(), Grants());
 
-        Assert.Equal(made, again);
+        Assert.Equal(made with { Manager = again.Manager }, again);
         var after = Grants().Find(made.Delivery)!;
         Assert.Equal(McpTokenRetirement.DeliveryScopes.ToHashSet(), after.Scopes.ToHashSet());
         Assert.True(after.Version > before.Version);
 
         _ = McpTokenRetirement.EnsureGrants(Settings(), Grants());
         Assert.Equal(after.Version, Grants().Find(made.Delivery)!.Version);
-        Assert.Equal(3, Grants().List().Count);
+        Assert.Equal(4, Grants().List().Count);
     }
 
     /// <summary>A delivery grant whose scopes the person changed on the Agents card keeps their
@@ -347,8 +351,49 @@ public sealed class McpTokenRetirementTests : IDisposable
         Assert.Single(Directory.GetFiles(_root, ".claude.json*"));
     }
 
-    /// <summary>The state entry 9 left: grants recorded, the delivery grant holding the bare
-    /// Delivery flow preset it was made with then.</summary>
+    /// <summary>The Manager grant holds the Manager role's preset — <c>sessions:dispatch</c>,
+    /// <c>tasks:read</c>, <c>tasks:write</c> — and never <c>agents:grant</c>, which only a
+    /// Windows Hello check may switch on.</summary>
+    [Fact]
+    public void The_manager_grant_dispatches_sessions_and_nothing_more()
+    {
+        var grants = Grants();
+
+        var made = McpTokenRetirement.EnsureGrants(Settings(Upgraded), grants);
+
+        var scopes = grants.Find(made.Manager!)!.Scopes.ToHashSet();
+        Assert.Equal(new HashSet<string> { McpScopes.SessionsDispatch, McpScopes.TasksRead, McpScopes.TasksWrite }, scopes);
+        Assert.DoesNotContain(McpScopes.AgentsGrant, scopes);
+        Assert.Equal(made.Manager, Settings().McpServerGrants!.Manager);
+    }
+
+    /// <summary>An install entry 9 migrated has three grants and no Manager: the next start makes
+    /// the Manager grant and records it beside them, the delivery grant keeps every scope it had,
+    /// and a start after that makes nothing — not even once the person revoked the Manager grant.</summary>
+    [Fact]
+    public void An_install_migrated_before_the_manager_grant_gets_it_once()
+    {
+        var made = MigratedBeforeTheAdditions();
+        Assert.Null(Settings().McpServerGrants!.Manager);
+
+        var again = McpTokenRetirement.EnsureGrants(Settings(), Grants());
+
+        Assert.Equal(made with { Manager = again.Manager }, again);
+        Assert.NotNull(again.Manager);
+        Assert.Equal(again, Settings().McpServerGrants);
+        Assert.Equal(McpTokenRetirement.ManagerScopes, Grants().Find(again.Manager!)!.Scopes);
+        Assert.Superset(McpTokenRetirement.DeliveryPreset.ToHashSet(), Grants().Find(made.Delivery)!.Scopes.ToHashSet());
+        Assert.Equal(4, Grants().List().Count);
+
+        Grants().Revoke(again.Manager!);
+
+        Assert.Equal(again, McpTokenRetirement.EnsureGrants(Settings(), Grants()));
+        Assert.True(Grants().Find(again.Manager!)!.Revoked);
+        Assert.Equal(4, Grants().List().Count);
+    }
+
+    /// <summary>The state entry 9 left: three grants recorded and no Manager, the delivery grant
+    /// holding the bare Delivery flow preset it was made with then.</summary>
     private McpInstalledGrants MigratedBeforeTheAdditions()
     {
         var grants = Grants();
