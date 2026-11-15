@@ -24,6 +24,7 @@
 @namespace Backlog.Desktop.UI.Shell
 @inherits SettingsPageBase
 @using Backlog.Desktop.UI.Extensions
+@using Backlog.Desktop.UI.Mcp
 @using Backlog.Modules.DevPc.Abstractions
 @using Backlog.SharedKernel.Mcp
 @using Backlog.UI.Components.Data
@@ -110,6 +111,42 @@
             </p>
         }
     </SettingsCard>
+
+    @* The agents waiting for the person (local ADR 0052 §5): one row each, with Trim scopes,
+       Decline and Allow with Hello. Drawn only while one waits, so the page says nothing
+       about requests while there are none; the headline counts them either way. *@
+    @if (_waiting.Count > 0)
+    {
+        <SettingsCard Title="@McpAgentRequests.WaitingCardTitle"
+                      Id="mcp-server-waiting-title"
+                      Description="@McpAgentRequests.WaitingNote"
+                      CssClass="settings-card--pending"
+                      TestId="mcp-server-waiting-card">
+            <div class="agent-list" role="list" aria-label="@McpAgentRequests.WaitingCardTitle" data-testid="mcp-server-waiting">
+                @foreach (var request in _waiting)
+                {
+                        <AgentAccessRequest @key="request.Id"
+                                            Name="@request.Name"
+                                            RequestId="@request.Id"
+                                            Meta="@McpAgentRequests.Meta(request, _clock.GetUtcNow())"
+                                            Asked="@McpAgentRequests.Options(request)"
+                                            Selected="@SelectionOf(request)"
+                                            Highlighted="@McpAgents.Highlighted"
+                                            Trimmable="true"
+                                            Trimming="@(_trimming == request.Id)"
+                                            Busy="@(_answering == request.Id)"
+                                            Message="@(_requestMessage?.RequestId == request.Id ? _requestMessage.Text : null)"
+                                            MessageIsError="@(_requestMessage?.RequestId == request.Id && _requestMessage.IsError)"
+                                            EditorId="@($"mcp-request-editor-{request.Id}")"
+                                            TestId="mcp-server-request"
+                                            OnTrim="() => _trimming = _trimming == request.Id ? null : request.Id"
+                                            OnChanged="change => FlipRequestScope(request, change)"
+                                            OnDecline="() => DeclineRequestAsync(request)"
+                                            OnAllow="() => AllowRequestAsync(request)" />
+                }
+            </div>
+        </SettingsCard>
+    }
 
     @* The agents that can reach Backlog, each by a grant of its own (local ADR 0052 §3),
        in the Bearer token card's old place. Grants are made, changed and revoked here and
@@ -389,7 +426,7 @@
         ? "The MCP server answers on this app's own address."
         : State switch
         {
-            ListenerState.Listening when _grants is not null && _agentsError is null => AgentsHeadline(_agents.Count),
+            ListenerState.Listening when _grants is not null && _agentsError is null => McpAgentRequests.Headline(_agents.Count, _waiting.Count),
             ListenerState.Listening => $"The MCP server is listening on port {_source.Port}.",
             ListenerState.Starting => $"The MCP server is starting on port {_source.Port}.",
             _ => $"The MCP server is not listening on port {_source.Port}.",
@@ -554,7 +591,87 @@
         // A grant changes from here, and from the broker's own writes - a reseal, and later
         // an agent that registers itself: the card follows both.
         _grants.Changed += OnGrantsChanged;
+
+        // The requests waiting for the person (local ADR 0052 §5), made over the pipe or by
+        // request_access off this thread: the waiting card follows them.
+        _desk = Services.GetService<McpAccessDesk>();
+        if (_desk is not null) _desk.Changed += OnGrantsChanged;
+
         LoadAgents();
+    }
+
+    /// <summary>The access desk, or null in a host that keeps no grants.</summary>
+    private McpAccessDesk? _desk;
+
+    /// <summary>The requests waiting for the person, oldest first, as last read.</summary>
+    private IReadOnlyList<McpAccessRequest> _waiting = [];
+
+    /// <summary>The scopes switched on per waiting request, until it is answered.</summary>
+    private readonly Dictionary<string, List<string>> _requestScopes = new(StringComparer.Ordinal);
+
+    /// <summary>The request whose switches Trim scopes has open, or null.</summary>
+    private string? _trimming;
+
+    /// <summary>The request an answer is being made to, while Windows Hello asks.</summary>
+    private string? _answering;
+
+    /// <summary>The last answer's sentence, under the request it was about.</summary>
+    private RequestMessage? _requestMessage;
+
+    private sealed record RequestMessage(string RequestId, string Text, bool IsError);
+
+    private IReadOnlyList<string> SelectionOf(McpAccessRequest request)
+    {
+        if (!_requestScopes.TryGetValue(request.Id, out var on))
+        {
+            on = [.. McpAgentRequests.Initial(request)];
+            _requestScopes[request.Id] = on;
+        }
+
+        return on;
+    }
+
+    private void FlipRequestScope(McpAccessRequest request, AgentScopeChange change)
+    {
+        var on = SelectionOf(request);
+        _requestScopes[request.Id] = change.On
+            ? [.. McpAgents.Ordered([.. on, change.Scope])]
+            : [.. on.Where(scope => scope != change.Scope)];
+    }
+
+    private async Task AllowRequestAsync(McpAccessRequest request)
+    {
+        if (_desk is null || _answering is not null) return;
+
+        _answering = request.Id;
+        try
+        {
+            var outcome = await _desk.AllowAsync(request.Id, SelectionOf(request));
+            _requestMessage = outcome.Refused ? new RequestMessage(request.Id, outcome.Message, true) : null;
+            if (!outcome.Refused && _trimming == request.Id) _trimming = null;
+        }
+        finally
+        {
+            _answering = null;
+            LoadAgents();
+        }
+    }
+
+    private async Task DeclineRequestAsync(McpAccessRequest request)
+    {
+        if (_desk is null || _answering is not null) return;
+
+        _answering = request.Id;
+        try
+        {
+            var outcome = await _desk.DeclineAsync(request.Id);
+            _requestMessage = outcome.Refused ? new RequestMessage(request.Id, outcome.Message, true) : null;
+        }
+        finally
+        {
+            _answering = null;
+            LoadAgents();
+        }
     }
 
     private void LoadAgents()
@@ -563,7 +680,11 @@
 
         try
         {
-            _agents = [.. _grants.List().Where(grant => !grant.Revoked)];
+            _waiting = _desk?.Waiting() ?? [];
+            foreach (var gone in _requestScopes.Keys.Where(id => _waiting.All(request => request.Id != id)).ToList()) _requestScopes.Remove(gone);
+            if (_trimming is not null && _waiting.All(request => request.Id != _trimming)) _trimming = null;
+
+            _agents = McpAgentRequests.Agents(_grants.List(), _waiting);
             _agentsError = null;
             if (_editing is not null && _agents.All(grant => grant.Id != _editing)) _editing = null;
         }
@@ -788,5 +909,6 @@
         if (_source is not null) _source.Changed -= OnSourceChanged;
         if (_audit is not null) _audit.Changed -= OnAuditChanged;
         if (_grants is not null) _grants.Changed -= OnGrantsChanged;
+        if (_desk is not null) _desk.Changed -= OnGrantsChanged;
     }
 }

@@ -1115,6 +1115,9 @@ public sealed class McpServerWorker : IDisposable
             .Append(typeof(IWaitingQuestionStore))
             .Append(typeof(IAgentSessionSource))
             .Append(typeof(IMcpAuditLog))
+            // The caller of one request, which the listener's own container scopes per request
+            // (AddBacklogMcpServer): forwarded from the head it would be one for every call.
+            .Where(port => port != typeof(McpCallContext))
             .Distinct();
 
     private IEnumerable<Type> ForwardedPorts(IServiceProviderIsService? probe)

@@ -12,7 +12,7 @@ public sealed class McpToolScopesTests
     [Fact]
     public void Every_served_tool_requires_a_grantable_scope()
     {
-        Assert.All(BacklogMcpTools.ToolNames, tool =>
+        Assert.All(BacklogMcpTools.ToolNames.Where(tool => !McpToolScopes.AnyCaller.Contains(tool)), tool =>
         {
             var scope = McpToolScopes.ScopeOf(tool);
 

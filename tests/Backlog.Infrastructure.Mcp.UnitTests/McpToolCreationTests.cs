@@ -169,6 +169,7 @@ public class McpToolCreationTests
                 WindowTools.OpenWindow,
                 ImpedimentTools.RaiseImpediment,
                 SurfaceTools.RecordPrompt,
+                AccessTools.RequestAccess,
                 DevbookTools.ResolveAnnotation,
                 TrackerTools.SetBlocked,
                 TrackerTools.SetDevbookReferences,
@@ -320,6 +321,8 @@ public class McpToolCreationTests
         // 0043 §6 are each optional, and advertised so a model knows they exist.
         Assert.Equal(["surface", "target", "plan", "entry", "chapter", "scope"], schemas["open_window"]);
         Assert.Equal(["surface", "target"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "open_window")));
+        Assert.Equal(["scopes", "folder"], schemas["request_access"]);
+        Assert.Equal(["scopes"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "request_access")));
         // The delivery tools take a delivery id and a dispatcher, never a message (local ADR 0041).
         Assert.Equal(["id", "dispatcher"], schemas["claim_delivery"]);
         Assert.Equal(["id", "outcome", "dispatcher"], schemas["mark_delivery"]);
@@ -411,7 +414,8 @@ public class McpToolCreationTests
             [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore()),
             [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications()),
             [typeof(InboxTools)] = new InboxTools(InboxToolsTests.FakeInbox.Over()),
-            [typeof(WindowTools)] = new WindowTools(FakeSurfaceWindows.Catalog(), new FakeSurfaceWindows())
+            [typeof(WindowTools)] = new WindowTools(FakeSurfaceWindows.Catalog(), new FakeSurfaceWindows()),
+            [typeof(AccessTools)] = new AccessTools(new McpCallContext())
         };
 
         foreach (var group in BacklogMcpTools.Groups)

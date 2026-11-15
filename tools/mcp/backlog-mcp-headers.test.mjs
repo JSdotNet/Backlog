@@ -4,12 +4,24 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import net from "node:net";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { deliveryGrant, parseArgs, pipeName, pipePath, requestToken, resolveToken, settingsPath } from "./backlog-mcp-headers.mjs";
+import {
+    deliveryGrant,
+    grantFromConfig,
+    openRequest,
+    parseArgs,
+    pipeName,
+    pipePath,
+    registerAgent,
+    requestToken,
+    resolveToken,
+    settingsPath,
+    withGrant,
+} from "./backlog-mcp-headers.mjs";
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "backlog-mcp-headers.mjs");
 const settings = (json) => () => JSON.stringify(json);
@@ -225,4 +237,103 @@ test("an unknown flag exits 1 and prints no header", async () => {
     assert.equal(result.status, 1);
     assert.equal(result.stdout, "");
     assert.match(result.stderr, /Unknown argument/);
+});
+
+// --register and --request (local ADR 0052 §5): an agent registers itself into a pending grant
+// and opens its own request window; neither grants anything.
+
+test("--register takes the name and --scopes the list, by commas or spaces", () => {
+    assert.deepEqual(parseArgs(["--register", "Claude Code · Backlog", "--scopes", "tasks:read, devbook:read"]), {
+        grant: null,
+        debug: false,
+        register: "Claude Code · Backlog",
+        scopes: ["tasks:read", "devbook:read"],
+    });
+    assert.deepEqual(parseArgs(["--request", "--config=.mcp.json"]), { grant: null, debug: false, request: true, config: ".mcp.json" });
+});
+
+test("--register needs a name and scopes, takes no grant, and --scopes goes with it", () => {
+    assert.throws(() => parseArgs(["--register", "Claude Code"]), /needs --scopes/);
+    assert.throws(() => parseArgs(["--register=", "--scopes", "tasks:read"]), /needs the agent's name/);
+    assert.throws(() => parseArgs(["--register", "A", "--scopes", "tasks:read", "--grant", "g_abc"]), /takes no --grant/);
+    assert.throws(() => parseArgs(["--scopes", "tasks:read"]), /goes with --register/);
+    assert.throws(() => parseArgs(["--register"]), /needs a value/);
+});
+
+test("withGrant writes the grant into the backlog server's headersHelper, keeping the helper's own path", () => {
+    const config = JSON.stringify({ mcpServers: { backlog: { type: "http", url: "http://127.0.0.1:5757/mcp", headersHelper: "node ../tools/backlog-mcp-headers.mjs --grant g_old" }, other: { type: "stdio" } } });
+
+    const written = JSON.parse(withGrant(config, "g_new"));
+
+    assert.equal(written.mcpServers.backlog.headersHelper, "node ../tools/backlog-mcp-headers.mjs --grant g_new");
+    assert.deepEqual(written.mcpServers.other, { type: "stdio" });
+    assert.equal(grantFromConfig(JSON.stringify(written)), "g_new");
+});
+
+test("withGrant makes a backlog server where there is none, and names --debug once", () => {
+    const written = JSON.parse(withGrant(null, "g_new", { debug: true }));
+
+    assert.equal(written.mcpServers.backlog.type, "http");
+    assert.equal(written.mcpServers.backlog.headersHelper, "node tools/mcp/backlog-mcp-headers.mjs --grant g_new --debug");
+    assert.equal(JSON.parse(withGrant(JSON.stringify(written), "g_newer", { debug: true })).mcpServers.backlog.headersHelper, "node tools/mcp/backlog-mcp-headers.mjs --debug --grant g_newer");
+    assert.equal(grantFromConfig("not json"), null);
+    assert.equal(grantFromConfig(JSON.stringify({ mcpServers: {} })), null);
+});
+
+test("registerAgent sends one register line and resolves to the pending grant", async () => {
+    const broker = await fakeBroker(JSON.stringify({ grant: "g_new", request: "r_new", state: "pending" }) + "\n");
+    try {
+        const reply = await registerAgent("Claude Code", ["tasks:read"], () => net.connect(broker.address), { folder: "D:\\Repos", parentPid: 42 });
+        assert.equal(reply.grant, "g_new");
+        assert.equal(reply.state, "pending");
+        assert.deepEqual(JSON.parse(broker.requests[0]), { register: { name: "Claude Code", scopes: ["tasks:read"], folder: "D:\\Repos", parentPid: 42 } });
+    } finally {
+        await broker.close();
+    }
+});
+
+test("registerAgent rejects with the broker's refusal and its sentence", async () => {
+    const broker = await fakeBroker(JSON.stringify({ error: "already-pending", message: "Claude Code already has a request waiting." }) + "\n");
+    try {
+        await assert.rejects(registerAgent("Claude Code", ["tasks:read"], () => net.connect(broker.address)), /refused to register Claude Code: already-pending\. Claude Code already has a request waiting\./);
+    } finally {
+        await broker.close();
+    }
+});
+
+test("openRequest asks for the grant's window and resolves to whether it opened", async () => {
+    const broker = await fakeBroker(JSON.stringify({ opened: true }) + "\n");
+    try {
+        assert.deepEqual(await openRequest("g_abc", () => net.connect(broker.address)), { opened: true });
+        assert.deepEqual(broker.requests, ['{"request":"g_abc"}\n']);
+    } finally {
+        await broker.close();
+    }
+});
+
+test("requestToken says a pending grant is pending, and how to open its window", async () => {
+    const broker = await fakeBroker(JSON.stringify({ error: "pending" }) + "\n");
+    try {
+        await assert.rejects(requestToken("g_abc", () => net.connect(broker.address)), /refused grant g_abc: pending\. The person has not allowed it yet; run --request/);
+    } finally {
+        await broker.close();
+    }
+});
+
+test("--register writes the pending grant into the config it names", { skip: process.platform !== "win32" && "the broker is a Windows named pipe" }, async () => {
+    const broker = await fakeBroker(JSON.stringify({ grant: "g_new", request: "r_new", state: "pending" }) + "\n");
+    const root = await mkdtemp(join(tmpdir(), "backlog-mcp-register-"));
+    try {
+        const config = join(root, ".mcp.json");
+        await writeFile(config, JSON.stringify({ mcpServers: { backlog: { type: "http", url: "http://127.0.0.1:5757/mcp", headersHelper: "node tools/mcp/backlog-mcp-headers.mjs" } } }));
+
+        const result = await runAsync(["--register", "Claude Code", "--scopes", "tasks:read", "--config", config], { BACKLOG_MCP_BROKER_PIPE: broker.name });
+
+        assert.equal(result.status, 0, result.stderr);
+        assert.match(result.stdout, /grant g_new: pending/);
+        assert.equal(grantFromConfig(await readFile(config, "utf8")), "g_new");
+    } finally {
+        await broker.close();
+        await rm(root, { recursive: true, force: true });
+    }
 });

@@ -93,10 +93,13 @@ public static class McpScopePolicies
         return services;
     }
 
-    /// <summary>The policy a call to <paramref name="toolName"/> must pass: its scope's, or
+    /// <summary>The policy a call to <paramref name="toolName"/> must pass: <see cref="Caller"/>
+    /// for a tool <see cref="McpToolScopes.AnyCaller"/> names, its scope's, or
     /// <see cref="Fallback"/> for a tool no scope serves.</summary>
     public static string ToolPolicy(string? toolName) =>
-        McpToolScopes.ScopeOf(toolName) is { } scope ? PolicyName(scope) : Fallback;
+        toolName is not null && McpToolScopes.AnyCaller.Contains(toolName)
+            ? Caller
+            : McpToolScopes.ScopeOf(toolName) is { } scope ? PolicyName(scope) : Fallback;
 
     /// <summary>
     /// The policy a request to <paramref name="path"/> must pass on the listener: the OTLP logs
