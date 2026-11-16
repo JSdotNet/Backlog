@@ -856,12 +856,14 @@ public sealed class TasksDetailPaneTests
 
     /// <summary>Types a tag into the picker and commits it, which is the gesture the
     /// picker calls "create": the popup opens on input, the new tag is the active
-    /// option when nothing else matches, and Enter takes it.</summary>
+    /// option when nothing else matches, and Enter takes it. Each gesture finds the field
+    /// and dispatches to it in one turn of the renderer, per <see cref="RaceSafeTestHelpers"/>:
+    /// the pane's save of the previous edit can still redraw the field under a new handler id.</summary>
     private static async Task AddTagAsync(IRenderedComponent<TasksPane> pane, string tag)
     {
-        var field = pane.Find("[data-testid='entry-tags-input'] input");
-        await field.InputAsync(new() { Value = tag });
-        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+        const string field = "[data-testid='entry-tags-input'] input";
+        await pane.InputAsync(field, tag);
+        await pane.InvokeAsync(() => pane.Find(field).KeyDownAsync(new KeyboardEventArgs { Key = "Enter" }));
     }
 
     // --- What is deliberately absent --------------------------------------
