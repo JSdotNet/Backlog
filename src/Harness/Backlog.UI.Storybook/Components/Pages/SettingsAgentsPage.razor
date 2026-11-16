@@ -9,7 +9,9 @@
     <Story Name="A list of agents"
            Description="One row per agent that can reach Backlog. The line under the name says its role, where it came from and when it was last used; the chips are its scopes, so the row says what the agent may do without opening it. A scope that reaches furthest, agents:grant or tasks:admin, wears the alert tone.
 
-Edit scopes opens the agent's switches under its row and reads Done while they are open; one row is open at a time. Each switch stores at once, so there is no Save button. Revoke asks first, in the row's own place: the second Revoke acts, Keep puts the row back."
+Edit scopes opens the agent's switches under its row and reads Done while they are open; one row is open at a time. Each switch stores at once, so there is no Save button. Revoke asks first, in the row's own place: the second Revoke acts, Keep puts the row back.
+
+An agent another agent granted sits indented under its granter, saying who granted it and when it expires, with Revoke alone: its scopes are its granter's to set. Revoking the granter takes it along."
            Code="@ListCode">
         <div class="sb-stack" data-testid="settings-agents-list">
             <SettingsCard Title="Agents" Description="Each agent reaches Backlog with a grant of its own.">
@@ -22,6 +24,8 @@ Edit scopes opens the agent's switches under its row and reads Done while they a
                                        Meta="@agent.Meta"
                                        Scopes="@agent.Scopes"
                                        Highlighted="@Highlighted"
+                                       CanEditScopes="@(agent.GrantedBy is null)"
+                                       CssClass="@(agent.GrantedBy is null ? null : "agent-row--delegated")"
                                        Expanded="@(_editing == agent.Id)"
                                        EditorId="@($"sb-agent-editor-{agent.Id}")"
                                        OnEditScopes="() => _editing = _editing == agent.Id ? null : agent.Id"
@@ -135,19 +139,20 @@ Edit scopes opens the agent's switches under its row and reads Done while they a
         new("notify:ask", "Ask you a question, tell you something"),
         new("runs:write", "Report delivery runs"),
         new("inbox:capture", "Capture into your Inbox"),
-        new("agents:grant", "Grant other agents a subset of its own scopes", Locked: true),
+        new("agents:grant", "Grant other agents a subset of its own scopes; Windows Hello to switch on"),
         new("devbook:decide", "Never for an agent: approve and accept happen in the app", Locked: true)
     ];
 
     private static readonly IReadOnlyList<string> Highlighted = ["agents:grant", "tasks:admin"];
 
-    private sealed record SampleAgent(string Id, string Name, string Meta, IReadOnlyList<string> Scopes);
+    private sealed record SampleAgent(string Id, string Name, string Meta, IReadOnlyList<string> Scopes, string? GrantedBy = null);
 
     private List<SampleAgent> _agents =
     [
         new("g_delivery", "Backlog delivery", "Role: Delivery flow · added in Settings · last used 4 min ago", ["tasks:read", "tasks:write", "devbook:read", "notify:ask", "runs:write"]),
         new("g_personal", "Personal assistant", "Role: Read-only + capture · added in Settings · last used yesterday", ["tasks:read", "devbook:read", "inbox:capture"]),
-        new("g_manager", "Manager session", "Role: Custom · created by setup · not used yet", ["tasks:read", "tasks:write", "agents:grant"])
+        new("g_manager", "Manager session", "Role: Custom · created by setup · last used 1 min ago", ["tasks:read", "tasks:write", "agents:grant"]),
+        new("g_worker", "Worker · Copilot", "Granted by Manager session · expires in 6 days · last used 3 min ago", ["tasks:read", "tasks:write"], "g_manager")
     ];
 
     private string? _editing;
@@ -161,7 +166,7 @@ Edit scopes opens the agent's switches under its row and reads Done while they a
         new("tasks:read", "Find and read items, goals, the roadmap"),
         new("tasks:write", "Create, comment, transition, block"),
         new("devbook:read", "Chapters, notes, states"),
-        new("agents:grant", "Grant other agents a subset of its own scopes", Locked: true)
+        new("agents:grant", "Grant other agents a subset of its own scopes; Windows Hello to switch on")
     ];
 
     private List<string> _requestSelected = ["tasks:read", "tasks:write", "devbook:read"];
@@ -205,7 +210,7 @@ Edit scopes opens the agent's switches under its row and reads Done while they a
 
     private void Revoke(SampleAgent agent)
     {
-        _agents = [.. _agents.Where(candidate => candidate.Id != agent.Id)];
+        _agents = [.. _agents.Where(candidate => candidate.Id != agent.Id && candidate.GrantedBy != agent.Id)];
         if (_editing == agent.Id) _editing = null;
     }
 

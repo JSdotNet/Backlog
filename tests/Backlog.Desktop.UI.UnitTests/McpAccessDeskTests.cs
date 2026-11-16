@@ -362,7 +362,8 @@ public sealed class McpAccessDeskTests : IDisposable
     {
         Assert.Equal(McpScopePolicies.Caller, McpScopePolicies.ToolPolicy("request_access"));
         Assert.Equal(McpScopePolicies.Caller, McpScopePolicies.ToolPolicy("REQUEST_ACCESS"));
-        Assert.Equal(McpScopePolicies.Fallback, McpScopePolicies.ToolPolicy("grant_agent"));
+        Assert.Equal(McpScopePolicies.PolicyName(McpScopes.AgentsGrant), McpScopePolicies.ToolPolicy("grant_agent"));
+        Assert.Equal(McpScopePolicies.Fallback, McpScopePolicies.ToolPolicy("no_such_tool"));
     }
 
     [Fact]

@@ -365,6 +365,11 @@ public sealed class McpTokenRetirementTests : IDisposable
         Assert.Equal(new HashSet<string> { McpScopes.SessionsDispatch, McpScopes.TasksRead, McpScopes.TasksWrite }, scopes);
         Assert.DoesNotContain(McpScopes.AgentsGrant, scopes);
         Assert.Equal(made.Manager, Settings().McpServerGrants!.Manager);
+
+        // The person's own grant, made by the app on their behalf: no granter agent, no expiry.
+        var manager = grants.Find(made.Manager!)!;
+        Assert.Null(manager.GrantedBy);
+        Assert.Null(manager.ExpiresAt);
     }
 
     /// <summary>An install entry 9 migrated has three grants and no Manager: the next start makes

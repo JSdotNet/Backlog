@@ -65,4 +65,13 @@ public static class McpScopes
     /// <summary>Whether a grant may hold <paramref name="scope"/>: one of <see cref="Grantable"/>,
     /// spelled exactly.</summary>
     public static bool IsGrantable(string? scope) => scope is not null && Grantable.Contains(scope, StringComparer.Ordinal);
+
+    /// <summary>The scopes an agent never grants another (local ADR 0052 §5): deciding, which no
+    /// grant holds; granting, so delegation stays one level deep; and the admin scope, which asks
+    /// the person for Windows Hello each time.</summary>
+    public static IReadOnlyList<string> NonDelegable { get; } = [DevbookDecide, AgentsGrant, TasksAdmin];
+
+    /// <summary>Whether a granter agent may hand <paramref name="scope"/> on: grantable and not
+    /// in <see cref="NonDelegable"/>.</summary>
+    public static bool IsDelegable(string? scope) => IsGrantable(scope) && !NonDelegable.Contains(scope!, StringComparer.Ordinal);
 }

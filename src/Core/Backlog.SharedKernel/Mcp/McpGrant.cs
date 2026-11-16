@@ -20,6 +20,12 @@ namespace Backlog.SharedKernel.Mcp;
 /// <param name="CreatedBy">Who created it, for the Agents card.</param>
 /// <param name="CreatedAt">When it was created.</param>
 /// <param name="Revoked">Whether it was revoked. A revoked grant mints nothing and validates nothing.</param>
+/// <param name="GrantedBy">The grant of the agent that granted this one (local ADR 0052 §5,
+/// agents that grant other agents), or null for a grant the person made. A delegated grant is
+/// one level deep, holds no <see cref="McpScopes.NonDelegable"/> scope, and mints only within
+/// what its granter holds at the time.</param>
+/// <param name="ExpiresAt">When a delegated grant stops minting unless its granter renews it;
+/// null for a grant the person made, which does not expire.</param>
 public sealed record McpGrant(
     string Id,
     string Name,
@@ -27,4 +33,14 @@ public sealed record McpGrant(
     int Version,
     string CreatedBy,
     DateTimeOffset CreatedAt,
-    bool Revoked);
+    bool Revoked,
+    string? GrantedBy = null,
+    DateTimeOffset? ExpiresAt = null)
+{
+    /// <summary>Whether another agent granted it, rather than the person.</summary>
+    public bool IsDelegated => !string.IsNullOrWhiteSpace(GrantedBy);
+
+    /// <summary>Whether it is delegated and past its expiry at <paramref name="now"/>. A delegated
+    /// grant with no expiry — a hand edit — reads as expired: it fails closed.</summary>
+    public bool IsExpired(DateTimeOffset now) => IsDelegated && (ExpiresAt is not { } expires || now >= expires);
+}

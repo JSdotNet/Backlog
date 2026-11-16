@@ -209,8 +209,12 @@ public static class MauiProgram
             TimeProvider.System,
             sp.GetRequiredService<IAgentRequestWindows>(),
             sp.GetService<Backlog.Modules.Notifications.Abstractions.INotifications>(),
-            sp.GetService<ILogger<McpAccessDesk>>()));
+            sp.GetService<ILogger<McpAccessDesk>>(),
+            sp.GetService<IMcpAuditLog>()));
         builder.Services.TryAddSingleton<IAgentAccessRequests>(sp => sp.GetRequiredService<McpAccessDesk>());
+        // The agents:grant tools answer through the same desk, under the same lock, so a granter
+        // agent and the person never both answer one request (§5).
+        builder.Services.TryAddSingleton<IAgentGrants>(sp => sp.GetRequiredService<McpAccessDesk>());
         builder.Services.TryAddSingleton(sp => new McpTokenBroker(
             sp.GetRequiredService<McpGrantTokens>(),
             sp.GetRequiredService<McpAccessDesk>(),

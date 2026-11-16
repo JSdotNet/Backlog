@@ -26,8 +26,8 @@ public static class McpAgentRequests
     /// <summary>
     /// The scopes a request offers as switches: the ones it asked for, each with its line, in
     /// <see cref="McpScopes.All"/>'s order, locked as the Agents card locks them: <c>agents:grant</c>
-    /// starts off (<see cref="Initial"/>) and stays off until the delegation step makes it
-    /// switchable, so a request cannot grant what Edit scopes cannot.
+    /// starts off (<see cref="Initial"/>), and switching it on is confirmed by the Windows Hello
+    /// that Allow asks for anyway, so a request cannot grant what Edit scopes cannot.
     /// </summary>
     public static IReadOnlyList<AgentScopeOption> Options(McpAccessRequest request)
     {
