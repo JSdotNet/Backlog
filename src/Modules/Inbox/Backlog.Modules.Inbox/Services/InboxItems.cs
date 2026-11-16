@@ -167,6 +167,9 @@ internal sealed class InboxItems(
     public Task<Result> ReturnDoneNowToInboxAsync(Guid id, CancellationToken cancellationToken = default) =>
         returnToInbox.Handle(new ReturnToInboxCommand(id, DeleteTasks: true, MadeDone: true), cancellationToken);
 
+    public Task<Result> ReturnPlanToInboxAsync(Guid id, CancellationToken cancellationToken = default) =>
+        returnToInbox.Handle(new ReturnToInboxCommand(id, DeleteTasks: true, TakeBackPlan: true), cancellationToken);
+
     public Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default) =>
         resurfaceDue.Handle(new ResurfaceDueItemsCommand(), cancellationToken);
 

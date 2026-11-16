@@ -78,6 +78,11 @@ internal sealed record InboxRouteUndoStep(
     /// <summary>Done now's route: its one entry was born Done and ticked, so the
     /// undo deletes it while it is still Done rather than calling it started.</summary>
     public bool MadeDone { get; init; }
+
+    /// <summary>Create plan's route when it started a project note: its
+    /// <c>plan</c> entry laid out a Roadmap Item, which the undo takes back with
+    /// the entries while nobody has changed it. The note stays in the Brain.</summary>
+    public bool TakeBackPlan { get; init; }
 }
 
 /// <summary>One gesture's decisions over several items — a bulk archive, a bulk

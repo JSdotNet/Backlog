@@ -148,6 +148,17 @@ internal sealed class FakeBacklogTarget : IInboxBacklogTarget
     /// delete the Done entry the route made.</summary>
     public List<bool> DeletionsMadeDone { get; } = [];
 
+    /// <summary>Each Create plan undo, in order: the tasks and the plan whose
+    /// Roadmap Item goes with them.</summary>
+    public List<(IReadOnlyList<Guid> TaskIds, InboxLaidOutPlanDto Plan)> PlanDeletions { get; } = [];
+
+    public Task<Result> DeleteRoutedPlanAsync(IReadOnlyList<Guid> taskIds, InboxLaidOutPlanDto plan, CancellationToken cancellationToken = default)
+    {
+        PlanDeletions.Add((taskIds, plan));
+
+        return Task.FromResult(FailDeleteWith is { } error ? Result.Failure(error) : Result.Success());
+    }
+
     public Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, bool madeDone, CancellationToken cancellationToken = default)
     {
         Deletions.Add(taskIds);

@@ -1645,7 +1645,10 @@ public sealed class InboxDesktopState : IDisposable
             if (Report(routed)) return;
 
             StartProjectNote = false;
-            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Create plan", item.Id, DeleteTasks: true, DeferralOf(item)));
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Create plan", item.Id, DeleteTasks: true, DeferralOf(item))
+            {
+                TakeBackPlan = routed.Value.ProjectNotePath is { Length: > 0 },
+            });
 
             await ReloadAsync();
             _toasts?.Publish(ToastMessage.Info(PlanCreatedMessage(item.Title, routed.Value), "inbox-plan-created"));
@@ -2978,6 +2981,7 @@ public sealed class InboxDesktopState : IDisposable
         InboxDeferUndoStep defer => _inbox.ResurfaceAsync(defer.ItemId),
         InboxMoveUndoStep move => _inbox.MoveToListAsync(move.ItemId, move.PreviousListId),
         InboxRouteUndoStep { MadeDone: true } doneNow => _inbox.ReturnDoneNowToInboxAsync(doneNow.ItemId),
+        InboxRouteUndoStep { TakeBackPlan: true } plan => _inbox.ReturnPlanToInboxAsync(plan.ItemId),
         InboxRouteUndoStep route => _inbox.ReturnToInboxAsync(route.ItemId, route.DeleteTasks),
         _ => throw new InvalidOperationException($"No way back for {step.GetType().Name}."),
     };

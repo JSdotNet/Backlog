@@ -588,9 +588,15 @@ internal sealed class FakeInboxItems : IInboxItems
         });
     }
 
-    public Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default)
+    public Task<Result> ReturnPlanToInboxAsync(Guid id, CancellationToken cancellationToken = default) =>
+        ReturnToInboxAsync(id, deleteTasks: true, "return-plan");
+
+    public Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default) =>
+        ReturnToInboxAsync(id, deleteTasks, deleteTasks ? "return" : "unlink");
+
+    private Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, string act)
     {
-        Undos.Add((deleteTasks ? "return" : "unlink", id));
+        Undos.Add((act, id));
         ThrowIfUndoFails(id);
 
         if (Find(id) is { Routing: null })
