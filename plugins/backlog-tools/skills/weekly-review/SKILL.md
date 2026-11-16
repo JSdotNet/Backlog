@@ -25,14 +25,14 @@ Three sections in this order; each line `- <title or path> — <action>`, entrie
 **Get clear**
 - Each unprocessed Inbox item — clarify it in triage.
 - Each note in the Brain's inbox area — file it (`tend-brain`, or by hand).
-- Each deferred Inbox item — look again if due this week; the answer carries no review day, so say the Inbox's Deferred list has it.
+- Each deferred Inbox item whose `deferredUntil` is on or before this week's last day — "Deferred to <day>: look at it again"; each with no `deferredUntil` — "No review date: look at it again". One due later is no line.
 
 **Get current**
 - Each plan with open entries and no next action — make one step ready, or clear what holds it; each roadmap plan whose `get_plan_items` holds no entry — add its first step.
 - Each `projects/` note whose `roadmap` names no plan tag the roadmaps carry — Plan this project, or move it to the archive or `someday`; each `toArchive` note — move it to the archive.
 - Each open entry with `followUpOn` before today — chase its `waitingFor`.
 - Each open entry with `dueOn` before today — do it, re-date it or drop it.
-- Each goal with open items whose due date has passed, or with `blocked` above zero — read its badge in the Goals view and re-plan. The answer carries no forecast, so say this is a proxy.
+- Each goal with open items whose `forecast.standing` is `at-risk` — re-plan it in the Goals view, naming `forecast.landsOn` against `forecast.dueOn`; `forecast` null → the goals' lines read "forecast not available".
 
 **Get creative**
 - Each note in the `someday` area — promote it (task or plan) or drop it.

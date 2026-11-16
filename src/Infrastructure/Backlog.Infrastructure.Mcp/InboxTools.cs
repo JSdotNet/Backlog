@@ -45,7 +45,8 @@ public sealed class InboxTools(IInboxItems inbox, IInboxChangeSignal? changes = 
     [McpServerTool(Name = ListInboxItems, Title = "List the Inbox's captures", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
         "The Inbox's captures, newest first: id, title, kind, channel, captured_at, status, the body's length and a "
-        + "short preview, and how many attachments each holds. Unprocessed only unless status says otherwise. "
+        + "short preview, how many attachments each holds, and a deferred item's review day (deferredUntil, "
+        + "yyyy-MM-dd; null for any other item and for a deferral with no date). Unprocessed only unless status says otherwise. "
         + "Read one in full with read_inbox_item. Read-only.")]
     public async Task<InboxItemsPayload> ListAsync(
         [Description("Optional. unprocessed (the default), triaged, deferred, archived, or all.")]
@@ -84,7 +85,8 @@ public sealed class InboxTools(IInboxItems inbox, IInboxChangeSignal? changes = 
 
     [McpServerTool(Name = ReadInboxItem, Title = "Read an Inbox capture", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
-        "One capture in full: its Markdown body, source URL, tags and status, and each attachment's name, "
+        "One capture in full: its Markdown body, source URL, tags and status, a deferred item's review day "
+        + "(deferredUntil; null when it has none), and each attachment's name, "
         + "content type, size and the file's path on this machine (null while it is not downloaded), so its "
         + "images can be read or copied. Refused for an unknown id (inbox.item.not_found). Read-only.")]
     public async Task<InboxItemPayload> ReadAsync(
@@ -185,7 +187,8 @@ public sealed record InboxItemSummaryPayload(
     string Status,
     int BodyLength,
     string Preview,
-    int AttachmentCount)
+    int AttachmentCount,
+    DateOnly? DeferredUntil)
 {
     internal static InboxItemSummaryPayload From(InboxItemDto item) => new(
         item.Id,
@@ -196,7 +199,13 @@ public sealed record InboxItemSummaryPayload(
         StatusSlug(item.Status),
         item.BodyMd.Length,
         PreviewOf(item.BodyMd),
-        item.Attachments.Count);
+        item.Attachments.Count,
+        ReviewDay(item));
+
+    /// <summary>The day a deferred item comes up for review again, or null: only a deferred
+    /// item has one, and a deferral without a date has none.</summary>
+    internal static DateOnly? ReviewDay(InboxItemDto item) =>
+        item.Status == InboxStatus.Deferred ? item.DeferredUntil : null;
 
     internal static string StatusSlug(InboxStatus status) => status.ToString().ToLowerInvariant();
 
@@ -218,7 +227,8 @@ public sealed record InboxItemPayload(
     string BodyMd,
     string? SourceUrl,
     IReadOnlyList<string> Tags,
-    IReadOnlyList<InboxAttachmentPayload> Attachments)
+    IReadOnlyList<InboxAttachmentPayload> Attachments,
+    DateOnly? DeferredUntil)
 {
     internal static InboxItemPayload From(InboxItemDto item) => new(
         item.Id,
@@ -235,7 +245,8 @@ public sealed record InboxItemPayload(
             attachment.Name,
             attachment.ContentType,
             attachment.SizeBytes,
-            attachment.LocalPath))]);
+            attachment.LocalPath))],
+        InboxItemSummaryPayload.ReviewDay(item));
 }
 
 public sealed record InboxAttachmentPayload(Guid Id, string Name, string ContentType, long SizeBytes, string? LocalPath);

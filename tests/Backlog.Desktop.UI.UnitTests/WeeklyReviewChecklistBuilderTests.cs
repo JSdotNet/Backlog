@@ -60,6 +60,22 @@ public sealed class WeeklyReviewChecklistBuilderTests
     }
 
     [Fact]
+    public void Get_clear_lists_a_deferred_item_with_no_review_date_as_one_to_look_at_again()
+    {
+        var undated = new ReviewInboxItem(Guid.NewGuid(), "Learn the cello", Deferred: true);
+        var dated = new ReviewInboxItem(Guid.NewGuid(), "Renew passport", Deferred: true, DeferredUntil: Today.AddDays(2));
+
+        var checklist = WeeklyReviewChecklistBuilder.Build(Inputs(inbox: [undated, dated]), Today);
+
+        var lines = checklist.LinesOf(WeeklyReviewStage.GetClear);
+        Assert.Equal(
+            [("Learn the cello", WeeklyReviewChecklistBuilder.NoReviewDate), ("Renew passport", "Deferred to 13 Nov 2026: look at it again.")],
+            lines.Select(line => (line.Subject, line.Check)));
+        Assert.Equal("No review date: look at it again.", WeeklyReviewChecklistBuilder.NoReviewDate);
+        Assert.Equal(WeeklyReviewActionKind.OpenInbox, lines[0].Actions.Single().Kind);
+    }
+
+    [Fact]
     public void A_plan_without_a_next_action_offers_to_mark_the_step_that_can_move()
     {
         var held = new ReviewEntry(Guid.NewGuid(), "Wait on legal", ReviewEntryStatus.Draft, "launch", WaitingFor: "Legal");

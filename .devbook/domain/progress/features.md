@@ -98,7 +98,7 @@ tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests]
 
 Let an agent keep the goals its work is for. Behind the always-on Tasks key, beside the [impediment tools](#impediments-for-agents), an agent works with goals through MCP tools:
 
-- `list_goals` reads every goal with its title, outcome and due date, what it holds and its progress;
+- `list_goals` reads every goal with its title, outcome and due date, what it holds, its progress and its forecast: the standing, the day it is expected to land and the day it is due, as the [Goals view](#the-goals-view) draws them;
 - `create_goal` sets one with a title, an optional outcome and an optional due date, and refuses one without a title (`progress.goal_without_title`);
 - `update_goal` changes the fields it is given and keeps the rest;
 - `delete_goal` deletes one and frees what it held;
@@ -298,7 +298,7 @@ The review walks three stages, one at a time: **Get clear**, **Get current** and
 |---|---|---|
 | Get clear | each unprocessed Inbox item | **Open the Inbox** |
 | Get clear | each note in the Brain's inbox area | **Open the note** |
-| Get clear | each deferred Inbox item due by the sixth day from today | **Open the Inbox** |
+| Get clear | each deferred Inbox item due by the sixth day from today, and each deferred with no review date ("No review date: look at it again") | **Open the Inbox** |
 | Get current | each plan with open entries and no [next action](../tasks/features.md#next-actions) | **Mark next action** on its first draft step that can move, else **Open the task** of its first open step |
 | Get current | each roadmap plan no entry carries | **Open the plan** |
 | Get current | each `projects/` note whose `roadmap` names no plan the roadmap or the backlog carries | **Open the note**, **Move to archive** |

@@ -105,6 +105,32 @@ public class InboxToolsTests
     }
 
     [Fact]
+    public async Task A_deferred_item_carries_its_review_day_in_the_list_and_in_full()
+    {
+        var review = new DateOnly(2026, 11, 3);
+        var dated = Item("dated", Day) with { Status = InboxStatus.Deferred, DeferredUntil = review };
+        var undated = Item("undated", Day.AddHours(1)) with { Status = InboxStatus.Deferred };
+        var tools = Tools(dated, undated);
+
+        var listed = await tools.ListAsync(status: "deferred", cancellationToken: Cancel);
+        var read = await tools.ReadAsync(dated.Id, Cancel);
+
+        Assert.Equal([("undated", (DateOnly?)null), ("dated", review)], listed.Items.Select(item => (item.Title, item.DeferredUntil)));
+        Assert.Equal(review, read.DeferredUntil);
+        Assert.Null((await tools.ReadAsync(undated.Id, Cancel)).DeferredUntil);
+    }
+
+    [Fact]
+    public async Task An_item_that_is_not_deferred_carries_no_review_day()
+    {
+        var resurfaced = Item("resurfaced", Day) with { DeferredUntil = new DateOnly(2026, 11, 3) };
+
+        var listed = await Tools(resurfaced).ListAsync(cancellationToken: Cancel);
+
+        Assert.Null(Assert.Single(listed.Items).DeferredUntil);
+    }
+
+    [Fact]
     public async Task Read_refuses_an_unknown_id()
     {
         var refused = await Assert.ThrowsAsync<McpException>(() => Tools().ReadAsync(Guid.NewGuid(), Cancel));
