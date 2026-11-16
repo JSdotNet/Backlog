@@ -242,8 +242,9 @@ public sealed class WorkspaceSettingsStore
     private (string? Token, string? Hook, string? Telemetry) _retiredMcpTokenFields;
 
     /// <summary>
-    /// The three grants the app made for what it installs itself (local ADR 0052, Phase 1):
-    /// the delivery registration, the question hook and the telemetry exporter. Null until the
+    /// The grants the app made for what it installs itself (local ADR 0052, Phase 1): the
+    /// delivery registration, the question hook, the telemetry exporter and the dispatch-sessions
+    /// Manager. Null until the
     /// first start after the upgrade has made them. Ids only — a grant id is a label, not a
     /// password — so <c>settings.json</c> holds no MCP secret.
     /// </summary>
@@ -978,9 +979,9 @@ public sealed class WorkspaceSettingsStore
     }
 
     /// <summary>
-    /// Records the three grants the migration made (local ADR 0052, Phase 1). Answers null, or
+    /// Records the grants the migration made (local ADR 0052, Phase 1). Answers null, or
     /// the sentence saying they hold for this run but could not be saved for next time — the
-    /// next start then makes three more, and the ones made now stay on the Agents card.
+    /// next start then makes them again, and the ones made now stay on the Agents card.
     /// </summary>
     public string? SetMcpServerGrants(McpInstalledGrants grants)
     {
@@ -1320,13 +1321,14 @@ public sealed class WorkspaceSettingsStore
                     HookToken = retired.Hook,
                     TelemetryToken = retired.Telemetry,
                     Port = port == DefaultMcpServerPort ? null : port,
-                    Grants = grants is null ? null : new StoreMcpGrantIds { Delivery = grants.Delivery, QuestionHook = grants.QuestionHook, Telemetry = grants.Telemetry },
+                    Grants = grants is null ? null : new StoreMcpGrantIds { Delivery = grants.Delivery, QuestionHook = grants.QuestionHook, Telemetry = grants.Telemetry, Manager = grants.Manager },
                     AcceptEnvironmentToken = acceptEnvironmentToken ? true : null
                 };
     }
 
-    /// <summary>The <c>mcpServer.grants</c> row: the three ids the migration made. The ask-backlog
-    /// hook reads <c>questionHook</c> from it and the headers helper <c>delivery</c>.</summary>
+    /// <summary>The <c>mcpServer.grants</c> row: the ids the migration made. The ask-backlog
+    /// hook reads <c>questionHook</c> from it and the headers helper <c>delivery</c>;
+    /// <c>manager</c> is the dispatch-sessions Manager's.</summary>
     private sealed record StoreMcpGrantIds
     {
         public string? Delivery { get; init; }
@@ -1335,11 +1337,15 @@ public sealed class WorkspaceSettingsStore
 
         public string? Telemetry { get; init; }
 
-        /// <summary>The ids, or null when any is missing: a row the migration did not write
-        /// whole reads as no migration yet.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Manager { get; init; }
+
+        /// <summary>The ids, or null when any of the first three is missing: a row the migration
+        /// did not write whole reads as no migration yet. <c>manager</c> may be missing — a row
+        /// recorded before the Manager grant existed — and the next start then adds it.</summary>
         public McpInstalledGrants? ToGrants() =>
             Clean(Delivery) is { } delivery && Clean(QuestionHook) is { } hook && Clean(Telemetry) is { } telemetry
-                ? new McpInstalledGrants(delivery, hook, telemetry)
+                ? new McpInstalledGrants(delivery, hook, telemetry, Clean(Manager))
                 : null;
     }
 

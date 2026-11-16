@@ -105,6 +105,45 @@ public class McpEndpointExpansionTests
     }
 
     /// <summary>
+    /// Backlog's own row runs the app's headers helper for its delivery grant (local ADR 0052 §3)
+    /// rather than sending a static token. The command names a grant id, a label and no secret,
+    /// so describing a row answers it as readily as registering one does, and neither mints a
+    /// token on the way.
+    /// </summary>
+    [Fact]
+    public void The_headers_helper_is_the_machines_command_for_its_delivery_grant()
+    {
+        const string command = "node \"C:/Users/me/AppData/Local/Backlog/hooks/backlog-mcp-headers.mjs\" --grant g_9xq1";
+        var source = new FakeEndpointSource(5757, headersHelper: command);
+
+        foreach (var resolve in new[] { McpPlaceholders.Applying(source), McpPlaceholders.Describing(source) })
+        {
+            var expanded = McpPlaceholders.Expand("${BACKLOG_MCP_HEADERS_HELPER}", resolve);
+
+            Assert.True(expanded.Resolved);
+            Assert.Equal(command, expanded.Text);
+        }
+
+        Assert.Equal(0, source.TokensMinted);
+    }
+
+    /// <summary>Before the app has made its delivery grant there is no command to run: the
+    /// placeholder stays literal and the row says to start the app first, rather than
+    /// registering a server that sends no credential.</summary>
+    [Fact]
+    public void No_delivery_grant_yet_leaves_the_headers_helper_unresolved()
+    {
+        var source = new FakeEndpointSource(5757);
+
+        var expanded = McpPlaceholders.Expand("${BACKLOG_MCP_HEADERS_HELPER}", McpPlaceholders.Applying(source));
+
+        Assert.False(expanded.Resolved);
+        Assert.Equal("${BACKLOG_MCP_HEADERS_HELPER}", expanded.Text);
+        Assert.Contains("Backlog delivery", expanded.Problem, StringComparison.Ordinal);
+        Assert.Equal(0, source.TokensMinted);
+    }
+
+    /// <summary>
     /// The security fact this expander exists in this shape for.
     ///
     /// <para>The catalog is a hand-edited JSON file in a folder that syncs between
@@ -266,9 +305,11 @@ public class McpEndpointExpansionTests
     /// <summary>A stand-in for the worker, which lives in the desktop head no
     /// test project references. It counts the mints, because "how many times was
     /// a secret written" is the fact two of these tests are about.</summary>
-    private sealed class FakeEndpointSource(int port, string token = "t0ken") : IMcpEndpointSource
+    private sealed class FakeEndpointSource(int port, string token = "t0ken", string? headersHelper = null) : IMcpEndpointSource
     {
         public int TokensMinted { get; private set; }
+
+        public string? HeadersHelper => headersHelper;
 
         public int Port => port;
 

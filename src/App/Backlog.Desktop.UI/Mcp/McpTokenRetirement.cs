@@ -10,8 +10,8 @@ namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
 /// Retires the shared MCP token (local ADR 0052, Phase 1), once, on the first start after the
-/// upgrade. It makes the three grants the app's own installs use in its place — "Backlog
-/// delivery", "Question hook" and "Telemetry" — records their ids in <c>settings.json</c>, and
+/// upgrade. It makes the four grants the app's own installs use in its place — "Backlog
+/// delivery", "Question hook", "Telemetry" and the dispatch-sessions "Manager" — records their ids in <c>settings.json</c>, and
 /// rewrites what still names a retired token in Claude Code's own files: the <c>backlog</c>
 /// server the Dev PC row registered, and the telemetry block the Settings page had a person
 /// paste. Then it drops the retired tokens from <c>settings.json</c>.
@@ -39,12 +39,36 @@ public static class McpTokenRetirement
     /// <summary>The telemetry exporter's grant's name.</summary>
     public const string TelemetryGrantName = "Telemetry";
 
-    /// <summary>What the three grants record as their creator.</summary>
+    /// <summary>The dispatch-sessions Manager's grant's name.</summary>
+    public const string ManagerGrantName = "Manager";
+
+    /// <summary>What the migration's grants record as their creator.</summary>
     public const string CreatedBy = "Backlog, in place of the shared token";
 
-    /// <summary>The delivery grant's scopes: the Delivery flow role's preset.</summary>
-    public static IReadOnlyList<string> DeliveryScopes { get; } = McpAgents.PresetOf("Delivery flow")
+    /// <summary>The Delivery flow role's preset: what the delivery grant was made with before
+    /// <see cref="DeliveryAdditions"/>, and what an already-migrated grant still holds when
+    /// nobody has changed its scopes since.</summary>
+    internal static IReadOnlyList<string> DeliveryPreset { get; } = McpAgents.PresetOf("Delivery flow")
         ?? throw new InvalidOperationException("McpAgents has no Delivery flow role.");
+
+    /// <summary>What the delivery grant holds beyond the Delivery flow preset, because the one
+    /// registration it serves — a repository's <c>.mcp.json</c> with no <c>--grant</c>, and the
+    /// user-scope one the Dev PC row installs — is what the delivery flows call through:
+    /// <c>devbook:write</c> for their review notes and <c>ui:open</c> for the windows they open.
+    /// <c>sessions:dispatch</c> is not among them: it is the <see cref="ManagerGrantName"/>
+    /// grant's alone (local ADR 0052 §4).</summary>
+    public static IReadOnlyList<string> DeliveryAdditions { get; } =
+        [McpScopes.DevbookWrite, McpScopes.UiOpen];
+
+    /// <summary>The delivery grant's scopes: the Delivery flow role's preset and
+    /// <see cref="DeliveryAdditions"/>.</summary>
+    public static IReadOnlyList<string> DeliveryScopes { get; } = [.. DeliveryPreset.Union(DeliveryAdditions, StringComparer.Ordinal)];
+
+    /// <summary>The Manager grant's scopes: the Manager role's preset, <c>sessions:dispatch</c>
+    /// with <c>tasks:read</c> and <c>tasks:write</c>. <c>agents:grant</c> is never granted at
+    /// start: switching it on asks for Windows Hello (local ADR 0052 §5).</summary>
+    public static IReadOnlyList<string> ManagerScopes { get; } = McpAgents.PresetOf("Manager")
+        ?? throw new InvalidOperationException("McpAgents has no Manager role.");
 
     /// <summary>The two environment keys a pasted telemetry block carried the token in.</summary>
     private static readonly string[] OtelHeaderKeys = ["OTEL_EXPORTER_OTLP_LOGS_HEADERS", "OTEL_EXPORTER_OTLP_HEADERS"];
@@ -61,23 +85,56 @@ public static class McpTokenRetirement
     private const string DevPcServerName = "backlog";
 
     /// <summary>
-    /// The three grants, made and recorded when <paramref name="settings"/> has none recorded,
-    /// else the recorded ones — revoked or not, they are the person's to keep or revoke.
+    /// The four grants, made and recorded when <paramref name="settings"/> has none recorded,
+    /// else the recorded ones — revoked or not, they are the person's to keep or revoke. An
+    /// install migrated before the Manager grant existed gets it once, recorded beside the
+    /// others; a recorded delivery grant made before <see cref="DeliveryAdditions"/> existed is
+    /// given them once, by <see cref="TopUpDelivery"/>.
     /// </summary>
     public static McpInstalledGrants EnsureGrants(WorkspaceSettingsStore settings, IMcpGrantStore grants)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(grants);
 
-        if (settings.McpServerGrants is { } recorded) return recorded;
+        if (settings.McpServerGrants is { } recorded)
+        {
+            _ = TopUpDelivery(grants, recorded.Delivery);
+            if (recorded.Manager is not null) return recorded;
+
+            // Recorded once, like the other three: a Manager grant the person revokes later is
+            // never made again.
+            var withManager = recorded with { Manager = CreateManager(grants) };
+            _ = settings.SetMcpServerGrants(withManager);
+            return withManager;
+        }
 
         var made = new McpInstalledGrants(
             grants.Create(DeliveryGrantName, DeliveryScopes, CreatedBy).Id,
             grants.Create(QuestionHookGrantName, [McpScopes.NotifyAsk], CreatedBy).Id,
-            grants.Create(TelemetryGrantName, [McpScopes.TelemetryWrite], CreatedBy).Id);
+            grants.Create(TelemetryGrantName, [McpScopes.TelemetryWrite], CreatedBy).Id,
+            CreateManager(grants));
 
         _ = settings.SetMcpServerGrants(made);
         return made;
+    }
+
+    private static string CreateManager(IMcpGrantStore grants) =>
+        grants.Create(ManagerGrantName, ManagerScopes, CreatedBy).Id;
+
+    /// <summary>
+    /// Gives an already-migrated delivery grant <see cref="DeliveryAdditions"/>, when it still
+    /// holds exactly the Delivery flow preset it was made with — so the change reaches it once,
+    /// on the first start after this upgrade, and never again. A revoked grant stays revoked, a
+    /// grant made by someone else is not this migration's, and one whose scopes the person
+    /// already changed on the Agents card keeps their choice. Answers whether it changed the grant.
+    /// </summary>
+    internal static bool TopUpDelivery(IMcpGrantStore grants, string deliveryId)
+    {
+        if (grants.Find(deliveryId) is not { Revoked: false } grant) return false;
+        if (!string.Equals(grant.CreatedBy, CreatedBy, StringComparison.Ordinal)) return false;
+        if (!grant.Scopes.ToHashSet(StringComparer.Ordinal).SetEquals(DeliveryPreset)) return false;
+
+        return grants.SetScopes(deliveryId, [.. grant.Scopes.Union(DeliveryAdditions, StringComparer.Ordinal)]) is not null;
     }
 
     /// <summary>
@@ -103,12 +160,16 @@ public static class McpTokenRetirement
         var problems = new List<string>();
 
         var registrations = 0;
+        var before = problems.Count;
         Edit(files.UserConfigPath, root => (registrations = RewriteRegistrations(
             root, retired, McpHeadersHelperScript.Command(helperScriptPath, installed.Delivery, debug))) > 0, problems);
+        if (problems.Count > before) registrations = 0;
 
         var telemetry = false;
+        before = problems.Count;
         Edit(files.UserSettingsPath, root => telemetry = RewriteTelemetry(
             root, retired, McpHeadersHelperScript.Command(helperScriptPath, installed.Telemetry, debug)), problems);
+        if (problems.Count > before) telemetry = false;
 
         if (problems.Count == 0 && settings.ForgetRetiredMcpTokens() is { } kept) problems.Add(kept);
 
@@ -189,32 +250,66 @@ public static class McpTokenRetirement
         return true;
     }
 
-    /// <summary>Reads <paramref name="path"/>, runs <paramref name="edit"/> on it and writes it back
-    /// when it answers true, through a temporary file. A file that is not there has nothing to
-    /// rewrite; one that does not parse, or cannot be written, is a problem.</summary>
-    private static void Edit(string path, Func<JsonObject, bool> edit, List<string> problems)
+    /// <summary>How many times <see cref="Edit"/> starts over on a file another process keeps
+    /// writing before it leaves the file for the next start.</summary>
+    internal const int EditAttempts = 3;
+
+    /// <summary>
+    /// Reads <paramref name="path"/>, runs <paramref name="edit"/> on it and, when it answers true,
+    /// writes the result to a temporary file beside it and moves that over the file in one
+    /// replace. A file that is not there has nothing to rewrite; one that does not parse, or
+    /// cannot be written, is a problem.
+    /// <para>
+    /// <b>Claude Code writes <c>~/.claude.json</c> all the time</b> — every session start, every
+    /// project switch. So the file is read again right before the replace, and when it is no
+    /// longer the text the edit was made on, the edit starts over on what is there now rather
+    /// than overwriting that write with a copy of the old file. A file still changing after
+    /// <see cref="EditAttempts"/> tries is a problem, kept for the next start. The window
+    /// between that last read and the replace is narrowed to a compare and a rename, not
+    /// closed: Claude Code takes no lock another process could share.
+    /// <paramref name="beforeReplace"/> is the test seam for that window.
+    /// </para>
+    /// </summary>
+    internal static void Edit(string path, Func<JsonObject, bool> edit, List<string> problems, Action? beforeReplace = null)
     {
         if (!File.Exists(path)) return;
 
         try
         {
-            if (JsonNode.Parse(File.ReadAllText(path), documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true }) is not JsonObject root)
+            for (var attempt = 1; ; attempt++)
             {
-                problems.Add($"{path} is not a JSON object, so what in it still names the retired MCP token was left as it was.");
-                return;
-            }
+                var read = File.ReadAllText(path);
 
-            if (!edit(root)) return;
+                if (JsonNode.Parse(read, documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true }) is not JsonObject root)
+                {
+                    problems.Add($"{path} is not a JSON object, so what in it still names the retired MCP token was left as it was.");
+                    return;
+                }
 
-            var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
-            try
-            {
-                File.WriteAllText(temporary, root.ToJsonString(Indented));
-                File.Move(temporary, path, overwrite: true);
-            }
-            finally
-            {
-                if (File.Exists(temporary)) File.Delete(temporary);
+                if (!edit(root)) return;
+
+                var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
+                try
+                {
+                    File.WriteAllText(temporary, root.ToJsonString(Indented));
+                    beforeReplace?.Invoke();
+
+                    if (string.Equals(File.ReadAllText(path), read, StringComparison.Ordinal))
+                    {
+                        File.Move(temporary, path, overwrite: true);
+                        return;
+                    }
+                }
+                finally
+                {
+                    if (File.Exists(temporary)) File.Delete(temporary);
+                }
+
+                if (attempt == EditAttempts)
+                {
+                    problems.Add($"{path} kept changing while it was being rewritten, so what in it still names the retired MCP token was left for the next start.");
+                    return;
+                }
             }
         }
 #pragma warning disable CA1031 // Whatever stops the rewrite, the app starts; the next start tries again.
@@ -245,7 +340,7 @@ public sealed record ClaudeConfigFiles(string UserConfigPath, string UserSetting
 }
 
 /// <summary>What one run of <see cref="McpTokenRetirement.Run"/> did.</summary>
-/// <param name="Grants">The three grants, made now or recorded before.</param>
+/// <param name="Grants">The four grants, made now or recorded before.</param>
 /// <param name="RegistrationsRewritten">How many <c>backlog</c> registrations now run the headers helper.</param>
 /// <param name="TelemetryRewritten">Whether the telemetry block now runs it.</param>
 /// <param name="Problems">Every file left as it was, and why; the retired tokens stay recorded while there is one.</param>

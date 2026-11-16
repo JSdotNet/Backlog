@@ -1,4 +1,5 @@
 using Backlog.Desktop.UI.Extensions;
+using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.DevPc.Abstractions;
@@ -93,6 +94,17 @@ public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
 
     /// <inheritdoc />
     public string? CurrentToken => _settings.EnvironmentMcpToken;
+
+    /// <inheritdoc />
+    /// <remarks>The command <see cref="McpTokenRetirement"/> writes into a registration it
+    /// rewrites, so a row applied after the migration and a registration the migration rewrote
+    /// are the same string. Null until the first start after the upgrade has made the grant.</remarks>
+    public string? HeadersHelper => _settings.McpServerGrants is { } grants
+        ? McpHeadersHelperScript.Command(
+            McpHeadersHelperScript.PathUnder(WorkspaceSettingsStore.DefaultAppDataDirectory),
+            grants.Delivery,
+            McpHeadersHelperScript.IsDebugBuild)
+        : null;
 
     /// <inheritdoc />
     /// <remarks>
