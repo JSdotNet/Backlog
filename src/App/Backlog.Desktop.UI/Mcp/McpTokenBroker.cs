@@ -21,7 +21,8 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <b>Wire format.</b> One UTF-8 JSON line each way per connection, then the connection
 /// ends. The request is <c>{"grant":"g_…"}</c>, at most <see cref="MaxRequestBytes"/>. The
 /// reply is <c>{"token":"…","expiresAt":"…"}</c>, or <c>{"error":"…"}</c> with
-/// <c>unknown-grant</c>, <c>revoked</c>, <c>pending</c>, <c>bad-request</c> or <c>forbidden</c>.
+/// <c>unknown-grant</c>, <c>revoked</c>, <c>pending</c>, <c>expired</c> (a delegated grant its
+/// granter did not renew), <c>bad-request</c> or <c>forbidden</c>.
 /// </para>
 /// <para>
 /// <b>Two requests more, for an agent registering itself</b> (local ADR 0052 §5), served when
@@ -491,7 +492,8 @@ public sealed class McpTokenBroker : IDisposable
     private static string ErrorFor(McpGrantRefusal? refusal) => refusal switch
     {
         McpGrantRefusal.UnknownGrant => "unknown-grant",
-        McpGrantRefusal.Revoked => "revoked",
+        McpGrantRefusal.Revoked or McpGrantRefusal.GranterRevoked => "revoked",
+        McpGrantRefusal.GrantExpired => "expired",
         McpGrantRefusal.Pending => "pending",
         McpGrantRefusal.BadToken or McpGrantRefusal.Expired or McpGrantRefusal.StaleVersion or McpGrantRefusal.StoreUnavailable or null => "bad-request"
     };

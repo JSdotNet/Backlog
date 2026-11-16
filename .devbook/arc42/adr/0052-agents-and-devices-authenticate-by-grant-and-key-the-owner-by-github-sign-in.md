@@ -179,8 +179,8 @@ not a role: the roles are presets that fill the switches. A scope switch raises 
 grant's version as well as storing the scope, so a token minted under the old scopes
 is refused and the headers helper fetches one under the new. The switches are §4's
 scopes as `McpScopes` lists them, and a change of scopes is refused like a new grant
-for any scope no grant may hold. `devbook:decide` is drawn locked, and so is
-`agents:grant` until switching it on asks for Windows Hello (§5, §6). The card's
+for any scope no grant may hold. `devbook:decide` is drawn locked. Switching
+`agents:grant` on, in Edit scopes or Add agent, asks for Windows Hello first (§5, §6). The card's
 registration names the repository's `tools/mcp/backlog-mcp-headers.mjs`. The page no
 longer shows or rotates the shared token.
 
@@ -223,8 +223,8 @@ leaves out are placed so: `list_devbook_references` is `tasks:read`, and
 `set_devbook_references`, `create_goal`, `update_goal` and the impediment tools are
 `tasks:write`. `list_knowledge_contexts` is `devbook:read` and `list_sessions` is
 `runs:write`. Reading the Inbox is `tasks:read` and archiving a capture `tasks:write`,
-because `inbox:capture` is write-only and no local tool captures yet. `inbox:capture` and
-`agents:grant` are policies with no tool until §8 and entry 12. A grant that asks for a scope
+because `inbox:capture` is write-only and no local tool captures yet. `inbox:capture` is a
+policy with no tool until §8. A grant that asks for a scope
 outside the table is refused when it is created.
 
 **A pop-out link is minted under `ui:open`.** This amends ADR 0043 §7. The cookie a
@@ -290,6 +290,21 @@ rules:
   renews it. Revoking the granter revokes every grant it made in the same moment.
 - **Visible.** A delegated grant shows under its granter on the MCP server page,
   with a quiet notification and an audit entry naming both.
+
+*Built 2026-11-13 by entry 12 (`agent-delegation`).* The four tools answer through the
+access desk, under the lock the person's Allow takes, so one request is answered once.
+A grant records `grantedBy` and `expiresAt`. `grant_agent` without scopes grants what was
+asked less what the granter may not hand on. `edit_agent_scopes` renews for 7 days, and
+calling it with the same scopes is the renewal. A grant that has already expired is not
+renewed: it is revoked, and its agent registers again. A granter that was itself delegated
+is refused, and the mint drops the non-delegable scopes from a delegated grant even if a
+hand edit put them there. A change to the granter's scopes raises the version of every
+grant it made, so their next token is cut again. A granter that loses `agents:grant`
+leaves its grants minting nothing. `list_agent_requests` lists new agents' requests, the
+requests of the grants the caller made, and those grants. Each grant raises an Info
+alert that asks for nothing, and an audit record that names the granter as caller and
+the grant as target. On the card a delegated row offers Revoke alone. The person's Allow
+does not widen a delegated grant: the person revokes it and allows it, or trims its granter.
 
 A grant id is a label, not a password. A process running as the person could ask
 for any grant. A grant buys scoping, revocation and an audit trail, and no grant
@@ -432,6 +447,7 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-13 | Built §5's granter agents: `list_agent_requests`, `grant_agent`, `edit_agent_scopes` and `revoke_agent` under `agents:grant`, held by the access desk to its five rules. Delegated grants expire after 7 days unless renewed, mint only within the granter's scopes, and are revoked in the granter's write. Switching `agents:grant` on asks for Windows Hello, and delegated rows sit under their granter. | Plan `zero-trust-auth` entry 12, Phase 1. |
 | 2026-11-12 | Built §5's self-registration: `--register` makes a pending grant that mints no token, `--request` and `request_access` open or focus the request window, and the waiting request shows on the MCP server page, its badge and an alert. The limits are one per name, five open and a day after a decline. Allow asks for Windows Hello, and no pipe command or tool answers a request. | Plan `zero-trust-auth` entry 11, Phase 1. |
 | 2026-11-12 | Retired the shared, question-hook and telemetry tokens: the app creates its three grants on start, rewrites the registrations that carry a retired token to the headers helper, and drops the tokens. `BACKLOG_MCP_TOKEN` is accepted only under a hand-edited debug setting. | Plan `zero-trust-auth` step `remove-settings-token`, Phase 1. |
 | 2026-11-12 | Built §3's Agents card on the MCP server page in the Bearer token card's place: rows with role, source, last use and scopes, switches that store on change and raise the grant's version, Revoke confirmed in place, and Add agent with its registration. | Plan `zero-trust-auth` entry 10, Phase 1. |

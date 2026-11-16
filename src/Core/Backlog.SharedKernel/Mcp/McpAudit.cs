@@ -24,4 +24,14 @@ public static class McpAudit
     /// <summary>The tool column of the record written when failed bearer attempts trip
     /// the listener's lockout: not a tool, so not in a tool's snake case.</summary>
     public const string BearerLockout = "bearer lockout";
+
+    /// <summary>The tool column of the record a granter agent's grant writes (local ADR 0052
+    /// §5): the caller is the granter, the target the grant it made, both by name and id.</summary>
+    public const string DelegatedGrant = "delegated grant";
+
+    /// <summary>The tool column when a granter changes or renews a grant it made.</summary>
+    public const string DelegatedScopes = "delegated scopes";
+
+    /// <summary>The tool column when a granter revokes a grant it made.</summary>
+    public const string DelegatedRevoke = "delegated revoke";
 }

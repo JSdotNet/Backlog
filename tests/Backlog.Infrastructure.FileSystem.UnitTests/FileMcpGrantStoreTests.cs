@@ -41,6 +41,65 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     }
 
     [Fact]
+    public void A_delegated_grant_keeps_its_granter_and_expiry_across_a_reload_and_raises_its_version()
+    {
+        var granter = Store().Create("Manager session", ["tasks:read", "agents:grant"], "Settings");
+        var worker = Store().Create("Worker", [], "self-registration");
+
+        var delegated = Store().Delegate(worker.Id, ["tasks:read"], granter.Id, Now.AddDays(7));
+
+        Assert.NotNull(delegated);
+        var reloaded = Store().Find(worker.Id)!;
+        Assert.Equal(granter.Id, reloaded.GrantedBy);
+        Assert.Equal(Now.AddDays(7), reloaded.ExpiresAt);
+        Assert.Equal(["tasks:read"], reloaded.Scopes);
+        Assert.Equal(2, reloaded.Version);
+        Assert.True(reloaded.IsDelegated);
+        Assert.False(reloaded.IsExpired(Now.AddDays(7).AddSeconds(-1)));
+        Assert.True(reloaded.IsExpired(Now.AddDays(7)));
+
+        // A grant the person made writes neither member, and reads as not delegated.
+        var stored = JsonNode.Parse(File.ReadAllText(GrantsPath))!["grants"]!.AsArray().Single(record => (string?)record!["id"] == granter.Id)!.AsObject();
+        Assert.False(stored.ContainsKey("grantedBy"));
+        Assert.False(stored.ContainsKey("expiresAt"));
+        Assert.False(Store().Find(granter.Id)!.IsDelegated);
+    }
+
+    [Fact]
+    public void A_revoked_grant_is_not_delegated_and_a_scope_no_grant_may_hold_is_refused()
+    {
+        var store = Store();
+        var worker = store.Create("Worker", [], "self-registration");
+
+        Assert.Throws<ArgumentException>(() => store.Delegate(worker.Id, ["devbook:decide"], "g_granter", Now));
+        store.Revoke(worker.Id);
+        Assert.Null(store.Delegate(worker.Id, ["tasks:read"], "g_granter", Now));
+    }
+
+    [Fact]
+    public void Revoking_a_granter_revokes_every_grant_it_delegated_in_the_same_write()
+    {
+        var store = Store();
+        var granter = store.Create("Manager session", ["tasks:read", "agents:grant"], "Settings");
+        var first = store.Create("First", [], "self-registration");
+        var second = store.Create("Second", [], "self-registration");
+        var other = store.Create("Personal assistant", ["tasks:read"], "Settings");
+        store.Delegate(first.Id, ["tasks:read"], granter.Id, Now.AddDays(7));
+        store.Delegate(second.Id, ["tasks:read"], granter.Id, Now.AddDays(7));
+        var changes = 0;
+        store.Changed += () => changes++;
+
+        store.Revoke(granter.Id);
+
+        Assert.Equal(1, changes);
+        var reloaded = Store();
+        Assert.True(reloaded.Find(first.Id)!.Revoked);
+        Assert.True(reloaded.Find(second.Id)!.Revoked);
+        Assert.Equal(3, reloaded.Find(first.Id)!.Version);
+        Assert.False(reloaded.Find(other.Id)!.Revoked);
+    }
+
+    [Fact]
     public void Two_grants_get_two_ids()
     {
         var store = Store();

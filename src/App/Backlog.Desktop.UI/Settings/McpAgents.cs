@@ -27,10 +27,22 @@ public static class McpAgents
     public const string CreatedInSettings = "Settings";
 
     /// <summary>The scopes drawn locked: <see cref="McpScopes.DevbookDecide"/>, which no grant
-    /// holds and no tool serves (ADR 0052 §7), so the boundary shows; and
-    /// <see cref="McpScopes.AgentsGrant"/>, until switching it on asks for Windows Hello (ADR 0052
-    /// §5 and §6), which the delegation step brings.</summary>
-    public static IReadOnlyList<string> Locked { get; } = [McpScopes.DevbookDecide, McpScopes.AgentsGrant];
+    /// holds and no tool serves (ADR 0052 §7), so the boundary shows.</summary>
+    public static IReadOnlyList<string> Locked { get; } = [McpScopes.DevbookDecide];
+
+    /// <summary>The scopes whose switching on asks for Windows Hello first (ADR 0052 §5 and §6):
+    /// <see cref="McpScopes.AgentsGrant"/>, which lets an agent grant others.</summary>
+    public static IReadOnlyList<string> NeedsHello { get; } = [McpScopes.AgentsGrant];
+
+    /// <summary>What Windows Hello asks when <paramref name="name"/> is given agents:grant.</summary>
+    public static string GranterConsent(string name) =>
+        $"Let {name} grant other agents in Backlog, within its own scopes?";
+
+    /// <summary>What the card says when Windows Hello did not confirm agents:grant.</summary>
+    public const string GranterNotConfirmed = "Windows Hello did not confirm it, so agents:grant stays off.";
+
+    /// <summary>What the card says where Windows Hello cannot ask.</summary>
+    public const string GranterHelloUnavailable = "Windows Hello is not available here, so agents:grant cannot be switched on.";
 
     /// <summary>What each scope lets the agent do, one line per name in <see cref="McpScopes.All"/>.</summary>
     private static readonly Dictionary<string, string> Descriptions = new(StringComparer.Ordinal)
@@ -47,7 +59,7 @@ public static class McpAgents
         [McpScopes.SessionsDispatch] = "Only for the Manager session",
         [McpScopes.TelemetryWrite] = "Send log records; only for the telemetry hook",
         [McpScopes.InboxCapture] = "Capture into your Inbox",
-        [McpScopes.AgentsGrant] = "Grant other agents a subset of its own scopes; not switchable yet, it will ask for Windows Hello",
+        [McpScopes.AgentsGrant] = "Grant other agents a subset of its own scopes; Windows Hello to switch on",
     };
 
     /// <summary>Every scope ADR 0052 §4 names, as <see cref="McpScopes.All"/> orders them, with
@@ -110,6 +122,62 @@ public static class McpAgents
         { } who when !string.IsNullOrWhiteSpace(who) => $"created by {who}",
         _ => null,
     };
+
+    /// <summary>
+    /// The line under a delegated agent's name (ADR 0052 §5): who granted it, when it expires,
+    /// and when it was last used. No role: its scopes are its granter's to set.
+    /// </summary>
+    public static string DelegatedMeta(McpGrant grant, string granterName, DateTimeOffset? lastUsed, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(grant);
+
+        var used = lastUsed is { } at ? $"last used {AiProvidersOverview.Ago(at, now)}" : "not used yet";
+
+        return $"Granted by {granterName} · {Expiry(grant.ExpiresAt, now)} · {used}";
+    }
+
+    /// <summary>When a delegated grant expires, as its row says it.</summary>
+    public static string Expiry(DateTimeOffset? expiresAt, DateTimeOffset now)
+    {
+        if (expiresAt is not { } at) return "does not expire";
+
+        var left = at - now;
+        if (left <= TimeSpan.Zero) return "expired";
+        if (left < TimeSpan.FromHours(1)) return "expires within the hour";
+        if (left < TimeSpan.FromDays(1)) return $"expires in {(int)left.TotalHours} h";
+
+        var days = (int)left.TotalDays;
+        return days == 1 ? "expires in 1 day" : $"expires in {days.ToString(CultureInfo.InvariantCulture)} days";
+    }
+
+    /// <summary>
+    /// The agents in the order the card lists them (ADR 0052 §5): each grant the person made,
+    /// followed by the grants it delegated, indented under it. A delegated grant whose granter is
+    /// not in the list is drawn last, on its own, so nothing is hidden.
+    /// </summary>
+    public static IReadOnlyList<McpAgentListed> Listed(IReadOnlyList<McpGrant> agents)
+    {
+        ArgumentNullException.ThrowIfNull(agents);
+
+        var listed = new List<McpAgentListed>();
+        var placed = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var grant in agents.Where(agent => !agent.IsDelegated))
+        {
+            listed.Add(new McpAgentListed(grant, null));
+            placed.Add(grant.Id);
+
+            foreach (var delegated in agents.Where(agent => string.Equals(agent.GrantedBy, grant.Id, StringComparison.Ordinal)))
+            {
+                listed.Add(new McpAgentListed(delegated, grant));
+                placed.Add(delegated.Id);
+            }
+        }
+
+        listed.AddRange(agents.Where(agent => !placed.Contains(agent.Id)).Select(agent => new McpAgentListed(agent, null)));
+
+        return listed;
+    }
 
     /// <summary>The line under an agent's name: its role, where it came from, and when it was
     /// last used — or that it has not been.</summary>
@@ -186,6 +254,14 @@ public static class McpAgents
 
         return string.Create(CultureInfo.InvariantCulture, $"\"backlog\": {body}");
     }
+}
+
+/// <summary>One row of the Agents card: a grant, and the granter it is drawn under, or null
+/// for a top-level row.</summary>
+public sealed record McpAgentListed(McpGrant Grant, McpGrant? Granter)
+{
+    /// <summary>Whether it is drawn as delegated — indented, Revoke only.</summary>
+    public bool Delegated => Grant.IsDelegated;
 }
 
 /// <summary>A role the Add agent form offers, and the scopes it fills the switches with.</summary>
