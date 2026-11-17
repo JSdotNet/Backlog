@@ -86,6 +86,52 @@ for (const { name, text } of loopStarted) {
     test("dispatch-sessions arms its wait with its own session id", () => {
       assert.match(body, /node assets\/wait-requests\.mjs --session \$\{CLAUDE_SESSION_ID\}/);
     });
+
+    // The app answers room against the Manager's own limits (local ADR 0051 §4), so the check-in
+    // carries them, and the skill measures a figure itself only when the answer cannot.
+    const step = (n) => body.match(new RegExp("^" + n + "\\. \\*\\*[\\s\\S]*?(?=^\\d+\\. \\*\\*|^## )", "m"))?.[0] ?? "";
+
+    test("dispatch-sessions sends its arguments as the check_in limits", () => {
+      const checkIn = step(1);
+      for (const [limit, argument] of [
+        ["maxSessions", "sessions"],
+        ["maxUsagePercent", "usage"],
+        ["maxCpuPercent", "cpu"],
+        ["minFreeMemoryGb", "memory"],
+      ]) {
+        assert.match(checkIn, new RegExp("`" + limit + "` `" + argument + "`"), `step 1 never sends ${limit} as ${argument}`);
+      }
+      assert.match(checkIn, /`holding` if a limit held the last queue/);
+    });
+
+    test("dispatch-sessions reads room from the check-in answer's capacity", () => {
+      const capacity = step(6);
+      assert.match(capacity, /`capacity`/);
+      assert.match(capacity, /`hasRoom: false`/);
+      assert.match(capacity, /step 1/);
+      // A start made since that answer counts against `sessions`.
+      assert.match(capacity, /start[\s\S]*since[\s\S]*`sessions`/);
+    });
+
+    test("dispatch-sessions measures a figure itself only as the fallback", () => {
+      const capacity = step(6);
+      const fallback = capacity.search(/no `capacity`/);
+      assert.ok(fallback >= 0, "step 6 never names the no-capacity fallback");
+      // The MCP serializer omits a null property, so an unmeasured figure arrives absent, not `null`.
+      assert.match(capacity, /absent or `null`/);
+      for (const [probe, figure] of [
+        ["list_sessions", "workingSessions"],
+        ["get_usage", "planUsagePercent"],
+        ["capacity.ps1", "cpuPercent"],
+        ["capacity.ps1", "freeMemoryGb"],
+      ]) {
+        const at = capacity.indexOf(probe);
+        assert.ok(at > fallback, `${probe} is not behind the no-capacity condition`);
+        assert.match(capacity, new RegExp("`" + figure + "`"), `step 6 never tags the figure ${figure}`);
+      }
+      assert.ok(body.indexOf("get_usage") > body.indexOf("no `capacity`"));
+      assert.ok(body.indexOf("capacity.ps1") > body.indexOf("no `capacity`"));
+    });
   }
 
   test(`${name} stays within the 40-line SKILL.md body budget`, () => {

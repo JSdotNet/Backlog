@@ -51,6 +51,116 @@ public class LoopSessionsTests
         Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
     }
 
+    // --- Holding, as the app's own reading decides it (local ADR 0051 §4) -------------------
+
+    /// <summary>A dispatcher's check-in as the app recorded it: its own word, the reading the
+    /// app took at it against the default limits, and the requests waiting then.</summary>
+    private static LoopCheckIn Measured(
+        LoopActivity activity,
+        CapacityReading? reading,
+        int workWaiting,
+        LoopKind kind = LoopKind.Dispatcher) =>
+        CheckIn(activity, kind: kind) with { Reading = reading, WorkWaiting = workWaiting };
+
+    [Fact]
+    public void A_check_in_holds_the_default_limits_and_no_reading_until_it_says_otherwise()
+    {
+        var checkIn = CheckIn();
+
+        Assert.Equal(CapacityLimits.Default, checkIn.Limits);
+        Assert.Null(checkIn.Reading);
+        Assert.Null(checkIn.WorkWaiting);
+    }
+
+    /// <summary>A reached limit with the work waiting unknown — no queue, or one that could
+    /// not be read — leaves the loop's own word to decide.</summary>
+    [Theory]
+    [InlineData(LoopActivity.Holding, LoopState.Holding)]
+    [InlineData(LoopActivity.Listening, LoopState.Listening)]
+    public void A_reached_limit_with_the_work_waiting_unknown_leaves_the_loops_own_word(LoopActivity activity, LoopState expected)
+    {
+        var checkIn = CheckIn(activity) with { Reading = new CapacityReading(3, 84, 30, 12, CapacityLimits.Default) };
+
+        Assert.Equal(expected, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    [Fact]
+    public void A_fully_measured_reading_with_room_reads_Listening_even_with_the_work_waiting_unknown()
+    {
+        var checkIn = CheckIn(LoopActivity.Holding) with { Reading = new CapacityReading(1, 40, 30, 12, CapacityLimits.Default) };
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    /// <summary>The scenario "Plan usage holds the queue": 84% of the week against an 80%
+    /// limit, two requests waiting — Holding, whatever the loop said.</summary>
+    [Fact]
+    public void A_dispatcher_reads_Holding_when_work_waits_and_its_reading_has_a_limit_reached()
+    {
+        var checkIn = Measured(LoopActivity.Listening, new CapacityReading(1, 84, null, null, CapacityLimits.Default), workWaiting: 2);
+
+        Assert.Equal(LoopState.Holding, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    [Fact]
+    public void A_fully_measured_reading_with_room_reads_Listening_even_when_the_loop_says_it_holds()
+    {
+        var checkIn = Measured(LoopActivity.Holding, new CapacityReading(1, 40, 30, 12, CapacityLimits.Default), workWaiting: 2);
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    [Fact]
+    public void A_limit_reached_with_no_work_waiting_reads_Listening()
+    {
+        var checkIn = Measured(LoopActivity.Holding, new CapacityReading(3, 84, 30, 12, CapacityLimits.Default), workWaiting: 0);
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    /// <summary>A reading that cannot decide — a figure unavailable and none of the others
+    /// reached, or no reading at all — leaves the loop's own word to decide.</summary>
+    [Theory]
+    [InlineData(LoopActivity.Holding, true, LoopState.Holding)]
+    [InlineData(LoopActivity.Listening, true, LoopState.Listening)]
+    [InlineData(LoopActivity.Holding, false, LoopState.Holding)]
+    [InlineData(LoopActivity.Working, false, LoopState.Listening)]
+    public void A_reading_that_cannot_decide_leaves_the_loops_own_word(LoopActivity activity, bool withReading, LoopState expected)
+    {
+        var reading = withReading ? new CapacityReading(1, null, 30, 12, CapacityLimits.Default) : null;
+
+        Assert.Equal(expected, LoopSessions.StateAt(Measured(activity, reading, workWaiting: 2), LoopProcess.Alive, Noon));
+    }
+
+    [Fact]
+    public void The_Brain_tender_never_holds_even_on_a_reading_with_a_limit_reached()
+    {
+        var checkIn = Measured(LoopActivity.Holding, new CapacityReading(3, 90, 90, 1, CapacityLimits.Default), workWaiting: 2, LoopKind.BrainTender);
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    [Theory]
+    [InlineData(0, 80.0, 80.0, 4.0)]
+    [InlineData(3, 0.0, 80.0, 4.0)]
+    [InlineData(3, 100.5, 80.0, 4.0)]
+    [InlineData(3, 80.0, 0.0, 4.0)]
+    [InlineData(3, 80.0, 101.0, 4.0)]
+    [InlineData(3, 80.0, 80.0, -1.0)]
+    public void Limits_outside_their_range_are_refused(int sessions, double usage, double cpu, double free)
+    {
+        Assert.NotNull(LoopSessions.Refusal(new CapacityLimits(sessions, usage, cpu, free)));
+    }
+
+    [Theory]
+    [InlineData(3, 80.0, 80.0, 4.0)]
+    [InlineData(1, 100.0, 100.0, 0.0)]
+    [InlineData(12, 0.5, 0.5, 64.0)]
+    public void Limits_in_their_range_are_taken(int sessions, double usage, double cpu, double free)
+    {
+        Assert.Null(LoopSessions.Refusal(new CapacityLimits(sessions, usage, cpu, free)));
+    }
+
     /// <summary>Between 2 minutes and the heartbeat plus 10 minutes a loop keeps the state
     /// it last read.</summary>
     [Theory]
@@ -141,7 +251,12 @@ public class LoopSessionsTests
     [Fact]
     public void A_wait_moves_only_the_check_in_time_and_never_back()
     {
-        var full = LoopSessions.CheckIn("manager-session", LoopKind.Dispatcher, LoopActivity.Holding, 5, new LoopHeldWork(1, 2, 3, 0), Noon);
+        var full = LoopSessions.CheckIn("manager-session", LoopKind.Dispatcher, LoopActivity.Holding, 5, new LoopHeldWork(1, 2, 3, 0), Noon) with
+        {
+            Limits = new CapacityLimits(2, 70, 90, 8),
+            Reading = new CapacityReading(2, 71, 20, 16, new CapacityLimits(2, 70, 90, 8)),
+            WorkWaiting = 4
+        };
         var paused = LoopSessions.Command(LoopSessions.Record(null, full), LoopCommand.Pause, Noon + TimeSpan.FromMinutes(1));
 
         var waited = LoopSessions.RecordWait(paused, Noon + TimeSpan.FromMinutes(3));

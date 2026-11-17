@@ -62,14 +62,16 @@ public static class LoopSessionView
     /// <param name="loop">The loop as its latest check-in left it.</param>
     /// <param name="waitingRequests">The session requests waiting in the queue; null where
     /// the host composed no queue, and then the line leaves them out.</param>
-    /// <param name="limits">The limits its working sessions are held against.</param>
+    /// <param name="limits">The limits its working sessions are held against; the ones the
+    /// loop sent with its check-in (local ADR 0051 §4) when null.</param>
     /// <param name="measuredWorking">The dispatched sessions working as the app measured
     /// them (local ADR 0051 §4), so the row and the card's Sessions tile say one number;
     /// null where it measured none, and then the loop's own count stands.</param>
-    public static string HeldLine(LoopSession loop, int? waitingRequests, CapacityLimits limits, int? measuredWorking = null)
+    public static string HeldLine(LoopSession loop, int? waitingRequests, CapacityLimits? limits = null, int? measuredWorking = null)
     {
         ArgumentNullException.ThrowIfNull(loop);
-        ArgumentNullException.ThrowIfNull(limits);
+
+        limits ??= loop.CheckIn.Limits;
 
         var held = loop.CheckIn.Held;
         var working = measuredWorking ?? held.Sessions;
@@ -167,6 +169,42 @@ public static class LoopSessionView
                 held.Contains(CapacityLimit.Memory),
                 "loop-capacity-memory")
         ];
+    }
+
+    /// <summary>The app's measurement held against the limits <paramref name="checkIn"/>
+    /// sent (local ADR 0051 §4): the same four figures, each loop's own edges. Null where
+    /// nothing was measured.</summary>
+    public static CapacityReading? AgainstLimits(CapacityReading? measured, LoopCheckIn checkIn)
+    {
+        ArgumentNullException.ThrowIfNull(checkIn);
+
+        return measured is null ? null : measured with { Limits = checkIn.Limits };
+    }
+
+    /// <summary>The reading that says what holds a dispatcher: the one the app took at its
+    /// check-in, which decided its Holding (local ADR 0051 §4), when that reaches a limit;
+    /// else the latest measurement against its limits. Null where neither is there.</summary>
+    public static CapacityReading? WhatHolds(LoopCheckIn checkIn, CapacityReading? measured)
+    {
+        ArgumentNullException.ThrowIfNull(checkIn);
+
+        return checkIn.Reading is { HasRoom: false } stored ? stored : AgainstLimits(measured, checkIn);
+    }
+
+    /// <summary>
+    /// The working sessions a loop's row counts in its held line. While a dispatcher reads
+    /// Holding, the count of the reading that says what holds it (<see cref="WhatHolds"/>),
+    /// so the held line and the Holding line beside it never disagree; otherwise, or where
+    /// that reading did not count them, the latest measurement. Null where neither counted.
+    /// </summary>
+    public static int? WorkingShown(LoopSessionReading loop, CapacityReading? measured)
+    {
+        ArgumentNullException.ThrowIfNull(loop);
+
+        return loop is { State: LoopState.Holding, Loop.CheckIn.Kind: LoopKind.Dispatcher }
+               && WhatHolds(loop.Loop.CheckIn, measured)?.WorkingSessions is { } holding
+            ? holding
+            : measured?.WorkingSessions;
     }
 
     /// <summary>What a Not running dispatcher leaves waiting: "3 requests wait for it."</summary>

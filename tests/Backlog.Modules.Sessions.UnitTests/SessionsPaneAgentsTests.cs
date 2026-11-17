@@ -152,6 +152,95 @@ public sealed class SessionsPaneAgentsTests
         });
     }
 
+    // --- The loop's own limits and the app's reading (local ADR 0051 §4) ---------------
+
+    [Fact]
+    public void A_loop_rows_held_line_counts_against_the_limit_the_loop_sent()
+    {
+        using var context = new Harness(Session(DispatcherId, "📡 SESSION DISPATCHER"));
+        context.CheckIn(DispatcherId, LoopKind.Dispatcher, held: new LoopHeldWork(0, 0, 1, 0), limits: new CapacityLimits(2, 80, 80, 4));
+        context.Capacity = new CapacityReading(1, 10, 10, 20, CapacityLimits.Default);
+
+        var pane = context.Render();
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal("0 requests waiting · 1 of 2 sessions working · 0 answers to deliver", pane.Find("[data-testid='sessions-loop-holds']").TextContent.Trim()));
+    }
+
+    /// <summary>The scenario "Plan usage holds the queue", on the row: Holding from the
+    /// app's reading at the check-in, whatever the loop said, and the limit named.</summary>
+    [Fact]
+    public void A_holding_dispatchers_row_names_the_limit_that_holds_it()
+    {
+        using var context = new Harness(Session(DispatcherId, "📡 SESSION DISPATCHER"));
+        context.CheckIn(
+            DispatcherId,
+            LoopKind.Dispatcher,
+            activity: LoopActivity.Listening,
+            reading: new CapacityReading(1, 84, 30, 12, CapacityLimits.Default),
+            workWaiting: 2);
+
+        var pane = context.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = pane.Find("[data-testid='sessions-row']");
+            Assert.Equal("Holding", row.QuerySelector("[data-testid='sessions-loop-row-state']")!.TextContent.Trim());
+            Assert.Equal("Plan usage is 84%, over the 80% limit.", row.QuerySelector("[data-testid='sessions-loop-row-holding']")!.TextContent.Trim());
+        });
+    }
+
+    /// <summary>A session ended after the check-in that read 3 of 3: while the row reads
+    /// Holding from that reading, its held line counts the same sessions as its Holding line.</summary>
+    [Fact]
+    public void A_holding_rows_held_line_and_holding_line_count_the_same_sessions()
+    {
+        using var context = new Harness(Session(DispatcherId, "📡 SESSION DISPATCHER"));
+        context.CheckIn(DispatcherId, LoopKind.Dispatcher, reading: new CapacityReading(3, 40, 30, 12, CapacityLimits.Default), workWaiting: 2);
+        context.Capacity = new CapacityReading(2, 40, 30, 12, CapacityLimits.Default);
+
+        var pane = context.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = pane.Find("[data-testid='sessions-row']");
+            Assert.Equal("Holding", row.QuerySelector("[data-testid='sessions-loop-row-state']")!.TextContent.Trim());
+            Assert.Equal("0 requests waiting · 3 of 3 sessions working · 0 answers to deliver", row.QuerySelector("[data-testid='sessions-loop-holds']")!.TextContent.Trim());
+            Assert.Equal("3 of 3 sessions are working, the limit.", row.QuerySelector("[data-testid='sessions-loop-row-holding']")!.TextContent.Trim());
+        });
+    }
+
+    [Fact]
+    public void A_listening_dispatchers_row_names_no_limit()
+    {
+        using var context = new Harness(Session(DispatcherId, "📡 SESSION DISPATCHER"));
+        context.CheckIn(DispatcherId, LoopKind.Dispatcher, reading: new CapacityReading(1, 40, 30, 12, CapacityLimits.Default), workWaiting: 2);
+
+        var pane = context.Render();
+
+        pane.WaitForAssertion(() => Assert.Equal("Listening", pane.Find("[data-testid='sessions-loop-row-state']").TextContent.Trim()));
+        Assert.Empty(pane.FindAll("[data-testid='sessions-loop-row-holding']"));
+    }
+
+    [Fact]
+    public void A_dispatchers_tiles_hold_the_figures_against_the_limits_the_loop_sent()
+    {
+        using var context = new Harness(Session(DispatcherId, "📡 SESSION DISPATCHER"));
+        context.CheckIn(DispatcherId, LoopKind.Dispatcher, limits: new CapacityLimits(2, 70, 90, 8));
+        context.Capacity = new CapacityReading(1, 75, 34, 11.6, CapacityLimits.Default);
+
+        var pane = context.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            var tiles = pane.Find("[data-testid='sessions-loop-capacity']");
+            Assert.Equal(("Sessions", "1 / 2", "working now"), Tile(tiles, "loop-capacity-sessions"));
+            Assert.Equal(("Plan usage", "75%", "limit 70% · reached"), Tile(tiles, "loop-capacity-usage"));
+            Assert.Equal(("CPU", "34%", "limit 90%"), Tile(tiles, "loop-capacity-cpu"));
+            Assert.Equal(("Free memory", "11 GB", "needs 8 GB"), Tile(tiles, "loop-capacity-memory"));
+        });
+    }
+
     // --- The Purpose filter ----------------------------------------------------
 
     [Fact]
@@ -826,8 +915,16 @@ public sealed class SessionsPaneAgentsTests
             LoopActivity activity = LoopActivity.Listening,
             int heartbeatMinutes = 30,
             LoopHeldWork? held = null,
-            DateTimeOffset? at = null) =>
-            Register.CheckInAsync(LoopSessions.CheckIn(sessionId, kind, activity, heartbeatMinutes, held ?? LoopHeldWork.None, at ?? Noon.AddMinutes(-1))).GetAwaiter().GetResult();
+            DateTimeOffset? at = null,
+            CapacityLimits? limits = null,
+            CapacityReading? reading = null,
+            int workWaiting = 0) =>
+            Register.CheckInAsync(LoopSessions.CheckIn(sessionId, kind, activity, heartbeatMinutes, held ?? LoopHeldWork.None, at ?? Noon.AddMinutes(-1)) with
+            {
+                Limits = limits ?? CapacityLimits.Default,
+                Reading = reading,
+                WorkWaiting = workWaiting
+            }).GetAwaiter().GetResult();
 
         public async Task ScheduleAsync(string scheduleId, bool needsYou = false, bool failed = false, bool held = false)
         {

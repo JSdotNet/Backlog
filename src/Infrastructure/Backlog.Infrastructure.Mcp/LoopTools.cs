@@ -10,8 +10,14 @@ namespace Backlog.Infrastructure.Mcp;
 /// <summary>
 /// <c>check_in</c>, the two-way check-in of local ADR 0051 §3: a loop session (the Manager
 /// under <c>dispatch-sessions</c>, the Brain tender under <c>tend-brain</c>) says on every
-/// tick what it is doing, and the answer carries the pause, resume or stop the person last
-/// set on it and the work waiting for it.
+/// tick what it is doing and its limits, and the answer carries the pause, resume or stop
+/// the person last set on it and the work waiting for it.
+/// <para>
+/// A dispatcher's answer also carries the room the app measured against its limits (ADR
+/// 0051 §4 and its Amends of ADR 0038 §4): the Manager reads its room from the answer rather
+/// than measuring it. The reading and the requests waiting are kept with the check-in, so
+/// the loop's row reads Holding from what the app measured.
+/// </para>
 /// <para>
 /// Its own group (<see cref="BacklogMcpTools.Loops"/>) behind <c>sessions</c>, as the ADR's
 /// §6 puts every part of it. The tool never stops a session: it says what the person asked,
@@ -24,12 +30,15 @@ namespace Backlog.Infrastructure.Mcp;
 /// work; null where the host composed none, and then none is counted.</param>
 /// <param name="questions">The waiting questions, whose pending answer deliveries are a
 /// dispatcher's waiting work; null where the host composed no relay.</param>
+/// <param name="capacity">Measures a dispatcher's room; null where the host measures none,
+/// and then the answer carries no capacity and the loop's own word decides Holding.</param>
 [McpServerToolType]
 public sealed class LoopTools(
     ILoopRegister register,
     TimeProvider? clock = null,
     ISessionRequestStore? requests = null,
-    IWaitingQuestionStore? questions = null)
+    IWaitingQuestionStore? questions = null,
+    ICapacityReader? capacity = null)
 {
     internal const string CheckIn = "check_in";
 
@@ -38,11 +47,15 @@ public sealed class LoopTools(
     [McpServerTool(Name = CheckIn, Title = "Check in a loop session", ReadOnly = false, Idempotent = true, Destructive = false, OpenWorld = false)]
     [Description(
         "Call at the start of every tick of a /loop session - dispatch-sessions as kind 'dispatcher', tend-brain as "
-        + "'brain-tender' - with this session's id, what it is doing, how often it checks in and what it holds. Records "
-        + "the check-in, so Backlog reads the loop as Listening, Holding, Stalled or Not running. The answer carries "
-        + "command: 'pause' (do no work, keep checking in at the heartbeat), 'resume' (carry on), 'stop' (end the loop "
-        + "and say so) or null when the person set none, and for a dispatcher the session requests and answer "
-        + "deliveries waiting. Repeating a check-in records the same thing again.")]
+        + "'brain-tender' - with this session's id, what it is doing, how often it checks in, what it holds and its "
+        + "limits (maxSessions, maxUsagePercent, maxCpuPercent, minFreeMemoryGb; each one left out is Backlog's default: "
+        + "3 sessions, 80% usage, 80% CPU, 4 GB free). Records the check-in, so Backlog reads the loop as Listening, "
+        + "Holding, Stalled or Not running. The answer carries command: 'pause' (do no work, keep checking in at the "
+        + "heartbeat), 'resume' (carry on), 'stop' (end the loop and say so) or null when the person set none; and for "
+        + "a dispatcher the session requests and answer deliveries waiting, and capacity: the room Backlog measured "
+        + "against the limits - hasRoom, heldBy (the limits reached: sessions, usage, cpu, memory), workingSessions, "
+        + "planUsagePercent, cpuPercent, freeMemoryGb (null where Backlog could not measure it) and the limits - or "
+        + "null where this host measures none. Repeating a check-in records the same thing again.")]
     public async Task<LoopCheckInPayload> CheckInAsync(
         [Description("'dispatcher' for dispatch-sessions, 'brain-tender' for tend-brain.")]
         string kind,
@@ -60,6 +73,14 @@ public sealed class LoopTools(
         int sessions = 0,
         [Description("Optional. Brain notes this loop has in hand this tick.")]
         int notes = 0,
+        [Description("Optional. The most dispatched sessions this loop runs at once, at least 1; 3 when left out.")]
+        int? maxSessions = null,
+        [Description("Optional. The plan usage, in percent of the weekly limit, it starts no more sessions at; above 0, at most 100; 80 when left out.")]
+        double? maxUsagePercent = null,
+        [Description("Optional. The CPU busy, in percent, it starts no more sessions at; above 0, at most 100; 80 when left out.")]
+        double? maxCpuPercent = null,
+        [Description("Optional. The free memory, in GB, the machine keeps; it starts no more sessions below it; 0 or more; 4 when left out.")]
+        double? minFreeMemoryGb = null,
         CancellationToken cancellationToken = default)
     {
         var now = _clock.GetUtcNow();
@@ -72,26 +93,89 @@ public sealed class LoopTools(
             throw RepositoryScope.Failure(Error.Validation("loop.check_in", refusal));
         }
 
-        var checkIn = LoopSessions.CheckIn(sessionId, loopKind, activity, heartbeatMinutes, held, now);
+        var limits = CapacityLimits.OrDefault(maxSessions, maxUsagePercent, maxCpuPercent, minFreeMemoryGb);
+
+        if (LoopSessions.Refusal(limits) is { } limitRefusal)
+        {
+            throw RepositoryScope.Failure(Error.Validation("loop.limits", limitRefusal));
+        }
+
+        // A dispatcher's room is measured before the check-in is recorded, so the register
+        // keeps what the app read with it; the Brain tender has no queue to hold back. None
+        // of these reads may cost the loop its check-in: one that fails reads unknown, and
+        // the check-in is recorded all the same, so the loop never drifts to Stalled over it.
+        LoopWaitingPayload? waiting = null;
+        int? workWaiting = null;
+        CapacityReading? reading = null;
+
+        if (loopKind == LoopKind.Dispatcher)
+        {
+            workWaiting = await WaitingRequestsAsync(now, cancellationToken).ConfigureAwait(false);
+            waiting = new LoopWaitingPayload(
+                workWaiting ?? 0,
+                await PendingDeliveriesAsync(now, cancellationToken).ConfigureAwait(false) ?? 0);
+            reading = await ReadingAsync(limits, cancellationToken).ConfigureAwait(false);
+        }
+
+        var checkIn = LoopSessions.CheckIn(sessionId, loopKind, activity, heartbeatMinutes, held, now) with
+        {
+            Limits = limits,
+            Reading = reading,
+            WorkWaiting = workWaiting
+        };
         var loop = await register.CheckInAsync(checkIn, cancellationToken).ConfigureAwait(false);
-        var waiting = loopKind == LoopKind.Dispatcher
-            ? await WaitingAsync(now, cancellationToken).ConfigureAwait(false)
-            : null;
 
         return LoopCheckInPayload.From(loop, waiting);
     }
 
-    private async Task<LoopWaitingPayload> WaitingAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    /// <summary>The session requests reading Requested, or null where no queue is composed
+    /// or it cannot be read.</summary>
+    private async Task<int?> WaitingRequestsAsync(DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var waitingRequests = requests is null
-            ? 0
-            : SessionRequests.Waiting(await requests.ListAsync(null, cancellationToken).ConfigureAwait(false), now).Count;
-        var waitingDeliveries = questions is null
-            ? 0
-            : (await questions.ListUndeliveredAsync(cancellationToken).ConfigureAwait(false))
-                .Count(question => question.DeliveryAt(now) == AnswerDeliveryState.Pending);
+        if (requests is null) return null;
 
-        return new LoopWaitingPayload(waitingRequests, waitingDeliveries);
+        try
+        {
+            return SessionRequests.Waiting(await requests.ListAsync(null, cancellationToken).ConfigureAwait(false), now).Count;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The answer deliveries reading Pending, or null where no relay is composed or
+    /// it cannot be read.</summary>
+    private async Task<int?> PendingDeliveriesAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (questions is null) return null;
+
+        try
+        {
+            return (await questions.ListUndeliveredAsync(cancellationToken).ConfigureAwait(false))
+                .Count(question => question.DeliveryAt(now) == AnswerDeliveryState.Pending);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The room against <paramref name="limits"/>, or null where no reader is
+    /// composed or it fails. One Manager per machine, and <c>check_in</c> names no
+    /// dispatcher: every dispatched session counts against the limit.</summary>
+    private async Task<CapacityReading?> ReadingAsync(CapacityLimits limits, CancellationToken cancellationToken)
+    {
+        if (capacity is null) return null;
+
+        try
+        {
+            return await capacity.ReadAsync(limits, dispatcher: null, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
     }
 
     internal static LoopKind KindOf(string? kind) =>
@@ -127,6 +211,8 @@ public sealed class LoopTools(
 /// check-in plus its heartbeat plus 10 minutes.</param>
 /// <param name="Waiting">The work waiting for a dispatcher; null for the Brain tender, which
 /// has no queue.</param>
+/// <param name="Capacity">The room the app measured for a dispatcher against its limits
+/// (local ADR 0051 §4); null for the Brain tender and where the host measures none.</param>
 public sealed record LoopCheckInPayload(
     string SessionId,
     string Kind,
@@ -134,9 +220,11 @@ public sealed record LoopCheckInPayload(
     DateTimeOffset? CommandSetAt,
     DateTimeOffset CheckedInAt,
     DateTimeOffset StalledAfter,
-    LoopWaitingPayload? Waiting)
+    LoopWaitingPayload? Waiting,
+    LoopCapacityPayload? Capacity = null)
 {
-    /// <summary>The answer for <paramref name="loop"/> as it now stands.</summary>
+    /// <summary>The answer for <paramref name="loop"/> as it now stands: its capacity is the
+    /// reading kept with its latest check-in.</summary>
     public static LoopCheckInPayload From(LoopSession loop, LoopWaitingPayload? waiting)
     {
         ArgumentNullException.ThrowIfNull(loop);
@@ -148,7 +236,8 @@ public sealed record LoopCheckInPayload(
             loop.CommandSetAt,
             loop.CheckIn.At,
             LoopSessions.StalledAfter(loop.CheckIn),
-            waiting);
+            waiting,
+            loop.CheckIn.Reading is { } reading ? LoopCapacityPayload.From(reading) : null);
     }
 
     /// <summary>A loop kind as the wire spells it.</summary>
@@ -164,3 +253,56 @@ public sealed record LoopCheckInPayload(
 /// <param name="SessionRequests">Session requests reading Requested, a lapsed claim included.</param>
 /// <param name="Deliveries">Answer deliveries reading Pending, a lapsed claim included.</param>
 public sealed record LoopWaitingPayload(int SessionRequests, int Deliveries);
+
+/// <summary>A dispatcher's room at its check-in (local ADR 0051 §4,
+/// <c>.devbook/domain/sessions/domain.md#capacity-reading</c>): four figures beside the
+/// loop's limits. A null figure is one the app could not measure, and holds nothing back.</summary>
+/// <param name="HasRoom">Whether no limit is reached.</param>
+/// <param name="HeldBy">Every limit reached, in the order <c>sessions</c>, <c>usage</c>,
+/// <c>cpu</c>, <c>memory</c>; empty when there is room.</param>
+/// <param name="WorkingSessions">The dispatched sessions Running or Stalled.</param>
+/// <param name="PlanUsagePercent">The week's estimated share of the weekly limit, in percent.</param>
+/// <param name="CpuPercent">CPU busy, in percent.</param>
+/// <param name="FreeMemoryGb">Free memory, in GB.</param>
+/// <param name="Limits">The limits the figures were held against.</param>
+public sealed record LoopCapacityPayload(
+    bool HasRoom,
+    IReadOnlyList<string> HeldBy,
+    int? WorkingSessions,
+    double? PlanUsagePercent,
+    double? CpuPercent,
+    double? FreeMemoryGb,
+    LoopLimitsPayload Limits)
+{
+    /// <summary>The payload for <paramref name="reading"/>.</summary>
+    public static LoopCapacityPayload From(CapacityReading reading)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        return new LoopCapacityPayload(
+            reading.HasRoom,
+            [.. reading.HeldBy().Select(WireName)],
+            reading.WorkingSessions,
+            reading.PlanUsagePercent,
+            reading.CpuPercent,
+            reading.FreeMemoryGb,
+            new LoopLimitsPayload(reading.Limits.Sessions, reading.Limits.UsagePercent, reading.Limits.CpuPercent, reading.Limits.MinFreeGb));
+    }
+
+    /// <summary>A capacity limit as the wire spells it.</summary>
+    public static string WireName(CapacityLimit limit) => limit switch
+    {
+        CapacityLimit.Sessions => "sessions",
+        CapacityLimit.Usage => "usage",
+        CapacityLimit.Cpu => "cpu",
+        CapacityLimit.Memory => "memory",
+        _ => throw new ArgumentOutOfRangeException(nameof(limit), limit, "A capacity limit with no wire name.")
+    };
+}
+
+/// <summary>The limits a dispatcher starts no more sessions at (local ADR 0051 §4).</summary>
+/// <param name="Sessions">Dispatched sessions working at once.</param>
+/// <param name="UsagePercent">Plan usage, in percent of the weekly limit.</param>
+/// <param name="CpuPercent">CPU busy, in percent.</param>
+/// <param name="MinFreeGb">Free memory the machine keeps, in GB.</param>
+public sealed record LoopLimitsPayload(int Sessions, double UsagePercent, double CpuPercent, double MinFreeGb);

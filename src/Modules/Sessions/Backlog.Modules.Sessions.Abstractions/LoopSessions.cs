@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Backlog.Modules.Sessions.Abstractions;
 
 /// <summary>Which loop a loop session runs (local ADR 0051 §3).</summary>
@@ -98,7 +100,22 @@ public sealed record LoopCheckIn(
     LoopActivity Activity,
     int HeartbeatMinutes,
     LoopHeldWork Held,
-    DateTimeOffset At);
+    DateTimeOffset At)
+{
+    /// <summary>The limits the loop sent, each one it left out at its default (local ADR
+    /// 0051 §3, §4).</summary>
+    public CapacityLimits Limits { get; init; } = CapacityLimits.Default;
+
+    /// <summary>The room the app measured at this check-in, against <see cref="Limits"/>
+    /// (local ADR 0051 §4); null for the Brain tender, which has no queue, and where the host
+    /// measures none.</summary>
+    public CapacityReading? Reading { get; init; }
+
+    /// <summary>The session requests reading Requested when the check-in arrived: the work
+    /// a reached limit holds back. Null when unknown — no queue composed, or it could not
+    /// be read — and then the loop's own word decides Holding.</summary>
+    public int? WorkWaiting { get; init; }
+}
 
 /// <summary>
 /// One loop session in the Loop Register: its latest check-in and the command the person
@@ -121,7 +138,7 @@ public sealed record LoopSessionReading(LoopSession Loop, LoopState State, LoopP
 /// latest check-in, the session's process and the clock.
 /// <code>
 /// archived or no process            → Not running
-/// checked in within heartbeat + 10  → Listening, or Holding when it said so
+/// checked in within heartbeat + 10  → Listening, or Holding while work waits and a limit is reached
 /// past heartbeat + 10               → Stalled
 /// </code>
 /// Within <see cref="ListeningWithin"/> a loop reads Listening (or Holding); between that and
@@ -200,10 +217,34 @@ public static class LoopSessions
 
         if (now > StalledAfter(checkIn)) return LoopState.Stalled;
 
-        return checkIn.Activity == LoopActivity.Holding && checkIn.Kind != LoopKind.BrainTender
-            ? LoopState.Holding
-            : LoopState.Listening;
+        return Holds(checkIn) ? LoopState.Holding : LoopState.Listening;
     }
+
+    /// <summary>
+    /// Whether a checked-in loop is holding work back (local ADR 0051 §4). The app's own
+    /// reading decides when it can: a limit reached, or all four figures measured — then the
+    /// loop holds only while a limit is reached and work waits. A reading that cannot decide
+    /// (a figure unavailable and none of the others reached, or no reading at all), or a
+    /// reached limit with the work waiting unknown, leaves the loop's own
+    /// <see cref="LoopActivity.Holding"/> to decide. The Brain tender never holds.
+    /// </summary>
+    private static bool Holds(LoopCheckIn checkIn)
+    {
+        if (checkIn.Kind == LoopKind.BrainTender) return false;
+
+        if (checkIn.Reading is { } reading && Decides(reading))
+        {
+            if (reading.HasRoom) return false;
+            if (checkIn.WorkWaiting is { } waiting) return waiting > 0;
+        }
+
+        return checkIn.Activity == LoopActivity.Holding;
+    }
+
+    /// <summary>Whether a reading is conclusive: a limit reached, or no figure unavailable.</summary>
+    private static bool Decides(CapacityReading reading) =>
+        !reading.HasRoom
+        || reading is { WorkingSessions: not null, PlanUsagePercent: not null, CpuPercent: not null, FreeMemoryGb: not null };
 
     /// <summary>How a session's state and archived flag read as a loop's process.</summary>
     public static LoopProcess ProcessOf(AgentSession? session)
@@ -230,6 +271,30 @@ public static class LoopSessions
         return held.Requests < 0 || held.Deliveries < 0 || held.Sessions < 0 || held.Notes < 0
             ? "A held count cannot be negative."
             : null;
+    }
+
+    /// <summary>Why a check-in's limits are refused (local ADR 0051 §4) — fewer than one
+    /// session, a usage or CPU share not above 0 and at most 100 percent, negative free
+    /// memory — or null when they are not. Each is named as <c>check_in</c> takes it.</summary>
+    public static string? Refusal(CapacityLimits limits)
+    {
+        ArgumentNullException.ThrowIfNull(limits);
+
+        if (limits.Sessions < 1) return $"maxSessions must be at least 1, not {limits.Sessions.ToString(CultureInfo.InvariantCulture)}.";
+
+        if (limits.UsagePercent is not (> 0 and <= 100))
+        {
+            return $"maxUsagePercent must be above 0 and at most 100, not {limits.UsagePercent.ToString(CultureInfo.InvariantCulture)}.";
+        }
+
+        if (limits.CpuPercent is not (> 0 and <= 100))
+        {
+            return $"maxCpuPercent must be above 0 and at most 100, not {limits.CpuPercent.ToString(CultureInfo.InvariantCulture)}.";
+        }
+
+        return limits.MinFreeGb is >= 0
+            ? null
+            : $"minFreeMemoryGb cannot be negative, not {limits.MinFreeGb.ToString(CultureInfo.InvariantCulture)}.";
     }
 
     /// <summary>A check-in as it arrives, its session id trimmed.</summary>

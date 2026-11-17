@@ -133,6 +133,70 @@ public sealed class AgentPurposeTests
         Assert.Equal("needs 4 GB · reached", tiles[3].Footnote);
     }
 
+    /// <summary>The app measures once against the default limits; each loop's card holds the
+    /// same figures against the limits that loop sent (local ADR 0051 §4).</summary>
+    [Fact]
+    public void A_measured_reading_is_held_against_the_loops_own_limits()
+    {
+        var checkIn = Loop(LoopKind.Dispatcher, LoopHeldWork.None).CheckIn with { Limits = new CapacityLimits(2, 70, 90, 8) };
+
+        var tiles = LoopSessionView.Tiles(LoopSessionView.AgainstLimits(new CapacityReading(1, 75, 34, 6.5, CapacityLimits.Default), checkIn)!);
+
+        Assert.Equal(["1 / 2", "75%", "34%", "6 GB"], tiles.Select(tile => tile.Value));
+        Assert.Equal(["working now", "limit 70% · reached", "limit 90%", "needs 8 GB · reached"], tiles.Select(tile => tile.Footnote));
+        Assert.Null(LoopSessionView.AgainstLimits(null, checkIn));
+    }
+
+    [Fact]
+    public void The_held_line_counts_the_sessions_against_the_loops_own_limit()
+    {
+        var loop = Loop(LoopKind.Dispatcher, new LoopHeldWork(0, 0, 1, 0));
+        loop = loop with { CheckIn = loop.CheckIn with { Limits = new CapacityLimits(2, 80, 80, 4) } };
+
+        Assert.Equal("1 of 2 sessions working · 0 answers to deliver", LoopSessionView.HeldLine(loop, null));
+    }
+
+    /// <summary>What holds a Holding dispatcher is what the app measured at its check-in;
+    /// where that reading reaches no limit, the latest measurement against its limits.</summary>
+    [Fact]
+    public void What_holds_a_loop_is_its_check_in_reading_first()
+    {
+        var limits = new CapacityLimits(3, 80, 80, 4);
+        var stored = new CapacityReading(1, 84, 30, 12, limits);
+        var checkIn = Loop(LoopKind.Dispatcher, LoopHeldWork.None).CheckIn with { Limits = limits, Reading = stored, WorkWaiting = 2 };
+        var later = new CapacityReading(3, 10, 10, 20, CapacityLimits.Default);
+
+        Assert.Equal("Plan usage is 84%, over the 80% limit.", LoopSessionView.HoldingLine(LoopSessionView.WhatHolds(checkIn, later)));
+
+        var roomAtCheckIn = checkIn with { Reading = new CapacityReading(1, null, 30, 12, limits) };
+        Assert.Equal("3 of 3 sessions are working, the limit.", LoopSessionView.HoldingLine(LoopSessionView.WhatHolds(roomAtCheckIn, later)));
+        Assert.Equal("It holds the waiting requests until a limit leaves room.", LoopSessionView.HoldingLine(LoopSessionView.WhatHolds(checkIn with { Reading = null }, null)));
+    }
+
+    /// <summary>A Holding dispatcher's row counts the sessions of the reading that holds it,
+    /// so its held line and its Holding line agree; any other row, the latest measurement.</summary>
+    [Theory]
+    [InlineData(LoopState.Holding, 3)]
+    [InlineData(LoopState.Listening, 2)]
+    public void A_rows_working_count_is_the_holding_readings_while_it_holds(LoopState state, int expected)
+    {
+        var loop = Loop(LoopKind.Dispatcher, LoopHeldWork.None);
+        loop = loop with { CheckIn = loop.CheckIn with { Reading = new CapacityReading(3, 40, 30, 12, CapacityLimits.Default), WorkWaiting = 2 } };
+        var measured = new CapacityReading(2, 40, 30, 12, CapacityLimits.Default);
+
+        Assert.Equal(expected, LoopSessionView.WorkingShown(new LoopSessionReading(loop, state, LoopProcess.Alive), measured));
+    }
+
+    [Fact]
+    public void A_holding_reading_that_did_not_count_the_sessions_leaves_the_latest_measurement()
+    {
+        var loop = Loop(LoopKind.Dispatcher, LoopHeldWork.None);
+        loop = loop with { CheckIn = loop.CheckIn with { Reading = new CapacityReading(null, 84, null, null, CapacityLimits.Default), WorkWaiting = 2 } };
+
+        Assert.Equal(2, LoopSessionView.WorkingShown(new LoopSessionReading(loop, LoopState.Holding, LoopProcess.Alive), new CapacityReading(2, 84, 30, 12, CapacityLimits.Default)));
+        Assert.Null(LoopSessionView.WorkingShown(new LoopSessionReading(loop, LoopState.Listening, LoopProcess.Alive), null));
+    }
+
     private static LoopSession Loop(LoopKind kind, LoopHeldWork held) =>
         LoopSessions.Record(null, LoopSessions.CheckIn("loop-1", kind, LoopActivity.Listening, 30, held, Noon));
 

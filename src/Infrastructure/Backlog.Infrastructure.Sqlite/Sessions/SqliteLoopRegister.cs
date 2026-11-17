@@ -7,10 +7,10 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.Sessions;
 
 /// <summary>
-/// The Sessions context's <see cref="ILoopRegister"/> (local ADR 0051 §3): one row per loop
-/// session in the <c>loop_check_ins</c> table of the same <c>backlog.db</c> the session
-/// requests live in — its latest check-in and the command the person last set. This
-/// machine's; nothing replicates it.
+/// The Sessions context's <see cref="ILoopRegister"/> (local ADR 0051 §3, §4): one row per
+/// loop session in the <c>loop_check_ins</c> table of the same <c>backlog.db</c> the session
+/// requests live in — its latest check-in, with its limits and the reading the app took at
+/// it, and the command the person last set. This machine's; nothing replicates it.
 /// <para>
 /// The table is this context's, created by idempotent <c>IF NOT EXISTS</c> DDL on any open
 /// the file is not yet stamped for (local ADR 0003). A check-in, a dispatch wait and a
@@ -22,7 +22,10 @@ public sealed class SqliteLoopRegister : ILoopRegister
 {
     private const string Columns =
         "session_id, kind, activity, heartbeat_minutes, held_requests, held_deliveries, held_sessions, held_notes, "
-        + "checked_in_at, command, command_set_at";
+        + "checked_in_at, command, command_set_at, "
+        + "limit_sessions, limit_usage_percent, limit_cpu_percent, limit_min_free_gb, "
+        + "reading_taken, reading_working_sessions, reading_plan_usage_percent, reading_cpu_percent, reading_free_memory_gb, "
+        + "work_waiting";
 
     private readonly string _databasePath;
     private readonly TimeProvider _clock;
@@ -168,16 +171,37 @@ public sealed class SqliteLoopRegister : ILoopRegister
         if (!Named<LoopActivity>(reader.GetString(2), out var activity)) return null;
         if (!Named<LoopCommand>(reader.GetString(9), out var command)) return null;
 
+        // A null limit is one a row from before the limits were stored never had: its default.
+        var limits = CapacityLimits.OrDefault(IntOrNull(reader, 11), RealOrNull(reader, 12), RealOrNull(reader, 13), RealOrNull(reader, 14));
+
+        // The marker tells a reading with every figure unavailable from no reading at all.
+        var reading = IntOrNull(reader, 15) is 1
+            ? new CapacityReading(IntOrNull(reader, 16), RealOrNull(reader, 17), RealOrNull(reader, 18), RealOrNull(reader, 19), limits)
+            : null;
+
         var checkIn = new LoopCheckIn(
             reader.GetString(0),
             kind,
             activity,
             reader.GetInt32(3),
             new LoopHeldWork(reader.GetInt32(4), reader.GetInt32(5), reader.GetInt32(6), reader.GetInt32(7)),
-            Instant(reader.GetString(8))!.Value);
+            Instant(reader.GetString(8))!.Value)
+        {
+            Limits = limits,
+            Reading = reading,
+            WorkWaiting = IntOrNull(reader, 20)
+        };
 
         return new LoopSession(checkIn, command, Instant(reader.IsDBNull(10) ? null : reader.GetString(10)));
     }
+
+    private static int? IntOrNull(SqliteDataReader reader, int ordinal) => reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
+
+    private static double? RealOrNull(SqliteDataReader reader, int ordinal) => reader.IsDBNull(ordinal) ? null : reader.GetDouble(ordinal);
+
+    private static object Value(int? value) => value is { } some ? some : DBNull.Value;
+
+    private static object Value(double? value) => value is { } some ? some : DBNull.Value;
 
     private static async Task WriteAsync(
         SqliteConnection connection,
@@ -197,15 +221,25 @@ public sealed class SqliteLoopRegister : ILoopRegister
             $"""
             INSERT INTO loop_check_ins ({Columns})
             VALUES ($session_id, $kind, $activity, $heartbeat_minutes, $held_requests, $held_deliveries,
-                    $held_sessions, $held_notes, $checked_in_at, $command, $command_set_at)
+                    $held_sessions, $held_notes, $checked_in_at, $command, $command_set_at,
+                    $limit_sessions, $limit_usage_percent, $limit_cpu_percent, $limit_min_free_gb,
+                    $reading_taken, $reading_working_sessions, $reading_plan_usage_percent, $reading_cpu_percent,
+                    $reading_free_memory_gb, $work_waiting)
             ON CONFLICT (session_id) DO UPDATE SET
                 kind = excluded.kind, activity = excluded.activity, heartbeat_minutes = excluded.heartbeat_minutes,
                 held_requests = excluded.held_requests, held_deliveries = excluded.held_deliveries,
                 held_sessions = excluded.held_sessions, held_notes = excluded.held_notes,
-                checked_in_at = excluded.checked_in_at{commandColumns};
+                checked_in_at = excluded.checked_in_at,
+                limit_sessions = excluded.limit_sessions, limit_usage_percent = excluded.limit_usage_percent,
+                limit_cpu_percent = excluded.limit_cpu_percent, limit_min_free_gb = excluded.limit_min_free_gb,
+                reading_taken = excluded.reading_taken, reading_working_sessions = excluded.reading_working_sessions,
+                reading_plan_usage_percent = excluded.reading_plan_usage_percent,
+                reading_cpu_percent = excluded.reading_cpu_percent, reading_free_memory_gb = excluded.reading_free_memory_gb,
+                work_waiting = excluded.work_waiting{commandColumns};
             """;
 
         var checkIn = loop.CheckIn;
+        var reading = checkIn.Reading;
 
         command.Parameters.AddWithValue("$session_id", checkIn.SessionId);
         command.Parameters.AddWithValue("$kind", checkIn.Kind.ToString());
@@ -218,6 +252,16 @@ public sealed class SqliteLoopRegister : ILoopRegister
         command.Parameters.AddWithValue("$checked_in_at", Text(checkIn.At)!);
         command.Parameters.AddWithValue("$command", loop.Command.ToString());
         command.Parameters.AddWithValue("$command_set_at", (object?)Text(loop.CommandSetAt) ?? DBNull.Value);
+        command.Parameters.AddWithValue("$limit_sessions", checkIn.Limits.Sessions);
+        command.Parameters.AddWithValue("$limit_usage_percent", checkIn.Limits.UsagePercent);
+        command.Parameters.AddWithValue("$limit_cpu_percent", checkIn.Limits.CpuPercent);
+        command.Parameters.AddWithValue("$limit_min_free_gb", checkIn.Limits.MinFreeGb);
+        command.Parameters.AddWithValue("$reading_taken", Value(reading is null ? null : 1));
+        command.Parameters.AddWithValue("$reading_working_sessions", Value(reading?.WorkingSessions));
+        command.Parameters.AddWithValue("$reading_plan_usage_percent", Value(reading?.PlanUsagePercent));
+        command.Parameters.AddWithValue("$reading_cpu_percent", Value(reading?.CpuPercent));
+        command.Parameters.AddWithValue("$reading_free_memory_gb", Value(reading?.FreeMemoryGb));
+        command.Parameters.AddWithValue("$work_waiting", Value(checkIn.WorkWaiting));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -248,7 +292,23 @@ public sealed class SqliteLoopRegister : ILoopRegister
                 command           TEXT NOT NULL,
                 command_set_at    TEXT NULL
             );
-            """);
+            """,
+        columns:
+        [
+            // The check-in's limits, the reading the app took at it and the work waiting then
+            // (local ADR 0051 §4), added after the table shipped. A null limit reads as its
+            // default; no reading_taken marker reads as no reading; a null work_waiting is unknown.
+            new("loop_check_ins", "limit_sessions", "INTEGER NULL"),
+            new("loop_check_ins", "limit_usage_percent", "REAL NULL"),
+            new("loop_check_ins", "limit_cpu_percent", "REAL NULL"),
+            new("loop_check_ins", "limit_min_free_gb", "REAL NULL"),
+            new("loop_check_ins", "reading_taken", "INTEGER NULL"),
+            new("loop_check_ins", "reading_working_sessions", "INTEGER NULL"),
+            new("loop_check_ins", "reading_plan_usage_percent", "REAL NULL"),
+            new("loop_check_ins", "reading_cpu_percent", "REAL NULL"),
+            new("loop_check_ins", "reading_free_memory_gb", "REAL NULL"),
+            new("loop_check_ins", "work_waiting", "INTEGER NULL")
+        ]);
 }
 
 /// <summary>
