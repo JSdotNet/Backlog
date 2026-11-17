@@ -74,6 +74,11 @@ public sealed class TasksPlanSessionRequests : IDisposable
         return IsOffered && key.Length > 0 && _open.TryGet(key, out var request) ? request : null;
     }
 
+    /// <summary>Every request a plan has open, by its tag without the sigil — empty
+    /// while the action is not offered.</summary>
+    public IReadOnlyDictionary<string, EntrySessionRequest> Open =>
+        IsOffered ? _open.Current : new Dictionary<string, EntrySessionRequest>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Where the plan tagged <paramref name="tag"/> is filed — its roadmap item's
     /// own spelling of the tag and the repository aliases it names — or null when no
     /// roadmap item carries the tag (or none has been read yet).</summary>

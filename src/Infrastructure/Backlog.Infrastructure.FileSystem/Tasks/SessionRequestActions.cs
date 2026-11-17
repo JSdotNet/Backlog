@@ -20,11 +20,16 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// One class for both ports because they are the same queue asked about its two kinds
 /// of request; each port sees only its own kind.
 /// </para>
+/// <para>
+/// Dispatcher contact is read from <paramref name="contact"/>, the record the wait route
+/// keeps; without one the port has nothing to say and warns of nothing.
+/// </para>
 /// </summary>
 public sealed class SessionRequestActions(
     ISessionRequestStore? queue,
     IAppFeatureSettings? features = null,
-    TimeProvider? clock = null) : IEntrySessionRequests, IPlanSessionRequests
+    TimeProvider? clock = null,
+    DispatcherContact? contact = null) : IEntrySessionRequests, IPlanSessionRequests
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
@@ -35,6 +40,11 @@ public sealed class SessionRequestActions(
     /// <summary>The <c>session-requests</c> switch, when there is a queue to ask. Null
     /// features reads as on, for a test that composes the adapter alone.</summary>
     public bool IsOffered => queue is not null && (features?.IsEnabled(SessionFeatures.SessionRequests) ?? true);
+
+    public DispatcherContactReading DispatcherContact =>
+        queue is not null && contact is not null
+            ? new DispatcherContactReading(contact.LastHeardAt, contact.IsSilent)
+            : DispatcherContactReading.Unknown;
 
     async Task<IReadOnlyDictionary<Guid, EntrySessionRequest>> IEntrySessionRequests.OpenAsync(CancellationToken cancellationToken)
     {
@@ -72,7 +82,7 @@ public sealed class SessionRequestActions(
 
         // The store answers the open request when there is one, so what comes back is
         // always open; Requested stands in for the impossible rest.
-        return ToEntry(held) ?? new EntrySessionRequest(held.Id, EntrySessionRequestState.Requested, held.Repository);
+        return ToEntry(held) ?? new EntrySessionRequest(held.Id, EntrySessionRequestState.Requested, held.Repository, held.CreatedAt);
     }
 
     async Task<PlanSessionRequest> IPlanSessionRequests.RequestAsync(
@@ -85,7 +95,7 @@ public sealed class SessionRequestActions(
             SessionRequests.ForPlan(planTag, repository, cloneFolder, _clock.GetUtcNow()),
             cancellationToken).ConfigureAwait(false);
 
-        return ToPlan(held) ?? new PlanSessionRequest(held.Id, PlanSessionRequestState.Requested, held.Repository);
+        return ToPlan(held) ?? new PlanSessionRequest(held.Id, PlanSessionRequestState.Requested, held.Repository, held.CreatedAt);
     }
 
     public async Task<bool> CancelAsync(Guid requestId, CancellationToken cancellationToken = default)
@@ -131,18 +141,18 @@ public sealed class SessionRequestActions(
     private EntrySessionRequest? ToEntry(SessionRequest request) =>
         request.StateAt(_clock.GetUtcNow()) switch
         {
-            SessionRequestState.Requested => new(request.Id, EntrySessionRequestState.Requested, request.Repository),
-            SessionRequestState.Claimed => new(request.Id, EntrySessionRequestState.Claimed, request.Repository),
-            SessionRequestState.Started => new(request.Id, EntrySessionRequestState.Started, request.Repository),
+            SessionRequestState.Requested => new(request.Id, EntrySessionRequestState.Requested, request.Repository, request.CreatedAt),
+            SessionRequestState.Claimed => new(request.Id, EntrySessionRequestState.Claimed, request.Repository, request.CreatedAt),
+            SessionRequestState.Started => new(request.Id, EntrySessionRequestState.Started, request.Repository, request.CreatedAt),
             _ => null
         };
 
     private PlanSessionRequest? ToPlan(SessionRequest request) =>
         request.StateAt(_clock.GetUtcNow()) switch
         {
-            SessionRequestState.Requested => new(request.Id, PlanSessionRequestState.Requested, request.Repository),
-            SessionRequestState.Claimed => new(request.Id, PlanSessionRequestState.Claimed, request.Repository),
-            SessionRequestState.Started => new(request.Id, PlanSessionRequestState.Started, request.Repository),
+            SessionRequestState.Requested => new(request.Id, PlanSessionRequestState.Requested, request.Repository, request.CreatedAt),
+            SessionRequestState.Claimed => new(request.Id, PlanSessionRequestState.Claimed, request.Repository, request.CreatedAt),
+            SessionRequestState.Started => new(request.Id, PlanSessionRequestState.Started, request.Repository, request.CreatedAt),
             _ => null
         };
 }

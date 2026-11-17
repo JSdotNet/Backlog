@@ -125,4 +125,69 @@ public sealed class SessionRequestActionsTests : IDisposable
 
         Assert.False(await actions.CancelAsync(request.Id, Ct));
     }
+
+    [Fact]
+    public async Task An_open_entry_request_carries_when_it_was_requested()
+    {
+        IEntrySessionRequests actions = new SessionRequestActions(Store(), clock: _clock);
+        var entryId = Guid.NewGuid();
+
+        var request = await actions.RequestAsync(entryId, "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
+        _clock.Advance(TimeSpan.FromMinutes(4));
+
+        Assert.Equal(Noon, request.RequestedAt);
+        Assert.Equal(Noon, (await actions.OpenAsync(Ct))[entryId].RequestedAt);
+    }
+
+    [Fact]
+    public async Task An_open_plan_request_carries_when_it_was_requested()
+    {
+        IPlanSessionRequests actions = new SessionRequestActions(Store(), clock: _clock);
+
+        var request = await actions.RequestAsync("+session-dispatch", "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
+        _clock.Advance(TimeSpan.FromMinutes(4));
+
+        Assert.Equal(Noon, request.RequestedAt);
+        Assert.Equal(Noon, (await actions.OpenAsync(Ct))["session-dispatch"].RequestedAt);
+    }
+
+    [Fact]
+    public void The_entry_port_reads_dispatcher_contact_from_the_record_the_wait_route_keeps()
+    {
+        var contact = new DispatcherContact(_clock);
+        IEntrySessionRequests actions = new SessionRequestActions(Store(), clock: _clock, contact: contact);
+
+        _clock.Advance(TimeSpan.FromSeconds(20));
+        contact.Heard();
+        _clock.Advance(DispatcherContact.Threshold + TimeSpan.FromSeconds(1));
+
+        Assert.Equal(new DispatcherContactReading(Noon.AddSeconds(20), IsSilent: true), actions.DispatcherContact);
+    }
+
+    [Fact]
+    public void A_dispatcher_heard_recently_is_not_silent()
+    {
+        var contact = new DispatcherContact(_clock);
+        IEntrySessionRequests actions = new SessionRequestActions(Store(), clock: _clock, contact: contact);
+        _clock.Advance(TimeSpan.FromMinutes(10));
+
+        contact.Heard();
+
+        Assert.Equal(new DispatcherContactReading(Noon.AddMinutes(10), IsSilent: false), actions.DispatcherContact);
+    }
+
+    [Fact]
+    public void A_host_without_a_queue_hears_no_dispatcher_and_warns_of_none()
+    {
+        Assert.Equal(new DispatcherContactReading(null, IsSilent: false), ((IEntrySessionRequests)SessionRequestActions.NotOffered).DispatcherContact);
+    }
+
+    [Fact]
+    public void A_queue_with_no_contact_record_hears_no_dispatcher_and_warns_of_none()
+    {
+        IEntrySessionRequests actions = new SessionRequestActions(Store(), clock: _clock);
+        _clock.Advance(TimeSpan.FromHours(1));
+
+        Assert.Equal(new DispatcherContactReading(null, IsSilent: false), actions.DispatcherContact);
+    }
 }

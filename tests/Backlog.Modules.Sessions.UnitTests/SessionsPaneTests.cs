@@ -693,26 +693,22 @@ public sealed class SessionsPaneTests
         pane.WaitForAssertion(() => Assert.Equal(2, source.Reads));
     }
 
+    /// <summary>No close of its own (interaction-guidelines.md#shell-header, "A surface
+    /// draws no close of its own"): the Sessions option, Escape, or the OS close of a
+    /// window of its own is the way out.</summary>
     [Fact]
-    public async Task The_close_control_reports_the_press_and_nothing_else()
+    public void The_pane_draws_no_close_of_its_own()
     {
         using var context = Context(Sample);
-        var closed = 0;
 
-        var pane = context.Render<SessionsPane>(parameters => parameters
-            .Add(p => p.OnClose, () => closed++));
+        var pane = context.Render<SessionsPane>();
 
-        // The reading now lands from a background thread, so wait for the rows, not
-        // only the frame, before pressing.
+        // The reading lands from a background thread, so wait for the rows, not only
+        // the frame, before looking at the header.
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-row']")));
 
-        // Awaited: the rows' own background re-renders can still hold the renderer when
-        // the press is dispatched, and Click() returns with the press queued behind them.
-        await pane.Find(".sessions-panel button.btn--ghost").ClickAsync(new());
-
-        // What that closes is the shell's business; the pane still shows its rows.
-        Assert.Equal(1, closed);
-        Assert.NotEmpty(pane.FindAll("[data-testid='sessions-row']"));
+        Assert.Empty(pane.FindAll("[aria-label='Close sessions pane']"));
+        Assert.DoesNotContain(pane.FindAll(".sessions-panel__header-actions button"), button => button.TextContent.Trim() == "✕");
     }
 
     /// <summary>

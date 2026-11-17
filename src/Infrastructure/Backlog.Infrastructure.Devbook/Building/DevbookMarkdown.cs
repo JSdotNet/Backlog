@@ -33,11 +33,16 @@ internal static partial class DevbookMarkdown
     [GeneratedRegex("\\r?\\n")]
     private static partial Regex LineBreak();
 
-    [GeneratedRegex("^(#{1,6})[" + JsWhitespaceClass + "]+(.*)$")]
+    /// <summary>JavaScript's <c>.</c> stops at every line terminator and .NET's
+    /// only at <c>\n</c>, so the text is spelled out: a line holding a CR, U+2028
+    /// or U+2029 is no heading to the generator.</summary>
+    [GeneratedRegex("^(#{1,6})[" + JsWhitespaceClass + "]+([^\\n\\r\\u2028\\u2029]*)\\z")]
     private static partial Regex Heading();
 
+    /// <summary>The generator's fence marker: any indentation, and a closing
+    /// marker may carry text after it.</summary>
     [GeneratedRegex("^[" + JsWhitespaceClass + "]*(`{3,}|~{3,})")]
-    private static partial Regex FenceMarker();
+    internal static partial Regex FenceMarker();
 
     [GeneratedRegex("^```meta[" + JsWhitespaceClass + "]*$")]
     private static partial Regex MetaFence();
@@ -54,9 +59,12 @@ internal static partial class DevbookMarkdown
     /// <summary>
     /// Every heading of every level, each with the <c>meta</c> block that follows
     /// it (past blank lines) when there is one. The first level-1 heading is also
-    /// the file's title and its block the file's block.
+    /// the file's title and its block the file's block. A field named in
+    /// <paramref name="blockListFields"/> may also be a YAML block list
+    /// (<see cref="DevbookCorpusProfile.BlockListFields"/>), read by
+    /// <see cref="ReadBlockLists"/>.
     /// </summary>
-    public static DevbookParsedDocument Parse(string markdown)
+    public static DevbookParsedDocument Parse(string markdown, IReadOnlyCollection<string>? blockListFields = null)
     {
         var lines = Lines(markdown);
         var chapters = new List<DevbookParsedChapter>();
@@ -103,6 +111,7 @@ internal static partial class DevbookMarkdown
                 }
 
                 meta = ParseMetaBody(body);
+                if (blockListFields is { Count: > 0 }) ReadBlockLists(body, blockListFields, meta);
             }
 
             chapters.Add(new DevbookParsedChapter(level, text, slug, i + 1, meta));
@@ -136,6 +145,49 @@ internal static partial class DevbookMarkdown
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// <c>readBlockLists</c> in <c>tools/devbook/brain.mjs</c>: each of
+    /// <paramref name="fields"/> whose last line in the block has no value takes
+    /// the <c>- item</c> lines under it — blank lines and <c># comments</c>
+    /// between them kept out, any other line ending the list — trimmed and
+    /// unquoted, as a flow list's entries are. A field whose last line has a value
+    /// keeps the parse's reading, as a later key wins; one with no items stays
+    /// null.
+    /// </summary>
+    private static void ReadBlockLists(IEnumerable<string> lines, IReadOnlyCollection<string> fields, Dictionary<string, object?> meta)
+    {
+        var lists = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        List<string>? open = null;
+
+        foreach (var line in lines)
+        {
+            var trimmed = JsTrim(line);
+            if (trimmed.Length == 0 || trimmed[0] == '#') continue;
+
+            if (trimmed[0] == '-' && (trimmed.Length == 1 || IsJsWhitespace(trimmed[1])))
+            {
+                var item = StripQuotes(JsTrim(trimmed[1..]));
+                if (open is not null && item.Length > 0) open.Add(item);
+                continue;
+            }
+
+            open = null;
+            var colon = line.IndexOf(':', StringComparison.Ordinal);
+            if (colon == -1) continue;
+
+            var key = JsTrim(line[..colon]);
+            if (!fields.Contains(key)) continue;
+
+            if (JsTrim(line[(colon + 1)..]).Length == 0) lists[key] = open = new List<string>();
+            else lists.Remove(key);
+        }
+
+        foreach (var (key, items) in lists)
+        {
+            if (items.Count > 0) meta[key] = items.ToArray();
+        }
     }
 
     private static object? ParseScalar(string raw)

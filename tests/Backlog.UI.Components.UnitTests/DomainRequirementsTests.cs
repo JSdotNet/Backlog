@@ -346,6 +346,160 @@ public sealed class DomainRequirementsTests
     }
 
     [Fact]
+    public void The_page_opens_on_a_card_counting_the_rules_its_features_lean_on()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        // Two features leaning on the Task's rules: one on both, one on the same
+        // two through the aggregate — two distinct rules, not four.
+        var requirements = DomainUnits.Parse("""
+            # Requirements
+
+            ```meta
+            type: requirements
+            ```
+
+            ## My Day
+
+            ```meta
+            type: requirements
+            related: [.devbook/domain/planning/domain.md#my-day]
+            ```
+
+            ### Requirement: Today lists the picked tasks
+
+            The system SHALL list today's tasks.
+
+            ## Agenda
+
+            ```meta
+            type: requirements
+            related: [.devbook/domain/planning/domain.md#agenda-time]
+            ```
+
+            ### Requirement: An agenda shows its times
+
+            The system SHALL show each time.
+            """, ".devbook/domain/planning/requirements.md");
+        var groups = DomainRequirements.Groups(requirements,
+        [
+            DomainUnits.Parse(PlanningDomain, ".devbook/domain/planning/domain.md"),
+            DomainUnits.Parse(PlanningInvariants, ".devbook/domain/planning/domain.invariants.md"),
+            requirements
+        ]);
+        Assert.Equal(2, groups.Count(group => group.AlwaysTrue.Any(unit => unit.Listed.Count > 0)));
+        // The groups list four rules between them, two of them twice: the card counts two.
+        Assert.Equal(4, groups.Sum(group => group.AlwaysTrue.Sum(unit => unit.Listed.Count)));
+
+        var view = context.Render<DomainRequirementsView>(parameters => parameters.Add(p => p.Groups, groups));
+
+        var summary = view.Find(".domain-requirements__summary");
+        Assert.Equal(2, summary.Children.Length);
+        var card = view.Find("[data-testid='domain-requirements-rules-summary']");
+        Assert.Contains("domain-requirements__summary", card.ParentElement!.ClassList);
+        Assert.Equal("What is always true", card.QuerySelector("b")!.TextContent.Trim());
+        Assert.Equal("2 rules · on Domain", card.QuerySelector("[data-testid='domain-requirements-rules-tally']")!.TextContent.Trim());
+        Assert.StartsWith("What the model never lets happen, whoever changes it.", card.QuerySelector(".domain-requirements__card-text")!.TextContent.Trim(), StringComparison.Ordinal);
+        Assert.Empty(card.QuerySelectorAll("button, a"));
+        Assert.DoesNotContain("domain-requirements__card--requirement", card.ClassList);
+    }
+
+    [Fact]
+    public void No_rule_card_shows_when_no_feature_leans_on_one()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var file = DomainUnits.Parse("""
+            # Requirements
+
+            ## Lonely
+
+            ```meta
+            type: requirements
+            ```
+
+            ### Requirement: X
+
+            The system SHALL x.
+            """, RequirementsPath);
+
+        var view = context.Render<DomainRequirementsView>(parameters => parameters.Add(p => p.Groups, DomainRequirements.Groups(file, [file])));
+
+        Assert.Single(view.FindAll("[data-testid='domain-requirements-summary']"));
+        Assert.Empty(view.FindAll("[data-testid='domain-requirements-rules-summary']"));
+    }
+
+    [Fact]
+    public void A_group_reads_the_gate_of_the_feature_it_names()
+    {
+        var gate = Groups[0].Gate!;
+
+        Assert.Equal(DomainFeatureGateKind.Flag, gate.Kind);
+        Assert.Equal("New checkout", gate.Chapter.Title);
+        Assert.Equal("off", gate.Default);
+
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        DevbookReference? followed = null;
+        var view = context.Render<DomainRequirementsView>(parameters => parameters
+            .Add(p => p.Groups, Groups)
+            .Add(p => p.OnNavigate, reference => followed = reference));
+
+        var header = view.Find(".domain-requirements__header");
+        var chip = header.QuerySelector("[data-testid='domain-requirements-gate']")!;
+        var link = header.QuerySelector("[data-testid='domain-requirements-feature-link']")!;
+        Assert.True(link.CompareDocumentPosition(chip).HasFlag(AngleSharp.Dom.DocumentPositions.Following));
+        Assert.Equal("flag", chip.GetAttribute("data-kind"));
+        Assert.NotNull(chip.QuerySelector("svg.flag-icon[aria-hidden='true']"));
+        Assert.Equal("button", chip.TagName.ToLowerInvariant());
+        Assert.Equal("Gated by flag New checkout", chip.GetAttribute("aria-label"));
+        Assert.Equal("Flag: New checkout · default off", chip.GetAttribute("title"));
+        Assert.Equal("New checkout", chip.TextContent.Trim());
+
+        chip.Click();
+        Assert.Equal(".devbook/domain/ordering/context.md", followed!.Path);
+        Assert.Equal("new-checkout", followed.Slug);
+
+        // A host that follows nothing gets an inert chip, which says its kind in
+        // words as the Features chip does and claims no button's name.
+        var inert = context.Render<DomainRequirementsView>(parameters => parameters.Add(p => p.Groups, Groups))
+            .Find("[data-testid='domain-requirements-gate']");
+        Assert.Equal("span", inert.TagName.ToLowerInvariant());
+        Assert.Null(inert.GetAttribute("aria-label"));
+        Assert.Equal("Flag:", inert.QuerySelector(".sr-only")!.TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_group_naming_no_feature_or_an_ungated_one_shows_no_gate()
+    {
+        // Ordering names no feature; a feature with no flag or setting gives none.
+        Assert.Null(Groups[1].Gate);
+        var file = DomainUnits.Parse("""
+            # Requirements
+
+            ## Ordering
+
+            ```meta
+            type: requirements
+            related: [.devbook/domain/ordering/features.md#ordering]
+            ```
+
+            ### Requirement: X
+
+            The system SHALL x.
+            """, RequirementsPath);
+        var ungated = Assert.Single(DomainRequirements.Groups(file, DomainFeaturesTests.Files));
+        Assert.NotNull(ungated.Feature);
+        Assert.Null(ungated.Gate);
+
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var view = context.Render<DomainRequirementsView>(parameters => parameters.Add(p => p.Groups, [ungated]));
+        Assert.Empty(view.FindAll("[data-testid='domain-requirements-gate']"));
+        Assert.DoesNotContain("Always on", view.Find(".domain-requirements__header").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Requirements_written_straight_under_the_title_are_one_group()
     {
         var file = DomainUnits.Parse("""

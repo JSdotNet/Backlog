@@ -18,6 +18,7 @@
                     RequirementFiles="@_requirementFiles"
                     InvariantFiles="@_invariantFiles"
                     ModelPath="@_modelPath"
+                    DomainName="@_domainName"
                     @bind-ActiveUnit="_activeUnit"
                     ActiveUnitPage="@OpenUnitPage"
                     ActiveRule="@OpenRule"
@@ -74,6 +75,7 @@ else if (_problem is not null)
     private IReadOnlyList<DomainChapterFile> _requirementFiles = [];
     private IReadOnlyList<DomainChapterFile> _invariantFiles = [];
     private string? _modelPath;
+    private string? _domainName;
     private string _contextName = "the context";
     private string? _activeUnit;
     private string? _problem;
@@ -133,7 +135,7 @@ else if (_problem is not null)
         if (_disposed || version != _version) return;
         (_page, _domainFiles, _requirementFiles, _invariantFiles, _contextName, _problem) =
             (read.Page, read.DomainFiles, read.RequirementFiles, read.InvariantFiles, read.ContextName, read.Problem);
-        _modelPath = read.ModelPath;
+        (_modelPath, _domainName) = (read.ModelPath, read.DomainName);
     }
 
     /// <summary>The domain file the menu path names, the context's domain files
@@ -167,7 +169,8 @@ else if (_problem is not null)
 
         return new DomainViewDomainRead(page, domainFiles, requirementFiles, invariantFiles, context.DisplayName, null)
         {
-            ModelPath = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Model)?.Path
+            ModelPath = DomainViewDomainRead.ModelFor(document, context.Documents),
+            DomainName = DomainViewDomainRead.DomainNameOf(view.ContextMap.Title)
         };
     }
 

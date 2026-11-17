@@ -1,6 +1,6 @@
 ---
 name: close-merged
-description: Move the Backlog entries whose pull request has merged — into the default branch or a plan/<slug> branch — to Done. Use when asked to close, finish, tidy or sync the merged items, when entries still read In progress after their pull request merged, or right after merging a pull request linked to a Backlog entry. Resolves each merged pull request to its entry through the backlog MCP server and transitions it; changes nothing in the repository.
+description: Move the Backlog entries whose pull request has merged — into the default branch or a plan integration branch — to Done. Use when asked to close, finish, tidy or sync the merged items, when entries still read In progress after their pull request merged, or right after merging a pull request linked to a Backlog entry. Resolves each merged pull request to its entry through the backlog MCP server and transitions it; changes nothing in the repository.
 ---
 
 # Close the entries whose pull request merged
@@ -8,7 +8,9 @@ description: Move the Backlog entries whose pull request has merged — into the
 Open the reply with `backlog-tools@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled.
 
 An entry is done when its pull request merges into the default branch, or into its plan's
-`plan/<slug>` branch — not when it opens. `run-plan-item` and `execute-plan` move it when
+integration branch — not when it opens. An integration branch is one starting `plan/`, which older
+runs used, or matching `integrationBranch` in `.devbook/backlog-tools.json` with each `{…}` read as
+a wildcard (`../execute-plan/assets/landing-modes.md`, **Repository conventions**). `run-plan-item` and `execute-plan` move it when
 they find the merge; this skill catches every merge they did not — one made on GitHub's own
 page, or by auto-merge after the session ended.
 
@@ -24,7 +26,7 @@ page, or by auto-merge after the session ended.
    the `in_progress` ones bounds the search below; with none, 30 days back.
 3. **Merged pull requests.** `gh pr list --state merged --search "merged:>=<bound>"
    --limit 500 --json number,title,mergedAt,url,baseRefName`; keep those whose
-   `baseRefName` is the default branch or starts with `plan/` — or a base the user named, for
+   `baseRefName` is the default branch or an integration branch — or a base the user named, for
    a plan run against another one. 500 back → say the oldest may be cut off. One merged into a stacked parent's branch finishes nothing yet: it is moved
    once restacked onto the default branch and merged there. When the user named pull
    requests, take only those.
@@ -39,6 +41,6 @@ page, or by auto-merge after the session ended.
 ## Never
 
 - Move an entry whose pull request is only open, or merged into a branch that is neither the
-  default branch nor a `plan/` branch.
+  default branch nor an integration branch.
 - Tick sub-items, edit the entry's text, or `link_change` — this skill only transitions.
 - Push, merge, or close anything on GitHub.

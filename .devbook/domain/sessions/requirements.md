@@ -182,8 +182,9 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 
 > Local ADR 0038 decides these requirements. Both sides are built. The queue icons
 > create a request on an entry, on a plan's roadmap item, and beside a selected plan
-> filter chip. The dispatcher side is the wait route and the claim, mark and list tools
-> a Manager session uses.
+> filter chip. The filter bar's session queue lists every open request and warns when
+> no dispatcher has been heard. The dispatcher side is the wait route and the claim,
+> mark and list tools a Manager session uses.
 
 ### Requirement: Only a click in the app requests a session
 
@@ -328,19 +329,89 @@ The system SHALL mark a Started request Linked when the session its dispatcher r
 - **When** that session calls `link_session` on the entry
 - **Then** the request is Linked and the entry shows the session instead of the waiting request
 
+### Requirement: Every open request is visible on the filter bar
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Entry_and_plan_requests_share_one_queue_oldest_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.The_panel_lists_every_open_request_oldest_first_with_its_repository_state_and_age, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_withdraws_the_entry_s_request_and_the_row_goes]
+```
+
+The system SHALL list every open entry and plan request, oldest first, in the filter bar's session queue, and mark each unpressed plan chip whose plan has one.
+
+#### Scenario: A plan waits while its chip is let go
+
+- **Given** a plan request is Requested and the plan's chip on the Tasks filter bar is not pressed
+- **When** the person looks at the filter bar and opens the session queue
+- **Then** the chip carries the waiting mark and the queue lists the plan's `+tag` among the entry requests, oldest first
+
+#### Scenario: The person cancels from the queue
+
+- **Given** an entry request is Requested
+- **When** the person presses Cancel on its row in the session queue
+- **Then** the request is Cancelled and its row leaves the queue
+
+### Requirement: A dispatcher's wait is recorded as contact
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_call_held_open_counts_as_dispatcher_contact_until_it_is_answered, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_call_answered_no_content_leaves_its_reply_as_the_last_contact, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_call_answered_with_a_request_is_contact, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_call_answered_service_unavailable_is_still_contact, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_call_answered_not_found_while_the_flag_is_off_is_not_contact]
+```
+
+The system SHALL record dispatcher contact for every call to `GET /session-requests/wait` it lets in, for as long as the call is held and again when it is answered, and SHALL NOT record a call it answers `404`.
+
+#### Scenario: A dispatcher waits on the route
+
+- **Given** the `session-requests` flag is on
+- **When** a dispatcher's call is held and then answered `200`, `204` or `503`
+- **Then** contact reads as now while it is held and as the answer's time once it is answered
+
+#### Scenario: The flag is off when a dispatcher calls
+
+- **Given** the `session-requests` flag is off
+- **When** a dispatcher calls the route and is answered `404`
+- **Then** no contact is recorded
+
+### Requirement: A silent dispatcher is warned of
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.DispatcherContactReadingTests.A_silent_dispatcher_is_warned_of_only_while_a_request_waits_Requested, unit:dotnet:Backlog.Modules.Tasks.UnitTests.DispatcherContactReadingTests.An_empty_queue_warns_of_nothing_however_long_the_silence, unit:dotnet:Backlog.Modules.Tasks.UnitTests.DispatcherContactReadingTests.One_Requested_request_among_started_ones_is_enough_to_warn, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.The_panel_warns_while_a_request_waits_and_no_dispatcher_is_heard]
+```
+
+The system SHALL warn in the session queue while a request is Requested and no dispatcher has been heard for more than two minutes, counted from the app's start when none has, and SHALL NOT warn otherwise.
+
+#### Scenario: No dispatcher since the app started
+
+- **Given** the app started three minutes ago, no dispatcher has called the wait route and a request is Requested
+- **When** the person opens the session queue
+- **Then** the queue warns that nothing will start the requests and names `/loop /backlog-tools:dispatch-sessions` as the remedy
+
+#### Scenario: A dispatcher was heard a while ago
+
+- **Given** a dispatcher was last heard three minutes ago and a request is Requested
+- **When** the person opens the session queue
+- **Then** the queue warns and says when a dispatcher last reached Backlog
+
+#### Scenario: Only claimed requests wait
+
+- **Given** no dispatcher has been heard for three minutes and every open request is Claimed or Started
+- **When** the person opens the session queue
+- **Then** the queue shows no warning
+
 ### Requirement: The flag off offers no session requests
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.With_the_switch_off_no_chip_carries_the_mark_and_the_bar_has_no_queue]
 ```
 
-The system SHALL offer no queue icon, no wait route and no dispatcher tool while the `session-requests` flag is off.
+The system SHALL offer no queue icon, no session queue, no wait route and no dispatcher tool while the `session-requests` flag is off.
 
 #### Scenario: The flag is off
 
 - **Given** the `session-requests` flag is off
 - **When** the person opens a prompt entry and a dispatcher calls the wait route
-- **Then** the entry offers no queue icon, the route answers `404` and the MCP endpoint lists no dispatcher tool
+- **Then** the entry offers no queue icon, the filter bar shows no session queue and no plan chip carries the waiting mark, the route answers `404` and the MCP endpoint lists no dispatcher tool
 
 ## Answer a session's question from elsewhere
 

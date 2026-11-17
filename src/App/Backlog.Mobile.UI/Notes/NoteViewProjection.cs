@@ -191,6 +191,46 @@ public sealed class NoteViewProjection : IDisposable
             cancellationToken);
 
     /// <summary>
+    /// Adds files to a note the phone holds and changes nothing else: the title and body are
+    /// the row's as it stands when the write is built, under the gate, so an edit that landed
+    /// while the files were being readied is kept. A file the note already names is not added
+    /// again, and when none is new nothing is written. Answers the row, or null for a note the
+    /// phone does not hold or the desktop has archived. A meeting recording is attached this way
+    /// (<c>.devbook/arc42/06-runtime-view.md#meeting-recording</c>).
+    /// </summary>
+    public async Task<NoteViewRow?> AttachAsync(
+        Guid id,
+        IReadOnlyList<AttachmentMetadata> addedAttachments,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(addedAttachments);
+
+        NoteViewRow? unchanged = null;
+
+        var written = await WriteAsync(
+            rows =>
+            {
+                if (rows.GetValueOrDefault(id) is not { IsHidden: false } current) return null;
+
+                var added = addedAttachments.Where(file => current.Attachments.All(held => held.Id != file.Id)).ToList();
+                if (added.Count == 0)
+                {
+                    unchanged = current;
+                    return null;
+                }
+
+                IReadOnlyList<AttachmentMetadata> files = [.. current.Attachments, .. added];
+                var now = _clock.GetUtcNow();
+                var stamp = now > current.UpdatedAt ? now : current.UpdatedAt.AddTicks(1);
+
+                return (new TaskChange(id, stamp, DeletedAt: null, current.Note with { Attachments = files }), [.. added.Select(file => file.Id)]);
+            },
+            cancellationToken);
+
+        return written ?? unchanged;
+    }
+
+    /// <summary>
     /// The note document the phone creates: a new id, the note kind token, the
     /// body as <c>ContentMd</c>, the phone's channel in <c>SourceInboxId</c> as a
     /// capture's is, its files as metadata, and the Tasks defaults for status and

@@ -1,0 +1,50 @@
+@*
+    A flag on its pole.
+
+    Drawn here rather than fetched, for the reason ChevronUpIcon gives, and in
+    Lucide's idiom on exactly the terms
+    `.devbook/design/typography-and-layout.md#iconography` allows: Lucide's own
+    `flag` outline on the 24x24 grid, stroked at 2, round caps and joins,
+    filled nowhere.
+
+    Named for the shape's usual meaning, as Lucide names it. The Domain view's
+    Features board leads a flag chip with it, beside SettingsIcon on a setting
+    chip; the chip says its kind in words for a listener, so the glyph is
+    decorative and hidden from assistive technology. Colour and size are the
+    caller's, as on every glyph in this folder.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+    <path d="M4 22v-7" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>;
+    /// see <see cref="ChevronUpIcon.Size"/> for the scale it is drawn on.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "flag-icon" : $"flag-icon {CssClass}";
+}

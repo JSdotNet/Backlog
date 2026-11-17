@@ -54,6 +54,13 @@ mobile's native .NET MAUI. MUST NOT introduce sizes outside this scale.
 | `font-size-4xl` | `2.25rem` | 36 | H2 |
 | `font-size-5xl` | `3rem` | 48 | H1, display |
 
+Text inside a drawing that scales to its viewBox is the drawing's geometry, not
+type. An SVG in fit mode, such as the Flow lifecycle's state names, its edge
+labels and the caption that shrinks with its container, measures that text in
+the drawing's own units, so the scale does not apply to it. Every other text
+stays on the scale: the Domain view's page titles take `font-size-3xl`, not
+`2rem`, and no token for 32 px is added.
+
 ### Weights, Line Heights, Letter Spacing
 
 ```meta

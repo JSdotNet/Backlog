@@ -39,7 +39,58 @@ public sealed class NotificationPresentationTests
     {
         Assert.Equal(
             "spec-manager · Billing · #7 Rounding in invoices · 4 min ago",
-            NotificationPresentation.RowLine(View(SpecManager), Now.AddMinutes(4), Owner));
+            NotificationPresentation.RowLead(View(SpecManager), Now.AddMinutes(4), Owner));
+        Assert.Null(NotificationPresentation.RowAnswer(View(SpecManager)));
+    }
+
+    private static NotificationView Answered(NotificationView view, IReadOnlyList<string> choiceIds, string? text = null, string? note = null) =>
+        view with
+        {
+            State = NotificationState.Answered,
+            Answer = new NotificationAnswer(view.Id, view.Source, Guid.NewGuid(), Owner, choiceIds, text, Now, note)
+        };
+
+    [Fact]
+    public void An_answered_row_sets_the_winning_answer_apart_from_its_lead()
+    {
+        var answered = Answered(View(), ["yes"], note: "After the backup");
+
+        Assert.Equal("Answered from this desktop", NotificationPresentation.RowLead(answered, Now, Owner));
+        Assert.Equal("Yes, run it, note: “After the backup”", NotificationPresentation.RowAnswer(answered));
+    }
+
+    [Fact]
+    public void A_closed_row_sets_its_reason_apart_and_one_with_no_reason_sets_nothing_apart()
+    {
+        var closed = View() with { State = NotificationState.Closed, CloseReason = "Answered in spec-manager by Ada: Round half even" };
+
+        Assert.Equal("Closed", NotificationPresentation.RowLead(closed, Now, Owner));
+        Assert.Equal("Answered in spec-manager by Ada: Round half even", NotificationPresentation.RowAnswer(closed));
+        Assert.Null(NotificationPresentation.RowAnswer(closed with { CloseReason = null }));
+        Assert.Null(NotificationPresentation.RowAnswer(View() with { State = NotificationState.Acknowledged }));
+    }
+
+    [Fact]
+    public void An_answered_card_carries_the_chosen_ids_the_text_and_the_note_apart()
+    {
+        var card = NotificationPresentation.ToCard(Answered(View(), ["yes"], "Tonight", "After the backup"), Now, Owner);
+
+        Assert.Equal(["yes"], card.Outcome!.ChosenIds);
+        Assert.Equal("Tonight", card.Outcome.Text);
+        Assert.Equal("After the backup", card.Outcome.Note);
+        Assert.Equal("this desktop", card.Outcome.Device);
+    }
+
+    [Fact]
+    public void Settled_ones_are_listed_only_when_shown_and_the_kept_one_always()
+    {
+        var open = View();
+        var answered = Answered(View(), ["yes"]);
+        var closed = View() with { State = NotificationState.Closed };
+
+        Assert.Equal([open], NotificationPresentation.SettledOnlyIfShown([open, answered, closed], showSettled: false));
+        Assert.Equal([open, answered, closed], NotificationPresentation.SettledOnlyIfShown([open, answered, closed], showSettled: true));
+        Assert.Equal([open, closed], NotificationPresentation.SettledOnlyIfShown([open, answered, closed], showSettled: false, kept: closed.Id));
     }
 
     [Fact]
@@ -166,7 +217,7 @@ public sealed class NotificationPresentationTests
     }
 
     [Fact]
-    public void Kind_keeps_questions_alerts_or_whatever_is_still_open()
+    public void Kind_keeps_the_questions_or_the_alerts_settled_or_not()
     {
         var question = View();
         var alert = View() with { Kind = NotificationKind.Alert, AnswerSpec = null };
@@ -174,7 +225,7 @@ public sealed class NotificationPresentationTests
 
         Assert.Equal([question, answered], NotificationPresentation.KindOnly([question, alert, answered], NotificationKindFilter.Questions));
         Assert.Equal([alert], NotificationPresentation.KindOnly([question, alert, answered], NotificationKindFilter.Alerts));
-        Assert.Equal([question, alert], NotificationPresentation.KindOnly([question, alert, answered], NotificationKindFilter.Open));
+        Assert.Equal(3, NotificationPresentation.KindOnly([question, alert, answered], null).Count);
     }
 
     [Fact]

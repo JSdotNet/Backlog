@@ -2,7 +2,9 @@
     The Requirements page of the Domain view (local ADR 0047), laid out as the
     design board "Requirements — requirements.md" draws it. The page opens on its
     title and a card: what a requirement is, with how many the file holds and
-    how many a test proves.
+    how many a test proves. Beside it, where the file's features lean on any
+    rule, a second card — What is always true · n rules · on Domain — counts the
+    distinct rules they lean on; each feature lists its own below.
 
     Below them, an unsplit requirements.md lists its features By feature · tested,
     each with its proved / count and a bar; a split requirements.<name>.md holds
@@ -13,6 +15,10 @@
     ", and" reads as one bullet per clause. A feature with more than three
     requirements opens its first two and lists the rest as rows that open in
     place.
+
+    A feature's heading names the flag or setting its feature chapter hangs on,
+    as the Features chip draws it: the kind's glyph, then the gate's name,
+    following to its chapter. A feature that names none says nothing about it.
 
     Under the feature's heading, What is always true: the rules of the units its
     chapters name, in place (DomainRuleList), each opening on where it is
@@ -41,6 +47,16 @@
                     </div>
                     <span class="domain-requirements__card-text">A promise to someone outside the product. One SHALL sentence, its cases as Given / When / Then, proved by a linked test.</span>
                 </div>
+                @if (RuleCount > 0)
+                {
+                    <div class="domain-requirements__card" data-testid="domain-requirements-rules-summary">
+                        <div class="domain-requirements__card-head">
+                            <b>What is always true</b>
+                            <span class="domain-requirements__card-meta" data-testid="domain-requirements-rules-tally">@($"{DomainRuleText.Count(RuleCount)} · on Domain")</span>
+                        </div>
+                        <span class="domain-requirements__card-text">What the model never lets happen, whoever changes it. Not promises: each feature below lists the rules its requirements lean on.</span>
+                    </div>
+                }
             </div>
         </header>
 
@@ -82,6 +98,10 @@
                         <span class="domain-requirements__feature-link" data-testid="domain-requirements-feature-link">
                             <DevbookReferenceLink Reference="@featureReference" Text="@($"Feature chapter · {feature.Title}")" OnNavigate="OnNavigate" />
                         </span>
+                    }
+                    @if (active.Gate is { } gate)
+                    {
+                        <DomainGateChip Gate="@gate" OnNavigate="OnNavigate" TestId="domain-requirements-gate" />
                     }
                 </header>
                 <DomainChapterTasks References="@([active.Reference])" TestId="domain-requirements-group-tasks" />
@@ -241,6 +261,16 @@
         Groups.FirstOrDefault(group => group.Key == _active) ?? Groups.FirstOrDefault();
 
     private DomainProofTally Total => new(Groups.Sum(group => group.Tally.Count), Groups.Sum(group => group.Tally.Proved));
+
+    /// <summary>The distinct rules every group of the file leans on, each counted
+    /// once by its row on Always true: the What is always true card's n.</summary>
+    private int RuleCount =>
+        Groups
+            .SelectMany(group => group.AlwaysTrue)
+            .SelectMany(unit => unit.Listed)
+            .Select(rule => rule.Place?.Rule ?? (rule.Reference.Length > 0 ? rule.Reference : rule.Title))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
 
     private async Task SelectAsync(DomainRequirementGroup group)
     {

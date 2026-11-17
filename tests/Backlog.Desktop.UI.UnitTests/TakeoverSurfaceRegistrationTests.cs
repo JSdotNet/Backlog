@@ -78,7 +78,7 @@ public sealed class TakeoverSurfaceRegistrationTests
             .OrderBy(surface => surface.Order)
             .Select(surface => surface.Id);
 
-        Assert.Equal(["inbox", "devbook", "events", "sessions", "pull-requests", "dashboard", "notifications", "tools", "atlas"], order);
+        Assert.Equal(["inbox", "weekly-review", "devbook", "events", "sessions", "pull-requests", "dashboard", "notifications", "tools", "atlas"], order);
     }
 
     private static List<ShellSurface> Registered() =>

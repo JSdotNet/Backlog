@@ -365,6 +365,24 @@ public sealed class ContextMapTests
     }
 
     [Fact]
+    public void The_list_intro_says_a_pick_opens_the_context_on_its_neighbours()
+    {
+        using var context = Context();
+
+        var opening = context.Render<ContextMapView>(p => p
+            .Add(v => v.Map, ContextMaps.Read(Contracts, []))
+            .Add(v => v.OnOpen, (ContextMapContext _) => { }));
+        opening.Find("[data-testid='context-map-page-tab-list']").Click();
+        Assert.Equal(
+            "4 bounded contexts and 2 relationships. Each card says why the context exists and how many relationships touch it. Pick one to open it on its neighbours.",
+            opening.Find("[data-testid='context-map-page-intro']").TextContent.Trim());
+
+        var reading = context.Render<ContextMapView>(p => p.Add(v => v.Map, ContextMaps.Read(Contracts, [])));
+        reading.Find("[data-testid='context-map-page-tab-list']").Click();
+        Assert.DoesNotContain("Pick one", reading.Find("[data-testid='context-map-page-intro']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void List_heads_with_the_title_and_shows_contracts_and_rules_as_the_board_does()
     {
         using var context = Context();

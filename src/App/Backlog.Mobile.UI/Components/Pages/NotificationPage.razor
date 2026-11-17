@@ -8,10 +8,13 @@
 @implements IDisposable
 
 @*
-    One notification, opened from the list: the same card with its Markdown body
-    drawn through MarkdownView, Mermaid fences included, and the answer controls
-    for a question this phone may answer. Pulled on open, on resume, and every 30
-    seconds while a reply made here waits for its owner, as the list is.
+    One notification, opened from its title on the pager's card or from its Android
+    push: the same card with its Markdown body drawn through MarkdownView, Mermaid
+    fences included, and the answer controls for a question this phone may answer.
+    It shows any notification, settled ones included, so where a reply stands can
+    still be read here once the pager has moved on. Pulled on open, on resume, and
+    every 30 seconds while a reply made here waits for its owner, as the tab is.
+    Back always leads to the tab.
 *@
 
 <PageTitle>@(Item?.Notification.Title ?? "Notification")</PageTitle>
@@ -32,7 +35,6 @@
 @if (Item is { } item)
 {
     <PhoneNotificationCard Notification="item"
-                           ShowBody="true"
                            Busy="_replying"
                            OnReply="ReplyAsync"
                            OnRetry="RetryAsync" />
@@ -62,12 +64,7 @@ else
     private string? _replyError;
     private ITimer? _poll;
 
-    /// <summary>The view the detail was opened from: <c>list</c> from the list, else the pager.</summary>
-    [SupplyParameterFromQuery(Name = "view")]
-    public string? View { get; set; }
-
-    /// <summary>Back to the view the detail was opened from.</summary>
-    private string BackHref => string.Equals(View, "list", StringComparison.Ordinal) ? "notifications?view=list" : "notifications";
+    private const string BackHref = "notifications";
 
     private PhoneNotification? Item => Notifications.Find(Id);
 
@@ -103,7 +100,7 @@ else
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // The card is drawn as the phone last saw it; the list says why it is stale.
+            // The card is drawn as the phone last saw it; the tab says why it is stale.
         }
         finally
         {

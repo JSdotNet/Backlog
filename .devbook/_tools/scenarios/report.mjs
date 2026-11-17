@@ -51,9 +51,9 @@ export function outcomeOf(statuses) {
 }
 
 /**
- * The spec file a test belongs to: the location of its file suite. A part is
- * declared by `part()` inside `setup.ts`, so `test.location.file` names that
- * file and never the spec.
+ * The spec file a test belongs to: the location of its file suite. A part
+ * declared through a helper outside the spec has that helper as its
+ * `test.location.file`, never the spec.
  */
 export function specFileOf(test) {
     for (let suite = test.parent; suite; suite = suite.parent) {

@@ -284,7 +284,9 @@ public sealed class RoadmapPlan
     /// <summary>
     /// Adds an item an import brought in, its window placed by <paramref name="placement"/>.
     /// Always tagged: the tag is how the next import finds it again, so an import never
-    /// lets one be derived from the title.
+    /// lets one be derived from the title. The entry's <paramref name="knowledgeRefs"/>
+    /// — repository chapters and Brain notes alike (a Knowledge Ref may hold either, local ADR 0053 §2) — are set here,
+    /// at creation, and nowhere else an import reaches.
     /// </summary>
     public Result<RoadmapItem> AddImportedItem(
         string title,
@@ -293,11 +295,12 @@ public sealed class RoadmapPlan
         ImportPlacement placement,
         PlanningPriority priority = PlanningPriority.Medium,
         RepositoryScope? scope = null,
-        string? notes = null)
+        string? notes = null,
+        KnowledgeReferences? knowledgeRefs = null)
     {
         ArgumentNullException.ThrowIfNull(tag);
 
-        var added = AddItem(title, window, priority, scope, notes: notes, tag: tag);
+        var added = AddItem(title, window, priority, scope, notes: notes, tag: tag, knowledgeRefs: knowledgeRefs);
         if (added.IsSuccess) added.Value.PlaceByImport(window, placement);
         return added;
     }

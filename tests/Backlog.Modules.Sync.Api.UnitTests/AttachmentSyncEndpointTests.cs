@@ -129,6 +129,21 @@ public sealed class AttachmentSyncEndpointTests : IDisposable
         Assert.Contains(contentType, problem.Detail, StringComparison.Ordinal);
     }
 
+    /// <summary>A meeting recording of local ADR 0048 is on the default list, so a
+    /// note carrying one syncs instead of waiting on a 415.</summary>
+    [Theory]
+    [InlineData("audio/aac")]
+    [InlineData("audio/mp4")]
+    [InlineData("audio/x-m4a")]
+    public async Task A_meeting_recording_is_accepted_by_default(string contentType)
+    {
+        var device = await Device();
+
+        var response = await device.Upload(Guid.CreateVersion7(), Bytes(10), contentType);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
     /// <summary>A charset or other parameter does not change what a type is.</summary>
     [Fact]
     public async Task An_allowed_type_with_parameters_is_accepted_and_served_as_declared()

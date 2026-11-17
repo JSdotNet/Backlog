@@ -1,8 +1,10 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Overlays;
 
 using Bunit;
 
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -204,7 +206,7 @@ public sealed class TasksSessionRequestTests
         queue.IsOffered = false;
         var row = await host.WriteEntryAsync(Prompt(Backlog));
         var other = await host.WriteEntryAsync(AnotherPrompt(Backlog));
-        queue.Open[row.Id!.Value] = new(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog);
+        queue.Open[row.Id!.Value] = new(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
         await host.OpenAsync(other);
 
         var pane = host.Render();
@@ -376,7 +378,7 @@ public sealed class TasksSessionRequestTests
         var (host, queue, _) = await HostAsync();
         using var _host = host;
         var row = await host.WriteEntryAsync(Prompt(Backlog));
-        queue.Open[row.Id!.Value] = new(Guid.NewGuid(), state, Backlog);
+        queue.Open[row.Id!.Value] = new(Guid.NewGuid(), state, Backlog, DateTimeOffset.UnixEpoch);
         await host.OpenAsync(row);
 
         var pane = host.Render();
@@ -400,7 +402,7 @@ public sealed class TasksSessionRequestTests
         using var _host = host;
         var row = await host.WriteEntryAsync(Prompt(Backlog));
         var requestId = Guid.NewGuid();
-        queue.Open[row.Id!.Value] = new(requestId, EntrySessionRequestState.Requested, Backlog);
+        queue.Open[row.Id!.Value] = new(requestId, EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
         await host.OpenAsync(row);
 
         var pane = host.Render();
@@ -425,14 +427,14 @@ public sealed class TasksSessionRequestTests
         using var _host = host;
         var row = await host.WriteEntryAsync(Prompt(Backlog));
         var requestId = Guid.NewGuid();
-        queue.Open[row.Id!.Value] = new(requestId, EntrySessionRequestState.Requested, Backlog);
+        queue.Open[row.Id!.Value] = new(requestId, EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
         await host.OpenAsync(row);
 
         var pane = host.Render();
         pane.WaitForAssertion(() => pane.Find("[data-testid='session-request-cancel']"));
 
         // A dispatcher claims it: the chip stays, Cancel goes.
-        queue.Open[row.Id!.Value] = new(requestId, EntrySessionRequestState.Claimed, Backlog);
+        queue.Open[row.Id!.Value] = new(requestId, EntrySessionRequestState.Claimed, Backlog, DateTimeOffset.UnixEpoch);
         clock.Advance(TasksSessionRequests.PollInterval);
         pane.WaitForAssertion(() =>
         {
@@ -553,14 +555,279 @@ public sealed class TasksSessionRequestTests
         Assert.Equal("No clone folder is set for o/a, o/b or o/c. Set one in Settings › Repositories to start a session there.", offer!.DisabledReason);
     }
 
+    // --- The session queue on the filter bar ----------------------------------
+
+    private static AngleSharp.Dom.IElement QueueTrigger(IRenderedComponent<TasksPane> pane) =>
+        pane.WaitForElement("[data-testid='session-queue-button']");
+
+    /// <summary>
+    /// The queue trigger's own reference, read off the popover. The markup cannot give
+    /// it: bUnit writes <c>blazor:elementreference</c> blank once the button has been
+    /// re-rendered, and the trigger re-renders with every change to the queue's count.
+    /// </summary>
+    private static ElementReference QueueTriggerReference(IRenderedComponent<TasksPane> pane)
+    {
+        var popover = pane.FindComponents<PopoverButton>().Single(found => found.Instance.TestId == "session-queue").Instance;
+        var field = typeof(PopoverButton).GetField("_trigger", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        return Assert.IsType<ElementReference>(field.GetValue(popover));
+    }
+
+    private static void OpenQueue(IRenderedComponent<TasksPane> pane)
+    {
+        QueueTrigger(pane).Click();
+        pane.WaitForElement("[data-testid='session-queue-panel']");
+    }
+
+    [Fact]
+    public async Task With_nothing_queued_the_trigger_still_shows_muted_at_0_and_the_panel_says_nothing_is_waiting()
+    {
+        var (host, _, _) = await HostAsync();
+        using var _host = host;
+
+        var pane = host.Render();
+        var trigger = QueueTrigger(pane);
+
+        Assert.Equal("Session queue, empty", trigger.GetAttribute("aria-label"));
+        Assert.Equal("0", pane.Find("[data-testid='session-queue-count']").TextContent);
+        Assert.Contains("chip--queue-idle", trigger.ClassList);
+        Assert.Equal("filter-group filter-group--queue", trigger.ParentElement!.ParentElement!.GetAttribute("class"));
+        Assert.Equal("open-work-summary", trigger.ParentElement.ParentElement.PreviousElementSibling?.QuerySelector("[data-testid]")?.GetAttribute("data-testid"));
+
+        OpenQueue(pane);
+
+        Assert.NotNull(pane.Find("[data-testid='session-queue-none']"));
+        Assert.Empty(pane.FindAll("[data-testid='session-queue-row']"));
+        Assert.Contains("popover-button__panel--end", pane.Find("[data-testid='session-queue-panel']").ClassList);
+    }
+
+    [Fact]
+    public async Task With_the_action_not_offered_there_is_no_queue_on_the_bar()
+    {
+        var (host, queue, _) = await HostAsync();
+        using var _host = host;
+        queue.IsOffered = false;
+
+        var pane = host.Render();
+
+        pane.WaitForElement("[data-testid='open-work-summary']");
+        Assert.Empty(pane.FindAll("[data-testid='session-queue']"));
+    }
+
+    [Fact]
+    public async Task The_panel_lists_every_open_request_oldest_first_with_its_repository_state_and_age()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog));
+        var now = clock.GetUtcNow();
+        queue.Open[row.Id!.Value] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Claimed, Backlog, now.AddMinutes(-4));
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Tools, now.AddHours(-2));
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 2 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        Assert.Equal("2", pane.Find("[data-testid='session-queue-count']").TextContent);
+        Assert.DoesNotContain("chip--queue-idle", QueueTrigger(pane).ClassList);
+
+        OpenQueue(pane);
+
+        var rows = pane.FindAll("[data-testid='session-queue-row']");
+        Assert.Equal(2, rows.Count);
+
+        // The older one first: an entry the loaded rows do not hold, named neutrally and not followable.
+        Assert.Equal(SessionQueue.NotInView, rows[0].QuerySelector("[data-testid='session-queue-name']")!.TextContent);
+        Assert.Null(rows[0].QuerySelector("[data-testid='session-queue-jump']"));
+        Assert.Equal($"{Tools} · Requested · 2 h ago", Normalise(rows[0].QuerySelector("[data-testid='session-queue-meta']")!.TextContent));
+        Assert.NotNull(rows[0].QuerySelector("[data-testid='session-queue-cancel']"));
+
+        // Then the entry in view, by its title; Claimed offers no Cancel.
+        Assert.Equal("Add the Start session action", rows[1].QuerySelector("[data-testid='session-queue-jump']")!.TextContent.Trim());
+        Assert.Equal($"{Backlog} · Claimed · 4 min ago", Normalise(rows[1].QuerySelector("[data-testid='session-queue-meta']")!.TextContent));
+        Assert.Null(rows[1].QuerySelector("[data-testid='session-queue-cancel']"));
+    }
+
+    [Fact]
+    public async Task The_ages_move_on_with_the_poll_while_the_panel_is_open()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, clock.GetUtcNow());
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 1 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+        Assert.EndsWith("just now", Normalise(pane.Find("[data-testid='session-queue-meta']").TextContent), StringComparison.Ordinal);
+
+        clock.Advance(TimeSpan.FromMinutes(3));
+
+        pane.WaitForAssertion(() => Assert.EndsWith(
+            "3 min ago",
+            Normalise(pane.Find("[data-testid='session-queue-meta']").TextContent),
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Cancel_in_the_panel_withdraws_the_entry_s_request_and_the_row_goes()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog));
+        var id = Guid.NewGuid();
+        queue.Open[row.Id!.Value] = new EntrySessionRequest(id, EntrySessionRequestState.Requested, Backlog, clock.GetUtcNow());
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 1 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        var cancel = pane.Find("[data-testid='session-queue-cancel']");
+        Assert.Equal("Cancel the session request for Add the Start session action", cancel.GetAttribute("aria-label"));
+        cancel.Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(id, Assert.Single(queue.Cancelled));
+            Assert.Empty(pane.FindAll("[data-testid='session-queue-row']"));
+            Assert.NotNull(pane.Find("[data-testid='session-queue-none']"));
+            Assert.Equal("Session queue, empty", QueueTrigger(pane).GetAttribute("aria-label"));
+        });
+    }
+
+    [Fact]
+    public async Task Cancel_in_the_panel_moves_the_focus_to_the_row_that_takes_its_place()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        var now = clock.GetUtcNow();
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        queue.Open[first] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, now.AddMinutes(-9));
+        queue.Open[second] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Tools, now.AddMinutes(-2));
+        host.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 2 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        var secondCancelId = $"session-queue-cancel-entry-{second:n}";
+        Assert.Equal(secondCancelId, pane.FindAll("[data-testid='session-queue-cancel']")[1].Id);
+
+        pane.FindAll("[data-testid='session-queue-cancel']")[0].Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Single(pane.FindAll("[data-testid='session-queue-row']"));
+            var focus = host.Context.JSInterop.Invocations["backlogFocus"];
+            Assert.Equal(secondCancelId, Assert.Single(focus).Arguments[0]);
+            Assert.NotNull(pane.Find("[data-testid='session-queue-panel']"));
+        });
+    }
+
+    [Fact]
+    public async Task Cancelling_the_last_row_puts_the_focus_on_the_trigger_with_the_panel_still_open()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, clock.GetUtcNow());
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 1 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        pane.Find("[data-testid='session-queue-cancel']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotNull(pane.Find("[data-testid='session-queue-none']"));
+            var focused = Assert.IsType<ElementReference>(host.Context.JSInterop.VerifyFocusAsyncInvoke().Arguments[0]);
+            Assert.Equal(QueueTriggerReference(pane).Id, focused.Id);
+            Assert.Equal("true", QueueTrigger(pane).GetAttribute("aria-expanded"));
+        });
+    }
+
+    [Fact]
+    public async Task Following_an_entry_row_opens_the_entry_and_closes_the_panel()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog));
+        await host.State.SelectAsync(null);
+        queue.Open[row.Id!.Value] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Started, Backlog, clock.GetUtcNow());
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 1 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        pane.Find("[data-testid='session-queue-jump']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(row.Id, host.State.SelectedRow?.Id);
+            Assert.Empty(pane.FindAll("[data-testid='session-queue-panel']"));
+            Assert.Equal("false", QueueTrigger(pane).GetAttribute("aria-expanded"));
+        });
+    }
+
+    [Theory]
+    [InlineData(true, EntrySessionRequestState.Requested, true)]
+    [InlineData(true, EntrySessionRequestState.Claimed, false)]
+    [InlineData(false, EntrySessionRequestState.Requested, false)]
+    public async Task The_panel_warns_while_a_request_waits_and_no_dispatcher_is_heard(bool silent, EntrySessionRequestState state, bool warns)
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        queue.DispatcherContact = new DispatcherContactReading(LastHeardAt: null, IsSilent: silent);
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(Guid.NewGuid(), state, Backlog, clock.GetUtcNow());
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 1 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        var warning = pane.FindAll("[data-testid='session-queue-dispatcher-warning']");
+        Assert.Equal(warns, warning.Count == 1);
+        if (warns)
+        {
+            Assert.Equal("warning", warning[0].GetAttribute("data-tone"));
+            Assert.Contains("since it started", warning[0].TextContent, StringComparison.Ordinal);
+            Assert.Contains(SessionQueue.StartDispatcher, warning[0].TextContent, StringComparison.Ordinal);
+            Assert.Contains("pinned Claude Desktop session", warning[0].TextContent, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task A_dispatcher_going_silent_between_quiet_polls_brings_the_warning_up()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        var heard = clock.GetUtcNow();
+        queue.DispatcherContact = new DispatcherContactReading(heard, IsSilent: false);
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, heard);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 1 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+        Assert.Empty(pane.FindAll("[data-testid='session-queue-dispatcher-warning']"));
+
+        queue.DispatcherContact = new DispatcherContactReading(heard, IsSilent: true);
+        clock.Advance(TimeSpan.FromMinutes(3));
+
+        pane.WaitForAssertion(() => Assert.Contains(
+            "A dispatcher last reached Backlog 3 min ago",
+            pane.Find("[data-testid='session-queue-dispatcher-warning']").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    private static string Normalise(string text) => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
     private static GitHubRepositoryRef Repo(string alias, string owner, string name, string? clone) =>
         new(alias, owner, name) { CloneDirectory = clone };
 
     /// <summary>The queue, in memory: what was asked, what was cancelled, and what is
     /// open, which a test sets to move a request on as a dispatcher would.</summary>
-    private sealed class FakeEntrySessionRequests : IEntrySessionRequests
+    internal sealed class FakeEntrySessionRequests : IEntrySessionRequests
     {
         public bool IsOffered { get; set; } = true;
+
+        public DispatcherContactReading DispatcherContact { get; set; } = DispatcherContactReading.Unknown;
 
         public Dictionary<Guid, EntrySessionRequest> Open { get; } = [];
 
@@ -580,7 +847,7 @@ public sealed class TasksSessionRequestTests
             Asked.Add((entryId, repository, cloneFolder));
             if (Gate is { } gate) await gate.Task;
 
-            var request = Open.TryGetValue(entryId, out var open) ? open : new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, repository);
+            var request = Open.TryGetValue(entryId, out var open) ? open : new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, repository, DateTimeOffset.UnixEpoch);
             Open[entryId] = request;
             return request;
         }

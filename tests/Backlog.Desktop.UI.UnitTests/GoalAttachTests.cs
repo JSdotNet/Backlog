@@ -109,6 +109,31 @@ public sealed class GoalAttachTests : IDisposable
         control.WaitForAssertion(() => Assert.Equal("Docs", control.Find("[data-testid=goal-control-open]").TextContent.Trim()));
     }
 
+    /// <summary>The goal the module answers with is drawn at once and the picker closes,
+    /// while the goals are read again.</summary>
+    [Fact]
+    public async Task An_attach_shows_the_new_goal_and_closes_the_picker_before_the_goals_are_read_again()
+    {
+        var docs = Goal("Docs");
+        var goals = Compose(new FakeGoals(Goal("Launch"), docs));
+        var control = await OpenPickerAsync();
+        await ChooseAsync(control, docs.Goal.Id);
+        var listing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        goals.AnswersLater = true;
+        goals.ListGate = listing.Task;
+
+        control.Find("[data-testid=goal-picker-attach]").Click();
+
+        control.WaitForAssertion(() =>
+        {
+            Assert.Empty(control.FindAll("[data-testid=goal-picker]"));
+            Assert.Equal("Docs", control.Find("[data-testid=goal-control-open]").TextContent.Trim());
+        });
+        Assert.Equal([$"Attach {docs.Goal.Id} Task:{TaskId} move:False"], goals.Writes);
+
+        listing.SetResult();
+    }
+
     [Fact]
     public async Task A_new_goal_is_set_and_the_work_attached_to_it()
     {
@@ -335,8 +360,17 @@ public sealed class GoalAttachTests : IDisposable
         /// <summary>Set, every attach is refused with these words.</summary>
         public string? Refuse { get; set; }
 
-        public Task<Result<IReadOnlyList<GoalSummaryDto>>> ListAsync(DateOnly? windowStart = null, DateOnly? windowEnd = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Result.Success<IReadOnlyList<GoalSummaryDto>>([.. Goals]));
+        /// <summary>A list of the goals that lands only when the test says so.</summary>
+        public Task? ListGate { get; set; }
+
+        /// <summary>Each attach is answered after a yield, as the module's file write is.</summary>
+        public bool AnswersLater { get; set; }
+
+        public async Task<Result<IReadOnlyList<GoalSummaryDto>>> ListAsync(DateOnly? windowStart = null, DateOnly? windowEnd = null, CancellationToken cancellationToken = default)
+        {
+            if (ListGate is { } gate) await gate;
+            return Result.Success<IReadOnlyList<GoalSummaryDto>>([.. Goals]);
+        }
 
         public Task<Result<GoalDto>> GetAsync(Guid goalId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Result.Success(Goals.Single(goal => goal.Goal.Id == goalId).Goal));
@@ -361,21 +395,22 @@ public sealed class GoalAttachTests : IDisposable
         public Task<Result> MoveAsync(Guid goalId, int toIndex, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)
+        public async Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)
         {
             Writes.Add($"Attach {goalId} {item.Kind}:{item.TaskId?.ToString() ?? item.PlanTag ?? $"{item.Repository}#{item.Number}"} move:{moveFromOtherGoal}");
-            if (Refuse is { } refusal) return Task.FromResult(Result.Failure<GoalDto>(Error.Validation("progress.task_required", refusal)));
+            if (AnswersLater) await Task.Yield();
+            if (Refuse is { } refusal) return Result.Failure<GoalDto>(Error.Validation("progress.task_required", refusal));
 
             if (Holder(item) is { } holder && holder.Goal.Id != goalId)
             {
-                if (!moveFromOtherGoal) return Task.FromResult(Result.Failure<GoalDto>(ProgressErrors.ItemInOtherGoal(holder.Goal.Title)));
+                if (!moveFromOtherGoal) return Result.Failure<GoalDto>(ProgressErrors.ItemInOtherGoal(holder.Goal.Title));
                 Replace(holder.Goal with { Attachments = [.. holder.Goal.Attachments.Where(attachment => attachment.Item != item)] });
             }
 
             var target = Goals.Single(goal => goal.Goal.Id == goalId).Goal;
             var attached = target with { Attachments = [.. target.Attachments, new GoalAttachmentDto(item, Today)] };
             Replace(attached);
-            return Task.FromResult(Result.Success(attached));
+            return Result.Success(attached);
         }
 
         public Task<Result<GoalDto>> DetachAsync(Guid goalId, GoalItemDto item, CancellationToken cancellationToken = default) =>

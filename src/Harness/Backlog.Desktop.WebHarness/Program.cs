@@ -249,6 +249,10 @@ var app = builder.Build();
 // can test against the harness.
 _ = app.Services.GetRequiredService<TaskSyncWorker>();
 
+// And the Inbox's transcription of meeting recordings (local ADR 0049), started as the
+// desktop head starts it, against the harness's local Foundry stand-in.
+app.Services.GetRequiredService<Backlog.Modules.Inbox.Services.InboxRecordingTranscriptionWorker>().Start();
+
 // And session replication's own loop, for the same reason and with the same
 // failure if it is left out. A sibling rather than a second exchange inside the
 // worker above: see SessionSyncWorker for why one loop over two independently
@@ -294,6 +298,9 @@ _ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions
 
 // And the question relay's escalation timer (local ADR 0041), as the desktop head starts it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
+
+// And the run subject watch, as the desktop head starts it.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.RunSubjectWatch>();
 
 // And the notifications startup pass, on the same terms and for the same reason the desktop
 // head starts it.
@@ -416,7 +423,8 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
             TimeProvider.System,
             context.RequestAborted,
             questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
-            sessions: context.RequestServices.GetService<IAgentSessionSource>());
+            sessions: context.RequestServices.GetService<IAgentSessionSource>(),
+            contact: context.RequestServices.GetService<DispatcherContact>());
     }
     catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
     {

@@ -14,6 +14,7 @@ The Brain is the argument's folder, else the working directory; its own files ar
 
 ## Each tick
 
+0. **Mark.** Under `/loop`, first turn only: mark this session per `../../resources/standing-session.md`.
 1. **Rules.** Read, at the root, `AGENTS.md` — else `CLAUDE.md` — and `CONVENTIONS.md`, and the
    files they point at that the work needs; in a session that read them, again only when one
    changed since. Neither instruction file → stop. Rules disagree → the one detailing a folder governs it.

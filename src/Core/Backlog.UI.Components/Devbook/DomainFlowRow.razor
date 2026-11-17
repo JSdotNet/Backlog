@@ -143,9 +143,15 @@
     public string? TestId { get; set; } = "domain-flow-row";
 
     /// <summary>The flow file the row was read from: an event chip opens the
-    /// <c>model.md</c> beside it, whose Events tab holds the event's contract.</summary>
+    /// <c>model.md</c> beside it on its Events tab, at the event's contract.</summary>
     [Parameter]
     public string? DocumentPath { get; set; }
+
+    /// <summary>The Model file an event chip opens, as the host resolves it for the
+    /// opened file — a split's own <c>model.&lt;name&gt;.md</c>, else <c>model.md</c>.
+    /// Unset is the <c>model.md</c> beside <see cref="DocumentPath"/>.</summary>
+    [Parameter]
+    public string? ModelPath { get; set; }
 
     /// <summary>An event chip the reader followed. Without one a chip is text.</summary>
     [Parameter]
@@ -188,15 +194,18 @@
     private static string Share(double part, double whole) =>
         whole <= 0 ? "0" : N(part / whole * 100);
 
-    /// <summary>The Model page beside the flow file, where the events are read.
-    /// The Domain view opens a file's page, not a chapter inside it.</summary>
+    /// <summary>The Model page beside the flow file on the event's contract:
+    /// <c>model.md#taskprojected</c>, an anchor the Model page reads as its Events
+    /// tab with that event picked (<see cref="Diagrams.DomainModelTabs"/>).</summary>
     private DevbookReference? EventReference(DomainFlowEvent raised)
     {
+        var anchor = DomainUnits.Slug(raised.Name);
+        if (!string.IsNullOrWhiteSpace(ModelPath)) return DevbookReference.Parse($"{DomainUnits.PathOf(ModelPath)}#{anchor}");
         if (string.IsNullOrWhiteSpace(DocumentPath)) return null;
         var path = DocumentPath.Replace('\\', '/');
         var slash = path.LastIndexOf('/');
         var folder = slash < 0 ? string.Empty : path[..(slash + 1)];
-        return DevbookReference.Parse($"{folder}model.md");
+        return DevbookReference.Parse($"{folder}model.md#{anchor}");
     }
 
     private static string EventTitle(DomainFlowEvent raised) =>

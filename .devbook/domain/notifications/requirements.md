@@ -93,6 +93,242 @@ The system SHALL keep a Question Open until it is answered or closed, however mu
 - **When** a day passes
 - **Then** it is still Open, with no answer
 
+## Answering on the owner desktop
+
+```meta
+type: requirements
+related: [.devbook/domain/notifications/features.md#answering-on-the-owner-desktop, .devbook/domain/notifications/context.md#owner-screens]
+```
+
+> What the person gets in the owner desktop's notification centre.
+
+### Requirement: The centre follows the header's repository scope
+
+```meta
+type: requirement
+related: [.devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md]
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.One_scoped_repository_lists_only_what_resolves_to_it_and_says_how_many_wait_outside, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Several_scoped_repositories_list_their_union, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.The_brain_scoped_lists_what_resolves_to_no_repository, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.A_notification_whose_repository_could_not_be_worked_out_is_listed_under_any_scope, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.A_scope_pressed_while_the_centre_is_open_redraws_the_list_and_picks_what_is_still_shown]
+```
+
+The system SHALL list in the owner's centre every notification while the header's scope presses nothing, those about the pressed repositories while it presses some, and those about no repository while it presses the Brain, and SHALL list one whose repository could not be worked out under every scope.
+
+#### Scenario: Two repositories pressed
+
+- **Given** Desktop A holds a question about "backlog", one about "fincent" and a pairing question
+- **When** the person presses "backlog" and, with Ctrl, "fincent" in the header
+- **Then** the centre lists both repositories' questions and not the pairing question
+
+#### Scenario: The Brain pressed
+
+- **Given** the same three questions
+- **When** the person presses the Brain
+- **Then** the centre lists the pairing question only
+
+#### Scenario: A repository not worked out
+
+- **Given** a question whose source Desktop A cannot read
+- **When** the person presses "backlog"
+- **Then** the centre still lists the question
+
+### Requirement: The centre never hides what waits
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.The_waiting_badge_counts_open_questions_only_and_follows_answers, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.One_scoped_repository_lists_only_what_resolves_to_it_and_says_how_many_wait_outside, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Asked_by_narrows_to_a_persons_questions_and_each_option_counts_what_it_keeps, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Hiding_settled_ones_hides_no_open_question_so_the_subtitle_counts_none_as_filtered, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Until_the_first_load_is_back_the_subtitle_makes_no_claim_about_what_is_waiting]
+```
+
+The system SHALL count every open question on the shell's Notifications option whatever the centre's scope and filters hold, and SHALL say in the centre's subtitle how many waiting questions the scope leaves out and how many the filters hide.
+
+#### Scenario: Questions outside the scope
+
+- **Given** Desktop A holds three open questions, one of them about "backlog"
+- **When** the person presses "backlog" in the header
+- **Then** the Notifications option still reads 3, and the subtitle reads "1 waiting for an answer · 2 more outside this scope"
+
+#### Scenario: A question a filter hides
+
+- **Given** an open question an AI agent asked and one a person asked
+- **When** the person picks Person under Asked by
+- **Then** the subtitle reads "1 waiting for an answer · 1 hidden by the filters"
+
+#### Scenario: Settled ones hidden
+
+- **Given** one open question and three settled notifications, with Show settled off
+- **When** the person opens the centre
+- **Then** the subtitle reads "1 waiting for an answer" and counts nothing as hidden
+
+#### Scenario: Before the first load
+
+- **Given** the centre has not yet worked out which repository each notification is about
+- **When** the person opens it
+- **Then** the subtitle reads "Loading…" until that answer returns
+
+### Requirement: The centre lists open notifications until Show settled is pressed
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.By_default_the_centre_lists_only_what_is_open, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Show_settled_lists_the_settled_ones_after_the_open_and_pressed_again_hides_them, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.With_everything_settled_and_hidden_the_list_says_nothing_waits_and_the_detail_asks_for_no_pick]
+```
+
+The system SHALL list only the open notifications in the owner's centre until the person presses Show settled, which adds after them those answered, acknowledged or closed in the last seven days.
+
+#### Scenario: Opening the centre
+
+- **Given** Desktop A holds an open question and an open alert, and one answered, one acknowledged and one closed notification
+- **When** the person opens the centre
+- **Then** it lists the question and the alert only, and Show settled reads 3
+
+#### Scenario: Showing the settled ones
+
+- **Given** the same five notifications
+- **When** the person presses Show settled
+- **Then** the centre lists all five with the open question first, and pressing Show settled again hides the three settled ones
+
+#### Scenario: Everything settled
+
+- **Given** Desktop A's only notification is an answered question
+- **When** the person opens the centre
+- **Then** the list says nothing is waiting, and Show settled reads 1
+
+### Requirement: Kind narrows the centre to questions or alerts
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Kind_narrows_to_the_alerts_and_clear_filters_lets_everything_back_but_keeps_group_by, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.A_remembered_kind_open_reads_as_all_with_settled_ones_hidden]
+```
+
+The system SHALL let the person narrow the owner's centre by Kind to All, Questions or Alerts, and SHALL read a Kind of Open that an older build remembered as All with settled ones hidden.
+
+#### Scenario: Picking Alerts
+
+- **Given** the centre lists an open question and an open alert
+- **When** the person picks Alerts under Kind
+- **Then** it lists the alert only
+
+#### Scenario: A remembered Open
+
+- **Given** an older build remembered Kind as Open on this desktop
+- **When** the person opens the centre
+- **Then** Kind reads All, Show settled is off, and the open question and alert are listed without the answered question
+
+### Requirement: Each centre filter counts what it would list
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Every_tally_counts_only_what_would_be_listed_and_kind_all_counts_the_rows, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.The_settled_tally_counts_under_the_filters, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Asked_by_narrows_to_a_persons_questions_and_each_option_counts_what_it_keeps]
+```
+
+The system SHALL show beside each option of the centre's filters how many notifications it would list under the scope, the other filters and Show settled, and beside Show settled how many settled notifications the scope and the filters keep.
+
+#### Scenario: Tallies follow Show settled
+
+- **Given** an open question and an open alert, and one answered, one acknowledged and one closed notification
+- **When** the person presses Show settled
+- **Then** Kind's All, Questions and Alerts read 5, 3 and 2 instead of 2, 1 and 1
+
+#### Scenario: The settled tally under a filter
+
+- **Given** the same five notifications, with Show settled off
+- **When** the person picks Questions under Kind
+- **Then** Show settled reads 2, the answered and the closed question
+
+### Requirement: The centre groups its list with what waits first
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.With_nothing_scoped_the_list_groups_by_repository_and_the_unfiled_sit_under_brain, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.With_one_repository_scoped_the_list_groups_by_system, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.The_list_groups_notifications_under_their_subject_with_the_open_question_group_first, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Group_by_asked_by_puts_every_agents_question_in_one_group]
+```
+
+The system SHALL group the centre's list by the person's Group by choice, or when none is chosen by repository, or by system while one repository or the Brain alone is pressed, and SHALL order the groups and each group's rows open questions first, then newest first.
+
+#### Scenario: Nothing pressed
+
+- **Given** questions about "backlog" and "fincent" and a pairing question, and no Group by chosen
+- **When** the person opens the centre with nothing pressed in the header
+- **Then** the list is grouped by repository, the pairing question under Brain
+
+#### Scenario: One repository pressed
+
+- **Given** no Group by chosen
+- **When** the person presses "backlog" in the header
+- **Then** the list is grouped by system
+
+#### Scenario: Grouped by subject
+
+- **Given** an alert with no subject, and open questions about a session and a task
+- **When** the list is grouped by subject
+- **Then** the groups holding an open question come before the alert's
+
+### Requirement: The centre remembers its choices and Clear filters resets only the filters
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.The_centre_reopens_on_the_group_by_and_filters_chosen_last_on_this_device, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Show_settled_is_remembered_on_this_device_and_the_centre_reopens_with_it, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Clear_filters_leaves_show_settled_as_it_was, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.Kind_narrows_to_the_alerts_and_clear_filters_lets_everything_back_but_keeps_group_by, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.A_remembered_choice_this_build_does_not_know_falls_back_to_all]
+```
+
+The system SHALL remember the centre's Group by, filters and Show settled on the owner desktop, and SHALL set only the filters back to All when the person presses Clear filters.
+
+#### Scenario: Reopening the centre
+
+- **Given** the person grouped by subject, picked Alerts and pressed Show settled
+- **When** they leave the centre and open it again
+- **Then** it is grouped by subject, lists alerts only, and lists the settled ones
+
+#### Scenario: Clearing the filters
+
+- **Given** the centre is grouped by subject, with Questions picked and Show settled pressed
+- **When** the person presses Clear filters
+- **Then** Kind reads All, the list stays grouped by subject, and Show settled stays pressed
+
+#### Scenario: A choice this build does not know
+
+- **Given** this desktop remembered a Group by and filters this build does not offer
+- **When** the person opens the centre
+- **Then** it groups by repository, every filter reads All, and Clear filters is not offered
+
+### Requirement: An answer given in the centre stays in view until another is picked
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.One_answered_here_stays_listed_and_picked_until_another_is_picked, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.The_pane_opens_on_the_open_question_and_answers_it_through_the_centre]
+```
+
+The system SHALL keep a notification the person answers or acknowledges in the centre listed and picked, with the answer it got, until they pick another, even while settled ones are hidden.
+
+#### Scenario: Answering in the centre
+
+- **Given** two open questions, Show settled off, and the second one picked
+- **When** the person presses Not now on it
+- **Then** its row reads Answered with "Not now" and stays picked, and its card shows the answer
+
+#### Scenario: Picking another
+
+- **Given** the question just answered in the centre is still listed and picked
+- **When** the person picks the other question
+- **Then** the answered question leaves the list
+
+### Requirement: A jump to a notification lands on it for that visit
+
+```meta
+type: requirement
+related: [.devbook/design/interaction-guidelines.md#focus-and-selection]
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.A_focus_on_a_settled_notification_lists_the_settled_ones_without_remembering_it, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.A_focus_on_a_notification_the_scope_and_a_filter_hide_clears_both_so_the_jump_lands, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.The_pane_opens_on_the_notification_it_is_focused_on]
+```
+
+The system SHALL list and pick the notification the centre is opened on, for that visit listing settled ones and clearing whatever filter or scope hides it, and SHALL remember none of it.
+
+#### Scenario: A jump to a closed notification
+
+- **Given** a closed question, with Show settled off
+- **When** the centre opens on it, as Open in Backlog opens it
+- **Then** the question is picked with its reason, Show settled reads pressed, and the remembered choices still have it off
+
+#### Scenario: A jump past the scope and a filter
+
+- **Given** "backlog" is pressed in the header and Alerts is picked under Kind
+- **When** the centre opens on a question about "fincent"
+- **Then** the question is listed and picked, and Kind reads All
+
 ## Answering from another device
 
 ```meta
@@ -186,26 +422,26 @@ type: requirement
 related: [.devbook/domain/notifications/domain.md#acknowledgement, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
 ```
 
-The system SHALL let any paired viewer acknowledge an open alert, mark it Acknowledged only when its owner takes the acknowledgement, then move it from every device's open stack to settled in its list.
+The system SHALL let any paired viewer acknowledge an open alert, mark it Acknowledged only when its owner takes the acknowledgement, then move it from every device's open stack to settled.
 
 #### Scenario: Dismissing an alert on the phone
 
 - **Given** Desktop A owns an open alert, and the phone and Desktop B are paired
 - **When** the person taps Dismiss on the alert in the phone's pager
 - **Then** the alert leaves the phone's stack at once, Desktop A marks it Acknowledged, and it leaves Desktop A's open notifications, its Windows notification and Desktop B's open notifications
-- **And** the phone's list keeps it, reading "Acknowledged on this phone"
+- **And** its detail on the phone reads "Acknowledged on this phone"
 
 #### Scenario: The owner is offline
 
 - **Given** Desktop A owns an open alert and is asleep
 - **When** the person taps Dismiss on the phone
-- **Then** the alert leaves the phone's stack, the phone's list reads "delivers on wake", and Desktop A marks it Acknowledged when it wakes
+- **Then** the alert leaves the phone's stack, its detail on the phone reads "delivers on wake", and Desktop A marks it Acknowledged when it wakes
 
 #### Scenario: The phone is offline
 
 - **Given** the phone has no network
 - **When** the person taps Dismiss on an open alert
-- **Then** the acknowledgement waits in the device outbox, the alert leaves the phone's stack, and the list reads "Sending" until the outbox delivers it
+- **Then** the acknowledgement waits in the device outbox, the alert leaves the phone's stack, and its detail reads "Sending" until the outbox delivers it
 
 #### Scenario: The alert closed first
 
@@ -265,19 +501,19 @@ type: requirement
 related: [.devbook/domain/notifications/domain.md#origin, .devbook/domain/notifications/context.md#owner-screens]
 ```
 
-The system SHALL let the person narrow both views of the phone's Notifications tab by From, the system a notification came from, and by Repository, the repository its owner published or the Brain, and SHALL keep a notification whose repository is not known under every Repository choice.
+The system SHALL let the person narrow the pager on the phone's Notifications tab by From, the system a notification came from, and by Repository, the repository its owner published or the Brain, and SHALL keep a notification whose repository is not known under every Repository choice.
 
 #### Scenario: Picking a system
 
 - **Given** the phone holds open questions from Claude Code and from spec-manager
 - **When** the person picks Claude Code under From
-- **Then** the list shows only Claude Code's notifications, and the pager's stack, its position and its end screen count only Claude Code's waiting questions
+- **Then** the pager's stack, its position and its end screen count only Claude Code's waiting questions
 
 #### Scenario: Picking the Brain
 
 - **Given** the phone holds a pairing question and a question about the repository "Backlog"
 - **When** the person picks Brain under Repository
-- **Then** both views show the pairing question and not the one about "Backlog"
+- **Then** the pager shows the pairing question and not the one about "Backlog"
 
 #### Scenario: A repository not known
 
@@ -289,15 +525,22 @@ The system SHALL let the person narrow both views of the phone's Notifications t
 
 ```meta
 type: requirement
+related: [.devbook/domain/notifications/requirements.md#requirement-phone-filters-never-hide-what-waits]
 ```
 
-The system SHALL show beside each option of a phone filter how many notifications it would keep under the other filter, and SHALL not show a filter with fewer than two options.
+The system SHALL show beside each option of a phone filter how many waiting notifications it would keep under the other filter, and SHALL not show a filter with fewer than two options.
 
 #### Scenario: Counts under the other filter
 
-- **Given** Repository is set to "Backlog", which holds two Claude Code notifications and one from spec-manager
+- **Given** Repository is set to "Backlog", which holds two waiting Claude Code notifications and one from spec-manager
 - **When** the person opens From
 - **Then** Claude Code reads 2 and spec-manager reads 1
+
+#### Scenario: A settled notification
+
+- **Given** the only spec-manager notification on the phone has been answered
+- **When** the person opens From
+- **Then** spec-manager is still offered and reads 0
 
 #### Scenario: One system only
 
@@ -311,19 +554,19 @@ The system SHALL show beside each option of a phone filter how many notification
 type: requirement
 ```
 
-The system SHALL keep the phone's From and Repository choices on the device across both views and across restarts, and SHALL set both back to All when the person presses Clear filters.
+The system SHALL keep the phone's From and Repository choices on the device across restarts, and SHALL set both back to All when the person presses Clear filters.
 
 #### Scenario: Filters survive a restart
 
 - **Given** the person picked Claude Code under From
 - **When** they close the app and open it again on the Notifications tab
-- **Then** From still reads Claude Code, in the pager and in the list
+- **Then** From still reads Claude Code, and the pager holds only Claude Code's waiting questions
 
 #### Scenario: A filter that leaves nothing
 
-- **Given** the person picked a repository whose notifications have all been closed
+- **Given** the person picked a system no notification on the phone comes from any longer
 - **When** the tab has nothing left to show
-- **Then** it shows an empty state with Clear filters instead of "No notifications", and pressing Clear filters shows every notification again
+- **Then** it shows an empty state with Clear filters instead of "No notifications", and pressing Clear filters brings the pager back with everything that waits
 
 ### Requirement: Phone filters never hide what waits
 
@@ -331,13 +574,19 @@ The system SHALL keep the phone's From and Repository choices on the device acro
 type: requirement
 ```
 
-The system SHALL count every open question in the tab's waiting count and SHALL push every notification to the phone, whatever the phone's filters hold.
+The system SHALL mark the phone's filter button, to the eye and in its accessible name, while a filter narrows the tab, SHALL show on it how many items waiting on the person the filters leave out, and SHALL push every notification to the phone, whatever the phone's filters hold.
 
 #### Scenario: A question outside the filter
 
-- **Given** the person picked spec-manager under From
+- **Given** the person picked spec-manager under From, which leaves out two of three waiting notifications
 - **When** Desktop A publishes a Claude Code question
-- **Then** the phone's tray shows it, and the waiting count counts it, though neither view lists it
+- **Then** the phone's tray shows it and the filter button reads 3, though the pager does not hold it
+
+#### Scenario: A filter that leaves nothing waiting out
+
+- **Given** every waiting notification came from Claude Code, and a settled one from spec-manager
+- **When** the person picks Claude Code under From
+- **Then** the filter button shows and says that filters are on, and carries no number
 
 ### Requirement: Android is the only phone platform
 

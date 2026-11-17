@@ -1,10 +1,12 @@
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.Goals;
+using Backlog.Desktop.UI.Review;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
@@ -30,6 +32,7 @@ using Backlog.Modules.Calendar.UI;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Brain.UI.Extensions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.UI;
@@ -44,6 +47,7 @@ using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.Progress.UI.WeeklyReview;
 using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.RepositoryManagement.Extensions;
 using Backlog.Modules.Roadmap.Extensions;
@@ -195,6 +199,15 @@ public static class DesktopCompositionRegistration
             sp.GetService<INotifications>,
             sp.GetService<ILogger<PullRequestSubjects>>()));
         services.AddSingleton<ISessionPullRequestStates>(sp => sp.GetRequiredService<PullRequestSubjects>());
+        // And while the app runs: an open Personal Validation question closes once its run's
+        // pull request merged or closed, or every session of the run is archived, through the
+        // same Sessions probe. The heads resolve it once, as they do the relay's timer.
+        services.AddSingleton(sp => new RunSubjectWatch(
+            sp.GetService<INotificationReplication>,
+            sp.GetServices<INotificationSubjectProbe>().First(probe => probe is SessionSubjectProbe),
+            sp.GetService<INotifications>,
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<RunSubjectWatch>>()));
         // The MCP ask tool's questions: the asking session polls get_answer, so its handler
         // only takes the answer, which stops the startup pass replaying it on every start.
         services.AddNotificationAnswerHandler<McpNotificationAnswers>();
@@ -330,6 +343,12 @@ public static class DesktopCompositionRegistration
         // settings, for the drafter's reasons and with its lifetime. A host that
         // wants a stand-in replaces this registration after the call.
         services.Add(new ServiceDescriptor(typeof(IInboxTriageAdvisor), typeof(AzureFoundryInboxTriageAdvisor), options.WindowStateLifetime));
+        // A meeting recording on a note, transcribed and summarized once it has come down
+        // (local ADR 0049): the transcription deployment with the desktop's own key and
+        // settings, and the summary over the chat client above. A singleton, because the
+        // Inbox's background worker resolves it from the root provider.
+        services.AddAzureFoundryDesktopTranscriptionClient();
+        services.AddSingleton<IInboxRecordingTranscriber, AzureFoundryInboxRecordingTranscriber>();
         // The embedding deployment beside the chat one: the devbook databases'
         // semantic tier (local ADR 0004), embedded by the refresher below and
         // asked by the search panel, both through FoundryDevbookEmbedder.
@@ -397,6 +416,7 @@ public static class DesktopCompositionRegistration
         services.AddDevbookSurface();
         services.AddInboxSurface();
         services.AddEventsSurface();
+        services.AddWeeklyReviewSurface();
         services.AddSessionsSurface();
         services.AddPullRequestsSurface();
         services.AddDashboardSurface();
@@ -430,8 +450,16 @@ public static class DesktopCompositionRegistration
             typeof(IGoalsViewSource),
             sp => sp.GetRequiredService<ShellGoalsViewSource>(),
             options.WindowStateLifetime));
+        // The weekly review's reading of the window's Inbox, task list, Brain, roadmap
+        // and goals, and its actions in this window.
+        services.Add(new ServiceDescriptor(
+            typeof(IWeeklyReviewSource),
+            sp => new ShellWeeklyReviewSource(sp),
+            options.WindowStateLifetime));
         services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
         services.Add(new ServiceDescriptor(typeof(ISurfaceNavigator), typeof(SurfaceNavigator), options.WindowStateLifetime));
+        // The Brain's area names the open task's Area picker suggests first.
+        services.AddSingleton<IBrainAreaNames>(sp => new ShellBrainAreaNames(sp.GetService<IBrainFolderSource>()));
         // The titles a Brain note's Tasks section draws, from the window's own task list.
         services.Add(new ServiceDescriptor(
             typeof(IDevbookTaskTitles),
@@ -486,6 +514,10 @@ public static class DesktopCompositionRegistration
         // The last prompt per Claude session, which the hook telemetry route feeds and the
         // head's presence reads (local ADR 0041). Read on this desktop only.
         services.AddSingleton(_ => new SessionPrompts());
+        // When a dispatcher last waited on the session-request route (local ADR 0038 §4),
+        // which the route records and the Tasks pane's session queue reads. In memory and
+        // on this desktop only, like the prompts above: a restart forgets it.
+        services.AddSingleton(sp => new DispatcherContact(sp.GetService<TimeProvider>()));
         // The question relay (local ADR 0041): the waiting questions in backlog.db, the
         // route from the head's presence — none reads as at the keyboard — and "notify
         // after" read from the workspace settings on every question. Its escalation timer
@@ -655,9 +687,13 @@ public static class DesktopCompositionRegistration
         services.AddSingleton<IDevbookQueryEmbedder>(sp => sp.GetRequiredService<FoundryDevbookEmbedder>());
         // What a task's Devbook references point at, for the Tasks detail panel and
         // the MCP reference tools: Tasks' port, answered over the same database and
-        // folders, falling back to the Markdown where there is no database.
+        // folders, falling back to the Markdown where there is no database. A
+        // #brain: reference is answered from the owner's own Brain where this host
+        // composes one, and is never looked up in a repository (local ADR 0053).
         services.AddSingleton<IDevbookReferenceResolver>(sp =>
-            new DevbookReferenceResolver(sp.GetRequiredService<IDevbookFolderSource>()));
+            new BrainDevbookReferenceResolver(
+                new DevbookReferenceResolver(sp.GetRequiredService<IDevbookFolderSource>()),
+                sp.GetService<IBrainFolderSource>()));
 
         // A person's remarks on Devbook chapters: one JSON file per repository
         // under the storage folder, following the root the way the inbox store

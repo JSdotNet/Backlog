@@ -236,17 +236,20 @@ rating: adopted
 type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#claude-code-hooks"]
 related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
-version: "0.17.0"
+version: "0.34.0"
 ```
 
 This repository's own plugin, `plugins/backlog-tools`, with a Claude Code manifest.
 
-- **Used for** — five skills:
-  - `import-plan`
-  - `run-plan-item`
-  - `execute-plan`
-  - `import-inbox`
-  - `handle-remarks`
+- **Used for** — twelve skills:
+  - plans: `import-plan`, `run-plan-item`, `execute-plan`, `final-check`,
+    `close-merged`
+  - the Inbox: `import-inbox`
+  - the devbook: `handle-remarks`, `devbook-sweep`
+  - sessions: `dispatch-sessions`
+  - goals: `track-goals`
+  - the Brain: `tend-brain`
+  - cost: `weekly-cost-analysis`
 
   It also ships three hooks: the plan-item nudge, the telemetry forwarder, and
   `hooks/register.tsx`, which draws the plan-progress band and pane. It is installed

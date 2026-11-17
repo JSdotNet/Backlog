@@ -21,7 +21,7 @@ sits behind the flag `session-requests`, off by default.
 Accepted, 2026-11-02, at the Personal Validation gate of the flow-spec run
 `run-mvzp51dk-5wwl1p`, which made the second amendment. Proposed 2026-10-22 by the
 flow-spec run `run-mviose3i-v0k24o` that drafted it, the `record-decision` item of the
-`session-dispatch` plan, run unattended. Amended on 2026-10-27 and 2026-11-02
+`session-dispatch` plan, run unattended. Amended on 2026-10-27, 2026-11-02 and 2026-11-11
 ([History](#history)).
 
 Built and merged in PR #1491 on 2026-10-26: the request record and its queue table, the
@@ -193,6 +193,13 @@ started session. It holds no state of its own, so restarting it loses nothing. H
 many sessions it runs at once, and when it holds back for machine load or usage, is
 the skill's own policy and not this record's.
 
+**Amended 2026-11-11: the app notes when a dispatcher last waited.** Each call the wait
+route lets in is recorded as dispatcher contact, in memory on this desktop, and counts
+as now for as long as the call is held. A `404` while the flag is off records nothing.
+The record names no dispatcher and is forgotten on restart, and the Manager still holds
+no state. The Tasks filter bar's session queue lists every open request and warns when
+one waits Requested and no dispatcher has been heard for more than two minutes.
+
 A direct launch from the app, the way it starts Copilot CLI, is left for later. It
 would be a second dispatcher for the same request, and neither the request nor the
 Manager would change.
@@ -223,7 +230,9 @@ Positive:
 Negative:
 
 - **Someone has to start the Manager and keep it running.** Requests made while none
-  runs wait, which may start work later than the person expected.
+  runs wait, which may start work later than the person expected. Since the
+  2026-11-11 amendment, the session queue says so when none is heard and names the
+  command that starts one.
 - **A request started late runs late.** A request made days ago starts when a
   dispatcher next runs. `run-plan-item` exits when the entry is already done.
 - **The clone folder may need opening in Claude Desktop once**, so it is trusted
@@ -264,6 +273,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | §4 amended: the app records dispatcher contact from the wait route, in memory, and the Tasks filter bar's session queue warns when none has come for two minutes while a request waits Requested. Built in PR #1799. | Requests waited unseen with no Manager running, and nothing said so. |
 | 2026-11-02 | §3 amended: a lapsed lease returns the request to Requested for every other dispatcher, while the holder's late `started` report still counts until another dispatcher claims it. | `start_session` can outlast the lease, and the refused report let one Manager dispatch its own request twice. |
 | 2026-11-02 | Accepted at the gate of `run-mvzp51dk-5wwl1p`. Status: built and merged in PR #1491 on 2026-10-26. | The Status still said the plan's later items would build it, and the person accepted the record. |
 | 2026-10-27 | §1 amended: an Approve + follow-up answer to a Personal Validation question, from any paired device, files one ready prompt entry `after:` the gated entry in the same plan and repository, which an attended `execute-plan` dispatches; it never creates a session request. | A paired device already approves the gate, so it may queue the next step; only a click still starts a session. |

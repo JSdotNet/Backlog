@@ -27,6 +27,39 @@ tools with its questions in the dialog's shape, and the Sessions
 [Question Relay](../sessions/domain.md#question-relay) decides when those reach
 the person.
 
+## Answering on the owner desktop
+
+```meta
+type: feature
+related: [.devbook/domain/notifications/requirements.md#answering-on-the-owner-desktop, .devbook/domain/notifications/context.md#owner-screens, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/design/interaction-guidelines.md#focus-and-selection]
+```
+
+```mermaid
+stateDiagram-v2
+    state "Listed" as Listed
+    state "Kept in view" as Kept
+    state "Settled, hidden" as Hidden
+    state "Settled, listed" as Shown
+    [*] --> Listed : published
+    Listed --> Kept : answered or acknowledged here
+    Listed --> Hidden : answered, acknowledged or closed elsewhere
+    Kept --> Hidden : another is picked
+    Hidden --> Shown : Show settled, or a jump to it
+    Shown --> Hidden : Show settled off
+```
+
+The person works through what waits on the desktop that owns it, in the
+notification centre. The centre lists what is still open, so the list is the
+work left to do. What is settled stays a press away, for the answer it got.
+
+The diagram follows one notification while **Show settled** is off. With it on, a
+settled notification stays listed. A jump comes from **Open in Backlog** on a
+Windows notification, and lasts for that visit.
+
+The centre narrows its list by the header's repository scope and by three filters:
+From, Asked by and Kind. It groups the list by **Group by**. The screens themselves
+are described under [Owner screens](context.md#owner-screens).
+
 ## Answering from another device
 
 ```meta
@@ -54,13 +87,18 @@ it.
 
 On the phone this is the Notifications tab in `Backlog.Mobile.UI`. It pulls the
 feed when it opens and when the app comes back to the front. It also pulls every 30 seconds
-while a reply made there waits for its owner. Each card shows:
+while a reply made there waits for its owner. Those pulls are its refresh, so the
+tab has no refresh button.
+
+The tab is a pager: one item waiting on the person per screen, oldest first, with
+"n / total" and a dot per item. A card's title opens its detail, which shows any
+notification, a settled one included. Each card shows:
 
 - the kind, the severity and the age;
 - the owner desktop's name;
 - whether it is online, an owner offline reading "delivers on wake".
 
-The detail draws the Markdown body, Mermaid included. A question takes choice
+The card draws the Markdown body, Mermaid included. A question takes choice
 buttons, checkboxes for multiple choice, or a plain-text answer. The reply leaves
 through the device outbox as a `notification-reply` entry, so a reply made offline
 is kept. A question that says `answerOn: owner` is read-only there.
@@ -82,12 +120,13 @@ An open alert on the phone offers Dismiss, which sends an
 [Acknowledgement](domain.md#acknowledgement) to the owner desktop through the same
 outbox, as a `notification-reply` entry. Another desktop sends one from its
 centre's Acknowledge. The alert leaves the stack of the device that dismissed it at
-once, and every other device's stack once the owner takes it. It stays in each
-device's list as settled, for as long as answered and closed notifications stay
-there, and reads "Acknowledged on this phone" or "Acknowledged elsewhere".
+once, and every other device's stack once the owner takes it. It stays settled
+for as long as answered and closed notifications stay: in a desktop centre's list,
+and on the phone in its detail. There it reads "Acknowledged on this phone" or
+"Acknowledged elsewhere".
 
-Until the owner takes it, the list reads "Sending" while it is in the outbox, and
-"delivers on wake" while the owner is offline. When the alert closes first, it
+Until the owner takes it, the phone's detail reads "Sending" while it is in the
+outbox, and "delivers on wake" while the owner is offline. When the alert closes first, it
 reads Closed with its reason. When cloud sync refuses the acknowledgement, the
 alert comes back into the stack with the reason.
 
@@ -95,7 +134,8 @@ The phone reads presence off the owner's own pushes. An owner desktop pushes eac
 open question again every 10 minutes, and a phone that has seen no push from it
 for 15 minutes reads it as offline.
 
-Two filters sit over the tab and narrow both its views, the pager and the list:
+Two filters narrow the pager. They sit behind a filter button at the start of the
+pager's row, the only row above the card:
 
 - **From:** the system a notification came from, by the rule the desktop
   centre's From filter keeps: [Origin](domain.md#origin)'s system, else the
@@ -105,12 +145,17 @@ Two filters sit over the tab and narrow both its views, the pager and the list:
   those about no repository. A notification whose repository is not known stays
   under every choice, as it does on the desktop.
 
-Each starts at All, and each option counts what it would keep under the other
-filter. A filter with fewer than two options is not shown. The phone remembers
-both on the device, and **Clear filters** sets both back to All. A filter that
-leaves nothing shows an empty state with **Clear filters**, not "No
-notifications". The filters change only what the tab shows: the waiting count
-counts every open question, and the Android push is sent whatever they hold.
+Each starts at All. Each option counts what waits among what it would keep under
+the other filter, so a settled notification adds nothing and an option may read 0.
+A filter with fewer than two options is not shown. The phone remembers both on the
+device, and **Clear filters** sets both back to All. A filter that leaves nothing
+shows an empty state with **Clear filters**, not "No notifications".
+
+What waits is the kind of item the pager's stack holds: every open question
+without a reply on its way, and every open alert. The filters change only what the
+tab shows. While one narrows the tab, the filter button shows and says that filters
+are on, and wears the number of waiting items they leave out. So a filter never
+hides what waits unseen. The Android push is sent whatever the filters hold.
 
 The phone also hears of a notification without being opened, through an Android
 push. When a notification is published or changes state, the phone gets an

@@ -3,7 +3,7 @@
 <PageTitle>Domain events — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain events"
-           Summary="The Model page's Events tab: DomainEventContracts lists each domain-event chapter of a bounded context in an All events index — who raises it, when, who consumes it, and whether the chapters say it is emitted or only documented — with the picked event's contract beneath: raised by, the event, consumed by; its payload as rows; the published-language rules. What the context listens to comes from its dependency tables."
+           Summary="The Model page's Events tab: DomainEventContracts lists each domain-event chapter of a bounded context in an All events index — who raises it, when, who consumes it, and whether the chapters say it is emitted or only documented — with the picked event's contract beneath: raised by, the event, consumed by; its payload as rows; the published-language rules; and the moves of the context's lifecycles that raise it, under Would fire on until it is emitted. What the context listens to comes from its dependency tables."
            Guidelines="@Rules">
 
     <Story Name="Index and one contract"
@@ -13,6 +13,15 @@
            SourceLabel="domain.md"
            SourceLanguage="markdown">
         <DomainEventContracts Events="@Reading.Events" Listens="@Listens" Context="Capture" TestId="story-domain-events" />
+    </Story>
+
+    <Story Name="Would fire on"
+           Description="An event a lifecycle the context draws raises on a move says so after its published-language rules: the move's states by their labels, read from the stateDiagram-v2 transition whose label names the event — never from prose. It reads Would fire on while the event is documented and Fires on once it is emitted; an event no transition names has no such part."
+           Code="@MovesCode"
+           Source="@Lifecycle"
+           SourceLabel="domain.md"
+           SourceLanguage="markdown">
+        <DomainEventContracts Events="@Fired.Events" Moves="@Fired.Moves" Context="Tasks" Root="Task" TestId="story-domain-events-fires" />
     </Story>
 
     <Story Name="A section the chapter does not write"
@@ -91,6 +100,62 @@
 
     private static readonly DomainChapterReading Reading =
         DomainChapterContracts.Read([new DomainChapterSource(".domain/capture/domain.md", Chapter)]);
+
+    private const string Lifecycle = """
+        ## Task
+
+        ```meta
+        type: aggregate
+        ```
+
+        **Task lifecycle**
+
+        ```mermaid
+        stateDiagram-v2
+            state "In progress" as InProgress
+            [*] --> Ready
+            Ready --> InProgress : started (TaskProjected, not yet emitted)
+            InProgress --> Done : finished (TaskCompleted, not yet emitted)
+        ```
+
+        A refined, actionable item.
+
+        ## TaskProjected
+
+        ```meta
+        type: domain-event
+        related: [.devbook/domain/tasks/domain.md#task]
+        ```
+
+        Published when work on a `Task` starts, once per target repository.
+
+        ### Published language rules
+
+        - Consumers read the target type only.
+
+        ## TaskCompleted
+
+        ```meta
+        type: domain-event
+        related: [.devbook/domain/tasks/domain.md#task]
+        ```
+
+        Published when a `Task` is done.
+        """;
+
+    private static readonly DomainChapterReading Fired =
+        DomainChapterContracts.Read([new DomainChapterSource(".domain/tasks/domain.md", Lifecycle)])
+            with { Moves = DomainEventIndex.Moves([DomainUnits.Parse(Lifecycle, ".domain/tasks/domain.md")]) };
+
+    private const string MovesCode = """
+        <DomainEventContracts Events="@reading.Events" Moves="@reading.Moves" Context="Tasks" Root="Task" />
+
+        @code {
+            // The moves come from the lifecycles the context's domain files draw.
+            private DomainChapterReading reading = DomainChapterContracts.Read(sources)
+                with { Moves = DomainEventIndex.Moves(domainFiles) };
+        }
+        """;
 
     private static readonly IReadOnlyList<DomainEventContract> Thin =
     [

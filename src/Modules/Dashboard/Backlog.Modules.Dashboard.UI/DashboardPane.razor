@@ -77,14 +77,16 @@
     field: the pane opens on the tabs every time. The window toggle is not offered while
     the brief is shown, because the brief reads twelve weeks whatever it says.
 
-    The ✕ only reports that it was pressed; what that closes is the shell's business.
+    No close of its own (interaction-guidelines.md#shell-header, "A surface draws no
+    close of its own"): the Dashboard option pressed again, or Escape, is the way back
+    in the main window, and the OS close in a window of its own.
 *@
 
 <section @key=@("dashboard-pane") class="dashboard-panel" id="dashboard-pane" aria-labelledby="dashboard-title" data-testid="dashboard-panel">
     @* The header names the tab on show and leads with what that tab says; it is a part
        of its own (DashboardTabHeader), because the sentence comes from the tab's own
-       insight and this pane holds no figures. The controls sit beside the ✕ (board
-       Main): they scope the whole surface, and a row of their own under the header was
+       insight and this pane holds no figures. The controls sit at the header's
+       trailing end (board Main): they scope the whole surface, and a row of their own under the header was
        a second header. *@
     <CascadingValue Value="_refreshes" IsFixed="true">
     <DashboardTabHeader Tab="@(_showBrief ? null : _activeTab)" Scope="_scope">
@@ -130,8 +132,6 @@
                     }
                 </ButtonGroup>
             }
-
-            <IconButton AriaLabel="Close dashboard" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
     </DashboardTabHeader>
     </CascadingValue>
@@ -397,12 +397,6 @@
     /// </summary>
     [Parameter]
     public IReadOnlyList<string> RepositoryAliases { get; set; } = [];
-
-    /// <summary>Raised when somebody dismisses the dashboard. Whether that returns
-    /// to the workspace, opens something else or does nothing is the shell's
-    /// decision — the pane only reports that the ✕ was pressed.</summary>
-    [Parameter]
-    public EventCallback OnClose { get; set; }
 
     /// <summary>Raised by the Sessions tab's link to every session. Opening the Sessions
     /// pane is the shell's move; with nobody listening the tab draws no link.</summary>

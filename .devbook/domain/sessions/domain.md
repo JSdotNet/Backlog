@@ -1305,7 +1305,7 @@ cancels it. A dispatcher reads the next request on the listener's long poll, cla
 | `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. |
 | `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
 
-- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it.
+- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it. Every call it lets in is also [Dispatcher Contact](#dispatcher-contact): held while the call is held, heard again when it is answered. A `404` while the flag is off records nothing.
 - **`claim_session_request`:** The holder asking again is told it holds it; the lease is not renewed.
 - **`mark_session_request`:** Only the dispatcher holding the claim may mark it. Its `started` still counts after its lease ran out while nobody else claimed the request.
 
@@ -1383,7 +1383,9 @@ it waits for a dispatcher until the person cancels it. Linked and Cancelled are 
 
 A **dispatcher** is whatever claims requests and starts their sessions. The first is
 the **Manager session**, a long-lived Claude Desktop session running a skill; a direct
-launch from the app is a later one. The context records a dispatcher only as the claim it made.
+launch from the app is a later one. The context records a dispatcher only as the claim it
+made and, anonymously, as [Dispatcher Contact](#dispatcher-contact): when any dispatcher
+last waited on the route.
 
 ## Question Relay
 
@@ -1950,3 +1952,21 @@ related: [.devbook/domain/sessions/domain.md#stage-resolution, .devbook/domain/s
 One more pass a run makes after a person asks for changes at the gate, the Personal
 Validation stage. Work done under the gate is a revise round's. A stage re-entered for
 a revise round counts it among its re-entries.
+
+### Dispatcher Contact
+
+```meta
+type: term
+aliases: [DispatcherContact, dispatcher contact, silent dispatcher]
+related: [.devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
+```
+
+When a dispatcher last reached this app on the wait route: now, while a call is held.
+It is kept in memory, on this desktop only, and forgotten on restart, which reads as
+"not heard since the app started". It names no dispatcher, because the route is called
+with the listener's token alone.
+
+A dispatcher is **silent** after two minutes without contact, counted from the app's
+start when none came. Two minutes is longer than the route's 50-second hold, so a
+dispatcher between two calls never reads as gone. Not [Presence](#presence), which is
+the person's.

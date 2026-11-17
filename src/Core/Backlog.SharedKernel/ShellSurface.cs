@@ -16,7 +16,9 @@ namespace Backlog.SharedKernel;
 /// The shell renders <paramref name="Component"/> through a <c>DynamicComponent</c>
 /// and hands it two parameters, named by <see cref="QueryParameter"/> and
 /// <see cref="CloseParameter"/>: the query it was shown with, and the callback that
-/// closes it. The component declares both, as
+/// closes it — none, in a window of its own, where the OS close button closes it, so a
+/// surface offers a way out through that callback only while it has a delegate. The
+/// component declares both, as
 /// <c>IReadOnlyDictionary&lt;string, string&gt;</c> and <c>EventCallback</c>:
 /// <c>DynamicComponent</c> refuses a parameter its component does not declare.
 /// Everything else it takes from the container, and a jump to

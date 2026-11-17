@@ -973,6 +973,210 @@ public sealed class GoalsHostTests : IDisposable
         Assert.Empty(host.FindAll(PaidQuickAdd));
     }
 
+    // ---- What a write draws before the reading after it lands --------------------------
+
+    /// <summary>The module answers each attach and detach after a yield, and the reading
+    /// after it waits until the returned gate opens.</summary>
+    private TaskCompletionSource HoldTheReading()
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _goals.AnswersLater = true;
+        _standUp.Gate = gate.Task;
+        return gate;
+    }
+
+    private string PaidTasks => $"[data-testid='goals-board-goal-{PaidId}-tasks']";
+
+    private static string NoGoalRow(Guid task) => $"[data-testid='goals-board-no-goal-row-task:{task}']";
+
+    private static GoalSummaryDto Paid(params GoalItemDto[] holds) =>
+        new(new GoalDto(PaidId, "Customers get paid faster", null, Oct(30), [.. holds.Select(item => new GoalAttachmentDto(item, Oct(12)))]),
+            new GoalProgressDto(9, 15, 3, 1, 2, 3));
+
+    private static GoalSummaryDto Search(params GoalItemDto[] holds) =>
+        new(new GoalDto(SearchId, "Devbook search ships", null, Oct(23), [.. holds.Select(item => new GoalAttachmentDto(item, Oct(12)))]),
+            new GoalProgressDto(5, 6, 0, 0, 1, 0));
+
+    /// <summary>The goal the module answers with is drawn at once: the row is on its goal
+    /// and gone from No goal while the stand-up, goals and pull requests are read again.</summary>
+    [Fact]
+    public void An_attached_item_shows_on_its_goal_before_the_reading_after_it_lands()
+    {
+        var host = Render();
+        var attach = $"[data-testid='goals-board-attach-task:{Vat}']";
+        host.WaitForAssertion(() => host.Find(attach));
+        var before = _standUp.Reads;
+        var reading = HoldTheReading();
+
+        host.Find(attach).Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Contains("VAT rate per line item", host.Find(PaidTasks).TextContent);
+            Assert.Empty(host.FindAll(NoGoalRow(Vat)));
+        });
+        Assert.Equal(before + 1, _standUp.Reads);
+
+        _goals.Summaries = [Paid(GoalItemDto.ForTask(Vat)), Search()];
+        reading.SetResult();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Contains("VAT rate per line item", host.Find(PaidTasks).TextContent);
+            Assert.Empty(host.FindAll(NoGoalRow(Vat)));
+            Assert.False(host.Find("[data-testid='goals-board-refresh']").HasAttribute("disabled"));
+        });
+        Assert.Equal(before + 1, _standUp.Reads);
+    }
+
+    /// <summary>A move confirmed in the picker draws the item on the goal it moved to and
+    /// off the goal that held it, before the reading lands.</summary>
+    [Fact]
+    public void A_moved_item_shows_on_its_new_goal_and_leaves_the_old_one_before_the_reading_lands()
+    {
+        _goals.Summaries = [Paid(), Search(GoalItemDto.ForTask(Vat))];
+        _goals.HeldBy = "Devbook search ships";
+        var host = Render();
+        var match = $"[data-testid='goals-board-goal-{PaidId}-match-task:{Vat}']";
+        host.WaitForAssertion(() => host.Find(PaidSearch));
+        host.Find(PaidSearch).Input("VAT");
+        host.WaitForAssertion(() => host.Find(match));
+        host.Find(match).Click();
+        host.WaitForAssertion(() => host.Find("[data-testid='goal-picker-move-note']"));
+        var reading = HoldTheReading();
+
+        host.Find("[data-testid='goal-picker-attach']").Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Empty(host.FindAll("[data-testid='goal-picker']"));
+            Assert.Contains("VAT rate per line item", host.Find(PaidTasks).TextContent);
+            var holder = host.FindComponent<GoalsBoard>().Instance.Model.Goals.Single(goal => goal.Id == SearchId.ToString());
+            Assert.Empty(holder.Tasks);
+        });
+        Assert.Equal((PaidId, GoalItemDto.ForTask(Vat), true), _goals.Attached.Last());
+
+        _goals.Summaries = [Paid(GoalItemDto.ForTask(Vat)), Search()];
+        reading.SetResult();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Contains("VAT rate per line item", host.Find(PaidTasks).TextContent);
+            var holder = host.FindComponent<GoalsBoard>().Instance.Model.Goals.Single(goal => goal.Id == SearchId.ToString());
+            Assert.Empty(holder.Tasks);
+            Assert.False(host.Find("[data-testid='goals-board-refresh']").HasAttribute("disabled"));
+        });
+    }
+
+    /// <summary>A move into a goal the picker's New goal… creates: the board has no such
+    /// goal until the reading lands, so nothing is drawn and the item never shows under
+    /// No goal in between.</summary>
+    [Fact]
+    public void An_item_moved_into_a_new_goal_from_the_picker_never_shows_under_no_goal_before_the_reading_lands()
+    {
+        var phoneId = Guid.Parse("10000000-0000-0000-0000-000000000003");
+        _goals.NextId = phoneId;
+        _goals.Summaries = [Paid(), Search(GoalItemDto.ForTask(Vat))];
+        _goals.HeldBy = "Devbook search ships";
+        var host = Render();
+        var match = $"[data-testid='goals-board-goal-{PaidId}-match-task:{Vat}']";
+        host.WaitForAssertion(() => host.Find(PaidSearch));
+        host.Find(PaidSearch).Input("VAT");
+        host.WaitForAssertion(() => host.Find(match));
+        host.Find(match).Click();
+        host.WaitForAssertion(() => host.Find("[data-testid='goal-picker-move-note']"));
+        host.Find("[data-testid='goal-picker-new']").Click();
+        host.WaitForAssertion(() => host.Find("[data-testid='goal-picker-new-title'] input"));
+        host.Find("[data-testid='goal-picker-new-title'] input").Input("Phone capture in daily use");
+        host.Find("[data-testid='goal-picker-new-due'] input").Input("2026-11-30");
+        var reading = HoldTheReading();
+
+        host.Find("[data-testid='goal-picker-attach']").Click();
+
+        host.WaitForAssertion(() => Assert.Empty(host.FindAll("[data-testid='goal-picker']")));
+        Assert.Equal((phoneId, GoalItemDto.ForTask(Vat), true), _goals.Attached.Last());
+        Assert.Empty(host.FindAll(NoGoalRow(Vat)));
+        var holder = host.FindComponent<GoalsBoard>().Instance.Model.Goals.Single(goal => goal.Id == SearchId.ToString());
+        Assert.NotEmpty(holder.Tasks);
+
+        var phone = new GoalDto(phoneId, "Phone capture in daily use", null, new DateOnly(2026, 11, 30), [new GoalAttachmentDto(GoalItemDto.ForTask(Vat), Oct(19))]);
+        _goals.Summaries = [Paid(), Search(), new GoalSummaryDto(phone, new GoalProgressDto(0, 1, 0, 0, 0, 0))];
+        reading.SetResult();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Empty(host.FindAll(NoGoalRow(Vat)));
+            var search = host.FindComponent<GoalsBoard>().Instance.Model.Goals.Single(goal => goal.Id == SearchId.ToString());
+            Assert.Empty(search.Tasks);
+            Assert.False(host.Find("[data-testid='goals-board-refresh']").HasAttribute("disabled"));
+        });
+    }
+
+    /// <summary>A detach draws the row off its goal at once, back under No goal while the
+    /// shell's candidates hold it.</summary>
+    [Fact]
+    public void A_detached_item_leaves_its_goal_before_the_reading_lands()
+    {
+        _goals.Summaries = [Paid(GoalItemDto.ForTask(Vat)), Search()];
+        var host = Render();
+        var detach = $"[data-testid='goals-board-goal-{PaidId}-detach-task:{Vat}']";
+        host.WaitForAssertion(() => host.Find(detach));
+        var reading = HoldTheReading();
+
+        host.Find(detach).Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("VAT rate per line item", host.Find(PaidTasks).TextContent);
+            Assert.NotNull(host.Find(NoGoalRow(Vat)));
+        });
+        Assert.Equal([(PaidId, GoalItemDto.ForTask(Vat))], _goals.Detached);
+
+        _goals.Summaries = [Paid(), Search()];
+        reading.SetResult();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("VAT rate per line item", host.Find(PaidTasks).TextContent);
+            Assert.NotNull(host.Find(NoGoalRow(Vat)));
+            Assert.False(host.Find("[data-testid='goals-board-refresh']").HasAttribute("disabled"));
+        });
+    }
+
+    /// <summary>A goal's "New task" row: once the module has attached the task the shell
+    /// created, its row shows on the goal before the reading lands.</summary>
+    [Fact]
+    public void A_new_task_shows_on_its_goal_once_attached_before_the_reading_lands()
+    {
+        var host = Render(createTask: title =>
+        {
+            // The shell's list holds the task once it answers; the goals reading does not yet.
+            _candidates = _candidates with
+            {
+                Tasks = [.. _candidates.Tasks, new GoalsTaskCandidate(BankExport, title, GoalTaskStatus.ToDo, [], [], true)]
+            };
+            return Task.FromResult(Result.Success(BankExport));
+        });
+        host.WaitForAssertion(() => host.Find(PaidSearch));
+        var reading = HoldTheReading();
+
+        host.Find(PaidSearch).Input("Bank export");
+        host.WaitForAssertion(() => host.Find(PaidQuickAdd));
+        host.Find(PaidQuickAdd).Click();
+
+        host.WaitForAssertion(() => Assert.Contains("Bank export", host.Find(PaidTasks).TextContent));
+        Assert.Equal((PaidId, GoalItemDto.ForTask(BankExport), false), Assert.Single(_goals.Attached));
+
+        _goals.Summaries = [Paid(GoalItemDto.ForTask(BankExport)), Search()];
+        reading.SetResult();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Contains("Bank export", host.Find(PaidTasks).TextContent);
+            Assert.False(host.Find("[data-testid='goals-board-refresh']").HasAttribute("disabled"));
+        });
+    }
+
     internal sealed class FakeStandUp : IStandUp
     {
         public StandUpDto Reading { get; set; } = new(
@@ -994,13 +1198,17 @@ public sealed class GoalsHostTests : IDisposable
 
         public int Reads { get; private set; }
 
+        /// <summary>A reading that lands only when the test says so.</summary>
+        public Task? Gate { get; set; }
+
         public Task<Result<StandUpDto>> ReadAsync(DateOnly today, IterationLength length, CancellationToken cancellationToken = default) =>
             ReadAsync(cancellationToken);
 
-        public Task<Result<StandUpDto>> ReadAsync(CancellationToken cancellationToken = default)
+        public async Task<Result<StandUpDto>> ReadAsync(CancellationToken cancellationToken = default)
         {
             Reads++;
-            return Task.FromResult(Failure is { } error ? Result.Failure<StandUpDto>(error) : Result.Success(Reading));
+            if (Gate is { } gate) await gate;
+            return Failure is { } error ? Result.Failure<StandUpDto>(error) : Result.Success(Reading);
         }
     }
 
@@ -1060,14 +1268,19 @@ public sealed class GoalsHostTests : IDisposable
             return Task.FromResult(Result.Success(goal));
         }
 
-        public Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)
+        /// <summary>Each attach and detach is answered after a yield, as the module's file
+        /// write is, so what the view draws between the answer and the reading after it shows.</summary>
+        public bool AnswersLater { get; set; }
+
+        public async Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)
         {
             Attached.Add((goalId, item, moveFromOtherGoal));
-            if (AttachFailure is { } refused) return Task.FromResult(Result.Failure<GoalDto>(refused));
+            if (AnswersLater) await Task.Yield();
+            if (AttachFailure is { } refused) return Result.Failure<GoalDto>(refused);
 
-            return Task.FromResult(HeldBy is { } other && !moveFromOtherGoal
+            return HeldBy is { } other && !moveFromOtherGoal
                 ? Result.Failure<GoalDto>(ProgressErrors.ItemInOtherGoal(other))
-                : Result.Success(new GoalDto(goalId, "Customers get paid faster", null, Oct(30), [new GoalAttachmentDto(item, Oct(19))])));
+                : Result.Success(new GoalDto(goalId, "Customers get paid faster", null, Oct(30), [new GoalAttachmentDto(item, Oct(19))]));
         }
 
         public Task<Result<GoalDto>> GetAsync(Guid goalId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -1110,12 +1323,13 @@ public sealed class GoalsHostTests : IDisposable
             return Task.FromResult(WriteFailure is { } error ? Result.Failure(error) : Result.Success());
         }
 
-        public Task<Result<GoalDto>> DetachAsync(Guid goalId, GoalItemDto item, CancellationToken cancellationToken = default)
+        public async Task<Result<GoalDto>> DetachAsync(Guid goalId, GoalItemDto item, CancellationToken cancellationToken = default)
         {
             Detached.Add((goalId, item));
-            return Task.FromResult(WriteFailure is { } error
+            if (AnswersLater) await Task.Yield();
+            return WriteFailure is { } error
                 ? Result.Failure<GoalDto>(error)
-                : Result.Success(new GoalDto(goalId, "Customers get paid faster", null, Oct(30), [])));
+                : Result.Success(new GoalDto(goalId, "Customers get paid faster", null, Oct(30), []));
         }
     }
 

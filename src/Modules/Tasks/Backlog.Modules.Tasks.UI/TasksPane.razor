@@ -74,10 +74,11 @@
                FixedWidthRemChanged="rem => _detailWidthRem = rem"
                MinRem="24">
         <Start>
-            <div class="backlog-list">
-                @* Tags are the second label on an entry that already has one, so the
-                   group is built from what people typed and sits in the middle.
-                   Status narrows what is already in view, so it sits on the right. *@
+            <div class="backlog-list" @ref="_backlogList">
+                @* Status narrows what is already in view, so it sits on the right.
+                   Tags are the second label on an entry that already has one, built
+                   from what people typed and with no ceiling on how many, so they
+                   take a row of their own under everything else. *@
                 <div class="filter-bar">
                     @* First on the bar, and its own container rather than a third
                        chip in the scope group beside it. Everything after it is a
@@ -179,191 +180,93 @@
                                       PressedChanged="State.SetReadyInPlanFilter">
                             <PlayIcon CssClass="chip__icon" /><span class="sr-only">Ready in a plan</span><span class="chip__count">@ReadyInPlanCount</span>
                         </ToggleButton>
+
+                        @* The Waiting slice: the open tasks waiting on someone, soonest
+                           follow-up first and undated last — see
+                           TasksDesktopState.WaitingForOnly. *@
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@State.WaitingForOnly"
+                                      TestId="waitingfor-filter-option"
+                                      Title="@(State.WaitingForOnly ? "Show everything again" : "Show only what is waiting on someone, soonest follow-up first")"
+                                      PressedChanged="State.SetWaitingForFilter">
+                            <HourglassIcon CssClass="chip__icon" /><span class="sr-only">Waiting</span><span class="chip__count">@WaitingForCount</span>
+                        </ToggleButton>
+
+                        @* The Next actions slice: the open tasks that can be picked up
+                           now, grouped by context — see
+                           TasksDesktopState.NextActionsOnly. *@
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@State.NextActionsOnly"
+                                      TestId="nextactions-filter-option"
+                                      Title="@(State.NextActionsOnly ? "Show everything again" : "Show only the next actions, grouped by context")"
+                                      PressedChanged="State.SetNextActionsFilter">
+                            <ListTodoIcon CssClass="chip__icon" /><span class="sr-only">Next actions</span><span class="chip__count">@NextActionsCount</span>
+                        </ToggleButton>
                     </div>
 
-                    @* Where a task came from, and whose it is there. Nothing at all
-                       until a connector is installed or a task is linked, so a
-                       backlog that never connected anything keeps the bar it had.
-                       Every chip is drawn from a connector's descriptor (ADR 0020
-                       §3): a connector added later appears here with no change.
-
-                       Pressable chips rather than a radiogroup, for the scopes'
-                       reason: each narrows what the bar left in view, and pressing
-                       the pressed one widens again — so with nothing pressed the
-                       list is already every source and there is no "All" chip.
-                       Pressing another source lets go of the first, because a task
-                       comes from exactly one. *@
-                    @if (State.SourceFilters.Count > 0)
+                    @* The areas the Next actions slice holds, while it is on: the type
+                       group's shape and for its reason — a task is filed under one
+                       area, so pressing another lets go of the first, and with
+                       nothing pressed the slice is every area. *@
+                    @if (State.AreaFilters.Count > 0)
                     {
-                        <div class="filter-group filter-group--source" role="group" aria-label="Filter by source">
-                            @foreach (var source in State.SourceFilters)
+                        <div class="filter-group filter-group--area" role="group" aria-label="Filter by area">
+                            @foreach (var area in State.AreaFilters)
                             {
                                 <ToggleButton BaseClass="chip chip--filter"
                                               PressedCssClass="chip--active"
-                                              Pressed="@(State.SelectedSource == source.Value)"
-                                              TestId="source-filter-option"
-                                              data-source="@source.Value"
-                                              Title="@(State.SelectedSource == source.Value ? "Show every source again" : $"Show only {source.Label} tasks")"
-                                              PressedChanged="pressed => State.SetSourceFilter(pressed ? source.Value : null)">
-                                    @source.Label<span class="chip__count">@source.Count</span>
+                                              Pressed="@(State.SelectedArea == area.Value)"
+                                              TestId="area-filter-option"
+                                              data-area="@(area.Value == TasksDesktopState.NoArea ? string.Empty : area.Value)"
+                                              Title="@(State.SelectedArea == area.Value ? "Show every area again" : $"Show only the next actions in {area.Label}")"
+                                              PressedChanged="pressed => State.SetAreaFilter(pressed ? area.Value : null)">
+                                    @area.Label<span class="chip__count">@area.Count</span>
                                 </ToggleButton>
                             }
                         </div>
                     }
 
-                    @* What kind of task it is — prompt, task, idea or test. The source
-                       group's shape and for its reason: a task has exactly one type,
-                       so pressing another lets go of the first, and with nothing
-                       pressed the list is already every type. Only the types in view
-                       get a chip, and none at all while there is just one of them.
-                       It narrows the rows every view reads, so the Board and the
-                       Calendar's month and its tray of undated tasks follow it too. *@
-                    @if (State.TypeFilters.Count > 0)
+                    @* Source and Type: inline on a wide column, folded into one
+                       Filter menu on a narrow one (48rem and under — see
+                       ListNarrowRem). One form is rendered, never both, so every
+                       chip keeps one test id and one place in the tab order. *@
+                    @if (!ListNarrow)
                     {
-                        <div class="filter-group filter-group--type" role="group" aria-label="Filter by type">
-                            @foreach (var type in State.TypeFilters)
-                            {
-                                <ToggleButton BaseClass="chip chip--filter"
-                                              PressedCssClass="chip--active"
-                                              Pressed="@(State.SelectedType == type.Value)"
-                                              TestId="type-filter-option"
-                                              data-type="@EntryTextParser.TypeToken(type.Value)"
-                                              Title="@(State.SelectedType == type.Value ? "Show every type again" : $"Show only {type.Label.ToLowerInvariant()}s")"
-                                              PressedChanged="pressed => State.SetTypeFilter(pressed ? type.Value : null)">
-                                    @type.Label<span class="chip__count">@type.Count</span>
-                                </ToggleButton>
-                            }
-                        </div>
+                        @RenderSourceGroup()
+                        @RenderTypeGroup()
                     }
-
-                    @* Nothing at all until something in scope carries a tag: the group
-                       is built from what people typed, so a backlog with no tags has
-                       no third group rather than a dead chip filtering nothing.
-
-                       The shape of the scopes on the left rather than of the statuses
-                       on the right, and for the reason the two differ: an entry has
-                       one status and any number of tags, so a tag is a state of its
-                       own that narrows what the rest of the bar left in view. Any
-                       number of them can be pressed and the list is the union — so
-                       aria-pressed, and no "All" chip, because with nothing pressed
-                       the list is already everything. That chip was the duplicate of
-                       the statuses' own All. *@
-                    @if (State.TagFilters.Count > 0)
+                    else if (FilterMenuOffered)
                     {
-                        @* The modifier is what keeps the group reachable on a narrow
-                           column: the bar drops it there to save the width, but only
-                           while nothing is picked — see the 38rem step in app.css. *@
-                        <div id="tag-filter-strip"
-                             class="filter-group filter-group--tags @(State.SelectedTags.Count > 0 ? "filter-group--tags--picked" : null) @(_tagStripExpanded ? "filter-group--tags--expanded" : null)"
-                             role="group"
-                             aria-label="Filter by tag">
-                            @foreach (var tag in State.TagFilters)
-                            {
-                                @* Keyed by the tag, on whatever is the iteration's root,
-                                   because a pressed plan moves: it leads the strip and
-                                   changes parent into its pair. Matched by position, the
-                                   chip under the focus would turn into another tag and
-                                   the next Space would press that one. Two copies of the
-                                   chip rather than one fragment for that reason too — a
-                                   fragment is a region, and a key inside a region is
-                                   matched only within it.
-
-                                   The face carries the open count and the tooltip
-                                   carries both halves — see TagFilterOption. The
-                                   per-kind class is the same distinction the row chips
-                                   draw, so a person, a plan and a general tag read
-                                   apart on the bar the way they do on the row. *@
-                                @if (State.SelectedPlan is { } plan && string.Equals(tag.Value, plan, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    @* The plan in view, one press from the clipboard — a
-                                       reader filters to a plan and then pastes its name
-                                       somewhere else. The tag verbatim, + and all,
-                                       because that is how a plan is written everywhere
-                                       it is typed.
-
-                                       Fused to the pressed chip rather than left at the
-                                       end of the bar, so the copy reads as the plan's
-                                       own and not as one more filter: one border round
-                                       both, a hairline between them, on the TagChip
-                                       precedent of a label and its remove. Two sibling
-                                       buttons in a layout wrapper, never one nested in
-                                       the other. The wrapper is one flex item, so the
-                                       strip's clipping takes or keeps the pair whole,
-                                       and components.js reserves the pair's width when
-                                       it leads the strip.
-
-                                       Only the pressed plan is wrapped, so the chip a
-                                       click toggles stays a toggle and the strip carries
-                                       no button per chip. The status line is announced
-                                       and not drawn: the glyph's check is the sighted
-                                       confirmation, and a sentence appearing would shove
-                                       the chips along the strip. *@
-                                    <span @key="tag.Value" class="filter-bar__plan-pair" data-testid="tag-filter-plan-pair">
-                                        <ToggleButton BaseClass="chip chip--filter"
-                                                      CssClass="@TagFilterKindClass(tag)"
-                                                      PressedCssClass="chip--active"
-                                                      Pressed="@State.IsTagSelected(tag.Value)"
-                                                      id="@TagFilterChipId(tag.Value)"
-                                                      TestId="tag-filter-option"
-                                                      Title="@TagFilterTitle(tag)"
-                                                      PressedChanged="_ => OnTagFilterPressed(tag.Value)">
-                                            @tag.Label<span class="chip__count">@tag.OpenCount</span>
-                                        </ToggleButton>
-                                        @if (CopyEnabled)
-                                        {
-                                            <CopyButton Text="@plan"
-                                                        Label="@($"Copy {plan}")"
-                                                        CssClass="filter-bar__plan-copy"
-                                                        ButtonBaseClass="filter-bar__plan-copy-button"
-                                                        StatusCssClass="sr-only"
-                                                        TestId="tag-filter-copy-plan"
-                                                        ButtonTestId="tag-filter-copy-plan-button"
-                                                        StatusTestId="tag-filter-copy-plan-status" />
-                                        }
-
-                                        @* The plan's queue icon beside its copy (or the
-                                           chip, with the copy-entries switch off), or the
-                                           wait it is on — see RenderPlanSession. Inside
-                                           the pair, so the strip keeps or clips them
-                                           with the chip and components.js reserves the
-                                           width of all three when the pair leads. *@
-                                        @RenderPlanSession(plan)
-                                    </span>
-                                }
-                                else
-                                {
-                                    <ToggleButton @key="tag.Value"
-                                                  BaseClass="chip chip--filter"
-                                                  CssClass="@TagFilterKindClass(tag)"
-                                                  PressedCssClass="chip--active"
-                                                  Pressed="@State.IsTagSelected(tag.Value)"
-                                                  id="@TagFilterChipId(tag.Value)"
-                                                  TestId="tag-filter-option"
-                                                  Title="@TagFilterTitle(tag)"
-                                                  PressedChanged="_ => OnTagFilterPressed(tag.Value)">
-                                        @tag.Label<span class="chip__count">@tag.OpenCount</span>
-                                    </ToggleButton>
-                                }
-                            }
+                        @* A disclosure of the bar's own chips, not a menu: the two
+                           groups keep their role="group", their names and their
+                           aria-pressed chips inside the panel (#popover-button). The
+                           trigger is named Filter; its face — the word, a caret and,
+                           while a source or type is pressed, how many — is hidden,
+                           and reads pressed with the chips' own active style, so a
+                           narrowed list is still visible with the menu shut. *@
+                        <div class="filter-group filter-group--menu">
+                            <PopoverButton TestId="filter-menu"
+                                           Id="filter-menu"
+                                           AriaLabel="Filter"
+                                           Title="@FilterMenuTitle"
+                                           TriggerBaseClass="@FilterMenuTriggerClass"
+                                           PanelCssClass="filter-menu__panel"
+                                           OpenChanged="OnFilterMenuOpenChanged">
+                                <Trigger>
+                                    Filter<ChevronUpIcon CssClass="filter-menu__caret" Size="12" />
+                                    @if (FilterMenuPressedCount > 0)
+                                    {
+                                        <span class="chip__count">@FilterMenuPressedCount</span>
+                                    }
+                                </Trigger>
+                                <ChildContent>
+                                    @RenderSourceGroup()
+                                    @RenderTypeGroup()
+                                </ChildContent>
+                            </PopoverButton>
                         </div>
-
-                        @* The strip is one row and clips whole chips off its end, so
-                           with more plans than the column is wide this is the way to
-                           the rest: pressed, the strip wraps onto as many rows as it
-                           needs. A sibling of the strip rather than a chip in it, so
-                           the clipping can never take it too. It shows only while the
-                           strip overflows or is open — components.js measures that and
-                           marks the strip, because only the browser knows where a
-                           chip wrapped. *@
-                        <AppButton BaseClass="chip chip--filter chip--more"
-                                   Variant="ButtonVariant.None"
-                                   TestId="tag-filter-more"
-                                   aria-expanded="@(_tagStripExpanded ? "true" : "false")"
-                                   aria-controls="tag-filter-strip"
-                                   title="@(_tagStripExpanded ? "Show the tags on one row" : "Show every tag")"
-                                   OnClick="() => _tagStripExpanded = !_tagStripExpanded">
-                            @(_tagStripExpanded ? "Fewer" : "More")
-                        </AppButton>
                     }
 
                     @* Off the bar on the Board while its columns are the statuses:
@@ -410,29 +313,201 @@
                         </IconButton>
                     </div>
 
-                    @* The total the chips never gave: how much is open in the
-                       repository scope, before any status, tag or scope narrows
-                       it — the pool the chip counts are taken over, so pressing a
-                       filter changes the list and never this. Last on the bar and
-                       not a filter, so its own group rather than a chip in one;
-                       an AppButton because pressing it opens the report behind
-                       the number. It gives way rather than the bar: the detail
-                       half goes first at a narrow column and then the noun,
-                       leaving the number — see app.css — and the accessible name
-                       keeps the whole sentence either way. *@
-                    <div class="filter-group filter-group--summary">
-                        <AppButton BaseClass="chip chip--filter"
-                                   Variant="ButtonVariant.None"
-                                   CssClass="chip--summary"
-                                   id="@OpenWorkSummaryId"
-                                   TestId="open-work-summary"
-                                   title="@OpenWork.Description"
-                                   aria-label="@OpenWork.Description"
-                                   aria-haspopup="dialog"
-                                   OnClick="OnOpenWorkReport">
-                            <span class="open-work-summary__number">@OpenWork.Open</span><span class="open-work-summary__noun"> open</span><span class="open-work-summary__detail">@OpenWorkTail</span>
-                        </AppButton>
-                    </div>
+                    @* The total the chips never gave, last on the bar — or beside
+                       New entry in a narrow list column (RenderOpenWorkSummary). *@
+                    @if (!SummaryBesideNewEntry)
+                    {
+                        <div class="filter-group filter-group--summary">
+                            @RenderOpenWorkSummary()
+                        </div>
+                    }
+
+                    @* The session queue: every request waiting for a session, the
+                       entries' and the plans', in one place — a plan let go of and an
+                       entry scrolled away still wait. At the bar's right end and shown
+                       while the action is offered even with nothing queued, so the
+                       queue never disappears again; the count is muted at 0. The
+                       panel opens inward from that end. Read from the two polls the
+                       chips already run: no timer of its own. *@
+                    @if (SessionQueueOffered)
+                    {
+                        var queue = SessionQueueRows();
+                        <div class="filter-group filter-group--queue">
+                            <PopoverButton @ref="_sessionQueuePopover"
+                                           Id="session-queue"
+                                           TestId="session-queue"
+                                           AriaLabel="@SessionQueue.TriggerLabel(queue.Count)"
+                                           TriggerBaseClass="@(queue.Count == 0 ? "chip chip--filter chip--icon chip--queue chip--queue-idle" : "chip chip--filter chip--icon chip--queue")"
+                                           TriggerOpenCssClass="chip--active"
+                                           PanelCssClass="session-queue"
+                                           AlignEnd="true"
+                                           OpenChanged="OnSessionQueueOpenChanged">
+                                <Trigger>
+                                    <ListEndIcon Size="14" CssClass="chip__icon" />
+                                    <span class="chip__count" data-testid="session-queue-count">@queue.Count</span>
+                                </Trigger>
+                                <ChildContent>
+                                    @RenderSessionQueue(queue)
+                                </ChildContent>
+                            </PopoverButton>
+                        </div>
+                    }
+
+                    @* Nothing at all until something in scope carries a tag: the group
+                       is built from what people typed, so a backlog with no tags has
+                       no third group rather than a dead chip filtering nothing.
+
+                       The shape of the scopes on the left rather than of the statuses
+                       on the right, and for the reason the two differ: an entry has
+                       one status and any number of tags, so a tag is a state of its
+                       own that narrows what the rest of the bar left in view. Any
+                       number of them can be pressed and the list is the union — so
+                       aria-pressed, and no "All" chip, because with nothing pressed
+                       the list is already everything. That chip was the duplicate of
+                       the statuses' own All. *@
+                    @if (State.TagFilters.Count > 0)
+                    {
+                        @* The strip's own row: last in the markup and, with
+                           `order: 1`, below every other group, so it is a full
+                           line of whole chips whatever the bar beside it holds,
+                           and More or Fewer sits at that row's end. A layout
+                           wrapper with no role; the group inside is still the
+                           strip components.js measures.
+
+                           The picked modifier is what keeps the strip reachable on
+                           a narrow column: the bar drops the row there to save the
+                           width, but only while nothing is picked — see the 48rem
+                           step in app.css. *@
+                        <div class="filter-bar__tags" data-testid="tag-filter-row">
+                            <div id="tag-filter-strip"
+                                 class="filter-group filter-group--tags @(State.SelectedTags.Count > 0 ? "filter-group--tags--picked" : null) @(_tagStripExpanded ? "filter-group--tags--expanded" : null)"
+                                 role="group"
+                                 aria-label="Filter by tag">
+                                @foreach (var tag in State.TagFilters)
+                                {
+                                    @* Keyed by the tag, on whatever is the iteration's root,
+                                       because a pressed plan moves: it leads the strip and
+                                       changes parent into its pair. Matched by position, the
+                                       chip under the focus would turn into another tag and
+                                       the next Space would press that one. Two copies of the
+                                       chip rather than one fragment for that reason too — a
+                                       fragment is a region, and a key inside a region is
+                                       matched only within it.
+
+                                       The face carries the open count and the tooltip
+                                       carries both halves — see TagFilterOption. The
+                                       per-kind class is the same distinction the row chips
+                                       draw, so a person, a plan and a general tag read
+                                       apart on the bar the way they do on the row. A plan
+                                       chip also draws how far along the plan is — see
+                                       TagFilterProgressPercent. *@
+                                    @if (State.SelectedPlan is { } plan && string.Equals(tag.Value, plan, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        @* The plan in view, one press from the clipboard — a
+                                           reader filters to a plan and then pastes its name
+                                           somewhere else. The tag verbatim, + and all,
+                                           because that is how a plan is written everywhere
+                                           it is typed.
+
+                                           Fused to the pressed chip rather than left at the
+                                           end of the bar, so the copy reads as the plan's
+                                           own and not as one more filter: one border round
+                                           both, a hairline between them, on the TagChip
+                                           precedent of a label and its remove. Two sibling
+                                           buttons in a layout wrapper, never one nested in
+                                           the other. The wrapper is one flex item, so the
+                                           strip's clipping takes or keeps the pair whole,
+                                           and components.js reserves the pair's width when
+                                           it leads the strip.
+
+                                           Only the pressed plan is wrapped, so the chip a
+                                           click toggles stays a toggle and the strip carries
+                                           no button per chip. The status line is announced
+                                           and not drawn: the glyph's check is the sighted
+                                           confirmation, and a sentence appearing would shove
+                                           the chips along the strip. *@
+                                        <span @key="tag.Value" class="filter-bar__plan-pair" data-testid="tag-filter-plan-pair">
+                                            <ToggleButton BaseClass="chip chip--filter"
+                                                          CssClass="@TagFilterClass(tag)"
+                                                          style="@TagFilterProgressStyle(tag)"
+                                                          PressedCssClass="chip--active"
+                                                          Pressed="@State.IsTagSelected(tag.Value)"
+                                                          id="@TagFilterChipId(tag.Value)"
+                                                          TestId="tag-filter-option"
+                                                          Title="@TagFilterTitle(tag)"
+                                                          PressedChanged="_ => OnTagFilterPressed(tag.Value)">
+                                                @tag.Label<span class="chip__count">@tag.OpenCount</span>
+                                            </ToggleButton>
+                                            @if (CopyEnabled)
+                                            {
+                                                <CopyButton Text="@plan"
+                                                            Label="@($"Copy {plan}")"
+                                                            CssClass="filter-bar__plan-copy"
+                                                            ButtonBaseClass="filter-bar__plan-copy-button"
+                                                            StatusCssClass="sr-only"
+                                                            TestId="tag-filter-copy-plan"
+                                                            ButtonTestId="tag-filter-copy-plan-button"
+                                                            StatusTestId="tag-filter-copy-plan-status" />
+                                            }
+
+                                            @* The plan's queue icon beside its copy (or the
+                                               chip, with the copy-entries switch off), or the
+                                               wait it is on — see RenderPlanSession. Inside
+                                               the pair, so the strip keeps or clips them
+                                               with the chip and components.js reserves the
+                                               width of all three when the pair leads. *@
+                                            @RenderPlanSession(plan)
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <ToggleButton @key="tag.Value"
+                                                      BaseClass="chip chip--filter"
+                                                      CssClass="@TagFilterClass(tag)"
+                                                      style="@TagFilterProgressStyle(tag)"
+                                                      PressedCssClass="chip--active"
+                                                      Pressed="@State.IsTagSelected(tag.Value)"
+                                                      id="@TagFilterChipId(tag.Value)"
+                                                      TestId="tag-filter-option"
+                                                      Title="@TagFilterTitle(tag)"
+                                                      PressedChanged="_ => OnTagFilterPressed(tag.Value)">
+                                            @tag.Label<span class="chip__count">@tag.OpenCount</span>
+                                            @* A plan waiting for a session says so on its own
+                                               chip, pressed or not — the pressed one says it
+                                               with the waiting chip in its pair instead. The
+                                               queue's glyph, hidden, and its sentence in the
+                                               name and the tooltip (TagFilterTitle). Inside
+                                               the chip rather than beside it, so the key and
+                                               the root of the iteration stay the chip. *@
+                                            @if (PlanWaitingOnChip(tag) is { } planWaiting)
+                                            {
+                                                <ListEndIcon Size="12" CssClass="chip__icon filter-bar__plan-waiting" TestId="tag-filter-plan-waiting" />
+                                                <span class="sr-only">, @PlanSessionRequestTitle(planWaiting)</span>
+                                            }
+                                        </ToggleButton>
+                                    }
+                                }
+                            </div>
+
+                            @* The strip is one row and clips whole chips off its end, so
+                               with more plans than the column is wide this is the way to
+                               the rest: pressed, the strip wraps onto as many rows as it
+                               needs. A sibling of the strip rather than a chip in it, so
+                               the clipping can never take it too. It shows only while the
+                               strip overflows or is open — components.js measures that and
+                               marks the strip, because only the browser knows where a
+                               chip wrapped. *@
+                            <AppButton BaseClass="chip chip--filter chip--more"
+                                       Variant="ButtonVariant.None"
+                                       TestId="tag-filter-more"
+                                       aria-expanded="@(_tagStripExpanded ? "true" : "false")"
+                                       aria-controls="tag-filter-strip"
+                                       title="@(_tagStripExpanded ? "Show the tags on one row" : "Show every tag")"
+                                       OnClick="() => _tagStripExpanded = !_tagStripExpanded">
+                                @(_tagStripExpanded ? "Fewer" : "More")
+                            </AppButton>
+                        </div>
+                    }
 
                     @* The list refreshing in place over rows it already has — the shell
                        remounted, Settings and back — says so here, in the header of
@@ -634,7 +709,8 @@
                                       OnSelected="OnEntrySelectedAsync"
                                       OnToggle="OnEntryToggledAsync"
                                       OnRename="OnEntryRenamedAsync"
-                                      Reorderable="true"
+                                      Reorderable="@(!State.InGroupedSlice)"
+                                      SectionOf="@NextActionSection"
                                       OnReorder="OnEntryReorderedAsync"
                                       OnLink="OnEntryLinkedAsync"
                                       OnTagSelected="OnRowTagSelected"
@@ -905,7 +981,12 @@
         // handed in by the body: they match nothing while no calendar is drawn.
         "#backlog-pane .task-calendar__bar",
         "#backlog-pane .task-calendar__more",
-        "#backlog-pane [data-calendar-task][aria-current='true']"
+        "#backlog-pane [data-calendar-task][aria-current='true']",
+        // The narrow bar's Filter menu — its trigger, its panel and the chips in it.
+        // The column is narrow because an entry is open beside it; a focus landing
+        // in the menu is the reader narrowing the list, not leaving the entry, and
+        // closing it would widen the column and fold the menu away under them.
+        $"#backlog-pane {FilterMenuSelector}"
     ];
 
     /// <summary>Which of the selected entry's scheduling rows currently has its
@@ -924,7 +1005,10 @@
         Priority,
         Effort,
         Attachment,
-        Devbook
+        Devbook,
+        WaitingFor,
+        FollowUpOn,
+        Area
     }
 
     /// <summary>The row a right-click asked for a menu on. Held from the gesture
@@ -972,10 +1056,14 @@
         State.Changed += HandleStateChanged;
         Features.Changed += HandleFeaturesChanged;
 
+        _brainAreaNames = Services.GetService(typeof(IBrainAreaNames)) as IBrainAreaNames;
+
         _sessionRequests = new TasksSessionRequests(
             Services.GetService(typeof(IEntrySessionRequests)) as IEntrySessionRequests,
             Services.GetService(typeof(TimeProvider)) as TimeProvider);
         _sessionRequests.Changed += HandleSessionRequestsChanged;
+        _sessionRequests.Refreshed += HandleSessionRequestsRefreshed;
+        _sessionClock = Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
         _ = _sessionRequests.RefreshAsync();
 
         _planSessions = new TasksPlanSessionRequests(
@@ -1018,7 +1106,22 @@
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) await RegisterUndoKeysAsync();
+        if (firstRender)
+        {
+            await RegisterUndoKeysAsync();
+            await WatchListWidthAsync();
+        }
+
+        // A menu that left the bar while open — both groups emptied under it — took
+        // its panel with it and will not say it closed, so the hold is dropped here
+        // rather than waiting on a word that is not coming.
+        if (_filterMenuOpen && !FilterMenuOffered) _filterMenuOpen = false;
+
+        if (_focusInlineFilterChip is { } inlineChip)
+        {
+            _focusInlineFilterChip = null;
+            await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocusIfLost", inlineChip, FilterMenuSelector));
+        }
 
         if (_focusDevbookPicker && _devbookPicker is not null)
         {
@@ -1036,6 +1139,19 @@
         {
             _focusTagChip = null;
             await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocusTagChip", TagFilterChipId(chip)));
+        }
+
+        if (_focusSessionQueue is { } queueTarget)
+        {
+            _focusSessionQueue = null;
+            if (queueTarget.Length == 0)
+            {
+                if (_sessionQueuePopover is { } popover) await FocusQuietlyAsync(() => new ValueTask(popover.FocusAsync()));
+            }
+            else
+            {
+                await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocus", queueTarget));
+            }
         }
 
         if (_focusRevealedRow)
@@ -1499,6 +1615,219 @@
                                Text="Waiting for a session"
                                Title="@SessionRequestTitle(request)"
                                TestId="@testId" />;
+
+    // --- The session queue (local ADR 0038) ------------------------------------
+
+    /// <summary>The queue's popover, held so a row that jumps can close it.</summary>
+    private PopoverButton? _sessionQueuePopover;
+
+    /// <summary>Whether the queue's panel is open: its ages read the clock, so while it
+    /// is the panel redraws on every poll, not only when the answer changed.</summary>
+    private bool _sessionQueueOpen;
+
+    /// <summary>Where the focus goes once a Cancel in the panel has drawn its row away:
+    /// the id of a row's control, or <see cref="SessionQueueFocusTrigger"/> when the panel
+    /// has none left. Null while nothing is owed.</summary>
+    private string? _focusSessionQueue;
+
+    private const string SessionQueueFocusTrigger = "";
+
+    /// <summary>The clock the ages and the dispatcher's silence are read against.</summary>
+    private TimeProvider _sessionClock = TimeProvider.System;
+
+    /// <summary>Whether the bar carries the queue: either half of the action is offered.</summary>
+    private bool SessionQueueOffered => _sessionRequests.IsOffered || _planSessions.IsOffered;
+
+    /// <summary>The plan request <paramref name="tag"/>'s chip marks, or null: the chip
+    /// names no plan, its plan has none open, or it is the pressed plan, whose pair
+    /// carries the waiting chip instead.</summary>
+    private EntrySessionRequest? PlanWaitingOnChip(TagFilterOption tag)
+    {
+        if (TagText.Kind(tag.Value) is not TagKind.Plan) return null;
+        if (State.SelectedPlan is { } pressed && string.Equals(tag.Value, pressed, StringComparison.OrdinalIgnoreCase)) return null;
+
+        return _planSessions.OpenFor(tag.Value);
+    }
+
+    /// <summary>The plan chip on the bar for a request's bare tag, or null when the
+    /// strip carries none.</summary>
+    private TagFilterOption? PlanChipFor(string bareTag) =>
+        State.TagFilters.FirstOrDefault(tag =>
+            TagText.Kind(tag.Value) is TagKind.Plan
+            && string.Equals(tag.Value.TrimStart('+'), bareTag, StringComparison.OrdinalIgnoreCase));
+
+    private IReadOnlyList<SessionQueueRow> SessionQueueRows() =>
+        SessionQueue.Rows(
+            _sessionRequests.Open,
+            _planSessions.Open,
+            entryId => State.Rows.FirstOrDefault(row => row.Id == entryId) is { } entry ? entry.PreviewTitle ?? string.Empty : null,
+            bareTag => PlanChipFor(bareTag) is not null);
+
+    private void OnSessionQueueOpenChanged(bool open) => _sessionQueueOpen = open;
+
+    private void HandleSessionRequestsRefreshed()
+    {
+        if (_sessionQueueOpen) _ = InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>The panel: the dispatcher warning when one is owed, then every open
+    /// request oldest first — or the line that says nothing is waiting.</summary>
+    private RenderFragment RenderSessionQueue(IReadOnlyList<SessionQueueRow> queue)
+    {
+        var now = _sessionClock.GetUtcNow();
+        var contact = _sessionRequests.DispatcherContact;
+        var warns = contact.WarnsFor(queue.Select(row => row.Request));
+
+        return @<text>
+            @if (warns)
+            {
+                <Callout Tone="warning"
+                         Heading="No dispatcher is running"
+                         TestId="session-queue-dispatcher-warning">
+                    <p>@SessionQueue.SilenceSentence(contact, now)</p>
+                    <p>Start <code>@SessionQueue.StartDispatcher</code> in a pinned Claude Desktop session.</p>
+                </Callout>
+            }
+
+            @if (queue.Count == 0)
+            {
+                <EmptyState Title="Nothing is waiting for a session"
+                            Description="A session you queue on an entry or a plan waits here until a dispatcher starts it."
+                            TestId="session-queue-none" />
+            }
+            else
+            {
+                <ul class="session-queue__list" data-testid="session-queue-list">
+                    @foreach (var row in queue)
+                    {
+                        <li @key="row.Key" class="session-queue__row" data-testid="session-queue-row" data-key="@row.Key">
+                            @if (row.InView)
+                            {
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Size="ButtonSize.Small"
+                                           CssClass="session-queue__name"
+                                           TestId="session-queue-jump"
+                                           id="@SessionQueueControlId("jump", row)"
+                                           title="@(row.EntryId is null ? $"Filter by {row.Name}" : $"Open {row.Name}")"
+                                           OnClick="() => OnSessionQueueJumpAsync(row)">
+                                    @row.Name
+                                </AppButton>
+                            }
+                            else
+                            {
+                                <span class="session-queue__name session-queue__name--away" data-testid="session-queue-name">@row.Name</span>
+                            }
+                            <span class="session-queue__meta" data-testid="session-queue-meta">
+                                @row.Request.Repository · @SessionQueue.StateLabel(row.Request.State) · <span title="@row.Request.RequestedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)">@SessionQueue.Age(row.Request.RequestedAt, now)</span>
+                            </span>
+                            @if (row.CanCancel)
+                            {
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Size="ButtonSize.Small"
+                                           CssClass="session-queue__cancel"
+                                           Busy="@(row.EntryId is { } busyId ? _sessionRequests.IsBusy(busyId) : _planSessions.Busy)"
+                                           BusyLabel="Cancelling"
+                                           aria-label="@($"Cancel the session request for {row.Name}")"
+                                           TestId="session-queue-cancel"
+                                           id="@SessionQueueControlId("cancel", row)"
+                                           OnClick="() => OnSessionQueueCancelAsync(row)">
+                                    Cancel
+                                </AppButton>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </text>;
+    }
+
+    /// <summary>A row followed: its entry opened — the scopes hiding it widened first,
+    /// as a followed "waiting for" name does — or its plan's chip pressed, on the
+    /// chip's own path; a plan already pressed stays pressed. The panel closes, since
+    /// the reader's attention has moved to what the row named.</summary>
+    private async Task OnSessionQueueJumpAsync(SessionQueueRow row)
+    {
+        if (!row.InView) return;
+
+        if (_sessionQueuePopover is not null) await _sessionQueuePopover.CloseAsync();
+
+        if (row.EntryId is { } entryId)
+        {
+            if (State.Rows.FirstOrDefault(candidate => candidate.Id == entryId) is { } entry)
+            {
+                await OnEntrySelectedAsync(EntryTaskId(entry));
+            }
+
+            return;
+        }
+
+        if (row.PlanTag is { } bare && PlanChipFor(bare) is { } chip && !State.IsTagSelected(chip.Value))
+        {
+            OnTagFilterPressed(chip.Value);
+        }
+    }
+
+    private async Task OnSessionQueueCancelAsync(SessionQueueRow row)
+    {
+        var at = IndexOfKey(SessionQueueRows(), row.Key);
+
+        if (row.EntryId is { } entryId)
+        {
+            if (!await _sessionRequests.CancelAsync(entryId) && _sessionRequests.Error is { } error)
+            {
+                Toasts.Publish(ToastMessage.Error(error, "session-request-cancel-failed"));
+            }
+        }
+        else if (row.PlanTag is { } tag)
+        {
+            await OnCancelPlanSessionAsync(tag);
+        }
+
+        _focusSessionQueue = SessionQueueFocusAfterCancel(SessionQueueRows(), row.Key, Math.Max(at, 0));
+    }
+
+    /// <summary>
+    /// The control the focus moves to once a Cancel has run. The row's own Cancel
+    /// went with its row, which would drop the focus on the body and out of the
+    /// panel — where Escape no longer closes it. So: the same row's control when the
+    /// cancel was refused and the row stayed; else the row now in its place, then the
+    /// rows below it, then the ones above it; and the trigger when no row has a
+    /// control left to hold it.
+    /// </summary>
+    private static string SessionQueueFocusAfterCancel(IReadOnlyList<SessionQueueRow> rows, string key, int at)
+    {
+        var kept = IndexOfKey(rows, key);
+        var start = kept >= 0 ? kept : Math.Min(at, rows.Count - 1);
+
+        for (var index = start; index >= 0 && index < rows.Count; index++)
+        {
+            if (SessionQueueFocusTarget(rows[index]) is { } id) return id;
+        }
+
+        for (var index = Math.Min(start, rows.Count) - 1; index >= 0; index--)
+        {
+            if (SessionQueueFocusTarget(rows[index]) is { } id) return id;
+        }
+
+        return SessionQueueFocusTrigger;
+    }
+
+    private static string? SessionQueueFocusTarget(SessionQueueRow row) =>
+        row.CanCancel ? SessionQueueControlId("cancel", row)
+        : row.InView ? SessionQueueControlId("jump", row)
+        : null;
+
+    private static string SessionQueueControlId(string control, SessionQueueRow row) => $"session-queue-{control}-{row.Key}";
+
+    private static int IndexOfKey(IReadOnlyList<SessionQueueRow> rows, string key)
+    {
+        for (var index = 0; index < rows.Count; index++)
+        {
+            if (rows[index].Key == key) return index;
+        }
+
+        return -1;
+    }
 
     private Task OpenSessionAsync(IntegrationLinkRef link) => OnOpenSession.InvokeAsync(link.Id);
 
@@ -3044,9 +3373,9 @@
             new(RowMenuDuePick, "Pick a date", "🗓"),
             new(RowMenuDueClear, "Remove due date", "🗓", Disabled: row.PreviewDueOn is null),
             MenuItem.Divider("order"),
-            new(RowMenuMoveTop, "Move to top", "⤒", Disabled: above is null),
-            new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null),
-            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null)
+            new(RowMenuMoveTop, "Move to top", "⤒", Disabled: above is null || State.InGroupedSlice),
+            new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null || State.InGroupedSlice),
+            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null || State.InGroupedSlice)
         ];
 
         // Where the work went, after where the row sits and before the act that
@@ -3259,6 +3588,12 @@
                         OnClick="OnOpenImport">
                 Import
             </AppButton>
+            @if (SummaryBesideNewEntry)
+            {
+                <div class="entry-add-row__summary">
+                    @RenderOpenWorkSummary()
+                </div>
+            }
         </div>;
     private void OnNewEntry() => State.NewRow();
 
@@ -3349,9 +3684,67 @@
     /// out.</summary>
     private int ReadyInPlanCount => State.ScopedRows.Count(State.IsReadyInPlan);
 
+    /// <summary>How many of those same rows are waiting on someone — see
+    /// <c>TasksDesktopState.IsWaitingForSomeone</c>, which leaves finished rows
+    /// out.</summary>
+    private int WaitingForCount => State.ScopedRows.Count(State.IsWaitingForSomeone);
+
+    /// <summary>How many of those same rows are next actions — see
+    /// <c>TasksDesktopState.IsNextAction</c>.</summary>
+    private int NextActionsCount => State.ScopedRows.Count(State.IsNextAction);
+
+    /// <summary>The context heading a row is listed under while the Next actions
+    /// slice is on, and none otherwise: the list draws a heading where it changes.
+    /// Null for the list when the slice is off, so no other view pays for it.</summary>
+    private Func<TaskRow, string?>? NextActionSection
+    {
+        get
+        {
+            if (!State.NextActionsOnly) return null;
+
+            // Once per render over the rows in view, rather than a search of every
+            // row for each one the list draws.
+            var groups = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var row in State.FilteredRows)
+            {
+                groups.TryAdd(EntryTaskId(row), TasksDesktopState.NextActionGroupOf(row));
+            }
+
+            return task => groups.GetValueOrDefault(task.Id);
+        }
+    }
+
     // --- The open-work summary and its report --------------------------------
 
     private const string OpenWorkSummaryId = "open-work-summary";
+
+    /// <summary>
+    /// The total the chips never gave: how much is open in the repository scope,
+    /// before any status, tag or scope narrows it — the pool the chip counts are
+    /// taken over, so pressing a filter changes the list and never this. Not a
+    /// filter, so its own group rather than a chip in one; an AppButton because
+    /// pressing it opens the report behind the number.
+    /// <para>
+    /// Last on the bar, where it gives way rather than the bar: the detail half goes
+    /// first at a narrow column and then the noun, leaving the number — see app.css
+    /// — and the accessible name keeps the whole sentence either way. In the list on
+    /// a narrow column it moves beside New entry instead (SummaryBesideNewEntry),
+    /// where the bar has no row left to spare; one copy is drawn either way, so the
+    /// report dialog's focus restore always finds its id.
+    /// </para>
+    /// </summary>
+    private RenderFragment RenderOpenWorkSummary() =>
+        @<AppButton BaseClass="chip chip--filter"
+                    Variant="ButtonVariant.None"
+                    CssClass="chip--summary"
+                    id="@OpenWorkSummaryId"
+                    TestId="open-work-summary"
+                    title="@OpenWork.Description"
+                    aria-label="@OpenWork.Description"
+                    aria-haspopup="dialog"
+                    OnClick="OnOpenWorkReport">
+            <span class="open-work-summary__number">@OpenWork.Open</span><span class="open-work-summary__noun"> open</span><span class="open-work-summary__detail">@OpenWorkTail</span>
+        </AppButton>;
 
     private bool _openWorkOpen;
 
@@ -3812,6 +4205,17 @@
                     <Badge Kind="started" data-testid="entry-started-badge" title="Started">Started @FormatDate(started)</Badge>
                 }
 
+                @* Who the entry waits on, and the follow-up day, on the same terms:
+                   only when there is one. A passed follow-up says "overdue" in words,
+                   the way a passed reminder reads (.devbook/domain/tasks/domain.md#waiting-for). *@
+                @if (row.PreviewWaitingFor is { } waiting)
+                {
+                    <Badge Kind="waiting"
+                           Slug="@(IsFollowUpOverdue(row, waiting) ? "overdue" : null)"
+                           data-testid="entry-waiting-badge"
+                           title="Waiting on someone">@WaitingForBadgeText(waiting, IsFollowUpOverdue(row, waiting))</Badge>
+                }
+
                 @* Grouped and named after the entry, out loud. Both of these act on
                    the whole task — one files it as an issue, the other hands the
                    entry to a tool — and a step used to carry buttons that looked
@@ -4238,6 +4642,92 @@
                     }
                 </TaskActionGroup>
 
+                @* Who the task waits on, outside the backlog, and when to chase them
+                   (.devbook/domain/tasks/domain.md#waiting-for). Straight under
+                   Dependencies, because both answer "why is this not moving", and its
+                   own group rather than a row there: "Waiting for" above is the chain
+                   of other entries, and this is a person or a party, so the two are
+                   never said in one breath. Across the width with the other
+                   trailing groups, which leaves the two columns level as Ranking
+                   describes. The follow-up row appears once someone is
+                   named, because a date alone is no waiting-for; a passed date reads
+                   overdue, the way a passed reminder does. *@
+                <TaskActionGroup Label="Waiting on someone" TestId="entry-schedule-waiting">
+                    <TaskAction Icon="👤"
+                                Label="@(row.PreviewWaitingFor is null ? "Wait on someone" : "Waiting on")"
+                                Value="@row.PreviewWaitingFor?.Who"
+                                Set="@(row.PreviewWaitingFor is not null)"
+                                OnSet="() => TogglePicker(SchedulePicker.WaitingFor)"
+                                OnClear="() => State.ChangeWaitingForAsync(row, null)"
+                                TestId="entry-action-waiting" />
+
+                    @if (IsPickerOpen(SchedulePicker.WaitingFor))
+                    {
+                        @* @onchange rather than ValueChanged, for the reason the
+                           attachment path gives: every keystroke would be a save, and
+                           an empty value means "clear". *@
+                        <TextField Bare="true"
+                                   AriaLabel="Who it waits on"
+                                   Placeholder="A person or a party"
+                                   InputCssClass="entry-doc__schedule-input"
+                                   data-testid="entry-waiting-input"
+                                   Value="@(row.PreviewWaitingFor?.Who ?? string.Empty)"
+                                   @onchange="(ChangeEventArgs e) => OnWaitingForPickedAsync(row, e)" />
+                    }
+
+                    @if (row.PreviewWaitingFor is { } waitingFor)
+                    {
+                        <TaskAction Icon="📅"
+                                    Label="@(IsFollowUpOverdue(row, waitingFor) ? "Follow up — overdue" : waitingFor.FollowUpOn is null ? "Add a follow-up date" : "Follow up")"
+                                    Value="@FormatDate(waitingFor.FollowUpOn)"
+                                    Set="@(waitingFor.FollowUpOn is not null)"
+                                    OnSet="() => TogglePicker(SchedulePicker.FollowUpOn)"
+                                    OnClear="() => State.ChangeWaitingForAsync(row, new WaitingFor(waitingFor.Who))"
+                                    CssClass="@(IsFollowUpOverdue(row, waitingFor) ? "task-action--overdue" : null)"
+                                    TestId="entry-action-followup-on" />
+
+                        @if (IsPickerOpen(SchedulePicker.FollowUpOn))
+                        {
+                            <TextField Bare="true"
+                                       Type="date"
+                                       AriaLabel="Follow-up date"
+                                       InputCssClass="entry-doc__schedule-input"
+                                       data-testid="entry-followup-input"
+                                       Value="@(waitingFor.FollowUpOn is { } followUp ? EntryTextParser.DateToken(followUp) : string.Empty)"
+                                       @onchange="(ChangeEventArgs e) => OnFollowUpPickedAsync(row, waitingFor, e)" />
+                        }
+                    }
+                </TaskActionGroup>
+
+                @* The pile the task is filed under, in the person's own words
+                   (.devbook/domain/tasks/domain.md#area). A combobox rather than a
+                   select: the suggestions are the Brain's area names first, then the
+                   areas already used, and what is typed stands as typed — the
+                   taxonomy is the person's. Across the width with the other trailing
+                   groups, after the two that say why a task is not moving. *@
+                <TaskActionGroup Label="Area" TestId="entry-schedule-area">
+                    <TaskAction Icon="🗂"
+                                Label="@(string.IsNullOrWhiteSpace(row.PreviewArea) ? "File under an area" : "Area")"
+                                Value="@row.PreviewArea"
+                                Set="@(!string.IsNullOrWhiteSpace(row.PreviewArea))"
+                                OnSet="() => ToggleAreaPickerAsync()"
+                                OnClear="() => State.ChangeAreaAsync(row, null)"
+                                TestId="entry-action-area" />
+
+                    @if (IsPickerOpen(SchedulePicker.Area))
+                    {
+                        <Combobox Options="@AreaOptions()"
+                                  Value="@(row.PreviewArea ?? string.Empty)"
+                                  AriaLabel="Area"
+                                  ListAriaLabel="Suggested areas"
+                                  Placeholder="An area, or a new one"
+                                  Compact="true"
+                                  CssClass="entry-doc__area-picker"
+                                  TestId="entry-area-input"
+                                  OnCommit="commit => OnAreaCommittedAsync(row, commit)" />
+                    }
+                </TaskActionGroup>
+
                 @* Under Dependencies and across the full width for the same reason:
                    its value is a list of names. A row the store has never seen has
                    nowhere to keep a reference — the field is the entry's own, not a
@@ -4341,16 +4831,34 @@
                     <span class="entry-doc__devbook" role="list" aria-label="Devbook references" data-testid="entry-devbook-references">
                         @foreach (var reference in references)
                         {
-                            <DevbookReferenceChip role="listitem"
-                                                  @key="reference.Reference"
-                                                  Reference="@reference.Reference"
-                                                  Title="@ChipTitle(reference)"
-                                                  Status="@reference.Status"
-                                                  Broken="@reference.IsBroken"
-                                                  Problem="@DevbookProblem(reference.State)"
-                                                  OnOpen="@DevbookOpener(row, reference)"
-                                                  OnRemove="value => State.RemoveDevbookReferenceAsync(row, value)"
-                                                  TestId="entry-devbook-reference" />
+                            @* A note in the owner's Brain (local ADR 0053) wears the
+                               Brain's chip, not a repository chapter's: it opens on the
+                               Brain side, and no devbook status applies to it. *@
+                            @if (reference.IsBrainNote)
+                            {
+                                <span role="listitem" class="entry-doc__brain-reference" @key="reference.Reference">
+                                    <Backlog.UI.Components.Brain.BrainNoteChip Reference="@reference.Reference"
+                                                                               Title="@ChipTitle(reference)"
+                                                                               Unresolved="@(reference.State is not (DevbookReferenceState.Page or DevbookReferenceState.Chapter))"
+                                                                               Problem="@BrainProblem(reference)"
+                                                                               OnOpen="@BrainOpener(reference)"
+                                                                               OnRemove="value => State.RemoveDevbookReferenceAsync(row, value)"
+                                                                               TestId="entry-devbook-brain-reference" />
+                                </span>
+                            }
+                            else
+                            {
+                                <DevbookReferenceChip role="listitem"
+                                                      @key="reference.Reference"
+                                                      Reference="@reference.Reference"
+                                                      Title="@ChipTitle(reference)"
+                                                      Status="@reference.Status"
+                                                      Broken="@reference.IsBroken"
+                                                      Problem="@DevbookProblem(reference.State)"
+                                                      OnOpen="@DevbookOpener(row, reference)"
+                                                      OnRemove="value => State.RemoveDevbookReferenceAsync(row, value)"
+                                                      TestId="entry-devbook-reference" />
+                            }
                         }
                     </span>
                 }
@@ -4395,7 +4903,7 @@
                                     MatchValue="true"
                                     MaxOptions="DevbookPickerMaxOptions"
                                     AllowCreate="true"
-                                    Placeholder="Find a page or chapter, or type path#anchor"
+                                    Placeholder="Find a page or chapter, or type path#anchor or #brain:note.md"
                                     CssClass="entry-doc__devbook-picker"
                                     TestId="entry-devbook-select" />
                 }
@@ -4576,6 +5084,34 @@
             ? EventCallback.Factory.Create<string>(this, value =>
                 OnOpenDevbookReference.InvokeAsync(new DevbookReferenceRequest(State.DevbookRepositoryAliasFor(row), value)))
             : default;
+
+    /// <summary>A Brain note chip's opener: the note — its path inside the Brain and
+    /// heading — handed to the host to show on the Devbook pane's Brain side. None when
+    /// the host wired no Brain opener; the chip opens only once it resolved.</summary>
+    private EventCallback<string> BrainOpener(ResolvedDevbookReference reference) =>
+        OnOpenBrainNote.HasDelegate && Backlog.SharedKernel.BrainNoteAddress.TryParse(reference.Reference, out var address)
+            ? EventCallback.Factory.Create<string>(this, _ =>
+                OnOpenBrainNote.InvokeAsync(new Backlog.UI.Components.Brain.BrainNoteLink(address.Chapter, reference.Title)))
+            : default;
+
+    /// <summary>Why a Brain note reference does not open, in the Brain chip's own
+    /// words: no Brain readable on this device, or a Brain that holds no such note.
+    /// Null for one that resolved.</summary>
+    private static string? BrainProblem(ResolvedDevbookReference reference)
+    {
+        if (!Backlog.SharedKernel.BrainNoteAddress.TryParse(reference.Reference, out var address))
+        {
+            return Backlog.UI.Components.Brain.BrainNoteChip.NotABrainAddress;
+        }
+
+        return reference.State switch
+        {
+            DevbookReferenceState.Page or DevbookReferenceState.Chapter => null,
+            DevbookReferenceState.Unverified => Backlog.UI.Components.Brain.BrainNoteChip.NotInYourBrain,
+            DevbookReferenceState.UnknownHeading => $"No heading #{address.Slug} in the Brain note {address.Path} any more.",
+            _ => Backlog.UI.Components.Brain.BrainNoteChip.NotInThisBrain(address.Chapter)
+        };
+    }
 
     // --- Keyboard ----------------------------------------------------------
 
@@ -4833,6 +5369,99 @@
             DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var due)
                 ? due
                 : null);
+    }
+
+    /// <summary>Who the entry waits on, from its field. Blank clears the waiting-for,
+    /// the same gesture as the ✕; a name keeps the follow-up date already set. A
+    /// backtick cannot sit inside a token, so a name holding one is not written.</summary>
+    private async Task OnWaitingForPickedAsync(EntryRow row, ChangeEventArgs e)
+    {
+        var value = (e.Value?.ToString() ?? string.Empty).Trim();
+        ClosePicker();
+
+        if (value.Contains('`', StringComparison.Ordinal)) return;
+
+        await State.ChangeWaitingForAsync(
+            row,
+            value.Length == 0 ? null : new WaitingFor(value, row.PreviewWaitingFor?.FollowUpOn));
+    }
+
+    /// <summary>The Brain's area names, read when the Area picker opens; empty in a
+    /// host that composes no Brain.</summary>
+    private IReadOnlyList<string> _brainAreas = [];
+
+    /// <summary>Where the Brain's area names come from, or null in a host that
+    /// composes no Brain.</summary>
+    private IBrainAreaNames? _brainAreaNames;
+
+    /// <summary>Opens the Area picker, or closes it; opening reads the Brain's area
+    /// names again, off the render thread, so an area added in the Brain since is
+    /// offered.</summary>
+    private async Task ToggleAreaPickerAsync()
+    {
+        TogglePicker(SchedulePicker.Area);
+        if (!IsPickerOpen(SchedulePicker.Area)) return;
+
+        if (_brainAreaNames is { } brain)
+        {
+            try
+            {
+                _brainAreas = await brain.ListAsync();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A Brain folder that cannot be read is no area to suggest; the areas
+                // in use still are, and typing still files.
+                _brainAreas = [];
+            }
+        }
+    }
+
+    /// <summary>What the Area picker suggests: the Brain's areas, then those in use —
+    /// see <c>TasksDesktopState.AreaSuggestions</c> — each grouped by where it came
+    /// from.</summary>
+    private IReadOnlyList<SelectorOption> AreaOptions()
+    {
+        var brain = new HashSet<string>(_brainAreas, StringComparer.OrdinalIgnoreCase);
+
+        return
+        [
+            .. State.AreaSuggestions(_brainAreas)
+                .Select(area => new SelectorOption(area, area, Hint: null, Group: brain.Contains(area) ? "Brain" : "In use"))
+        ];
+    }
+
+    /// <summary>The area, from its field: a suggestion taken or what was typed. Blank
+    /// clears it, the same gesture as the ✕. A backtick cannot sit inside a token, so
+    /// an area holding one is refused and the field goes back.</summary>
+    private async Task OnAreaCommittedAsync(EntryRow row, ComboboxCommit commit)
+    {
+        var value = commit.Value.Trim();
+
+        if (value.Contains('`', StringComparison.Ordinal))
+        {
+            commit.Refuse();
+            return;
+        }
+
+        ClosePicker();
+        await State.ChangeAreaAsync(row, value.Length == 0 ? null : value);
+    }
+
+    /// <summary>The follow-up date, from its field. Clearing the native field clears
+    /// the date and keeps who the entry waits on.</summary>
+    private async Task OnFollowUpPickedAsync(EntryRow row, WaitingFor waitingFor, ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? string.Empty;
+        ClosePicker();
+
+        await State.ChangeWaitingForAsync(
+            row,
+            new WaitingFor(
+                waitingFor.Who,
+                DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var followUp)
+                    ? followUp
+                    : null));
     }
 
     private async Task OnReminderPickedAsync(EntryRow row, ChangeEventArgs e)
@@ -5170,6 +5799,20 @@
     private static string? FormatDate(DateOnly? date) =>
         date?.ToString("d", CultureInfo.CurrentCulture);
 
+    /// <summary>Whether the entry's follow-up day has passed while it is still open:
+    /// a ticked-off entry is never overdue, the way a finished date is not.</summary>
+    private static bool IsFollowUpOverdue(EntryRow row, WaitingFor waiting) =>
+        !row.IsPreviewCompleted && waiting.IsFollowUpOverdue(Today);
+
+    /// <summary>What the row's waiting badge says: who, and the follow-up day when
+    /// there is one, with "overdue" once that day has passed.</summary>
+    private static string WaitingForBadgeText(WaitingFor waiting, bool overdue) =>
+        waiting.FollowUpOn is { } followUp
+            ? overdue
+                ? $"Waiting on {waiting.Who} · follow up {FormatDate(followUp)} · overdue"
+                : $"Waiting on {waiting.Who} · follow up {FormatDate(followUp)}"
+            : $"Waiting on {waiting.Who}";
+
     private static string? FormatReminder(DateTime? remindAt) =>
         remindAt?.ToString("g", CultureInfo.CurrentCulture);
 
@@ -5328,19 +5971,281 @@
         _ => "chip--tag-general"
     };
 
+    /// <summary>The kind, and on a plan chip the hook its progress line hangs on, so
+    /// the line is drawn only where <see cref="TagFilterProgressStyle"/> says how far.</summary>
+    private static string TagFilterClass(TagFilterOption tag) => TagFilterProgressPercent(tag) is null
+        ? TagFilterKindClass(tag)
+        : TagFilterKindClass(tag) + " chip--progress";
+
+    /// <summary>How far along a plan is, by the entries the chip and its tooltip
+    /// count: finished over all, as a whole percentage rounded down so a plan reads
+    /// 100 only when it is finished, and 0 for a plan held on the bar with nothing
+    /// under it. Null for every chip that names no plan — "No plan" wears the plan's
+    /// kind but has nothing to finish.</summary>
+    private static int? TagFilterProgressPercent(TagFilterOption tag)
+    {
+        if (tag.Value == TasksDesktopState.NoPlanTag || TagText.Kind(tag.Value) is not TagKind.Plan) return null;
+
+        var total = tag.OpenCount + tag.CompletedCount;
+
+        return total <= 0 ? 0 : tag.CompletedCount * 100 / total;
+    }
+
+    /// <summary>The progress as the custom property app.css fills the line to.
+    /// Invariant, because a comma decimal is not CSS; null leaves the attribute off.</summary>
+    private static string? TagFilterProgressStyle(TagFilterOption tag) => TagFilterProgressPercent(tag) is { } percent
+        ? $"--chip-progress: {percent.ToString(CultureInfo.InvariantCulture)}%"
+        : null;
+
     /// <summary>What pressing the chip does, then what is behind the number on it:
     /// "Filter by #sync — 2 open, 1 completed". The completed clause is left off
     /// when there is nothing finished, so a chip whose face already says everything
     /// does not explain a zero.</summary>
     private string TagFilterTitle(TagFilterOption tag)
     {
-        var act = State.IsTagSelected(tag.Value) ? "Stop filtering by" : "Filter by";
-        var counts = tag.CompletedCount > 0
-            ? $"{tag.OpenCount} open, {tag.CompletedCount} completed"
-            : $"{tag.OpenCount} open";
+        var title = FilterChipTitle($"{(State.IsTagSelected(tag.Value) ? "Stop filtering by" : "Filter by")} {tag.Label}", tag.OpenCount, tag.CompletedCount);
 
-        return $"{act} {tag.Label} — {counts}";
+        return PlanWaitingOnChip(tag) is { } waiting
+            ? $"{title}. {PlanSessionRequestTitle(waiting)}"
+            : title;
     }
+
+    /// <summary>A filter chip's tooltip: what pressing it does, then what is behind
+    /// the open count on its face — "Show only prompts — 2 open, 1 completed". The
+    /// completed clause is left off when nothing is finished.</summary>
+    private static string FilterChipTitle(string act, int open, int completed) =>
+        completed > 0 ? $"{act} — {open} open, {completed} completed" : $"{act} — {open} open";
+
+    // --- Source and Type, and the narrow column's Filter menu -----------------
+
+    /// <summary>
+    /// Where a task came from, and whose it is there. Nothing at all until two
+    /// sources have open work or one is pressed — see
+    /// <c>TasksDesktopState.SourceFilters</c> — so a backlog that never connected
+    /// anything keeps the bar it had. Every chip is drawn from a connector's
+    /// descriptor (ADR 0020 §3): a connector added later appears here with no change.
+    /// <para>
+    /// Pressable chips rather than a radiogroup, for the scopes' reason: each narrows
+    /// what the bar left in view, and pressing the pressed one widens again — so with
+    /// nothing pressed the list is already every source and there is no "All" chip.
+    /// Pressing another source lets go of the first, because a task comes from
+    /// exactly one. Drawn on the bar, or inside the Filter menu on a narrow column.
+    /// </para>
+    /// </summary>
+    private RenderFragment? RenderSourceGroup()
+    {
+        if (State.SourceFilters.Count == 0) return null;
+
+        return @<div class="filter-group filter-group--source" role="group" aria-label="Filter by source">
+            @foreach (var source in State.SourceFilters)
+            {
+                <ToggleButton BaseClass="chip chip--filter"
+                              PressedCssClass="chip--active"
+                              Pressed="@(State.SelectedSource == source.Value)"
+                              TestId="source-filter-option"
+                              id="@SourceFilterChipId(source.Value)"
+                              data-source="@source.Value"
+                              Title="@FilterChipTitle(State.SelectedSource == source.Value ? "Show every source again" : $"Show only {source.Label} tasks", source.OpenCount, source.CompletedCount)"
+                              PressedChanged="pressed => OnSourceChipPressed(source.Value, pressed)">
+                    @source.Label<span class="chip__count">@source.OpenCount</span>
+                </ToggleButton>
+            }
+        </div>;
+    }
+
+    /// <summary>
+    /// What kind of task it is — prompt, task, idea or test. The source group's shape
+    /// and for its reason: a task has exactly one type, so pressing another lets go
+    /// of the first, and with nothing pressed the list is already every type. Only
+    /// the types with open work in view get a chip, the pressed one always, and none
+    /// at all while that is just one. It narrows the rows every view reads, so the
+    /// Board and the Calendar's month and its tray of undated tasks follow it too.
+    /// </summary>
+    private RenderFragment? RenderTypeGroup()
+    {
+        if (State.TypeFilters.Count == 0) return null;
+
+        return @<div class="filter-group filter-group--type" role="group" aria-label="Filter by type">
+            @foreach (var type in State.TypeFilters)
+            {
+                <ToggleButton BaseClass="chip chip--filter"
+                              PressedCssClass="chip--active"
+                              Pressed="@(State.SelectedType == type.Value)"
+                              TestId="type-filter-option"
+                              id="@TypeFilterChipId(type.Value)"
+                              data-type="@EntryTextParser.TypeToken(type.Value)"
+                              Title="@FilterChipTitle(State.SelectedType == type.Value ? "Show every type again" : $"Show only {type.Label.ToLowerInvariant()}s", type.OpenCount, type.CompletedCount)"
+                              PressedChanged="pressed => OnTypeChipPressed(type.Value, pressed)">
+                    @type.Label<span class="chip__count">@type.OpenCount</span>
+                </ToggleButton>
+            }
+        </div>;
+    }
+
+    /// <summary>How many of Source and Type are pressed — 0, 1 or 2 — which the
+    /// Filter trigger wears as its count while it is not 0.</summary>
+    private int FilterMenuPressedCount => (State.SelectedSource is null ? 0 : 1) + (State.SelectedType is null ? 0 : 1);
+
+    /// <summary>The Filter trigger in the chips' shape, reading pressed while a
+    /// source or type is, so a narrowed list says so with the menu shut.</summary>
+    private string FilterMenuTriggerClass => FilterMenuPressedCount > 0
+        ? "chip chip--filter chip--menu chip--active"
+        : "chip chip--filter chip--menu";
+
+    /// <summary>The Filter trigger's tooltip: what the menu holds, then what is
+    /// pressed in it.</summary>
+    private string FilterMenuTitle
+    {
+        get
+        {
+            var holds = (State.SourceFilters.Count > 0, State.TypeFilters.Count > 0) switch
+            {
+                (true, true) => "Filter by source and type",
+                (true, false) => "Filter by source",
+                _ => "Filter by type",
+            };
+
+            return FilterMenuPressedCount switch
+            {
+                0 => holds,
+                1 => $"{holds} — 1 filter on",
+                var count => $"{holds} — {count} filters on",
+            };
+        }
+    }
+
+    /// <summary>
+    /// The width, in rem, at and below which the list column is narrow: the Source
+    /// and Type groups fold into the Filter menu, and the open-work summary moves
+    /// beside New entry. The same number as app.css's
+    /// <c>@container backlog-list (max-width: 48rem)</c> step, where the tag strip
+    /// leaves the bar; <c>FilterBarLayoutTests</c> holds the two together.
+    /// </summary>
+    internal const int ListNarrowRem = 48;
+
+    /// <summary>Whether the list column is narrow, as components.js last reported it
+    /// (<c>backlogWidthWatch</c>). Wide until it says otherwise, so a host with no
+    /// script — and every bUnit test — draws the wide bar.</summary>
+    private bool _listReportedNarrow;
+
+    /// <summary>Whether the Filter menu's panel is open, as the menu last said.</summary>
+    private bool _filterMenuOpen;
+
+    /// <summary>
+    /// Whether the bar takes the narrow column's shape: the column is narrow, or the
+    /// Filter menu is open on it.
+    /// <para>
+    /// The second half is what keeps the menu under the reader. The column is mostly
+    /// narrow because an entry is open beside it, and a chip pressed in the menu can
+    /// filter that entry out of the list: the selection goes, the split closes, the
+    /// column widens past the step — and drawing the wide bar then would take the
+    /// open panel, and the chip with the focus in it, out of the DOM. So a wide
+    /// report waits while the menu is open, and lands when it closes.
+    /// </para>
+    /// </summary>
+    private bool ListNarrow => _listReportedNarrow || (_filterMenuOpen && FilterMenuOffered);
+
+    /// <summary>The Filter menu has something to hold: at least one of Source and
+    /// Type has chips.</summary>
+    private bool FilterMenuOffered => State.SourceFilters.Count > 0 || State.TypeFilters.Count > 0;
+
+    /// <summary>
+    /// The menu opened or shut. The re-render the callback brings applies any wide
+    /// report that waited on it — and when that takes the menu off the bar, the
+    /// focus inside it (on the trigger, after Escape) would go with it to the page's
+    /// body, so it is handed to the same chip on the wide bar: the one last pressed
+    /// in the menu, else the pressed one, else the first. Only if the focus was in
+    /// the menu or lost; an outside click that put it somewhere keeps it there.
+    /// </summary>
+    private void OnFilterMenuOpenChanged(bool open)
+    {
+        var drawn = ListNarrow;
+        _filterMenuOpen = open;
+
+        if (open) _lastMenuChipId = null;
+        else if (drawn && !ListNarrow) _focusInlineFilterChip = InlineFilterChipToFocus();
+    }
+
+    private const string FilterMenuSelector = "[data-testid='filter-menu']";
+
+    // The chip the reader last pressed in the open menu, and the chip the wide bar
+    // hands the focus to once the menu has left it.
+    private string? _lastMenuChipId;
+    private string? _focusInlineFilterChip;
+
+    private void OnSourceChipPressed(string source, bool pressed)
+    {
+        _lastMenuChipId = SourceFilterChipId(source);
+        State.SetSourceFilter(pressed ? source : null);
+    }
+
+    private void OnTypeChipPressed(EntryType type, bool pressed)
+    {
+        _lastMenuChipId = TypeFilterChipId(type);
+        State.SetTypeFilter(pressed ? type : null);
+    }
+
+    private string? InlineFilterChipToFocus()
+    {
+        var drawn = State.SourceFilters.Select(option => SourceFilterChipId(option.Value))
+            .Concat(State.TypeFilters.Select(option => TypeFilterChipId(option.Value)))
+            .ToList();
+
+        if (_lastMenuChipId is { } last && drawn.Contains(last)) return last;
+        if (State.SelectedType is { } type && drawn.Contains(TypeFilterChipId(type))) return TypeFilterChipId(type);
+        if (State.SelectedSource is { } source && drawn.Contains(SourceFilterChipId(source))) return SourceFilterChipId(source);
+        return drawn.FirstOrDefault();
+    }
+
+    internal static string SourceFilterChipId(string source) =>
+        "source-filter-option-" + Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(source));
+
+    internal static string TypeFilterChipId(EntryType type) => "type-filter-option-" + EntryTextParser.TypeToken(type);
+
+    private ElementReference _backlogList;
+    private DotNetObjectReference<TasksPane>? _listWidthReference;
+
+    // The watch's key in the script, this pane's own, so a second pane in the
+    // document could never stop the first one's.
+    private readonly string _listWidthWatchId = $"backlog-list-{Guid.NewGuid():n}";
+
+    /// <summary>
+    /// A container query restyles an element and cannot move one between parents,
+    /// so the narrow column's other shape — the Filter menu, the summary beside New
+    /// entry — is rendered from here, on the script's word that the column crossed
+    /// <see cref="ListNarrowRem"/>. One form is in the DOM at a time, so no id or
+    /// test id is ever drawn twice.
+    /// </summary>
+    [JSInvokable]
+    public Task ListNarrowChangedAsync(bool narrow)
+    {
+        if (_listReportedNarrow == narrow) return Task.CompletedTask;
+
+        var drawn = ListNarrow;
+        _listReportedNarrow = narrow;
+        return drawn == ListNarrow ? Task.CompletedTask : InvokeAsync(StateHasChanged);
+    }
+
+    private async Task WatchListWidthAsync()
+    {
+        _listWidthReference = DotNetObjectReference.Create(this);
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogWidthWatch.watch", _listWidthWatchId, _backlogList, _listWidthReference, nameof(ListNarrowChangedAsync), ListNarrowRem);
+        }
+        catch (JSException)
+        {
+            // Without the script the column stays wide: every control is still on
+            // the bar, only wrapping onto more rows.
+        }
+    }
+
+    /// <summary>Whether the open-work summary sits beside New entry rather than at
+    /// the end of the bar: in the list on a narrow column, where the add row is.
+    /// The Board and the Calendar have no add row, so it stays on their bar.</summary>
+    private bool SummaryBesideNewEntry =>
+        ListNarrow && Layout == TasksLayout.List && !(State.IsLoading && State.Rows.Count == 0);
 
     /// <summary>"never checked" is a real, distinct answer from "open" — the
     /// badge says so rather than implying a state nobody has verified.</summary>
@@ -5411,9 +6316,26 @@
         State.SetStatusFilterSuspended(false);
         Features.Changed -= HandleFeaturesChanged;
         _sessionRequests.Changed -= HandleSessionRequestsChanged;
+        _sessionRequests.Refreshed -= HandleSessionRequestsRefreshed;
         _sessionRequests.Dispose();
         _planSessions.Changed -= HandleSessionRequestsChanged;
         _planSessions.Dispose();
+
+        if (_listWidthReference is not null)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("backlogWidthWatch.unwatch", _listWidthWatchId);
+            }
+            catch (JSException)
+            {
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+
+            _listWidthReference.Dispose();
+        }
 
         if (_undoKeysReference is null) return;
 

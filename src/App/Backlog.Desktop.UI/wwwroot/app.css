@@ -264,6 +264,10 @@ h1, h2, h3 {
     align-items: center;
     gap: var(--spacing-md);
     flex-wrap: nowrap;
+    /* How far a DEV or BETA flag stands past its control's right edge — see the
+       flag rule under Header groups, and the utilities' end padding that keeps
+       the room for it. */
+    --header-flag-overhang: 4px;
 }
 
 .app-header > * {
@@ -330,8 +334,14 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
+/* The end padding is the room a flag on the last control stands out into. Ask
+   AI closes the row now the gear has gone to the footer, and its DEV or BETA
+   flag hung past the header's own edge: the header then measured a few pixels
+   wider than its box, and backlogHeaderFit (app.js) folded every tier and wrapped
+   the row at any width. A flag is decoration and must never decide the fit. */
 .app-header__utilities {
     gap: var(--spacing-xs);
+    padding-inline-end: var(--header-flag-overhang);
 }
 
 /* Once the row has wrapped the utilities may land on a row of their own, and
@@ -387,7 +397,9 @@ h1, h2, h3 {
 }
 
 /*
-  The shared Toggle in the header's gear menu rather than in a settings row.
+  The shared Toggle in the Settings gear's menu rather than in a settings row. The
+  `header-` names are from when the gear sat in the header; the footer band holds
+  it now, and the names stay because they describe the shape, not the place.
 
   The component is laid out for that row: the track aligns to the top of a text
   block that may carry a description under the name, and the name is set at the
@@ -423,11 +435,19 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
 }
 
-/* The gear reads pressed while its menu is out, as a hovered icon link does. */
-.icon-link.icon-link--open {
+/* The gear reads pressed while its menu is out, as a hovered utility does. */
+.header-util.header-util--open {
     background: var(--color-background-alt);
     border-color: var(--color-border-strong);
     color: var(--color-text-primary);
+}
+
+/* The gear wears the band's utility shape, so it is as short as Report issue
+   beside it; only its glyph steps up from the band's small type, which would
+   draw it no bigger than a letter. Line height 1, so the band stays one line. */
+.app-footer__settings-trigger {
+    font-size: var(--font-size-lg);
+    line-height: 1;
 }
 
 /* Settings, last in the gear menu: a link to the page, set apart from the
@@ -456,9 +476,15 @@ h1, h2, h3 {
 /* The version control wears `.header-util` for its shape, so only the version
    number's own type is left here. It is no longer in the header at all — it leads
    the app-shell footer, where `.app-footer` above places it. `.header-util` is the
-   shape a utility button has, not a statement about where it lives. */
+   shape a utility button has, not a statement about where it lives.
+
+   `line-height: 1` because the number shares the label's line box (AppFooter.razor
+   wraps both in one span so they share a baseline). At the inherited line height the
+   mono face's taller ascent and descent stretched that box by 2px, which made the
+   button outgrow its 1.5rem and the footer band 1px taller. */
 .app-version code {
     font-family: var(--font-family-mono);
+    line-height: 1;
     color: var(--color-text-primary);
 }
 
@@ -622,21 +648,28 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
-/* Tags take the middle of the bar, and all the slack in it. They used to share it
-   with the areas group, which is gone; nothing else in the bar wants the width,
-   because the two scopes are pinned and status sits against the right edge.
+/* The tags' own row, under every other group on the bar. The strip used to take
+   the middle of the first row with a zero basis, which left it whatever the scopes,
+   Source, Type and the statuses did not use — at mid widths one sliced chip and
+   More. A row of its own gives it the bar's whole width at every width, collapsed or
+   expanded, and keeps More or Fewer at that row's end. `order: 1` puts it last, as
+   the markup does, and keeps it under the refresh spinner that follows it in the
+   DOM; nothing else on the bar sets an order.
 
-   Two ways it stops taking room at all. It is absent from the markup while nothing
-   in scope carries a tag, so the bar is two groups for anyone who does not tag; and
-   it is hidden below 38rem, where the rows' own tags are the better control — see
-   the container query at the bottom of this file. What is left here is the width in
-   between. */
+   It is absent while nothing in scope carries a tag, and gone at the 48rem step
+   while nothing is picked — see the container query at the bottom of this file. */
+.filter-bar__tags {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+    flex: 1 0 100%;
+    order: 1;
+    min-width: 0;
+}
+
 .filter-group--tags {
-    /* A zero basis, so the strip takes what the other groups leave rather than
-       competing with them for it: at `auto` a long pile shrank the statuses too,
-       clipping them through a chip's name. What the strip cannot fit is the
-       toggle's to reach. The bar wraps too, and at `auto` a long pile would
-       claim a row of its own there and push the statuses onto a third. */
+    /* All of the row but More's end of it: a zero basis, so the toggle keeps its
+       width and the strip takes the rest. */
     flex: 1 1 0;
     /* One row of whole chips. The strip wraps, and is cut to the height of one
        chip, so a chip that does not fit drops out of view entirely instead of
@@ -649,22 +682,17 @@ h1, h2, h3 {
     max-height: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));
     /* Never narrower than a pressed first chip. A pressed plan — opened from the
        roadmap or pressed on the bar — is put first with its copy
-       (TasksDesktopState.RebuildTagFilters), and with every repository in
-       scope the zero basis leaves the strip next to nothing — the chip that says why
-       the list is short would be clipped whole. components.js measures that chip;
-       unpressed, the variable is unset and the strip keeps taking only the slack. */
+       (TasksDesktopState.RebuildTagFilters). On its own row the strip rarely runs
+       that short, but a column narrower than the pair still would, and clip the chip
+       that says why the list is short whole. components.js measures that chip;
+       unpressed, the variable is unset. */
     min-width: var(--tag-strip-lead, 0);
 }
 
-/* Opened by the toggle: every tag, on as many rows as it takes, and across the
-   bar's whole width on a row of its own. Left in the middle column it wrapped
-   into a narrow tower beside the statuses, a few chips a row however wide the
-   pane was. The order moves it after every other group, statuses included, so
-   the first row keeps the layout it had while the strip was closed and the
-   Fewer toggle stays where it was pressed; nothing else in the bar sets one. */
+/* Opened by the toggle: every tag, on as many rows as it takes. The row it opens
+   in is already its own, so nothing else on the bar moves and Fewer stays at the
+   row's end, where More was pressed. */
 .filter-group--tags--expanded {
-    flex-basis: 100%;
-    order: 1;
     max-height: none;
     row-gap: var(--spacing-xs);
 }
@@ -860,13 +888,47 @@ h1, h2, h3 {
     margin-left: auto;
 }
 
-/* The open-work total. Not a filter, and last on the bar: the status group's auto
-   margin already carries it to the right edge, so it takes no margin of its own
-   here — two auto margins would split the slack and float status off the edge.
-   It never shrinks and no step hides it: the tag pile gives way before it does,
-   below 60rem it drops its detail half and below 47rem its noun. */
+/* The open-work total. Not a filter, and last on the bar's first row: the status
+   group's auto margin already carries it to the right edge, so it takes no margin
+   of its own here — two auto margins would split the slack and float status off
+   the edge. It never shrinks and no step hides it: below 60rem it drops its detail
+   half and below 47rem its noun. In the list on a narrow column it is not on the
+   bar at all but beside New entry (`.entry-add-row__summary`); TasksPane renders
+   it there, because a query cannot move an element between parents. */
 .filter-group--summary {
     flex: 0 0 auto;
+}
+
+/* The narrow column's Filter menu: Source and Type folded behind one trigger.
+   Pinned like the scopes, because it is the only way to either group down here. */
+.filter-group--menu {
+    flex: 0 0 auto;
+    overflow: visible;
+}
+
+/* The bar clips what overflows it (above), and the open panel hangs below the
+   bar — so only while it is open does the bar let it out. */
+.filter-bar:has(.filter-menu__panel) {
+    overflow: visible;
+}
+
+/* The trigger's face: the word, the caret, and the count of what is pressed. */
+.chip--menu .popover-button__glyph {
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+/* The library draws the chevron pointing up and leaves the turn to the host: this
+   one opens a panel below it. */
+.filter-menu__caret {
+    transform: rotate(180deg);
+}
+
+/* Inside the panel the two groups are rows of their own, so their chips wrap
+   rather than clip. */
+.filter-menu__panel > .filter-group {
+    flex-wrap: wrap;
+    overflow: visible;
 }
 
 /* Sort by status: an act on the rows in view, not a filter. A glyph on a square
@@ -894,6 +956,118 @@ h1, h2, h3 {
 .filter-group--arrange .chip:disabled {
     opacity: 0.5;
     cursor: default;
+}
+
+/* A plan chip whose plan waits for a session: the queue's glyph after the count,
+   small, in the chip's own colour. Its words are in the chip's name and tooltip. */
+.filter-bar__plan-waiting {
+    margin-left: var(--spacing-xs);
+}
+
+/* The session queue: the bar's last group, pinned like the acts before it so the
+   tag pile gives way first. A glyph and a count on a chip as tall as its
+   neighbours; muted while nothing waits, so an empty queue is there without
+   asking to be read. */
+.filter-group--queue {
+    flex: 0 0 auto;
+}
+
+.chip.chip--queue {
+    gap: 0;
+}
+
+.chip.chip--queue .chip__count {
+    opacity: 1;
+}
+
+.chip.chip--queue-idle {
+    color: var(--color-text-secondary);
+}
+
+.chip.chip--queue-idle .chip__count {
+    opacity: 0.55;
+}
+
+/* `.filter-bar { overflow: hidden }` would cut the panel off at the bar's bottom
+   edge, so it is fixed and anchored to the trigger instead: its containing block is
+   then the list column (`.backlog-list` is an inline-size container), which the bar
+   does not clip. Lined up with the trigger's end edge, opening inward. */
+.filter-group--queue .chip--queue {
+    anchor-name: --session-queue;
+}
+
+@supports (anchor-name: --a) {
+    .popover-button__panel.session-queue {
+        position: fixed;
+        position-anchor: --session-queue;
+        top: calc(anchor(bottom) + var(--spacing-xs));
+        right: anchor(right);
+        left: auto;
+        /* Never off the column's edge. A trigger too near the start for the panel
+           to open inward from its end opens from its start instead, and one with
+           room for neither lines the panel up with the column's start. The panel
+           is never wider than the column, so the last always fits. */
+        position-try-fallbacks: flip-inline, --session-queue-column-start;
+    }
+
+    @position-try --session-queue-column-start {
+        top: calc(anchor(bottom) + var(--spacing-xs));
+        left: 0;
+        right: auto;
+    }
+}
+
+.session-queue {
+    /* 100cqi is the list column — `.backlog-list` is the nearest container. */
+    width: min(26rem, 90vw, 100cqi);
+    max-height: min(24rem, 60vh);
+    overflow-y: auto;
+}
+
+.session-queue__list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.session-queue__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--spacing-sm);
+}
+
+.session-queue__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    justify-self: start;
+    max-width: 100%;
+}
+
+/* The words under a followable name start where its words do: the small ghost
+   button's inline padding and border, given to the lines that have no button —
+   this name, and the meta line under every row. */
+.session-queue__name--away {
+    color: var(--color-text-secondary);
+    font-style: italic;
+    padding-inline-start: calc(var(--spacing-sm) + var(--border-width));
+}
+
+.session-queue__meta {
+    padding-inline-start: calc(var(--spacing-sm) + var(--border-width));
+    grid-column: 1;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.session-queue__cancel {
+    grid-column: 2;
+    grid-row: 1 / span 2;
 }
 
 .chip--summary {
@@ -1030,6 +1204,35 @@ h1, h2, h3 {
 .chip--tag-plan:not(.chip--active) {
     border-color: var(--color-primary-dark);
     color: var(--color-primary-light);
+}
+
+/*
+   A plan chip's progress: a hairline along its bottom edge, filled from the start
+   to the finished share of the plan's entries, which the chip carries as
+   --chip-progress. A background layer rather than an element or a border, so the
+   chip is exactly as tall and as wide as the chips beside it and the one-row strip
+   clips it the same, and so it stays in the narrow column that hides the count.
+   Longhands only: .chip and .chip--active set the fill through the shorthand, and
+   this rule, one class deep and written after both, must add the layer without
+   resetting the colour under it. Decorative — the title already says the counts.
+   Counted by entries, like the number on the chip, not by the points the
+   open-work report's plan rows fill to, so the two can differ for one plan.
+*/
+.chip--progress {
+    background-image: linear-gradient(to right,
+        var(--color-success-text) var(--chip-progress, 0%),
+        var(--color-border) var(--chip-progress, 0%));
+    background-repeat: no-repeat;
+    background-position: left bottom;
+    background-size: 100% var(--border-width-2);
+}
+
+/* Pressed, the chip is the primary fill, so the line takes the pressed text's
+   colour and its track a faint wash of the same. */
+.chip--progress.chip--active {
+    background-image: linear-gradient(to right,
+        var(--color-text-inverse) var(--chip-progress, 0%),
+        color-mix(in srgb, var(--color-text-inverse) 30%, transparent) var(--chip-progress, 0%));
 }
 
 /* --- Icon link (header) --------------------------------------------------- */
@@ -1846,7 +2049,8 @@ h1, h2, h3 {
    the reason `.badge--glob` gives: a date token is a machine string. It was never
    right on a select whose options are "Weekly", "medium" and "critical". */
 .entry-doc__schedule-input,
-.entry-doc__schedule-select {
+.entry-doc__schedule-select,
+.entry-doc__area-picker {
     align-self: flex-start;
     margin-left: var(--spacing-lg);
     font-size: var(--font-size-xs);
@@ -2130,7 +2334,12 @@ h1, h2, h3 {
    Still a small pile's width and not a promise: the pile has no ceiling at all, since
    an entry wears any number of tags and every distinct one gets a chip. */
 @container backlog-list (max-width: 48rem) {
-    /* The tag group goes while nothing is picked, and it is the only group that may.
+    /* The same width is TasksPane.ListNarrowRem, where components.js tells the
+       pane the column is narrow and it folds Source and Type into one Filter
+       menu and, in the list, moves the open-work summary beside New entry. A
+       query cannot do either: both change which parent an element has.
+
+       The tag row goes while nothing is picked, and it is the only group that may.
 
        Every other group on the bar is the whole of its own question — there is no
        second place to pick an area, a status or My Day, so hiding one would take
@@ -2142,12 +2351,12 @@ h1, h2, h3 {
        so a row's tag adds and removes its own tag and nothing else — it is no longer
        the single press that puts every row back, and "Untagged" is not on a row at
        all, so a selection holding it would have had no control left on screen. Hence
-       the second rule: once something is picked the group stays, narrowed to exactly
+       the second rule: once something is picked the row stays, narrowed to exactly
        what was picked. That is both the reminder that the list is short for a reason
        and the way back out of it, and it costs none of the width the first rule is
        here to save: what comes back is the selection, never the strip of every tag
        in the backlog. See OnRowTagSelected. */
-    .filter-group--tags:not(.filter-group--tags--picked) {
+    .filter-bar__tags:not(:has(.filter-group--tags--picked)) {
         display: none;
     }
 
@@ -2173,7 +2382,7 @@ h1, h2, h3 {
    narrow even for the number wraps the summary onto the next row while the strip
    stays exactly where it would be without it. */
 @container backlog-list (max-width: 47rem) {
-    .open-work-summary__noun {
+    .filter-bar .open-work-summary__noun {
         display: none;
     }
 }
@@ -2392,6 +2601,15 @@ h1, h2, h3 {
 .entry-add-row > .entry-add--import {
     flex: 0 0 auto;
     justify-content: center;
+}
+
+/* The open-work total in a narrow list column, after Import: the bar has no row
+   to spare there, and this row is the list's own foot. Centred on the buttons'
+   height, and as wide as its words. */
+.entry-add-row__summary {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
 }
 
 /* --- Import a plan --------------------------------------------------------- */
@@ -4105,7 +4323,7 @@ h1, h2, h3 {
 .header-accent > :is(.badge--feature-dev, .badge--feature-beta) {
     position: absolute;
     top: -6px;
-    right: -4px;
+    right: calc(-1 * var(--header-flag-overhang, 4px));
     z-index: 1;
     margin: 0;
     box-shadow: 0 0 0 var(--border-width) var(--color-background);
@@ -4142,9 +4360,9 @@ h1, h2, h3 {
   when reached for. Chrome that appears on approach rather than shouting the whole
   time, which is how it stays behind whatever the loud thing on its row is.
 
-  The name outlived its own claim and is kept anyway. Both controls that wear it —
-  the version and Report issue — are in the app-shell footer now, so nothing in a
-  header uses this at all, and the accent they used to sit behind (Ask AI) is a row
+  The name outlived its own claim and is kept anyway. The controls that wear it —
+  the version, the sync phrase, Report issue and the Settings gear — are in the
+  app-shell footer now, so nothing in a header uses this at all, and the accent they used to sit behind (Ask AI) is a row
   away. What the class describes is "quiet utility", never "in the header", so the
   shape is unchanged by the move and renaming it would buy nothing.
 */
@@ -4318,6 +4536,70 @@ h1, h2, h3 {
     gap: var(--spacing-md);
     min-width: 0;
     padding: var(--spacing-md) 0 var(--spacing-lg);
+}
+
+/* The weekly review takeover (.devbook/domain/progress/features.md#the-weekly-review):
+   one column read top to bottom — the stage switch, then the stage on screen and its
+   lines, each line its subject, its check and its buttons. */
+.weekly-review {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--spacing-md) 0 var(--spacing-lg);
+}
+
+.weekly-review__stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.weekly-review__lines {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--color-border);
+}
+
+.weekly-review__line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--spacing-xs) var(--spacing-md);
+    align-items: center;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.weekly-review__subject {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.weekly-review__check {
+    grid-column: 1;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.weekly-review__actions {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    justify-content: flex-end;
+}
+
+.weekly-review__steps {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
 }
 
 /* Choosing which colour each band takes.
@@ -6954,6 +7236,26 @@ a.pull-request-detail-checks__name:hover {
     flex-wrap: wrap;
     gap: var(--spacing-xs);
     margin: 0;
+}
+
+/* Picking work up from a Brain note: Create task and Plan this project, then the
+   line saying what the last one did, wrapping under the buttons in a narrow pane. */
+.brain-note__pickup {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0 0 var(--spacing-sm);
+}
+
+.brain-note__pickup-status {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.brain-note__pickup-status--warning {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
 }
 
 .devbook-stack__repositories,
@@ -10497,7 +10799,7 @@ a.pull-request-detail-checks__name:hover {
 /* The Lobes atlas takeover (.devbook/domain/brain/features.md#lobes-atlas),
    laid out as Lobes.dc.html draws it: the map fills the takeover and everything
    else floats over it — the title at the top left, the
-   picture's controls and the close at the top right with the chips under them,
+   picture's controls at the top right with the chips under them,
    the panel and the scope card down the left, the index list down the right,
    and the foot's hint and orientation marker at the bottom. It was a header row
    and a grid column until #1494, #1498 and #1500 each found the map squeezed to
@@ -12028,7 +12330,15 @@ a.pull-request-detail-checks__name:hover {
    it and the column that scrolls takes the height it is given rather than its
    content's: the surface, the explorer, and in the document column the chapter's
    layout, whose article and right-hand panel each scroll on their own — the
-   chapter is never cut off at the pane's edge with no scrollbar to reach the end. */
+   chapter is never cut off at the pane's edge with no scrollbar to reach the end.
+
+   The pane holding the surface takes the section's whole height rather than its
+   content's: the C4 picture fills what the column leaves, so a short nav and aside
+   must not leave the pane, and the picture with it, short of the section's foot. */
+.devbook-stack__section > .devbook-pane--arc42:has(> .arc42-surface) {
+    height: 100%;
+}
+
 .devbook-stack__section > .devbook-pane--arc42 > .arc42-surface {
     display: flex;
     flex: 1 1 auto;
@@ -12097,13 +12407,14 @@ a.pull-request-detail-checks__name:hover {
         max-height: none;
         overflow: visible;
     }
+}
 
 /*
   A popped-out window (local ADR 0043 §4): the slim header — the surface's title,
-  the repository scope chips, Keep on top, Remember this window, Show in main
-  window — over one surface. The title takes the room that is left, so the toggles
-  and Show in main window sit at the far edge where the main window keeps its
-  utilities.
+  the repository scope chips, Show in main window — over one surface. The title
+  takes the room that is left, so Show in main window sits at the far edge where
+  the main window keeps its utilities. Keep on top and Remember this window are
+  not here: they sit in the window's native title bar, which no stylesheet draws.
 */
 /* A popped-out window is often narrow and has no tiers to fold, so its header
    wraps rather than pushing Show in main window off the edge; the scope chips
@@ -12127,20 +12438,12 @@ a.pull-request-detail-checks__name:hover {
     padding: var(--spacing-lg);
 }
 
-/* Keep on top, Remember this window and Show in main window travel together to
-   the far edge. */
+/* Show in main window goes to the far edge. */
 .surface-window__actions {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
     margin-left: auto;
-}
-
-.surface-window__on-top,
-.surface-window__remember {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
 }
 
 /* Show in main window says it in words while there is room; its icon stands in for
@@ -12152,8 +12455,8 @@ a.pull-request-detail-checks__name:hover {
 /*
   Docked narrow — a "today" list on a side monitor. Every row the header and the
   footer spend is a task the reader cannot see, so below 40rem:
-  - the title and the buttons share the first row, and the scope chips take a
-    row of their own that scrolls sideways rather than running off the edge;
+  - the title and Show in main window share the first row, and the scope chips
+    take a row of their own that scrolls sideways rather than running off the edge;
   - Show in main window drops its words (the button keeps its name);
   - the footer goes: the version and the sync state are the main window's to say;
   - the rows lose their drag handles and the work links, and the page its wide side

@@ -40,6 +40,15 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
         ```
 
         Turns repeating tasks on.
+
+        ## Quick capture
+
+        ```meta
+        type: feature-flag
+        default: off
+        ```
+
+        Turns the one-line capture box on.
         """;
 
     private const string Invariants = """
@@ -111,6 +120,7 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
         ```meta
         type: feature
         status: draft
+        feature-flag: .devbook/domain/tasks/context.md#quick-capture
         related: [.devbook/domain/tasks/domain.md#task]
         ```
 
@@ -235,7 +245,7 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
         Assert.Equal("2", view.Find("[data-testid='domain-features-column']").GetAttribute("data-depth"));
         var gate = view.Find("[data-testid='domain-feature-gate']");
         Assert.Equal("flag", gate.GetAttribute("data-kind"));
-        Assert.Equal("Recurrence", gate.QuerySelector(".domain-feature-card__gate-name")!.TextContent.Trim());
+        Assert.Equal("Recurrence", gate.QuerySelector(".domain-gate-chip__name")!.TextContent.Trim());
     }
 
     [Fact]
@@ -265,6 +275,29 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal("task", component.Find("[data-testid='domain-unit']").GetAttribute("data-unit")), Patience);
         Assert.Equal("true", component.Find("[data-testid='domain-unit-always-true-tab']").GetAttribute("aria-selected"));
         component.WaitForAssertion(() => Assert.EndsWith("domain.invariants.md#invariant-a-new-task-starts-in-draft", component.Find("[data-testid='domain-rule'][data-focused='true']").GetAttribute("data-rule"), StringComparison.Ordinal), Patience);
+    }
+
+    [Fact]
+    public async Task The_requirements_header_names_the_features_flag()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-view']")), Patience);
+        await ClickMenuItemAsync(component, "Tasks");
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Requirements")), Patience);
+        await ClickMenuItemAsync(component, "Requirements");
+
+        component.WaitForAssertion(() => Assert.Equal("capture", component.Find("[data-testid='domain-requirements-group']").GetAttribute("data-key")), Patience);
+        var gate = component.Find("[data-testid='domain-requirements-group'] [data-testid='domain-requirements-gate']");
+        Assert.Equal("flag", gate.GetAttribute("data-kind"));
+        Assert.Equal("button", gate.TagName.ToLowerInvariant());
+        Assert.Equal("Gated by flag Quick capture", gate.GetAttribute("aria-label"));
+
+        // Steps hangs on nothing, and its heading says nothing about it.
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-requirements-feature'][data-key='steps']").Click());
+        component.WaitForAssertion(() => Assert.Equal("steps", component.Find("[data-testid='domain-requirements-group']").GetAttribute("data-key")), Patience);
+        Assert.Empty(component.FindAll("[data-testid='domain-requirements-gate']"));
     }
 
     [Fact]

@@ -26,6 +26,48 @@ public sealed record DomainFeatureGate(DomainFeatureGateKind Kind, DomainNamedCh
 {
     /// <summary>What the gate is, in a word: <c>Flag</c> or <c>Setting</c>.</summary>
     public string Word => Kind == DomainFeatureGateKind.Flag ? "Flag" : "Setting";
+
+    /// <summary>A setting's <c>scope</c> as its chapter states it — <c>user</c> —
+    /// or <see langword="null"/>: a flag, or a chapter the files read do not hold
+    /// or that states none.</summary>
+    public string? Scope { get; init; }
+
+    /// <summary>The gate chapter's <c>default</c> as it states it — <c>off</c>,
+    /// <c>none</c> — or <see langword="null"/> where it states none.</summary>
+    public string? Default { get; init; }
+
+    /// <summary>What the gate's chapter states beyond its name, in reading order:
+    /// a setting's scope, then <c>default off</c>. Each is left out when its
+    /// field is.</summary>
+    public IReadOnlyList<string> Facts =>
+    [
+        .. Scope is { } scope ? [scope] : Array.Empty<string>(),
+        .. Default is { } value ? [$"default {value}"] : Array.Empty<string>()
+    ];
+
+    /// <summary>The kind in a lower-case word: <c>flag</c> or <c>setting</c>.</summary>
+    public string KindWord => Word.ToLowerInvariant();
+
+    /// <summary>What a gate chip's tooltip reads: its kind and name, then what
+    /// its chapter states — <c>Flag: New domain view · default off</c>.</summary>
+    public string Description => $"{Word}: {Chapter.Title}" + string.Concat(Facts.Select(fact => " · " + fact));
+
+    /// <summary>What a gate chip that follows to its chapter is called: <c>Gated
+    /// by flag New domain view</c>, <c>Configured by setting Brain folder</c>.</summary>
+    public string Spoken => $"{(Kind == DomainFeatureGateKind.Setting ? "Configured by" : "Gated by")} {KindWord} {Chapter.Title}";
+}
+
+/// <summary>A decision record a feature's <c>related</c> names.</summary>
+/// <param name="Label">The record by its number, its folder named:
+/// <c>ADR 0047</c>, or <c>Guideline ADR 0012</c> for one under
+/// <c>adr/guidelines/</c>.</param>
+/// <param name="Words">The file name's slug read as words: <c>The domain view
+/// reads by unit</c>.</param>
+/// <param name="Reference">The path, and any anchor, as <c>related</c> wrote it.</param>
+public sealed record DomainDecision(string Label, string Words, string Reference)
+{
+    /// <summary>The label and the words: what a listener hears and the tooltip reads.</summary>
+    public string Name => Words.Length == 0 ? Label : $"{Label} — {Words}";
 }
 
 /// <summary>How many requirements a feature has, and how many of them a test is
@@ -64,6 +106,10 @@ public sealed record DomainFeature(
     /// requirements lean on, as Requirements lists them under its group, else
     /// the rules about the feature and the chapters its <c>related</c> names.</summary>
     public IReadOnlyList<DomainRule> Rules { get; init; } = [];
+
+    /// <summary>The decision records its <c>related</c> names, each once, in the
+    /// order written (<see cref="DomainFeatures.DecisionsOf"/>).</summary>
+    public IReadOnlyList<DomainDecision> Decisions { get; init; } = [];
 
     /// <summary>Proposed and not yet agreed: drawn dashed.</summary>
     public bool IsProposed => string.Equals(Status, "proposed", StringComparison.OrdinalIgnoreCase);
@@ -171,7 +217,8 @@ public static class DomainFeatures
                 Depth(reference, everyFeature, depths, []),
                 chapter)
             {
-                Rules = RulesOf(reference, chapter, page, requirements.Group, requirementFiles, files, catalog, groupsOf)
+                Rules = RulesOf(reference, chapter, page, requirements.Group, requirementFiles, files, catalog, groupsOf),
+                Decisions = DecisionsOf(chapter.Related, page.Path)
             });
         }
         return result;
@@ -208,13 +255,75 @@ public static class DomainFeatures
         return catalog.About(chapter.Related.Select(related => DomainUnits.Resolve(related, page.Path)).Prepend(reference));
     }
 
-    private static DomainFeatureGate? Gate(DomainChapter chapter, string path, DomainChapterIndex index)
+    /// <summary>
+    /// The flag or setting <paramref name="chapter"/> — a feature written in
+    /// <paramref name="path"/> — hangs on, with the <c>scope</c> and
+    /// <c>default</c> its gate chapter states where <paramref name="index"/> holds
+    /// that chapter: a gate in another context's <c>context.md</c> is not among
+    /// the files read, and reads as its name and kind alone. Shared with
+    /// <see cref="DomainRequirements.Groups"/>, whose feature headings name it too.
+    /// </summary>
+    internal static DomainFeatureGate? Gate(DomainChapter chapter, string path, DomainChapterIndex index)
     {
-        if (chapter.ListField("feature-flag").FirstOrDefault() is { } flag)
-            return new DomainFeatureGate(DomainFeatureGateKind.Flag, index.Name(DomainUnits.Resolve(flag, path)));
-        if (chapter.ListField("setting").FirstOrDefault() is { } setting)
-            return new DomainFeatureGate(DomainFeatureGateKind.Setting, index.Name(DomainUnits.Resolve(setting, path)));
-        return null;
+        DomainFeatureGateKind kind;
+        string entry;
+        if (chapter.ListField("feature-flag").FirstOrDefault() is { } flag) (kind, entry) = (DomainFeatureGateKind.Flag, flag);
+        else if (chapter.ListField("setting").FirstOrDefault() is { } setting) (kind, entry) = (DomainFeatureGateKind.Setting, setting);
+        else return null;
+
+        var reference = DomainUnits.Resolve(entry, path);
+        var gate = index.Chapter(reference);
+        return new DomainFeatureGate(kind, index.Name(reference))
+        {
+            Scope = kind == DomainFeatureGateKind.Setting ? gate?.Field("scope") : null,
+            Default = gate?.Field("default")
+        };
+    }
+
+    /// <summary>
+    /// The decision records among <paramref name="related"/>, written in
+    /// <paramref name="path"/>: each entry whose path has an <c>arc42/adr/</c>
+    /// segment and whose file name starts with its four-digit number — under
+    /// <c>.devbook/arc42/adr/</c> or a legacy <c>.arc42/adr/</c>. Each file once,
+    /// in the order written, its first anchor kept. The record's heading is not
+    /// read: the file name is what the convention fixes.
+    /// </summary>
+    internal static IReadOnlyList<DomainDecision> DecisionsOf(IEnumerable<string> related, string path)
+    {
+        var result = new List<DomainDecision>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in related)
+        {
+            var reference = Spelled(entry, path);
+            var file = DomainUnits.PathOf(reference);
+            var adr = file.IndexOf("arc42/adr/", StringComparison.OrdinalIgnoreCase);
+            if (adr < 0 || (adr > 0 && file[adr - 1] is not ('/' or '.'))) continue;
+
+            var name = file[(file.LastIndexOf('/') + 1)..];
+            if (name.Length < 5 || !name[..4].All(char.IsAsciiDigit) || name[4] != '-') continue;
+            if (!seen.Add(file)) continue;
+
+            var guideline = file.Contains("/adr/guidelines/", StringComparison.OrdinalIgnoreCase);
+            var slug = name[5..];
+            if (slug.EndsWith(".md", StringComparison.OrdinalIgnoreCase)) slug = slug[..^3];
+            result.Add(new DomainDecision(
+                $"{(guideline ? "Guideline ADR" : "ADR")} {name[..4]}",
+                slug.Length == 0 ? string.Empty : DomainChapterIndex.Words(slug),
+                reference));
+        }
+        return result;
+    }
+
+    /// <summary>A <c>related</c> entry as a repository path: as written when it
+    /// is rooted, else resolved against <paramref name="path"/>'s folder, spelled
+    /// as that path is.</summary>
+    private static string Spelled(string entry, string path)
+    {
+        var text = entry.Trim().Trim('"', '\'').Replace('\\', '/');
+        if (text.StartsWith('/')) return text.TrimStart('/');
+        if (text.StartsWith('.') && !text.StartsWith("./", StringComparison.Ordinal) && !text.StartsWith("../", StringComparison.Ordinal)) return text;
+
+        return DomainUnits.Relative(text, path);
     }
 
     /// <summary>How many of the context's features <paramref name="reference"/>
@@ -271,13 +380,16 @@ public static class DomainFeatures
 internal sealed class DomainChapterIndex
 {
     private readonly Dictionary<string, string> _titles;
+    private readonly Dictionary<string, DomainChapter> _chapters;
     private readonly string _prefix;
 
-    private DomainChapterIndex(Dictionary<string, string> titles, string prefix) => (_titles, _prefix) = (titles, prefix);
+    private DomainChapterIndex(Dictionary<string, string> titles, Dictionary<string, DomainChapter> chapters, string prefix) =>
+        (_titles, _chapters, _prefix) = (titles, chapters, prefix);
 
     public static DomainChapterIndex Of(IEnumerable<DomainChapterFile> files)
     {
         var titles = new Dictionary<string, string>(StringComparer.Ordinal);
+        var chapters = new Dictionary<string, DomainChapter>(StringComparer.Ordinal);
         string? prefix = null;
         foreach (var file in files)
         {
@@ -285,11 +397,17 @@ internal sealed class DomainChapterIndex
             titles.TryAdd(DomainUnits.Normalize(file.Path), file.Title);
             foreach (var chapter in file.AllChapters())
             {
-                titles.TryAdd(DomainUnits.Normalize(file.ReferenceTo(chapter)), DomainUnits.RequirementTitle(chapter.Title));
+                var reference = DomainUnits.Normalize(file.ReferenceTo(chapter));
+                titles.TryAdd(reference, DomainUnits.RequirementTitle(chapter.Title));
+                chapters.TryAdd(reference, chapter);
             }
         }
-        return new DomainChapterIndex(titles, prefix ?? string.Empty);
+        return new DomainChapterIndex(titles, chapters, prefix ?? string.Empty);
     }
+
+    /// <summary>The chapter <paramref name="reference"/> names, or
+    /// <see langword="null"/> where the files read do not hold it.</summary>
+    public DomainChapter? Chapter(string reference) => _chapters.GetValueOrDefault(reference);
 
     /// <summary>The domain folder as <paramref name="path"/> spells it:
     /// <c>.devbook/domain/</c> or <c>.domain/</c>, or nothing.</summary>
@@ -314,7 +432,9 @@ internal sealed class DomainChapterIndex
             ? new DomainNamedChapter(title, Spell(reference), Known: true)
             : new DomainNamedChapter(Words(reference), Spell(reference), Known: false);
 
-    private static string Words(string reference)
+    /// <summary>A reference's anchor — or its file's name — in words:
+    /// <c>quote-validity</c> reads <c>Quote validity</c>.</summary>
+    internal static string Words(string reference)
     {
         var hash = reference.IndexOf('#');
         var text = hash >= 0 ? reference[(hash + 1)..] : reference;

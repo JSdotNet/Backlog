@@ -469,7 +469,12 @@ public class EntryTextParserTests
         Assert.Contains("`+release-q4`", raw, StringComparison.Ordinal);
         Assert.Contains("`#deploy`", raw, StringComparison.Ordinal);
         Assert.DoesNotContain("#+", raw, StringComparison.Ordinal);
-        Assert.DoesNotContain("@bob`", raw, StringComparison.Ordinal);
+
+        // An `@` tag the title does not carry is a context typed as `#@bob` (local
+        // ADR 0054 §5), so it is written back as that token — never as the bare
+        // `@bob` this line reads as an Area.
+        Assert.Contains("`#@bob`", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("`@bob`", raw, StringComparison.Ordinal);
     }
 
     [Fact]

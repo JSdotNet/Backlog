@@ -107,6 +107,62 @@ internal static class CssRules
         return effective;
     }
 
+    /// <summary>The blocks a stylesheet leaves open at its end, each as the line it
+    /// opens on and its prelude, and the lines of every <c>}</c> that closes
+    /// nothing. Comments and quoted strings are skipped, so a brace in either
+    /// counts for nothing, and a backslash-escaped quote does not end its
+    /// string.</summary>
+    public static (IReadOnlyList<(int Line, string Prelude)> Unclosed, IReadOnlyList<int> Stray) Unbalanced(string css)
+    {
+        var text = WithoutComments(css);
+        var open = new Stack<(int Line, string Prelude)>();
+        var stray = new List<int>();
+        var preludeStart = 0;
+        var line = 1;
+
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+
+            if (c == '\n')
+            {
+                line++;
+            }
+            else if (c is '"' or '\'')
+            {
+                var end = i + 1;
+                while (end < text.Length && text[end] != c)
+                {
+                    end += text[end] == '\\' ? 2 : 1;
+                }
+
+                end = Math.Min(end, text.Length - 1);
+                line += text.AsSpan(i, end - i + 1).Count('\n');
+                i = end;
+            }
+            else if (c == '{')
+            {
+                open.Push((line, Collapse(text[preludeStart..i])));
+                preludeStart = i + 1;
+            }
+            else if (c == '}')
+            {
+                if (!open.TryPop(out _))
+                {
+                    stray.Add(line);
+                }
+
+                preludeStart = i + 1;
+            }
+            else if (c == ';')
+            {
+                preludeStart = i + 1;
+            }
+        }
+
+        return ([.. open.Reverse()], stray);
+    }
+
     /// <summary>A selector list split at its top-level commas, so the commas
     /// inside <c>:is()</c>, <c>:where()</c> and <c>:has()</c> stay where they
     /// are.</summary>

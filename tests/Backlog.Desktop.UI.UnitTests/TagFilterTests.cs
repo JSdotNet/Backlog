@@ -188,6 +188,100 @@ public sealed class TagFilterTests
             name => name.StartsWith("chip--tag-", StringComparison.Ordinal)));
     }
 
+    private const string ProgressClass = "chip--progress";
+
+    /// <summary>A plan chip draws how far along the plan is: a line along its bottom
+    /// edge filled to the finished share of the entries the chip and its tooltip
+    /// count — not points — rounded down, so only a finished plan reads full. Every
+    /// chip that names no plan carries nothing, "No plan" included, though it wears
+    /// the plan's kind.</summary>
+    [Fact]
+    public async Task A_plan_chip_carries_the_finished_share_of_its_entries_and_no_other_chip_does()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        await host.WriteEntryAsync("# Ship it @bob +release-q4\n`task` `!ready` `@platform` `#sync`\n");
+        await host.WriteEntryAsync("# Wire it +release-q4\n`task` `!done` `completed:2026-09-22` `@platform`\n");
+        await host.WriteEntryAsync("# Test it +release-q4\n`task` `!done` `completed:2026-09-23` `@platform`\n");
+        await host.WriteEntryAsync("# Plan it +roadmap\n`task` `!ready` `@platform`\n");
+        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@platform`\n");
+        await host.State.SelectAsync(null);
+
+        Assert.Equal((1, 2), (Option(host, "+release-q4").OpenCount, Option(host, "+release-q4").CompletedCount));
+        Assert.Equal((1, 0), (Option(host, "+roadmap").OpenCount, Option(host, "+roadmap").CompletedCount));
+
+        var pane = host.Render();
+        var chips = pane.FindAll(Chip);
+
+        Assert.Equal(
+            ["No plan", "+release-q4", "+roadmap", "@bob", "#sync", "Untagged"],
+            chips.Select(chip => chip.TextContent.TrimEnd('1', '2')));
+
+        var release = chips[1];
+        Assert.Contains(ProgressClass, release.ClassList);
+        Assert.Contains("chip--tag-plan", release.ClassList);
+        Assert.Equal("--chip-progress: 66%", release.GetAttribute("style"));
+        Assert.Equal("+release-q41", release.TextContent);
+
+        // Nothing finished yet is the empty line, the track alone.
+        Assert.Contains(ProgressClass, chips[2].ClassList);
+        Assert.Equal("--chip-progress: 0%", chips[2].GetAttribute("style"));
+
+        foreach (var chip in new[] { chips[0], chips[3], chips[4], chips[5] })
+        {
+            Assert.DoesNotContain(ProgressClass, chip.ClassList);
+            Assert.False(chip.HasAttribute("style"), $"{chip.TextContent} carries a style");
+        }
+    }
+
+    /// <summary>The pressed plan moves into its pair with the copy, and keeps its line
+    /// there, at the same share.</summary>
+    [Fact]
+    public async Task The_pressed_plan_in_its_pair_keeps_its_progress()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        await host.WriteEntryAsync("# Ship it +release-q4\n`task` `!ready` `@platform`\n");
+        await host.WriteEntryAsync("# Wire it +release-q4\n`task` `!done` `completed:2026-09-22` `@platform`\n");
+        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@platform`\n");
+        await host.State.SelectAsync(null);
+
+        host.State.ToggleTagFilter("+release-q4");
+        var pane = host.Render();
+
+        var chip = pane.Find("#tag-filter-strip > [data-testid='tag-filter-plan-pair']").FirstElementChild!;
+        Assert.Equal("true", chip.GetAttribute("aria-pressed"));
+        Assert.Contains("chip--active", chip.ClassList);
+        Assert.Contains(ProgressClass, chip.ClassList);
+        Assert.Equal("--chip-progress: 50%", chip.GetAttribute("style"));
+    }
+
+    /// <summary>A plan held on the bar with nothing under it reads 0 rather than
+    /// dividing by nothing; one whose every entry is finished reads full.</summary>
+    [Fact]
+    public async Task A_shown_plan_at_nothing_reads_empty_and_a_finished_one_reads_full()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+        await host.WriteEntryAsync("# Wire it +plan-done\n`task` `!done` `completed:2026-09-22` `@platform`\n");
+        await host.State.SelectAsync(null);
+
+        host.State.ShowPlan("+e2e");
+        var pane = host.Render();
+
+        var held = pane.Find("[data-testid='tag-filter-plan-pair']").FirstElementChild!;
+        Assert.StartsWith("+e2e", held.TextContent, StringComparison.Ordinal);
+        Assert.Contains(ProgressClass, held.ClassList);
+        Assert.Equal("--chip-progress: 0%", held.GetAttribute("style"));
+
+        host.State.ShowPlan("+plan-done");
+        pane.Render();
+
+        var finished = pane.Find("[data-testid='tag-filter-plan-pair']").FirstElementChild!;
+        Assert.StartsWith("+plan-done", finished.TextContent, StringComparison.Ordinal);
+        Assert.Equal("--chip-progress: 100%", finished.GetAttribute("style"));
+    }
+
     [Fact]
     public async Task The_chips_are_a_multi_select_group()
     {
@@ -1514,6 +1608,35 @@ public sealed class TagFilterTests
         Assert.Equal(
             pane.Find("[aria-label='Filter by tag']").GetAttribute("id"),
             pane.Find("[data-testid='tag-filter-more']").GetAttribute("aria-controls"));
+    }
+
+    /// <summary>The strip and its toggle share a row of their own, last on the bar:
+    /// the strip first, More or Fewer straight after it at the row's end, open or
+    /// shut. The row is only a wrapper — the strip is still the group components.js
+    /// measures, and More still its sibling, which the CSS that hides More and the
+    /// focus hand-back both find it by.</summary>
+    [Fact]
+    public async Task The_strip_and_its_toggle_share_the_last_row_of_the_bar()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        var pane = host.Render();
+
+        foreach (var open in new[] { false, true })
+        {
+            var row = pane.Find(".filter-bar > [data-testid='tag-filter-row']");
+            Assert.Null(row.GetAttribute("role"));
+            Assert.Equal(["tag-filter-strip", null], row.Children.Select(child => child.GetAttribute("id")));
+            Assert.Equal("tag-filter-more", row.Children[1].GetAttribute("data-testid"));
+            Assert.Equal(
+                "tag-filter-row",
+                pane.Find(".filter-bar").Children.Last(child => !child.ClassList.Contains("region-refresh")).GetAttribute("data-testid"));
+
+            if (!open) await pane.Find("[data-testid='tag-filter-more']").ClickAsync(new());
+        }
+
+        Assert.Equal("Fewer", pane.Find("[data-testid='tag-filter-more']").TextContent.Trim());
     }
 
     /// <summary>The plan in view is something a reader pastes elsewhere — a session

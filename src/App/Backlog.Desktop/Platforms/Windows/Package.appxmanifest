@@ -7,7 +7,8 @@
   xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
-  IgnorableNamespaces="uap rescap desktop6 desktop com">
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  IgnorableNamespaces="uap rescap desktop6 desktop com uap5">
 
   <Identity Name="JSdotNet.Backlog.Desktop" Publisher="CN=JSdotNet" Version="0.0.0.0" />
 
@@ -79,6 +80,15 @@
             <uap:DisplayName>Backlog</uap:DisplayName>
           </uap:Protocol>
         </uap:Extension>
+        <!--
+          Start Backlog when I sign in (local ADR 0043 §5): off until the person turns it
+          on in the MCP server settings (Services/WindowsStartupRegistration.cs). A start
+          through it opens straight to the tray with no window
+          (Services/BacklogLinkInstance.cs). The TaskId is what the code asks for.
+        -->
+        <uap5:Extension Category="windows.startupTask">
+          <uap5:StartupTask TaskId="BacklogStartup" Enabled="false" DisplayName="Backlog" />
+        </uap5:Extension>
       </Extensions>
     </Application>
   </Applications>

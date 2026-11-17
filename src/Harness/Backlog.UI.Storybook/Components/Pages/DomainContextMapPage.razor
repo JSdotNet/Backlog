@@ -21,7 +21,7 @@ Point at or tab to a card and every line that does not touch it fades. Hover a l
     </Story>
 
     <Story Name="List"
-           Description="The same map read as a list, opened on List. Core contexts come first, then Supporting, each in the order the Subdomain landscape table writes them. The published-languages table and the strategic rules follow as context-map.md writes them."
+           Description="The same map read as a list, opened on List. Core contexts come first, then Supporting, each in the order the Subdomain landscape table writes them. The published-languages table and the strategic rules follow as context-map.md writes them. The story wires OnOpen, so the intro ends Pick one to open it on its neighbours, which is what picking a card does."
            Code="@ListCode">
         <ContextMapView Map="@Sample" InitialTab="list" OnOpen="@(context => _openedFromList = context.Slug)" TestId="story-context-map-list" />
         @if (_openedFromList is not null)

@@ -11,8 +11,7 @@
     Sessions surface through the window's navigator, offered while the catalog offers
     that surface.
 *@
-<DashboardPane OnClose="OnClose"
-               RepositoryAliases="@(_wiring?.RepositoryAliases?.Invoke() ?? [])"
+<DashboardPane RepositoryAliases="@(_wiring?.RepositoryAliases?.Invoke() ?? [])"
                RepositoryColour="@_wiring?.RepositoryColour"
                OnOpenSessions="@OpenSessionsCallback"
                OnAskAi="@AskAiCallback" />
@@ -26,7 +25,8 @@
     [Parameter]
     public IReadOnlyDictionary<string, string>? Query { get; set; }
 
-    /// <summary>Closes the surface: back to the main view, or the window closed.</summary>
+    /// <summary>The shell's close callback, declared because the shell hands it to
+    /// every surface. Unused: the Dashboard draws no close of its own.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
 

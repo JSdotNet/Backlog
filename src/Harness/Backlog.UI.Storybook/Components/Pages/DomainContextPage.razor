@@ -3,11 +3,11 @@
 <PageTitle>Domain context — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain context"
-           Summary="A subpage of Devbook: the page a bounded context's row opens in the Domain view (local ADR 0047). DomainContextView is one page with no tabs, the same however the reader reached it — the Context map, a related link, a `dependencies.md` link or the menu. It opens on the context's neighbours, its dependency tables drawn by DomainNeighboursView, and its Overview follows below. Overview reads `context.md` and the files beside it: the context's subdomain, deployment and status as badges, its name and lead, the boundary as an Inside and an Outside card, what it holds as tiles, how well it is proved as a Requirements and an Invariants card, how settled it is as one stacked bar, its switches with what each gates, and its pages, each with the question it answers."
+           Summary="A subpage of Devbook: the page a bounded context's row opens in the Domain view (local ADR 0047). DomainContextView is one page with no tabs, the same however the reader reached it — the Context map, a related link, a `dependencies.md` link or the menu. It opens on the context's neighbours, its dependency tables drawn by DomainNeighboursView, and its Overview follows below. Overview reads `context.md` and the files beside it: the context's subdomain, deployment and status as badges, its name and lead, the boundary as an Inside and an Outside card, what it holds as tiles, how well it is proved as a Requirements and an Invariants card, how settled it is as one stacked bar, its switches with what each gates, and its pages, each with the question it answers — Events among them when the context raises a domain event."
            Guidelines="@Rules">
 
     <Story Name="One page"
-           Description="The neighbours come first, then the Overview under a rule. Its header is `context.md`'s own block and the context map's subdomain type, the name and the boundary's lead. The Inside card is the *Inside the boundary:* paragraph; the Outside card reads each *…, which [X] answers* clause as a question with a link to who answers it. Each tile is a kind in its tone and opens its first unit. The proof cards open Requirements and the Always true tab. How settled is one bar. A switch's Gates are the features its `related` names. The badges are information, so they are neutral outlines. Every link here writes what it followed below the page."
+           Description="The neighbours come first, then the Overview under a rule. Its header is `context.md`'s own block and the context map's subdomain type, the name and the boundary's lead. The Inside card is the *Inside the boundary:* paragraph; the Outside card reads each *…, which [X] answers* clause as a question with a link to who answers it. Each tile is a kind in its tone and opens its first unit. The proof cards open Requirements and the Always true tab. How settled is one bar. A switch's Gates are the features its `related` names. Tasks raises a domain event, so Read it through a question offers Events after Model, opening `model.md#events`, and Model asks only what it is made of. The badges are information, so they are neutral outlines. Every link here writes what it followed below the page."
            Code="@ContextCode"
            Source="@Context"
            SourceLabel="context.md">
@@ -16,6 +16,12 @@
                            OnOpenAlwaysTrue="@(unit => _followed = $"{unit.Reference} (Always true)")"
                            TestId="story-domain-context-page" />
         <p data-testid="story-domain-context-followed">Followed: @(_followed ?? "nothing yet")</p>
+    </Story>
+
+    <Story Name="A context that raises no event"
+           Description="The same context with a `model.md` and no `domain-event` chapter: Read it through a question offers no Events, and Model keeps its whole question — what it is made of, and what it tells other contexts."
+           Code="@NoEventsCode">
+        <DomainContextView ContextName="Tasks" Overview="@NoEvents" DocumentPath="@ContextPath" TestId="story-domain-context-page-no-events" />
     </Story>
 
     <Story Name="A context with little written"
@@ -126,6 +132,15 @@
 
         How urgent a task is.
 
+        ### TaskCompleted
+
+        ```meta
+        type: domain-event
+        status: draft
+        ```
+
+        Raised when a task is done.
+
         ## Ubiquitous Language
 
         ```meta
@@ -177,10 +192,32 @@
         #### Scenario: An untitled task
         """;
 
+    private const string ModelMd = """
+        # Model: Tasks
+
+        ```meta
+        type: model
+        ```
+
+        ## Model diagram
+
+        The parts of a task.
+        """;
+
     private static readonly DomainContextOverview Overview =
         DomainContextOverview.Read(Context, ContextPath,
         [
             new(".devbook/domain/tasks/domain.md", Files),
+            new(".devbook/domain/tasks/model.md", ModelMd),
+            new(".devbook/domain/tasks/features.md", FeaturesMd)
+        ]) with { Subdomain = "core" };
+
+    /// <summary>The same context with its domain event taken out.</summary>
+    private static readonly DomainContextOverview NoEvents =
+        DomainContextOverview.Read(Context, ContextPath,
+        [
+            new(".devbook/domain/tasks/domain.md", Files.Replace("type: domain-event", "type: value-object", StringComparison.Ordinal)),
+            new(".devbook/domain/tasks/model.md", ModelMd),
             new(".devbook/domain/tasks/features.md", FeaturesMd)
         ]) with { Subdomain = "core" };
 
@@ -198,6 +235,10 @@
                            DocumentPath="@contextPath"
                            OnNavigate="Follow"
                            OnOpenAlwaysTrue="OpenAlwaysTrue" />
+        """;
+
+    private const string NoEventsCode = """
+        <DomainContextView ContextName="Tasks" Overview="@DomainContextOverview.Read(contextMd, contextPath, filesWithNoDomainEvent)" DocumentPath="@contextPath" />
         """;
 
     private const string ThinCode = """

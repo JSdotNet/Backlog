@@ -11,6 +11,7 @@ using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 using Backlog.Tests;
 
@@ -403,6 +404,25 @@ public class McpEndpointGateTests
         var body = JsonNode.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken))!;
         Assert.Equal(request.Id.ToString("D"), body["id"]!.GetValue<string>());
         Assert.Equal("/backlog-tools:execute-plan +session-dispatch", body["brief"]!.GetValue<string>());
+    }
+
+    /// <summary>The harness's wait route records dispatcher contact where its Tasks pane
+    /// reads it: the port the queue button asks hears the call (local ADR 0038 §4).</summary>
+    [Fact]
+    public async Task The_harness_wait_route_is_heard_by_the_entry_queue_port()
+    {
+        var queue = new InMemorySessionRequestStore();
+        queue.Add(SessionRequests.ForPlan("+session-dispatch", "JSdotNet/Backlog", @"D:\Repos\Backlog", DateTimeOffset.UtcNow));
+        await using var harness = new Harness(queue: queue);
+        using var client = harness.CreateClient();
+        var port = harness.Services.GetRequiredService<IEntrySessionRequests>();
+
+        Assert.Null(port.DispatcherContact.LastHeardAt);
+
+        using var response = await client.GetAsync(SessionRequestWaitEndpoint.RoutePath, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(port.DispatcherContact.LastHeardAt);
     }
 
     /// <summary>404 while <c>session-requests</c> is off, without asking the queue.</summary>

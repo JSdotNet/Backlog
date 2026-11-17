@@ -40,6 +40,7 @@ using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBrain;
 using Backlog.Modules.Inbox.Features.RouteToEvent;
 using Backlog.Modules.Inbox.Features.SetTags;
+using Backlog.Modules.Inbox.Features.TranscribeRecordings;
 using Backlog.Modules.Inbox.Features.Suggest;
 using Backlog.Modules.Inbox.Features.UngroupLists;
 using Backlog.Modules.Inbox.Services;
@@ -75,6 +76,10 @@ public static class InboxModuleRegistration
         // The handlers stamp with an injected clock so a test can place a
         // decision in time. TryAdd, so a host that already chose one keeps it.
         services.TryAddSingleton(TimeProvider.System);
+
+        // One for the process, so a capture the MCP server makes reaches every
+        // window's open Inbox (see IInboxChangeSignal).
+        services.TryAddSingleton<IInboxChangeSignal, InboxChangeSignal>();
 
         services.AddScoped<IQueryHandler<GetInboxQuery, InboxSnapshotDto>, GetInboxQueryHandler>();
         services.AddScoped<ICommandHandler<CaptureItemCommand, Result<InboxItemDto>>, CaptureItemCommandHandler>();
@@ -172,6 +177,15 @@ public static class InboxModuleRegistration
         services.AddTransient<IQueryHandler<ListPendingNotesQuery, Result<IReadOnlyList<InboxNoteDto>>>, ListPendingNotesQueryHandler>();
         services.AddTransient<ICommandHandler<MarkNotesPushedCommand, Result>, MarkNotesPushedCommandHandler>();
         services.AddTransient<IInboxNoteReplication, InboxNoteReplication>();
+
+        // A note's meeting recordings, transcribed in the background once they have come
+        // down (local ADR 0049). The transcriber and its record store are optional ports, as
+        // the drafter is: a host without them leaves every recording on its note. The
+        // handler is transient for the worker, which resolves it from the root provider;
+        // the worker is the queue the note pull hands notes to, and the host starts it.
+        services.AddTransient<ICommandHandler<TranscribeRecordingsCommand, Result<int>>, TranscribeRecordingsCommandHandler>();
+        services.TryAddSingleton<InboxRecordingTranscriptionWorker>();
+        services.TryAddSingleton<IInboxRecordingQueue>(provider => provider.GetRequiredService<InboxRecordingTranscriptionWorker>());
 
         return services;
     }

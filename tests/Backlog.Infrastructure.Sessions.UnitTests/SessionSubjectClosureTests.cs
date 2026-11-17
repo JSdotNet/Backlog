@@ -201,18 +201,116 @@ public sealed class SessionSubjectClosureTests : IDisposable
     }
 
     [Theory]
-    [InlineData(true, true)]
-    [InlineData(false, false)]
+    [InlineData(SessionPullRequestState.Open, true)]
+    [InlineData(SessionPullRequestState.Draft, true)]
+    [InlineData(SessionPullRequestState.Merged, false)]
+    [InlineData(SessionPullRequestState.Closed, false)]
     [InlineData(null, true)]
-    public async Task The_probe_asks_the_pull_request_port_and_reads_no_answer_as_live(bool? open, bool live)
+    public async Task The_probe_asks_the_pull_request_port_and_reads_no_answer_as_live(SessionPullRequestState? state, bool live)
     {
-        var states = new StubPullRequestStates(open);
+        var states = new StubPullRequestStates(state);
         var probe = Probe(pullRequests: states);
 
         Assert.Equal(live, await probe.IsLiveAsync(
             new NotificationSubject("sessions", "pull-request", SessionNotificationSubjects.PullRequestId("JSdotNet/Backlog", 1480)),
             TestContext.Current.CancellationToken));
         Assert.Equal(("jsdotnet/backlog", 1480), states.Asked);
+    }
+
+    [Theory]
+    [InlineData(SessionPullRequestState.Merged, "Pull request merged")]
+    [InlineData(SessionPullRequestState.Closed, "Pull request closed")]
+    public async Task A_run_still_in_progress_whose_pull_request_merged_or_closed_has_ended_with_that_reason(SessionPullRequestState state, string reason)
+    {
+        var surface = Surface();
+        var run = await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, cancellationToken: TestContext.Current.CancellationToken);
+        await surface.UpdateStageAsync(
+            Worktree, run.RunId, 1, "done",
+            links: [new("PR", "https://github.com/JSdotNet/Backlog/pull/1652", null)],
+            cancellationToken: TestContext.Current.CancellationToken);
+        var states = new StubPullRequestStates(state);
+        var probe = Probe(pullRequests: states);
+        var subject = new NotificationSubject("sessions", "run", run.RunId);
+
+        Assert.False(await probe.IsLiveAsync(subject, TestContext.Current.CancellationToken));
+        Assert.Equal(reason, await probe.EndReasonAsync(subject, TestContext.Current.CancellationToken));
+        Assert.Equal(("JSdotNet/Backlog", 1652), states.Asked);
+    }
+
+    [Theory]
+    [InlineData(SessionPullRequestState.Open)]
+    [InlineData(SessionPullRequestState.Draft)]
+    [InlineData(null)]
+    public async Task A_run_whose_pull_request_is_open_a_draft_or_unread_stays_live(SessionPullRequestState? state)
+    {
+        var surface = Surface();
+        var run = await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, cancellationToken: TestContext.Current.CancellationToken);
+        await surface.UpdateStageAsync(
+            Worktree, run.RunId, 1, "in_progress",
+            links: [new("PR", "https://github.com/JSdotNet/Backlog/pull/1700", null)],
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(await Probe(pullRequests: new StubPullRequestStates(state)).IsLiveAsync(
+            new NotificationSubject("sessions", "run", run.RunId),
+            TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task A_run_every_one_of_whose_sessions_is_known_and_archived_has_ended_as_finished()
+    {
+        var surface = Surface();
+        var run = await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "sess-a", cancellationToken: TestContext.Current.CancellationToken);
+        await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "sess-b", cancellationToken: TestContext.Current.CancellationToken);
+        var probe = Probe(sessions: new SwitchingSource(Session("sess-a", archived: true), Session("sess-b", archived: true)));
+        var subject = new NotificationSubject("sessions", "run", run.RunId);
+
+        Assert.False(await probe.IsLiveAsync(subject, TestContext.Current.CancellationToken));
+        Assert.Equal("Run finished", await probe.EndReasonAsync(subject, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_run_naming_a_session_no_source_knows_stays_live(bool otherArchived)
+    {
+        // The session id start_run takes is the agent's word: one no reader indexes says
+        // nothing about whether the session ended, so it never closes the question.
+        var surface = Surface();
+        var run = await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "local_unindexed", cancellationToken: TestContext.Current.CancellationToken);
+        if (otherArchived) await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "sess-a", cancellationToken: TestContext.Current.CancellationToken);
+        var probe = Probe(sessions: new SwitchingSource(Session("sess-a", archived: true)));
+
+        Assert.True(await probe.IsLiveAsync(new NotificationSubject("sessions", "run", run.RunId), TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(AgentSessionState.Stalled)]
+    [InlineData(AgentSessionState.Finished)]
+    public async Task A_run_whose_session_is_only_stalled_or_reaped_stays_live_however_long(AgentSessionState state)
+    {
+        var surface = Surface();
+        var run = await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "sess-a", cancellationToken: TestContext.Current.CancellationToken);
+        await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "sess-b", cancellationToken: TestContext.Current.CancellationToken);
+        var probe = Probe(sessions: new SwitchingSource(
+            Session("sess-a", archived: true),
+            Session("sess-b", archived: false) with { State = state, LastActivityAt = Noon.AddDays(-6) }));
+
+        Assert.True(await probe.IsLiveAsync(new NotificationSubject("sessions", "run", run.RunId), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task The_probe_names_why_each_kind_of_subject_ended()
+    {
+        var surface = Surface();
+        var finished = await surface.StartRunAsync(Worktree, "flow-spec", "Finished", Stages, cancellationToken: TestContext.Current.CancellationToken);
+        await surface.FinishRunAsync(Worktree, finished.RunId, "done", cancellationToken: TestContext.Current.CancellationToken);
+        var probe = Probe(sessions: new SwitchingSource(Session("sess-91", archived: true)), pullRequests: new StubPullRequestStates(SessionPullRequestState.Merged));
+
+        Assert.Equal("Run finished", await probe.EndReasonAsync(new NotificationSubject("sessions", "run", finished.RunId), TestContext.Current.CancellationToken));
+        Assert.Equal("Session archived", await probe.EndReasonAsync(new NotificationSubject("sessions", "session", "sess-91"), TestContext.Current.CancellationToken));
+        Assert.Equal("Pull request merged", await probe.EndReasonAsync(
+            new NotificationSubject("sessions", "pull-request", SessionNotificationSubjects.PullRequestId("JSdotNet/Backlog", 1480)),
+            TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -294,14 +392,14 @@ public sealed class SessionSubjectClosureTests : IDisposable
             ++Readings == 1 ? Task.FromResult(DeliveryRunCatalog.Empty) : inner.GetRunsAsync(cancellationToken);
     }
 
-    private sealed class StubPullRequestStates(bool? open) : ISessionPullRequestStates
+    private sealed class StubPullRequestStates(SessionPullRequestState? state) : ISessionPullRequestStates
     {
         public (string Repository, int Number)? Asked { get; private set; }
 
-        public Task<bool?> IsOpenAsync(string repository, int number, CancellationToken cancellationToken = default)
+        public Task<SessionPullRequestState?> StateAsync(string repository, int number, CancellationToken cancellationToken = default)
         {
             Asked = (repository, number);
-            return Task.FromResult(open);
+            return Task.FromResult(state);
         }
     }
 

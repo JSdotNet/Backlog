@@ -380,8 +380,9 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
     /// <summary>The Source filter's chips: local work, then one per connector — every
     /// installed one, and any connector id a task carries that this build does not
-    /// know. Empty while no connector is installed and no task is linked, so a
-    /// backlog that never connected anything has no Source group at all.</summary>
+    /// know — each only while it has open work or is the pressed one. Empty while that
+    /// leaves fewer than two and none is pressed, so a backlog that never connected
+    /// anything, or whose connectors hold nothing open, has no Source group at all.</summary>
     public IReadOnlyList<SourceFilterOption> SourceFilters { get; private set; } = [];
 
     /// <summary>Narrows the view to one source, or widens it again for null.</summary>
@@ -400,10 +401,11 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     /// </summary>
     public EntryType? SelectedType { get; private set; }
 
-    /// <summary>The type filter's chips: one per task type in what the scopes ahead
-    /// of it left in view, with how many of those rows are of it, in the type's own
-    /// order. Empty while that is fewer than two types and none is picked, so a
-    /// backlog of one type has no chip that could not narrow anything.</summary>
+    /// <summary>The type filter's chips: one per task type with open rows in what the
+    /// scopes ahead of it left in view, plus the pressed type at any count, with how
+    /// many of those rows are still open — the completed ones go in the tooltip — in
+    /// the type's own order. Empty while that is fewer than two types and none is
+    /// picked, so a backlog of one open type has no chip that could not narrow anything.</summary>
     public IReadOnlyList<TypeFilterOption> TypeFilters { get; private set; } = [];
 
     /// <summary>Narrows the view to one task type, or widens it again for null.</summary>
@@ -415,17 +417,31 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
     private void RebuildTypeFilters(IReadOnlyCollection<EntryRow> scoped)
     {
+        // A type gets a chip while it has something still to do; the face counts
+        // that, as a tag chip's does. The pressed type keeps its chip at 0, because
+        // that chip is the only thing on the bar saying the list is narrowed.
         var counts = scoped.Where(row => row.IsPersisted)
             .GroupBy(row => row.PreviewType)
-            .ToDictionary(group => group.Key, group => group.Count());
-        if (SelectedType is { } selected) counts.TryAdd(selected, 0);
+            .ToDictionary(group => group.Key, group => (Open: group.Count(row => !IsFinished(row)), Completed: group.Count(IsFinished)));
+        if (SelectedType is { } selected) counts.TryAdd(selected, (0, 0));
 
-        TypeFilters = counts.Count < 2 && SelectedType is null
-            ? []
-            : [.. Enum.GetValues<EntryType>()
-                .Where(counts.ContainsKey)
-                .Select(type => new TypeFilterOption(type, type.ToString(), counts[type]))];
+        var chips = Enum.GetValues<EntryType>()
+            .Where(type => counts.TryGetValue(type, out var count) && EarnsAChip(count.Open, type == SelectedType))
+            .Select(type => new TypeFilterOption(type, type.ToString(), counts[type].Open, counts[type].Completed))
+            .ToList();
+
+        TypeFilters = WorthAGroup(chips.Count, SelectedType is not null) ? chips : [];
     }
+
+    /// <summary>One chip narrows nothing, so a Source or Type group is drawn only
+    /// with two to choose between — or with one pressed, which must stay pressable
+    /// to widen the list again.</summary>
+    private static bool WorthAGroup(int chips, bool pressed) => chips >= 2 || pressed;
+
+    /// <summary>A Source or Type value gets a chip while it has open work, or while
+    /// it is the pressed one: that chip is the only thing on the bar saying the list
+    /// is narrowed, and the way to widen it again.</summary>
+    private static bool EarnsAChip(int open, bool pressed) => open > 0 || pressed;
 
     /// <summary>Whether a row is in the source <paramref name="source"/> names.</summary>
     public static bool IsFromSource(EntryRow row, string source) =>
@@ -448,16 +464,23 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             return;
         }
 
-        SourceFilters =
+        var local = Rows.Where(row => row.IsPersisted && row.SourceRef is null).ToList();
+        List<SourceFilterOption> every =
         [
-            new SourceFilterOption(LocalSource, "Local", Rows.Count(row => row.IsPersisted && row.SourceRef is null)),
-            .. connectorIds.Select(id => new SourceFilterOption(
-                id,
-                LinkedSources.NameOf(id),
-                linked.Count(row => row.SourceRef!.ConnectorId == id)))
+            new SourceFilterOption(LocalSource, "Local", local.Count(row => !IsFinished(row)), local.Count(IsFinished)),
+            .. connectorIds.Select(id =>
+            {
+                var from = linked.Where(row => row.SourceRef!.ConnectorId == id).ToList();
+                return new SourceFilterOption(id, LinkedSources.NameOf(id), from.Count(row => !IsFinished(row)), from.Count(IsFinished));
+            })
         ];
 
-        if (SelectedSource is { } selected && SourceFilters.All(option => option.Value != selected)) SelectedSource = null;
+        // A source this build no longer knows lets go of the press; one with nothing
+        // open only loses its chip, and keeps it while pressed — the type group's rule.
+        if (SelectedSource is { } selected && every.All(option => option.Value != selected)) SelectedSource = null;
+
+        var chips = every.Where(option => EarnsAChip(option.OpenCount, option.Value == SelectedSource)).ToList();
+        SourceFilters = WorthAGroup(chips.Count, SelectedSource is not null) ? chips : [];
     }
 
     /// <summary>Raised whenever rows or save state change from a background
@@ -622,6 +645,195 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     /// </para>
     /// </summary>
     public bool ReadyInPlanOnly { get; private set; }
+
+    /// <summary>
+    /// True while the view is narrowed to the tasks waiting on someone: the
+    /// <b>Waiting</b> slice (<c>.devbook/domain/tasks/domain.md#waiting-for</c>,
+    /// local ADR 0054 §4).
+    /// <para>
+    /// A task with a <c>waiting:</c> token, open — a ticked-off row is out, whatever
+    /// it still waits on. Not the "Waiting for" a chain of <c>after:</c> tokens
+    /// derives (<see cref="IsNotWaiting"/>): that one waits on other entries, this one
+    /// on a person or a party outside the backlog.
+    /// </para>
+    /// <para>
+    /// While it is on, the slice reads soonest follow-up first and undated last, so
+    /// the first row is the one to chase next; the rank order holds within a day and
+    /// among the undated. Because that is not the rank order, reordering and the
+    /// status sort are off while it is on. Composes with every other scope the way
+    /// My Day does.
+    /// </para>
+    /// <para>
+    /// The other views still list a waiting task. The <b>Next actions</b> slice
+    /// (<see cref="NextActionsOnly"/>) is the one that leaves it out (ADR 0054 §4).
+    /// </para>
+    /// </summary>
+    public bool WaitingForOnly { get; private set; }
+
+    /// <summary>
+    /// True while the view is narrowed to the person's next actions: the <b>Next
+    /// actions</b> slice (<c>.devbook/domain/tasks/features.md#next-actions</c>, local
+    /// ADR 0054 §4 and §5).
+    /// <para>
+    /// The open tasks that can be picked up now (<see cref="IsNextAction"/>), grouped
+    /// by context — the tags starting <c>@</c>, in name order — and then the tasks with
+    /// no context. A task is listed once, under its first context. The rank order holds
+    /// within a group; because the groups are not the rank order, reordering and the
+    /// status sort are off while it is on, as they are in the Waiting slice.
+    /// </para>
+    /// <para>
+    /// Composes with every other scope the way My Day does, and while it is on the
+    /// area chips (<see cref="AreaFilters"/>) narrow it by <see cref="SelectedArea"/>.
+    /// </para>
+    /// </summary>
+    public bool NextActionsOnly { get; private set; }
+
+    /// <summary>Whether the list is drawn in an order that is not the rank — the
+    /// Waiting slice's follow-up order or the Next actions slice's contexts — so
+    /// reordering and the status sort are off.</summary>
+    public bool InGroupedSlice => WaitingForOnly || NextActionsOnly;
+
+    /// <summary>What the slice's group heading calls the tasks with no context.</summary>
+    public const string NoContextGroup = "No context";
+
+    /// <summary>
+    /// Whether a row is a next action: open, its <see cref="TaskReadiness"/> ready —
+    /// every entry it waits on finished (<see cref="IsNotWaiting"/>) — waiting on
+    /// nobody outside the backlog (no <see cref="EntryRow.PreviewWaitingFor"/>), and not
+    /// marked blocked by hand. Read by the chip for its count.
+    /// </summary>
+    public bool IsNextAction(EntryRow row) =>
+        !IsFinished(row)
+        && IsNotWaiting(row)
+        && row.PreviewWaitingFor is null
+        && !row.IsPreviewBlocked;
+
+    /// <summary>The contexts a row carries: its tags starting <c>@</c>
+    /// (<c>.devbook/domain/tasks/domain.md#context</c>), in name order.</summary>
+    public static IReadOnlyList<string> ContextsOf(EntryRow row) =>
+        [.. row.PreviewTags
+            .Where(tag => tag.StartsWith('@') && tag.Length > 1)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>The group a row is listed under in the Next actions slice: its first
+    /// context, or <see cref="NoContextGroup"/>.</summary>
+    public static string NextActionGroupOf(EntryRow row) =>
+        ContextsOf(row) is [var first, ..] ? first : NoContextGroup;
+
+    /// <summary>The slice's rows in group order: the contexts by name, with the
+    /// comparer <see cref="ContextsOf"/> picks the first one by, then the tasks with
+    /// no context. Stable, so rank decides within a group.</summary>
+    private static List<EntryRow> InNextActionGroupOrder(IEnumerable<EntryRow> rows) =>
+        [.. rows
+            .Select(row => (Row: row, Context: ContextsOf(row) is [var first, ..] ? first : null))
+            .OrderBy(pair => pair.Context is null)
+            .ThenBy(pair => pair.Context ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .Select(pair => pair.Row)];
+
+    /// <summary>The <see cref="SelectedArea"/> that asks for the tasks filed under no
+    /// area. Not an area anybody can type: an area is a token's value, and this one
+    /// holds a character no token does.</summary>
+    public const string NoArea = "\u0000no-area";
+
+    /// <summary>The area the Next actions slice is narrowed to, lower-cased the way the
+    /// parser stores one, or <see cref="NoArea"/> for the unfiled tasks, or null for
+    /// every area. Only while the slice is on: turning it off lets go of the area.</summary>
+    public string? SelectedArea { get; private set; }
+
+    /// <summary>The area chips while the Next actions slice is on: one per area the
+    /// slice holds, in name order, then <b>No area</b> when some task is unfiled, each
+    /// with how many of the slice's tasks it holds. Empty while the slice is off, and
+    /// while it holds fewer than two areas with none picked.</summary>
+    public IReadOnlyList<AreaFilterOption> AreaFilters { get; private set; } = [];
+
+    /// <summary>Narrows the Next actions slice to one area, <see cref="NoArea"/> for
+    /// the unfiled tasks, or widens it again for null.</summary>
+    public void SetAreaFilter(string? area)
+    {
+        // Only the slice reads an area, so an area set while it is off would wait
+        // there unseen and narrow the slice the next time it was pressed.
+        if (!NextActionsOnly) return;
+
+        SelectedArea = string.IsNullOrWhiteSpace(area) ? null : area == NoArea ? NoArea : area.Trim().ToLowerInvariant();
+        ApplyFilter();
+    }
+
+    /// <summary>Turns the Next actions slice on or off. See
+    /// <see cref="NextActionsOnly"/> for what it keeps and how it is grouped.
+    /// Turning it on lets go of the Waiting slice: a next action waits on nobody, so
+    /// the two pressed together could only ever list nothing.</summary>
+    public void SetNextActionsFilter(bool only)
+    {
+        NextActionsOnly = only;
+        if (only) WaitingForOnly = false;
+        else SelectedArea = null;
+        ApplyFilter();
+    }
+
+    /// <summary>Whether a row is filed under <paramref name="area"/>, where
+    /// <see cref="NoArea"/> means filed under none.</summary>
+    private static bool IsInArea(EntryRow row, string area) =>
+        area == NoArea
+            ? string.IsNullOrWhiteSpace(row.PreviewArea)
+            : string.Equals(row.PreviewArea?.Trim(), area, StringComparison.OrdinalIgnoreCase);
+
+    private void RebuildAreaFilters(IReadOnlyCollection<EntryRow> slice)
+    {
+        var counts = slice.Where(row => row.IsPersisted)
+            .GroupBy(row => string.IsNullOrWhiteSpace(row.PreviewArea) ? NoArea : row.PreviewArea!.Trim().ToLowerInvariant())
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+        if (SelectedArea is { } selected) counts.TryAdd(selected, 0);
+
+        AreaFilters = counts.Count < 2 && SelectedArea is null
+            ? []
+            : [.. counts.Keys
+                .Where(area => area != NoArea)
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .Select(area => new AreaFilterOption(area, area, counts[area]))
+                .Concat(counts.TryGetValue(NoArea, out var unfiled)
+                    ? [new AreaFilterOption(NoArea, "No area", unfiled)]
+                    : [])];
+    }
+
+    /// <summary>
+    /// What the open task's Area picker suggests (<c>.devbook/domain/tasks/domain.md#area</c>):
+    /// the Brain's area names first, in its tab order, then the areas already used on
+    /// a task, in name order — each once, without regard to case. Suggestions only:
+    /// an area is whatever the person types.
+    /// </summary>
+    public IReadOnlyList<string> AreaSuggestions(IEnumerable<string>? brainAreas)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var suggestions = new List<string>();
+
+        foreach (var area in (brainAreas ?? []).Select(area => area?.Trim()))
+        {
+            if (!string.IsNullOrEmpty(area) && seen.Add(area)) suggestions.Add(area);
+        }
+
+        foreach (var area in Rows
+            .Select(row => row.PreviewArea?.Trim())
+            .Where(area => !string.IsNullOrEmpty(area))
+            .Select(area => area!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase))
+        {
+            if (seen.Add(area)) suggestions.Add(area);
+        }
+
+        return suggestions;
+    }
+
+    /// <summary>Whether a row is in the Waiting slice <see cref="WaitingForOnly"/>
+    /// keeps: open and waiting on someone. Read by the chip for its count.</summary>
+    public bool IsWaitingForSomeone(EntryRow row) =>
+        row.PreviewWaitingFor is not null && !IsFinished(row);
+
+    /// <summary>Where a row sorts in the Waiting slice: by its follow-up date, and
+    /// after every dated row when it has none.</summary>
+    private static DateOnly WaitingForSortKey(EntryRow row) =>
+        row.PreviewWaitingFor?.FollowUpOn ?? DateOnly.MaxValue;
 
     /// <summary>Whether a row is the ready plan work <see cref="ReadyInPlanOnly"/>
     /// keeps. Read by the chip for its count, so the chip and the filter are one
@@ -1521,6 +1733,22 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ApplyFilter();
     }
 
+    /// <summary>Turns the Waiting slice on or off. See
+    /// <see cref="WaitingForOnly"/> for what it keeps and how it is ordered.</summary>
+    public void SetWaitingForFilter(bool only)
+    {
+        WaitingForOnly = only;
+
+        // A waiting task is never a next action, so the two slices are one of a pair.
+        if (only)
+        {
+            NextActionsOnly = false;
+            SelectedArea = null;
+        }
+
+        ApplyFilter();
+    }
+
     /// <summary>Adds a tag to the selection, or takes it back out when it is
     /// already there. Bare and lower-cased the way the parser stores one;
     /// <see cref="UntaggedTag"/> asks for the entries with no tags. Additive in
@@ -1613,6 +1841,9 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         _selectedRepositoryAliases.Clear();
         MyDayOn = null;
         ReadyInPlanOnly = false;
+        WaitingForOnly = false;
+        NextActionsOnly = false;
+        SelectedArea = null;
         SelectedSource = null;
         SelectedType = null;
         SelectedStatusFilterWire = string.Empty;
@@ -1679,6 +1910,25 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (ReadyInPlanOnly && !IsReadyInPlan(row))
         {
             ReadyInPlanOnly = false;
+            widened = true;
+        }
+
+        if (WaitingForOnly && !IsWaitingForSomeone(row))
+        {
+            WaitingForOnly = false;
+            widened = true;
+        }
+
+        if (NextActionsOnly && !IsNextAction(row))
+        {
+            NextActionsOnly = false;
+            SelectedArea = null;
+            widened = true;
+        }
+
+        if (NextActionsOnly && SelectedArea is { } area && !IsInArea(row, area))
+        {
+            SelectedArea = null;
             widened = true;
         }
 
@@ -2440,6 +2690,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         if (row.IsReadOnly || ReferenceEquals(row, target)) return;
 
+        // The Waiting slice draws the rows in follow-up order, not rank order, so a
+        // neighbour there is no neighbour in the rank: a move would change a rank the
+        // reader cannot see and change nothing they can. The Next actions slice draws
+        // them by context, for the same reason.
+        if (InGroupedSlice) return;
+
         var from = Rows.IndexOf(row);
         var to = Rows.IndexOf(target);
         if (from < 0 || to < 0 || from == to) return;
@@ -2464,6 +2720,11 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     {
         get
         {
+            // Not in the Waiting slice: the rows it shows are in follow-up order, and
+            // the sort reads its input as rank order (see MoveEntryAsync). Nor in Next
+            // actions, which shows them by context.
+            if (InGroupedSlice) return false;
+
             var visible = SortableVisibleRows().ToList();
             return !visible.SequenceEqual(StatusSortOrder(visible));
         }
@@ -2877,6 +3138,19 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ArgumentNullException.ThrowIfNull(row);
 
         await RewriteMetadataAsync(row, BlockedText(row, blocked, today));
+    }
+
+    /// <summary>
+    /// Records who the entry waits on and its follow-up date, or clears the
+    /// waiting-for with null — which takes the <c>followup:</c> token with it and
+    /// takes the task out of the Waiting slice. Written the way every other field here
+    /// is: the metadata line, then the save.
+    /// </summary>
+    public async Task ChangeWaitingForAsync(EntryRow row, WaitingFor? waitingFor)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        await RewriteMetadataAsync(row, EntryTextParser.WithWaitingFor(row.RawText, waitingFor));
     }
 
     public async Task ChangeDependsOnAsync(EntryRow row, IEnumerable<string>? dependsOn) =>
@@ -3937,7 +4211,10 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ArgumentNullException.ThrowIfNull(row);
         ArgumentNullException.ThrowIfNull(reference);
 
-        if (reference.Length == 0 || reference[0] is '.' or '/') return reference;
+        // A Brain address (#brain:…, local ADR 0053) names no repository page; it is
+        // compared in its one spelling, the one the task stores.
+        if (Backlog.SharedKernel.BrainNoteAddress.TryParse(reference, out var brain)) return brain.Value;
+        if (reference.Length == 0 || reference[0] is '.' or '/' or '#') return reference;
 
         var hash = reference.IndexOf('#');
         var path = hash < 0 ? reference : reference[..hash];
@@ -6067,6 +6344,30 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             rows = rows.Where(IsReadyInPlan);
         }
 
+        // And the Waiting slice, on the same terms again.
+        if (WaitingForOnly)
+        {
+            rows = rows.Where(IsWaitingForSomeone);
+        }
+
+        // And the Next actions slice, then the area it is narrowed to: its area
+        // chips are built from what the slice holds, so a chip never offers an area
+        // that could only empty the list.
+        if (NextActionsOnly)
+        {
+            var sliceRows = rows.Where(IsNextAction).ToList();
+            RebuildAreaFilters(sliceRows);
+            rows = sliceRows;
+            if (SelectedArea is { } area)
+            {
+                rows = rows.Where(row => IsInArea(row, area));
+            }
+        }
+        else
+        {
+            AreaFilters = [];
+        }
+
         // And where a task came from: the same terms again.
         RebuildSourceFilters();
         if (SelectedSource is { } source)
@@ -6136,6 +6437,21 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         foreach (var row in Rows)
         {
             if (kept.Remove(row)) filtered.Add(row);
+        }
+
+        // The Waiting slice reads soonest follow-up first and undated last. A stable
+        // sort over the list order, so rank still decides within one day and among
+        // the undated.
+        if (WaitingForOnly)
+        {
+            filtered = [.. filtered.OrderBy(WaitingForSortKey)];
+        }
+
+        // The Next actions slice reads by context, in name order, then the tasks
+        // with no context. A stable sort again, so rank decides within a group.
+        if (NextActionsOnly)
+        {
+            filtered = InNextActionGroupOrder(filtered);
         }
 
         FilteredRows = filtered;
@@ -6558,20 +6874,27 @@ public sealed record TagFilterOption(string Label, string Value, int OpenCount, 
 /// asked for.</summary>
 public sealed record MetaReading(string Kind, string Value, bool Explicit, string? Note = null);
 
+/// <summary>One chip of the Source filter: the value it sets, the name it shows,
+/// and its tasks split the way a <see cref="TagFilterOption"/>'s are — the open ones
+/// on the face, the ticked-off ones in the tooltip.</summary>
+public sealed record SourceFilterOption(string Value, string Label, int OpenCount, int CompletedCount);
+
+/// <summary>One chip of the type filter: the task type, its label, and the rows in
+/// scope of it split the way a <see cref="TagFilterOption"/>'s are — the open ones on
+/// the face, the ticked-off ones in the tooltip.</summary>
+public sealed record TypeFilterOption(EntryType Value, string Label, int OpenCount, int CompletedCount);
+
+/// <summary>One area chip of the Next actions slice: the area as stored, or
+/// <see cref="TasksDesktopState.NoArea"/>, what the chip says, and how many of the
+/// slice's tasks it holds.</summary>
+public sealed record AreaFilterOption(string Value, string Label, int Count);
+
 /// <summary>A row in the quick-edit list. <see cref="Key"/> is a stable
 /// client-side identity used for <c>@key</c> and debounce tracking, independent
 /// of <see cref="Id"/> which is null until the row is first saved.
 /// <see cref="RawText"/> is the single source of truth the user types into —
 /// there is no separate title/type/status/tags field anywhere, and the rendered
 /// form shown when the row is not focused is derived from it.</summary>
-/// <summary>One chip of the Source filter: the value it sets, the name it shows,
-/// and how many tasks it would keep.</summary>
-public sealed record SourceFilterOption(string Value, string Label, int Count);
-
-/// <summary>One chip of the type filter: the task type, its label and how many rows
-/// in scope are of it.</summary>
-public sealed record TypeFilterOption(EntryType Value, string Label, int Count);
-
 public sealed class EntryRow
 {
     private string? _renderedFrom;
@@ -6871,11 +7194,11 @@ public sealed class EntryRow
     /// took at its word.
     /// </para>
     /// <para>
-    /// The people are read off <see cref="PreviewTags"/> rather than the title
-    /// directly, and that is safe for one reason: the body's grammar has no person
-    /// tag — <c>@carol</c> in a note is prose — so every <c>@</c> in the union is
-    /// the title's. A body <c>#tag</c> is in that union too and deliberately not in
-    /// this set; the editor does not own prose.
+    /// The people are read off the title itself, not off <see cref="PreviewTags"/>:
+    /// a body context <c>#@pc</c> (local ADR 0054 §5) is an <c>@</c> tag in that
+    /// union too, and it is prose the editor does not own — handed to the writer, it
+    /// would be copied on to the title. A body <c>#tag</c> is left out for the same
+    /// reason.
     /// </para>
     /// </summary>
     public IReadOnlyList<string> PreviewEditableTags
@@ -6883,7 +7206,12 @@ public sealed class EntryRow
         get
         {
             Render();
-            return [.. _parsed!.MetadataTags, .. PreviewTags.Where(TagText.IsPerson)];
+            return
+            [
+                .. _parsed!.MetadataTags
+                    .Concat(EntryTextParser.TitleTagsOf(_parsed.Title).Where(TagText.IsPerson))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+            ];
         }
     }
 
@@ -6969,6 +7297,14 @@ public sealed class EntryRow
     /// from <see cref="PreviewDependsOn"/> — and a marked entry is still ready to
     /// the entries after it.</summary>
     public bool IsPreviewBlocked => PreviewBlockedSince is not null;
+
+    /// <summary>Who the entry waits on and when to follow up, or null while it waits
+    /// on nobody. A preview like the hand-set block: the <c>waiting:</c> and
+    /// <c>followup:</c> tokens are in the text and a reader can type them.</summary>
+    public WaitingFor? PreviewWaitingFor
+    {
+        get { Render(); return _parsed!.WaitingFor; }
+    }
 
     public IReadOnlyList<string> PreviewDependsOn
     {
@@ -7075,6 +7411,15 @@ public sealed class EntryRow
             if (PreviewBlockedSince is { } blockedSince)
             {
                 readings.Add(new MetaReading("blocked", EntryTextParser.DateToken(blockedSince), true));
+            }
+
+            if (PreviewWaitingFor is { } waitingFor)
+            {
+                readings.Add(new MetaReading("waiting", waitingFor.Who, true));
+                if (waitingFor.FollowUpOn is { } followUp)
+                {
+                    readings.Add(new MetaReading("followup", EntryTextParser.DateToken(followUp), true));
+                }
             }
 
             foreach (var id in PreviewDependsOn)

@@ -363,9 +363,126 @@ public sealed class NotificationCardTests
 
         var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, answered));
 
-        Assert.Equal("Answered from phone · Yes, run it · 1 min ago", card.Find("[data-testid='notification-card-outcome']").TextContent);
+        Assert.Equal("Answered from phone · 1 min ago", card.Find("[data-testid='notification-card-outcome']").TextContent);
+        // Handed only the whole answer, the card sets it in the answer block.
+        Assert.Equal("Yes, run it", card.Find("[data-testid='notification-card-answer-text']").TextContent);
         Assert.Empty(card.FindAll("[data-testid='notification-card-answer']"));
         Assert.Equal("Answered", card.Find("[data-testid='notification-card-state']").TextContent);
+    }
+
+    [Fact]
+    public void An_answered_card_lists_the_set_answers_read_only_and_marks_the_chosen_with_a_tick_and_a_word()
+    {
+        using var context = Context();
+        var answered = Question() with
+        {
+            State = NotificationCardState.Answered,
+            Outcome = new NotificationCardOutcome(Answer: "Yes, run it", Device: "phone", When: "1 min ago", ChosenIds: ["yes"])
+        };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, answered));
+
+        var yes = card.Find("[data-testid='notification-card-settled-choice-yes']");
+        var no = card.Find("[data-testid='notification-card-settled-choice-no']");
+        Assert.Equal("true", yes.GetAttribute("data-chosen"));
+        Assert.Equal("false", no.GetAttribute("data-chosen"));
+        Assert.Contains("Chosen", yes.QuerySelector("[data-testid='notification-card-chosen']")!.TextContent, StringComparison.Ordinal);
+        Assert.NotNull(yes.QuerySelector("svg.check-icon"));
+        Assert.Null(no.QuerySelector("[data-testid='notification-card-chosen']"));
+        // Read-only: nothing on a settled card answers.
+        Assert.Empty(card.FindAll("button"));
+        // The choice is marked in the list, so there are no words to set apart.
+        Assert.Empty(card.FindAll("[data-testid='notification-card-answer-block']"));
+    }
+
+    [Fact]
+    public void A_multiple_choice_answer_marks_every_pick()
+    {
+        using var context = Context();
+        var spec = new NotificationCardAnswerSpec(
+            [new NotificationCardChoice("a", "A"), new NotificationCardChoice("b", "B"), new NotificationCardChoice("c", "C")],
+            AllowMultiple: true);
+        var answered = Question(spec) with
+        {
+            State = NotificationCardState.Answered,
+            Outcome = new NotificationCardOutcome(ChosenIds: ["a", "c"])
+        };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, answered));
+
+        Assert.Equal(
+            ["true", "false", "true"],
+            card.FindAll("[data-testid^='notification-card-settled-choice-']").Select(choice => choice.GetAttribute("data-chosen")));
+    }
+
+    [Fact]
+    public void A_chosen_id_the_question_does_not_list_shows_the_whole_answer_instead_of_the_list()
+    {
+        using var context = Context();
+        var answered = Question() with
+        {
+            State = NotificationCardState.Answered,
+            Outcome = new NotificationCardOutcome(Answer: "maybe", Device: "phone", ChosenIds: ["maybe"])
+        };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, answered));
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-settled-choices']"));
+        Assert.Contains("maybe", card.Find("[data-testid='notification-card-answer-block']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_answer_in_words_and_its_note_sit_in_the_answer_block_above_the_outcome_line()
+    {
+        using var context = Context();
+        var spec = new NotificationCardAnswerSpec(
+            [new NotificationCardChoice("approve", "Approve"), new NotificationCardChoice("revise", "Revise", TakesText: true)]);
+        var answered = Question(spec) with
+        {
+            State = NotificationCardState.Answered,
+            Outcome = new NotificationCardOutcome(Device: "this desktop", ChosenIds: ["revise"], Text: "Move the toast", Note: "Before Friday")
+        };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, answered));
+
+        var block = card.Find("[data-testid='notification-card-answer-block']");
+        Assert.Equal("Move the toast", block.QuerySelector("[data-testid='notification-card-answer-text']")!.TextContent);
+        Assert.Equal("Note: Before Friday", block.QuerySelector("[data-testid='notification-card-answer-note']")!.TextContent);
+        Assert.Contains("Answer", block.TextContent, StringComparison.Ordinal);
+        Assert.Equal("true", card.Find("[data-testid='notification-card-settled-choice-revise']").GetAttribute("data-chosen"));
+        // The block comes before the outcome line.
+        var markup = card.Markup;
+        Assert.True(
+            markup.IndexOf("notification-card-answer-block", StringComparison.Ordinal) < markup.IndexOf("notification-card-outcome", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void An_open_answer_sits_in_the_answer_block()
+    {
+        using var context = Context();
+        var answered = Question(new NotificationCardAnswerSpec([], Open: new NotificationCardOpenAnswer())) with
+        {
+            State = NotificationCardState.Answered,
+            Outcome = new NotificationCardOutcome(Device: "phone", ChosenIds: [], Text: "Signals")
+        };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, answered));
+
+        Assert.Equal("Signals", card.Find("[data-testid='notification-card-answer-text']").TextContent);
+        Assert.Empty(card.FindAll("[data-testid='notification-card-settled-choices']"));
+    }
+
+    [Fact]
+    public void An_acknowledged_alert_draws_no_answer_block()
+    {
+        using var context = Context();
+        var acknowledged = Alert() with { State = NotificationCardState.Acknowledged, Outcome = new NotificationCardOutcome(When: "just now") };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, acknowledged));
+
+        Assert.Equal("Acknowledged · just now", card.Find("[data-testid='notification-card-outcome']").TextContent);
+        Assert.Empty(card.FindAll("[data-testid='notification-card-answer-block']"));
+        Assert.Empty(card.FindAll("button"));
     }
 
     [Fact]
@@ -380,8 +497,42 @@ public sealed class NotificationCardTests
 
         var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, closed));
 
-        Assert.Equal("Closed · Session archived", card.Find("[data-testid='notification-card-outcome']").TextContent);
+        Assert.Equal("Closed", card.Find("[data-testid='notification-card-outcome']").TextContent);
+        Assert.Equal("Session archived", card.Find("[data-testid='notification-card-answer-text']").TextContent);
         Assert.Equal("closed", card.Find("article").GetAttribute("data-state"));
+    }
+
+    [Fact]
+    public void A_closed_question_draws_its_reason_verbatim_in_the_answer_block_so_an_answer_reads_as_one()
+    {
+        using var context = Context();
+        var closed = Question() with
+        {
+            State = NotificationCardState.Closed,
+            Outcome = new NotificationCardOutcome(Reason: "Answered in spec-manager by Ada: Round half even", When: "1 h ago")
+        };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, closed));
+
+        var block = card.Find("[data-testid='notification-card-answer-block']");
+        Assert.Equal(
+            "Answered in spec-manager by Ada: Round half even",
+            block.QuerySelector("[data-testid='notification-card-answer-text']")!.TextContent);
+        Assert.Equal("Closed · 1 h ago", card.Find("[data-testid='notification-card-outcome']").TextContent);
+        Assert.Empty(card.FindAll("[data-testid='notification-card-settled-choices']"));
+        Assert.Empty(card.FindAll("button"));
+    }
+
+    [Fact]
+    public void A_closed_question_with_no_reason_says_so_on_its_outcome_line()
+    {
+        using var context = Context();
+        var closed = Question() with { State = NotificationCardState.Closed, Outcome = new NotificationCardOutcome() };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, closed));
+
+        Assert.Equal("Closed · no longer needs an answer", card.Find("[data-testid='notification-card-outcome']").TextContent);
+        Assert.Empty(card.FindAll("[data-testid='notification-card-answer-block']"));
     }
 
     // --- The origin ----------------------------------------------------------------------

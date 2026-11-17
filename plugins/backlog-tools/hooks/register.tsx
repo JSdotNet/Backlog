@@ -15,6 +15,7 @@ import {
   parseBrief,
   parseEventsReturn,
   parsePlan,
+  parseReturn,
   parseRuns,
   parseSessionId,
   parseSessionRows,
@@ -26,7 +27,9 @@ import { GLYPH, KIND, abbrev, alsoLine, bandRows, cellsOf, columnsOf, currentSta
 // The execute-plan view: a band above the prompt with the entries still in flow, and a pane —
 // the band's details — with the whole plan as a matrix of entries by delivery-flow stage. Each
 // entry runs in a session of its own, whose calls never pass this session's hooks: both are
-// read from the calls execute-plan makes about those sessions. Nothing here writes.
+// read from the calls execute-plan makes about those sessions. An entry whose start the host
+// refused runs as a background sub-agent instead, keyed by its agent id, whose own calls and
+// return do pass here. Nothing here writes.
 const PANE = 'plan-progress'
 const plan = atom({ plugin: 'backlog-tools', key: 'plan' } as const, null)
 const workers = atom({ plugin: 'backlog-tools', key: 'workers' } as const, [])
@@ -53,11 +56,30 @@ async function refreshStatus($: EngineInterface) {
   $.ui.status(parts.join(' · '))
 }
 
+/** A new entry worker. A brief for another plan starts the pane over: the previous run's plan and workers go. */
+async function addWorker($: EngineInterface, id: string, brief: NonNullable<ReturnType<typeof parseBrief>>) {
+  const isNewPlan = (await read($, plan))?.tag !== brief.tag
+  await update($, workers, list => [
+    ...(isNewPlan ? [] : list.filter(w => w.entryId !== brief.entryId)),
+    newWorker(id, brief),
+  ])
+  await update($, plan, p => (p && p.tag === brief.tag ? p : { tag: brief.tag, entries: [] }))
+  await refreshStatus($)
+}
+
 /** A worker that newly reached a state needing the person says so once. */
 function toastOn($: EngineInterface, w: Worker | undefined, was: WorkerState | undefined) {
   if (!w || w.state === was) return
   if (w.state === 'gate') $.ui.toast(`${w.n} - ${w.title}: waiting at the gate`)
   if (w.state === 'blocked') $.ui.toast(`${w.n} - ${w.title}: blocked ${w.note}`)
+}
+
+/** A worker's return line, from a session's events or a sub-agent's finished turn. */
+async function applyReturn($: EngineInterface, id: string, back: { state: WorkerState; note: string }) {
+  const was = (await read($, workers)).find(w => sessionOf(w) === id)?.state
+  await update($, workers, list => patchWorker(list, id, w => ({ ...w, ...back })))
+  await refreshStatus($)
+  toastOn($, (await read($, workers)).find(w => sessionOf(w) === id), was)
 }
 
 export const register: Register = on => {
@@ -109,15 +131,15 @@ export const register: Register = on => {
       if (ran.deny !== undefined || ran.isError) return ran
       const sessionId = parseSessionId(textOf(ran))
       if (sessionId === '') return ran
-      // A brief for another plan starts the pane over: the previous run's plan and workers go.
-      const isNewPlan = (await read($, plan))?.tag !== brief.tag
-      await update($, workers, list => [
-        ...(isNewPlan ? [] : list.filter(w => w.entryId !== brief.entryId)),
-        newWorker(sessionId, brief),
-      ])
-      await update($, plan, p => (p && p.tag === brief.tag ? p : { tag: brief.tag, entries: [] }))
-      await refreshStatus($)
+      await addWorker($, sessionId, brief)
       return ran
+    }
+
+    // A sub-agent worker's own call naming its worktree says where it works.
+    const from = typeof args.agentId === 'string' ? args.agentId : ''
+    const named = typeof args.worktree === 'string' ? args.worktree : ''
+    if (from !== '' && named !== '' && (await read($, workers)).some(w => sessionOf(w) === from && worktreeOf(w) === '')) {
+      await update($, workers, list => patchWorker(list, from, w => (worktreeOf(w) === '' ? { ...w, worktree: named } : w)))
     }
 
     // The session rows say where each entry session works: its worktree.
@@ -168,12 +190,7 @@ export const register: Register = on => {
       const ran = await next(e)
       if (ran.deny !== undefined || ran.isError) return ran
       const back = parseEventsReturn(textOf(ran))
-      if (back) {
-        const was = (await read($, workers)).find(w => sessionOf(w) === eventsOf)?.state
-        await update($, workers, list => patchWorker(list, eventsOf, w => ({ ...w, ...back })))
-        await refreshStatus($)
-        toastOn($, (await read($, workers)).find(w => sessionOf(w) === eventsOf), was)
-      }
+      if (back) await applyReturn($, eventsOf, back)
       return ran
     }
 
@@ -190,6 +207,23 @@ export const register: Register = on => {
       return ran
     }
 
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
+  // The fallback entry: a background sub-agent given the brief, keyed by the id it answered.
+  on('agent.spawn', async ($, e, next) => {
+    const ran = await next(e)
+    const brief = ran.agentId ? parseBrief(String(e.prompt ?? '')) : null
+    if (brief && ran.agentId) await addWorker($, ran.agentId, brief)
+    return ran
+  }).catch(($, e, next) => next(e))
+
+  // Its turn ending is its return line.
+  on('turn.complete', async ($, e, next) => {
+    const agentId = e.agentId ?? ''
+    if (agentId !== '' && (await read($, workers)).some(w => sessionOf(w) === agentId)) {
+      await applyReturn($, agentId, e.isAborted ? { state: 'stopped', note: 'aborted' } : parseReturn(e.answer ?? ''))
+    }
     return next(e)
   }).catch(($, e, next) => next(e))
 

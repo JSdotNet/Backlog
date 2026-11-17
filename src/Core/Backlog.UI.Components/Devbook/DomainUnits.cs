@@ -147,11 +147,21 @@ public sealed record DomainEnum(string Title, IReadOnlyList<string> Values, stri
     /// <summary>The sentence after the one naming the values, as plain text, when
     /// it names no field: what the row says beside its values. Empty otherwise.</summary>
     public string Note { get; init; } = string.Empty;
+
+    /// <summary>The words its chapter puts before its values
+    /// (<see cref="DomainUnits.EnumLabel"/>), which the row leads with. Empty when
+    /// the chapter writes none.</summary>
+    public string Label { get; init; } = string.Empty;
 }
 
 /// <summary>A domain event a unit raises, as one line: what it is and who listens.
 /// Never its payload, which is Model's (ADR 0047 §6).</summary>
-public sealed record DomainEventLine(string Name, string Summary, IReadOnlyList<string> Consumers);
+public sealed record DomainEventLine(string Name, string Summary, IReadOnlyList<string> Consumers)
+{
+    /// <summary>Whether the chapters say it is sent, by the rule Model's Events
+    /// reads its state by: <see langword="false"/> is "Not sent yet.".</summary>
+    public bool Sent { get; init; }
+}
 
 /// <summary>A requirement a domain service is held to, as its "You can count on"
 /// line reads.</summary>
@@ -262,7 +272,16 @@ public static partial class DomainUnits
     [
         .. Owned(aggregate)
             .Where(child => child.Type == "enum")
-            .Select(child => new DomainEnum(child.Title, EnumValues(child.Prose), child.Summary) { Note = EnumNote(child.Prose) })
+            .Select(child =>
+            {
+                var values = EnumValues(child.Prose);
+                return new DomainEnum(child.Title, values, child.Summary)
+                {
+                    Note = EnumNote(child.Prose),
+                    // An enum whose values are not read has nothing for a label to lead.
+                    Label = values.Count > 0 ? EnumLabel(child.Prose, child.Title) : string.Empty
+                };
+            })
     ];
 
     /// <summary>The typed chapters an aggregate owns: its direct sub-chapters, and
@@ -284,19 +303,45 @@ public static partial class DomainUnits
     /// <c>related</c> names it. Each is its name, its first sentence and the names
     /// of its consumers — the lines of its <c>### Consumers</c> up to the first
     /// comma or dash, which is where the convention's "X, which …" turns from who
-    /// to why.
+    /// to why. Each is sent or not by the rule Model's Events reads
+    /// (<see cref="DomainEventSending"/>), its raisers every aggregate, entity and
+    /// domain service its <c>related</c> names.
     /// </summary>
     public static IReadOnlyList<DomainEventLine> EventsRaisedBy(string unitReference, IEnumerable<DomainChapterFile> files)
     {
         var target = Normalize(unitReference);
+        var all = files as IReadOnlyCollection<DomainChapterFile> ?? [.. files];
+        var typed = all.SelectMany(file => file.AllChapters().Where(chapter => chapter.Type is not null).Select(chapter => (File: file, Chapter: chapter))).ToList();
+        var noneSent = typed.Any(each => DomainEventSending.PublishesNone(TextOf(each.Chapter)));
+
         return
         [
-            .. files.SelectMany(file => file.AllChapters()
-                .Where(chapter => chapter.Type == "domain-event")
-                .Where(chapter => chapter.Related.Any(related => Resolve(related, file.Path) == target))
-                .Select(chapter => new DomainEventLine(chapter.Title, FunctionalSummary(chapter.Prose), Consumers(chapter))))
+            .. typed
+                .Where(each => each.Chapter.Type == "domain-event")
+                .Where(each => each.Chapter.Related.Any(related => Resolve(related, each.File.Path) == target))
+                .Select(each => new DomainEventLine(each.Chapter.Title, FunctionalSummary(each.Chapter.Prose), Consumers(each.Chapter))
+                {
+                    Sent = !noneSent && DomainEventSending.IsSent(each.Chapter.Title, TextOf(each.Chapter), RaisersOf(each.File, each.Chapter, typed).Select(TextOf))
+                })
         ];
     }
+
+    /// <summary>The aggregates, entities and domain services an event's
+    /// <c>related</c> names, as Model counts its raisers.</summary>
+    private static IEnumerable<DomainChapter> RaisersOf(DomainChapterFile file, DomainChapter domainEvent, IReadOnlyList<(DomainChapterFile File, DomainChapter Chapter)> typed)
+    {
+        var named = domainEvent.Related.Select(related => Resolve(related, file.Path)).ToHashSet(StringComparer.Ordinal);
+        return typed
+            .Where(each => each.Chapter.Type is "aggregate" or "entity" or "domain-service"
+                && named.Contains(Normalize(each.File.ReferenceTo(each.Chapter))))
+            .Select(each => each.Chapter)
+            .Distinct();
+    }
+
+    /// <summary>A chapter's whole text as Model reads it: its prose and that of
+    /// every typed chapter inside it.</summary>
+    private static string TextOf(DomainChapter chapter) =>
+        string.Join('\n', chapter.Descendants().Where(child => child.Type is not null).Select(child => child.Prose).Prepend(chapter.Prose));
 
     /// <summary>
     /// The requirements a domain service is held to: every requirement chapter in
@@ -678,11 +723,19 @@ public static partial class DomainUnits
         if (text.StartsWith('#')) return Normalize(PathOf(fromDocument) + text);
         if (IsRooted(text)) return Normalize(text);
 
-        // Relative, the way a Markdown viewer reads it: against the document's folder.
-        var folder = Normalize(PathOf(fromDocument));
+        return Relative(text, Normalize(PathOf(fromDocument))).ToLowerInvariant();
+    }
+
+    /// <summary><paramref name="relative"/> read the way a Markdown viewer reads
+    /// it, against <paramref name="document"/>'s folder, in the spelling
+    /// <paramref name="document"/> has: <c>.</c> and empty segments skipped,
+    /// <c>..</c> climbing one folder.</summary>
+    internal static string Relative(string relative, string document)
+    {
+        var folder = document.Replace('\\', '/');
         var slash = folder.LastIndexOf('/');
         var parts = (slash < 0 ? [] : folder[..slash].Split('/')).ToList();
-        foreach (var segment in text.Split('/'))
+        foreach (var segment in relative.Split('/'))
         {
             if (segment is "." or "") continue;
             if (segment == "..")
@@ -692,7 +745,7 @@ public static partial class DomainUnits
             }
             parts.Add(segment);
         }
-        return string.Join('/', parts).ToLowerInvariant();
+        return string.Join('/', parts);
     }
 
     /// <summary>A rooted reference beneath the domain folder, lower case.</summary>

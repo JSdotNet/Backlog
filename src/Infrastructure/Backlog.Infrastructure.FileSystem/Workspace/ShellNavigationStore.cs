@@ -47,7 +47,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// (local ADR 0029, §3), whether the archived repositories are offered where they are
 /// otherwise hidden. Every key is additive and left out while at its default — the tools
 /// pane's two until it has been on a tab or a filter here, the notification centre's Group by
-/// and filters until chosen — so a file
+/// and filters until chosen and its Show settled switch while off — so a file
 /// written before it keeps its shape and an older build reads a newer file.
 /// </para>
 /// </summary>
@@ -186,11 +186,13 @@ public sealed class ShellNavigationStore
         NotificationsAskedBy = Blank(dto?.NotificationsAskedBy);
         NotificationsKind = Blank(dto?.NotificationsKind);
         NotificationsFrom = Blank(dto?.NotificationsFrom);
+        NotificationsShowSettled = dto?.NotificationsShowSettled ?? false;
         AtlasReturnSurface = AtlasReturnId(dto?.AtlasReturnSurface);
         AtlasScope = string.IsNullOrWhiteSpace(dto?.AtlasScope) ? null : dto.AtlasScope;
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
         C4ZoomHintDismissed = dto?.C4ZoomHintDismissed ?? false;
         BrainHiddenShown = dto?.BrainHiddenShown ?? false;
+        RoadmapArchiveOffered = dto?.RoadmapArchiveOffered ?? Empty;
         GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
         GoalsTwoWeekStart = DateOnly.TryParseExact(dto?.GoalsTwoWeekStart, IsoDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
             ? start
@@ -296,6 +298,11 @@ public sealed class ShellNavigationStore
     /// <summary>The centre's From filter, a system's name; null for anywhere.</summary>
     public string? NotificationsFrom { get; private set; }
 
+    /// <summary>Whether the centre lists the notifications already settled — answered,
+    /// acknowledged or closed — beside the open ones: off until the reader turns its Show
+    /// settled switch on on this device, and off for a file written before the switch.</summary>
+    public bool NotificationsShowSettled { get; private set; }
+
     /// <summary>The takeover the Lobes atlas was opened over, which its way back
     /// returns to, by its surface id; null for the workspace, and until the atlas was
     /// opened. A name the retired enum stored reads as its id, as
@@ -320,6 +327,11 @@ public sealed class ShellNavigationStore
     /// §2): off until turned on on this device. Read through the Devbook module's
     /// <c>IBrainShowHidden</c>.</summary>
     public bool BrainHiddenShown { get; private set; }
+
+    /// <summary>The roadmap items, by id, this device has offered to move a finished
+    /// plan's project note to the archive (local ADR 0052 §5): each is offered once,
+    /// whatever the person did with the offer. Empty until the first offer.</summary>
+    public IReadOnlyList<string> RoadmapArchiveOffered { get; private set; }
 
     /// <summary>The iteration length an earlier build kept per device, as the setting's
     /// value — <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>; null until one was
@@ -527,17 +539,19 @@ public sealed class ShellNavigationStore
         Save();
     }
 
-    /// <summary>Replaces the notification centre's Group by and its three filters in one save;
-    /// a blank one is its default.</summary>
-    public void SetNotificationsView(string? groupBy, string? askedBy, string? kind, string? from)
+    /// <summary>Replaces the notification centre's Group by, its three filters and its Show
+    /// settled switch in one save; a blank one is its default.</summary>
+    public void SetNotificationsView(string? groupBy, string? askedBy, string? kind, string? from, bool showSettled)
     {
         (groupBy, askedBy, kind, from) = (Blank(groupBy), Blank(askedBy), Blank(kind), Blank(from));
-        if (groupBy == NotificationsGroupBy && askedBy == NotificationsAskedBy && kind == NotificationsKind && from == NotificationsFrom) return;
+        if (groupBy == NotificationsGroupBy && askedBy == NotificationsAskedBy && kind == NotificationsKind && from == NotificationsFrom
+            && showSettled == NotificationsShowSettled) return;
 
         NotificationsGroupBy = groupBy;
         NotificationsAskedBy = askedBy;
         NotificationsKind = kind;
         NotificationsFrom = from;
+        NotificationsShowSettled = showSettled;
         Save();
     }
 
@@ -569,6 +583,17 @@ public sealed class ShellNavigationStore
         if (shown == BrainHiddenShown) return;
 
         BrainHiddenShown = shown;
+        Save();
+    }
+
+    /// <summary>Remembers that the roadmap item <paramref name="itemId"/> was offered
+    /// the archive move. One already remembered writes nothing.</summary>
+    public void MarkRoadmapArchiveOffered(string itemId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
+        if (RoadmapArchiveOffered.Contains(itemId, StringComparer.OrdinalIgnoreCase)) return;
+
+        RoadmapArchiveOffered = [.. RoadmapArchiveOffered.Append(itemId).Order(StringComparer.Ordinal)];
         Save();
     }
 
@@ -657,6 +682,9 @@ public sealed class ShellNavigationStore
                 NotificationsAskedBy = NotificationsAskedBy,
                 NotificationsKind = NotificationsKind,
                 NotificationsFrom = NotificationsFrom,
+                // Left out while off, the default. A stored name: never rename it without
+                // reading the old one.
+                NotificationsShowSettled = NotificationsShowSettled ? true : null,
                 // Left out until the atlas has been opened here. Both keys are stored
                 // names: never rename them without reading the old ones.
                 AtlasReturnSurface = AtlasReturnSurface,
@@ -669,6 +697,9 @@ public sealed class ShellNavigationStore
                 C4ZoomHintDismissed = C4ZoomHintDismissed ? true : null,
                 // Likewise left out while off, and likewise a stored name.
                 BrainHiddenShown = BrainHiddenShown ? true : null,
+                // Left out until the first offer. A stored name: never rename it
+                // without reading the old one.
+                RoadmapArchiveOffered = RoadmapArchiveOffered.Count == 0 ? null : [.. RoadmapArchiveOffered],
                 // Left out until chosen. Both keys are stored names: never rename them
                 // without reading the old ones.
                 GoalsIterationLength = GoalsIterationLength,
@@ -757,6 +788,10 @@ public sealed class ShellNavigationStore
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? NotificationsFrom { get; init; }
 
+        /// <summary>Written as <c>notificationsShowSettled</c>, and only while on.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? NotificationsShowSettled { get; init; }
+
         /// <summary>Written as <c>atlasReturnSurface</c>, a takeover's surface id.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? AtlasReturnSurface { get; init; }
@@ -775,6 +810,10 @@ public sealed class ShellNavigationStore
         /// <summary>Written as <c>brainHiddenShown</c>, and only while on.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? BrainHiddenShown { get; init; }
+
+        /// <summary>Written as <c>roadmapArchiveOffered</c>, and only once a plan was offered.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string[]? RoadmapArchiveOffered { get; init; }
 
         /// <summary>Written as <c>goalsIterationLength</c>: <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

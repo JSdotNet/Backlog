@@ -30,7 +30,34 @@ public enum EntrySessionRequestState
 /// <param name="Id">The request's own id, which Cancel names.</param>
 /// <param name="State">Where it stands now.</param>
 /// <param name="Repository">The repository it asks for, as <c>owner/name</c>.</param>
-public sealed record EntrySessionRequest(Guid Id, EntrySessionRequestState State, string Repository);
+/// <param name="RequestedAt">When the person asked; the queue answers the oldest first.</param>
+public sealed record EntrySessionRequest(Guid Id, EntrySessionRequestState State, string Repository, DateTimeOffset RequestedAt);
+
+/// <summary>
+/// Dispatcher contact as the Tasks screens draw it (local ADR 0038 §4): when a dispatcher
+/// last reached this application, and whether it has gone silent — more than two minutes
+/// without contact, counted from the application's start when none ever came. Tasks' own
+/// copy, for the reason <see cref="EntrySessionRequestState"/> is one.
+/// </summary>
+/// <param name="LastHeardAt">The last contact, now while a dispatcher's call is held
+/// open; null when none came since the application started.</param>
+/// <param name="IsSilent">Whether no dispatcher has been heard for longer than the
+/// silence threshold. False where the host keeps no record, which has nothing to say.</param>
+public sealed record DispatcherContactReading(DateTimeOffset? LastHeardAt, bool IsSilent)
+{
+    /// <summary>The reading of a host that keeps no record: nothing heard, nothing to warn of.</summary>
+    public static DispatcherContactReading Unknown { get; } = new(null, false);
+
+    /// <summary>Whether the queue warns that nobody is there to answer
+    /// <paramref name="open"/>: the dispatcher is silent and at least one request still
+    /// waits Requested. A Claimed or Started request has a dispatcher already.</summary>
+    public bool WarnsFor(IEnumerable<EntrySessionRequest> open)
+    {
+        ArgumentNullException.ThrowIfNull(open);
+
+        return IsSilent && open.Any(request => request.State == EntrySessionRequestState.Requested);
+    }
+}
 
 /// <summary>
 /// The Start session action's port (local ADR 0038 §1): queue a session request for
@@ -50,6 +77,10 @@ public interface IEntrySessionRequests
     /// switch, read live, so turning it on or off shows or hides it on the next
     /// render.</summary>
     bool IsOffered { get; }
+
+    /// <summary>When a dispatcher last reached this application, for the whole queue —
+    /// entry and plan requests alike. An in-memory read, cheap enough for every render.</summary>
+    DispatcherContactReading DispatcherContact { get; }
 
     /// <summary>The open request of each entry that has one — Requested, Claimed or
     /// Started — keyed by entry id. Never throws for an unreadable queue: what could

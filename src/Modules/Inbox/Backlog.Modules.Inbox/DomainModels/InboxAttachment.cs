@@ -75,6 +75,10 @@ public sealed record InboxAttachment
     /// the kind detector ask of a file.</summary>
     public bool IsImage => ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Whether this is a meeting recording: one of the audio types local ADR 0048
+    /// lets a note carry. Only these are transcribed (local ADR 0049 §1).</summary>
+    public bool IsRecording => ContentType.Trim().ToLowerInvariant() is "audio/aac" or "audio/mp4" or "audio/x-m4a";
+
     /// <summary>
     /// The file as a capture names it, waiting for its first fetch. Refuses what
     /// no fetch could ever honour: an empty id, a negative size, a digest that is

@@ -1,6 +1,7 @@
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.Goals;
+using Backlog.Desktop.UI.Review;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Modules.Calendar.UI;
 using Backlog.Modules.Dashboard.UI.Extensions;
@@ -14,6 +15,7 @@ using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.Progress.UI.WeeklyReview;
 using Backlog.Modules.Roadmap.UI;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -38,6 +40,7 @@ internal static class ShellSurfaceTestServices
         services.AddDevbookSurface();
         services.AddInboxSurface();
         services.AddEventsSurface();
+        services.AddWeeklyReviewSurface();
         services.AddSessionsSurface();
         services.AddPullRequestsSurface();
         services.AddDashboardSurface();
@@ -48,6 +51,7 @@ internal static class ShellSurfaceTestServices
         services.AddSingleton<ICalendarViewPreferences>(sp => new ShellCalendarViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
         services.AddScoped(sp => new ShellGoalsViewSource(sp));
         services.AddScoped<IGoalsViewSource>(sp => sp.GetRequiredService<ShellGoalsViewSource>());
+        services.AddScoped<IWeeklyReviewSource>(sp => new ShellWeeklyReviewSource(sp));
         services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
         services.AddScoped<ISurfaceNavigator, SurfaceNavigator>();
         services.AddScoped<IDevbookTaskTitles>(sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()));

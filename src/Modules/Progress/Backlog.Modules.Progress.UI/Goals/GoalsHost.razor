@@ -28,7 +28,9 @@
     Without the Progress ports the view says the module is not set up, under its own test
     id; goals-view-empty is the board's real empty state alone.
 
-    Every write goes through the module and the view is read again once it lands:
+    Every write goes through the module and the view is read again once it lands. An
+    attach or a detach draws the goal the module answers with at once, and the reading
+    after it brings the counts and statuses:
     - the iteration switch, through IIterationSettings.SetLength. The first time 2 weeks
       is chosen — no two-week start kept yet — TwoWeekStartDialog asks for the day first,
       offering the Monday of the current week; Save keeps it through SetTwoWeekStart and
@@ -253,19 +255,59 @@ else
         StateHasChanged();
     });
 
+    /// <summary>What a write came to: whether the view is read again, and the goal the
+    /// module answered with, drawn before that reading.</summary>
+    private readonly record struct Written(bool Read, GoalDto? Goal = null);
+
+    private Task WriteAsync(Func<Task<bool>> write) => WriteAsync(async () => new Written(await write()));
+
     /// <summary>Runs a write made here and the read after it, with the module's Changed
     /// for that write set aside.</summary>
-    private async Task WriteAsync(Func<Task<bool>> write)
+    private async Task WriteAsync(Func<Task<Written>> write)
     {
         _ownWrites++;
         try
         {
-            if (await write()) await ReadAsync();
+            var written = await write();
+            if (!written.Read) return;
+
+            // The write's own finally has run, so the board is no longer busy: the goal the
+            // module answered with shows now, and the reading brings the counts and statuses.
+            // Drawn only with a reading after it, which sets the counts straight.
+            if (written.Goal is { } goal)
+            {
+                Draw(goal);
+                StateHasChanged();
+            }
+
+            await ReadAsync();
         }
         finally
         {
             _ownWrites--;
         }
+    }
+
+    /// <summary>A goal as the module answered a write: it stands in for the goal last read,
+    /// with that goal's counts, and what it holds leaves every other goal, since an item
+    /// belongs to at most one. A goal not read yet — one the picker's New goal… just
+    /// created — is left to the reading: the board has no row for it, and taking a moved
+    /// item off its old goal would show it under No goal until then.</summary>
+    private void Draw(GoalDto goal)
+    {
+        if (_summaries.All(summary => summary.Goal.Id != goal.Id)) return;
+
+        var held = goal.Attachments.Select(attachment => attachment.Item).ToHashSet();
+        _summaries =
+        [
+            .. _summaries.Select(summary => summary.Goal.Id == goal.Id
+                ? summary with { Goal = goal }
+                : summary with
+                {
+                    Goal = summary.Goal with { Attachments = [.. summary.Goal.Attachments.Where(attachment => !held.Contains(attachment.Item))] }
+                })
+        ];
+        Remap();
     }
 
     private async Task ReadAsync()
@@ -392,12 +434,12 @@ else
             try
             {
                 var attached = await goals.AttachAsync(goalId, item);
-                if (attached.IsSuccess) return true;
+                if (attached.IsSuccess) return new Written(true, attached.Value);
 
                 if (attached.Error.Code != ItemInOtherGoal)
                 {
                     _writeError = attached.Error.Message;
-                    return false;
+                    return new Written(false);
                 }
 
                 // The picker names the goal that holds it and asks before the move.
@@ -405,11 +447,11 @@ else
                 if (holder.IsFailure || holder.Value is not { } held)
                 {
                     _writeError = attached.Error.Message;
-                    return false;
+                    return new Written(false);
                 }
 
                 Open(new Picking(request.Subject, Option(held), goalId));
-                return false;
+                return new Written(false);
             }
             finally
             {
@@ -438,16 +480,14 @@ else
                 if (created.IsFailure)
                 {
                     _writeError = created.Error.Message;
-                    return false;
+                    return new Written(false);
                 }
 
                 var attached = await goals.AttachAsync(goalId, GoalItemDto.ForTask(created.Value));
-                if (attached.IsFailure)
-                {
-                    _writeError = $"{request.Title} was added to the backlog, but not to this goal: {attached.Error.Message}";
-                }
+                if (attached.IsSuccess) return new Written(true, attached.Value);
 
-                return true;
+                _writeError = $"{request.Title} was added to the backlog, but not to this goal: {attached.Error.Message}";
+                return new Written(true);
             }
             finally
             {
@@ -518,13 +558,13 @@ else
                 {
                     _pickError = written.Error.Message;
                     // A goal set before the refusal is on the board now.
-                    return _pickCreated is not null;
+                    return new Written(_pickCreated is not null);
                 }
 
                 _pickError = null;
                 _pickCreated = null;
                 _picking = null;
-                return true;
+                return new Written(true, written.Value);
             }
             finally
             {
@@ -596,8 +636,10 @@ else
             try
             {
                 var detached = await goals.DetachAsync(goalId, item);
-                if (detached.IsFailure) _writeError = detached.Error.Message;
-                return true;
+                if (detached.IsSuccess) return new Written(true, detached.Value);
+
+                _writeError = detached.Error.Message;
+                return new Written(true);
             }
             finally
             {

@@ -244,6 +244,78 @@ public sealed class DomainUnitsTests
         Assert.Empty(priced.Consumers);
     }
 
+    private const string Sending = """
+        # Shipping
+
+        ## Shipment
+
+        ```meta
+        type: aggregate
+        ```
+
+        Goods on their way. It emits `ShipmentLeft` when the van goes.
+
+        ### Parcel
+
+        ```meta
+        type: entity
+        ```
+
+        One box of the shipment.
+
+        ## ShipmentLeft
+
+        ```meta
+        type: domain-event
+        related: [domain.md#shipment]
+        ```
+
+        Published when a `Shipment` leaves.
+
+        ## ShipmentLost
+
+        ```meta
+        type: domain-event
+        related: [domain.md#shipment]
+        ```
+
+        Published when a `Shipment` is lost; it is not emitted yet.
+
+        ## ParcelOpened
+
+        ```meta
+        type: domain-event
+        related: [domain.md#parcel]
+        ```
+
+        Published when a `Parcel` is opened. Documented rather than emitted.
+        """;
+
+    /// <summary>A unit's event is sent exactly when Model's Events calls it
+    /// Emitted for the same files: one rule, read once (<c>DomainEventSending</c>).</summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("This context publishes no domain events yet.")]
+    public void An_event_a_chapter_says_is_not_emitted_is_not_sent(string aside)
+    {
+        const string path = ".devbook/domain/shipping/domain.md";
+        var markdown = Sending.Replace("One box of the shipment.", $"One box of the shipment. {aside}".Trim());
+        var file = DomainUnits.Parse(markdown, path);
+        var units = DomainUnits.Of(file);
+
+        var lines = DomainUnits.EventsRaisedBy(units[0].Reference, [file])
+            .Concat(DomainUnits.EventsRaisedBy($"{path}#parcel", [file]))
+            .ToDictionary(line => line.Name, line => line.Sent);
+        var model = Diagrams.DomainChapterContracts.Read([new Diagrams.DomainChapterSource(path, markdown)]).Events
+            .ToDictionary(contract => contract.Title, contract => contract.Delivery == Diagrams.DomainEventDelivery.Emitted);
+
+        Assert.Equal(["ShipmentLeft", "ShipmentLost", "ParcelOpened"], lines.Keys);
+        Assert.Equal(model, lines);
+        Assert.Equal(aside.Length == 0, lines["ShipmentLeft"]);
+        Assert.False(lines["ShipmentLost"]);
+        Assert.False(lines["ParcelOpened"]);
+    }
+
     [Fact]
     public void A_reference_matches_whichever_folder_spelling_either_side_uses()
     {

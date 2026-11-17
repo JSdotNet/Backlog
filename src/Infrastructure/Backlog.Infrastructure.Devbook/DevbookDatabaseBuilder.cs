@@ -554,7 +554,12 @@ public static class DevbookDatabaseBuilder
     /// <summary>The text <see cref="InputsFingerprint"/> hashes: the schema version,
     /// the profile's tag line if any, then one line per input. Its bytes are what a
     /// database built earlier is compared by, so they never change for a corpus
-    /// whose inputs did not.</summary>
+    /// whose inputs did not.
+    /// <para>The spec files a requirement's derived <c>e2e</c> <c>tests</c> entries
+    /// name (<see cref="Building.DevbookScenarioTestEntries"/>) are no input: a spec
+    /// added, renamed or removed refreshes those entries only on the next devbook
+    /// change. Finding them takes a walk of the whole repository, which this check
+    /// runs on every open and the build itself runs only when a pointer resolves.</para></summary>
     internal static string InputsText(string root, DevbookBuildLayout layout)
     {
         var inputs = new List<string>();

@@ -201,13 +201,14 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
         // devbook-domain.md: context.md is the root and reads first, then the
         // listed files in the tree's order, a split file directly after the file
         // it is named after, an invariants subpage directly after its page, and
-        // the additional pages after all of them. None of this is filename order —
-        // `actors` would otherwise precede `context`.
+        // the additional pages after all of them — a legacy flow.md and its split
+        // among them, since devbook contract 37 retired the file. None of this is
+        // filename order — `actors` would otherwise precede `context`.
         Assert.Equal(
             [
                 "context.md", "domain.md", "domain.invariants.md", "domain.invoice.md", "domain.invoice.invariants.md",
                 "actors.md", "features.md", "requirements.md", "requirements.invoicing.md",
-                "model.md", "flow.md", "flow.issue.md", "dependencies.md", "go-live-takeover.md", "naming.md"
+                "model.md", "dependencies.md", "flow.issue.md", "flow.md", "go-live-takeover.md", "naming.md"
             ],
             Assert.Single(view.Contexts).Documents.Select(document => Path.GetFileName(document.Path)));
         Assert.Equal(".domain/billing", context);
@@ -304,7 +305,7 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
     [InlineData("requirements.md", DomainDevbookDocumentKind.Requirements)]
     [InlineData("domain.invariants.md", DomainDevbookDocumentKind.Invariants)]
     [InlineData("model.md", DomainDevbookDocumentKind.Model)]
-    [InlineData("flow.md", DomainDevbookDocumentKind.Flow)]
+    [InlineData("flow.md", DomainDevbookDocumentKind.Page)]
     [InlineData("dependencies.md", DomainDevbookDocumentKind.Dependencies)]
     [InlineData("domain.order.md", DomainDevbookDocumentKind.Domain)]
     [InlineData("skills.flow-code.md", DomainDevbookDocumentKind.Skills)]
@@ -312,7 +313,7 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
     [InlineData("domain.order.invariants.md", DomainDevbookDocumentKind.Invariants)]
     [InlineData("invariants.md", DomainDevbookDocumentKind.Invariants)]
     [InlineData("invariants.order.md", DomainDevbookDocumentKind.Invariants)]
-    [InlineData("flow.flow-code.md", DomainDevbookDocumentKind.Flow)]
+    [InlineData("flow.flow-code.md", DomainDevbookDocumentKind.Page)]
     [InlineData("naming.md", DomainDevbookDocumentKind.Page)]
     [InlineData("go-live-takeover.md", DomainDevbookDocumentKind.Page)]
     [InlineData("context.billing.md", DomainDevbookDocumentKind.Page)]
@@ -325,6 +326,36 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
         // `type: invariants` rather than a split of domain.md, and contract 16's
         // invariants.md and invariants.<name>.md are still read as what they were.
         Assert.Equal(kind, DomainDevbookStore.KindFromFile(file));
+    }
+
+    [Fact]
+    public async Task A_legacy_flow_file_is_a_page_like_any_other_that_opens_as_written()
+    {
+        // Devbook contract 37 retired flow.md: each lifecycle opens the chapter it
+        // draws (local ADR 0047 §7). A flow.md a devbook still holds is a file the
+        // convention does not name — titled by its heading, read after the listed
+        // files, and opened as written, as actors.md is — never a Flow page.
+        var repo = TempDir();
+        WriteContext(repo, "context.md", "domain.md", "model.md", "dependencies.md");
+        var folder = Path.Combine(repo, ".domain", "billing");
+        File.WriteAllText(Path.Combine(folder, "flow.md"), "# Flows\n\n## Invoice lifecycle\n\n```mermaid\nstateDiagram-v2\n    Draft --> Sent\n```\n");
+        File.WriteAllText(Path.Combine(folder, "flow.dunning.md"), "# Dunning\n\nHow a late invoice is chased.\n");
+
+        var documents = Assert.Single((await Load(repo)).Contexts).Documents;
+
+        var flow = Assert.Single(documents, document => Path.GetFileName(document.Path) == "flow.md");
+        Assert.Equal(DomainDevbookDocumentKind.Page, flow.Kind);
+        Assert.Equal("Flows", flow.Title);
+        Assert.Equal("Additional page", flow.KindLabel);
+        Assert.Equal("flow", DomainDevbookFileTypes.Of("flow.md"));
+        Assert.Equal(DomainDevbookDocumentKind.Page, Assert.Single(documents, document => Path.GetFileName(document.Path) == "flow.dunning.md").Kind);
+        Assert.Equal(
+            ["context.md", "domain.md", "model.md", "dependencies.md", "flow.dunning.md", "flow.md"],
+            documents.Select(document => Path.GetFileName(document.Path)));
+
+        Assert.Equal(DomainViewPage.File, DomainViewUnit.PageFor("billing/flow.md"));
+        Assert.Equal(DomainViewPage.File, DomainViewUnit.PageFor("billing/flow.dunning.md"));
+        Assert.DoesNotContain("Flow", Enum.GetNames<DomainViewPage>());
     }
 
     [Fact]

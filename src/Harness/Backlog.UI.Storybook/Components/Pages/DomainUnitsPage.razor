@@ -7,10 +7,10 @@
            Guidelines="@Rules">
 
     <Story Name="Chapter bar"
-           Description="An unsplit `domain.md` holding an aggregate, a domain service and its Ubiquitous Language grouping. The bar lists them in file order, the grouping read as Glossary, and the first is open. Pick another to read it; the page reports the pick so the host can keep it."
+           Description="An unsplit `domain.md` holding an aggregate, a domain service and its Ubiquitous Language grouping. The bar lists them in file order, the grouping read as Glossary, and the first is open. Pick another to read it; the page reports the pick so the host can keep it. The Order's How it moves and its Order Status row's link focus the lifecycle its chapter draws, on this page; How it is built opens Model."
            Code="@ChapterBarCode"
            Source="@Domain">
-        <DomainUnitPage File="@UnsplitFile" RequirementFiles="@RequirementFiles" InvariantFiles="@InvariantFiles" @bind-ActiveUnit="_active" TestId="story-domain-units-bar" />
+        <DomainUnitPage File="@UnsplitFile" RequirementFiles="@RequirementFiles" InvariantFiles="@InvariantFiles" ModelPath=".devbook/domain/ordering/model.md" DomainName="Shop" @bind-ActiveUnit="_active" TestId="story-domain-units-bar" />
     </Story>
 
     <Story Name="Split file"
@@ -21,21 +21,21 @@
     </Story>
 
     <Story Name="Aggregate About"
-           Description="A hero with the kind and status as a kicker, the heading, and the chapter's first sentence — the rest of its prose stays in the chapter; one card per entity or value object it owns, with its heading, its first sentence up to any list of fields, the model's name small beneath, and a dashed edge when it is proposed; its enums as rows of values read as words, with the next sentence beside them when it names no field; and the events it raises, a row each with who hears them. In the page the hero also carries a tile per group of rules and its links out. The payload under `### Payload` is not drawn — that is Model's."
+           Description="A hero with the kind and status as a kicker, the heading, and the chapter's first sentence — the rest of its prose stays in the chapter; one card per entity or value object it owns, with its heading, its first sentence up to any list of fields, the model's name small beneath, and a dashed edge when it is proposed; its enums as rows of values read as words, each led by the words its chapter puts before them, with the next sentence beside them when it names no field and How it moves where a lifecycle on the page draws them; and the events it raises, a row each with who hears them, under What the rest of the domain — the context map's heading — hears, with Not sent yet. under the list when no chapter says one is emitted. In the page the hero also carries a tile per group of rules and its links out. The payload under `### Payload` is not drawn — that is Model's."
            Code="@AboutCode"
            Source="@Domain">
-        <DomainAggregateAbout Chapter="@Order.Chapter" Events="@DomainUnits.EventsRaisedBy(Order.Reference, [UnsplitFile])" Links="@AboutLinks" Model="@ModelLink" RulesOf="@(member => Catalog.About($"{DomainPath}#{member.Anchor}"))" />
+        <DomainAggregateAbout Chapter="@Order.Chapter" Events="@DomainUnits.EventsRaisedBy(Order.Reference, [UnsplitFile])" Links="@AboutLinks" Model="@ModelLink" DomainName="Shop" MovesOf="@EnumMoves" RulesOf="@(member => Catalog.About($"{DomainPath}#{member.Anchor}"))" />
     </Story>
 
     <Story Name="Domain service"
            Description="The kind and status, the heading and the chapter's first sentence, then You can count on: every requirement whose `related` names the service, and every one the service's own `related` names, each a link that opens it on the Requirements page. The rest of the prose — how the service is invoked, which fields it carries — is not shown here; that is Model's."
            Code="@ServiceCode"
            Source="@Requirements">
-        <DomainServiceAbout Chapter="@Pricing.Chapter" Guarantees="@DomainUnits.Guarantees(Pricing, RequirementFiles)" Events="@DomainUnits.EventsRaisedBy(Pricing.Reference, [UnsplitFile])" Links="@ServiceLinks" Model="@ModelLink" Rules="@Catalog.About(Order.Reference)" />
+        <DomainServiceAbout Chapter="@Pricing.Chapter" Guarantees="@DomainUnits.Guarantees(Pricing, RequirementFiles)" Events="@DomainUnits.EventsRaisedBy(Pricing.Reference, [UnsplitFile])" Links="@ServiceLinks" Model="@ModelLink" DomainName="Shop" Rules="@Catalog.About(Order.Reference)" />
     </Story>
 
     <Story Name="Link row"
-           Description="A unit page's links out, each a button with an arrow: it turns a tab or opens another page of the Domain view rather than loading a URL. On About they are Always true with its count, the lifecycle on Flow and the Glossary; on a domain service its promises, the aggregate it names and how it runs on Model."
+           Description="A unit page's links out, each a button with an arrow: it turns a tab or opens another page of the Domain view rather than loading a URL. On About they are Always true with its count, how it moves, how it is built on Model and the Glossary; on a domain service its promises, the aggregate it names and how it runs on Model."
            Code="@LinkRowCode">
         <DomainLinkRow Links="@ServiceLinks" />
     </Story>
@@ -76,6 +76,16 @@
 
         ```meta
         type: aggregate
+        ```
+
+        **Order lifecycle**
+
+        ```mermaid
+        stateDiagram-v2
+            [*] --> draft
+            draft --> placed : placed (OrderPlaced, not yet emitted)
+            placed --> paid : paid
+            placed --> cancelled : cancelled
         ```
 
         A customer's request for goods, and the consistency boundary for its lines.
@@ -271,6 +281,7 @@
     [
         new("What is always true · 3", "story-link-always-true", () => Task.CompletedTask),
         new("How it moves", "story-link-flow", () => Task.CompletedTask),
+        new("How it is built", "story-link-model-built", () => Task.CompletedTask),
         new("Glossary", "story-link-glossary", () => Task.CompletedTask)
     ];
 
@@ -281,6 +292,12 @@
         new("How it runs, on Model", "story-link-model", () => Task.CompletedTask)
     ];
 
+    // The Order Status row's link to the lifecycle the Order's chapter draws.
+    private static DomainPageLink? EnumMoves(DomainEnum item) =>
+        DomainUnits.LifecycleOf(item, DomainFlows.InChapter(Order.Chapter)) is not null
+            ? new DomainPageLink("How it moves", "story-link-enum-moves", () => Task.CompletedTask)
+            : null;
+
     private static readonly DomainPageLink ModelLink = new("Contracts on Model", "story-link-model-events", () => Task.CompletedTask);
 
     private const string AboutCode = """
@@ -288,7 +305,9 @@
                               Events="@DomainUnits.EventsRaisedBy(order.Reference, domainFiles)"
                               Rules="@DomainUnits.RulesOf(order, page, invariantFiles, domainFiles)"
                               Links="@links"
-                              Model="@contractsOnModel" />
+                              Model="@contractsOnModel"
+                              DomainName="@contextMapTitle"
+                              MovesOf="@(item => DomainUnits.LifecycleOf(item, flows) is { } flow ? FocusLink(flow) : null)" />
         """;
 
     private const string LinkRowCode = """

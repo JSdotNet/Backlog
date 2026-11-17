@@ -96,6 +96,32 @@ public sealed record InboxTriagePlanGroupingDto(
     IReadOnlyList<Guid> ItemIds,
     string Reason);
 
+/// <summary>The clarify outcomes the advisor may propose for an item besides
+/// a route, a filing or an archive (local ADR 0054).</summary>
+public enum InboxClarifyOutcome
+{
+    /// <summary>Someday: a possibility not committed to, kept in the Brain's
+    /// <c>someday</c> area.</summary>
+    Someday,
+
+    /// <summary>Done now: work of two minutes or less, recorded as a task
+    /// created already ticked.</summary>
+    DoneNow,
+
+    /// <summary>Waiting for: someone else has the next step, so the item becomes
+    /// a task that waits on them (local ADR 0054 §4). The advisor names who.</summary>
+    WaitingFor,
+}
+
+/// <summary>The outcome card: Someday, Done now or Waiting for, and one sentence saying why.</summary>
+public sealed record InboxTriageOutcomeDto(InboxClarifyOutcome Outcome, string Reason)
+{
+    /// <summary>Who the item waits on, for <see cref="InboxClarifyOutcome.WaitingFor"/>;
+    /// null for the other outcomes. A member rather than a positional parameter,
+    /// so an advisor builds the other outcomes as it always did.</summary>
+    public string? Who { get; init; }
+}
+
 /// <summary>
 /// The advisor's answer about one item opened in triage: at most one duplicate,
 /// at most one plan grouping, and the repositories it would route to. Either
@@ -109,8 +135,13 @@ public sealed record InboxTriageAdviceDto(
 {
     public static InboxTriageAdviceDto None(Guid itemId) => new(itemId, null, null, []);
 
+    /// <summary>The outcome card — Someday or Done now — when the advisor reads
+    /// the item as one; null when it does not. A member rather than a positional
+    /// parameter, so an advisor builds an answer as it always did.</summary>
+    public InboxTriageOutcomeDto? Outcome { get; init; }
+
     /// <summary>True when there is a card to show.</summary>
-    public bool HasCards => Duplicate is not null || Plan is not null;
+    public bool HasCards => Duplicate is not null || Plan is not null || Outcome is not null;
 }
 
 /// <summary>A plan the pass proposes: its title, the items in it, the
@@ -159,6 +190,14 @@ public sealed record InboxTriageListFilingDto(Guid ItemId, Guid ListId, string R
 /// <summary>An item the pass would archive.</summary>
 public sealed record InboxTriageArchiveDto(Guid ItemId, string Reason, double Confidence);
 
+/// <summary>An item the pass would take Someday, Done now or Waiting for (local ADR 0054).</summary>
+public sealed record InboxTriageOutcomeProposalDto(Guid ItemId, InboxClarifyOutcome Outcome, string Reason, double Confidence)
+{
+    /// <summary>Who the item waits on, for <see cref="InboxClarifyOutcome.WaitingFor"/>;
+    /// null for the other outcomes.</summary>
+    public string? Who { get; init; }
+}
+
 /// <summary>
 /// The AI triage pass: a decision proposed for every item it could place, and
 /// the ids of the ones it could not. Nothing in it is applied until the reader
@@ -177,6 +216,10 @@ public sealed record InboxTriagePassDto(
     public const double AcceptedFrom = 0.6;
 
     public static readonly InboxTriagePassDto Nothing = new([], [], [], [], [], []);
+
+    /// <summary>The items to take Someday or Done now. A member rather than a
+    /// positional parameter, so an advisor builds a pass as it always did.</summary>
+    public IReadOnlyList<InboxTriageOutcomeProposalDto> Outcomes { get; init; } = [];
 
     /// <summary>The entry types a single route may name.</summary>
     public static readonly IReadOnlyList<string> EntryTypes = ["prompt", "task", "test"];

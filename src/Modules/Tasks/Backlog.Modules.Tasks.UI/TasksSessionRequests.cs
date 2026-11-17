@@ -31,6 +31,10 @@ public sealed class TasksSessionRequests : IDisposable
     private readonly PolledSnapshot<Guid, EntrySessionRequest> _open;
     private readonly HashSet<Guid> _busy = [];
 
+    /// <summary>Whether the last refresh read the dispatcher as silent, so a reading that
+    /// turns over between two quiet polls still redraws the queue's warning.</summary>
+    private bool _silent;
+
     /// <param name="port">The queue's port, or null when the host composed none.</param>
     /// <param name="clock">What the poll waits on; the system clock when null.</param>
     public TasksSessionRequests(IEntrySessionRequests? port, TimeProvider? clock = null)
@@ -43,9 +47,15 @@ public sealed class TasksSessionRequests : IDisposable
             clock: clock);
     }
 
-    /// <summary>Raised when what an entry is waiting for changed, or a press started
-    /// or ended. On whichever thread noticed: the pane marshals.</summary>
+    /// <summary>Raised when what an entry is waiting for changed, the dispatcher went
+    /// silent or was heard again, or a press started or ended. On whichever thread
+    /// noticed: the pane marshals.</summary>
     public event Action? Changed;
+
+    /// <summary>Raised after every refresh while the action is offered, changed or not,
+    /// so a view that reads the clock — the queue's ages — can redraw on the same
+    /// tick rather than on a timer of its own.</summary>
+    public event Action? Refreshed;
 
     /// <summary>Whether the action is offered: a queue is composed and the
     /// <c>session-requests</c> switch is on.</summary>
@@ -59,6 +69,17 @@ public sealed class TasksSessionRequests : IDisposable
     public EntrySessionRequest? OpenFor(Guid? entryId) =>
         IsOffered && entryId is { } id && _open.TryGet(id, out var request) ? request : null;
 
+    /// <summary>Every request an entry has open, by entry id — empty while the action
+    /// is not offered.</summary>
+    public IReadOnlyDictionary<Guid, EntrySessionRequest> Open =>
+        IsOffered ? _open.Current : new Dictionary<Guid, EntrySessionRequest>();
+
+    /// <summary>When a dispatcher last reached the app, and whether it has gone
+    /// silent — <see cref="DispatcherContactReading.Unknown"/> while the action is not
+    /// offered. Read live: the record is in memory.</summary>
+    public DispatcherContactReading DispatcherContact =>
+        IsOffered ? _port!.DispatcherContact : DispatcherContactReading.Unknown;
+
     /// <summary>Whether a press for <paramref name="entryId"/> is still on its way.</summary>
     public bool IsBusy(Guid? entryId) => entryId is { } id && _busy.Contains(id);
 
@@ -67,7 +88,19 @@ public sealed class TasksSessionRequests : IDisposable
     {
         if (_port is null || _open.IsDisposed || !_port.IsOffered) return;
 
-        if (await _open.RefreshAsync()) Changed?.Invoke();
+        var changed = await _open.RefreshAsync();
+
+        var silent = _port.DispatcherContact.IsSilent;
+        if (silent != _silent)
+        {
+            _silent = silent;
+            changed = true;
+        }
+
+        if (_open.IsDisposed) return;
+
+        if (changed) Changed?.Invoke();
+        Refreshed?.Invoke();
     }
 
     /// <summary>Queues a request for <paramref name="entryId"/> in

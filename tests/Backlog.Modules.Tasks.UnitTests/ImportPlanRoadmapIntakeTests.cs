@@ -123,6 +123,105 @@ public sealed class ImportPlanRoadmapIntakeTests
         Assert.Equal(4, Live(store).Count);
     }
 
+    /// <summary>A Knowledge Ref may hold a Brain address (local ADR 0053 §2), so a <c>plan</c> entry's <c>devbook:</c> tokens become
+    /// the item's Knowledge Refs, a Brain address among them, rather than being
+    /// dropped. A repository reference is normalised as a task's is; a Brain address
+    /// is kept as written.</summary>
+    [Fact]
+    public async Task A_plan_entry_s_devbook_tokens_cross_as_its_knowledge_refs_brain_addresses_included()
+    {
+        var store = new InMemoryTaskRepository();
+        var intake = new RecordingIntake(store);
+
+        await Import(
+            store,
+            "# The plan\n`plan` `+myplan` `devbook:domain/tasks/domain.md#task` `devbook:#brain:projects/sync.md` `devbook:#Brain:projects/sync.md#later`\n\n"
+            + "# A prompt\n`prompt` `+myplan` `effort:3`\n",
+            intake);
+
+        var entry = Assert.Single(Assert.Single(intake.Requests).Entries);
+        Assert.Equal(
+            [".devbook/domain/tasks/domain.md#task", "#brain:projects/sync.md", "#Brain:projects/sync.md#later"],
+            entry.KnowledgeRefs!);
+    }
+
+    [Fact]
+    public async Task A_plan_entry_that_writes_no_devbook_token_crosses_with_no_knowledge_refs()
+    {
+        var store = new InMemoryTaskRepository();
+        var intake = new RecordingIntake(store);
+
+        await Import(store, MixedDocument, intake);
+
+        Assert.Empty(Assert.Single(Assert.Single(intake.Requests).Entries).KnowledgeRefs ?? []);
+    }
+
+    /// <summary>A task holds a Brain address too (local ADR 0053 §2): a task entry
+    /// writing one is imported with it in its Devbook references, where a
+    /// <c>#brain:</c> value naming no note is still refused whole, as any reference
+    /// naming no page is.</summary>
+    [Fact]
+    public async Task A_task_entry_with_a_brain_address_keeps_it_and_one_naming_no_note_is_refused()
+    {
+        var store = new InMemoryTaskRepository();
+        var intake = new RecordingIntake(store);
+        var handler = new ImportPlanCommandHandler(store, new FakeRepositoryDirectory(), intake);
+
+        var refused = await handler.Handle(
+            new ImportPlanCommand("# A prompt\n`prompt` `+myplan` `devbook:#brain:../outside.md`\n"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(refused.IsFailure);
+        Assert.Equal("import.invalid_devbook_reference", refused.Error.Code);
+        Assert.Empty(store.Entries);
+        Assert.Empty(intake.Requests);
+
+        var result = await handler.Handle(
+            new ImportPlanCommand("# A prompt\n`prompt` `+myplan` `devbook:#brain:projects/sync.md`\n"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["#brain:projects/sync.md"], Assert.Single(store.Entries.Values).DevbookReferences);
+    }
+
+    /// <summary>A plan entry's token is checked on the same terms now that it is kept:
+    /// one naming neither a page nor a Brain note refuses the document before anything
+    /// is written.</summary>
+    [Fact]
+    public async Task A_plan_entry_with_a_reference_naming_nothing_is_refused_whole()
+    {
+        var store = new InMemoryTaskRepository();
+        var intake = new RecordingIntake(store);
+
+        var result = await new ImportPlanCommandHandler(store, new FakeRepositoryDirectory(), intake)
+            .Handle(new ImportPlanCommand("# The plan\n`plan` `+myplan` `devbook:#brain:../outside.md`\n\n# A prompt\n`prompt` `+myplan`\n"),
+                TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("import.invalid_devbook_reference", result.Error.Code);
+        Assert.Empty(store.Entries);
+    }
+
+    /// <summary>A <c>plan</c> entry Import will skip — no <c>+</c> tag, so nothing is laid
+    /// out for it — never stores its tokens, so an unreadable one there does not refuse
+    /// the document: the entry is reported as skipped and the tasks still go down.</summary>
+    [Fact]
+    public async Task A_skipped_plan_entry_s_unreadable_reference_does_not_refuse_the_import()
+    {
+        var store = new InMemoryTaskRepository();
+        var intake = new RecordingIntake(store);
+
+        var result = await Import(
+            store,
+            "# No tag here\n`plan` `devbook:README`\n\n# A prompt\n`prompt` `+myplan` `effort:3`\n",
+            intake);
+
+        Assert.Equal(1, result.Created);
+        Assert.Single(Live(store));
+        Assert.Empty(Assert.Single(intake.Requests).Entries);
+        Assert.Contains("No tag here", result.Roadmap!.Skipped);
+    }
+
     [Fact]
     public async Task A_roadmap_refusal_is_reported_and_the_tasks_are_kept()
     {

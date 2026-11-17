@@ -52,7 +52,17 @@ public sealed record EntryPayload(
     IReadOnlyList<string> DependsOn,
     string? PlanId,
     string? PlanItemId,
-    DateTimeOffset? CreatedAt);
+    DateTimeOffset? CreatedAt)
+{
+    /// <summary>Who the entry waits on — free text, its <c>waiting:</c> token — or
+    /// null when it waits on nobody. Beside the positional fields so a caller that
+    /// never asked for it reads the payload as before.</summary>
+    public string? WaitingFor { get; init; }
+
+    /// <summary>The day to follow up with <see cref="WaitingFor"/>, its
+    /// <c>followup:</c> token, or null when none was set.</summary>
+    public DateOnly? FollowUpOn { get; init; }
+}
 
 /// <summary>The entries filed against one repository, in rank order.</summary>
 public sealed record EntryListPayload(string Repository, string RepositoryAlias, int Count, IReadOnlyList<EntryPayload> Entries);
@@ -84,7 +94,15 @@ public sealed record EntryRefPayload(Guid Id, string Title, string Status);
 /// points at, as stored (<c>path</c> or <c>path#anchor</c>). Beside the text
 /// rather than in it, because they are never part of it: saving the markdown
 /// leaves them alone, and <c>set_devbook_references</c> is how they change.</param>
-public sealed record EntryTextPayload(Guid Id, string Title, string Status, string Markdown, IReadOnlyList<string> DevbookReferences);
+public sealed record EntryTextPayload(Guid Id, string Title, string Status, string Markdown, IReadOnlyList<string> DevbookReferences)
+{
+    /// <summary>Who the entry waits on, or null — the <c>waiting:</c> token the
+    /// markdown already carries, read out so a session need not parse the line.</summary>
+    public string? WaitingFor { get; init; }
+
+    /// <summary>The day to follow up, or null — the <c>followup:</c> token.</summary>
+    public DateOnly? FollowUpOn { get; init; }
+}
 
 /// <summary>
 /// An entry's Devbook references, each resolved against the repository's
@@ -163,6 +181,15 @@ public sealed record DevbookReferencePayload(
     /// of a journey or of a scenarios file, or the parts a requirement's
     /// <c>Proved by:</c> lines name — each with its run state. Null when it stands for none.</summary>
     public IReadOnlyList<ScenarioPartPayload>? Parts { get; init; }
+
+    /// <summary><c>#brain</c> for a note in the owner's Brain, written
+    /// <c>#brain:&lt;path&gt;[#slug]</c> (local ADR 0053): <see cref="Path"/> is then the
+    /// note's path from the Brain's root, and the note is read with
+    /// <c>read_knowledge_chapter</c>, this value as its <c>repository</c> and that path
+    /// as its <c>chapterPath</c>. Null for a chapter of the repository's devbook. Added
+    /// beside the positional fields so a caller that never asked reads the payload as
+    /// before.</summary>
+    public string? Scope { get; init; }
 }
 
 /// <summary>
@@ -416,6 +443,38 @@ public sealed record ChapterDemoPayload(
 /// <param name="Title">The title as the note's heading carries it: one line, the
 /// whitespace the writer folds already folded.</param>
 public sealed record CapturedNotePayload(string Path, string Title);
+
+/// <summary>What <c>list_brain_reviews</c> answers (local ADR 0054 §6).</summary>
+/// <param name="On">The day the review dates were compared against, <c>YYYY-MM-DD</c>.</param>
+/// <param name="Due">The notes whose review date is that day or earlier, oldest first.</param>
+/// <param name="Warnings">The notes whose <c>review</c> value is no date, left out of <paramref name="Due"/>.</param>
+/// <param name="ToArchive">The project notes of finished plans still in the projects
+/// area, to move to the archive (local ADR 0052 §5); empty where no Brain or no plan
+/// reads them.</param>
+public sealed record BrainReviewsPayload(
+    string On,
+    IReadOnlyList<BrainReviewPayload> Due,
+    IReadOnlyList<BrainReviewWarningPayload> Warnings,
+    IReadOnlyList<BrainArchiveCandidatePayload>? ToArchive = null);
+
+/// <summary>A finished plan's project note, still in the Brain's projects area.</summary>
+/// <param name="Path">The note's path from the Brain's root.</param>
+/// <param name="Title">The note's title.</param>
+/// <param name="Plan">The title of the finished plan that gathers it.</param>
+public sealed record BrainArchiveCandidatePayload(string Path, string Title, string Plan);
+
+/// <summary>One Brain note whose review date has come.</summary>
+/// <param name="Path">The note's path from the Brain's root, as <c>read_knowledge_chapter</c> takes it under <c>#brain</c>.</param>
+/// <param name="Title">The note's title.</param>
+/// <param name="Review">The date its <c>review</c> field names, <c>YYYY-MM-DD</c>.</param>
+public sealed record BrainReviewPayload(string Path, string Title, string Review);
+
+/// <summary>One Brain note whose <c>review</c> value does not read as a date.</summary>
+/// <param name="Path">The note's path from the Brain's root.</param>
+/// <param name="Title">The note's title.</param>
+/// <param name="Value">The value as the note writes it.</param>
+/// <param name="Message">The warning in words.</param>
+public sealed record BrainReviewWarningPayload(string Path, string Title, string Value, string Message);
 
 /// <summary>The live, typed-into notes on one chapter.</summary>
 /// <param name="Archived">Whether the repository is archived (local ADR 0029

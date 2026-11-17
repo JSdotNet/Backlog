@@ -102,6 +102,14 @@ public sealed class DomainViewBrainTaskLinksTests : IDisposable
 
         Write a task down.
 
+        ### Quick add
+
+        ```meta
+        type: sub-feature
+        ```
+
+        One line, then Enter.
+
         ## Steps
 
         ```meta
@@ -278,6 +286,28 @@ public sealed class DomainViewBrainTaskLinksTests : IDisposable
     }
 
     [Fact]
+    public async Task A_feature_card_counts_the_notes_its_detail_lists()
+    {
+        await using var harness = CreateHarness(
+        [
+            .. BrainLinks,
+            new(".devbook/domain/tasks/features.md", "quick-add", new BrainBacklink("work/quick.md", "Quick add idea", null))
+        ]);
+
+        var view = harness.Render("tasks/features.md");
+
+        view.WaitForAssertion(() => Assert.NotNull(view.Find("[data-testid='domain-feature-detail'][data-key='capture']")), Patience);
+        var item = view.Find("[data-testid='domain-feature-card'][data-key='capture']").ParentElement!;
+        Assert.Equal("◆ 2 notes", item.QuerySelector("[data-testid='domain-feature-card-notes-button']")!.TextContent.Trim());
+        Assert.Equal(
+            ["work/capture.md", "work/quick.md"],
+            view.FindAll("[data-testid='domain-feature-detail'] [data-testid='brain-backlink']").Select(note => note.GetAttribute("data-note")));
+
+        var steps = view.Find("[data-testid='domain-feature-card'][data-key='steps']").ParentElement!;
+        Assert.Null(steps.QuerySelector("[data-testid='domain-feature-card-notes']"));
+    }
+
+    [Fact]
     public async Task A_requirement_shows_the_tasks_naming_it_and_nothing_on_the_view_is_teal_but_the_Brains()
     {
         await using var harness = CreateHarness();
@@ -305,7 +335,7 @@ public sealed class DomainViewBrainTaskLinksTests : IDisposable
         Assert.Null(tasks["tasks/features.md#capture"][1].Title);
     }
 
-    private Harness CreateHarness()
+    private Harness CreateHarness(IReadOnlyList<BrainChapterBacklink>? links = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-domain-view-brain-task-links", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
@@ -336,7 +366,7 @@ public sealed class DomainViewBrainTaskLinksTests : IDisposable
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHub, settings));
         context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
-        context.Services.AddSingleton<IBrainBacklinks>(new FixedChapterLinks(repository.Alias, BrainLinks));
+        context.Services.AddSingleton<IBrainBacklinks>(new FixedChapterLinks(repository.Alias, links ?? BrainLinks));
         // The notes reach the Domain view through the Brain's pane mode (local ADR 0040 §2).
         context.Services.AddSingleton<IDevbookPersonalSource>(new BrainFolderSource(() => null));
         context.Services.AddBrainPane();
