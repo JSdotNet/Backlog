@@ -404,5 +404,6 @@ day this record was accepted. A row marked **Built** is one the plan has closed.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | Built: the MCP listener outlives the main window. Closing the window hides it to the tray and the listener keeps answering; Quit, sign-out, shutdown and an MSIX update still stop it. | Plan `tray-keep-alive`, step 5 (`review-plan`), checked what landed. |
 | 2026-11-10 | The MCP listener now outlives the main window (local ADR 0043 §5). It stops only on Quit, sign-out, shutdown or an MSIX update. While **Keep running in the tray when closed** is on, closing the window no longer removes the tools from sessions. Not built yet. | Plan `tray-keep-alive`: closing the window was the most common reason a session ran without the `backlog` tools. |
 | 2026-09-22 | Accepted: Backlog is an MCP server hosted in the running desktop app, over Streamable HTTP on loopback, written ahead of the code. | The `backlog-mcp-server` plan needed a decision to build against. |
