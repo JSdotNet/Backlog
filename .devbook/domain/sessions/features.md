@@ -1568,7 +1568,7 @@ The area has one switch, because "should this product show me sessions at all" i
 ```meta
 type: feature
 feature-flag: .devbook/domain/sessions/context.md#session-requests
-related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste]
+related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#popover-button]
 ```
 
 A person presses the queue icon on a prompt entry, or on a plan's roadmap item, to queue
@@ -1615,14 +1615,30 @@ decides it, and it sits behind the `session-requests` flag, off by default.
 - While the request is Requested, Claimed or Started, a **Waiting for a session** chip
   replaces the queue icon. It stands on the entry's row, in the open
   entry, in the item's dialog and beside the pressed plan chip. Its tooltip says which
-  of the three it is. On the roadmap, the item's bar that ends last shows a waiting
+  of the three it is. Every other plan chip on the Tasks filter bar whose plan has an
+  open request carries a waiting mark inside the chip, and its tooltip and name gain
+  the same sentence. On the roadmap, the item's bar that ends last shows a waiting
   mark after its title, and its tooltip gains a line
   saying which of the three it is. Cancel is offered only while Requested: the
   queue would also cancel a Claimed request, but a dispatcher is already
   starting the session by then.
+- **The session queue** is a button at the right end of the Tasks filter bar. It shows
+  while the flag is on and counts every open request, entry and plan alike. It reads
+  "Session queue, N waiting", or "Session queue, empty" with a muted 0. Its popover
+  lists each request oldest first: the entry's title or the plan's `+tag`, the
+  repository, Requested, Claimed or Started, and how long ago it was asked. Cancel is
+  offered while Requested. Following a row opens the entry or presses the plan's chip
+  and closes the popover. An entry outside the loaded rows reads "Entry not in this
+  view" and cannot be followed.
+- When a request waits Requested and no dispatcher has reached the app for more than
+  two minutes, counted from the app's start when none has, the popover warns that
+  nothing is starting the requests. The warning names
+  `/loop /backlog-tools:dispatch-sessions` in a pinned Claude Desktop session as the
+  remedy.
 - Once the session links itself the chip and the bar's mark go, and the entry shows
   the linked session as a pasted run's does. The app reads the queue every five seconds while the flag
-  is on, because a dispatcher moves a request without telling it.
+  is on, because a dispatcher moves a request without telling it. The same read keeps
+  the queue's count, its ages and its warning current.
 
 ## Answer a session's question from elsewhere
 

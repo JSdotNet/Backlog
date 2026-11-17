@@ -244,7 +244,7 @@ disabled.
 ## Target Sizes and Text
 
 ```meta
-related: [".devbook/design/typography-and-layout.md#iconography"]
+related: [".devbook/design/typography-and-layout.md#iconography", ".devbook/design/interaction-guidelines.md#shell-header"]
 ```
 
 | Rule | Requirement |
@@ -302,6 +302,19 @@ The width is WCAG 2.2's 2.5.8 AA minimum.
     (`interaction-guidelines.md#drag-affordances`).
   - A task row's grip needs no exception: the whole row is its press origin.
   - The exception covers drag grips only, at no less than 24 × 44 px.
+
+**Exception — the caption toggles.** A popped-out window's **Keep on top** and
+**Remember this window** sit in its native title bar, and their targets are the
+title bar's 32 px height, not 44 px (`interaction-guidelines.md#shell-header`).
+
+- **Why:** the system's minimise, maximise and close buttons beside them are
+  32 px tall. A taller caption would cost every popped-out window height, a
+  docked one most. The repository owner decided it.
+- **Bounds:**
+  - Each toggle is at least 32 × 32 px and keeps the spacing rule above.
+  - Each stays operable by keyboard, as a button.
+  - The exception covers these two toggles only. Any other control in the title
+    bar needs its own exception here.
 
 ## Iconography Accessibility
 
@@ -421,10 +434,11 @@ Gaps, tracked rather than assumed:
   `typography-and-layout.md#materialization`.
 - **Target sizes are unverified.** No test asserts the ≥ 44 × 44 px minimum, and
   dense rows are exactly where it tends to fail. The sync arrow pad's 24 px keys,
-  the Clusters map's dots and the 24 × 44 px drag grips are the three recorded
-  exceptions (`#target-sizes-and-text`), not gaps.
+  the Clusters map's dots, the 24 × 44 px drag grips and the 32 px caption
+  toggles are the four recorded exceptions (`#target-sizes-and-text`), not gaps.
 - **Both app channels are web-rendered.** The desktop and the Android head each
   host Razor components in a WebView (the phone's from `Backlog.Mobile.UI` over
-  the shared library). Every rule above therefore applies as written, and MAUI's
-  `SemanticProperties` has nothing to govern. The IDE webviews have no
+  the shared library). Every rule above therefore applies as written. MAUI's
+  `SemanticProperties` govern only a popped-out window's two caption toggles,
+  which are native (`component-libraries.md`). The IDE webviews have no
   implementation to check.

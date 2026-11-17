@@ -217,7 +217,7 @@ internal static class FileFixtures
 
         ```meta
         status: draft
-        order: ["features.md", "model.md", "flow.md"]
+        order: ["features.md", "model.md", "dependencies.md"]
         ```
 
         Tasks maintains a personal backlog of prompts, tasks, ideas and
@@ -259,7 +259,7 @@ internal static class FileFixtures
 
         ```meta
         status: draft
-        order: ["features.md", "model.md", "flow.md"]
+        order: ["features.md", "model.md", "dependencies.md"]
         ```
 
         Tasks converts triaged Inbox Items into actionable, prioritised
@@ -297,7 +297,7 @@ internal static class FileFixtures
 
         ```meta
         status: active
-        order: ["features.md", "model.md", "flow.md"]
+        order: ["features.md", "model.md", "dependencies.md"]
         ```
 
         Tasks maintains a personal backlog of prompts, tasks, ideas and

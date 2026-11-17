@@ -1,8 +1,8 @@
 # ADR 0043: A surface can open in its own window, and modules register the surfaces the shell shows
 
 ```meta
-date: 2026-11-10
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment", ".devbook/arc42/06-runtime-view.md#main-window-close-hide-and-quit", ".devbook/design/interaction-guidelines.md#save-timing-and-debounce", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md#1-the-server-lives-in-the-desktop-process-over-streamable-http-on-loopback", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md#deviations-and-gaps", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes"]
+date: 2026-11-11
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment", ".devbook/arc42/06-runtime-view.md#main-window-close-hide-and-quit", ".devbook/design/interaction-guidelines.md#save-timing-and-debounce", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md#1-the-server-lives-in-the-desktop-process-over-streamable-http-on-loopback", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md#deviations-and-gaps", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/component-libraries.md", ".devbook/design/accessibility.md#target-sizes-and-text"]
 ```
 
 Each module puts its screen in the desktop shell by registering a **`ShellSurface`** from
@@ -28,6 +28,9 @@ time. The repository owner decided it, and it is built, as the History records.
 Amended 2026-11-10: §5 closes the main window to the notification area, so the app and
 its MCP listener outlive it. The repository owner decided it under plan
 `tray-keep-alive`, and it is not built yet.
+Amended 2026-11-11: §4 moves **Keep on top** and **Remember this window** into the
+popped-out window's title bar, and no surface draws a close of its own in a window. The
+repository owner decided it, and it is built in the same pull request.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below means
 the local one. It keeps ADR 0022's rule of one main view per window and replaces ADR
@@ -148,17 +151,29 @@ it can have any number of windows: each ⧉ click opens another one. The main wi
 header does not change when a surface is popped out.
 
 A popped-out window has a slim header and no view switch. The header shows, in order,
-the surface title, the repository scope chips, a **Keep on top** pin, a **Remember this
-window** bookmark, a **Show in main window** control, which switches the main window to
-this surface and closes this window, and the OS close button. The window has no Ask AI;
-Ask AI stays in the main window only.
+the surface title, the repository scope chips and a **Show in main window** control,
+which switches the main window to this surface and closes this window. The window has
+no Ask AI; Ask AI stays in the main window only.
+
+The window's title bar reads the surface title, then a **Keep on top** pin and a
+**Remember this window** bookmark, just left of the system's minimise, maximise and
+close buttons. The desktop head draws both toggles as native controls in the trailing
+content of MAUI's `Window.TitleBar`. The system still draws its caption buttons, so
+dragging, double-click to maximise, the system menu and Snap layouts stay native. The
+toggles cannot join the caption buttons themselves: Windows keeps that area for its own
+buttons ([Title bar customization](https://learn.microsoft.com/en-us/windows/apps/develop/title-bar)).
+The title bar's title follows the surface after a jump, as the window's title does.
 
 Both toggles are icon-only and drawn by the desktop head alone. **Keep on top** keeps
 the window in front of other windows, which a browser tab cannot do. **Remember this
 window** marks this one window to reopen at the next start (§5); a window opened under
 no window key, such as a web harness tab or a loopback page, draws it nowhere. Their
-look and placement are the design chapter's
+look, placement and target size are the design chapter's
 ([shell header](../../design/interaction-guidelines.md#shell-header)).
+
+No surface draws a close of its own in a popped-out window: the OS close button closes
+it. The window hands its surface no close callback, so a takeover's ✕ does not render
+there.
 
 ### 5. Each window has its own view state; closing the main window hides it to the tray
 
@@ -193,7 +208,7 @@ Two per-machine settings sit on the MCP server settings page:
   and says to change it in Task Manager's Startup apps.
 
 By default nothing reopens on the next start. A person opts in one window at a time: the
-**Remember this window** toggle in a popped-out window's header (§4) marks that window
+**Remember this window** toggle in a popped-out window's title bar (§4) marks that window
 **remembered**.
 
 A remembered window reopens on the next start, after the main window. It shows the
@@ -293,6 +308,9 @@ Negative:
 - **A remembered window needs an identity that outlasts the run.** It keeps its window
   key across starts, and it reports every jump and scope change to the store, so it
   reopens on what it showed.
+- **The title-bar toggles leave the Blazor component library.** They are MAUI controls
+  in the head, which no test project references, so a unit model of the caption and a
+  check with Accessibility Insights replace their bUnit tests.
 
 Neutral:
 
@@ -328,6 +346,15 @@ Neutral:
 - **A feature flag for pop-out.** A window shows only a surface the catalog already
   offers, so the surface's own flag already decides where it appears; a second flag
   would only hide a way to reach what is on.
+- **The toggles among the system caption buttons.** Windows keeps the caption buttons'
+  area for its own buttons, so nothing can be added between them.
+- **A title bar drawn by Blazor, merged with the slim header.** The toggles would stay
+  library components, but the drag and passthrough regions would have to be re-sent on
+  every layout and DPI change, and no source shows WebView2's non-client regions
+  working in the WinUI `WebView2` MAUI hosts. The repository owner also asked for the
+  toggles beside the caption buttons, not a merged header.
+- **A surface's own ✕ in a popped-out window.** It repeated the OS close button beside
+  it.
 
 ## History
 
@@ -336,6 +363,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-11 | Amended §4: **Keep on top** and **Remember this window** leave the slim header for the popped-out window's title bar, in that order, just left of the system caption buttons. The head draws them as native controls in the trailing content of MAUI's `Window.TitleBar`, whose title follows the surface. The slim header keeps the title, the scope chips and **Show in main window**. No surface draws a close of its own in a window: the window hands it no close callback, and the OS close closes it. §5 names the toggle's new place. The toggles' behaviour, persistence and `shell-windows.json` are unchanged. Rejected gains the toggles among the caption buttons, a Blazor-drawn title bar and the surface ✕ in a window; the Consequences gain the toggles' move out of the component library. The design chapter takes their 32 px target as an exception and drops the ✕ from the main window's takeovers too. Built in the same pull request. | The repository owner wants the toggles beside the system buttons and no second ✕ under the OS one. |
 | 2026-11-10 | Amended §5, renamed from "the main window owns the app's life": closing the main window (✕ or Alt+F4) flushes the navigation and window-bounds stores and hides it to a notification-area icon. The process and the MCP listener keep running, and popped-out windows stay open. The tray menu has **Open Backlog** and **Quit**, and a double-click restores the window. Quit keeps the flush, closes every window and quits. A plain second launch, a `backlog://` link, a toast press and **Show in main window** re-show a hidden main window, and the first hide shows a one-time toast. Two per-machine switches join the MCP server settings page: **Keep running in the tray when closed**, on by default, and **Start Backlog when I sign in**, off by default, an MSIX `StartupTask` that starts to the tray. That switch is disabled in an unpackaged build and when Windows reports the task disabled by the person or by policy. The runtime view gains the scenario "Main window close, hide and quit". Not built yet. | Plan `tray-keep-alive`: closing the window stopped the MCP listener, so every session lost the `backlog` tools until Backlog was opened again. |
 | 2026-11-04 | Both §4 toggles kept side by side after `main` landed **Keep on top**: the header reads title, scope chips, **Keep on top**, **Remember this window**, **Show in main window**. **Keep on top** keeps the pin; **Remember this window** wears Lucide's `bookmark` (`BookmarkIcon`). Both sit in `surface-window__actions`, so below 40rem they stay on the title's row. `IShellWindows` answers `CanKeepOnTop` and `CanRemember` apart, and `shell-windows.json` keeps `onTop` and `remembered` as sections of their own beside `surfaces`. | Two toggles on one glyph would read as one control, and the pin already meant on top. |
 | 2026-11-04 | §5's remembered windows built. `ShellWindowStore` keeps a `remembered` list (key, surface, query, bounds) beside `surfaces`, written only while one is remembered. A query value stored as null is left out on read. `ShellWindowReopenPlan` sorts the remembered windows into those to open and those whose surface `ISurfaceCatalog` no longer offers, which are forgotten. `ShellWindows.ReopenRemembered` runs from `App` once the main window is created. It reopens each window under its old key at its own bounds, clamped to a connected monitor, and one that throws is forgotten without stopping the rest. `SurfaceWindow` draws the **Remember this window** toggle through `IShellWindows.CanRemember`, which only the head's `ShellWindows` answers true. Each jump and chip press is reported through `ReportShowing`. `BookmarkIcon` joins the component library. Quitting, closing the window, and bounds after a restart have no unit test, because they live in the head; they are checked by hand. | The amendment's own row, below, built in the same pull request. |

@@ -3146,6 +3146,79 @@ button.devbook-chip__label:focus-visible {
     background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
 }
 
+/* A Brain note something holds — a roadmap item gathering it (local ADR 0053) — as a
+   chip: the DevbookReferenceChip shape with the Brain badge in front, so the word
+   Brain is printed and the band-2 teal never says it alone
+   (color-scheme.md#the-brains-accent). Unresolved — no Brain on this device, or the
+   note is not in it — the edge is dashed, the label is the address in the secondary
+   ink, and a mark carries the reason. */
+.brain-note-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 var(--spacing-xs) 0 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+    vertical-align: baseline;
+}
+
+.brain-note-chip--unresolved {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+}
+
+/* The badge sits inside the chip's edge: as tall as one line of chip text, its
+   left band the chip's leading edge. */
+.brain-note-chip > .brain-note-chip__badge {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full) 0 0 var(--border-radius-full);
+    line-height: inherit;
+}
+
+.brain-note-chip__label {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    min-width: 0;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+button.brain-note-chip__label {
+    cursor: pointer;
+}
+
+button.brain-note-chip__label:hover:not(:disabled) {
+    color: var(--color-primary-light);
+    text-decoration: underline;
+}
+
+button.brain-note-chip__label:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.brain-note-chip--unresolved .brain-note-chip__label {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+}
+
+.brain-note-chip__unresolved {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+    cursor: help;
+}
+
 /* The Domain view's Brain and task links (local ADR 0026 §3, ADR 0027 §6). The
    notes badge on a model part or a glossary term and the From your Brain box
    under a unit, feature or term are the Brain's own teal; the task chips on a
@@ -5454,6 +5527,16 @@ button.devbook-chip__label:focus-visible {
     font-size: var(--font-size-sm);
 }
 
+/* A group heading among the open rows (TaskListView.SectionOf): quiet, the size
+   and colour of the Completed fold's header, so it reads as a label on the rows
+   under it rather than as a row. */
+.task-list__section {
+    padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
 /* Fixed targets at either end and a middle that takes what is left, so only the
    title gives up room.
 
@@ -7391,6 +7474,19 @@ button.task-panel__check:focus-visible {
     text-overflow: ellipsis;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+}
+
+/* A date that has passed while the work is still open — a waiting-for's follow-up
+   day. The label says "overdue" in words; the value takes the fault ink so the
+   row is found by colour too, never by colour alone. */
+.task-action--overdue .task-action__value {
+    color: var(--color-error-text);
+}
+
+/* The row's waiting badge once its follow-up day has passed: the fault ink, beside
+   the word "overdue" the badge already prints. */
+.badge--waiting-overdue {
+    color: var(--color-error-text);
 }
 
 /* Icon-only, for an act that shares a line with a row that needs the width —
@@ -9583,7 +9679,9 @@ button.tag-chip__label {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    max-width: 26rem;
+    max-width: min(26rem, calc(100vw - 2 * var(--spacing-lg)));
+    /* Never wider than the viewport leaves beside the host's two edge gaps, so a
+       toast on a 390px phone keeps both edges on screen. */
     padding: var(--spacing-sm) var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
@@ -9604,6 +9702,41 @@ button.tag-chip__label {
 
 .toast__dismiss {
     margin-left: auto;
+}
+
+/* An offer's one button sits right after the words; the dismiss control's auto
+   margin keeps it alone at the trailing edge. */
+.toast__action {
+    flex-shrink: 0;
+}
+
+/* An offer stacks: title, sentence, then its button, each a full row of the first
+   column, with the dismiss control alone in the second column's first row. Its
+   button names its act in words, and a label that long beside the words in one row
+   squeezed them into columns a word or two wide (ToastTray marks the offer). */
+.toast--offer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: var(--spacing-sm);
+    row-gap: var(--spacing-xs);
+}
+
+.toast--offer > .toast__title,
+.toast--offer > .toast__message {
+    grid-column: 1;
+}
+
+.toast--offer > .toast__action {
+    grid-column: 1;
+    justify-self: start;
+    margin-top: var(--spacing-xs);
+}
+
+.toast--offer > .toast__dismiss {
+    grid-column: 2;
+    grid-row: 1;
+    margin-left: 0;
 }
 
 .toast--success { background: var(--color-success); border-color: var(--color-border-strong); }
@@ -10479,9 +10612,9 @@ select.field__input {
     box-shadow: var(--shadow-lg);
 }
 
-/* PopoverButton: a trigger with a small panel of the host's controls under it,
-   lined up with the trigger's start edge, or with its end edge (AlignEnd) so it
-   opens inward from the end of a row. The
+/* PopoverButton: a trigger with a small panel of the host's controls under it
+   (over it with OpenUpward), lined up with the trigger's start edge, or with its
+   end edge (AlignEnd) so it opens inward from the end of a row. The
    backdrop is the context menu's, for the same reason: it catches the closing
    click, and it covers the trigger so a second press closes the panel too. */
 .popover-button {
@@ -10518,6 +10651,14 @@ select.field__input {
 .popover-button__panel--end {
     right: 0;
     left: auto;
+}
+
+/* OpenUpward: the panel's bottom edge on the trigger's top, for a trigger on the
+   window's bottom edge — the footer band's gear — where opening down runs off
+   the screen. */
+.popover-button__panel--up {
+    top: auto;
+    bottom: calc(100% + var(--spacing-xs));
 }
 
 .nav-list__items {
@@ -24141,7 +24282,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 /* Where a host draws the list: under a field's row, a part's card, a member's
-   card, a Glossary row, a flow card, a lifecycle and a feature's promises. */
+   card, a Glossary row and a feature's promises. */
 .domain-field-row__rules {
     flex: 1 1 100%;
 }
@@ -24152,24 +24293,12 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     margin-top: var(--spacing-xs);
 }
 
-.domain-flows__rules {
-    display: grid;
-    gap: var(--spacing-xs);
-}
-
-.domain-flows__rules-title {
-    margin: 0;
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-}
-
 .domain-feature-detail__rules-label {
     margin-top: var(--spacing-md);
 }
 
 /* A rule count that opens the rules in place: a link, as the boards draw it. */
 .domain-glossary__rules,
-.domain-flow-card__rules,
 .domain-model__rules {
     align-self: flex-start;
     padding: 0;
@@ -24183,13 +24312,11 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .domain-glossary__rules:hover,
-.domain-flow-card__rules:hover,
 .domain-model__rules:hover {
     color: var(--color-primary-light);
 }
 
 .domain-glossary__rules:focus-visible,
-.domain-flow-card__rules:focus-visible,
 .domain-model__rules:focus-visible,
 .domain-field-rules:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
@@ -24523,9 +24650,9 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-size: var(--font-size-sm);
 }
 
-/* --- Domain view: Flow ----------------------------------------------------- */
+/* --- Domain view: flows ---------------------------------------------------- */
 /*
-  The Flow page of the Domain view (local ADR 0047): a stateDiagram-v2 drawn as
+  A unit's lifecycles on its Domain page (local ADR 0047): a stateDiagram-v2 drawn as
   one row of states, each a box with its description. A move to the next state
   runs straight to it on top, a move back underneath in a dimmer tone; other
   forward arcs run in lanes above, other ways back in lanes below, the restore
@@ -24561,11 +24688,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-size: var(--font-size-xl);
     font-weight: var(--font-weight-semibold);
     line-height: var(--line-height-tight);
-}
-
-/* The board's page title: the scale's H3, as every Domain view page title. */
-.domain-flows__title--page {
-    font-size: var(--font-size-3xl);
 }
 
 /* A unit's own flows on its Domain page, below its About card: the
@@ -24807,60 +24929,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     color: var(--color-text-primary);
 }
 
-/* What sits beside the status rather than in it: one card per sub-chapter. */
-.domain-flows__cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
-    gap: var(--spacing-lg);
-}
-
-.domain-flow-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    min-width: 0;
-    padding: var(--spacing-md) var(--spacing-lg);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background-alt);
-}
-
-.domain-flow-card__header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--spacing-2xs) var(--spacing-sm);
-}
-
-.domain-flow-card__title {
-    margin: 0;
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-}
-
-.domain-flow-card__tag {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.domain-flow-card__tag p,
-.domain-flow-card__footer p {
-    margin: 0;
-}
-
-.domain-flow-card__body {
-    font-size: var(--font-size-sm);
-}
-
-.domain-flow-card__footer {
-    margin-top: auto;
-    padding-top: var(--spacing-sm);
-    font-size: var(--font-size-sm);
-}
-
 /*
-  A flowchart and a sequence on the Flow page wear the row's cards, lines,
+  A flowchart and a sequence wear the row's cards, lines,
   arrowhead and labels; a dotted link and a reply are dashed.
 */
 
@@ -31304,9 +31374,62 @@ button.domain-field-rules[aria-expanded="true"] {
     flex: 0 0 auto;
 }
 
+/* On the surface the picture takes the height the main column has left after the
+   hint, the heading, the doors and the footer, rather than a height of its own:
+   the column is one scroller, and it scrolls only below the frame's floor.
+
+   The body carries the frame's old height as its flex basis, so a host that gives
+   the column no height (the storybook's stage, the stacked layout under 60rem)
+   draws the picture exactly as tall as before. The frame grows from nothing to fill
+   the body, and its floor is its own min-height. The body and the stage keep their
+   automatic minimum, which is that floor (and the environment tabs over it): a zero
+   minimum would let them shrink under the floor and the frame spill over the footer.
+   With more than one environment the open panel takes the stage's height; the
+   hidden ones keep display: none from the rule above. */
+.c4-zoom-explorer--surface .c4-zoom-explorer__main > :not(.c4-zoom-explorer__body) {
+    flex: 0 0 auto;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__main > .c4-zoom-explorer__body {
+    flex: 1 1 clamp(24rem, 60vh, 44rem);
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__stage {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__environments {
+    flex: 0 0 auto;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__environment:not([hidden]) {
+    flex: 1 1 0;
+}
+
 .c4-zoom-explorer--surface .c4-zoom-explorer__frame {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 20rem;
     overflow: auto;
     border: var(--border-width) solid var(--color-border);
+}
+
+/* The hint over the picture, kept short so the picture has the room: the four ways
+   to move in two columns, at the small size, inside a tighter edge. */
+.c4-zoom-explorer--surface .c4-zoom-explorer__hint {
+    padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__moves {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 var(--spacing-lg);
+    font-size: var(--font-size-sm);
 }
 
 .c4-zoom-explorer__canvas {
@@ -31334,6 +31457,10 @@ button.domain-field-rules[aria-expanded="true"] {
     .c4-zoom-explorer__aside {
         max-height: none;
         overflow: visible;
+    }
+
+    .c4-zoom-explorer--surface .c4-zoom-explorer__moves {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 

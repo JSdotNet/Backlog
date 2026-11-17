@@ -197,16 +197,11 @@ else if (_problem is not null)
         var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies) is { } table
             ? TryReadText(view, table.Path)
             : null;
-        // The moves an event fires on: the lifecycles the domain files draw, and a
-        // legacy flow file's beside them.
-        var flows = context.Documents
-            .Where(d => d.Kind == DomainDevbookDocumentKind.Flow)
-            .Select(d => TryReadText(view, d.Path) is { } text ? DomainUnits.Parse(text, d.Path) : null)
-            .OfType<DomainChapterFile>();
+        // The moves an event fires on: the lifecycles the domain files draw.
         var chapters = DomainChapterContracts.Read(sources) with
         {
             Listens = DomainEventIndex.Listens(dependencies, context.DisplayName, context.Slug),
-            Moves = DomainEventIndex.Moves(own.Concat(flows))
+            Moves = DomainEventIndex.Moves(own)
         };
         var references = DomainUnits.ModelReferences(own);
 

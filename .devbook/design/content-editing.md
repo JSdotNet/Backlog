@@ -234,7 +234,7 @@ The plan tag files the entry under a roadmap item and is stored with its sigil (
 ## Scheduling and Dependency Tokens
 
 ```meta
-related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/domain/tasks/domain.md#due-date", ".devbook/domain/tasks/domain.md#reminder", ".devbook/domain/tasks/domain.md#recurrence", ".devbook/domain/tasks/domain.md#my-day", ".devbook/domain/tasks/context.md#clear-my-day-overnight", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#dependency", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
+related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/domain/tasks/domain.md#due-date", ".devbook/domain/tasks/domain.md#reminder", ".devbook/domain/tasks/domain.md#recurrence", ".devbook/domain/tasks/domain.md#my-day", ".devbook/domain/tasks/context.md#clear-my-day-overnight", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#dependency", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/domain/tasks/domain.md#waiting-for", ".devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md"]
 ```
 
 > When an entry is scheduled or waits on other entries, those facts ride on the
@@ -255,10 +255,22 @@ related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".dev
 | `after:` | dependency | `` `after:a1b2c3` `` — may repeat |
 | `repo:` | target repository | `` `repo:backlog-desktop` `` — may repeat |
 | `effort:` | size in story points | `` `effort:5` `` |
+| `waiting:` | waiting-for: who the task waits on, free text | `` `waiting:Jansen Roofing` `` |
+| `followup:` | waiting-for's follow-up date | `` `followup:2026-11-20` `` — only beside `waiting:` |
 | `files:` | attached folder or archive | `` `files:D:/reviews/panel-review` ``, `` `files:D:/reviews/panel.zip` `` |
 | `view:` | a retired body-view preference, kept as written | `` `view:steps` ``, `` `view:notes` `` |
 
 The `effort:` value is a non-negative whole number and is not honoured on a `plan` entry.
+
+`waiting:` and `followup:` carry a task's
+[waiting-for](../domain/tasks/domain.md#waiting-for), decided in local ADR 0054.
+`waiting:` takes free text up to the closing backtick, spaces included, and
+`followup:` a calendar date. A `followup:` with no `waiting:` beside it is
+unreadable, as `for:` is without `at:`. A follow-up date that has passed reads
+overdue, and deleting `waiting:` clears the waiting-for and its date. A context is not a named token: it is a tag,
+`#@pc`, written in the body, on the title or as a `#` tag token on this line
+(`.devbook/domain/tasks/domain.md#context`). The canonical rewrite keeps it as
+`` `#@pc` ``, never as the bare `` `@pc` `` this line reads as an area.
 
 A full metadata line mixes both forms, sigils first:
 

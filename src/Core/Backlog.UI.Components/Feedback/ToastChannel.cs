@@ -42,6 +42,19 @@ public sealed record ToastMessage
     /// contract, passed through rather than reinterpreted here.</summary>
     public int DurationMilliseconds { get; init; } = DefaultDuration;
 
+    /// <summary>The words on the one button an offer carries — <c>Move the project
+    /// note to the archive</c> — or null for a toast that only reports. Set together
+    /// with <see cref="Action"/>; either alone draws no button.</summary>
+    public string? ActionLabel { get; init; }
+
+    /// <summary>What the button does. The tray runs it on the press and then takes
+    /// the toast down, so a second press cannot run it twice. Dismissing the toast,
+    /// or its timer running out, never runs it.</summary>
+    public Func<Task>? Action { get; init; }
+
+    /// <summary>Whether the toast carries a button.</summary>
+    public bool HasAction => !string.IsNullOrWhiteSpace(ActionLabel) && Action is not null;
+
     /// <summary>A result: it reports and gets out of the way.</summary>
     public static ToastMessage Info(string message, string? testId = null) =>
         new() { Message = message, TestId = testId, Severity = ToastSeverity.Info, DurationMilliseconds = DefaultDuration };

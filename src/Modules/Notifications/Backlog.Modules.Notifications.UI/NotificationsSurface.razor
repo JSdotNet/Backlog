@@ -13,8 +13,7 @@
     NotificationsSurfaceWiring, so a centre in a window of its own follows that window's
     scope; a host that fills none lists everything.
 *@
-<NotificationCentrePane OnClose="OnClose"
-                        FocusNotificationId="@FocusNotificationId"
+<NotificationCentrePane FocusNotificationId="@FocusNotificationId"
                         RepositoryScope="@(_wiring?.RepositoryScope?.Invoke() ?? [])"
                         RepositoriesOf="@_wiring?.RepositoriesOf"
                         RepositoryColour="@_wiring?.RepositoryColour" />
@@ -24,7 +23,9 @@
     [Parameter]
     public IReadOnlyDictionary<string, string>? Query { get; set; }
 
-    /// <summary>Closes the surface: back to the main view, or the window closed.</summary>
+    /// <summary>The shell's close callback (<see cref="Backlog.SharedKernel.ShellSurface.CloseParameter"/>),
+    /// declared because the shell hands it to every surface. Unused: the centre draws
+    /// no close of its own.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
 

@@ -16,6 +16,7 @@ its folder.
 |---|---|---|
 | Inbox | `_inbox` | Notes not yet filed; where a capture lands. |
 | Projects | `projects` | Active work with a goal and a deadline. |
+| Someday | `someday` | Possibilities not committed to. |
 | Areas | `areas` | Ongoing responsibilities without a deadline. |
 | Resources | `resources` | Reference material and collected knowledge. |
 | People | `people` | Notes about the people the work involves. |

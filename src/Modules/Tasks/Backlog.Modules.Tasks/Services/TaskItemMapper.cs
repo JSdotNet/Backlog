@@ -43,5 +43,6 @@ internal static class TaskItemMapper
         entry.SourceRef,
         entry.AgendaTime,
         [.. entry.PlannedHours.Select(block => new PlannedHoursDto(block.On, block.Hours))],
-        entry.SourceNotificationId);
+        entry.SourceNotificationId,
+        entry.WaitingFor);
 }

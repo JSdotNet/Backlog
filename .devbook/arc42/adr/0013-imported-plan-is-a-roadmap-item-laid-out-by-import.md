@@ -2,7 +2,7 @@
 
 ```meta
 related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/roadmap/features.md#laying-out-imported-plans", ".devbook/domain/roadmap/features.md#placing-a-plan-in-time", ".devbook/domain/roadmap/features.md#forecasting-work-in-flight", ".devbook/domain/roadmap/features.md#sequencing-work-into-tracks", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#re-importing-an-updated-plan", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
-c4: [backlog.desktop.roadmap, backlog.desktop.backlogModule]
+c4: [backlog.desktop.roadmap, backlog.desktop.tasks]
 ```
 
 ## Status
@@ -229,6 +229,7 @@ other and is what Import hands across. The mapping:
 | `repo:` (repeatable) | Repository Scope | Each value is an alias, held as written (`.devbook/domain/roadmap/domain.md#repository-scope`). The Import dialog's repository matching applies to it as to any `repo:`; an unmatched name is **not** registered — registration is Import's leniency for tasks that need a `repo_id`, and an item never needs one. It reads as unresolved, which is the roadmap's ordinary state for an alias the registry does not hold. |
 | `*priority` | Planning Priority | The same four words. Absent → `medium`. |
 | `due:` | Planned Window `end` | A day, inclusive, as every window is. |
+| `devbook:` (repeatable) | Knowledge Refs | Set when Import creates the item, in the order written: a repository chapter in the spelling a task stores, or a Brain address `#brain:<path>[#slug]` as written (local ADR 0053). A value naming neither refuses the document (`import.invalid_devbook_reference`) on an entry Import lays out; a skipped entry's tokens are never read. *Amended 2026-11-11.* |
 | body prose, `##` sub-items, checklist lines | `notes` | The body verbatim. A `plan` entry's body is what the plan is about, and the item has a place for prose already. |
 | `effort:` | — | **Not honoured.** The plan owns no estimate (`.devbook/domain/roadmap/domain.md`); an item's size is the effort it gathers. The token is reported once in the import result so a person who wrote it learns why the item shows a gathered total instead. |
 | `!status`, `@area`, `#tag`, `remind:`, `repeat:`, `myday:`, `files:`, `view:` | — | Not honoured; each describes a task. Ignored without a report — they are ordinary tokens the reader may have copied from a task entry, not mistakes worth interrupting for. |
@@ -432,6 +433,9 @@ person sees it rather than finding a second item quietly created beside them —
   dependencies (the import's set replaces the item's set; a dependency a person
   added by hand to an import-created item is therefore lost on re-import — an
   accepted cost, recorded below), and notes.
+- **Not replaced**: Knowledge Refs. Import sets them when it creates the item,
+  and a re-import leaves an existing item's refs as they are (*amended
+  2026-11-11*, local ADR 0053).
 - **Re-placed** when the window is still `placed_by_import`: start from
   predecessors as they stand now, end from `due:` or from length, and the value
   updated to whichever rule applied. A hand-moved window is **kept**, dates and

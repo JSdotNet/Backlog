@@ -43,7 +43,8 @@ public sealed class DomainEventIndexTests
     }
 
     /// <summary>Only a transition of a lifecycle a unit draws says when an event
-    /// fires: the prose naming the move, a flowchart's edge and a note do not.</summary>
+    /// fires: the prose naming the move, a flowchart's edge, a note and a legacy
+    /// flow.md's lifecycle do not.</summary>
     [Fact]
     public void An_event_fires_on_the_moves_a_lifecycle_raises_it_on()
     {
@@ -100,9 +101,10 @@ public sealed class DomainEventIndexTests
 
         Assert.Equal([new DomainEventMove("Ready", "In progress")], moves["TaskProjected"]);
         Assert.Equal([new DomainEventMove("In progress", "Done")], moves["TaskCompleted"]);
-        Assert.Equal([new DomainEventMove("Waiting", "Spawned")], moves["OccurrenceSpawned"]);
         Assert.False(moves.ContainsKey("StatusChanged"));
-        Assert.False(DomainEventIndex.Moves([domain]).ContainsKey("OccurrenceSpawned"));
+        // A legacy flow.md is a file like any other since devbook contract 37: its
+        // chapters are no unit's, so its lifecycle raises nothing.
+        Assert.False(moves.ContainsKey("OccurrenceSpawned"));
     }
 
     [Fact]

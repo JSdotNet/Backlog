@@ -142,10 +142,6 @@ public static partial class DomainUnits
     public static IReadOnlyList<string> RelatedOf(DomainUnit unit, string filePath) =>
         [.. unit.Chapter.Related.Select(related => RepositoryRelative(related, filePath)).Where(reference => reference.Length > 0)];
 
-    /// <summary>Whether a reference names a flow file — <c>flow.md</c> or a split
-    /// <c>flow.&lt;name&gt;.md</c>.</summary>
-    public static bool IsFlowReference(string reference) => FileNameStarts(reference, "flow");
-
     /// <summary>Whether a reference names a requirements file.</summary>
     public static bool IsRequirementsReference(string reference) => FileNameStarts(reference, "requirements");
 

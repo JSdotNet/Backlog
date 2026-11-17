@@ -29,9 +29,10 @@ public static class TagText
 {
     /// <summary>A tag typed into a title, any kind. The <c>(?&lt;!\S)</c> guard
     /// is what stops <c>bob@example.com</c> naming a person and <c>c++</c> naming
-    /// a plan: a sigil only opens a tag when nothing is welded to its left.</summary>
+    /// a plan: a sigil only opens a tag when nothing is welded to its left.
+    /// <c>#@pc</c> is a context, one tag (local ADR 0054 §5).</summary>
     private static readonly Regex TitleTagRegex =
-        new(@"(?<!\S)([@#+])([A-Za-z][\w-]*)", RegexOptions.Compiled);
+        new(@"(?<!\S)(#@|[@#+])([A-Za-z][\w-]*)", RegexOptions.Compiled);
 
     /// <summary>Whether a stored tag names a person. The leading <c>@</c> is the
     /// whole of the test, because it is the whole of the difference.</summary>

@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// kind").
 /// <para>
 /// The kinds come first, in the devbook reading order, each one row: Domain,
-/// Actors, Features, Skills, Requirements, Model, Flow. A split file
+/// Actors, Features, Skills, Requirements, Model. A split file
 /// <c>&lt;kind&gt;.&lt;name&gt;.md</c> is a child of its kind's row, and each further
 /// dot nests it one level deeper — <c>features.producten.budgetbeheer.md</c> under
 /// <c>features.producten.md</c>. A kind, or a split, with no file of its own is a
@@ -15,12 +15,13 @@ namespace Backlog.Desktop.UI.Devbook;
 /// the neighbours atop its context's page (a <c>*.demo.html</c> never reaches the
 /// menu, which lists Markdown only). The <c>assets</c> folder draws no row either:
 /// it holds the images the chapters show, not a page, and the board draws none.
-/// Every other page, and every folder, follows the kinds in the order the rail has
+/// Every other page — a legacy <c>flow.md</c> among them, since devbook contract
+/// 37 retired it — and every folder, follows the kinds in the order the rail has
 /// always given them.
 /// </para>
 /// <para>
 /// A kind's row is labelled by its base file's heading — Fincent's
-/// <c>actors.md</c> is "Actoren" and its <c>flow.md</c> "Flows" — and counts the
+/// <c>actors.md</c> is "Actoren" — and counts the
 /// rows under it. A heading that only repeats the context's name, as every
 /// chapter of an unsplit Backlog context does, says nothing about the kind, so
 /// that row keeps the kind's own name, as it does with no database.
@@ -44,8 +45,7 @@ public sealed partial class DevbookMenu
         ("features", "Features"),
         ("skills", "Skills"),
         ("requirements", "Requirements"),
-        ("model", "Model"),
-        ("flow", "Flow")
+        ("model", "Model")
     ];
 
     /// <summary>Whether <paramref name="directory"/> is a bounded context: a

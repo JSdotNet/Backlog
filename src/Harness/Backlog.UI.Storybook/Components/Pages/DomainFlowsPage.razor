@@ -3,7 +3,7 @@
 <PageTitle>Domain flows — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain flows"
-           Summary="A subpage of Devbook: the drawings of the Domain view (local ADR 0047). Past devbook contract 37 each lifecycle and process opens the chapter it draws, so a unit's Domain page draws them below its About card; the Flow page reads a legacy `flow.md`. The first chapter titles the page, its lead and a legend above the drawing. A `stateDiagram-v2` is drawn as one row of states that scales to the column: each state a box with its description, the move to the next state on top and the move back underneath, other arcs in lanes above and below, the restore loop — the way from the last state back to the first — round the outside on top, each event a chip under its transition, and a way in from several states under one label as one note. A chapter of untyped sub-chapters reads as cards. A `flowchart` and a `sequenceDiagram` are drawn in the same cards, lines, arrowheads and type; a Mermaid diagram none of the three can read keeps the rendering it has everywhere else."
+           Summary="A subpage of Devbook: the drawings of the Domain view (local ADR 0047). Past devbook contract 37 each lifecycle and process opens the chapter it draws, so a unit's Domain page draws them below its About card, each titled by the bold line above its fence, its lead and a legend above the drawing. A `stateDiagram-v2` is drawn as one row of states that scales to the column: each state a box with its description, the move to the next state on top and the move back underneath, other arcs in lanes above and below, the restore loop — the way from the last state back to the first — round the outside on top, each event a chip under its transition, and a way in from several states under one label as one note. A `flowchart` and a `sequenceDiagram` are drawn in the same cards, lines, arrowheads and type; a Mermaid diagram none of the three can read keeps the rendering it has everywhere else."
            Guidelines="@Rules">
 
     <Story Name="Lifecycle row"
@@ -15,7 +15,7 @@
     </Story>
 
     <Story Name="Figures with their legend"
-           Description="What every flow draws above its figures: a legend naming only what the drawing holds — forward, back, and an event documented but not yet emitted — then the figure itself. The Flow page and a unit's flows both draw through it."
+           Description="What every flow draws above its figures: a legend naming only what the drawing holds — forward, back, and an event documented but not yet emitted — then the figure itself. A unit's flows and a context's Overview both draw through it."
            Code="@FiguresCode"
            Source="@TaskLifecycle"
            SourceLanguage="text">
@@ -73,13 +73,6 @@
                             TestId="story-domain-flows-focused" />
         <p data-testid="story-domain-flows-followed">@(_followed is null ? "Follow an event chip to see where it goes." : $"The chip opens {_followed}.")</p>
     </Story>
-
-    <Story Name="Flow page"
-           Description="A whole `flow.md`: the lifecycle titles the page with its lead and legend, the row and its prose beneath; what sits beside the status as cards; the intake as a sequence, readiness as a flowchart. The model chapter's class diagram is none of the three, so it stays in the prose and renders as Mermaid always does. Where the invariants name a chapter, its rules show in place: How a task moves under the lifecycle's row, and Readiness's behind its card's rule count."
-           Code="@PageCode"
-           Source="@FlowFile">
-        <DomainFlowPage File="@File" RulesAbout="@Catalog.About" TestId="story-domain-flows-page" />
-    </Story>
 </StoryPage>
 
 @code {
@@ -125,86 +118,6 @@
             Deferred --> Deferred : Change the review date
             Deferred --> Unprocessed : Review date reached
             Routed --> [*]
-        """;
-
-    private const string FlowFile = """
-        # Tasks
-
-        ```meta
-        type: flow
-        ```
-
-        ## Task lifecycle
-
-        Three recorded states. Forward moves on top, the ways back underneath.
-
-        ```mermaid
-        stateDiagram-v2
-            Draft : every new task
-            Ready : actionable
-            Done : work is over
-            [*] --> Draft : created
-            Draft --> Ready : refined
-            Ready --> Done : finished (TaskCompleted, not yet emitted)
-            Done --> Draft : restored
-            Ready --> Draft : revise
-        ```
-
-        - Restoring a done task returns it to `Draft`, so it is refined again.
-
-        ## Beside the status, not states
-
-        ### The tick
-
-        `completed_on`
-
-        - Ticking an open task also moves it to Done.
-        - Unticking clears only the tick.
-
-        [2 requirements →](requirements.md#requirement-ticking-an-open-task-off-moves-it-to-done)
-
-        ### Readiness
-
-        *derived on read*
-
-        - `ready` — nothing it waits on is open.
-        - `blocked` — it waits on an open task.
-
-        [Rules →](domain.invariants.md#readiness-and-dependencies)
-
-        ## Capture intake
-
-        ```mermaid
-        sequenceDiagram
-            participant P as Phone
-            participant I as Inbox
-            P->>I: capture
-            I-->>P: acknowledged
-        ```
-
-        The intake decides by id and status and parses no token.
-
-        ## Readiness derivation
-
-        ```mermaid
-        flowchart TD
-            A{"ticked off (completed)?"} -->|yes| D["Readiness: done"]
-            A -->|no| B{"does every id in depends_on resolve to a completed task?"}
-            B -->|yes| R["Readiness: ready"]
-            B -->|"no, or an id resolves to nothing"| K["Readiness: blocked"]
-        ```
-
-        Readiness is derived on read and never stored.
-
-        ## Task model
-
-        ```mermaid
-        classDiagram
-            class Task {
-                title
-                status
-            }
-        ```
         """;
 
     private const string ApplyChart = """
@@ -272,93 +185,6 @@
 
     private static readonly DomainFlowDiagram TaskDiagram = DomainFlows.Parse(TaskLifecycle)!;
     private static readonly DomainFlowDiagram InboxDiagram = DomainFlows.Parse(InboxLifecycle)!;
-    private static readonly DomainChapterFile File = DomainUnits.Parse(FlowFile, ".devbook/domain/tasks/flow.md");
-
-    // The rules the invariants write about the lifecycle and the Readiness card,
-    // by the group's related.
-    private const string TaskDomain = """
-        # Tasks
-
-        ## Task
-
-        ```meta
-        type: aggregate
-        ```
-
-        A refined, actionable item.
-        """;
-
-    private const string TaskInvariants = """
-        # Invariants
-
-        ## Task
-
-        ```meta
-        type: invariants
-        related: [.devbook/domain/tasks/domain.md#task]
-        ```
-
-        ### How a task moves
-
-        ```meta
-        type: invariants
-        related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/flow.md#task-lifecycle]
-        ```
-
-        #### Invariant: A new task starts in draft
-
-        ```meta
-        type: invariant
-        tests: [unit:dotnet:Tasks.TaskTests.A_new_task_is_draft]
-        ```
-
-        A task is created in `draft`.
-
-        Enforced at: constructor
-
-        #### Invariant: Status changes follow the lifecycle
-
-        ```meta
-        type: invariant
-        tests: [unit:dotnet:Tasks.TaskTests.Status_moves_along_the_lifecycle]
-        ```
-
-        `ChangeStatus()` refuses a move the lifecycle does not draw.
-
-        Enforced at: `ChangeStatus()`
-
-        ### Readiness and dependencies
-
-        ```meta
-        type: invariants
-        related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/flow.md#readiness]
-        ```
-
-        #### Invariant: Readiness is derived and never stored
-
-        ```meta
-        type: invariant
-        tests: [unit:dotnet:Tasks.TaskChainTests.Readiness_is_derived]
-        ```
-
-        Readiness is worked out on every read.
-
-        Enforced at: `TaskChain.Resolve()`
-
-        #### Invariant: A dependency naming no task still blocks
-
-        ```meta
-        type: invariant
-        ```
-
-        A missing task still blocks the one waiting on it.
-
-        Enforced at: `TaskChain.Resolve()`
-        """;
-
-    private static readonly DomainRuleCatalog Catalog = DomainRuleCatalog.Of(
-        [DomainUnits.Parse(TaskDomain, ".devbook/domain/tasks/domain.md")],
-        [DomainUnits.Parse(TaskInvariants, ".devbook/domain/tasks/domain.invariants.md")]);
 
     private const string RowCode = """
         <DomainFlowRow Diagram="@DomainFlows.Parse(mermaidSource)" AriaLabel="Task lifecycle" />
@@ -432,12 +258,5 @@
 
     private const string FiguresCode = """
         <DomainFlowFigures Diagrams="@([DomainFlows.Figure(mermaidSource)!])" Title="Task lifecycle" DocumentPath="@path" />
-        """;
-
-    private const string PageCode = """
-        <DomainFlowPage File="@DomainUnits.Parse(markdown, ".devbook/domain/tasks/flow.md")"
-                        RulesAbout="@DomainRuleCatalog.Of(domainFiles, invariantFiles).About"
-                        OnOpenRule="OpenAlwaysTrueAsync"
-                        OnNavigate="OpenAsync" />
         """;
 }

@@ -434,6 +434,38 @@
     color: var(--color-error-text);
 }
 
+/* The Brain's inbox area, counted under the Inbox's own lines, in the Brain's band
+   painting (.devbook/design/color-scheme.md#the-brains-accent): the band-2 leading
+   border and its 24% surface. The word Brain is printed, so the teal never says it
+   alone. A button when the host can open the Brain, a line otherwise. */
+.inbox-pane__health-brain {
+    appearance: none;
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: 0;
+    border-left: var(--border-width-4) solid var(--color-band-2);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+}
+
+.inbox-pane__health-brain--action {
+    cursor: pointer;
+}
+
+.inbox-pane__health-brain--action:hover {
+    background: color-mix(in srgb, var(--color-band-2) 36%, var(--color-background));
+}
+
+.inbox-pane__health-brain--action:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
 /* --- Picking several ----------------------------------------------------- */
 
 /* The pills and the Select toggle on one wrapping line, the toggle pushed to
@@ -1606,6 +1638,28 @@
     padding: var(--spacing-sm) 0;
     border-top: var(--border-width) solid var(--color-border);
     background: var(--color-background-alt);
+}
+
+/* Beside Move to backlog: the due date and My Day its tasks may get. One row
+   of fields that wraps, in the detail just above the decisions and in triage
+   under the repositories. */
+.inbox-pane__route-schedule {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+}
+
+.inbox-pane__route-schedule-due,
+.inbox-pane__route-schedule-date {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.inbox-pane__route-schedule-my-day {
+    align-self: center;
 }
 
 .inbox-pane__decide-hint {

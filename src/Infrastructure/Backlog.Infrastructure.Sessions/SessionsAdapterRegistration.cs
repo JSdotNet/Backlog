@@ -182,7 +182,10 @@ public static class SessionsAdapterRegistration
                 sp.GetService<IDevbookSyncVerdicts>(),
                 sp.GetService<INotifications>,
                 sp.GetService<ILogger<LocalDeliverySurfaceLifecycle>>(),
-                sp.GetService<ISessionRepositoryResolver>()));
+                sp.GetService<ISessionRepositoryResolver>(),
+                // Resolved per call: the desktop shell composes it, after this registration.
+                sp.GetService<ISessionPullRequestStates>,
+                sp.GetService<TimeProvider>()));
 
         // And the measured half of the same runs: the hook events a session forwards,
         // attributed to the run it is driving. A singleton because it carries each

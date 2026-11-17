@@ -1,0 +1,93 @@
+@*
+    To Brain's destination picker (local ADR 0054 §2,
+    .devbook/domain/inbox/features.md#route-to-brain): the Brain's areas in tab
+    order and the notes in its projects area, the inbox area first and focused.
+    Enter takes the row under the cursor, and B — the key that opened the picker —
+    takes the inbox area, so B pressed twice is the route To Brain was before it
+    had a picker. Choosing a project files the note into that project's folder.
+
+    The pane leaves every key pressed inside a dialog to the dialog, so the second
+    B is this picker's to answer, never the pane's. The column's detail and triage
+    both open it; the list is read each time it opens, so a project note made a
+    moment ago is offered.
+*@
+
+<Modal Open="@Open"
+       OpenChanged="OnOpenChangedAsync"
+       Title="To Brain"
+       CssClass="inbox-pane__dialog"
+       TestId="inbox-brain-dialog">
+    <ChildContent>
+        <div class="inbox-pane__picker-dialog" @onkeydown="OnKeyDownAsync" data-testid="inbox-brain-picker">
+            <MenuList Items="@Choices"
+                      AriaLabel="Brain destinations"
+                      FocusFirstItem="true"
+                      CssClass="inbox-pane__picker-menu"
+                      TestId="inbox-brain-choices"
+                      OnItemSelected="OnChosenAsync" />
+            <span class="inbox-pane__hint"><kbd class="inbox-pane__key">B</kbd> again keeps it in your Brain's inbox</span>
+        </div>
+    </ChildContent>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired]
+    public InboxDesktopState State { get; set; } = default!;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The prefix of every row's id; the rest is the row's index in
+    /// <see cref="_destinations"/>, so a folder name never has to survive an id.</summary>
+    public const string ChoicePrefix = "brain-";
+
+    private IReadOnlyList<InboxBrainDestinationDto> _destinations = [InboxDesktopState.DefaultBrainDestination];
+
+    private bool _loadedForOpen;
+
+    private IReadOnlyList<MenuItem> Choices =>
+        [.. _destinations.Select((destination, index) => new MenuItem(ChoicePrefix + index, destination.Label, Icon(destination)))];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Open)
+        {
+            _loadedForOpen = false;
+            return;
+        }
+
+        if (_loadedForOpen) return;
+
+        _loadedForOpen = true;
+        _destinations = await State.LoadBrainDestinationsAsync();
+    }
+
+    private static string Icon(InboxBrainDestinationDto destination) =>
+        destination.IsInbox ? "✉" : destination.IsProject ? "↳" : "▤";
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.CtrlKey || e.AltKey || e.MetaKey || !string.Equals(e.Key, "b", StringComparison.OrdinalIgnoreCase)) return;
+
+        var inbox = _destinations.FirstOrDefault(destination => destination.IsInbox) ?? _destinations[0];
+        await RouteAsync(inbox);
+    }
+
+    private Task OnChosenAsync(MenuItem choice) =>
+        choice.Id.StartsWith(ChoicePrefix, StringComparison.Ordinal)
+        && int.TryParse(choice.Id.AsSpan(ChoicePrefix.Length), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var index)
+        && index < _destinations.Count
+            ? RouteAsync(_destinations[index])
+            : Task.CompletedTask;
+
+    private async Task RouteAsync(InboxBrainDestinationDto destination)
+    {
+        await OnOpenChangedAsync(false);
+        await State.RouteToBrainAsync(destination.IsInbox ? null : destination.Folder);
+    }
+
+    private Task OnOpenChangedAsync(bool open) => OpenChanged.InvokeAsync(open);
+}

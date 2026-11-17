@@ -12,7 +12,8 @@
     ISurfaceNavigator to the Devbook surface, so it lands in the window it was
     pressed in. Where its way
     back leads — the surface it was opened over — is the shell's to answer, so its
-    close is the callback the shell hands it.
+    empty states' Back is the callback the shell hands it: none in a window of its
+    own, where the Back is not drawn.
 *@
 <LobesAtlasTakeover Scope="@Scope"
                     RepositoryScope="@(_wiring?.RepositoryScope?.Invoke() ?? [])"

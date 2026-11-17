@@ -3,6 +3,7 @@ using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
+using Backlog.Modules.Inbox.Abstractions.Services;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
@@ -35,7 +36,7 @@ public sealed class InboxBrainTargetTests : IDisposable
         var written = await Target().WriteNoteAsync(new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Standup", "- shipped sync", null), Cancellation);
 
         Assert.True(written.IsSuccess);
-        Assert.Equal("_inbox/standup.md", written.Value);
+        Assert.Equal(new InboxBrainNoteWrittenDto("_inbox/standup.md", "Inbox"), written.Value);
         Assert.Equal(
             BrainNoteText.Compose("Standup", "- shipped sync", BrainNoteSource.Inbox),
             await File.ReadAllTextAsync(Path.Combine(Brain, "_inbox", "standup.md"), Cancellation));
@@ -51,7 +52,7 @@ public sealed class InboxBrainTargetTests : IDisposable
 
         var written = await Target().WriteNoteAsync(new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Odd", "```meta\ntype: x\n```\n# Heading", null), Cancellation);
 
-        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Value), Cancellation);
+        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Value.NotePath), Cancellation);
         Assert.Equal(1, text.Split("\n```meta\n").Length - 1);
         Assert.Contains("\n\u200B```meta\n", text, StringComparison.Ordinal);
         Assert.Contains("\n\u200B# Heading\n", text, StringComparison.Ordinal);
@@ -69,7 +70,7 @@ public sealed class InboxBrainTargetTests : IDisposable
             new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Event sourcing in practice", "Why the log is the truth.", "https://example.com/es"),
             Cancellation);
 
-        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Value), Cancellation);
+        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Value.NotePath), Cancellation);
         Assert.EndsWith("\nWhy the log is the truth.\n\nSource: <https://example.com/es>\n", text, StringComparison.Ordinal);
     }
 
@@ -109,6 +110,159 @@ public sealed class InboxBrainTargetTests : IDisposable
 
         Directory.CreateDirectory(Brain);
         Assert.Null(target.UnavailableReason);
+    }
+
+    /// <summary>Queue health's count (<c>.devbook/domain/inbox/features.md#queue-health-bar</c>):
+    /// every note in the inbox area a route lands in, its sub-folders included and its
+    /// dot-folders and other files left out.</summary>
+    [Fact]
+    public async Task The_notes_in_the_inbox_area_are_counted()
+    {
+        var brain = new BrainFolderSource(() => _setting);
+        var target = new InboxBrainTarget(new BrainNoteWriter(brain), brain, brain);
+        Directory.CreateDirectory(Path.Combine(Brain, "_inbox", "later"));
+        Directory.CreateDirectory(Path.Combine(Brain, "_inbox", ".obsidian"));
+        Directory.CreateDirectory(Path.Combine(Brain, "projects"));
+        await File.WriteAllTextAsync(Path.Combine(Brain, "_inbox", "one.md"), "# One", Cancellation);
+        await File.WriteAllTextAsync(Path.Combine(Brain, "_inbox", "later", "two.md"), "# Two", Cancellation);
+        await File.WriteAllTextAsync(Path.Combine(Brain, "_inbox", ".obsidian", "hidden.md"), "# Hidden", Cancellation);
+        await File.WriteAllTextAsync(Path.Combine(Brain, "_inbox", "photo.png"), "", Cancellation);
+        await File.WriteAllTextAsync(Path.Combine(Brain, "projects", "filed.md"), "# Filed", Cancellation);
+        _setting = Brain;
+
+        var unfiled = await target.UnfiledNotesAsync(Cancellation);
+
+        Assert.Equal(new InboxBrainUnfiledDto("_inbox", 2), unfiled);
+    }
+
+    /// <summary>A Brain whose inbox area has no folder yet has nothing to file.</summary>
+    [Fact]
+    public async Task An_inbox_area_with_no_folder_yet_holds_no_note()
+    {
+        var brain = new BrainFolderSource(() => _setting);
+        Directory.CreateDirectory(Brain);
+        _setting = Brain;
+
+        var unfiled = await new InboxBrainTarget(new BrainNoteWriter(brain), brain, brain).UnfiledNotesAsync(Cancellation);
+
+        Assert.Equal(new InboxBrainUnfiledDto("_inbox", 0), unfiled);
+    }
+
+    /// <summary>No Brain set, a folder that is missing, or no folder source: nothing,
+    /// so the Inbox shows nothing for the Brain.</summary>
+    [Fact]
+    public async Task Without_a_brain_there_is_no_count()
+    {
+        var brain = new BrainFolderSource(() => _setting);
+        var target = new InboxBrainTarget(new BrainNoteWriter(brain), brain, brain);
+
+        Assert.Null(await target.UnfiledNotesAsync(Cancellation));
+
+        _setting = Brain;
+        Assert.Null(await target.UnfiledNotesAsync(Cancellation));
+
+        Directory.CreateDirectory(Brain);
+        Assert.Null(await new InboxBrainTarget(new BrainNoteWriter(brain), brain).UnfiledNotesAsync(Cancellation));
+        Assert.Null(await ((IInboxBrainTarget)new NoBrainTarget()).UnfiledNotesAsync(Cancellation));
+    }
+
+    /// <summary>The destination the picker named is where the note lands, and the
+    /// area it names is the toast's (local ADR 0054 §2).</summary>
+    [Fact]
+    public async Task A_route_with_a_destination_lands_in_it_and_names_its_area()
+    {
+        Directory.CreateDirectory(Path.Combine(Brain, "projects", "launch"));
+        File.WriteAllText(Path.Combine(Brain, "projects", "launch", "brief.md"), "# Brief\n");
+        _setting = Brain;
+
+        var written = await Target().WriteNoteAsync(
+            new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Retry budget", "", null, "projects/launch"),
+            Cancellation);
+
+        Assert.Equal(new InboxBrainNoteWrittenDto("projects/launch/retry-budget.md", "Projects"), written.Value);
+        Assert.True(File.Exists(Path.Combine(Brain, "projects", "launch", "retry-budget.md")));
+    }
+
+    /// <summary>Create plan's project note
+    /// (<c>.devbook/domain/inbox/features.md#create-plan-from-an-item</c>): into
+    /// the projects area, keeping the item's notes and link, its <c>roadmap</c>
+    /// list naming the plan's tag.</summary>
+    [Fact]
+    public async Task A_project_note_lands_in_the_projects_area_naming_the_plan_s_tag()
+    {
+        Directory.CreateDirectory(Brain);
+        _setting = Brain;
+        var brain = new BrainFolderSource(() => _setting);
+
+        var written = await new InboxBrainTarget(new BrainNoteWriter(brain), brain).WriteNoteAsync(
+            new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Ship the thing", "Why now.", "https://example.com/launch", IntoProjects: true, RoadmapTag: "ship-the-thing-5e6f7a8b"),
+            Cancellation);
+
+        Assert.Equal(new InboxBrainNoteWrittenDto("projects/ship-the-thing.md", "Projects"), written.Value);
+        Assert.Equal(
+            "# Ship the thing\n\n```meta\ntype: note\nstatus: draft\nsource: inbox\nroadmap: [ship-the-thing-5e6f7a8b]\n```\n\nWhy now.\n\nSource: <https://example.com/launch>\n",
+            await File.ReadAllTextAsync(Path.Combine(Brain, "projects", "ship-the-thing.md"), Cancellation));
+    }
+
+    [Fact]
+    public async Task A_project_note_without_a_brain_is_refused_in_the_brain_s_words()
+    {
+        var brain = new BrainFolderSource(() => _setting);
+        var target = new InboxBrainTarget(new BrainNoteWriter(brain), brain);
+
+        var written = await target.WriteNoteAsync(
+            new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Ship the thing", "", null, IntoProjects: true),
+            Cancellation);
+
+        Assert.Equal(InboxErrors.BrainUnavailableCode, written.Error.Code);
+        Assert.Equal(target.UnavailableReason, written.Error.Message);
+    }
+
+    [Fact]
+    public void The_projects_area_is_found_by_its_folder_else_by_its_name()
+    {
+        Assert.Equal("projects", InboxBrainTarget.ProjectsFolderOf(
+        [
+            new BrainNoteDestination("_inbox", "Inbox", "Inbox", IsInbox: true),
+            new BrainNoteDestination("work", "Projects", "Projects"),
+            new BrainNoteDestination("projects", "Projects", "Projects"),
+        ]));
+        Assert.Equal("1-work", InboxBrainTarget.ProjectsFolderOf(
+        [
+            new BrainNoteDestination("1-work/launch", "Projects › launch", "Projects", IsProject: true),
+            new BrainNoteDestination("1-work", "Projects", "Projects"),
+        ]));
+        Assert.Null(InboxBrainTarget.ProjectsFolderOf([new BrainNoteDestination("_inbox", "Inbox", "Inbox", IsInbox: true)]));
+    }
+
+    /// <summary>The picker's rows, as the Inbox sees them: the inbox area first
+    /// and marked, the PARA areas in tab order, the project after Projects.</summary>
+    [Fact]
+    public async Task The_destinations_are_listed_in_the_inbox_s_words()
+    {
+        Directory.CreateDirectory(Path.Combine(Brain, "projects"));
+        File.WriteAllText(Path.Combine(Brain, "projects", "sync-rewrite.md"), "# Sync rewrite\n");
+        _setting = Brain;
+        var brain = new BrainFolderSource(() => _setting);
+
+        var destinations = await new InboxBrainTarget(new BrainNoteWriter(brain), brain).ListDestinationsAsync(Cancellation);
+
+        Assert.Equal(
+            ["_inbox", "projects", "projects", "someday", "areas", "resources", "people", "journal", "archive"],
+            destinations.Select(destination => destination.Folder));
+        Assert.True(destinations[0].IsInbox);
+        Assert.True(destinations[2].IsProject);
+    }
+
+    /// <summary>No Brain, no destinations: the picker falls back to the inbox
+    /// row, whose route is refused in the Brain's words.</summary>
+    [Fact]
+    public async Task No_brain_lists_no_destinations()
+    {
+        var brain = new BrainFolderSource(() => _setting);
+
+        Assert.Empty(await new InboxBrainTarget(new BrainNoteWriter(brain), brain).ListDestinationsAsync(Cancellation));
+        Assert.Empty(await ((IInboxBrainTarget)new NoBrainTarget()).ListDestinationsAsync(Cancellation));
     }
 
     /// <summary>A host composed without a Brain says so up front too.</summary>

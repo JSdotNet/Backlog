@@ -99,6 +99,30 @@ public sealed class InboxDesktopStateTests : IDisposable
     public void Waited_says_the_span_in_words(int hours, int minutes, string expected) =>
         Assert.Equal(expected, InboxDesktopState.Waited(TimeSpan.FromHours(hours) + TimeSpan.FromMinutes(minutes)));
 
+    /// <summary>A write outside the pane is passed on once the first snapshot is in —
+    /// before it, the first load reads the write anyway — and not after the state is
+    /// disposed, when no pane is left to reload.</summary>
+    [Fact]
+    public async Task A_write_outside_the_pane_is_announced_only_while_a_loaded_state_listens()
+    {
+        var signal = new Backlog.Modules.Inbox.Services.InboxChangeSignal();
+        var state = new InboxDesktopState(
+            new FakeInboxItems(), new GitHubSettingsStore(Path.Combine(_root, "github.json")), writesElsewhere: signal);
+        var announced = 0;
+        state.WrittenElsewhere += () => announced++;
+
+        signal.Raise();
+        Assert.Equal(0, announced);
+
+        await state.ReloadAsync();
+        signal.Raise();
+        Assert.Equal(1, announced);
+
+        state.Dispose();
+        signal.Raise();
+        Assert.Equal(1, announced);
+    }
+
     [Fact]
     public async Task An_older_reload_that_finishes_after_a_newer_one_is_ignored()
     {

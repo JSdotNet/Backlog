@@ -111,6 +111,27 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         Assert.Equal(["First step", "Second step"], await StepTitlesAsync(item));
     }
 
+    /// <summary>Local ADR 0053 §2 — a Knowledge Ref may hold a Brain address — through the real adapter: a <c>plan</c> entry's
+    /// <c>devbook:</c> tokens land on the new item's Knowledge Refs, and in a host that
+    /// composed no Brain the Brain address is still gathered, unresolved.</summary>
+    [Fact]
+    public async Task A_plan_entry_s_brain_address_reaches_the_item_and_reads_unresolved_without_a_brain()
+    {
+        await ImportAsync("# Sync rework\n`plan` `+myplan` `devbook:domain/tasks/domain.md#task` `devbook:#brain:projects/sync.md`\n");
+
+        var item = await SingleItemAsync();
+        Assert.Equal([".devbook/domain/tasks/domain.md#task", "#brain:projects/sync.md"], item.KnowledgeRefs!);
+
+        using var scope = _provider.CreateScope();
+        var rollup = await scope.ServiceProvider.GetRequiredService<IRoadmapItemRollup>()
+            .GatherAsync(item, TestContext.Current.CancellationToken);
+
+        var note = Assert.Single(rollup.BrainNotes);
+        Assert.True(note.Unresolved);
+        Assert.Equal("#brain:projects/sync.md", note.Title);
+        Assert.DoesNotContain(rollup.KnowledgeChapters, chapter => chapter.Key.Contains("brain", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact]
     public async Task Re_importing_the_roadmap_document_leaves_the_tasks_intact()
     {

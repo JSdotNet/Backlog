@@ -186,7 +186,6 @@ public sealed partial record DomainContextOverview(
         ("Features", "features.md", "What can a person do with it, and what does each build on?"),
         ("Model", "model.md", "What is it made of, and what does it tell other contexts?"),
         ("Events", "model.md", "What does it tell other contexts, and what does it listen to?"),
-        ("Flow", "flow.md", "How does it move, and what does not count as moving?"),
         ("Requirements", "requirements.md", "What does it promise, and what can never be false?"),
         ("Glossary", "domain.md", "What do we call things, and what must not be confused?")
     ];

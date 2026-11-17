@@ -75,7 +75,10 @@
     and SessionRows.Of makes them one list. A run no listed session drove is a row of
     its own that says so.
 
-    The ✕ only reports that it was pressed; what that closes is the shell's business.
+    No close of its own, here or on Delivery economics
+    (interaction-guidelines.md#shell-header, "A surface draws no close of its own"):
+    the Sessions option pressed again, or Escape, is the way back in the main window,
+    and the OS close in a window of its own.
 
     Delivery economics is a page inside this takeover rather than a surface of its
     own: the header's button and a run's insight line switch the pane to it, and its
@@ -92,7 +95,6 @@
                            Loading="@_loading"
                            ScopeLabel="@(Scoped ? ScopeLabel : null)"
                            OnBack="CloseEconomics"
-                           OnClose="() => OnClose.InvokeAsync()"
                            OnRefresh="RefreshAsync" />
 }
 else
@@ -122,7 +124,6 @@ else
                        OnClick="OpenEconomics">
                 Delivery economics
             </AppButton>
-            <IconButton AriaLabel="Close sessions pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
     </SectionHeader>
 
@@ -854,10 +855,6 @@ else
     /// grouped under are measured against the reading rather than the render. Only
     /// Refresh moves this.</summary>
     private DateTimeOffset _readAt = DateTimeOffset.UtcNow;
-
-    /// <summary>Raised when somebody dismisses the pane.</summary>
-    [Parameter]
-    public EventCallback OnClose { get; set; }
 
     /// <summary>
     /// Which identity colour a repository wears, or null for one the host cannot

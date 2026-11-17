@@ -34,6 +34,23 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='devbook-atlas-scope']"));
     }
 
+    /// <summary>No ✕ after the Atlas button: no surface draws a close of its own
+    /// (interaction-guidelines.md#shell-header, "A surface draws no close of its own").
+    /// The Devbook option or Escape is the way back in the main window, the OS close
+    /// in a window of its own.</summary>
+    [Fact]
+    public async Task The_pane_draws_no_close_of_its_own_after_the_atlas_button()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='devbook-atlas-toggle']")));
+
+        Assert.Empty(component.FindAll("[data-testid='devbook-close']"));
+        Assert.Empty(component.FindAll("[aria-label='Close the Devbook']"));
+        Assert.Empty(component.FindAll("[aria-label='Close the Brain']"));
+    }
+
     [Fact]
     public async Task Opening_the_atlas_scopes_it_to_the_active_section()
     {

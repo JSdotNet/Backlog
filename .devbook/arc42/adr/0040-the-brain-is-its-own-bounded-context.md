@@ -26,6 +26,13 @@ It **supersedes in part** ADR 0026: the Brain's place inside the Devbook
 boundary, which that record took by reusing the devbook machinery. The rest of
 ADR 0026 stands, and so does ADR 0027.
 
+> **Amended 2026-11-11 by
+> [ADR 0052](0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md)
+> (proposed).** [§3](#3-the-planning-fields-stay-devbooks): the Brain's link
+> writer may append a Roadmap Tag to a note's `roadmap` list.
+> [§4](#4-links-stay-one-way-and-neighbours-follow-the-brain): the app writes a
+> note's task and plan links into the note. The `repo:` link stays one way.
+
 ## Context
 
 ```meta
@@ -106,7 +113,9 @@ hook Devbook offers, and Devbook knows no PARA, area or capture.
 
 `effort` and the `roadmap` list are fields any devbook chapter may carry. Devbook
 registers them, and a Brain note carries them as any chapter does. They move from
-the Knowledge Note to Devbook's shared value objects.
+the Knowledge Note to Devbook's shared value objects. Since ADR 0052 the Brain's
+link writer may append a Roadmap Tag to a note's `roadmap` list. The field stays
+Devbook's.
 
 ### 4. Links stay one way, and neighbours follow the Brain
 
@@ -115,6 +124,10 @@ the Knowledge Note to Devbook's shared value objects.
 
 The `repo:` link is a one-way reference from the Brain into Devbook. The Inbox's
 **To Brain** route and the Tasks partnership now name the Brain, not Devbook.
+
+Since ADR 0052 the app writes a note's links to tasks and plans into the note.
+When it makes a task or plan from the note, the Brain's link writer appends the
+task id or Roadmap Tag to the note's lists.
 
 ## Consequences
 
@@ -177,3 +190,4 @@ Look for these in the specification and, after the code move, in the code:
 | --- | --- | --- |
 | 2026-10-29 | Proposed: the Brain leaves the Devbook context for one of its own, downstream of Devbook as Customer/Supplier. | The Brain has its own owner, language and neighbours, and its folders became the person's to curate (ADR 0026, amended 2026-10-28). |
 | 2026-10-30 | The Lobes atlas moves to the Brain, which reads every registered repository's devbook through Devbook's reader, read-only (§1, §2). | The atlas maps the Brain by PARA area, which Devbook does not know. |
+| 2026-11-11 | Amended by ADR 0052: the link writer appends to a note's `tasks` and `roadmap` lists (§3, §4). | Picking up a note into a task or plan needs the link at the note's end too. |

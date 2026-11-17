@@ -23,7 +23,7 @@ public sealed class BrainTests
     /// <summary>A sentence of ADR 0027, so the pane is known to show that chapter.</summary>
     private const string ScopeAdrSentence = "Links run from the Brain into a repository, never back";
 
-    private static readonly string[] ParaFolders = ["_inbox", "projects", "areas", "resources", "people", "journal", "archive"];
+    private static readonly string[] ParaFolders = ["_inbox", "projects", "someday", "areas", "resources", "people", "journal", "archive"];
 
     /// <summary>
     /// First use: with no folder set the chip reads <i>Set up your Brain</i>, still

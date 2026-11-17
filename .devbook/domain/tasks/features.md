@@ -111,8 +111,8 @@ is recorded, not how much.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/domain/sessions/features.md#scenario-evidence-from-a-verify-stage]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
+related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/domain/sessions/features.md#scenario-evidence-from-a-verify-stage, .devbook/arc42/adr/0053-a-plan-or-a-task-may-reference-a-brain-note.md]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskDevbookReferenceTests.A_brain_note_is_kept_as_its_address, unit:dotnet:Backlog.Modules.Tasks.UnitTests.ImportPlanDevbookReferenceTests.A_devbook_token_naming_a_brain_note_lands_on_the_task, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainDevbookReferenceResolverTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_brain_address_is_never_looked_up_in_the_repository_devbook, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.A_brain_note_is_listed_with_the_brain_scope_and_its_note_path, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_brain_note_is_a_brain_chip_that_says_when_it_is_not_in_this_brain_and_can_be_removed, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
 ```
 
 A task can point at the parts of a journey that prove it. A journey is one
@@ -152,6 +152,24 @@ screenshot is shown where its scenarios file is read in the Devbook pane
 A coding session gets the same answer. Listing a task's Devbook references gives
 each part with its state, last run and failed step, and a count
 with whether the task is proved.
+
+A task's Devbook references may also name a note in the person's Brain, as
+`#brain:<path from the Brain's root>`, optionally followed by `#heading`. It is
+typed into the task's Devbook picker, written by Import's `devbook:` token, or set
+over MCP. One that names no note, such as `#brain:` alone, is refused. It is never
+looked up in the repository's devbook.
+
+Only the Brain's owner sees it resolved, from their own Brain. The task shows it as
+a Brain chip titled from the note, which opens the note on the Devbook pane's Brain
+side. Anyone else, and an owner with no Brain set, sees the address unresolved,
+never as an error. A Brain without the note says so on the chip. Either way the
+chip can be removed.
+
+Listing the references over MCP marks the note with `scope: "#brain"` and gives
+its path from the Brain's root, which `read_knowledge_chapter` reads under
+`#brain` ([MCP Brain scope](../brain/features.md#mcp-brain-scope)). A session run
+on the task reads those notes before it works. The address travels with the task,
+and the note's content never does (local ADR 0053).
 
 ## Bulk editing
 
@@ -219,8 +237,10 @@ depends-on: [.devbook/domain/tasks/features.md#effort-registration]
 related: [.devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort, .devbook/domain/tasks/features.md#task-dependencies]
 ```
 
-Say how much work is open, not only how it splits. The total sits at the end of the filter bar as one line: how many tasks
-are open, the points they carry, and how many carry none.
+Say how much work is open, not only how it splits. The total is one line: how many tasks
+are open, the points they carry, and how many carry none. It sits at the end of the
+filter bar. In a narrow list it moves beside **New entry**, so the bar keeps its room for filters.
+The Board and the Calendar have no **New entry** row, so there it stays on the bar.
 
 It counts what the
 repository scope leaves in view, before any status, tag or other filter narrows
@@ -481,6 +501,30 @@ tracked [raises an impediment](../progress/features.md#raising-an-impediment) an
 [links the task](../progress/features.md#linking-what-an-impediment-holds-back) to it.
 The task stores no impediment id, and Tasks never calls Progress.
 
+### Waiting for someone
+
+```meta
+type: sub-feature
+related: [.devbook/domain/tasks/domain.md#waiting-for, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryWaitingForTests.The_waiting_for_survives_the_canonical_rewrite, unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryWaitingForTests.A_passed_follow_up_date_reads_overdue, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskWaitingForTests.A_database_written_before_the_waiting_for_columns_still_opens_and_reads, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaWaitingForTests.A_waiting_for_survives_the_json_document, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.WaitingForToolsTests.List_entries_names_who_an_entry_waits_on_and_when_to_follow_up, unit:dotnet:Backlog.Desktop.UI.UnitTests.WaitingForScopeTests.The_slice_keeps_the_waiting_tasks_soonest_follow_up_first_and_undated_last, unit:dotnet:Backlog.Desktop.UI.UnitTests.WaitingForScopeTests.The_editor_clears_the_follow_up_date_alone_or_the_whole_waiting_for]
+```
+
+Record who a task waits on outside the backlog, and when to chase them: its
+[Waiting For](domain.md#waiting-for). It is the `waiting:` token on the task's
+metadata line, free text, with an optional `followup:` date beside it. It is not
+the "Waiting for" of a [dependency chain](#readiness-and-chain-order), which names
+other entries.
+
+- The open task's **Waiting on someone** group names who and the follow-up date,
+  and clears either. Clearing who clears the date too.
+- A follow-up date that has passed reads overdue on the task until the waiting-for
+  is cleared or the task is ticked off.
+- The filter bar's **Waiting** scope lists the open tasks waiting on someone,
+  soonest follow-up first and undated last. Reordering is off while it is on,
+  because that order is not the rank.
+- `list_entries` and `read_item` name who and the date. The waiting-for crosses
+  [sync](#multi-device-sync) as two fields of the task's document.
+
 ### Filing a follow-up after an entry
 
 ```meta
@@ -732,8 +776,8 @@ and [a sync never creates a Roadmap Item](requirements.md#requirement-a-sync-nev
 
 ```meta
 type: feature
-related: [.devbook/domain/brain/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/brain/features.md#brain-scope, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_pressed_plan_can_be_copied_as_its_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.No_plan_and_general_tags_offer_no_plan_to_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.Pressing_a_plan_further_along_the_strip_leads_it_with_its_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_plan_press_hands_the_focus_back_to_the_moved_chip]
+related: [.devbook/domain/brain/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/brain/features.md#brain-scope, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/domain/sessions/features.md#start-a-session-from-an-entry]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.The_pressed_plan_keeps_its_waiting_chip_and_wears_no_mark_while_another_waiting_plan_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_nothing_queued_the_trigger_still_shows_muted_at_0_and_the_panel_says_nothing_is_waiting, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_the_action_not_offered_there_is_no_queue_on_the_bar, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_pressed_plan_can_be_copied_as_its_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.No_plan_and_general_tags_offer_no_plan_to_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.Pressing_a_plan_further_along_the_strip_leads_it_with_its_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_plan_press_hands_the_focus_back_to_the_moved_chip]
 ```
 
 Find and narrow the backlog:
@@ -786,15 +830,22 @@ these three views only. The app reopens on the view last
 chosen, and on Tasks by default. The Inbox and the Devbook open
 beside any of them.
 
-The tags on the filter bar sit in one row, and the strip shows a
-**More** toggle only while its tags overflow it. A pressed
+The source and type filters offer only what has open work, plus the one pressed.
+In a narrow list, both fold into one **Filter** menu on the bar.
+
+The tags on the filter bar sit in one row of their own, below the other filters,
+and the strip shows a **More** toggle only while its tags overflow it. A pressed
 [plan](../roadmap/domain.md#roadmap-tag) leads the strip, whether the reader pressed it on the bar or arrived with it pressed from the roadmap. The plan
 carries a copy button fused to its chip, which copies the plan tag verbatim,
 `+` and all, while the
 [`copy-entries`](context.md#copy-entries) flag is on. With the
 [`session-requests`](../sessions/context.md#session-requests) flag on, the plan's
 [queue icon](../sessions/features.md#start-a-session-from-an-entry) follows the
-copy, and the waiting chip takes its place while a request is open. **No plan** and
+copy, and the waiting chip takes its place while a request is open. Any other plan chip
+whose plan has an open request carries a waiting mark inside it, named in its tooltip.
+The bar ends with the
+[session queue](../sessions/features.md#start-a-session-from-an-entry), a count of
+every open request, muted at 0, that opens the list of them. **No plan** and
 the general tags offer no copy, and a plan offers none once it is let go. When
 the reader presses a plan further along the strip, the plan moves to the front
 with its copy, and the focus stays on the moved chip.
@@ -809,6 +860,34 @@ related: [.devbook/domain/tasks/requirements.md#manual-ordering]
 Hand-sequence tasks within the backlog by dragging them into a preferred
 order, independent of recency or priority. Where a task nobody ranked lands is
 [a requirement](requirements.md#requirement-unranked-tasks-fall-back-to-recency).
+
+### Next actions
+
+```meta
+type: sub-feature
+related: [.devbook/domain/tasks/domain.md#readiness, .devbook/domain/tasks/domain.md#context, .devbook/domain/tasks/domain.md#area, .devbook/domain/tasks/domain.md#waiting-for, .devbook/domain/brain/domain.md#para-category, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_slice_keeps_the_next_actions_grouped_by_context_then_no_context, unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_area_chips_narrow_the_slice_and_name_the_unfiled_tasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_slice_composes_with_the_repository_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_area_picker_suggests_the_brain_areas_first_then_the_areas_in_use, unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryContextTagTests.A_context_on_the_metadata_line_survives_the_canonical_rewrite]
+```
+
+The filter bar's **Next actions** scope lists what can be picked up now:
+
+- an open task whose [Readiness](domain.md#readiness) is ready;
+- that waits on nobody, with no [Waiting For](domain.md#waiting-for);
+- and that is not [marked blocked](#marking-a-task-blocked).
+
+The tasks are grouped by [Context](domain.md#context), the tags starting `@`, by
+name. The tasks with no context come last, under *No context*. A task with two
+contexts is listed once, under the first by name. Rank decides the order within
+a group. Reordering is off while the scope is on, because that order is not the
+rank.
+
+The scope composes with the repository scope, the Brain chip and the other scope
+chips, as My Day does. While it is on, the area chips narrow it to one
+[Area](domain.md#area), or to *No area*.
+
+The open task's **Area** picker files the task under an area. It suggests the
+Brain's area names first, then the areas already used on a task, and takes
+whatever is typed.
 
 ### Board view
 

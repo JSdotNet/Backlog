@@ -141,6 +141,10 @@ internal static class TaskEntryFields
         // about, because the plan is not the person's editor.
         entry.SetBlockedSince(parsed.BlockedSince);
 
+        // Who the task waits on, on the same terms: deleting the `waiting:` token is
+        // how the waiting-for is cleared (.devbook/domain/tasks/domain.md#waiting-for).
+        entry.SetWaitingFor(parsed.WaitingFor);
+
         // Not scheduling, and here anyway. What is attached is a fact about the
         // work like the fields above it — set once, cleared by deleting the
         // token — and the alternative was a method of one line whose only claim

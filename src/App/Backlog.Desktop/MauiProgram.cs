@@ -49,6 +49,13 @@ public static class MauiProgram
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+            })
+            .ConfigureMauiHandlers(handlers =>
+            {
+#if WINDOWS
+                // A popped-out window's title bar toggles (local ADR 0043 §4).
+                handlers.AddHandler<CaptionToggle, CaptionToggleHandler>();
+#endif
             });
 
         builder.Services.AddMauiBlazorWebView();
@@ -334,6 +341,10 @@ public static class MauiProgram
         // And the question relay's escalation timer (local ADR 0041): it publishes a waiting
         // question still open in its session once the notify delay passes.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
+
+        // And the run subject watch: an open Personal Validation question closes once its run's
+        // pull request merged or closed, or its sessions are all archived, while the app runs.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.RunSubjectWatch>();
 
         // And the Windows notifications, before the notifications startup pass below: listening
         // first, so a notification that pass closes takes its Windows notification down with it.
