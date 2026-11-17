@@ -22,7 +22,10 @@ namespace Backlog.Desktop.UI.Mcp;
 /// their sessions already hold a worktree. One whose session the desktop app holds no record
 /// of — a CLI session, an ended one — is never offered: nobody could send it.</item>
 /// <item><c>request</c> — the oldest Requested session request, a lapsed claim included:
-/// <see cref="SessionRequestPayload"/> with its own entry-or-plan kind as <c>requestKind</c>.</item>
+/// <see cref="SessionRequestPayload"/> with its own entry-or-plan kind as <c>requestKind</c>.
+/// None while the person has paused the queue: <see cref="ISessionRequestStore.NextAsync"/>
+/// answers null then, so a paused queue holds and answers <c>204</c> as an empty one does,
+/// while deliveries keep flowing — they answer sessions already running.</item>
 /// </list>
 /// </para>
 /// <para>

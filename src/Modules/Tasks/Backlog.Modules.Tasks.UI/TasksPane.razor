@@ -336,7 +336,7 @@
                             <PopoverButton @ref="_sessionQueuePopover"
                                            Id="session-queue"
                                            TestId="session-queue"
-                                           AriaLabel="@SessionQueue.TriggerLabel(queue.Count)"
+                                           AriaLabel="@SessionQueue.TriggerLabel(queue.Count, _sessionRequests.IsPaused)"
                                            TriggerBaseClass="@(queue.Count == 0 ? "chip chip--filter chip--icon chip--queue chip--queue-idle" : "chip chip--filter chip--icon chip--queue")"
                                            TriggerOpenCssClass="chip--active"
                                            PanelCssClass="session-queue"
@@ -1788,22 +1788,53 @@
         if (_sessionQueueOpen) _ = InvokeAsync(StateHasChanged);
     }
 
-    /// <summary>The panel: the dispatcher warning when one is owed, then every open
-    /// request oldest first — or the line that says nothing is waiting.</summary>
+    /// <summary>The panel: the Pause or Resume control, the paused callout and the
+    /// dispatcher warning when either is owed — both at once, as they are independent
+    /// facts — then every open request oldest first, or the line that says nothing is
+    /// waiting, and last the commands that start the long-running agents.</summary>
     private RenderFragment RenderSessionQueue(IReadOnlyList<SessionQueueRow> queue)
     {
         var now = _sessionClock.GetUtcNow();
         var contact = _sessionRequests.DispatcherContact;
         var warns = contact.WarnsFor(queue.Select(row => row.Request));
 
+        var paused = _sessionRequests.IsPaused;
+
         return @<text>
+            @if (_sessionRequests.IsOffered)
+            {
+                <div class="session-queue__controls">
+                    <AppButton Variant="ButtonVariant.Secondary"
+                               Size="ButtonSize.Small"
+                               Busy="@_sessionRequests.IsPausing"
+                               BusyLabel="@(paused ? "Resuming" : "Pausing")"
+                               TestId="session-queue-pause"
+                               title="@(paused ? "Let a dispatcher start the waiting requests again" : "Hold every request where it is: a dispatcher starts nothing new")"
+                               OnClick="OnSessionQueuePauseAsync">
+                        @(paused ? "Resume queue" : "Pause queue")
+                    </AppButton>
+                </div>
+                @if (_sessionRequests.PauseError is { } pauseError)
+                {
+                    <Alert Message="@pauseError" TestId="session-queue-pause-error" />
+                }
+            }
+
+            @if (paused)
+            {
+                <Callout Heading="Queue paused"
+                         TestId="session-queue-paused">
+                    <p>Nothing new will start until you resume the queue. Requests keep their place, and you can still queue or cancel one.</p>
+                </Callout>
+            }
+
             @if (warns)
             {
                 <Callout Tone="warning"
                          Heading="No dispatcher is running"
                          TestId="session-queue-dispatcher-warning">
                     <p>@SessionQueue.SilenceSentence(contact, now)</p>
-                    <p>Start <code>@SessionQueue.StartDispatcher</code> in a pinned Claude Desktop session.</p>
+                    <p>Start <code>@LongRunningAgents.DispatchSessions</code> in a pinned Claude Desktop session.</p>
                 </Callout>
             }
 
@@ -1856,8 +1887,31 @@
                     }
                 </ul>
             }
+
+            <section class="session-queue__agents" aria-labelledby="session-queue-agents-heading" data-testid="session-queue-agents">
+                <h3 class="session-queue__agents-heading" id="session-queue-agents-heading">Long-running agents</h3>
+                <ul class="session-queue__agents-list">
+                    @foreach (var agent in LongRunningAgents.All)
+                    {
+                        <li @key="agent.Command" class="session-queue__agent" data-testid="session-queue-agent">
+                            <span class="session-queue__agent-name">@agent.Name</span>
+                            <code class="session-queue__agent-command">@agent.Command</code>
+                            <CopyButton Text="@agent.Command"
+                                        Label="@($"Copy {agent.Command}")"
+                                        CssClass="session-queue__agent-copy"
+                                        TestId="session-queue-agent-copy" />
+                            <span class="session-queue__agent-purpose">@agent.Purpose</span>
+                        </li>
+                    }
+                </ul>
+            </section>
         </text>;
     }
+
+    /// <summary>Pause or Resume pressed: the whole queue, through the port. A failure
+    /// is said in the panel and leaves the control as it was.</summary>
+    private async Task OnSessionQueuePauseAsync() =>
+        await _sessionRequests.SetPausedAsync(!_sessionRequests.IsPaused);
 
     /// <summary>A row followed: its entry opened — the scopes hiding it widened first,
     /// as a followed "waiting for" name does — or its plan's chip pressed, on the

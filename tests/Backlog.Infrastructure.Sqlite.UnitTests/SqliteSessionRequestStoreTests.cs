@@ -300,6 +300,143 @@ public sealed class SqliteSessionRequestStoreTests : IDisposable
         Assert.Equal(request.Id, (await store.NextAsync(Ct))!.Id);
     }
 
+    // --- a paused queue ---------------------------------------------------------
+
+    [Fact]
+    public async Task A_fresh_queue_runs()
+    {
+        Assert.False(await Store().IsPausedAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_pause_and_a_resume_are_written_and_survive_a_new_store()
+    {
+        await Store().SetPausedAsync(true, Ct);
+
+        Assert.True(await Store().IsPausedAsync(Ct));
+
+        await Store().SetPausedAsync(false, Ct);
+
+        Assert.False(await Store().IsPausedAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_database_written_before_the_pause_existed_reads_as_running()
+    {
+        Directory.CreateDirectory(_root);
+
+        await using (var old = new SqliteConnection($"Data Source={Path.Combine(_root, "backlog.db")}"))
+        {
+            await old.OpenAsync(Ct);
+            await using var command = old.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE session_requests (
+                    id TEXT PRIMARY KEY NOT NULL, kind TEXT NOT NULL, entry_id TEXT NULL, plan_tag TEXT NULL,
+                    repository TEXT NOT NULL, clone_folder TEXT NOT NULL, state TEXT NOT NULL, claimed_by TEXT NULL,
+                    lease_ends_at TEXT NULL, session_id TEXT NULL, created_at TEXT NOT NULL);
+                CREATE TABLE schema_stamps (owner TEXT PRIMARY KEY NOT NULL, fingerprint TEXT NOT NULL);
+                INSERT INTO schema_stamps (owner, fingerprint) VALUES ('session_requests', 'before-the-pause');
+                """;
+            await command.ExecuteNonQueryAsync(Ct);
+        }
+
+        SqliteConnection.ClearAllPools();
+
+        var store = Store();
+
+        Assert.False(await store.IsPausedAsync(Ct));
+        await store.SetPausedAsync(true, Ct);
+        Assert.True(await store.IsPausedAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_paused_queue_hands_out_no_next_request_and_resuming_hands_out_the_oldest_again()
+    {
+        var store = Store();
+        var older = await store.RequestAsync(Entry(at: Noon.AddMinutes(-5)), Ct);
+        await store.RequestAsync(Entry(at: Noon.AddMinutes(-1)), Ct);
+
+        await store.SetPausedAsync(true, Ct);
+
+        Assert.Null(await store.NextAsync(Ct));
+
+        await store.SetPausedAsync(false, Ct);
+
+        Assert.Equal(older.Id, (await store.NextAsync(Ct))!.Id);
+    }
+
+    [Fact]
+    public async Task A_claim_on_a_paused_queue_is_refused_and_the_request_stays_Requested()
+    {
+        var store = Store();
+        var request = await store.RequestAsync(Entry(), Ct);
+        await store.SetPausedAsync(true, Ct);
+
+        var outcome = await store.ClaimAsync(request.Id, "manager-1", Ct);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal("The session queue is paused.", outcome.Refusal);
+        Assert.Equal(SessionRequestState.Requested, (await store.GetAsync(request.Id, Ct))!.State);
+    }
+
+    [Fact]
+    public async Task A_pause_between_two_claims_refuses_the_second()
+    {
+        var store = Store();
+        var first = await store.RequestAsync(Entry(), Ct);
+        var second = await store.RequestAsync(Entry(), Ct);
+
+        Assert.True((await store.ClaimAsync(first.Id, "manager-1", Ct)).Succeeded);
+
+        await store.SetPausedAsync(true, Ct);
+
+        Assert.False((await store.ClaimAsync(second.Id, "manager-1", Ct)).Succeeded);
+    }
+
+    [Fact]
+    public async Task A_pause_does_not_revoke_a_claim_already_held()
+    {
+        var store = Store();
+        var started = await store.RequestAsync(Entry(), Ct);
+        var released = await store.RequestAsync(Entry(), Ct);
+        await store.ClaimAsync(started.Id, "manager-1", Ct);
+        await store.ClaimAsync(released.Id, "manager-1", Ct);
+
+        await store.SetPausedAsync(true, Ct);
+
+        Assert.True((await store.ReportStartedAsync(started.Id, "manager-1", "session-a", Ct)).Succeeded);
+        Assert.True((await store.ReleaseAsync(released.Id, "manager-1", Ct)).Succeeded);
+    }
+
+    [Fact]
+    public async Task A_lapsed_holder_still_reports_late_on_a_paused_queue_but_nobody_reclaims()
+    {
+        var store = Store();
+        var request = await store.RequestAsync(Entry(), Ct);
+        await store.ClaimAsync(request.Id, "manager-1", Ct);
+        await store.SetPausedAsync(true, Ct);
+
+        _clock.Now = Noon.AddMinutes(3);
+
+        Assert.Equal(SessionRequestState.Requested, (await store.GetAsync(request.Id, Ct))!.StateAt(_clock.Now));
+        Assert.False((await store.ClaimAsync(request.Id, "manager-2", Ct)).Succeeded);
+        Assert.True((await store.ReportStartedAsync(request.Id, "manager-1", "session-a", Ct)).Succeeded);
+    }
+
+    [Fact]
+    public async Task A_paused_queue_still_takes_a_new_request_and_a_cancel()
+    {
+        var store = Store();
+        await store.SetPausedAsync(true, Ct);
+        var entryId = Guid.NewGuid();
+
+        var queued = await store.RequestAsync(Entry(entryId), Ct);
+
+        Assert.Equal(queued.Id, (await store.RequestAsync(Entry(entryId, Noon.AddMinutes(1)), Ct)).Id);
+        Assert.Equal(SessionRequestState.Requested, (await store.GetAsync(queued.Id, Ct))!.State);
+        Assert.True((await store.CancelAsync(queued.Id, Ct)).Succeeded);
+    }
+
     [Fact]
     public async Task The_table_shares_the_file_with_the_tasks_without_touching_them()
     {

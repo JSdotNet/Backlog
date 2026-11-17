@@ -1054,4 +1054,8 @@ internal sealed class RecordingSessionRequestStore : ISessionRequestStore
     public Task<SessionRequestOutcome> ReportStartedAsync(Guid id, string dispatcher, string sessionId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
     public Task<SessionRequestOutcome> CancelAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }

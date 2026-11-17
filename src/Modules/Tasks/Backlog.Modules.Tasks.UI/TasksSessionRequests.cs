@@ -35,6 +35,18 @@ public sealed class TasksSessionRequests : IDisposable
     /// turns over between two quiet polls still redraws the queue's warning.</summary>
     private bool _silent;
 
+    /// <summary>Whether the last read found the queue paused.</summary>
+    private bool _paused;
+
+    /// <summary>Whether a Pause or Resume press is still on its way.</summary>
+    private bool _pausing;
+
+    /// <summary>Moved by every Pause or Resume press, so a poll's read of the pause that
+    /// set out before a press — and may answer after it — is dropped rather than undoing
+    /// what the press showed: the pattern <see cref="PolledSnapshot{TKey, TValue}"/>'s
+    /// version keeps for the open requests.</summary>
+    private int _pauseVersion;
+
     /// <param name="port">The queue's port, or null when the host composed none.</param>
     /// <param name="clock">What the poll waits on; the system clock when null.</param>
     public TasksSessionRequests(IEntrySessionRequests? port, TimeProvider? clock = null)
@@ -80,6 +92,46 @@ public sealed class TasksSessionRequests : IDisposable
     public DispatcherContactReading DispatcherContact =>
         IsOffered ? _port!.DispatcherContact : DispatcherContactReading.Unknown;
 
+    /// <summary>Whether the person has paused the whole queue, as last read — false while
+    /// the action is not offered. Read on every poll, so a pause made in another window
+    /// shows on the next one.</summary>
+    public bool IsPaused => IsOffered && _paused;
+
+    /// <summary>Whether a Pause or Resume press is still on its way.</summary>
+    public bool IsPausing => _pausing;
+
+    /// <summary>The last Pause or Resume that could not be made, in words, or null.</summary>
+    public string? PauseError { get; private set; }
+
+    /// <summary>Pauses or resumes the whole queue. Answers whether the queue now reads
+    /// as asked; a failure leaves it as it was and says so in <see cref="PauseError"/>.</summary>
+    public async Task<bool> SetPausedAsync(bool paused)
+    {
+        if (_port is null || !_port.IsOffered || _pausing) return false;
+
+        _pausing = true;
+        Interlocked.Increment(ref _pauseVersion);
+        PauseError = null;
+        Changed?.Invoke();
+
+        try
+        {
+            await _port.SetPausedAsync(paused);
+            _paused = paused;
+            return true;
+        }
+        catch (Exception)
+        {
+            PauseError = paused ? "Couldn't pause the session queue." : "Couldn't resume the session queue.";
+            return false;
+        }
+        finally
+        {
+            _pausing = false;
+            if (!_open.IsDisposed) Changed?.Invoke();
+        }
+    }
+
     /// <summary>Whether a press for <paramref name="entryId"/> is still on its way.</summary>
     public bool IsBusy(Guid? entryId) => entryId is { } id && _busy.Contains(id);
 
@@ -95,6 +147,20 @@ public sealed class TasksSessionRequests : IDisposable
         {
             _silent = silent;
             changed = true;
+        }
+
+        // A read that set out before a press, or while one was on its way, may carry the
+        // state from before its write: dropped, so it cannot flip the control back.
+        var version = Volatile.Read(ref _pauseVersion);
+        if (!_pausing)
+        {
+            var paused = await _port.IsPausedAsync();
+            if (paused != _paused && !_pausing && version == Volatile.Read(ref _pauseVersion))
+            {
+                _paused = paused;
+                PauseError = null;
+                changed = true;
+            }
         }
 
         if (_open.IsDisposed) return;
