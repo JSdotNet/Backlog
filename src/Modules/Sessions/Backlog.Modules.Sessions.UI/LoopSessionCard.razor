@@ -101,7 +101,7 @@
             @* What holds it, in words beside the tiles' edges; the usage behind the plan's
                share is read where the app shows it, where the window offers that. *@
             <div class="sessions-loop__recover" data-testid="sessions-loop-holding">
-                <span class="sessions-loop__recover-line">@LoopSessionView.HoldingLine(Capacity)</span>
+                <span class="sessions-loop__recover-line">@LoopSessionView.HoldingLine(LoopSessionView.WhatHolds(checkIn, Capacity))</span>
                 @if (OnSeeUsage.HasDelegate)
                 {
                     <AppButton Variant="ButtonVariant.Ghost"
@@ -118,7 +118,8 @@
         @if (checkIn.Kind is LoopKind.Dispatcher)
         {
             <div class="sessions-loop__tiles" data-testid="sessions-loop-capacity">
-                @if (Capacity is { } capacity)
+                @* The app's measurement, held against the limits this loop sent. *@
+                @if (LoopSessionView.AgainstLimits(Capacity, checkIn) is { } capacity)
                 {
                     @foreach (var tile in LoopSessionView.Tiles(capacity))
                     {
@@ -222,7 +223,9 @@
     [Parameter]
     public DateTimeOffset Now { get; set; }
 
-    /// <summary>The dispatcher's room, or null where the host measures none.</summary>
+    /// <summary>The dispatcher's room as the app last measured it, or null where the host
+    /// measures none. The card holds its figures against the limits the loop sent with its
+    /// check-in, and says what holds the loop from the reading taken at that check-in first.</summary>
     [Parameter]
     public CapacityReading? Capacity { get; set; }
 

@@ -647,8 +647,15 @@ else
             </span>
             @if (reading.Purpose is SessionPurpose.Agent && LoopOf(row) is { } loop)
             {
-                @* What the loop holds, from its latest check-in. *@
-                <span class="sessions-row__line sessions-row__holds" data-testid="sessions-loop-holds">@LoopSessionView.HeldLine(loop.Loop, WaitingRequests, CapacityLimits.Default, _capacity?.WorkingSessions)</span>
+                @* What the loop holds, from its latest check-in, against the limits it sent;
+                   while it holds, its sessions counted as the Holding line counts them. *@
+                <span class="sessions-row__line sessions-row__holds" data-testid="sessions-loop-holds">@LoopSessionView.HeldLine(loop.Loop, WaitingRequests, measuredWorking: LoopSessionView.WorkingShown(loop, _capacity))</span>
+                @if (loop is { State: LoopState.Holding, Loop.CheckIn.Kind: LoopKind.Dispatcher })
+                {
+                    @* Which limit holds it, from the reading the app took at its check-in
+                       (local ADR 0051 §4), so why the queue waits is read off the row. *@
+                    <span class="sessions-row__line sessions-row__holds" data-testid="sessions-loop-row-holding">@LoopSessionView.HoldingLine(LoopSessionView.WhatHolds(loop.Loop.CheckIn, _capacity))</span>
+                }
             }
             @if (row.Runs.Count > 0)
             {
@@ -1119,8 +1126,9 @@ else
     /// <summary>When the loops were read: what a check-in's age is measured against.</summary>
     private DateTimeOffset _loopsReadAt = DateTimeOffset.UtcNow;
 
-    /// <summary>The dispatcher's room as the app measured it at the last refresh, or null
-    /// where the host measures none or no dispatcher has checked in.</summary>
+    /// <summary>The dispatcher's room as the app measured it at the last refresh, against
+    /// the default limits — each loop's card holds it against the limits that loop sent —
+    /// or null where the host measures none or no dispatcher has checked in.</summary>
     private CapacityReading? _capacity;
 
     /// <summary>The requests and deliveries a dispatcher works through, or null where the

@@ -143,6 +143,165 @@ public class LoopToolsTests
         Assert.Null(answer.Waiting);
     }
 
+    // --- The loop's limits and the app's reading (local ADR 0051 §4) ----------------------
+
+    [Fact]
+    public async Task A_check_in_without_limits_holds_the_default_limits()
+    {
+        await _tools.CheckInAsync("dispatcher", "manager-session", "listening", 5, cancellationToken: Ct);
+
+        Assert.Equal(CapacityLimits.Default, (await _register.GetAsync("manager-session", Ct))!.CheckIn.Limits);
+    }
+
+    [Fact]
+    public async Task Each_limit_the_loop_sends_replaces_its_default_alone()
+    {
+        await _tools.CheckInAsync("dispatcher", "manager-session", "listening", 5, maxSessions: 2, minFreeMemoryGb: 8, cancellationToken: Ct);
+
+        Assert.Equal(new CapacityLimits(2, 80, 80, 8), (await _register.GetAsync("manager-session", Ct))!.CheckIn.Limits);
+    }
+
+    [Theory]
+    [InlineData(0, null, null, null)]
+    [InlineData(null, 0.0, null, null)]
+    [InlineData(null, 120.0, null, null)]
+    [InlineData(null, null, -5.0, null)]
+    [InlineData(null, null, null, -1.0)]
+    public async Task A_check_in_with_a_limit_out_of_range_is_refused(int? maxSessions, double? maxUsage, double? maxCpu, double? minFree)
+    {
+        var refused = await Assert.ThrowsAsync<McpException>(() => _tools.CheckInAsync(
+            "dispatcher", "manager-session", "listening", 5,
+            maxSessions: maxSessions, maxUsagePercent: maxUsage, maxCpuPercent: maxCpu, minFreeMemoryGb: minFree,
+            cancellationToken: Ct));
+
+        Assert.Contains("loop.limits", refused.Message, StringComparison.Ordinal);
+        Assert.Empty(await _register.ListAsync(Ct));
+    }
+
+    /// <summary>The scenario "Plan usage holds the queue": the answer says there is no
+    /// room, names the limit reached, and gives every figure beside the loop's limits.</summary>
+    [Fact]
+    public async Task A_dispatchers_answer_carries_the_capacity_reading_against_its_limits()
+    {
+        var reader = new MeasuredCapacity(working: 1, usage: 84, cpu: null, free: 11.5);
+        var tools = new LoopTools(_register, _clock, _requests, _questions, reader);
+
+        var answer = await tools.CheckInAsync("dispatcher", "manager-session", "listening", 5, maxSessions: 2, maxUsagePercent: 70, cancellationToken: Ct);
+
+        Assert.Equal(new CapacityLimits(2, 70, 80, 4), reader.AskedWith);
+        Assert.Null(reader.AskedFor);
+
+        var capacity = answer.Capacity;
+        Assert.NotNull(capacity);
+        Assert.False(capacity.HasRoom);
+        Assert.Equal(["usage"], capacity.HeldBy);
+        Assert.Equal(1, capacity.WorkingSessions);
+        Assert.Equal(84, capacity.PlanUsagePercent);
+        Assert.Null(capacity.CpuPercent);
+        Assert.Equal(11.5, capacity.FreeMemoryGb);
+        Assert.Equal(new LoopLimitsPayload(Sessions: 2, UsagePercent: 70, CpuPercent: 80, MinFreeGb: 4), capacity.Limits);
+    }
+
+    [Fact]
+    public async Task Every_limit_reached_is_named_in_order_on_the_wire()
+    {
+        var tools = new LoopTools(_register, _clock, _requests, _questions, new MeasuredCapacity(working: 3, usage: 90, cpu: 95, free: 1));
+
+        var answer = await tools.CheckInAsync("dispatcher", "manager-session", "listening", 5, cancellationToken: Ct);
+
+        Assert.Equal(["sessions", "usage", "cpu", "memory"], answer.Capacity!.HeldBy);
+    }
+
+    /// <summary>The reading and the requests waiting are kept with the check-in, so the
+    /// row reads Holding from what the app measured.</summary>
+    [Fact]
+    public async Task The_reading_and_the_work_waiting_are_stored_with_the_check_in()
+    {
+        _requests.Add(SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon));
+        _requests.Add(SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon));
+        var tools = new LoopTools(_register, _clock, _requests, _questions, new MeasuredCapacity(working: 1, usage: 84, cpu: 30, free: 12));
+
+        await tools.CheckInAsync("dispatcher", "manager-session", "listening", 5, cancellationToken: Ct);
+
+        var stored = (await _register.GetAsync("manager-session", Ct))!.CheckIn;
+        Assert.Equal(new CapacityReading(1, 84, 30, 12, CapacityLimits.Default), stored.Reading);
+        Assert.Equal(2, stored.WorkWaiting);
+        Assert.Equal(LoopState.Holding, LoopSessions.StateAt(stored, LoopProcess.Alive, Noon));
+    }
+
+    [Fact]
+    public async Task A_brain_tenders_answer_carries_no_capacity_and_nothing_is_measured()
+    {
+        var reader = new MeasuredCapacity(working: 3, usage: 90, cpu: 95, free: 1);
+        var tools = new LoopTools(_register, _clock, _requests, _questions, reader);
+
+        var answer = await tools.CheckInAsync("brain-tender", "brain-session", "working", 15, maxSessions: 5, cancellationToken: Ct);
+
+        Assert.Null(answer.Capacity);
+        Assert.Null(reader.AskedWith);
+        Assert.Null((await _register.GetAsync("brain-session", Ct))!.CheckIn.Reading);
+    }
+
+    [Fact]
+    public async Task With_no_capacity_reader_the_answer_carries_no_capacity()
+    {
+        var answer = await _tools.CheckInAsync("dispatcher", "manager-session", "holding", 5, cancellationToken: Ct);
+
+        Assert.Null(answer.Capacity);
+        Assert.Null((await _register.GetAsync("manager-session", Ct))!.CheckIn.Reading);
+    }
+
+    /// <summary>A queue that cannot be read never costs the loop its check-in: it is recorded,
+    /// the work waiting reads unknown, and the loop's own word decides Holding.</summary>
+    [Theory]
+    [InlineData("holding", LoopState.Holding)]
+    [InlineData("listening", LoopState.Listening)]
+    public async Task A_check_in_is_recorded_when_the_queue_cannot_be_read(string state, LoopState expected)
+    {
+        var tools = new LoopTools(_register, _clock, new UnreadableRequests(), new UnreadableQuestions(), new MeasuredCapacity(working: 3, usage: 84, cpu: 30, free: 12));
+
+        var answer = await tools.CheckInAsync("dispatcher", "manager-session", state, 5, cancellationToken: Ct);
+
+        Assert.Equal(new LoopWaitingPayload(SessionRequests: 0, Deliveries: 0), answer.Waiting);
+        Assert.NotNull(answer.Capacity);
+
+        var stored = (await _register.GetAsync("manager-session", Ct))!.CheckIn;
+        Assert.Null(stored.WorkWaiting);
+        Assert.NotNull(stored.Reading);
+        Assert.Equal(expected, LoopSessions.StateAt(stored, LoopProcess.Alive, Noon));
+    }
+
+    [Fact]
+    public async Task A_check_in_is_recorded_when_the_capacity_cannot_be_measured()
+    {
+        _requests.Add(SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon));
+        var tools = new LoopTools(_register, _clock, _requests, _questions, new UnmeasurableCapacity());
+
+        var answer = await tools.CheckInAsync("dispatcher", "manager-session", "holding", 5, cancellationToken: Ct);
+
+        Assert.Null(answer.Capacity);
+        Assert.Equal(1, answer.Waiting!.SessionRequests);
+
+        var stored = (await _register.GetAsync("manager-session", Ct))!.CheckIn;
+        Assert.Null(stored.Reading);
+        Assert.Equal(1, stored.WorkWaiting);
+        Assert.Equal(LoopState.Holding, LoopSessions.StateAt(stored, LoopProcess.Alive, Noon));
+    }
+
+    /// <summary>With no queue composed nothing says whether work waits, so a reading with
+    /// no room does not turn a holding loop Listening.</summary>
+    [Fact]
+    public async Task With_no_queue_composed_the_work_waiting_is_unknown_and_the_loops_word_decides()
+    {
+        var tools = new LoopTools(_register, _clock, capacity: new MeasuredCapacity(working: 3, usage: 84, cpu: 30, free: 12));
+
+        await tools.CheckInAsync("dispatcher", "manager-session", "holding", 5, cancellationToken: Ct);
+
+        var stored = (await _register.GetAsync("manager-session", Ct))!.CheckIn;
+        Assert.Null(stored.WorkWaiting);
+        Assert.Equal(LoopState.Holding, LoopSessions.StateAt(stored, LoopProcess.Alive, Noon));
+    }
+
     [Theory]
     [InlineData("manager", "listening", 5, "loop.kind")]
     [InlineData("dispatcher", "sleeping", 5, "loop.state")]
@@ -163,5 +322,67 @@ public class LoopToolsTests
         await Assert.ThrowsAsync<McpException>(() => _tools.CheckInAsync("dispatcher", "manager-session", "listening", 5, requests: -1, cancellationToken: Ct));
 
         Assert.Empty(await _register.ListAsync(Ct));
+    }
+
+    /// <summary>A capacity reader at the boundary — the machine's load and the week's
+    /// telemetry — answering fixed figures and remembering what it was asked with.</summary>
+    private sealed class MeasuredCapacity(int? working, double? usage, double? cpu, double? free) : ICapacityReader
+    {
+        public CapacityLimits? AskedWith { get; private set; }
+
+        public string? AskedFor { get; private set; }
+
+        public Task<CapacityReading> ReadAsync(CapacityLimits limits, string? dispatcher = null, CancellationToken cancellationToken = default)
+        {
+            AskedWith = limits;
+            AskedFor = dispatcher;
+
+            return Task.FromResult(new CapacityReading(working, usage, cpu, free, limits));
+        }
+    }
+
+    /// <summary>A capacity reader whose store fails, breaking its own never-throws contract.</summary>
+    private sealed class UnmeasurableCapacity : ICapacityReader
+    {
+        public Task<CapacityReading> ReadAsync(CapacityLimits limits, string? dispatcher = null, CancellationToken cancellationToken = default) =>
+            throw new IOException("database is locked");
+    }
+
+    /// <summary>A session request queue whose database cannot be read.</summary>
+    private sealed class UnreadableRequests : ISessionRequestStore
+    {
+        private static IOException Locked => new("database is locked");
+
+        public Task<SessionRequest> RequestAsync(SessionRequest candidate, CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<SessionRequest?> GetAsync(Guid id, CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<IReadOnlyList<SessionRequest>> ListAsync(SessionRequestState? state = null, CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<SessionRequest?> NextAsync(CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<SessionRequestOutcome> ReleaseAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<SessionRequestOutcome> ReportStartedAsync(Guid id, string dispatcher, string sessionId, CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<SessionRequestOutcome> CancelAsync(Guid id, CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<IReadOnlyList<SessionRequest>> LinkAsync(Guid entryId, IReadOnlyCollection<string> planTags, string sessionId, CancellationToken cancellationToken = default) => throw Locked;
+    }
+
+    /// <summary>A question relay store whose database cannot be read.</summary>
+    private sealed class UnreadableQuestions : IWaitingQuestionStore
+    {
+        private static IOException Locked => new("database is locked");
+
+        public Task<WaitingQuestion> RegisterAsync(WaitingQuestion candidate, CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<WaitingQuestion?> GetAsync(Guid id, CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<IReadOnlyList<WaitingQuestion>> ListAsync(bool openOnly = false, CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<WaitingQuestionOutcome> ChangeAsync(Guid id, Func<WaitingQuestion, WaitingQuestionOutcome> transition, CancellationToken cancellationToken = default) => throw Locked;
     }
 }

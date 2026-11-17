@@ -161,12 +161,18 @@ running plan.
   each pending delivery whose session the Claude desktop app holds open it claims it
   (`claim_delivery`), sends "You asked: <question>. The answer from Backlog: <answer>" to the
   session with `send_message`, which wakes an idle session, and marks it `delivered`, or
-  `released` when the session no longer exists. Before each start it
-  checks capacity, cheapest first: fewer than 3 of its own linked sessions working — a session
-  the `backlog` server's `list_sessions` reads `Waiting` on a question does not count — every plan
-  limit under 80%, and — through the PowerShell probe `assets/capacity.ps1` — average CPU
-  under 80% over 30 seconds and at least 4 GB free; all four are arguments with these
-  defaults, and a request that does not fit stays Requested. Oldest first, it claims the
+  `released` when the session no longer exists. Its four limits — fewer than 3 of its own linked
+  sessions working, every plan limit under 80%, average CPU under 80% and at least 4 GB free —
+  are arguments with these defaults, and each check-in sends them to the app as `maxSessions`,
+  `maxUsagePercent`, `maxCpuPercent` and `minFreeMemoryGb`. Before each start it reads room from
+  that check-in's answer: `capacity.hasRoom` against those limits, with a start made since the
+  answer counted as one more working session. Only when the answer carries no `capacity`, or its
+  `capacity` lacks a figure — absent, since the server omits a null property, or `null` — does it
+  measure that figure itself before each start, cheapest first: its own linked sessions
+  through `list_sessions` — a session the `backlog` server's `list_sessions` reads `Waiting` on a
+  question does not count — plan usage through `get_usage`, and CPU over 30 seconds and free
+  memory through the PowerShell probe `assets/capacity.ps1`. A request that does not fit stays
+  Requested. Oldest first, it claims the
   request (`claim_session_request`), starts a local session in the request's clone folder in
   its own worktree with the app's fixed brief as its whole prompt and `wake_when_done` on, and
   reports it (`mark_session_request` `started`), or gives the claim back (`released`) when

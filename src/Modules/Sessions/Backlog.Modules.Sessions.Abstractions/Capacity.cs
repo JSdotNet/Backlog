@@ -29,6 +29,15 @@ public sealed record CapacityLimits(int Sessions, double UsagePercent, double Cp
 {
     /// <summary>Three sessions, 80 % usage, 80 % CPU and 4 GB free.</summary>
     public static CapacityLimits Default { get; } = new(3, 80, 80, 4);
+
+    /// <summary>The limits given, each one left null at its <see cref="Default"/>: what a
+    /// loop sends with its check-in, and what a stored check-in reads back.</summary>
+    public static CapacityLimits OrDefault(int? sessions, double? usagePercent, double? cpuPercent, double? minFreeGb) =>
+        new(
+            sessions ?? Default.Sessions,
+            usagePercent ?? Default.UsagePercent,
+            cpuPercent ?? Default.CpuPercent,
+            minFreeGb ?? Default.MinFreeGb);
 }
 
 /// <summary>This machine's CPU and free memory as one read found them. A figure the

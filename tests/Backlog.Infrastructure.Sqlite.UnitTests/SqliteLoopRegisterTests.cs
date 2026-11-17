@@ -40,6 +40,168 @@ public sealed class SqliteLoopRegisterTests : IDisposable
         Assert.Equal(Path.Combine(_root, "backlog.db"), register.DatabasePath);
     }
 
+    /// <summary>The check-in's limits, the reading the app took at it and the work waiting
+    /// then (local ADR 0051 §4) come back as they went in, an unavailable figure included.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_check_ins_limits_reading_and_work_waiting_come_back_whole(bool everyFigure)
+    {
+        var limits = new CapacityLimits(2, 70.5, 90, 8);
+        var checkIn = CheckIn("manager-session", Noon) with
+        {
+            Limits = limits,
+            Reading = everyFigure ? new CapacityReading(2, 71.25, 20.5, 16.75, limits) : new CapacityReading(null, null, null, null, limits),
+            WorkWaiting = 4
+        };
+
+        await Register().CheckInAsync(checkIn, Ct);
+
+        Assert.Equal(checkIn, (await Register().GetAsync("manager-session", Ct))!.CheckIn);
+    }
+
+    [Fact]
+    public async Task A_check_in_with_no_reading_comes_back_with_none()
+    {
+        var checkIn = CheckIn("brain-session", Noon, kind: LoopKind.BrainTender) with { Limits = new CapacityLimits(5, 90, 95, 2) };
+
+        await Register().CheckInAsync(checkIn, Ct);
+
+        var read = (await Register().GetAsync("brain-session", Ct))!.CheckIn;
+        Assert.Null(read.Reading);
+        Assert.Equal(checkIn, read);
+    }
+
+    [Fact]
+    public async Task A_later_check_in_replaces_the_earlier_limits_and_reading()
+    {
+        var register = Register();
+        var limits = new CapacityLimits(2, 70, 90, 8);
+        await register.CheckInAsync(CheckIn("manager-session", Noon) with { Limits = limits, Reading = new CapacityReading(2, 71, 20, 16, limits), WorkWaiting = 4 }, Ct);
+
+        var later = CheckIn("manager-session", Noon + TimeSpan.FromMinutes(1));
+        await register.CheckInAsync(later, Ct);
+
+        Assert.Equal(later, (await Register().GetAsync("manager-session", Ct))!.CheckIn);
+    }
+
+    /// <summary>A row written before the limits were stored reads the default limits, no
+    /// reading and no work waiting.</summary>
+    [Fact]
+    public async Task A_row_from_before_the_limits_reads_the_defaults_and_no_reading()
+    {
+        var register = Register();
+        await register.CheckInAsync(CheckIn("manager-session", Noon) with
+        {
+            Limits = new CapacityLimits(2, 70, 90, 8),
+            Reading = new CapacityReading(2, 71, 20, 16, new CapacityLimits(2, 70, 90, 8)),
+            WorkWaiting = 4
+        }, Ct);
+
+        await using (var connection = new SqliteConnection($"Data Source={register.DatabasePath}"))
+        {
+            await connection.OpenAsync(Ct);
+            await using var update = connection.CreateCommand();
+            update.CommandText =
+                "UPDATE loop_check_ins SET limit_sessions = NULL, limit_usage_percent = NULL, limit_cpu_percent = NULL, "
+                + "limit_min_free_gb = NULL, reading_taken = NULL, reading_working_sessions = NULL, reading_plan_usage_percent = NULL, "
+                + "reading_cpu_percent = NULL, reading_free_memory_gb = NULL, work_waiting = NULL;";
+            await update.ExecuteNonQueryAsync(Ct);
+        }
+
+        Assert.Equal(CheckIn("manager-session", Noon), (await Register().GetAsync("manager-session", Ct))!.CheckIn);
+    }
+
+    /// <summary>A <c>backlog.db</c> the build before the limits wrote — the eleven-column
+    /// table with a row in it, stamped with that build's fingerprint — opens, its row reads
+    /// the default limits and no reading, and a check-in with limits then round-trips.</summary>
+    [Fact]
+    public async Task A_table_the_previous_schema_created_opens_and_its_row_reads_the_defaults()
+    {
+        Directory.CreateDirectory(_root);
+        var databasePath = Path.Combine(_root, "backlog.db");
+
+        await using (var connection = new SqliteConnection($"Data Source={databasePath}"))
+        {
+            await connection.OpenAsync(Ct);
+            await using var create = connection.CreateCommand();
+            create.CommandText = """
+                CREATE TABLE loop_check_ins (
+                    session_id        TEXT PRIMARY KEY NOT NULL,
+                    kind              TEXT NOT NULL,
+                    activity          TEXT NOT NULL,
+                    heartbeat_minutes INTEGER NOT NULL,
+                    held_requests     INTEGER NOT NULL,
+                    held_deliveries   INTEGER NOT NULL,
+                    held_sessions     INTEGER NOT NULL,
+                    held_notes        INTEGER NOT NULL,
+                    checked_in_at     TEXT NOT NULL,
+                    command           TEXT NOT NULL,
+                    command_set_at    TEXT NULL
+                );
+                INSERT INTO loop_check_ins VALUES
+                    ('manager-session', 'Dispatcher', 'Holding', 30, 1, 2, 3, 4, '2026-11-11T12:00:00.0000000+00:00', 'Pause', '2026-11-11T11:00:00.0000000+00:00');
+                CREATE TABLE schema_stamps (owner TEXT PRIMARY KEY NOT NULL, fingerprint TEXT NOT NULL);
+                INSERT INTO schema_stamps VALUES ('loop_check_ins', 'the-previous-build');
+                """;
+            await create.ExecuteNonQueryAsync(Ct);
+        }
+
+        SqliteConnection.ClearAllPools();
+
+        var read = await Register().GetAsync("manager-session", Ct);
+
+        Assert.Equal(
+            new LoopSession(CheckIn("manager-session", Noon, LoopActivity.Holding), LoopCommand.Pause, Noon - TimeSpan.FromHours(1)),
+            read);
+        Assert.Equal(CapacityLimits.Default, read!.CheckIn.Limits);
+        Assert.Null(read.CheckIn.Reading);
+        Assert.Null(read.CheckIn.WorkWaiting);
+
+        var limits = new CapacityLimits(2, 70, 90, 8);
+        var later = CheckIn("manager-session", Noon + TimeSpan.FromMinutes(1)) with { Limits = limits, Reading = new CapacityReading(2, 71, 20, 16, limits), WorkWaiting = 1 };
+        await Register().CheckInAsync(later, Ct);
+
+        Assert.Equal(new LoopSession(later, LoopCommand.Pause, Noon - TimeSpan.FromHours(1)), await Register().GetAsync("manager-session", Ct));
+    }
+
+    [Fact]
+    public async Task Setting_a_command_keeps_the_limits_the_reading_and_the_work_waiting()
+    {
+        var register = Register();
+        var limits = new CapacityLimits(2, 70, 90, 8);
+        var checkIn = CheckIn("manager-session", Noon, LoopActivity.Holding) with
+        {
+            Limits = limits,
+            Reading = new CapacityReading(2, 71, 20, 16, limits),
+            WorkWaiting = 3
+        };
+        await register.CheckInAsync(checkIn, Ct);
+        _clock.Now = Noon + TimeSpan.FromMinutes(1);
+
+        await register.SetCommandAsync("manager-session", LoopCommand.Pause, Ct);
+
+        Assert.Equal(new LoopSession(checkIn, LoopCommand.Pause, Noon + TimeSpan.FromMinutes(1)), await Register().GetAsync("manager-session", Ct));
+    }
+
+    [Fact]
+    public async Task A_wait_keeps_the_limits_and_the_reading()
+    {
+        var register = Register();
+        var limits = new CapacityLimits(2, 70, 90, 8);
+        var checkIn = CheckIn("manager-session", Noon, LoopActivity.Holding) with
+        {
+            Limits = limits,
+            Reading = new CapacityReading(2, 71, 20, 16, limits),
+            WorkWaiting = 3
+        };
+        await register.CheckInAsync(checkIn, Ct);
+
+        await register.RecordWaitAsync("manager-session", Noon + TimeSpan.FromMinutes(5), Ct);
+
+        Assert.Equal(checkIn with { At = Noon + TimeSpan.FromMinutes(5) }, (await Register().GetAsync("manager-session", Ct))!.CheckIn);
+    }
+
     [Fact]
     public async Task A_later_check_in_replaces_the_earlier_and_keeps_the_command()
     {

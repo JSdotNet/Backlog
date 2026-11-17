@@ -1,6 +1,6 @@
 ---
 name: dispatch-sessions
-description: "Run this machine's Manager session — the dispatcher of local ADR 0038 that turns each session request the Backlog app queues (a Start session click on an entry or a plan) into a Claude Desktop session in the request's clone folder, in its own worktree, with the app's fixed brief as its whole prompt, and hands each answer the app accepted for a waiting session back to that session (local ADR 0041). Waits on the app's long poll through a Monitor, delivers answers first, starts a request only while fewer than N dispatched sessions work and plan usage, CPU and memory leave room, and reports each start and delivery back. Started once as /loop /backlog-tools:dispatch-sessions in a pinned session; changes no file and is no flow. Invoke it only when the person's own /loop of it calls for it, never on your own initiative: /loop runs it through the Skill tool, so it stays model-invocable."
+description: "Run this machine's Manager session — the dispatcher of local ADR 0038 that turns each session request the Backlog app queues (a Start session click on an entry or a plan) into a Claude Desktop session in the request's clone folder, in its own worktree, with the app's fixed brief as its whole prompt, and hands each answer the app accepted for a waiting session back to that session (local ADR 0041). Waits on the app's long poll through a Monitor, delivers answers first, starts a request only while fewer than N dispatched sessions work and plan usage, CPU and memory leave room — as the app's check-in answer reads them against the limits it sends, measuring a figure itself only when the app cannot — and reports each start and delivery back. Started once as /loop /backlog-tools:dispatch-sessions in a pinned session; changes no file and is no flow. Invoke it only when the person's own /loop of it calls for it, never on your own initiative: /loop runs it through the Skill tool, so it stays model-invocable."
 argument-hint: "[sessions=3] [usage=80] [cpu=80] [memory=4]"
 ---
 
@@ -15,23 +15,23 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
 ## Each turn
 
 1. **Check in** per `../../resources/standing-session.md#check-in`, `sessionId` `${CLAUDE_SESSION_ID}`, `state`
-   `holding` if a limit held the last queue, `heartbeatMinutes` step 8's last pace (30 at first), `sessions:` step 6's count.
+   `holding` if a limit held the last queue, `heartbeatMinutes` step 8's last pace (30 at first), `sessions:` step 6's count,
+   and the limits `maxSessions` `sessions`, `maxUsagePercent` `usage`, `maxCpuPercent` `cpu`, `minFreeMemoryGb` `memory`.
 2. **Wait.** `node assets/wait-requests.mjs --name` prints your `dispatcher`. One Monitor, longest timeout, re-armed on expiry or
    `stopped`: `node assets/wait-requests.mjs --session ${CLAUDE_SESSION_ID}`, each wait a check-in; never loop on tools.
 3. **Restart.** First unpaused turn only: mark this session per `../../resources/standing-session.md#mark`;
    `released` (`mark_session_request`, `mark_delivery`) each your `dispatcher` holds in either list's `state: claimed`.
-4. **Deliver** each `list_deliveries` `state: pending` with a `desktopSessionId`, oldest first:
-   `claim_delivery` (id, `dispatcher`), `claimed: false` → next; `send_message` to that id:
-   "You asked: <question>. The answer from Backlog: <answer>", both verbatim. Sent or queued →
-   `mark_delivery` `delivered`; the session no longer exists, or any other failure → `released`.
+4. **Deliver** each `list_deliveries` `state: pending` with a `desktopSessionId`, oldest first: `claim_delivery` (id, `dispatcher`),
+   `claimed: false` → next; `send_message` to that id: "You asked: <question>. The answer from Backlog: <answer>", both verbatim.
+   Sent or queued → `mark_delivery` `delivered`; the session no longer exists, or any other failure → `released`.
 5. **Queue.** `list_session_requests` `state: requested`, oldest first; empty → step 8. A
    Monitor line other than `delivery`, `request` or `ready` → say it once, then step 8.
-6. **Capacity**, before each start, cheapest first; the first that fails holds the queue:
-   - fewer than `sessions` rows of `list_sessions` (`linked: true`, `limit: 100`) with `startedBy`
-     your id (`get_session` `self`) and `isRunning: true`, not counting a row whose id is a
-     `desktopSessionId` the `backlog` server's `list_sessions` reads `Waiting`;
-   - every plan limit `get_usage` reports under `usage` percent (`not_applicable` passes);
-   - `powershell -NoProfile -ExecutionPolicy Bypass -File assets/capacity.ps1 -MaxCpu <cpu> -MinFreeGb <memory>` prints `"fits":true`.
+6. **Capacity**, before each start: hold the queue on step 1's answer's `capacity` `hasRoom: false`, or once starts since it bring
+   its `workingSessions` to `sessions`. Measure each figure it lacks (absent or `null`), or all with no `capacity`; first failing holds:
+   - `workingSessions`: fewer than `sessions` rows of `list_sessions` (`linked: true`, `limit: 100`) with `startedBy` your id
+     (`get_session` `self`) and `isRunning: true`, not counting a `desktopSessionId` `backlog`'s `list_sessions` reads `Waiting`;
+   - `planUsagePercent`: every plan limit `get_usage` reports under `usage` percent (`not_applicable` passes);
+   - `cpuPercent`, `freeMemoryGb`: `powershell -NoProfile -ExecutionPolicy Bypass -File assets/capacity.ps1 -MaxCpu <cpu> -MinFreeGb <memory>` prints `"fits":true`.
 7. **Dispatch** the oldest: `claim_session_request` (id, `dispatcher`), `claimed: false` → next. `start_session`:
    `initiation: user_asked`, `context: fresh`, `cwd` its `cloneFolder`, `use_worktree: true`, `prompt` its
    `brief` verbatim, `wake_when_done: true`, `title` the entry's `read_item` title or plan's `+tag` (<60
