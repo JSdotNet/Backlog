@@ -308,8 +308,8 @@
       },
       "System.IO.Hashing": {
         "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "jDix4bBMYnpZdSPcnY+KDV6ik3SRMzpMKby/bZl/XUwIiflwRNAFZ0oOl61R/pSaveIJ8t1gs2BUlrGsPs/bcg=="
+        "resolved": "10.0.14",
+        "contentHash": "lVqovhCt3HlZe7ONG5ydaj6BYwYI004gldVfMMkJl/lR5ueeCtWNpW4nejOX75sPmzm8vXCxB69GqwHaYCnyUQ=="
       },
       "System.Memory.Data": {
         "type": "Transitive",
@@ -358,7 +358,7 @@
       "backlog.infrastructure.blobstorage": {
         "type": "Project",
         "dependencies": {
-          "Aspire.Azure.Storage.Blobs": "[13.6.4, )",
+          "Aspire.Azure.Storage.Blobs": "[13.6.5, )",
           "Azure.Storage.Blobs": "[12.30.1, )",
           "Backlog.Modules.Sync": "[1.0.0, )"
         }
@@ -366,7 +366,7 @@
       "backlog.infrastructure.cosmos": {
         "type": "Project",
         "dependencies": {
-          "Aspire.Microsoft.Azure.Cosmos": "[13.6.4, )",
+          "Aspire.Microsoft.Azure.Cosmos": "[13.6.5, )",
           "Backlog.Modules.Sync": "[1.0.0, )",
           "Microsoft.Azure.Cosmos": "[3.63.2, )"
         }
@@ -381,7 +381,7 @@
       "backlog.infrastructure.webpubsub": {
         "type": "Project",
         "dependencies": {
-          "Aspire.Azure.Messaging.WebPubSub": "[13.6.4, )",
+          "Aspire.Azure.Messaging.WebPubSub": "[13.6.5, )",
           "Backlog.Modules.Sync": "[1.0.0, )"
         }
       },
@@ -415,9 +415,9 @@
       },
       "Aspire.Azure.Messaging.WebPubSub": {
         "type": "CentralTransitive",
-        "requested": "[13.6.4, )",
-        "resolved": "13.6.4",
-        "contentHash": "mBL70zc/nF6LRVyRL+FaO2wAdsm8Dkz0X1ieD92/+3E7UIfi4YAtSAkoXqV1yH6547STl4PKlTQ9z1eARzsTYA==",
+        "requested": "[13.6.5, )",
+        "resolved": "13.6.5",
+        "contentHash": "eY//vTi27KVtH0HO1n0mxaLUyBo5YVOGqMM32mGfyanrd7h+0uthmSDfJfoxtNZVbADjde3b1z+3B/J+YWy8iA==",
         "dependencies": {
           "Azure.Core": "1.62.0",
           "Azure.Messaging.WebPubSub": "1.6.0",
@@ -427,27 +427,27 @@
       },
       "Aspire.Azure.Storage.Blobs": {
         "type": "CentralTransitive",
-        "requested": "[13.6.4, )",
-        "resolved": "13.6.4",
-        "contentHash": "7iKAYHHjbZJhOsjxPSiiy4nk75zV6Qp4UC1GsRbKXF8quAyvQbF7Mg5bSNlahMJMr1Z6KS/guER0kF/qYh1iuA==",
+        "requested": "[13.6.5, )",
+        "resolved": "13.6.5",
+        "contentHash": "HoS07khoWXV3xHl53g/ZdYPSiehqWGedLxiH84iTyGEt/qVRaqBdVeLCjs5GDRZDkjkVuS59cdEjHtR8dDer3Q==",
         "dependencies": {
           "AspNetCore.HealthChecks.Azure.Storage.Blobs": "9.0.0",
           "Azure.Core": "1.62.0",
           "Azure.Storage.Blobs": "12.29.2",
           "Microsoft.Extensions.Azure": "1.14.1",
           "OpenTelemetry.Extensions.Hosting": "1.17.0",
-          "System.IO.Hashing": "10.0.12"
+          "System.IO.Hashing": "10.0.14"
         }
       },
       "Aspire.Microsoft.Azure.Cosmos": {
         "type": "CentralTransitive",
-        "requested": "[13.6.4, )",
-        "resolved": "13.6.4",
-        "contentHash": "P9tsS4d1n6EG/4I+COvTC/fT0TmwS9hn8Is6/cowy8NSzNBdcqFQZ38vsvbl2FycrtXfmLJnpSEOJH1Iq72JPA==",
+        "requested": "[13.6.5, )",
+        "resolved": "13.6.5",
+        "contentHash": "xsN0UB4HkqMNM3LOcJM+A7QNzl745+DxQo1ING31ZwYTDuL7XS5+nJkELgRNMcUZdIZ5dIEOmEAa4BhJ9nb4aA==",
         "dependencies": {
           "Azure.Core": "1.62.0",
           "Azure.Identity": "1.21.0",
-          "Microsoft.Azure.Cosmos": "3.63.0",
+          "Microsoft.Azure.Cosmos": "3.63.1",
           "Newtonsoft.Json": "13.0.4",
           "OpenTelemetry.Extensions.Hosting": "1.17.0"
         }
