@@ -22,13 +22,17 @@ namespace Backlog.Infrastructure.Sessions;
 /// ranks two records that name one CLI session.</param>
 /// <param name="Title">The record's <c>title</c> — the name the sidebar shows, whatever
 /// its <c>titleSource</c> — or null where it is absent or blank.</param>
+/// <param name="SpawnedFrom">The desktop id of the session that started this one — the
+/// <c>sessionId</c> of the record's <c>spawnedFrom</c> object — or null where it names
+/// none.</param>
 internal sealed record ClaudeDesktopSession(
     string? DesktopId,
     string? CliSessionId,
     bool? Archived,
     string? ScheduledTask,
     DateTimeOffset? LastActivityAt,
-    string? Title);
+    string? Title,
+    string? SpawnedFrom = null);
 
 /// <summary>
 /// One reading of the desktop app's session store, looked up by the CLI session id the
@@ -77,6 +81,11 @@ internal sealed class ClaudeDesktopSessions
             ? hosted
             : null;
     }
+
+    /// <summary>The record the desktop app keys by this id — <c>local_&lt;guid&gt;</c> —
+    /// or null where there is none or no id is given.</summary>
+    internal ClaudeDesktopSession? ByDesktopId(string? desktopId) =>
+        !string.IsNullOrWhiteSpace(desktopId) && _byDesktop.TryGetValue(desktopId, out var record) ? record : null;
 
     /// <summary>Whether the desktop app holds this CLI session open. A session it has
     /// no record of is not.</summary>
@@ -282,6 +291,7 @@ internal sealed class ClaudeDesktopSessionReader
         string? scheduledTask = null;
         DateTimeOffset? lastActivityAt = null;
         string? title = null;
+        string? spawnedFrom = null;
 
         try
         {
@@ -299,6 +309,7 @@ internal sealed class ClaudeDesktopSessionReader
                     : reader.ValueTextEquals("scheduledTaskId"u8) ? Field.ScheduledTask
                     : reader.ValueTextEquals("lastActivityAt"u8) ? Field.LastActivityAt
                     : reader.ValueTextEquals("title"u8) ? Field.Title
+                    : reader.ValueTextEquals("spawnedFrom"u8) ? Field.SpawnedFrom
                     : Field.None;
 
                 if (!reader.Read()) return null;
@@ -330,10 +341,14 @@ internal sealed class ClaudeDesktopSessionReader
                     case Field.Title:
                         title = Text(ref reader);
                         break;
+                    case Field.SpawnedFrom:
+                        spawnedFrom = NestedSessionId(ref reader);
+                        break;
                 }
 
                 // Leaves the reader on the value's last token, whatever it was: a no-op
-                // for a scalar, the whole of an object or array for anything else.
+                // for a scalar, the whole of an object or array for anything else — and
+                // a no-op on the closing brace a spawnedFrom was read through to.
                 reader.Skip();
             }
 
@@ -346,7 +361,32 @@ internal sealed class ClaudeDesktopSessionReader
 
         return string.IsNullOrWhiteSpace(desktopId) && string.IsNullOrWhiteSpace(cliSessionId)
             ? null
-            : new ClaudeDesktopSession(desktopId, cliSessionId, archived, scheduledTask, lastActivityAt, title);
+            : new ClaudeDesktopSession(desktopId, cliSessionId, archived, scheduledTask, lastActivityAt, title, spawnedFrom);
+    }
+
+    /// <summary>
+    /// The <c>sessionId</c> directly inside the object the reader stands on, every other
+    /// value skipped unread, leaving the reader on that object's closing brace. Null for
+    /// a value that is not an object, which the caller's skip then steps over.
+    /// </summary>
+    private static string? NestedSessionId(ref Utf8JsonReader reader)
+    {
+        if (reader.TokenType is not JsonTokenType.StartObject) return null;
+
+        string? id = null;
+
+        while (reader.Read() && reader.TokenType is JsonTokenType.PropertyName)
+        {
+            var isId = reader.ValueTextEquals("sessionId"u8);
+
+            if (!reader.Read()) throw new JsonException("The record ends inside spawnedFrom.");
+
+            if (isId) id = Text(ref reader);
+
+            reader.Skip();
+        }
+
+        return id;
     }
 
     /// <summary>A blank string states nothing, here as in <see cref="ClaudeJson.NonBlankText"/>.</summary>
@@ -363,7 +403,8 @@ internal sealed class ClaudeDesktopSessionReader
         Archived,
         ScheduledTask,
         LastActivityAt,
-        Title
+        Title,
+        SpawnedFrom
     }
 
     private sealed record Remembered(long Length, DateTime WrittenAt, bool Settled, ClaudeDesktopSession? Record);

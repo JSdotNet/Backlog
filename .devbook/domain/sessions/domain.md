@@ -886,6 +886,7 @@ this chapter only reads them.
 | `HOLD: X` | Hold | none | none | X |
 | `+tag:execute-plan [@repo]` | Plan run | tag | none | `execute-plan [@repo]` |
 | `tag:n - X` | Entry, step n | tag | none | `n - X` |
+| `n - X`, started by a Plan run | Entry, step n | the Plan run's tag | none | `n - X` |
 | anything else | Other | none | none | the whole title |
 
 A row whose session is a desktop scheduled task's run, or a schedule's row, is
@@ -901,6 +902,11 @@ The reading follows these rules:
   is. A malformed tag leaves a Plan session without one.
 - An unnumbered `tag - X` stays Other, because nothing tells it apart from an ordinary
   title.
+- execute-plan names an entry's session `n - X`, because the desktop app's sidebar
+  already nests it under the `+tag:execute-plan` session that started it. The desktop
+  record's `spawnedFrom` names that parent. A numbered `n - X` is an Entry only when its
+  parent's title reads as a Plan run, and it takes that run's tag. Under any other
+  parent, or none, it stays Other. A `tag:n - X` keeps its own tag whatever its parent.
 - Two tags name one plan when they match ignoring case, with one leading `+` lifted.
   An entry writes the bare tag and a plan run keeps the `+`, so both land under one plan.
 
