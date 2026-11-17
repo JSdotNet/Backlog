@@ -371,7 +371,7 @@ related: [.devbook/domain/events/features.md#events-on-the-calendar]
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarEventsTests.A_three_day_conference_is_a_filled_bar_across_its_days_named_by_title_state_and_place, unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarEventsTests.An_event_still_being_weighed_up_is_dashed_and_a_decided_one_is_filled, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventReaderTests.Only_decided_events_are_read_in_the_order_they_were_saved, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneCalendarTests.The_events_and_their_key_dates_are_drawn_from_the_port_once_the_box_is_ticked]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarEventsTests.A_three_day_conference_is_a_filled_bar_across_its_days_named_by_title_state_and_place, unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarEventsTests.An_event_still_being_weighed_up_is_dashed_and_a_decided_one_is_filled, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventReaderTests.Only_decided_events_are_read_in_the_order_they_were_saved, unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarSurfaceTests.The_events_and_their_key_dates_are_drawn_from_the_port_once_the_box_is_ticked]
 ```
 
 The system SHALL draw each Considering, Going, Attended and Harvested event with dates across its days on the Calendar while Show events is on.
@@ -392,7 +392,7 @@ The system SHALL draw each Considering, Going, Attended and Harvested event with
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarEventsTests.Early_bird_is_a_diamond_on_its_day_naming_the_event_and_hidden_while_the_box_is_unticked, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.EventsCalendarEventsTests.An_event_with_no_start_draws_no_bar_but_keeps_its_key_dates, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneCalendarTests.The_events_and_their_key_dates_are_drawn_from_the_port_once_the_box_is_ticked]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarEventsTests.Early_bird_is_a_diamond_on_its_day_naming_the_event_and_hidden_while_the_box_is_unticked, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.EventsCalendarEventsTests.An_event_with_no_start_draws_no_bar_but_keeps_its_key_dates, unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarSurfaceTests.The_events_and_their_key_dates_are_drawn_from_the_port_once_the_box_is_ticked]
 ```
 
 The system SHALL mark each key date of an event the layer draws on that date.
@@ -422,7 +422,7 @@ The system SHALL change no knowledge event from the Calendar.
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneCalendarTests.With_the_events_area_off_there_is_no_box_and_nothing_drawn_whatever_was_ticked, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneCalendarTests.No_show_events_box_is_offered_before_the_events_read_lands, unit:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_the_events_store_and_shows_nothing_of_it, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.EventsCalendarEventsTests.With_the_events_area_off_nothing_is_read_and_no_events_are_offered]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarSurfaceTests.With_the_events_area_off_there_is_no_box_and_nothing_drawn_whatever_was_ticked, unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarSurfaceTests.No_show_events_box_is_offered_before_the_events_read_lands, unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarSurfaceTests.A_returning_calendar_offers_no_show_events_box_before_its_own_read_lands, unit:dotnet:Backlog.Modules.Calendar.UnitTests.CalendarEventsLayerTests.With_the_events_area_off_the_layer_offers_no_events, unit:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_the_events_pane_behind_its_switch_which_is_off, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.EventsCalendarEventsTests.With_the_events_area_off_nothing_is_read_and_no_events_are_offered]
 ```
 
 The system SHALL offer no Show events choice on the Calendar while the `events` flag is off.

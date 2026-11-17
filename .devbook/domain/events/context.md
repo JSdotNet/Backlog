@@ -125,9 +125,8 @@ it: the policy reads the date and files the task.
 
 ## Dependencies
 
-Events is downstream of Inbox, Tasks and Sync, and upstream of Tasks for the
-Calendar's events layer. The two Tasks edges run through different parts, so they
-form no cycle of modules.
+Events is downstream of Inbox, Tasks and Sync, and upstream of the Calendar for its
+Events layer. Its one Tasks edge runs out of Events, so it forms no cycle of modules.
 
 ### Outbound dependencies
 
@@ -144,5 +143,5 @@ form no cycle of modules.
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Tasks](../tasks/features.md#tasks-on-the-calendar) | Customer/Supplier (Events = supplier) | Tasks' `ICalendarEvents`, answered by `EventsCalendarEvents` under `Infrastructure.FileSystem/Events/` | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions` | The decided events and their key dates, for the Calendar's events layer. |
+| [Calendar](../calendar/context.md) | Customer/Supplier (Events = supplier) | The Calendar's `ICalendarEvents` in `Backlog.Modules.Calendar.Abstractions`, answered by `EventsCalendarEvents` under `Infrastructure.FileSystem/Calendar/` | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions` | The decided events and their key dates, for the Calendar's Events layer. |
 | The phone (`Backlog.Mobile.UI`) | Conformist, through Sync | Pulls the `knowledgeEvents` feed, and posts attachment requests on the task feed | `KnowledgeEventChange`, and the task feed; local ADR 0050 | A read-only view of the person's events at the venue. |
