@@ -1,8 +1,8 @@
 # ADR 0051: Scheduled runs and loop sessions report to Backlog over MCP
 
 ```meta
-date: 2026-11-11
-related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md", ".devbook/domain/sessions/context.md#sessions-area", ".devbook/domain/sessions/domain.md#schedule-register", ".devbook/domain/sessions/domain.md#loop-register", ".devbook/domain/sessions/domain.md#session-title-reading", ".devbook/domain/sessions/features.md#schedules-and-their-runs", ".devbook/domain/sessions/features.md#loop-sessions", ".devbook/domain/sessions/requirements.md#schedules-and-their-runs", ".devbook/domain/sessions/requirements.md#loop-sessions", ".devbook/domain/notifications/features.md#asking-from-the-contexts", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts"]
+date: 2026-11-17
+related: [".devbook/domain/sessions/domain.md#weekly-usage", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md", ".devbook/domain/sessions/context.md#sessions-area", ".devbook/domain/sessions/domain.md#schedule-register", ".devbook/domain/sessions/domain.md#loop-register", ".devbook/domain/sessions/domain.md#session-title-reading", ".devbook/domain/sessions/features.md#schedules-and-their-runs", ".devbook/domain/sessions/features.md#loop-sessions", ".devbook/domain/sessions/requirements.md#schedules-and-their-runs", ".devbook/domain/sessions/requirements.md#loop-sessions", ".devbook/domain/notifications/features.md#asking-from-the-contexts", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts"]
 ```
 
 Each scheduled run tells Backlog that it started and how it finished, through MCP, from a
@@ -17,11 +17,25 @@ All of it sits behind the existing `sessions` flag.
 ```meta
 ```
 
-Proposed, 2026-11-11. Drafted by an unattended `execute-plan` run of the
-`+schedules-and-loops` plan, its `record-decision` item, from the plan's settled decisions and
-its design canvas *Schedules Monitor*. It waits for the repository owner's Personal Validation on
-the draft pull request. Not yet built: the plan's later items build the report tools and the
-hook pair, `check_in`, the states, the alerts and the screens.
+Accepted, 2026-11-11, when its pull request merged into the plan's integration branch. Drafted
+by an unattended `execute-plan` run of the `+schedules-and-loops` plan, its `record-decision`
+item, from the plan's settled decisions and its design canvas *Schedules Monitor*.
+
+Built on that branch:
+
+- the `report_schedule_run` tool and the `backlog-tools` hook pair, which also reports a failed
+  run and the run a skip waits on;
+- `check_in`, and the dispatch wait counted as a check-in;
+- the run states and the loop states;
+- the app's own capacity reading;
+- the alerts, with their Open run, Open Schedules and Open Sessions actions;
+- the Schedules page, the Agents section and the waiting row's question.
+
+Not yet built:
+
+- the check-in answer's room against the loop's own limits, and the Manager reading it, as
+  [Amends](#amends) says;
+- closing a Failed alert when a later run recovers, as §5 says.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below means the
 local one. It adds tools to the listener ADR 0012 built and changes none of its decisions. It
@@ -165,9 +179,14 @@ the Sessions context already runs.
 Backlog measures four figures, and the loop's limits decide whether there is room:
 
 - dispatched sessions working, with Waiting sessions not counted, as ADR 0041 has it;
-- plan usage, read from the Claude usage cache;
+- plan usage, read from the app's own
+  [Weekly Usage](../../domain/sessions/domain.md#weekly-usage) estimate;
 - CPU;
 - free memory.
+
+Plan usage is the estimate's share of the calibrated weekly limit. It reads unavailable until a
+weekly refusal sizes that limit, and an unavailable figure holds nothing back. No Claude usage
+cache holds plan percents the app could read instead.
 
 The check-in answer says whether there is room, and the loop's row shows the four figures beside
 its limits. The person sees why the queue is not moving without opening the Manager's session.
@@ -180,8 +199,13 @@ its limits. The person sees why the queue is not moving without opening the Mana
 Backlog raises an **Alert** in the notification centre of ADR 0039, with its Windows
 notification, for six causes: Needs you, Held, Failed, Missed, Stalled, and Not running while
 work waits. Each cause alerts once, and Backlog closes the alert when the cause clears: the run's
-session is archived, a missed schedule's run starts, or the loop checks in again. Review ready shows on the
-row only. No alert source of its own is built.
+session is archived, a missed schedule's run starts, or the loop checks in again.
+
+A schedule's Failed alert also closes once a later run of the same schedule finishes Review
+ready. The schedule has recovered, so the failure no longer needs the person. Archiving the
+failed run's session still closes it too.
+
+Review ready shows on the row only. No alert source of its own is built.
 
 ### 6. The screens sit in the Sessions takeover, behind the `sessions` flag
 
@@ -250,6 +274,9 @@ Neutral:
   Listening from Stalled.
 - **The Manager measuring capacity itself.** The app could not show why the queue is not moving.
 - **An alert per skipped run.** A held weekly sweep would alert every week for the same cause.
+- **A Failed alert that only archiving closes.** A schedule whose next run succeeded would still
+  alert about a failure that no longer needs the person.
+- **Plan usage from a Claude usage cache.** No such cache holds plan percents the app can read.
 - **A flag of its own.** The screens belong to the Sessions area, and a second switch would only
   add a combination nobody wants.
 
@@ -260,4 +287,5 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-17 | Status names what the plan built. §4 reads plan usage from the in-app Weekly Usage estimate. §5 closes a schedule's Failed alert once a later run finishes Review ready; plan entry 21 builds it. | The owner settled the plan's open questions, and the status still said nothing was built. |
 | 2026-11-11 | Proposed: scheduled runs report through a `backlog-tools` hook pair, loop sessions check in through `check_in`, Backlog decides their states, measures capacity, alerts through the notification centre, and shows them in the Sessions takeover. Amends ADR 0038 §4's capacity. | Unattended runs and loop sessions stop without the person noticing, and Claude Desktop's own files are no contract. |

@@ -1703,11 +1703,11 @@ aliases: [CapacityReading, capacity, room]
 How much room the machine has, measured by Backlog itself at a check-in:
 
 - the dispatched sessions working, with Waiting sessions not counted;
-- plan usage, read from the Claude usage cache;
+- plan usage, the [Weekly Usage](#weekly-usage) estimate's share of the calibrated weekly limit;
 - CPU;
 - free memory.
 
-Against the loop's limits it says whether there is room, and which limit is reached when there
+Plan usage reads unavailable until a weekly refusal sizes the limit. Against the loop's limits it says whether there is room, and which limit is reached when there
 is none. A figure Backlog cannot read is left out and holds nothing back. Equality is by its
 parts.
 
