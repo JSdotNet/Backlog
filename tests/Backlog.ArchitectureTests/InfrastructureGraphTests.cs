@@ -73,7 +73,13 @@ public class InfrastructureGraphTests
             + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0039), for the "
             + "impediment tools beside set_blocked, Progress (local ADR 0035), and the Brain (local ADR 0040) "
             + "for `#brain` and the capture tool, and the Inbox for list_inbox_items, read_inbox_item, "
-            + "archive_inbox_item and capture_to_inbox. It references abstractions only, never a module's implementation.")
+            + "archive_inbox_item and capture_to_inbox. It references abstractions only, never a module's implementation."),
+        ("Backlog.Infrastructure.Brain", 5,
+            "The Brain's adapter project (local ADR 0040 §1): every join that reads or writes the person's "
+            + "notes lives here rather than in folders spread across FileSystem, Devbook and Mcp. Beside the "
+            + "Brain's and Devbook's own ports it answers the Inbox's To Brain target, Events' note-link read "
+            + "(IEventBrainNotes, local ADR 0050) and Roadmap's note read (IRoadmapBrainNotes, local ADR 0053), "
+            + "each over the Brain's folder or database. It references abstractions only.")
     ];
 
     /// <summary>

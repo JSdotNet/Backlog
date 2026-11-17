@@ -6243,9 +6243,10 @@
 
     /// <summary>Whether the open-work summary sits beside New entry rather than at
     /// the end of the bar: in the list on a narrow column, where the add row is.
-    /// The Board and the Calendar have no add row, so it stays on their bar.</summary>
+    /// The Board and a hosting view's <see cref="Body"/> — the Calendar's Tasks part —
+    /// have no add row, so it stays on their bar.</summary>
     private bool SummaryBesideNewEntry =>
-        ListNarrow && Layout == TasksLayout.List && !(State.IsLoading && State.Rows.Count == 0);
+        ListNarrow && Layout == TasksLayout.List && Body is null && !(State.IsLoading && State.Rows.Count == 0);
 
     /// <summary>"never checked" is a real, distinct answer from "open" — the
     /// badge says so rather than implying a state nobody has verified.</summary>
