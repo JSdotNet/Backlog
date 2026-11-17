@@ -58,10 +58,10 @@ app, so neither is a flow and neither goes through the gate. `run-plan-item` is
 model-invoked when a plan item is pasted in, but it runs the item's instructions *through*
 the gate — the matching flow — rather than adding an execution path beside it.
 `execute-plan` is user-invoked and changes nothing itself: it hands each prompt
-entry of a plan to a nested session — or, unattended where the host refuses to start one, a
+entry of a plan to a nested session — or, where the host refuses to start one, a
 background sub-agent that parks at the gate — that runs it through `run-plan-item`, so every entry
-still passes the gate and its own Personal Validation — relayed to the person when attended,
-moved onto a draft pull request when unattended.
+still passes the gate and its own Personal Validation, moved onto a draft pull request: a run is
+always unattended.
 `final-check` is user-invoked and changes nothing: run once a plan has landed, it reviews what
 each entry implemented and runs the build and tests, and a fix it finds goes through the gate.
 `close-merged` is model-invoked when asked to close the merged items; it only moves the entries

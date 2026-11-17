@@ -216,7 +216,7 @@ public class SessionRequestToolsTests
         Assert.Equal("plan", plan.Kind);
         Assert.Equal("session-dispatch", plan.PlanTag);
         Assert.Null(plan.EntryId);
-        Assert.Equal("/backlog-tools:execute-plan +session-dispatch", plan.Brief);
+        Assert.Equal("/backlog-tools:execute-plan +session-dispatch branch", plan.Brief);
     }
 
     [Fact]

@@ -6,7 +6,7 @@ public enum SessionRequestKind
     /// <summary>One prompt entry, briefed as <c>/backlog-tools:run-plan-item entry `&lt;id&gt;`:</c>.</summary>
     Entry,
 
-    /// <summary>A whole plan, briefed as <c>/backlog-tools:execute-plan +&lt;tag&gt;</c>.</summary>
+    /// <summary>A whole plan, briefed as <c>/backlog-tools:execute-plan +&lt;tag&gt; branch</c>.</summary>
     Plan
 }
 
@@ -134,6 +134,11 @@ public static class SessionRequests
     /// for a plan request. Built from the kind and the id alone, so no entry text can
     /// become one; a dispatcher passes it on and never writes its own.
     /// <para>
+    /// The plan line names the <c>branch</c> landing mode explicitly, so a dispatched
+    /// plan lands its entries on the plan's integration branch; execute-plan always runs
+    /// unattended and asks the person nothing.
+    /// </para>
+    /// <para>
     /// A plan tag is the one piece of a brief that started as text a person typed, so it
     /// is checked against the tag grammar here as well as when the request is made: a
     /// row that holds anything else — a space, a backtick, a line break — gets no brief.
@@ -150,7 +155,7 @@ public static class SessionRequests
             SessionRequestKind.Entry when request.EntryId is { } entryId && entryId != Guid.Empty =>
                 $"/backlog-tools:run-plan-item entry `{entryId:D}`:",
             SessionRequestKind.Plan when IsPlanTag(request.PlanTag) =>
-                $"/backlog-tools:execute-plan +{request.PlanTag}",
+                $"/backlog-tools:execute-plan +{request.PlanTag} branch",
             _ => throw new InvalidOperationException(
                 $"Session request {request.Id:D} has no well-formed target for a {request.Kind} brief.")
         };

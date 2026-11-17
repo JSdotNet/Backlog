@@ -32,22 +32,22 @@ which runs this skill for the same plan.
   `git rev-parse --path-format=absolute --git-common-dir` gives this repository's `.git`;
   the folder holding it is the main checkout, and its siblings are the candidates. The one
   whose `origin` remote is `<owner>/<repo>` — the owner from the entry's repository when the
-  plan gives it, else this repository's owner — is the checkout. None or several → attended,
-  ask the person for the path once; unattended, report it as waiting on the person.
-- **What.** One prompt: `/backlog-tools:execute-plan <tag> <landing> <attendance>`, with the
+  plan gives it, else this repository's owner — is the checkout. None or several → ask
+  nothing: Stop and Report list it as waiting on the person, with the candidates found.
+- **What.** One prompt: `/backlog-tools:execute-plan <tag> <landing>`, with the
   parallelism when the person named one. It resumes from the plan's state like any invocation.
 - **How.** Start the session in that folder through the host's way of starting one elsewhere —
   one the person opens with a click counts. Without one, print the prompt in a fenced block
   under the folder's path. Never edit, branch or open a worktree in the other checkout from here.
 - **Its entries.** The host refuses every session start on the turns of a session this one
-  started, so that session runs each of its entries through **Fallback** in `item-brief.md` —
-  sub-agents unattended, cards attended; started by the person, from the card or the printed
-  prompt, it starts them as sessions.
+  started, so that session runs each of its entries as a sub-agent through **Fallback** in
+  `item-brief.md`; started by the person, from a click or the printed prompt, it starts them as
+  sessions.
 - **Then.** The handed-off entries are no longer this run's: the run goes on with its own,
   never waits on the other session, and Stop and Report list each handoff with its repository,
   path and entries. A handoff only the person can open — a click, a printed prompt — is
-  waiting on the person, and is reported as that, never as started; an unattended run's push
-  notification carries it.
+  waiting on the person, and is reported as that, never as started; the run's push notification
+  carries it.
 
 ## Across repositories
 

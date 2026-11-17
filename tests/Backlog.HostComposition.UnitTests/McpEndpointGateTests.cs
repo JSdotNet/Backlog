@@ -403,7 +403,7 @@ public class McpEndpointGateTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = JsonNode.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken))!;
         Assert.Equal(request.Id.ToString("D"), body["id"]!.GetValue<string>());
-        Assert.Equal("/backlog-tools:execute-plan +session-dispatch", body["brief"]!.GetValue<string>());
+        Assert.Equal("/backlog-tools:execute-plan +session-dispatch branch", body["brief"]!.GetValue<string>());
     }
 
     /// <summary>The harness's wait route records dispatcher contact where its Tasks pane
