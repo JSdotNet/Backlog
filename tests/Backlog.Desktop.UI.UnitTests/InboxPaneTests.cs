@@ -727,6 +727,80 @@ public sealed class InboxPaneTests
     }
 
     [Fact]
+    public async Task A_downloaded_recording_on_a_note_plays_in_its_row()
+    {
+        using var harness = Harness.Create();
+        harness.Context.JSInterop.Setup<string?>("backlogAudio.open", _ => true).SetResult("blob:recording");
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile", bodyMd: "Agenda.");
+        harness.Inbox.SeedAttachments(item.Id, recording);
+        harness.Inbox.AttachmentBytes[recording.Id] = [0xFF, 0xF1, 0x50, 0x80];
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        pane.WaitForAssertion(() => Assert.Equal("blob:recording",
+            pane.Find($"[data-testid='inbox-attachment-player-{recording.Id:N}']").GetAttribute("src")));
+        var player = pane.Find($"[data-testid='inbox-attachment-player-{recording.Id:N}']");
+        Assert.Equal("audio", player.TagName, ignoreCase: true);
+        Assert.True(player.HasAttribute("controls"));
+        Assert.Equal("Play Recording · 47:12", player.GetAttribute("aria-label"));
+        Assert.NotNull(pane.Find($"[data-testid='inbox-attachment-row-{recording.Id:N}']")
+            .QuerySelector($"[data-testid='inbox-attachment-open-{recording.Id:N}']"));
+    }
+
+    [Fact]
+    public async Task A_recording_not_downloaded_yet_keeps_its_waiting_row_and_no_player()
+    {
+        using var harness = Harness.Create();
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: false, LastError: null);
+        var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, recording);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        Assert.Equal(
+            "Waiting to download",
+            pane.Find($"[data-testid='inbox-attachment-waiting-{recording.Id:N}']").TextContent.Trim());
+        Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-player-{recording.Id:N}']"));
+    }
+
+    [Fact]
+    public async Task A_recording_removed_from_this_machine_says_so_instead_of_playing()
+    {
+        using var harness = Harness.Create();
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, recording);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "This recording is not on this machine any more.",
+            pane.Find($"[data-testid='inbox-attachment-player-missing-{recording.Id:N}']").TextContent.Trim()));
+        Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-player-{recording.Id:N}']"));
+    }
+
+    [Fact]
+    public async Task A_recording_that_cannot_be_read_says_it_could_not_be_loaded_not_that_it_was_removed()
+    {
+        using var harness = Harness.Create();
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, recording);
+        harness.Inbox.AttachmentReadErrors[recording.Id] = InboxErrors.AttachmentsUnavailable;
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        var notice = pane.WaitForElement($"[data-testid='inbox-attachment-player-missing-{recording.Id:N}']");
+        Assert.Equal("This recording could not be loaded.", notice.TextContent.Trim());
+        Assert.Contains("inbox-pane__file-player", notice.ClassList);
+    }
+
+    [Fact]
     public async Task A_voice_memo_shows_its_transcript()
     {
         using var harness = Harness.Create();

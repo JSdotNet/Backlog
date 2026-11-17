@@ -59,7 +59,7 @@ public class StorybookOrderTests
         ["Feedback"] = ["feedback"],
         ["Goals"] = ["goals"],
         ["Icons"] = ["foundations"],
-        ["Inputs"] = ["inputs", "radio-group", "file-field", "attachment-strip"],
+        ["Inputs"] = ["inputs", "radio-group", "file-field", "audio-player", "attachment-strip"],
         ["Integrations"] = ["integrations"],
         ["Devbook"] = ["devbook", "markdown/references"],
         ["Layout"] = ["layout", "file-view", "folder-view"],

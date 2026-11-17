@@ -117,6 +117,11 @@ Nothing is sent on intake, on a timer, while the list is browsed, or when an
 item is opened outside triage. The Suggested row in the columns view stays the
 rule-based one.
 
+One exception, proposed 2026-11-10: a note's meeting recording is sent on intake,
+in the background, with no press, and its transcript is sent for a summary, as
+`.devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md`
+decides. The triage calls above are unchanged.
+
 ### 3. Which model
 
 ```meta
@@ -203,5 +208,6 @@ model's proposals.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-10 | Proposed exception: a meeting recording, an attachment, is sent on intake without a press, and its transcript for a summary (ADR 0049). | Meeting recordings are transcribed on download. |
 | 2026-10-08 | The Inbox may send an item, and what it is matched against, to the configured Foundry deployment, only on the reader's press. | Duplicate and plan matching compare the item with the backlog and the inbox, which the rules cannot judge. |
 | 2026-09-27 | Suggestions come from the item's own text and the reader's routing rules; no model reads the item. | It kept the Suggested row free and offline. |

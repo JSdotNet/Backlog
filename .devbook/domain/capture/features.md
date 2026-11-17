@@ -190,6 +190,43 @@ retried on its own. A note saved without a title is named after the first line o
 its body. With no body, it is "Photo · <date>" when a picture is attached, else the
 first file's name.
 
+A recording made in the note is one more of its files: see
+[Meeting recording](#meeting-recording).
+
+### Meeting recording
+
+```meta
+type: sub-feature
+related: [".devbook/domain/capture/features.md#talk-note", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/tech/mobile.md#android-mediarecorder"]
+```
+
+A meeting recorded into a [note](../inbox/domain.md#note) on the phone, kept
+going with the screen off, and sent to the desktop as a file on the note. It
+belongs to a note the way a slide photo does, so it adds no item kind, and it uses
+the editor the [talk note](#talk-note) describes. It runs on the Android phone
+only, and is not built yet.
+
+**Record** sits in the note editor's toolbar beside **Dictate** and **Photo**.
+The first press asks for the microphone, and on Android 13 and later for
+notifications. While it records, two places show the timer with **Pause** and
+**Stop**:
+
+- a recording bar in the note;
+- an ongoing notification, which keeps the recording going with the phone in a
+  pocket.
+
+Typing and photos keep working while it records, and land on the same note.
+**Stop** attaches the file to the note as "Recording · <duration>", with its type
+and size, and it plays back in place. Cloud sync takes AAC audio as a note file
+beside pictures, PDFs, text and Office files. The note then syncs as it does today, the
+file first; the desktop's Inbox item shows it with a player.
+
+There is no consent prompt. The ongoing notification and Android's own
+microphone dot are the only sign that the phone is recording.
+
+[Recordings on a note](../inbox/requirements.md#recordings-on-a-note) holds what
+a recording promises when it runs long, is cut off or loses its note.
+
 ### Share-sheet and shortcuts
 
 ```meta

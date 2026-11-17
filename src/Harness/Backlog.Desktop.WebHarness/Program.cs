@@ -249,6 +249,10 @@ var app = builder.Build();
 // can test against the harness.
 _ = app.Services.GetRequiredService<TaskSyncWorker>();
 
+// And the Inbox's transcription of meeting recordings (local ADR 0049), started as the
+// desktop head starts it, against the harness's local Foundry stand-in.
+app.Services.GetRequiredService<Backlog.Modules.Inbox.Services.InboxRecordingTranscriptionWorker>().Start();
+
 // And session replication's own loop, for the same reason and with the same
 // failure if it is left out. A sibling rather than a second exchange inside the
 // worker above: see SessionSyncWorker for why one loop over two independently

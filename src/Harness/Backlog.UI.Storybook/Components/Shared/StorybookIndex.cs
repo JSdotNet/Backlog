@@ -102,10 +102,16 @@ internal static class StorybookIndex
             // bargain with the host and the only reason the component exists.
             new("file-field", "File field", "FileField: a picked file, read here and handed to the host as text."),
 
+            // Ahead of Attachment strip, which plays a recording on its tile with
+            // it: nothing is shown before its parts. Its own page because playing
+            // a file the host holds — read once, released when it goes — is a
+            // bargain with the host no other control here makes.
+            new("audio-player", "Audio player", "AudioPlayer: a recording the host holds, played in place with the browser's own controls, named for its file."),
+
             // After File field, and its own page for the same reason: it is what
             // a host shows once files are picked, and a refusal it draws on a
-            // tile is a convention of its own. It draws only an IconButton, which
-            // Buttons introduced above.
+            // tile is a convention of its own. It draws an IconButton, which
+            // Buttons introduced above, and an AudioPlayer, introduced just above.
             new("attachment-strip", "Attachment strip", "AttachmentStrip: the files on something being written, with their name, type and size — and why, on a tile the host refused."),
 
             // Badges before Selects, and by the rule: BadgeSelect draws its
@@ -589,7 +595,13 @@ internal static class StorybookIndex
             // EmptyState, SaveIndicator, ToggleButton, AppButton and
             // AttachmentStrip pages above introduce — which is why it is here and
             // not beside Today, above Feedback.
-            new("notes", "Notes", "NoteRow and NoteEditor: a list of notes newest first that a search narrows, and one note being written that saves on its own."),
+            // A recorded bend: RecordingBar carries conventions of its own — its
+            // state said three ways, a timer that is no live region, a level in
+            // words — which would earn it a page. It stays here because it has
+            // one host, the note being written, and its four states read against
+            // the NoteEditor stories above them; a page of its own would draw that
+            // editor a second time or show the bar out of the place it lives.
+            new("notes", "Notes", "NoteRow, NoteEditor and RecordingBar: a list of notes newest first that a search narrows, one note being written that saves on its own, and a meeting recorded into it."),
             new("compare", "Section comparison",
                 "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it — aligned by heading, never by line."),
 

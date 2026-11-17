@@ -29,4 +29,7 @@ public sealed record InboxAttachmentDto(
 {
     /// <summary>Where the downloaded file sits on this machine; null until it is downloaded.</summary>
     public string? LocalPath { get; init; }
+
+    /// <summary>A sound file — a meeting recording from the phone (local ADR 0048).</summary>
+    public bool IsAudio => ContentType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase);
 }

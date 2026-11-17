@@ -54,6 +54,11 @@ public static class InboxCrossContextAdapterRegistration
         services.TryAddSingleton<IInboxAttachmentFiles>(sp =>
             new WorkspaceInboxAttachmentFiles(() => sp.GetRequiredService<WorkspaceSettingsStore>().InboxDirectory));
 
+        // The recordings transcribed here, beside those files and for the same reasons
+        // (local ADR 0049 §1): the background worker resolves it from the root provider.
+        services.TryAddSingleton<IInboxTranscriptionRecords>(sp =>
+            new FileInboxTranscriptionRecords(() => sp.GetRequiredService<WorkspaceSettingsStore>().InboxDirectory));
+
         return services;
     }
 }
