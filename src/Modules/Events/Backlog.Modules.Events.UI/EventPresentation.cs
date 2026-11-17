@@ -88,12 +88,19 @@ public static class EventPresentation
         return day.Time is { } time ? $"{date} {time.ToString("HH:mm", Invariant)}" : date;
     }
 
-    /// <summary>When the event runs, in words: a day, a range, or that it is not known yet.</summary>
+    /// <summary>
+    /// When the event runs, in words: a day, a range, or that it is not known yet. An end on the
+    /// start's date never repeats the day: with no time or the start's time it reads as the start
+    /// day alone (<c>27 Nov 2026 16:30</c>), with another time as that time after it
+    /// (<c>27 Nov 2026 16:30 – 21:00</c>).
+    /// </summary>
     public static string When(EventDateDto? start, EventDateDto? end)
     {
         if (start is null) return "Date not known";
-        if (end is null || end == start) return Day(start);
-        return $"{Day(start)} – {Day(end)}";
+        if (end is null) return Day(start);
+        if (end.Date != start.Date) return $"{Day(start)} – {Day(end)}";
+        if (end.Time is not { } endTime || endTime == start.Time) return Day(start);
+        return $"{Day(start)} – {endTime.ToString("HH:mm", Invariant)}";
     }
 
     /// <summary>Where the event is, in words, or null when not known.</summary>
