@@ -195,6 +195,27 @@ public class SyncEndpointAuthenticationTests : IDisposable
             () => misconfigured.CreateClient());
     }
 
+    /// <summary>Local ADR 0052: a deployed service takes its key from the
+    /// vault, so a key in configuration alone is not enough outside
+    /// Development.</summary>
+    [Fact]
+    public void Anywhere_but_development_a_configured_key_without_a_vault_stops_the_start()
+    {
+        using var misconfigured = new SyncServiceFactory
+        {
+            Environment = "Production",
+            Configuration = ("Sync:Cosmos:AccountEndpoint", "https://localhost:8081/"),
+            MoreConfiguration =
+            [
+                ("ConnectionStrings:attachments", "Endpoint=https://localhost:10000/devstoreaccount1;ContainerName=attachments"),
+            ],
+        };
+
+        var failure = Assert.ThrowsAny<Microsoft.Extensions.Options.OptionsValidationException>(
+            () => misconfigured.CreateClient());
+        Assert.Contains("KeyVaultUri", failure.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task A_development_run_starts_without_a_configured_signing_key()
     {

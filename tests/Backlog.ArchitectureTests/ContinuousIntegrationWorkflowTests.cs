@@ -300,7 +300,7 @@ public class ContinuousIntegrationWorkflowTests
         foreach (var name in new[]
                  {
                      "AZURE_CLIENT_ID", "AZURE_TENANT_ID", "AZURE_SUBSCRIPTION_ID", "AZURE_RESOURCE_GROUP",
-                     "AZURE_LOCATION", "SYNC_TOKEN_SIGNING_KEY"
+                     "AZURE_LOCATION"
                  })
         {
             Assert.Contains(name, check, StringComparison.Ordinal);
