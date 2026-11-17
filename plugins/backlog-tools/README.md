@@ -90,8 +90,8 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   present and Personal Validation happens on the drafts — in branch mode on the closing draft
   to the base branch. A failed entry blocks only what depends on
   it. It titles its own session `<tag>:execute-plan` and each entry session
-  `<tag>:<n> - <Title>`, and a ready entry in another repository is handed to a new session
-  in that repository's checkout running the same plan, per
+  `<n> - <Title>` — the plan tag is already in the parent's name — and a ready entry in
+  another repository is handed to a new session in that repository's checkout running the same plan, per
   `skills/execute-plan/assets/handoff.md`. Branch names and pull request titles follow the
   repository's `.devbook/backlog-tools.json`, with an optional ticket the plan supplies and no
   tracker dependency (**Repository conventions** in `landing-modes.md`). The app itself moves an

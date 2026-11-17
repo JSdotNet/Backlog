@@ -143,6 +143,46 @@ public sealed class SessionTitlesTests
         Assert.Equal((SessionPurpose.Hold, "waiting on review"), (SessionTitles.Of(row).Purpose, SessionTitles.Of(row).Shown));
     }
 
+    [Fact]
+    public void An_untagged_numbered_entry_takes_its_tag_from_the_plan_run_that_started_it()
+    {
+        var row = SessionRow.Of(Session("s", "worktree") with
+        {
+            DesktopTitle = "13 - Move the Events layer",
+            ParentDesktopTitle = "+knowledge-events:execute-plan"
+        });
+
+        var reading = SessionTitles.Of(row);
+
+        Assert.Equal(
+            (SessionPurpose.Entry, "knowledge-events", (int?)13, "13 - Move the Events layer"),
+            (reading.Purpose, reading.PlanTag, reading.Step, reading.Shown));
+    }
+
+    [Theory]
+    [InlineData("13 - Move the Events layer", null)]
+    [InlineData("13 - Move the Events layer", "Something else")]
+    [InlineData("13 - Move the Events layer", "PLAN: +knowledge-events — the plan")]
+    [InlineData("Move the Events layer", "+knowledge-events:execute-plan")]
+    public void A_numbered_title_without_a_plan_run_parent_stays_other(string title, string? parent)
+    {
+        var row = SessionRow.Of(Session("s", "worktree") with { DesktopTitle = title, ParentDesktopTitle = parent });
+
+        Assert.Equal((SessionPurpose.Other, (string?)null), (SessionTitles.Of(row).Purpose, SessionTitles.Of(row).PlanTag));
+    }
+
+    [Fact]
+    public void A_tagged_entry_keeps_its_own_tag_whatever_its_parent()
+    {
+        var row = SessionRow.Of(Session("s", "worktree") with
+        {
+            DesktopTitle = "other-plan:2 - Its own entry",
+            ParentDesktopTitle = "+knowledge-events:execute-plan"
+        });
+
+        Assert.Equal("other-plan", SessionTitles.Of(row).PlanTag);
+    }
+
     // ---- Narrowings (seam 3) ----
 
     private static readonly IReadOnlyList<SessionRow> PlanSample =

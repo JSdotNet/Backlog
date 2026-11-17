@@ -32,7 +32,8 @@ public enum SessionPurpose
     /// <summary><c>+tag:execute-plan [@repo]</c> — the title execute-plan gives its session.</summary>
     PlanRun,
 
-    /// <summary><c>tag:n - title</c> — the title run-plan-item gives a numbered entry's session.</summary>
+    /// <summary><c>tag:n - title</c> — the title run-plan-item gives a numbered entry's
+    /// session — or <c>n - title</c> under a Plan run, execute-plan's name for one.</summary>
     Entry,
 
     /// <summary>A scheduled task's run or a schedule's row, whatever its title says.</summary>
@@ -108,6 +109,12 @@ public static class SessionTitles
         @"^(?<tag>[^\s:+][^\s:]*):(?<rest>(?<step>[0-9]+)\s+-\s+.*)$",
         RegexOptions.CultureInvariant | RegexOptions.Singleline);
 
+    // "n - title" with no tag: execute-plan's name for an entry session, which the sidebar
+    // nests under the plan run that started it.
+    private static readonly Regex UntaggedEntryTitle = new(
+        @"^(?<step>[0-9]+)\s+-\s+\S.*$",
+        RegexOptions.CultureInvariant | RegexOptions.Singleline);
+
     // Keyed on the row instance, not on record equality: the reading is worked out once
     // per row a reading produced, however often the pane groups and filters it.
     private static readonly ConditionalWeakTable<SessionRow, SessionTitleReading> Readings = new();
@@ -152,7 +159,9 @@ public static class SessionTitles
     /// <summary>
     /// Reads a row: a scheduled task's run (<see cref="AgentSession.ScheduledTask"/>) or
     /// a schedule's row (<see cref="SessionRow.Schedule"/>) is Scheduled whatever its
-    /// title says; any other row is its <see cref="SessionRow.Title"/>, read.
+    /// title says; any other row is its <see cref="SessionRow.Title"/>, read. A title
+    /// that reads Other but is numbered <c>n - X</c> is an Entry, step n, of the plan its
+    /// parent session (<see cref="AgentSession.ParentDesktopTitle"/>) is a Plan run of.
     /// </summary>
     public static SessionTitleReading Of(SessionRow row)
     {
@@ -161,7 +170,20 @@ public static class SessionTitles
         return Readings.GetValue(row, static row =>
             !string.IsNullOrWhiteSpace(row.Session?.ScheduledTask) || row.Schedule is not null
                 ? new(SessionPurpose.Scheduled, null, null, null, row.Title, row.Title)
-                : Read(row.Title));
+                : WithParent(Read(row.Title), row.Session?.ParentDesktopTitle));
+    }
+
+    private static SessionTitleReading WithParent(SessionTitleReading reading, string? parentTitle)
+    {
+        if (reading.Purpose is not SessionPurpose.Other || parentTitle is null) return reading;
+
+        var text = reading.Raw.Trim();
+
+        return UntaggedEntryTitle.Match(text) is { Success: true } entry
+            && Read(parentTitle) is { Purpose: SessionPurpose.PlanRun, PlanTag: { } tag }
+            && int.TryParse(entry.Groups["step"].Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var step)
+                ? new(SessionPurpose.Entry, tag, null, step, text, reading.Raw)
+                : reading;
     }
 
     /// <summary>Whether two tags name one plan: case-blind, with one leading <c>+</c>

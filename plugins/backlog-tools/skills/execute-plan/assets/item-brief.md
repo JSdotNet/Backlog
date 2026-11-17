@@ -42,6 +42,8 @@ You run one entry of the Backlog plan `<tag>`: `<n> - <Title>` (id `<id>`) in `<
 2. **Run the entry** by invoking `backlog-tools:run-plan-item` with everything under
    **Entry** below as its argument, the `entry` line included — so the run's recorded prompt
    names the entry by id — and follow it and the repository's flow to the letter, except:
+   - Keep this session's title: skip run-plan-item's step-2 title and the entry's
+     `Title this session` line — the orchestrator already named it `<n> - <Title>`.
    - Never ask — not at a gate, not run-plan-item's outstanding-work questions, not a flow's
      question. Take the reasonable assumption and record it for the pull request body under
      **Assumptions**, or return `blocked <stage>: <the question>`.
