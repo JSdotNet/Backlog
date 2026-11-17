@@ -70,7 +70,7 @@ public class SessionRequestWaitEndpointTests
         Assert.Equal("request", json.RootElement.GetProperty("kind").GetString());
         Assert.Equal("plan", json.RootElement.GetProperty("requestKind").GetString());
         Assert.Equal("session-dispatch", json.RootElement.GetProperty("planTag").GetString());
-        Assert.Equal("/backlog-tools:execute-plan +session-dispatch", json.RootElement.GetProperty("brief").GetString());
+        Assert.Equal("/backlog-tools:execute-plan +session-dispatch branch", json.RootElement.GetProperty("brief").GetString());
     }
 
     [Fact]
