@@ -276,7 +276,7 @@
           "Backlog.Modules.Tasks": "[1.0.0, )",
           "Microsoft.Data.Sqlite": "[10.0.12, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[11.0.0, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )"
+          "Microsoft.Extensions.Logging.Abstractions": "[11.0.0, )"
         }
       },
       "backlog.modules.inbox": {
@@ -285,7 +285,7 @@
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[11.0.0, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )"
+          "Microsoft.Extensions.Logging.Abstractions": "[11.0.0, )"
         }
       },
       "backlog.modules.inbox.abstractions": {
@@ -300,7 +300,7 @@
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[11.0.0, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )"
+          "Microsoft.Extensions.Logging.Abstractions": "[11.0.0, )"
         }
       },
       "backlog.modules.notifications.abstractions": {
@@ -346,7 +346,7 @@
           "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[11.0.0, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )"
+          "Microsoft.Extensions.Logging.Abstractions": "[11.0.0, )"
         }
       },
       "backlog.modules.tasks.abstractions": {
@@ -386,7 +386,7 @@
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[10.0.14, )",
+        "requested": "[11.0.0, )",
         "resolved": "11.0.0",
         "contentHash": "MTMO2V1eT9Dm5VIpJGLNwIjAjoBErUlfuB+DEaZ0tb8J+Nf/Xlj8he5AztK9p1iOJPIyuBeOrVy2u/CSdsfzPw==",
         "dependencies": {
