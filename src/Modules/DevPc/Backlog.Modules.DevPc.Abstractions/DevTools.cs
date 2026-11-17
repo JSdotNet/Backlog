@@ -395,6 +395,11 @@ public sealed record DevToolMcpServer(
     /// unexpanded for the reason <see cref="Url"/>'s are.</para></summary>
     public IReadOnlyList<KeyValuePair<string, string>> Headers { get; init; } = [];
 
+    /// <summary>The command the host runs to fetch the registration's headers, in place of a
+    /// static header — Backlog's own row runs its headers helper for a grant (local ADR 0052 §3)
+    /// — or empty when the entry names none. Unexpanded for the reason <see cref="Url"/> is.</summary>
+    public string HeadersHelper { get; init; } = string.Empty;
+
     /// <inheritdoc cref="DevToolInfo.Download" />
     public string? Download { get; init; }
 
@@ -1539,6 +1544,7 @@ public static class DevToolConfiguration
             Url = url,
             Type = type,
             Headers = ReadHeaders(entry["headers"]),
+            HeadersHelper = GetString(entry, HeadersHelperPropertyName).Trim(),
             Download = GetOptionalString(entry, DownloadPropertyName),
             Hosts = ParseHosts(entry),
             DeclaredMechanism = declared,
@@ -1660,6 +1666,11 @@ public static class DevToolConfiguration
             if (HeadersObjectFor(ReadHeaders(entry["headers"])) is { } headers)
             {
                 http["headers"] = headers;
+            }
+
+            if (GetString(entry, HeadersHelperPropertyName).Trim() is { Length: > 0 } headersHelper)
+            {
+                http[HeadersHelperPropertyName] = headersHelper;
             }
 
             return http;
@@ -1947,6 +1958,10 @@ public static class DevToolConfiguration
     /// <summary>The catalog property an install-by-hand row names its download
     /// page under.</summary>
     public const string DownloadPropertyName = "download";
+
+    /// <summary>The catalog property an HTTP row names the command under that fetches its
+    /// headers, as Claude Code's own <c>headersHelper</c> does.</summary>
+    public const string HeadersHelperPropertyName = "headersHelper";
 
     /// <summary>What the Add tool path says about a download page it will not
     /// write — the same words under the field and from the port.</summary>

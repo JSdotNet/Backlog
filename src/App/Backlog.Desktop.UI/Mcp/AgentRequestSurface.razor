@@ -1,0 +1,184 @@
+@namespace Backlog.Desktop.UI.Mcp
+@using Backlog.Desktop.UI.Shell
+@using Backlog.SharedKernel
+@using Backlog.SharedKernel.Mcp
+@inject IServiceProvider Services
+@implements IDisposable
+
+@*
+    The request window (local ADR 0052 §5): an agent's request for access, as a pop-out of
+    its own (local ADR 0043). The agent opens it - `--request`, or request_access - and
+    cannot answer it: it holds Decline and Allow with Hello only, and Allow asks for
+    Windows Hello, which a script or UI automation cannot pass. Opening it changes
+    nothing.
+
+    The switches start as asked, except agents:grant, which always starts off; turning one
+    off trims what Allow grants. Once answered the window says so and offers Close; a
+    request answered elsewhere - on the MCP server page - reads the same here.
+
+    A host with no desk - the web harness, which keeps no grants - says so.
+*@
+<section class="agent-request-window" id="@($"{SurfaceId}-surface")" data-testid="agent-request-window" aria-labelledby="agent-request-window-title">
+    @if (_desk is null)
+    {
+        <h2 class="agent-request-window__title" id="agent-request-window-title">Agent request</h2>
+        <p class="setting__note" data-testid="agent-request-window-none">This host keeps no agent grants, so no agent can ask for access here.</p>
+    }
+    else if (_request is null)
+    {
+        <h2 class="agent-request-window__title" id="agent-request-window-title">Agent request</h2>
+        <p class="setting__note" data-testid="agent-request-window-missing">There is no such request. It may have been answered and cleared.</p>
+    }
+    else
+    {
+        <h2 class="agent-request-window__title" id="agent-request-window-title">@McpAgentRequests.Heading(_request)</h2>
+        @if (_request.IsOpen)
+        {
+            <p class="agent-request-window__note">The agent asked for this itself, and it cannot answer it.</p>
+            <AgentAccessRequest Name="@_request.Name"
+                                RequestId="@_request.Id"
+                                Meta="@McpAgentRequests.Meta(_request, _clock.GetUtcNow())"
+                                Asked="@McpAgentRequests.Options(_request)"
+                                Selected="@_selected"
+                                Highlighted="@McpAgents.Highlighted"
+                                Busy="@_busy"
+                                Message="@_message"
+                                MessageIsError="@_messageIsError"
+                                EditorId="agent-request-window-scopes"
+                                TestId="agent-request-window-request"
+                                OnChanged="Flip"
+                                OnDecline="DeclineAsync"
+                                OnAllow="AllowAsync" />
+            <p class="agent-request-window__note">The switches start as asked, except agents:grant, which always starts off. Turning one off trims the request.</p>
+        }
+        else
+        {
+            <p class="setting__note" data-testid="agent-request-window-answered">@AnsweredSentence(_request)</p>
+            <div class="setting__actions">
+                <AppButton TestId="agent-request-window-close" OnClick="OnClose">Close</AppButton>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    /// <summary>The request window's surface id.</summary>
+    public const string SurfaceId = "agent-request";
+
+    /// <summary>The query key naming the request the window shows.</summary>
+    public const string RequestKey = "request";
+
+    /// <summary>The <c>backlog://window/agent-request?request=…</c> link that opens the window
+    /// on <paramref name="requestId"/>: what a request's notification opens.</summary>
+    public static string Link(string requestId) =>
+        SurfaceLink.Protocol(SurfaceId, new Dictionary<string, string>(StringComparer.Ordinal) { [RequestKey] = requestId });
+
+    /// <summary>The query the window was shown with: <c>request</c>.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Closes the window.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private McpAccessDesk? _desk;
+    private TimeProvider _clock = TimeProvider.System;
+    private McpAccessRequest? _request;
+    private string? _shownId;
+    private List<string> _selected = [];
+    private bool _busy;
+    private string? _message;
+    private bool _messageIsError;
+    private bool _disposed;
+
+    protected override void OnInitialized()
+    {
+        _desk = Services.GetService<McpAccessDesk>();
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
+        if (_desk is not null) _desk.Changed += OnDeskChanged;
+    }
+
+    protected override void OnParametersSet() => Load();
+
+    private void Load()
+    {
+        if (_desk is null) return;
+
+        var id = Query is not null && Query.TryGetValue(RequestKey, out var value) ? value : null;
+        _request = id is null ? null : _desk.Find(id);
+
+        if (_request is not null && _shownId != _request.Id)
+        {
+            _shownId = _request.Id;
+            _selected = [.. McpAgentRequests.Initial(_request)];
+            _message = null;
+        }
+    }
+
+    private void Flip(Backlog.UI.Components.Settings.AgentScopeChange change)
+    {
+        _selected = change.On
+            ? [.. McpAgents.Ordered([.. _selected, change.Scope])]
+            : [.. _selected.Where(scope => scope != change.Scope)];
+    }
+
+    private async Task AllowAsync()
+    {
+        if (_desk is null || _request is null || _busy) return;
+
+        _busy = true;
+        try
+        {
+            var outcome = await _desk.AllowAsync(_request.Id, _selected);
+            Say(outcome);
+        }
+        finally
+        {
+            _busy = false;
+            Load();
+        }
+    }
+
+    private async Task DeclineAsync()
+    {
+        if (_desk is null || _request is null || _busy) return;
+
+        _busy = true;
+        try
+        {
+            Say(await _desk.DeclineAsync(_request.Id));
+        }
+        finally
+        {
+            _busy = false;
+            Load();
+        }
+    }
+
+    private void Say(McpAccessOutcome outcome)
+    {
+        _message = outcome.Message;
+        _messageIsError = outcome.Refused;
+    }
+
+    private string AnsweredSentence(McpAccessRequest request) => request.State switch
+    {
+        McpAccessRequestState.Allowed => $"Allowed: {request.Name} may use {string.Join(", ", request.Allowed)} from its next token.",
+        _ => _message ?? $"Declined: {request.Name} gets no token, and cannot ask again for a day.",
+    };
+
+    /// <summary>Raised on whichever thread answered, so it marshals.</summary>
+    private void OnDeskChanged() => _ = InvokeAsync(() =>
+    {
+        if (_disposed) return;
+
+        Load();
+        StateHasChanged();
+    });
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_desk is not null) _desk.Changed -= OnDeskChanged;
+    }
+}

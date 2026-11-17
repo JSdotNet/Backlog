@@ -231,6 +231,10 @@ builder.Services.AddScoped<IShellWindows, BrowserTabShellWindows>();
 // What open_window opens and links to: no native window, and this harness's own
 // /window/{surfaceId} page at the address it listens on, with no token.
 builder.Services.AddSingleton<Backlog.Infrastructure.Mcp.ISurfaceWindowHost, HarnessSurfaceWindowHost>();
+// Windows Hello (local ADR 0052 §6): this harness has none to ask, so it answers not
+// available and an Allow is refused here. It keeps no grants and composes no access desk,
+// so request_access says that too.
+builder.Services.AddSingleton<Backlog.Infrastructure.Mcp.IUserConsent, Backlog.Infrastructure.Mcp.UnavailableUserConsent>();
 // This assembly's own pages, under Components/Pages: they exist only to be
 // driven — the shipped app has no route that throws on request.
 builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
@@ -351,6 +355,11 @@ app.UseWhen(
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;
         }
+
+        // No token, so no grant: the harness's caller holds every grantable scope, and the
+        // tools' scope policies (local ADR 0052 §4) still run against it. A principal already
+        // on the request — a test's — is left where it is.
+        if (context.User.Identity?.IsAuthenticated != true) context.User = McpScopePolicies.HarnessCaller;
 
         await next(context);
     }));

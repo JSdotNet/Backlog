@@ -40,6 +40,7 @@ public sealed class McpGrantTokens
     public const string AuthenticationType = "mcp-grant";
 
     private readonly IMcpGrantStore _grants;
+    private readonly IMcpAccessRequestStore? _requests;
     private readonly TimeProvider _clock;
     private readonly SymmetricSecurityKey _key;
     private readonly JsonWebTokenHandler _handler = new();
@@ -48,6 +49,14 @@ public sealed class McpGrantTokens
     public McpGrantTokens(IMcpGrantStore grants, TimeProvider clock)
         : this(grants, clock, RandomNumberGenerator.GetBytes(32))
     {
+    }
+
+    /// <summary>With the access requests (local ADR 0052 §5), so a grant whose registration the
+    /// person has not answered yet mints nothing and validates nothing: it is pending.</summary>
+    public McpGrantTokens(IMcpGrantStore grants, TimeProvider clock, IMcpAccessRequestStore? requests)
+        : this(grants, clock, RandomNumberGenerator.GetBytes(32))
+    {
+        _requests = requests;
     }
 
     /// <summary>With the signing key given rather than drawn, so a test can sign a token this
@@ -88,6 +97,41 @@ public sealed class McpGrantTokens
         if (grant is null) return McpGrantMint.Refused(McpGrantRefusal.UnknownGrant);
         if (grant.Revoked) return McpGrantMint.Refused(McpGrantRefusal.Revoked);
 
+        try
+        {
+            if (IsPending(grant)) return McpGrantMint.Refused(McpGrantRefusal.Pending);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Requests that cannot be read now cannot say the grant is not pending: no token.
+            return McpGrantMint.Refused(McpGrantRefusal.StoreUnavailable);
+        }
+
+        // Only scopes a grant may hold: devbook:decide, or a name no policy knows, is never
+        // written into a token, whatever the stored grant says (ADR 0052 §4).
+        IEnumerable<string> scopes = grant.Scopes.Where(McpScopes.IsGrantable);
+
+        if (grant.IsDelegated)
+        {
+            McpGrantRefusal? refused;
+            IReadOnlyList<string> granterScopes;
+
+            try
+            {
+                refused = DelegationRefusal(grant, out granterScopes);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return McpGrantMint.Refused(McpGrantRefusal.StoreUnavailable);
+            }
+
+            if (refused is { } refusal) return McpGrantMint.Refused(refusal);
+
+            // Cut to what its granter holds now (local ADR 0052 §5), so trimming the granter trims
+            // what it granted at the next token; and never a scope no granter may hand on.
+            scopes = scopes.Where(scope => McpScopes.IsDelegable(scope) && granterScopes.Contains(scope, StringComparer.Ordinal));
+        }
+
         // Whole seconds, because that is all a JWT's times hold: the expiry this reports is
         // then exactly the one the token carries.
         var issuedAt = DateTimeOffset.FromUnixTimeSeconds(_clock.GetUtcNow().ToUnixTimeSeconds());
@@ -103,7 +147,7 @@ public sealed class McpGrantTokens
             Claims = new Dictionary<string, object>(StringComparer.Ordinal)
             {
                 [JwtRegisteredClaimNames.Sub] = grant.Id,
-                [McpGrantClaims.Scope] = string.Join(' ', grant.Scopes),
+                [McpGrantClaims.Scope] = string.Join(' ', scopes.Distinct(StringComparer.Ordinal)),
                 [McpGrantClaims.Version] = grant.Version
             },
             SigningCredentials = new SigningCredentials(_key, SecurityAlgorithms.HmacSha256)
@@ -138,10 +182,14 @@ public sealed class McpGrantTokens
         if (now >= jwt.ValidTo) return McpGrantValidation.Refused(McpGrantRefusal.Expired);
 
         McpGrant? grant;
+        bool pending;
+        McpGrantRefusal? delegation = null;
 
         try
         {
             grant = string.IsNullOrWhiteSpace(jwt.Subject) ? null : _grants.Find(jwt.Subject);
+            pending = grant is not null && IsPending(grant);
+            if (grant is { Revoked: false, IsDelegated: true } && !pending) delegation = DelegationRefusal(grant, out _);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -152,14 +200,51 @@ public sealed class McpGrantTokens
 
         if (grant is null) return McpGrantValidation.Refused(McpGrantRefusal.UnknownGrant);
         if (grant.Revoked) return McpGrantValidation.Refused(McpGrantRefusal.Revoked);
+        if (pending) return McpGrantValidation.Refused(McpGrantRefusal.Pending);
+        if (delegation is { } refusedDelegation) return McpGrantValidation.Refused(refusedDelegation);
 
         if (!jwt.TryGetPayloadValue<int>(McpGrantClaims.Version, out var version) || version < grant.Version)
         {
             return McpGrantValidation.Refused(McpGrantRefusal.StaleVersion);
         }
 
+        // The grant as the audit log names it, so every call it makes says which grant made it.
+        result.ClaimsIdentity.AddClaim(new Claim(McpScopePolicies.CallerClaim, McpScopePolicies.GrantCaller(grant)));
+
         return McpGrantValidation.Valid(grant, new ClaimsPrincipal(result.ClaimsIdentity));
     }
+
+    /// <summary>
+    /// Why a delegated grant mints nothing now (local ADR 0052 §5), or null with its granter's
+    /// scopes: past its expiry; or its granter is gone, revoked, pending, no longer holds
+    /// <c>agents:grant</c>, or is delegated itself —
+    /// delegation is one level deep, so a grant whose granter was granted by an agent fails closed.
+    /// </summary>
+    private McpGrantRefusal? DelegationRefusal(McpGrant grant, out IReadOnlyList<string> granterScopes)
+    {
+        granterScopes = [];
+
+        if (grant.IsExpired(_clock.GetUtcNow())) return McpGrantRefusal.GrantExpired;
+
+        var granter = _grants.Find(grant.GrantedBy!);
+        if (granter is null
+            || granter.Revoked
+            || granter.IsDelegated
+            || !granter.Scopes.Contains(McpScopes.AgentsGrant, StringComparer.Ordinal)
+            || IsPending(granter))
+        {
+            return McpGrantRefusal.GranterRevoked;
+        }
+
+        granterScopes = granter.Scopes;
+        return null;
+    }
+
+    /// <summary>Whether <paramref name="grant"/> is a registration the person has not allowed
+    /// (local ADR 0052 §5). An open request for more scopes leaves its grant working. Without
+    /// the requests — a host that composes none — only a self-registered grant is pending.</summary>
+    private bool IsPending(McpGrant grant) =>
+        McpAccessRules.IsPending(_requests?.List() ?? [], grant);
 }
 
 /// <summary>Why a grant token was not minted or not accepted.</summary>
@@ -181,7 +266,19 @@ public enum McpGrantRefusal
     StaleVersion,
 
     /// <summary>The grant store could not be read, so the grant could not be checked.</summary>
-    StoreUnavailable
+    StoreUnavailable,
+
+    /// <summary>For a grant an agent registered and the person has not allowed yet (local ADR
+    /// 0052 §5): it gets no token until they do.</summary>
+    Pending,
+
+    /// <summary>For a delegated grant past its expiry, which its granter did not renew (local ADR
+    /// 0052 §5).</summary>
+    GrantExpired,
+
+    /// <summary>For a delegated grant whose granter is gone, revoked, pending, no longer holds
+    /// <c>agents:grant</c>, or is itself delegated (local ADR 0052 §5).</summary>
+    GranterRevoked
 }
 
 /// <summary>A minted token and when it expires.</summary>

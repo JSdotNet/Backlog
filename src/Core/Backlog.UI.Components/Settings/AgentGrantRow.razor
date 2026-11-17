@@ -1,0 +1,176 @@
+@*
+    One agent that can reach Backlog, as a row of the MCP server page's Agents card
+    (local ADR 0052 §3): its name, one line saying what it is - its role, where it was
+    added, when it was last used - and its scopes as chips, so the row says what the
+    agent may do without opening it.
+
+    Edit scopes opens the agent's switches in place, under the row, the way a
+    repository's editor opens (.devbook/design/settings-pages.md#lists-that-expand-in-place):
+    the button reads Done while they are open and names them through aria-controls.
+    The host draws the switches as the child content, so the row knows nothing about
+    which scopes exist.
+
+    Revoke is confirmed in place, never in a dialog: the row's actions give way to the
+    sentence saying what happens and the two answers, Revoke and Keep. The sentence is
+    an alert, so a screen reader hears the question the moment it replaces the
+    button that asked it. The host is called only on the second Revoke.
+*@
+
+<li class="@ClassValue" data-testid="@TestId" data-grant="@GrantId">
+    <div class="agent-row__who">
+        <span class="agent-row__name" data-testid="agent-row-name">@Name</span>
+        @if (!string.IsNullOrWhiteSpace(Meta))
+        {
+            <span class="agent-row__meta" data-testid="agent-row-meta">@Meta</span>
+        }
+        <ul class="agent-row__scopes" aria-label="@($"Scopes of {Name}")" data-testid="agent-row-scopes">
+            @if (Scopes.Count == 0)
+            {
+                <li><Badge Kind="tone" Slug="quiet">no scopes</Badge></li>
+            }
+            @foreach (var scope in Scopes)
+            {
+                <li @key="scope">
+                    <Badge Kind="tone"
+                           Slug="@(Highlighted.Contains(scope, StringComparer.Ordinal) ? "alert" : "quiet")"
+                           TestId="agent-row-scope">@scope</Badge>
+                </li>
+            }
+        </ul>
+    </div>
+
+    <div class="agent-row__actions">
+        @if (_confirming)
+        {
+            <Alert BaseClass="agent-row__confirm"
+                   TestId="agent-row-revoke-question"
+                   Message="@RevokeQuestion(Name)" />
+            <DeleteButton Label="Revoke"
+                          ShowIcon="false"
+                          AriaLabel="@($"Revoke {Name} now")"
+                          Busy="@_revoking"
+                          TestId="agent-row-revoke-confirm"
+                          OnClick="ConfirmAsync" />
+            <AppButton TestId="agent-row-revoke-keep" Disabled="@_revoking" OnClick="Keep">
+                Keep
+            </AppButton>
+        }
+        else
+        {
+            @if (CanEditScopes)
+            {
+                <AppButton TestId="agent-row-edit"
+                           aria-expanded="@(Expanded ? "true" : "false")"
+                           aria-controls="@(Expanded ? EditorId : null)"
+                           OnClick="OnEditScopes">
+                    @(Expanded ? "Done" : "Edit scopes")
+                </AppButton>
+            }
+            <DeleteButton Label="Revoke"
+                          ShowIcon="false"
+                          AriaLabel="@($"Revoke {Name}")"
+                          TestId="agent-row-revoke"
+                          OnClick="Ask" />
+        }
+    </div>
+
+    @if (Expanded && ChildContent is not null)
+    {
+        <div class="agent-row__editor" id="@EditorId" data-testid="agent-row-editor">
+            @ChildContent
+        </div>
+    }
+</li>
+
+@code {
+    /// <summary>The sentence Revoke asks before it acts.</summary>
+    public static string RevokeQuestion(string name) => $"Revoke {name}? Its sessions lose access now.";
+
+    /// <summary>What the person calls the agent.</summary>
+    [Parameter, EditorRequired]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>The grant's id, written on the row so a test or a link can find it. Never
+    /// drawn: the registration line is where a person reads it.</summary>
+    [Parameter]
+    public string? GrantId { get; set; }
+
+    /// <summary>One line saying what the agent is: role, source, when it was last used.
+    /// The host writes it, because the library holds no clock.</summary>
+    [Parameter]
+    public string? Meta { get; set; }
+
+    /// <summary>The scopes the agent holds, in the order to draw them.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Scopes { get; set; } = [];
+
+    /// <summary>The scopes drawn in the alert tone, for one the person should notice it
+    /// holds - <c>agents:grant</c>.</summary>
+    [Parameter]
+    public IReadOnlyCollection<string> Highlighted { get; set; } = [];
+
+    /// <summary>Whether the row offers Edit scopes.</summary>
+    [Parameter]
+    public bool CanEditScopes { get; set; } = true;
+
+    /// <summary>Whether the switches are open under the row.</summary>
+    [Parameter]
+    public bool Expanded { get; set; }
+
+    /// <summary>The open editor's id, which Edit scopes names through aria-controls.</summary>
+    [Parameter]
+    public string EditorId { get; set; } = "agent-row-editor-" + Guid.NewGuid().ToString("N")[..8];
+
+    /// <summary>Raised by Edit scopes, and by Done while open: the host opens or closes it.</summary>
+    [Parameter]
+    public EventCallback OnEditScopes { get; set; }
+
+    /// <summary>Raised by the second Revoke, the one that confirms.</summary>
+    [Parameter]
+    public EventCallback OnRevoke { get; set; }
+
+    /// <summary>The editor drawn under the row while <see cref="Expanded"/>.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private bool _confirming;
+
+    private bool _revoking;
+
+    private string ClassValue
+    {
+        get
+        {
+            var state = Expanded ? " agent-row--open" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+
+            return $"agent-row{state}{extra}";
+        }
+    }
+
+    private void Ask() => _confirming = true;
+
+    private void Keep() => _confirming = false;
+
+    private async Task ConfirmAsync()
+    {
+        if (_revoking) return;
+
+        _revoking = true;
+        try
+        {
+            await OnRevoke.InvokeAsync();
+        }
+        finally
+        {
+            _revoking = false;
+            _confirming = false;
+        }
+    }
+}

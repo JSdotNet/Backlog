@@ -1,7 +1,7 @@
 # ADR 0024: Claude Code's telemetry arrives as OTLP/HTTP logs on the in-app MCP listener
 
 ```meta
-date: 2026-11-11
+date: 2026-11-12
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/guidelines/0010-opentelemetry-observability.md", ".devbook/domain/sessions/domain.md#claude-api-request-log", ".devbook/domain/sessions/features.md#cost-as-claude-code-reports-it"]
 c4: [backlog.desktop.sessions]
 c4-touches: [backlog.taskStore]
@@ -118,8 +118,12 @@ replicates it.
 A **Claude Code** page in Settings, offered behind the Sessions switch, shows the
 endpoint URL and a `settings.json` `env` block that sends the logs there. The block
 uses the logs signal's own variables — `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`,
-`OTEL_EXPORTER_OTLP_LOGS_PROTOCOL`, `OTEL_EXPORTER_OTLP_LOGS_HEADERS` — so the bearer
-token goes to this endpoint and to no other exporter a person has configured.
+`OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` — so the logs go to this endpoint and to no other
+exporter a person has configured. The block holds no token. Its `otelHeadersHelper`
+runs the app's headers helper for the **Telemetry** grant (ADR 0052 §3), which asks the
+token broker for a 15-minute token. The block sets
+`CLAUDE_CODE_OTEL_HEADERS_HELPER_DEBOUNCE_MS` to ten minutes, because Claude Code's
+default of 29 minutes outlives the token.
 
 ## Consequences
 
@@ -129,11 +133,12 @@ token goes to this endpoint and to no other exporter a person has configured.
 - A Claude Code session started with the block in its settings reports every model
   request to the app while the app runs. Requests made while the app is closed are lost:
   the exporter does not keep what it could not send.
-- The token in the block is a telemetry token of its own, kept beside the MCP server's
-  token. `/v1/logs` takes that token alone and refuses the MCP server's, and the
-  telemetry token reaches no other route, so a leaked block cannot call a tool (ADR 0052,
-  phase 0). A block pasted before the split carries the MCP token and is refused with a
-  `401`: pasting the block again is the repair, as it is for a new port.
+- `/v1/logs` requires `telemetry:write`, which the Telemetry grant alone holds, and that
+  grant reaches no other route, so a leaked block cannot call a tool. The block is no
+  secret, so a copy on another machine grants nothing there. The app creates the grant on
+  its first start after the upgrade and rewrites a block that still carries the retired
+  telemetry token to the helper. A block it cannot rewrite is refused with a `401`:
+  pasting the block again is the repair, as it is for a new port.
 - `backlog.db` gains a table that grows with use, roughly one row per model request.
   Because ADR 0010 backs up the database whole, the rows travel into the backup
   repository with the tasks.
@@ -165,5 +170,6 @@ token goes to this endpoint and to no other exporter a person has configured.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-12 | The telemetry token is retired: the block's `otelHeadersHelper` fetches a 15-minute token for the Telemetry grant, and the app rewrites a block that carries the old token. | Plan `zero-trust-auth`, ADR 0052 Phase 1: no long-lived MCP secret sits in a file. |
 | 2026-11-11 | `/v1/logs` takes a telemetry token of its own and refuses the MCP server's token. | ADR 0052 phase 0: the exporter's header must not be a credential that calls tools. |
 | 2026-10-08 | Proposed: Claude Code's OTLP/HTTP logs arrive at `/v1/logs` on the MCP listener, behind the MCP server's token. | A run's cost is Claude Code's figure, and the listener already had the guard. |

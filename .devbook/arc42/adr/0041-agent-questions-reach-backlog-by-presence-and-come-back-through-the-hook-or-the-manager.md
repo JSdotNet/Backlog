@@ -1,7 +1,7 @@
 # ADR 0041: Agent questions reach Backlog by presence and come back through the hook or the Manager
 
 ```meta
-date: 2026-11-11
+date: 2026-11-12
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/domain/sessions/domain.md#question-relay", ".devbook/domain/sessions/domain.md#waiting-question", ".devbook/domain/sessions/domain.md#presence", ".devbook/domain/sessions/domain.md#session-state", ".devbook/domain/sessions/domain.invariants.md#question-relay", ".devbook/domain/sessions/requirements.md#answer-a-sessions-question-from-elsewhere", ".devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere", ".devbook/domain/notifications/context.md"]
 ```
 
@@ -170,10 +170,11 @@ person with no user-scope `backlog` registration gets no hooks; `ask` stays
 idempotent per session and tool use, so hooks a person adds at a second scope do no
 harm.
 
-The hook presents a question-hook token of its own, which the app keeps beside the MCP
-server's token and the hook reads from the app's `settings.json`. The listener accepts it
-on the question tools alone — `notify`, `ask`, `get_answer` and `close` — so a hook that
-leaks it cannot call a write tool (ADR 0052, phase 0).
+The hook holds the **Question hook** grant (ADR 0052 §3), whose id the app records in
+its `settings.json`. On each call the hook asks the app's token broker for a 15-minute
+token for that grant. The grant holds `notify:ask` alone, which reaches `notify`, `ask`,
+`get_answer` and `close`, so a leaked token cannot call a write tool. The hook command
+lines in Claude Code's settings stay as they were.
 
 ### 5. The relay sits behind the `notifications` flag
 
@@ -272,5 +273,6 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-12 | The question-hook token is retired: the hook asks the token broker for a token for the Question hook grant, which holds `notify:ask` alone. | Plan `zero-trust-auth`, ADR 0052 Phase 1: no long-lived MCP secret sits in a file. |
 | 2026-11-11 | The hook presents a question-hook token that reaches only `notify`, `ask`, `get_answer` and `close`, never the MCP server's token. | ADR 0052 phase 0: whoever holds the hook's credential must not be able to call write tools. |
 | 2026-10-27 | Proposed: a session's question is registered through MCP `ask`, routed by presence, and answered through the hook or a Manager delivery. Amends ADR 0039's MCP tools and ADR 0038's wait route and capacity rule. | A session that asks while the person is away stops until they come back, and Notifications and the Manager already carry the rest. |

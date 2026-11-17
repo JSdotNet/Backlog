@@ -113,7 +113,16 @@ public class BacklogMcpToolsTests
                 "archive_inbox_item",
 
                 // The surface windows (local ADR 0043 §7).
-                "open_window"
+                "open_window",
+
+                // An agent asking the person for more (local ADR 0052 §5).
+                "request_access",
+
+                // A granter agent granting other agents (local ADR 0052 §5).
+                "list_agent_requests",
+                "grant_agent",
+                "edit_agent_scopes",
+                "revoke_agent"
             ],
             BacklogMcpTools.ToolNames);
     }
@@ -187,8 +196,9 @@ public class BacklogMcpToolsTests
     [Fact]
     public void Groups_share_a_key_only_where_they_are_one_area()
     {
-        // The one ungated group has no key to share: open_window is behind no flag.
-        Assert.Equal([BacklogMcpTools.Windows], BacklogMcpTools.Groups.Where(group => group.FeatureKey is null));
+        // The ungated groups have no key to share: open_window, request_access and the granting
+        // tools are behind no flag.
+        Assert.Equal([BacklogMcpTools.Windows, AccessTools.Group, GrantTools.Group], BacklogMcpTools.Groups.Where(group => group.FeatureKey is null));
 
         var byKey = BacklogMcpTools.Groups
             .Where(group => group.FeatureKey is not null)
@@ -337,10 +347,14 @@ public class BacklogMcpToolsTests
             NotificationTools.Ask,
             NotificationTools.GetAnswer,
             NotificationTools.Close,
-            WindowTools.OpenWindow
+            WindowTools.OpenWindow,
+            AccessTools.RequestAccess,
+            GrantTools.GrantAgent,
+            GrantTools.EditAgentScopes,
+            GrantTools.RevokeAgent
         ];
 
-        string[] destructive = [GoalTools.DeleteGoal];
+        string[] destructive = [GoalTools.DeleteGoal, GrantTools.RevokeAgent];
 
         // The writes a client may safely repeat, and which ones is not guessable
         // from the verb. On the surface: showing a pane that is already showing

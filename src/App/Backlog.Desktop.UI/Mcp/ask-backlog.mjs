@@ -21,11 +21,15 @@
 //   end     SessionEnd                    close every open question of the session session-ended,
 //                                         then sweep state files other sessions left behind.
 //
-// The MCP tools are called as JSON-RPC tools/call over HTTP on the app's /mcp, with the question
-// hook's own bearer token, which reaches the question tools and nothing else — never the MCP
-// server's token. Port and token come from BACKLOG_MCP_PORT / BACKLOG_HOOK_TOKEN, else from the
-// app's settings.json (mcpServer.port, mcpServer.hookToken) — the one beside this script's own folder first, then %LOCALAPPDATA%\Backlog's —
-// the way telemetry-forwarder.mjs finds them.
+// The MCP tools are called as JSON-RPC tools/call over HTTP on the app's /mcp, with a token for
+// the "Question hook" grant (local ADR 0052, Phase 1), which holds notify:ask and nothing else.
+// The grant's id is mcpServer.grants.questionHook in the app's settings.json — the one beside
+// this script's own folder first, then %LOCALAPPDATA%\Backlog's — and the token comes from the
+// app's token broker, the named pipe of that folder's installation and this Windows user, the
+// way tools/mcp/backlog-mcp-headers.mjs --grant asks it; a token is asked for per call, since one
+// lives 15 minutes and a question can be held for hours. With no grant recorded, BACKLOG_MCP_TOKEN,
+// the dev or CI escape hatch, is sent instead; BACKLOG_MCP_BROKER_PIPE names another pipe. The
+// port is BACKLOG_MCP_PORT, else mcpServer.port.
 //
 // There is no tool that lists a session's questions, so the ids this script was given are kept
 // in a small file per session under state\ beside it; prompt, post and end close from that. A
@@ -37,6 +41,7 @@
 
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import http from "node:http";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -89,22 +94,71 @@ function installedSettingsPath() {
     return path.join(localData, "Backlog", "settings.json");
 }
 
+// The URL, and the grant id and pipe a token is asked for under — or the escape hatch's token.
 async function endpoint() {
     let port = Number(process.env.BACKLOG_MCP_PORT) || null;
-    let token = process.env.BACKLOG_HOOK_TOKEN || null;
+    let grant = null;
+    let installation = null;
     // The app writes this script to <app data>\hooks, so its own settings.json is one folder up:
     // that is what makes a debug head's Backlog.Debug hook talk to the debug head.
     for (const settings of [path.join(here, "..", "settings.json"), installedSettingsPath()]) {
-        if (port && token) break;
+        if (port && grant) break;
         try {
             const mcp = JSON.parse(await readFile(settings, "utf8")).mcpServer || {};
             port ||= Number(mcp.port) || null;
-            token ||= mcp.hookToken || null;
+            if (!grant && mcp.grants?.questionHook) {
+                grant = mcp.grants.questionHook;
+                installation = path.basename(path.dirname(settings));
+            }
         } catch {
             // No settings there: try the next, or the defaults.
         }
     }
-    return { url: `http://127.0.0.1:${port || DEFAULT_PORT}/mcp`, token };
+    return {
+        url: `http://127.0.0.1:${port || DEFAULT_PORT}/mcp`,
+        token: process.env.BACKLOG_MCP_TOKEN || null,
+        grant,
+        pipe: process.env.BACKLOG_MCP_BROKER_PIPE || (installation ? pipeName(installation) : null),
+    };
+}
+
+// McpTokenBroker.PipeNameFor's name: the app-data folder lower-cased with its dot as a dash, then
+// -mcp-broker-, then the Windows user name lower-cased with anything outside [a-z0-9._-] as "_".
+function pipeName(installation) {
+    const user = os.userInfo().username.toLowerCase().replace(/[^a-z0-9._-]/g, "_");
+    return `${installation.toLowerCase().replace(/\./g, "-")}-mcp-broker-${user}`;
+}
+
+// A token for `grant` from the broker on `pipe`, or null: no pipe, a refusal, or no answer in time.
+function brokerToken(grant, pipe) {
+    return new Promise((resolve) => {
+        const socket = net.connect(`\\\\.\\pipe\\${pipe}`);
+        let received = "";
+        let settled = false;
+        const finish = (token) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            socket.destroy();
+            resolve(token);
+        };
+        const timer = setTimeout(() => finish(null), CALL_TIMEOUT_MS);
+        socket.setEncoding("utf8");
+        socket.on("connect", () => socket.write(JSON.stringify({ grant }) + "\n"));
+        socket.on("data", (chunk) => {
+            received += chunk;
+            const newline = received.indexOf("\n");
+            if (newline < 0) return;
+            try {
+                const reply = JSON.parse(received.slice(0, newline));
+                finish(typeof reply?.token === "string" && reply.token ? reply.token : null);
+            } catch {
+                finish(null);
+            }
+        });
+        socket.on("error", () => finish(null));
+        socket.on("close", () => finish(null));
+    });
 }
 
 // What callTool answers when Backlog did answer, and said no: a tool error, a JSON-RPC error, a
@@ -115,12 +169,16 @@ const REFUSED = Object.freeze({ refused: true });
 // answer - closed, restarting, timed out - or answered something that does not parse.
 async function callTool(name, args, timeoutMs = CALL_TIMEOUT_MS) {
     try {
-        const { url, token } = await endpoint();
+        const { url, token: fixed, grant, pipe } = await endpoint();
         const headers = {
             "content-type": "application/json",
             accept: "application/json, text/event-stream",
         };
-        if (token) headers.authorization = `Bearer ${token}`;
+        // No token is Backlog not answering, not a refusal: the app may be starting, and the
+        // broker comes up beside the listener.
+        const token = grant && pipe ? await brokerToken(grant, pipe) : fixed;
+        if (!token) return null;
+        headers.authorization = `Bearer ${token}`;
 
         const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } });
         const reply = await httpPost(url, headers, body, timeoutMs);

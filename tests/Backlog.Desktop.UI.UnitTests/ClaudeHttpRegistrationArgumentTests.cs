@@ -41,6 +41,34 @@ public class ClaudeHttpRegistrationArgumentTests
             spec.Args);
     }
 
+    /// <summary>
+    /// <c>claude mcp add</c> has no flag for a <c>headersHelper</c>, so a registration that runs
+    /// one — Backlog's own, for its delivery grant (local ADR 0052 §3) — is
+    /// <c>claude mcp add-json</c> at user scope with the server as a single JSON argument that
+    /// carries the helper and any static headers beside it.
+    /// </summary>
+    [Fact]
+    public void A_registration_with_a_headers_helper_is_added_as_json_at_user_scope()
+    {
+        const string helper = "node \"C:/Users/me/AppData/Local/Backlog/hooks/backlog-mcp-headers.mjs\" --grant g_9xq1";
+
+        var spec = DevToolCommands.ClaudeMcpAddJsonHttp(
+            "claude",
+            "backlog",
+            "http://127.0.0.1:5757/mcp",
+            [new("X-Client", "desktop")],
+            helper);
+
+        Assert.Equal("claude", spec.Command);
+        Assert.Equal(["mcp", "add-json", "--scope", "user", "backlog"], spec.Args.Take(5));
+
+        var server = System.Text.Json.Nodes.JsonNode.Parse(Assert.Single(spec.Args.Skip(5)))!;
+        Assert.Equal("http", server["type"]!.GetValue<string>());
+        Assert.Equal("http://127.0.0.1:5757/mcp", server["url"]!.GetValue<string>());
+        Assert.Equal(helper, server["headersHelper"]!.GetValue<string>());
+        Assert.Equal("desktop", server["headers"]!["X-Client"]!.GetValue<string>());
+    }
+
     /// <inheritdoc cref="ClaudeHttpRegistrationArgumentTests" />
     [Fact]
     public void An_http_registration_carries_no_argument_separator()

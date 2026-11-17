@@ -44,8 +44,10 @@ public static class McpCallAudit
     /// surface, and it is never the call's target.</summary>
     private static readonly HashSet<string> CallerIds = new(StringComparer.Ordinal) { "sessionId" };
 
-    /// <summary>Wraps <paramref name="next"/> so its outcome is recorded against
-    /// <paramref name="caller"/>. A host whose container has no
+    /// <summary>Wraps <paramref name="next"/> so its outcome is recorded against the
+    /// caller the request's principal names (<see cref="McpScopePolicies.CallerOf"/>) — a
+    /// grant by its name and id, a static token by its own name — or
+    /// <paramref name="caller"/> when it names none. A host whose container has no
     /// <see cref="IMcpAuditLog"/> passes the call on unrecorded.</summary>
     public static McpRequestHandler<CallToolRequestParams, CallToolResult> Filter(
         McpRequestHandler<CallToolRequestParams, CallToolResult> next,
@@ -80,7 +82,7 @@ public static class McpCallAudit
             {
                 await WriteAsync(
                     log,
-                    new McpAuditRecord(DateTimeOffset.UtcNow, caller, tool, target, outcome, correlation),
+                    new McpAuditRecord(DateTimeOffset.UtcNow, McpScopePolicies.CallerOf(request.User) ?? caller, tool, target, outcome, correlation),
                     request.Services).ConfigureAwait(false);
             }
         };

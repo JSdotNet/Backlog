@@ -139,21 +139,23 @@ and still maps a failure to `CredentialStoreFailed`. The Android store awaits th
 platform write instead of blocking on it. The DPAPI and in-memory stores have
 nothing to wait for and complete at once.
 
-### 6. The MCP token stays the one exception
+### 6. The MCP token was the one exception
 
 ```meta
 ```
 
-ADR 0012 keeps the MCP server's bearer token in plaintext in `settings.json`. That
-token only opens a loopback listener for the same user. Sealing it against that
+ADR 0012 kept the MCP server's bearer token in plaintext in `settings.json`. That
+token only opened a loopback listener for the same user. Sealing it against that
 same user would defend against nothing. Any new stored credential follows this
 record unless its own ADR states an exception the same way.
 
-**Amended 2026-11-11 by ADR 0052 §3, not yet built: the exception is retired.** The
-shared token leaves `settings.json`. Each agent registration holds a grant, whose
-secret the app seals like every other credential, and the token broker mints its
-15-minute tokens in memory. No MCP credential is stored in plaintext.
-`BACKLOG_MCP_TOKEN` stays only as a development and CI escape hatch, off by default.
+**Amended 2026-11-11 by ADR 0052 §3, and built 2026-11-12: the exception is closed.**
+The shared token has left `settings.json`, which now holds only grant ids. Each agent
+registration holds a grant, whose secret the app seals like every other credential,
+and the token broker mints its 15-minute tokens in memory. No MCP credential is
+stored in plaintext. `BACKLOG_MCP_TOKEN` stays only as a development and CI escape
+hatch, read from the app's environment and accepted only under a hand-edited debug
+setting.
 
 ## Consequences
 

@@ -24,6 +24,11 @@ internal sealed class FailableMcpGrantStore(IMcpGrantStore inner) : IMcpGrantSto
 
     public McpGrant Create(string name, IReadOnlyList<string> scopes, string createdBy) => Answer(() => inner.Create(name, scopes, createdBy));
 
+    public McpGrant? SetScopes(string id, IReadOnlyList<string> scopes) => Answer(() => inner.SetScopes(id, scopes));
+
+    public McpGrant? Delegate(string id, IReadOnlyList<string> scopes, string grantedBy, DateTimeOffset expiresAt) =>
+        Answer(() => inner.Delegate(id, scopes, grantedBy, expiresAt));
+
     public McpGrant? Revoke(string id) => Answer(() => inner.Revoke(id));
 
     private T Answer<T>(Func<T> call) => Failure is { } failure ? throw failure : call();

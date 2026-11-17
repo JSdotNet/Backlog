@@ -8,8 +8,8 @@ namespace Backlog.Desktop.Mcp;
 
 /// <summary>
 /// Where this head receives Claude Code's telemetry: the MCP listener's configured port
-/// on loopback, at <c>/v1/logs</c>, behind the telemetry token of its own — never the MCP
-/// server's, which that endpoint no longer takes (local ADR 0024).
+/// on loopback, at <c>/v1/logs</c>, behind a token for the "Telemetry" grant (local ADR 0024,
+/// local ADR 0052, Phase 1), which the exporter fetches by running the installed headers helper.
 /// <para>
 /// Read off <see cref="IMcpEndpointSource"/> rather than the worker, for the reason that
 /// port exists: the configured port is what a registration is written from, and it is
@@ -25,5 +25,11 @@ public sealed class DesktopClaudeCodeTelemetryEndpoint(IMcpEndpointSource mcp, W
     public Uri LogsEndpoint => ClaudeCodeLogsEndpoint.LogsEndpoint(BacklogMcpServerRegistration.EndpointUri(_mcp.Port));
 
     /// <inheritdoc />
-    public string EnsureToken() => _settings.EnsureTelemetryToken();
+    /// <remarks>Null until the first start after the upgrade has made the Telemetry grant.</remarks>
+    public string? HeadersHelper => _settings.McpServerGrants is { } grants
+        ? McpHeadersHelperScript.Command(
+            McpHeadersHelperScript.PathUnder(WorkspaceSettingsStore.DefaultAppDataDirectory),
+            grants.Telemetry,
+            McpHeadersHelperScript.IsDebugBuild)
+        : null;
 }

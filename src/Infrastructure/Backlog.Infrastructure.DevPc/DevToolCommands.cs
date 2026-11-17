@@ -193,6 +193,42 @@ public static class DevToolCommands
         return new(cli, ["mcp", "add", "--transport", HttpTransportName, "--scope", UserScopeName, name, url, .. flags]);
     }
 
+    /// <summary>
+    /// The registration of an HTTP server whose headers a command fetches — Backlog's own, whose
+    /// headers helper asks the app's token broker for a grant's token (local ADR 0052 §3).
+    /// <c>claude mcp add</c> has no flag for a <c>headersHelper</c>, so this is
+    /// <c>claude mcp add-json</c> with the server written out whole, as one argv element: the
+    /// launcher passes it through <c>ArgumentList</c>, which quotes it intact.
+    /// </summary>
+    public static DevToolCommandSpec ClaudeMcpAddJsonHttp(
+        string cli,
+        string name,
+        string url,
+        IReadOnlyList<KeyValuePair<string, string>> headers,
+        string headersHelper)
+    {
+        var server = new System.Text.Json.Nodes.JsonObject
+        {
+            ["type"] = HttpTransportName,
+            ["url"] = url,
+        };
+
+        if (headers.Count > 0)
+        {
+            var declared = new System.Text.Json.Nodes.JsonObject();
+            foreach (var (header, value) in headers)
+            {
+                declared[header] = value;
+            }
+
+            server["headers"] = declared;
+        }
+
+        server["headersHelper"] = headersHelper;
+
+        return new(cli, ["mcp", "add-json", "--scope", UserScopeName, name, server.ToJsonString()]);
+    }
+
     /// <summary>The transport <c>claude mcp add</c> is told to use, which is the
     /// same word the catalog's <c>type</c> uses for it.</summary>
     private const string HttpTransportName = "http";

@@ -5,7 +5,7 @@
 
     The address comes from the host. The desktop head composes
     IClaudeCodeTelemetryEndpoint over its MCP listener - loopback, the configured
-    port, and the bearer token the listener checks. A host that composes none, the
+    port, and the headers helper that fetches a token for the Telemetry grant. A host that composes none, the
     browser harness, serves the endpoint on its own origin with no token, so the page
     reads the address off the page's own base URI there.
 *@
@@ -42,9 +42,9 @@
         Keep <code>OTEL_LOG_TOOL_DETAILS</code> in it: without that key Claude Code hides which
         sub-agent made each request, and a stage's cost can then only be estimated.
     </p>
-    @* The block on screen hides the token and the copy carries it: the token is a
-       secret, and a page that drew it would put it in every screenshot of Settings. *@
-    <CodeView Source="@ShownSnippet"
+    @* No secret in the block: it names the headers helper and the Telemetry grant's id, a
+       label rather than a password (local ADR 0052, Phase 1), so it is drawn as copied. *@
+    <CodeView Source="@Snippet"
               Language="json"
               Title="settings.json"
               AllowCopy="false"
@@ -58,15 +58,15 @@
     </div>
 
     <p class="setting__note" data-testid="claude-code-telemetry-note">
-        @if (_token is not null)
+        @if (_headersHelper is not null)
         {
             <span>
-                The endpoint answers on this machine only, on the MCP server's port, and asks for a
-                telemetry token of its own - not the one the MCP registrations carry, which it no
-                longer takes, and one that calls no tool. The copied block holds the token itself,
-                where the one above shows it hidden. A block pasted before the telemetry token
-                existed carries the MCP token and is refused: paste this one in its place. Moving
-                the MCP server to another port means pasting the block again.
+                The endpoint answers on this machine only, on the MCP server's port, and takes a
+                token for the Telemetry grant alone - one that calls no tool. Claude Code runs the
+                headers helper to fetch it from this app, every ten minutes, so nothing in the block
+                is a secret. A block that still carries an Authorization header holds a retired
+                token and is refused: paste this one in its place. Moving the MCP server to another
+                port means pasting the block again.
             </span>
         }
         else
@@ -85,23 +85,19 @@
     public const string CardTitle = "Cost from Claude Code";
 
     private IClaudeCodeTelemetryEndpoint? _endpoint;
-    private string? _token;
+    private string? _headersHelper;
 
     private Uri Endpoint => _endpoint?.LogsEndpoint
         ?? new Uri(new Uri(Navigation.BaseUri), ClaudeCodeTelemetrySnippet.LogsPath);
 
-    private string Snippet => ClaudeCodeTelemetrySnippet.Settings(Endpoint, _token);
-
-    private string ShownSnippet => ClaudeCodeTelemetrySnippet.Settings(
-        Endpoint, _token is null ? null : ClaudeCodeTelemetrySnippet.HiddenToken);
+    private string Snippet => ClaudeCodeTelemetrySnippet.Settings(Endpoint, _headersHelper);
 
     protected override void OnInitialized()
     {
         _endpoint = Services.GetService<IClaudeCodeTelemetryEndpoint>();
 
-        // The listener mints the token when it starts, so this reads the one that is
-        // already there; it mints only where nothing has started a listener yet, which
-        // is the order a person following this page needs anyway.
-        _token = _endpoint?.EnsureToken();
+        // The Telemetry grant the first start after the upgrade made; null in a host that
+        // asks for no token.
+        _headersHelper = _endpoint?.HeadersHelper;
     }
 }

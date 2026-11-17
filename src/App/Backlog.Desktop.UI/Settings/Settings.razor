@@ -303,6 +303,27 @@
     /// desktop head composes one, and without it the page draws no badge.</summary>
     private IMcpEndpointSource? _mcp;
 
+    /// <summary>The agents' requests for access (local ADR 0052 §5), for the MCP server badge's
+    /// "1 waiting"; null in a host that keeps none.</summary>
+    private Backlog.SharedKernel.Mcp.IMcpAccessRequestStore? _accessRequests;
+
+    /// <summary>How many requests wait for the person; nothing a store that cannot be read
+    /// counts, so the menu still draws.</summary>
+    private int WaitingRequests
+    {
+        get
+        {
+            try
+            {
+                return _accessRequests?.List().Count(request => request.IsOpen) ?? 0;
+            }
+            catch (IOException)
+            {
+                return 0;
+            }
+        }
+    }
+
     /// <summary>The value the menu draws on the right of <paramref name="page"/>'s
     /// name, or null for none.</summary>
     private string? BadgeFor(SettingsSection page) => page.Id switch
@@ -319,7 +340,7 @@
             gitHub: GitHub.Settings.Current.Accounts.Count > 0 || _screen.Connection?.IsConnected == true,
             azureFoundry: _azureFoundry?.Current.IsConfigured == true),
         SettingsPages.Storage => null,
-        SettingsPages.McpServer => SettingsBadges.McpServer(_mcp?.IsListening, failed: _mcp?.Unavailable is not null),
+        SettingsPages.McpServer => SettingsBadges.McpServer(_mcp?.IsListening, failed: _mcp?.Unavailable is not null, waiting: WaitingRequests),
         _ when IsSwitchedOff(page) => SettingsBadges.Off,
         _ => _badgeSources.GetValueOrDefault(page.Id)?.Badge,
     };
@@ -416,6 +437,8 @@
         if (_claude is not null) _claude.Changed += OnBadgeChanged;
         if (_azureFoundry is not null) _azureFoundry.Changed += OnBadgeChanged;
         if (_mcp is not null) _mcp.Changed += OnBadgeChanged;
+        _accessRequests = Services.GetService<Backlog.SharedKernel.Mcp.IMcpAccessRequestStore>();
+        if (_accessRequests is not null) _accessRequests.Changed += OnBadgeChanged;
 
         foreach (var section in OfferedSections)
         {
@@ -523,6 +546,7 @@
         if (_claude is not null) _claude.Changed -= OnBadgeChanged;
         if (_azureFoundry is not null) _azureFoundry.Changed -= OnBadgeChanged;
         if (_mcp is not null) _mcp.Changed -= OnBadgeChanged;
+        if (_accessRequests is not null) _accessRequests.Changed -= OnBadgeChanged;
         foreach (var source in _badgeSources.Values) source.Changed -= OnBadgeChanged;
     }
 

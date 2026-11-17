@@ -191,8 +191,34 @@ public static class MauiProgram
         // signing key in memory: the broker mints with it and the listener validates with
         // it, and a second instance would refuse every token the first one signed.
         builder.Services.TryAddSingleton<IMcpGrantStore>(_ => new FileMcpGrantStore(Path.Combine(appData, FileMcpGrantStore.FileName)));
-        builder.Services.TryAddSingleton(sp => new McpGrantTokens(sp.GetRequiredService<IMcpGrantStore>(), TimeProvider.System));
-        builder.Services.TryAddSingleton<McpTokenBroker>();
+        // The agents' requests for access beside them (local ADR 0052 §5): a registration's grant
+        // is pending, and mints nothing, while its request is open.
+        builder.Services.TryAddSingleton<IMcpAccessRequestStore>(_ => new FileMcpAccessRequestStore(Path.Combine(appData, FileMcpAccessRequestStore.FileName)));
+        builder.Services.TryAddSingleton(sp => new McpGrantTokens(
+            sp.GetRequiredService<IMcpGrantStore>(),
+            TimeProvider.System,
+            sp.GetRequiredService<IMcpAccessRequestStore>()));
+        // Allow asks for Windows Hello (§6), and the desk that holds a request to its limits
+        // opens the request window over these windows and raises its notification (ADR 0039).
+        builder.Services.TryAddSingleton<IUserConsent>(sp => new WindowsHelloUserConsent(sp.GetRequiredService<ShellWindows>()));
+        builder.Services.TryAddSingleton<IAgentRequestWindows>(sp => new ShellAgentRequestWindows(sp.GetRequiredService<IShellWindows>()));
+        builder.Services.TryAddSingleton(sp => new McpAccessDesk(
+            sp.GetRequiredService<IMcpGrantStore>(),
+            sp.GetRequiredService<IMcpAccessRequestStore>(),
+            sp.GetRequiredService<IUserConsent>(),
+            TimeProvider.System,
+            sp.GetRequiredService<IAgentRequestWindows>(),
+            sp.GetService<Backlog.Modules.Notifications.Abstractions.INotifications>(),
+            sp.GetService<ILogger<McpAccessDesk>>(),
+            sp.GetService<IMcpAuditLog>()));
+        builder.Services.TryAddSingleton<IAgentAccessRequests>(sp => sp.GetRequiredService<McpAccessDesk>());
+        // The agents:grant tools answer through the same desk, under the same lock, so a granter
+        // agent and the person never both answer one request (§5).
+        builder.Services.TryAddSingleton<IAgentGrants>(sp => sp.GetRequiredService<McpAccessDesk>());
+        builder.Services.TryAddSingleton(sp => new McpTokenBroker(
+            sp.GetRequiredService<McpGrantTokens>(),
+            sp.GetRequiredService<McpAccessDesk>(),
+            sp.GetService<ILogger<McpTokenBroker>>()));
         // The head's windows (local ADR 0043 §4): the main one App asks for, and every
         // surface popped out beside it. Twice over, so App reaches the concrete type
         // that makes the main window while every caller sees the port.
@@ -387,6 +413,40 @@ public static class MauiProgram
                 // Whatever it was - a locked file, a missing resource - the app runs without
                 // an up-to-date hook rather than not at all; the served route still answers.
                 hookLog?.LogError(ex, "The question hook script could not be written to the app data folder.");
+            }
+
+            // And the headers helper beside it, then the shared token's retirement (local ADR
+            // 0052, Phase 1): on the first start after the upgrade, three grants in its place and
+            // Claude Code's own files rewritten to run the helper for them. Once the grants are
+            // recorded and nothing names a retired token, this does nothing.
+            try
+            {
+                var helper = McpHeadersHelperScript.Install(WorkspaceSettingsStore.DefaultAppDataDirectory);
+                var retirement = McpTokenRetirement.Run(
+                    app.Services.GetRequiredService<WorkspaceSettingsStore>(),
+                    app.Services.GetRequiredService<IMcpGrantStore>(),
+                    ClaudeConfigFiles.ForCurrentUser(),
+                    helper,
+                    McpHeadersHelperScript.IsDebugBuild);
+
+                foreach (var problem in retirement.Problems)
+                {
+                    hookLog?.LogWarning("The shared MCP token's retirement is not finished: {Problem}", problem);
+                }
+
+                if (retirement.RegistrationsRewritten > 0 || retirement.TelemetryRewritten)
+                {
+                    hookLog?.LogInformation(
+                        "The shared MCP token was retired: {Registrations} Claude Code registration(s) and {Telemetry} telemetry block now run the headers helper for a grant.",
+                        retirement.RegistrationsRewritten,
+                        retirement.TelemetryRewritten ? 1 : 0);
+                }
+            }
+            catch (Exception ex)
+            {
+                // The grants could not be made or recorded: the app runs, and every registration
+                // that still sends the retired token is refused until the next start manages it.
+                hookLog?.LogError(ex, "The shared MCP token could not be retired; the next start tries again.");
             }
         });
 

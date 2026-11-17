@@ -41,6 +41,65 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     }
 
     [Fact]
+    public void A_delegated_grant_keeps_its_granter_and_expiry_across_a_reload_and_raises_its_version()
+    {
+        var granter = Store().Create("Manager session", ["tasks:read", "agents:grant"], "Settings");
+        var worker = Store().Create("Worker", [], "self-registration");
+
+        var delegated = Store().Delegate(worker.Id, ["tasks:read"], granter.Id, Now.AddDays(7));
+
+        Assert.NotNull(delegated);
+        var reloaded = Store().Find(worker.Id)!;
+        Assert.Equal(granter.Id, reloaded.GrantedBy);
+        Assert.Equal(Now.AddDays(7), reloaded.ExpiresAt);
+        Assert.Equal(["tasks:read"], reloaded.Scopes);
+        Assert.Equal(2, reloaded.Version);
+        Assert.True(reloaded.IsDelegated);
+        Assert.False(reloaded.IsExpired(Now.AddDays(7).AddSeconds(-1)));
+        Assert.True(reloaded.IsExpired(Now.AddDays(7)));
+
+        // A grant the person made writes neither member, and reads as not delegated.
+        var stored = JsonNode.Parse(File.ReadAllText(GrantsPath))!["grants"]!.AsArray().Single(record => (string?)record!["id"] == granter.Id)!.AsObject();
+        Assert.False(stored.ContainsKey("grantedBy"));
+        Assert.False(stored.ContainsKey("expiresAt"));
+        Assert.False(Store().Find(granter.Id)!.IsDelegated);
+    }
+
+    [Fact]
+    public void A_revoked_grant_is_not_delegated_and_a_scope_no_grant_may_hold_is_refused()
+    {
+        var store = Store();
+        var worker = store.Create("Worker", [], "self-registration");
+
+        Assert.Throws<ArgumentException>(() => store.Delegate(worker.Id, ["devbook:decide"], "g_granter", Now));
+        store.Revoke(worker.Id);
+        Assert.Null(store.Delegate(worker.Id, ["tasks:read"], "g_granter", Now));
+    }
+
+    [Fact]
+    public void Revoking_a_granter_revokes_every_grant_it_delegated_in_the_same_write()
+    {
+        var store = Store();
+        var granter = store.Create("Manager session", ["tasks:read", "agents:grant"], "Settings");
+        var first = store.Create("First", [], "self-registration");
+        var second = store.Create("Second", [], "self-registration");
+        var other = store.Create("Personal assistant", ["tasks:read"], "Settings");
+        store.Delegate(first.Id, ["tasks:read"], granter.Id, Now.AddDays(7));
+        store.Delegate(second.Id, ["tasks:read"], granter.Id, Now.AddDays(7));
+        var changes = 0;
+        store.Changed += () => changes++;
+
+        store.Revoke(granter.Id);
+
+        Assert.Equal(1, changes);
+        var reloaded = Store();
+        Assert.True(reloaded.Find(first.Id)!.Revoked);
+        Assert.True(reloaded.Find(second.Id)!.Revoked);
+        Assert.Equal(3, reloaded.Find(first.Id)!.Version);
+        Assert.False(reloaded.Find(other.Id)!.Revoked);
+    }
+
+    [Fact]
     public void Two_grants_get_two_ids()
     {
         var store = Store();
@@ -68,6 +127,70 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     }
 
     [Fact]
+    public void Setting_a_grant_s_scopes_stores_them_and_raises_its_version()
+    {
+        var store = Store();
+        var grant = store.Create("Copilot", ["tasks:read"], "jobsc");
+
+        var changed = store.SetScopes(grant.Id, ["tasks:read", "devbook:read"]);
+
+        Assert.NotNull(changed);
+        Assert.Equal(["tasks:read", "devbook:read"], changed.Scopes);
+        Assert.Equal(2, changed.Version);
+        Assert.False(changed.Revoked);
+        Assert.Equal(["tasks:read", "devbook:read"], Store().Find(grant.Id)?.Scopes);
+        Assert.Equal(2, Store().Find(grant.Id)?.Version);
+    }
+
+    [Fact]
+    public void A_revoked_or_unknown_grant_takes_no_scopes()
+    {
+        var store = Store();
+        var grant = store.Create("Copilot", ["tasks:read"], "jobsc");
+        store.Revoke(grant.Id);
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        Assert.Null(store.SetScopes(grant.Id, ["tasks:write"]));
+        Assert.Null(store.SetScopes("g_aaaaaaaaaaaaaaaa", ["tasks:write"]));
+
+        Assert.Equal(["tasks:read"], store.Find(grant.Id)?.Scopes);
+        Assert.Equal(2, store.Find(grant.Id)?.Version);
+        Assert.Equal(0, raised);
+    }
+
+    [Theory]
+    [InlineData("devbook:decide")]
+    [InlineData("tasks:reed")]
+    public void A_scope_no_grant_may_hold_is_refused_and_the_grant_is_left_as_it_was(string scope)
+    {
+        var store = Store();
+        var grant = store.Create("Copilot", ["tasks:read"], "jobsc");
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        var refusal = Assert.Throws<ArgumentException>(() => store.SetScopes(grant.Id, ["tasks:read", scope]));
+
+        Assert.Contains(scope, refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(["tasks:read"], Store().Find(grant.Id)?.Scopes);
+        Assert.Equal(1, Store().Find(grant.Id)?.Version);
+        Assert.Equal(0, raised);
+    }
+
+    [Fact]
+    public void Setting_scopes_raises_Changed()
+    {
+        var store = Store();
+        var grant = store.Create("one", [], "jobsc");
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        store.SetScopes(grant.Id, ["tasks:read"]);
+
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
     public void An_unknown_grant_is_not_found_and_revokes_nothing()
     {
         var store = Store();
@@ -81,14 +204,14 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     [Fact]
     public void A_fresh_store_reads_the_grants_another_one_wrote()
     {
-        var written = Store().Create("question hook", ["questions"], "jobsc");
-        Store().Revoke(Store().Create("telemetry", ["telemetry"], "jobsc").Id);
+        var written = Store().Create("question hook", ["notify:ask"], "jobsc");
+        Store().Revoke(Store().Create("telemetry", ["telemetry:write"], "jobsc").Id);
 
         var read = Store().List();
 
         Assert.Equal(2, read.Count);
         Assert.Equal(written.Id, read[0].Id);
-        Assert.Equal(["questions"], read[0].Scopes);
+        Assert.Equal(["notify:ask"], read[0].Scopes);
         Assert.Equal(Now, read[0].CreatedAt);
         Assert.False(read[0].Revoked);
         Assert.True(read[1].Revoked);

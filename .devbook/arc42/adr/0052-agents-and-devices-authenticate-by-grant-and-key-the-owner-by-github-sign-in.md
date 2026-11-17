@@ -1,7 +1,7 @@
 # ADR 0052: Agents and devices authenticate by grant and key, the owner by GitHub sign-in
 
 ```meta
-date: 2026-11-11
+date: 2026-11-12
 related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/design/settings-pages.md"]
 c4: [backlog.desktop, backlog.cloud]
 c4-touches: [backlog.mobile, github, claude]
@@ -172,7 +172,41 @@ first keeps the broker down, and it then learns only the grant ids clients send 
 Grants are created, listed and revoked on the MCP server's own Settings page. The
 **Agents** card replaces the **Bearer token** card there, by the rules of
 `.devbook/design/settings-pages.md`. Nothing in the Dev PC catalog or the Tools
-pane reads or writes a grant.
+pane creates, changes or revokes a grant, and the catalog names none.
+
+*Agents card built 2026-11-12 by entry 10 (`agents-card`).* A grant stores scopes,
+not a role: the roles are presets that fill the switches. A scope switch raises the
+grant's version as well as storing the scope, so a token minted under the old scopes
+is refused and the headers helper fetches one under the new. The switches are §4's
+scopes as `McpScopes` lists them, and a change of scopes is refused like a new grant
+for any scope no grant may hold. `devbook:decide` is drawn locked. Switching
+`agents:grant` on, in Edit scopes or Add agent, asks for Windows Hello first (§5, §6). The card's
+registration names the repository's `tools/mcp/backlog-mcp-headers.mjs`. The page no
+longer shows or rotates the shared token.
+
+*Shared token retired 2026-11-12 by step `remove-settings-token`.* ADR 0012 §1 records
+how. `settings.json` holds no MCP token, and the listener accepts none of the three
+static ones. On each start the app creates its **Backlog delivery**, **Question hook**
+and **Telemetry** grants once, records their ids in `settings.json`, and rewrites a
+registration that still carries a retired token to the headers helper. The escape
+hatch is the hand-edited debug setting `"mcpServer": { "acceptEnvironmentToken": true }`,
+which the app never writes. Two `backlog-tools` scripts and the `delivery-surface-backlog`
+plugin's client still read `mcpServer.token` and are refused until they move to a grant.
+
+*Delivery and Manager grants settled 2026-11-15 by entry 9b (`delivery-grant-scopes`).*
+The **Backlog delivery** grant holds the Delivery flow preset and `devbook:write` and
+`ui:open`, which the delivery flows call. A fourth grant, **Manager**, holds
+`sessions:dispatch`, `tasks:read` and `tasks:write`. The app records it as
+`mcpServer.grants.manager`, and only the dispatch-sessions Manager uses it. An install
+migrated before then gets both changes once, on its next start. The delivery grant gains
+its two scopes only while it still holds exactly the preset, and loses none. A revoked
+grant is never made or changed again.
+
+The Dev PC `backlog` row carries `${BACKLOG_MCP_HEADERS_HELPER}`, not a token. When the
+row registers, the desktop app fills it with the installed headers helper and `--grant`
+with the delivery grant's id. That id is all the Tools pane reads of a grant. The rewrite
+of Claude Code's files reads each file again before an atomic replace, so a write Claude
+Code makes in between is kept.
 
 ### 4. Scopes decide who may call a tool that is switched on
 
@@ -193,10 +227,20 @@ decides which grant may call a tool that is listed. The names are a starting cut
 | `runs:write` | the delivery surface tools, `link_*`, `list_run_usage` | delivery flows |
 | `notify:ask` | `notify`, `ask`, `get_answer`, `close` | coding agents, the question hook |
 | `ui:open` | `open_window` and its link tokens | coding agents |
-| `sessions:dispatch` | the session-request and answer-delivery tools, the wait route (ADR 0038, 0041) | the Manager session |
+| `sessions:dispatch` | the session-request and answer-delivery tools, the wait route (ADR 0038, 0041) | the Manager grant alone, never the delivery grant (§3) |
 | `telemetry:write` | the OTLP logs route (ADR 0024) | the telemetry exporter |
 | `inbox:capture` | a capture into the Inbox | personal assistants, the remote connector (§8) |
 | `agents:grant` | `list_agent_requests`, `grant_agent`, `edit_agent_scopes`, `revoke_agent` | none (§5) |
+
+*Built 2026-11-12 by entry 8 (`scope-policies`).* ADR 0012 §1 records how. The table is
+per tool, not per group, because a flag's group can hold reads and writes. Tools the table
+leaves out are placed so: `list_devbook_references` is `tasks:read`, and
+`set_devbook_references`, `create_goal`, `update_goal` and the impediment tools are
+`tasks:write`. `list_knowledge_contexts` is `devbook:read` and `list_sessions` is
+`runs:write`. Reading the Inbox is `tasks:read` and archiving a capture `tasks:write`,
+because `inbox:capture` is write-only and no local tool captures yet. `inbox:capture` is a
+policy with no tool until §8. A grant that asks for a scope
+outside the table is refused when it is created.
 
 **A pop-out link is minted under `ui:open`.** This amends ADR 0043 §7. The cookie a
 link buys now expires after 8 idle hours, and the app logs every link
@@ -235,6 +279,18 @@ stateDiagram-v2
   **Allow** sits only in the desktop window and asks for Windows Hello, which a
   script or UI automation cannot pass. A request for more scopes is a new request.
 
+*Built 2026-11-12 by entry 11 (`agent-self-registration`).* Requests live in
+`mcp-access-requests.json` beside the grants. A registration's grant holds no scope,
+and the broker refuses it a token as `pending` while its request is open. The
+request window is the `agent-request` surface, outside the header. Opening it again
+for the same request brings that window forward. A waiting request also shows as a
+card on the MCP server page, as "1 waiting" on its menu badge, and as an ADR 0039
+alert, which the phone shows and cannot answer. `request_access` passes the `/mcp`
+caller policy, not a scope policy, because an agent that lacks a scope is the one
+that must ask. Allow asks `IUserConsent`: the desktop head answers it with
+`UserConsentVerifier`, and the web harness answers "not available", which refuses
+every Allow.
+
 **An agent the person gives `agents:grant` may answer other agents' requests.**
 Switching it on asks for Windows Hello. The broker holds such a granter to five
 rules:
@@ -249,6 +305,21 @@ rules:
   renews it. Revoking the granter revokes every grant it made in the same moment.
 - **Visible.** A delegated grant shows under its granter on the MCP server page,
   with a quiet notification and an audit entry naming both.
+
+*Built 2026-11-13 by entry 12 (`agent-delegation`).* The four tools answer through the
+access desk, under the lock the person's Allow takes, so one request is answered once.
+A grant records `grantedBy` and `expiresAt`. `grant_agent` without scopes grants what was
+asked less what the granter may not hand on. `edit_agent_scopes` renews for 7 days, and
+calling it with the same scopes is the renewal. A grant that has already expired is not
+renewed: it is revoked, and its agent registers again. A granter that was itself delegated
+is refused, and the mint drops the non-delegable scopes from a delegated grant even if a
+hand edit put them there. A change to the granter's scopes raises the version of every
+grant it made, so their next token is cut again. A granter that loses `agents:grant`
+leaves its grants minting nothing. `list_agent_requests` lists new agents' requests, the
+requests of the grants the caller made, and those grants. Each grant raises an Info
+alert that asks for nothing, and an audit record that names the granter as caller and
+the grant as target. On the card a delegated row offers Revoke alone. The person's Allow
+does not widen a delegated grant: the person revokes it and allows it, or trims its granter.
 
 A grant id is a label, not a password. A process running as the person could ask
 for any grant. A grant buys scoping, revocation and an audit trail, and no grant
@@ -321,7 +392,8 @@ access from Settings.
 
 The web harness under Aspire maps the same `/mcp` endpoint (ADR 0012 §2) and keeps
 no grant, broker or step-up. It is not the installed app: it runs a development
-workspace, and QA drives it. It keeps the loopback `Origin` check.
+workspace, and QA drives it. It keeps the loopback `Origin` check. Retiring the
+shared token on 2026-11-12 left it unchanged: it never held one.
 
 ## Consequences
 
@@ -337,7 +409,8 @@ workspace, and QA drives it. It keeps the loopback `Origin` check.
 | 2, device keys | §1, §2 and §6 | a copied app folder cannot sync, and nobody creates an owner without the owner's GitHub sign-in |
 | 3, remote MCP | §8 | the Claude mobile app captures into the Inbox, and no other account can connect |
 
-Phase 3 needs only Phase 2's owner identity. Phase 2 also moves the sync service's
+Phase 1 retired Phase 0's telemetry and hook tokens and its Rotate button on
+2026-11-12, with the shared token they split from. Phase 3 needs only Phase 2's owner identity. Phase 2 also moves the sync service's
 signing key into Key Vault under a managed identity, with a planned rotation.
 
 - **Guideline ADR 0013 applies to the MCP surface**, besides the sync service: named
@@ -389,5 +462,11 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-15 | Settled the migration's grants: Backlog delivery gains `devbook:write` and `ui:open`, a Manager grant holds `sessions:dispatch` alone, and an install migrated before gets both once. The Dev PC row registers through the headers helper, and the rewrite of Claude Code's files keeps a concurrent write. | Plan `zero-trust-auth` entry 9b; the person chose a Manager grant over giving the delivery grant `sessions:dispatch`. |
+| 2026-11-13 | Built §5's granter agents: `list_agent_requests`, `grant_agent`, `edit_agent_scopes` and `revoke_agent` under `agents:grant`, held by the access desk to its five rules. Delegated grants expire after 7 days unless renewed, mint only within the granter's scopes, and are revoked in the granter's write. Switching `agents:grant` on asks for Windows Hello, and delegated rows sit under their granter. | Plan `zero-trust-auth` entry 12, Phase 1. |
+| 2026-11-12 | Built §5's self-registration: `--register` makes a pending grant that mints no token, `--request` and `request_access` open or focus the request window, and the waiting request shows on the MCP server page, its badge and an alert. The limits are one per name, five open and a day after a decline. Allow asks for Windows Hello, and no pipe command or tool answers a request. | Plan `zero-trust-auth` entry 11, Phase 1. |
+| 2026-11-12 | Retired the shared, question-hook and telemetry tokens: the app creates its three grants on start, rewrites the registrations that carry a retired token to the headers helper, and drops the tokens. `BACKLOG_MCP_TOKEN` is accepted only under a hand-edited debug setting. | Plan `zero-trust-auth` step `remove-settings-token`, Phase 1. |
+| 2026-11-12 | Built §3's Agents card on the MCP server page in the Bearer token card's place: rows with role, source, last use and scopes, switches that store on change and raise the grant's version, Revoke confirmed in place, and Add agent with its registration. | Plan `zero-trust-auth` entry 10, Phase 1. |
+| 2026-11-12 | Built §4's scopes: one named policy per scope under fallback-deny, per tool and per route, a principal on every admitted request, and an audit record naming the grant. `devbook:decide` is in no grant, token or policy. | Plan `zero-trust-auth` entry 8, Phase 1. |
 | 2026-11-11 | Built §3's token broker and grants beside the shared token: a named pipe for the person's SID alone mints 15-minute JWTs, and the listener refuses one older than its grant's version. Scopes are not enforced yet. | Plan `zero-trust-auth` entry 7, Phase 1. |
 | 2026-11-11 | Proposed: the owner is one GitHub account matched by numeric id, devices hold hardware-bound keys, agents hold grants with 15-minute scoped tokens, Windows Hello confirms what is hard to undo, devbook decisions are human-only, and remote MCP goes through OAuth 2.1 on the sync service. Amends ADR 0012 §1, 0043 §7 and 0044 §6, and retires ADR 0030 §6's exception. | The always-on listener's one plaintext token opened every tool, including approving an agent's own devbook change. |

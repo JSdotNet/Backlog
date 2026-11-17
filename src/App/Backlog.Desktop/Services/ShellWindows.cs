@@ -82,6 +82,45 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
         return Open(surfaceId, query, Guid.NewGuid().ToString("N"), reopening: null);
     }
 
+    /// <inheritdoc />
+    /// <remarks>The window found is the one whose surface and query, as it last reported them,
+    /// are these; it is activated on the main thread. A window that has gone is opened afresh.</remarks>
+    public Task<bool> FocusOrOpenAsync(string surfaceId, IReadOnlyDictionary<string, string> query)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(surfaceId);
+        ArgumentNullException.ThrowIfNull(query);
+
+        Window? open;
+        lock (_gate)
+        {
+            open = _showing
+                .Where(pair => string.Equals(pair.Value.SurfaceId, surfaceId, StringComparison.Ordinal) && SameQuery(pair.Value.Query, query))
+                .Select(pair => _popped.GetValueOrDefault(pair.Key))
+                .FirstOrDefault(window => window is not null);
+        }
+
+        if (open is null) return OpenAsync(surfaceId, query);
+
+        var shown = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        OnMainThread(() =>
+        {
+            if (Application.Current is not { } application)
+            {
+                shown.TrySetResult(false);
+                return;
+            }
+
+            application.ActivateWindow(open);
+            shown.TrySetResult(true);
+        });
+
+        return shown.Task;
+    }
+
+    private static bool SameQuery(IReadOnlyDictionary<string, string> left, IReadOnlyDictionary<string, string> right) =>
+        left.Count == right.Count
+        && left.All(pair => right.TryGetValue(pair.Key, out var value) && string.Equals(value, pair.Value, StringComparison.Ordinal));
+
     /// <summary>
     /// Reopens every remembered window whose surface the catalog still offers, beside
     /// the main window, and forgets the ones whose surface it no longer offers (local
