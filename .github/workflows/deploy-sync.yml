@@ -5,10 +5,11 @@ name: Deploy Sync
 #
 # Unlike Deploy Foundry, this workflow runs on a GitHub-hosted runner and
 # authenticates with an OIDC federated credential: there is no publish profile
-# and no service principal secret. The one secret it does carry belongs to the
-# service rather than to Azure — SYNC_TOKEN_SIGNING_KEY, the key the sync service
-# signs device tokens with. The federated credential, the resource group and that
-# secret are created by hand once — see docs/deployment/sync.md.
+# and no service principal secret. It carries no secret of the service's either:
+# the key the sync service signs device tokens with lives in Key Vault
+# kv-backlog-sync-we, read by the service's managed identity (local ADR 0052). The
+# federated credential, the resource group and that vault secret are created by
+# hand once — see docs/deployment/sync.md.
 
 # No trigger of its own: a person starts every infrastructure run, here or
 # through Deploy All. The service, though, deploys unattended: every Release All
@@ -67,14 +68,6 @@ on:
         required: false
         default: ''
         type: string
-    # An environment secret cannot be passed by name from a caller, because the
-    # caller's job has no environment: it is resolved here, by the job that
-    # declares one, which is why Deploy All passes `secrets: inherit` to this
-    # workflow. Declared so the contract is visible from the call site.
-    secrets:
-      SYNC_TOKEN_SIGNING_KEY:
-        description: 'HMAC key the sync service signs device tokens with; base64, at least 32 bytes'
-        required: true
     outputs:
       endpoint:
         description: 'Deployed sync service endpoint, empty when the run only previewed'
@@ -122,25 +115,12 @@ jobs:
       # Optional: the Foundry account cloud dictation relays to (local ADR 0045).
       # Unset or empty leaves the relay off, and every phone dictates on-device.
       SYNC_FOUNDRY_ACCOUNT_NAME: ${{ vars.SYNC_FOUNDRY_ACCOUNT_NAME }}
-      # SYNC_TOKEN_SIGNING_KEY is deliberately not here: it is set on the steps
-      # that read it (Verify, Preview, Provision, Load, Deploy), so the third-party
-      # actions and the other steps never run with it in their environment.
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Verify deployment target
-        env:
-          # The one secret this workflow carries, and it is the service's, not
-          # Azure's: the HMAC key the sync service signs device tokens with. It is
-          # set on this step and on the three azd steps below, and on no other,
-          # because azd substitutes ${SYNC_TOKEN_SIGNING_KEY} in
-          # infra/sync/main.parameters.json from the process environment; it never
-          # goes through `azd env set`, so it is not written to the azd environment
-          # and does not surface in `azd env get-values`. GitHub masks it in the
-          # log; nothing below prints it anyway.
-          SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -186,27 +166,6 @@ jobs:
             exit 1
           }
 
-          # The signing key is checked to the same rule the service enforces on
-          # start (base64, at least 32 bytes decoded), so a bad key fails here
-          # with its name rather than as a container app that never comes up.
-          # Only its shape is ever reported; the value stays out of the log.
-          if (-not $env:SYNC_TOKEN_SIGNING_KEY) {
-            Write-Output "::error::Set the secret SYNC_TOKEN_SIGNING_KEY on the GitHub environment '$env:AZURE_ENV_NAME': the sync service signs device tokens with it and refuses to start without one. See docs/deployment/sync.md."
-            exit 1
-          }
-
-          try {
-            $keyBytes = [Convert]::FromBase64String($env:SYNC_TOKEN_SIGNING_KEY)
-          }
-          catch {
-            Write-Output "::error::SYNC_TOKEN_SIGNING_KEY is not valid base64. Mint one as docs/deployment/sync.md describes."
-            exit 1
-          }
-
-          if ($keyBytes.Length -lt 32) {
-            Write-Output "::error::SYNC_TOKEN_SIGNING_KEY decodes to $($keyBytes.Length) bytes; the sync service requires at least 32. Mint one as docs/deployment/sync.md describes."
-            exit 1
-          }
 
       # Numbers come from the tags, so two Release All runs can plan the same one. A
       # re-run of an older failed run re-runs this job, but reuses every job of its
@@ -347,9 +306,6 @@ jobs:
       # Every infrastructure mode previews first; `service` touches no infrastructure.
       - name: Preview infrastructure changes
         if: env.DEPLOY_MODE != 'service'
-        env:
-          # Read from the process environment by azd; see Verify deployment target.
-          SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -358,9 +314,6 @@ jobs:
 
       - name: Provision infrastructure
         if: env.DEPLOY_MODE == 'provision' || env.DEPLOY_MODE == 'deploy'
-        env:
-          # Read from the process environment by azd; see Verify deployment target.
-          SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -372,9 +325,6 @@ jobs:
       # read back from the last provision of this resource group instead.
       - name: Load the provisioned environment
         if: env.DEPLOY_MODE == 'service'
-        env:
-          # Read from the process environment by azd; see Verify deployment target.
-          SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -386,9 +336,6 @@ jobs:
 
       - name: Deploy the sync service
         if: env.DEPLOY_MODE == 'deploy' || env.DEPLOY_MODE == 'service'
-        env:
-          # Read from the process environment by azd; see Verify deployment target.
-          SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
 
