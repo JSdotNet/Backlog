@@ -1,7 +1,19 @@
 namespace Backlog.Modules.Sessions.Abstractions;
 
 /// <summary>A run with the state it reads as now.</summary>
-public sealed record ScheduledRunReading(ScheduledRun Run, ScheduledRunState State);
+/// <param name="RecoveredBy">For a failed run that reads <see cref="ScheduledRunState.Handled"/>
+/// because a later run of its schedule finished clean, the first such run; null otherwise,
+/// archiving included.</param>
+public sealed record ScheduledRunReading(ScheduledRun Run, ScheduledRunState State, ScheduledRun? RecoveredBy = null)
+{
+    /// <summary>
+    /// Whether the run can still hold a later one: its session is not archived, as far as this
+    /// reading knows. Anything but Handled can, and so can a failed run Handled only by a
+    /// recovery, since a recovery archives nothing and a later run still skips itself while it
+    /// stands unarchived.
+    /// </summary>
+    public bool CanHold => State != ScheduledRunState.Handled || RecoveredBy is not null;
+}
 
 /// <summary>
 /// A schedule with the state it reads as now, its runs newest first, and its due times.
@@ -25,8 +37,10 @@ public sealed record ScheduleReadingResult(
 /// <para>
 /// <b>A run</b>, in this order:
 /// <list type="number">
-/// <item><b>Handled</b> when its session is archived, whatever it reported.</item>
-/// <item><b>Failed</b> when it reported a failure.</item>
+/// <item><b>Handled</b> when its session is archived, whatever it reported (and, below, a
+/// failed run a later run recovered, or a held run whose holder is archived).</item>
+/// <item><b>Failed</b> when it reported a failure — and Handled instead once a later run of
+/// its schedule finished clean (<see cref="FinishedClean"/>), which recovers it.</item>
 /// <item><b>Held</b> when it reported skipping itself — and Handled instead once the run
 /// that held it, where it named one, is archived, because the cause has cleared.</item>
 /// <item><b>Needs you</b> when it finished with Needs-you lines, or with a
@@ -80,11 +94,12 @@ public static class ScheduleReading
         ArgumentNullException.ThrowIfNull(isArchived);
         ArgumentNullException.ThrowIfNull(zone);
 
-        var runs = record.Runs
-            .OrderByDescending(Began)
-            .ThenByDescending(run => run.SessionId, StringComparer.Ordinal)
-            .Select(run => new ScheduledRunReading(run, StateOf(run, isArchived)))
-            .ToList();
+        var runs = Recovered(
+            record.Runs
+                .OrderByDescending(Began)
+                .ThenByDescending(run => run.SessionId, StringComparer.Ordinal)
+                .Select(run => new ScheduledRunReading(run, StateOf(run, isArchived)))
+                .ToList());
 
         var cron = ScheduleCron.TryParse(record.Schedule.Cron);
         var since = runs.Count > 0 ? Began(runs[0].Run) : record.Schedule.FirstReportedAt;
@@ -98,7 +113,20 @@ public static class ScheduleReading
         return new ScheduleReadingResult(record.Schedule, state, runs, due, next);
     }
 
-    /// <summary>The state <paramref name="run"/> reads as on its own.</summary>
+    /// <summary>
+    /// Whether <paramref name="run"/> finished clean — what it reported would read Review ready:
+    /// finished, neither failed nor skipped, nothing asked of the person. Its own archiving does
+    /// not matter, so a recovery stands once the recovering run is archived too.
+    /// </summary>
+    public static bool FinishedClean(ScheduledRun run)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+
+        return run is { Failed: false, Skipped: false, FinishedAt: not null } && !AsksForThePerson(run);
+    }
+
+    /// <summary>The state <paramref name="run"/> reads as on its own, before a later run can
+    /// recover it.</summary>
     public static ScheduledRunState StateOf(ScheduledRun run, Func<string, bool> isArchived)
     {
         ArgumentNullException.ThrowIfNull(run);
@@ -116,10 +144,41 @@ public static class ScheduleReading
 
         if (run.FinishedAt is null) return ScheduledRunState.NoSummaryYet;
 
-        var needsYou = run.NeedsYou.Count > 0
-            || (run.Verdict is { } verdict && NeedsYouVerdicts.Contains(verdict.Trim(), StringComparer.OrdinalIgnoreCase));
+        return AsksForThePerson(run) ? ScheduledRunState.NeedsYou : ScheduledRunState.ReviewReady;
+    }
 
-        return needsYou ? ScheduledRunState.NeedsYou : ScheduledRunState.ReviewReady;
+    private static bool AsksForThePerson(ScheduledRun run) =>
+        run.NeedsYou.Count > 0
+        || (run.Verdict is { } verdict && NeedsYouVerdicts.Contains(verdict.Trim(), StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// <paramref name="runs"/>, newest first, with each run still reading Failed read Handled
+    /// instead when a later run finished clean, naming the first one after it. Later means it
+    /// began later, by the order the runs are read in — two that began together fall to their
+    /// session ids, arbitrary but stable — and also finished no earlier than the failure, so
+    /// an overlapping run that was done before the failure does not recover it.
+    /// </summary>
+    private static List<ScheduledRunReading> Recovered(List<ScheduledRunReading> runs)
+    {
+        for (var i = 0; i < runs.Count; i++)
+        {
+            var reading = runs[i];
+            if (reading.State != ScheduledRunState.Failed) continue;
+
+            var failedAt = reading.Run.FinishedAt ?? Began(reading.Run);
+
+            // The runs before it are newer, so the nearest one after it comes first going back.
+            for (var later = i - 1; later >= 0; later--)
+            {
+                var candidate = runs[later].Run;
+                if (!FinishedClean(candidate) || candidate.FinishedAt < failedAt) continue;
+
+                runs[i] = reading with { State = ScheduledRunState.Handled, RecoveredBy = candidate };
+                break;
+            }
+        }
+
+        return runs;
     }
 
     /// <summary>

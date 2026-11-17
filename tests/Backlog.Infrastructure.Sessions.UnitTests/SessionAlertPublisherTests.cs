@@ -35,11 +35,18 @@ public sealed class SessionAlertPublisherTests
     private SessionAlertPublisher Publisher() =>
         new(_schedules, _loops, _sessions, () => _ledger, () => _ledger, () => _enabled, _requests, clock: _time, store: () => _ledger) { Zone = TimeZoneInfo.Utc };
 
-    private Task ReportAsync(ScheduledRunEvent @event, string session, string? verdict = null, IReadOnlyList<string>? needsYou = null) =>
+    private Task ReportAsync(ScheduledRunEvent @event, string session, string? verdict = null, IReadOnlyList<string>? needsYou = null, string schedule = "weekly-update") =>
         _schedules.RecordAsync(
-            new ScheduledRunReport("weekly-update", "Weekly update", "JSdotNet/Backlog", "30 5 * * 0", session, @event, verdict, needsYou),
+            new ScheduledRunReport(schedule, schedule == "weekly-update" ? "Weekly update" : "Nightly sweep", "JSdotNet/Backlog", "30 5 * * 0", session, @event, verdict, needsYou),
             _time.GetUtcNow(),
             Ct);
+
+    private async Task FailAsync(string session, string schedule = "weekly-update")
+    {
+        await ReportAsync(ScheduledRunEvent.Started, session, schedule: schedule);
+        await ReportAsync(ScheduledRunEvent.Failed, session, "gh: authentication required", schedule: schedule);
+        _time.Advance(TimeSpan.FromMinutes(5));
+    }
 
     private Task CheckInAsync(string session = "manager-1") =>
         _loops.CheckInAsync(LoopSessions.CheckIn(session, LoopKind.Dispatcher, LoopActivity.Listening, 30, LoopHeldWork.None, _time.GetUtcNow()), Ct);
@@ -96,6 +103,72 @@ public sealed class SessionAlertPublisherTests
         var alert = Assert.Single(_ledger.Views);
         Assert.Equal(NotificationState.Closed, alert.State);
         Assert.Equal("Run archived", alert.CloseReason);
+    }
+
+    [Fact]
+    public async Task A_run_that_finishes_review_ready_closes_every_earlier_failed_alert_of_its_schedule_naming_itself()
+    {
+        await FailAsync("run-1");
+        await FailAsync("run-2");
+        var publisher = Publisher();
+        Assert.Equal((2, 0), await publisher.SweepAsync(Ct));
+
+        await ReportAsync(ScheduledRunEvent.Started, "run-3");
+        await ReportAsync(ScheduledRunEvent.Finished, "run-3", "review-ready");
+
+        Assert.Equal((0, 2), await publisher.SweepAsync(Ct));
+        Assert.All(_ledger.Views, view =>
+        {
+            Assert.Equal(NotificationState.Closed, view.State);
+            Assert.Equal("Handled: the Wed 11 Nov 05:40 run finished Review ready", view.CloseReason);
+        });
+        Assert.Equal((0, 0), await Publisher().SweepAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_recovery_leaves_another_schedules_failed_alert_and_other_kinds_open()
+    {
+        await NeedsYouAsync("run-0");
+        await FailAsync("run-1");
+        await FailAsync("sweep-1", schedule: "nightly-sweep");
+        var publisher = Publisher();
+        Assert.Equal((3, 0), await publisher.SweepAsync(Ct));
+
+        await ReportAsync(ScheduledRunEvent.Finished, "run-2", "review-ready");
+
+        Assert.Equal((0, 1), await publisher.SweepAsync(Ct));
+        Assert.Equal(
+            ["Nightly sweep failed", "Weekly update needs you"],
+            _ledger.Views.Where(view => view.IsOpen).Select(view => view.Title).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_later_run_that_fails_again_leaves_the_earlier_failed_alert_open_and_raises_its_own()
+    {
+        await FailAsync("run-1");
+        var publisher = Publisher();
+        Assert.Equal((1, 0), await publisher.SweepAsync(Ct));
+
+        await FailAsync("run-2");
+
+        Assert.Equal((1, 0), await publisher.SweepAsync(Ct));
+        Assert.Equal(
+            ["failed:schedule:weekly-update:run-1", "failed:schedule:weekly-update:run-2"],
+            _ledger.Views.Where(view => view.IsOpen).Select(view => view.Subject!.Id).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task Archiving_a_failed_run_still_closes_its_alert_as_archived()
+    {
+        await FailAsync("run-1");
+        var publisher = Publisher();
+        await publisher.SweepAsync(Ct);
+
+        _sessions.Archive("run-1");
+        await ReportAsync(ScheduledRunEvent.Finished, "run-2", "review-ready");
+
+        Assert.Equal((0, 1), await publisher.SweepAsync(Ct));
+        Assert.Equal("Run archived", Assert.Single(_ledger.Views).CloseReason);
     }
 
     [Fact]

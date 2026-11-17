@@ -86,7 +86,9 @@ public static class ScheduleOverview
     /// The run that holds a held schedule: the one its latest skipped run named, where that
     /// run is among the schedule's runs; where the skip named none, the newest run that did
     /// not skip itself and is not yet handled. Null for a schedule that does not read Held,
-    /// or when no such run is known — never a run already archived, which holds nothing.
+    /// or when no such run is known — never a run already archived, which holds nothing. A
+    /// failed run a later run recovered reads Handled but is not archived, so it still holds
+    /// (<see cref="ScheduledRunReading.CanHold"/>).
     /// </summary>
     public static ScheduledRunReading? Holder(ScheduleReadingResult reading)
     {
@@ -98,10 +100,10 @@ public static class ScheduleOverview
         {
             return reading.Runs.FirstOrDefault(run =>
                 string.Equals(run.Run.SessionId, holder, StringComparison.Ordinal)
-                && run.State is not ScheduledRunState.Handled);
+                && run.CanHold);
         }
 
-        return reading.Runs.FirstOrDefault(run => !run.Run.Skipped && run.State is not ScheduledRunState.Handled);
+        return reading.Runs.FirstOrDefault(run => !run.Run.Skipped && run.CanHold);
     }
 
     /// <summary>How many runs in a row, newest first, skipped themselves.</summary>

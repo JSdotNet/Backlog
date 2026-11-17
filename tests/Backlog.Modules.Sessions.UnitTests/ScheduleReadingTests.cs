@@ -151,6 +151,103 @@ public sealed class ScheduleReadingTests
     }
 
     [Fact]
+    public void Failed_runs_read_handled_once_a_later_run_finishes_review_ready_naming_the_run_that_recovered_each()
+    {
+        var reading = Read(Recorded(
+            Report(ScheduledRunEvent.Failed, session: "monday", verdict: "gh: authentication required"),
+            Report(ScheduledRunEvent.Failed, session: "tuesday", verdict: "gh: authentication required"),
+            Report(ScheduledRunEvent.Started, session: "wednesday"),
+            Report(ScheduledRunEvent.Finished, session: "wednesday", verdict: "review-ready")));
+
+        Assert.Equal(ScheduledRunState.ReviewReady, reading.State);
+        Assert.Equal(
+            [("wednesday", ScheduledRunState.ReviewReady, null), ("tuesday", ScheduledRunState.Handled, "wednesday"), ("monday", ScheduledRunState.Handled, "wednesday")],
+            reading.Runs.Select(run => (run.Run.SessionId, run.State, run.RecoveredBy?.SessionId)));
+    }
+
+    [Fact]
+    public void A_failed_run_is_recovered_by_the_first_clean_run_after_it_not_by_one_before()
+    {
+        var reading = Read(Recorded(
+            Report(ScheduledRunEvent.Finished, session: "monday", verdict: "review-ready"),
+            Report(ScheduledRunEvent.Failed, session: "tuesday", verdict: "Out of disk"),
+            Report(ScheduledRunEvent.Finished, session: "wednesday", verdict: "review-ready"),
+            Report(ScheduledRunEvent.Finished, session: "thursday", verdict: "review-ready")));
+
+        var tuesday = Assert.Single(reading.Runs, run => run.Run.SessionId == "tuesday");
+        Assert.Equal(ScheduledRunState.Handled, tuesday.State);
+        Assert.Equal("wednesday", tuesday.RecoveredBy?.SessionId);
+    }
+
+    [Theory]
+    [InlineData(ScheduledRunEvent.Failed, null)]
+    [InlineData(ScheduledRunEvent.Finished, "needs-you")]
+    [InlineData(ScheduledRunEvent.Skipped, null)]
+    [InlineData(ScheduledRunEvent.Started, null)]
+    public void A_failed_run_stays_failed_while_no_later_run_finished_clean(ScheduledRunEvent later, string? verdict)
+    {
+        var reading = Read(Recorded(
+            Report(ScheduledRunEvent.Failed, session: "monday", verdict: "Out of disk"),
+            Report(later, session: "tuesday", verdict: verdict)));
+
+        var monday = Assert.Single(reading.Runs, run => run.Run.SessionId == "monday");
+        Assert.Equal(ScheduledRunState.Failed, monday.State);
+        Assert.Null(monday.RecoveredBy);
+    }
+
+    [Fact]
+    public void An_overlapping_run_that_finished_before_the_failure_does_not_recover_it()
+    {
+        var reading = Read(Recorded(
+            Report(ScheduledRunEvent.Started, session: "monday"),
+            Report(ScheduledRunEvent.Started, session: "tuesday"),
+            Report(ScheduledRunEvent.Finished, session: "tuesday", verdict: "review-ready"),
+            Report(ScheduledRunEvent.Failed, session: "monday", verdict: "Out of disk")));
+
+        var monday = Assert.Single(reading.Runs, run => run.Run.SessionId == "monday");
+        Assert.Equal(ScheduledRunState.Failed, monday.State);
+        Assert.Null(monday.RecoveredBy);
+    }
+
+    [Fact]
+    public void A_skip_that_names_a_recovered_failed_run_still_reads_held()
+    {
+        var reading = Read(Recorded(
+            Report(ScheduledRunEvent.Failed, session: "monday", verdict: "Out of disk"),
+            Report(ScheduledRunEvent.Finished, session: "tuesday", verdict: "review-ready"),
+            Report(ScheduledRunEvent.Skipped, session: "wednesday", heldBy: "monday")));
+
+        Assert.Equal(ScheduledRunState.Held, reading.State);
+        Assert.True(Assert.Single(reading.Runs, run => run.Run.SessionId == "monday").CanHold);
+    }
+
+    [Fact]
+    public void A_recovery_stands_once_the_recovering_run_is_archived_too()
+    {
+        var record = Recorded(
+            Report(ScheduledRunEvent.Failed, session: "monday", verdict: "Out of disk"),
+            Report(ScheduledRunEvent.Finished, session: "tuesday", verdict: "review-ready"));
+
+        var reading = Read(record, archived: id => id == "tuesday");
+
+        Assert.Equal([ScheduledRunState.Handled, ScheduledRunState.Handled], reading.Runs.Select(run => run.State));
+        Assert.Equal("tuesday", reading.Runs[1].RecoveredBy?.SessionId);
+    }
+
+    [Fact]
+    public void A_failed_run_archived_reads_handled_by_its_archiving_not_by_a_recovery()
+    {
+        var record = Recorded(
+            Report(ScheduledRunEvent.Failed, session: "monday", verdict: "Out of disk"),
+            Report(ScheduledRunEvent.Finished, session: "tuesday", verdict: "review-ready"));
+
+        var monday = Read(record, archived: id => id == "monday").Runs[1];
+
+        Assert.Equal(ScheduledRunState.Handled, monday.State);
+        Assert.Null(monday.RecoveredBy);
+    }
+
+    [Fact]
     public void A_finish_without_a_start_is_kept_and_read()
     {
         var reading = Read(Recorded(Report(ScheduledRunEvent.Finished, verdict: "review-ready")));

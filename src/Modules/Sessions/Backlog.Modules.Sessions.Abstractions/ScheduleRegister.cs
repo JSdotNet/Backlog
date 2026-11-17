@@ -28,7 +28,7 @@ public enum ScheduledRunState
     /// <summary>The run reported that it skipped itself because an earlier run is unarchived.</summary>
     Held,
 
-    /// <summary>The run reported a failure.</summary>
+    /// <summary>The run reported a failure, and no later run of its schedule finished clean.</summary>
     Failed,
 
     /// <summary>The schedule's alone: 30 minutes past its cron's due time and no start report since.</summary>
@@ -37,7 +37,8 @@ public enum ScheduledRunState
     /// <summary>The run reported work ready for review, and its session is not archived.</summary>
     ReviewReady,
 
-    /// <summary>The run's session is archived, whatever it reported.</summary>
+    /// <summary>The run's session is archived, whatever it reported; or the run failed and a
+    /// later run of its schedule finished clean.</summary>
     Handled,
 
     /// <summary>A start report and no finish report yet.</summary>

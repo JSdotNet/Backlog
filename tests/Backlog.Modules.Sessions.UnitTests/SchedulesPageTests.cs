@@ -319,6 +319,28 @@ public sealed class SchedulesPageTests
         Assert.Equal("Skipped: the Fri 6 Nov run was not archived yet", skip.QuerySelector("[data-testid='schedules-detail-run-note']")!.TextContent.Trim());
     }
 
+    [Fact]
+    public void A_skip_whose_holding_run_failed_and_was_recovered_still_says_it_is_not_archived()
+    {
+        var recovering = new ScheduledRun("mon", "issue-sweep", new DateTimeOffset(2026, 11, 9, 5, 40, 0, TimeSpan.Zero), null, new DateTimeOffset(2026, 11, 9, 6, 0, 0, TimeSpan.Zero), "review-ready", [], false, false, null);
+        var held = Schedule(
+            "issue-sweep", "Issue sweep", "JSdotNet/Backlog", ScheduledRunState.Held,
+            cron: "30 5 * * 1-5",
+            runs:
+            [
+                Run("tue", ScheduledRunState.Held, new DateTimeOffset(2026, 11, 10, 5, 40, 0, TimeSpan.Zero), skipped: true, heldBy: "fri"),
+                Run("mon", ScheduledRunState.ReviewReady, recovering.FirstReportedAt),
+                Run("fri", ScheduledRunState.Handled, Friday, verdict: "Out of disk", failed: true) with { RecoveredBy = recovering },
+            ]);
+        using var context = Context();
+        var page = Render(context, [held]);
+
+        page.Find("[data-testid='schedules-row'][data-schedule='issue-sweep'] [data-testid='schedules-row-name']").Click();
+
+        var skip = page.Find("[data-testid='schedules-detail-run'][data-session='tue']");
+        Assert.Equal("Skipped: the Fri 6 Nov run is not archived", skip.QuerySelector("[data-testid='schedules-detail-run-note']")!.TextContent.Trim());
+    }
+
     [Theory]
     [InlineData(ScheduledRunState.NeedsYou, "Skipped: the Fri 6 Nov run is not archived")]
     [InlineData(null, "Skipped: an earlier run was not archived yet")]

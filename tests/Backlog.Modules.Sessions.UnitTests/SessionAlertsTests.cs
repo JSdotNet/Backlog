@@ -260,6 +260,40 @@ public sealed class SessionAlertsTests
         Assert.Empty(alerts);
     }
 
+    [Fact]
+    public void A_clean_run_after_a_failure_clears_the_failed_alert_and_names_itself_as_its_reason()
+    {
+        var record = Recorded(
+            Report(ScheduledRunEvent.Started, "run-1"),
+            Report(ScheduledRunEvent.Failed, "run-1", "gh: authentication required"),
+            Report(ScheduledRunEvent.Started, "run-2"),
+            Report(ScheduledRunEvent.Finished, "run-2", "review-ready"));
+        var reading = ScheduleReading.Read(record, _ => false, Due.AddHours(1), Utc);
+
+        Assert.Empty(SessionAlerts.ForSchedule(reading, Utc));
+        Assert.Equal(
+            new Dictionary<string, string> { ["failed:schedule:issue-sweep:run-1"] = "Handled: the Wed 11 Nov 05:32 run finished Review ready" },
+            SessionAlerts.Recoveries([reading], Utc));
+    }
+
+    [Fact]
+    public void A_failed_run_cleared_by_archiving_has_no_recovery_reason()
+    {
+        var record = Recorded(
+            Report(ScheduledRunEvent.Failed, "run-1", "gh: authentication required"),
+            Report(ScheduledRunEvent.Finished, "run-2", "review-ready"));
+
+        Assert.Empty(SessionAlerts.Recoveries([ScheduleReading.Read(record, id => id == "run-1", Due.AddHours(1), Utc)], Utc));
+    }
+
+    [Fact]
+    public void A_failed_alert_says_a_recovering_run_closes_it_too()
+    {
+        var alert = Assert.Single(Alerts(Recorded(Report(ScheduledRunEvent.Failed, "run-1", "Out of disk"))));
+
+        Assert.EndsWith("The alert closes once the run's session is archived, or once a later run of the schedule finishes Review ready.", alert.Body, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("needs-you:schedule:sweep:run-1", "Run archived")]
     [InlineData("failed:schedule:sweep:run-1", "Run archived")]

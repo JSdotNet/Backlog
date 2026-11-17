@@ -20,7 +20,8 @@
 
     Backlog only reads. A run is marked done the way it always was — its session archived
     in Claude Desktop — and the readings come from the pane, which reads the schedule
-    register beside the session records whose archived flag decides Handled. "Open run"
+    register beside the session records whose archived flag decides Handled — as does a later
+    run that finishes clean, for a failed run. "Open run"
     opens the run's session in the Sessions list: this app has no way into a Claude
     Desktop session of its own, and the list's detail is where that session is read.
 
@@ -584,7 +585,7 @@
             // the skip's own Handled is the only sign of it.
             var archivedSince = holder is null
                 ? run.State == ScheduledRunState.Handled
-                : holder.State == ScheduledRunState.Handled;
+                : !holder.CanHold;
             var which = holder is null ? "an earlier run" : $"the {Day(ScheduleOverview.Began(holder.Run))} run";
 
             return archivedSince ? $"Skipped: {which} was not archived yet" : $"Skipped: {which} is not archived";

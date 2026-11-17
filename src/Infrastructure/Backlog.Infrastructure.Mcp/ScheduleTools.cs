@@ -19,7 +19,8 @@ namespace Backlog.Infrastructure.Mcp;
 /// </summary>
 /// <param name="register">This machine's Schedule Register.</param>
 /// <param name="sessions">The session list, read for whether a run's session is archived;
-/// null where the host composed none, and then no run reads Handled.</param>
+/// null where the host composed none, and then no run reads Handled by archiving — a failed
+/// run a later run recovered still does.</param>
 /// <param name="clock">What "now" is; optional so a test can pin it.</param>
 [McpServerToolType]
 public sealed class ScheduleTools(
