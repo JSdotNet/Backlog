@@ -43,15 +43,15 @@ public class SigningKeyRotationTests
     }
 
     [Fact]
-    public void A_cursor_minted_under_the_previous_key_reads_while_its_window_is_open()
+    public async Task A_cursor_minted_under_the_previous_key_reads_while_its_window_is_open()
     {
         var owner = new Backlog.Modules.Sync.DomainModels.OwnerId(Guid.CreateVersion7());
         var minted = new HmacSyncCursorCodec(SigningKeyRing.Fixed(OldKey)).Mint(owner, "continuation");
 
         var open = new SigningKeyRing(new Rotated(DateTimeOffset.UtcNow.AddMinutes(10)), TimeProvider.System);
-        open.RefreshAsync(Cancellation).GetAwaiter().GetResult();
+        await open.RefreshAsync(Cancellation);
         var closed = new SigningKeyRing(new Rotated(DateTimeOffset.UtcNow.AddMinutes(-1)), TimeProvider.System);
-        closed.RefreshAsync(Cancellation).GetAwaiter().GetResult();
+        await closed.RefreshAsync(Cancellation);
 
         Assert.True(new HmacSyncCursorCodec(open).Verify(minted, owner).IsSuccess);
         Assert.False(new HmacSyncCursorCodec(closed).Verify(minted, owner).IsSuccess);
