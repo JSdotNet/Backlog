@@ -9,12 +9,13 @@ without its owner.
 | What | Name |
 | --- | --- |
 | This session | `<tag>:execute-plan`, plus ` @<repo>` when the plan's entries span more than one repository |
-| Each entry session | Its title `<tag>:<n> - <Title>`, cut to 60 characters — the name `run-plan-item` gives the entry's own session — passed to `start_session` |
+| Each entry session | `<n> - <Title>`, cut to 60 characters, passed to `start_session` — no `<tag>:`, since the host nests it under this session's name |
 | A handoff session | Titles itself by the first row, in its own repository |
 
 The session is titled once, before Graph, where the host allows it. An entry session's title is
 separate from the brief: the plan-progress band keys on the brief's first line, never on the
-title.
+title. The entry session keeps the title it was started with: the brief tells it to skip
+`run-plan-item`'s own `<tag>:<n> - <Title>`, which stays the name of a pasted entry's session.
 
 ## Handoff
 
