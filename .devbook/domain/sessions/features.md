@@ -294,11 +294,13 @@ there and quiet, and a record cannot tell that from a session that ended a month
 type: sub-feature
 ```
 
-The list is read when it is opened and again when the reader asks for it. Nothing
-polls.
+The list is read when it is opened and again when the reader asks for it. Only the
+[loop sessions](#loop-sessions) are read again on their own: while the list holds one, the
+pane reads the Loop Register every 30 seconds, so a loop's state follows its check-ins.
 
-A self-refreshing surface would claim to be live, and the evidence does
-not support that: one of the two agents leaves no liveness marker.
+A self-refreshing list would claim to be live, and the evidence does
+not support that: one of the two agents leaves no liveness marker. A loop session is
+the exception, because its check-ins are the liveness marker.
 
 Records arriving from another machine change nothing. They arrive on their own schedule, into what this environment has a record of, which is what the
 list reads. Nothing appears on screen until the reader
@@ -1645,7 +1647,9 @@ answer reaches the session as a message from the Manager session, which wakes it
 Answering in the session closes the question everywhere.
 
 Local [ADR 0041](../../arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)
-decides it. It sits behind the `notifications` flag, and nothing of it is built yet.
+decides it. It sits behind the `notifications` flag, and it is built: the hook, the relay and
+the Manager's answer deliveries. A Waiting row in the Sessions list shows the question as
+well, as [A waiting row shows its question](#a-waiting-row-shows-its-question) says.
 
 ## Schedules and their runs
 
@@ -1705,8 +1709,9 @@ The page reads top to bottom:
 
 1. **A line** counting the schedules and their repositories.
 2. **The filters:** All, Needs you, Review ready, and Failed or missed, each with its count.
-3. **Needs you:** one card per schedule that reads Needs you or Held. It says since when, what
-   the run asks of the person, and opens the run in Claude.
+3. **Needs you:** one card per schedule that reads Needs you or Held. It says since when and
+   what the run asks of the person, with its links live. **Open run** opens the run's row in the
+   Sessions list; for a held schedule it opens the run that holds it.
 4. **All schedules:** one table per repository, with the schedule, its cadence, its last and
    next run, and its state.
 
@@ -1769,13 +1774,18 @@ A loop's detail shows the `/loop` command it runs, and four tiles that say how m
 machine has. Backlog measures them itself:
 
 - the dispatched sessions working, against the loop's limit, with Waiting sessions not counted;
-- plan usage, read from the Claude usage cache;
+- plan usage, the app's own [weekly usage estimate](#share-of-the-week-and-the-weekly-limit);
 - CPU;
 - free memory.
 
+Beside the tiles, the detail's facts say when the loop last checked in, how long it has run,
+and for the Manager how many session requests it dispatched today.
+
 Under the tiles, the Manager's detail lists its queue: each session request and each answer
-delivery, with its state. A Holding loop names the limit that holds it. A Not running loop offers
-its `/loop` command to copy and a way to cancel the waiting requests.
+delivery, with its state. A Holding loop names the limit that holds it, and offers **See usage**,
+which opens the Dashboard's Sessions tab where the app shows plan usage. A Not running loop
+offers its `/loop` command to copy. A Not running Manager also offers **Cancel requests**, which
+asks first and cancels the waiting requests. It is not offered while another Manager checks in.
 
 The person pauses, resumes or stops a loop from its detail. The loop reads that from its next
 check-in answer and obeys it. Backlog never stops the session itself.

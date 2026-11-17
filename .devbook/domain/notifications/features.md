@@ -204,11 +204,16 @@ comes back on, as long as its cause still holds.
 
 | Source line | Raised when | Actions |
 | --- | --- | --- |
-| Backlog · Schedules | a schedule reads Needs you, Held, Failed or Missed | Open run, Open Schedules |
+| Backlog · &lt;repository&gt; · Schedules | a schedule reads Needs you, Held, Failed or Missed | Open run, Open Schedules |
 | Backlog · Sessions | a loop session reads Stalled, or Not running while work waits | Open Sessions, Acknowledge |
+
+A schedule's alert names its repository, so the centre groups it with that
+repository's other notifications. The actions open the Sessions takeover on this
+desktop only, and the phone offers Dismiss alone.
 
 Each cause raises one alert, and Sessions closes it when the cause clears: the run's
 session is archived, a missed schedule's run starts, or the loop checks in again. A
+Failed alert also closes once a later run of the same schedule finishes Review ready. A
 held schedule's later skipped runs raise nothing more. A schedule that reads Review
 ready shows it on its row and raises no alert
 ([Schedules and their runs](../sessions/requirements.md#requirement-a-schedule-that-needs-the-person-raises-one-alert-per-cause)).

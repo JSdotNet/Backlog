@@ -349,7 +349,8 @@ type: requirements
 related: [.devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere, .devbook/domain/sessions/domain.md#question-relay, .devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md]
 ```
 
-> Local ADR 0041 decides these requirements. None of them is built yet.
+> Local ADR 0041 decides these requirements, and local ADR 0051 §6 the question on a Waiting
+> row. They are built.
 
 ### Requirement: A question asked while the person is away is notified at once
 
@@ -472,6 +473,28 @@ The system SHALL count a session with an open question as waiting, not working, 
 - **Given** three dispatched sessions each hold an open question
 - **When** a Manager checks its capacity
 - **Then** none of the three counts as working, and it may start the next session request
+
+### Requirement: A Waiting row shows the question its session asks
+
+```meta
+type: requirement
+related: [.devbook/domain/sessions/features.md#a-waiting-row-shows-its-question]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneAsksTests.A_dialog_of_several_questions_shows_the_first_and_how_many_more, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneAsksTests.Answer_opens_the_questions_notification_in_the_notification_centre, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneAsksTests.A_question_still_in_the_session_shows_without_an_Answer, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneAsksTests.Only_a_row_that_reads_Waiting_shows_a_strip]
+```
+
+The system SHALL show on a Waiting session's row the question it asked, as Asks, with an Answer link to its notification once the question is published.
+
+#### Scenario: A session waits on a published question
+
+- **Given** a session that reads Waiting on a dialog of two questions, published as a notification
+- **When** the person opens the Sessions list
+- **Then** its row shows the first open question as Asks with "+1 more", and Answer opens that notification in the centre
+
+#### Scenario: The question is not published yet
+
+- **Given** a session that reads Waiting on a question kept in the session
+- **When** the person opens the Sessions list
+- **Then** its row shows the question as Asks with no Answer link
 
 ### Requirement: The relay sits behind the notifications flag
 
@@ -646,7 +669,7 @@ The system SHALL answer every `check_in` with the work waiting for the loop, whe
 type: requirement
 ```
 
-The system SHALL measure the dispatched sessions working, plan usage from the Claude usage cache, CPU and free memory, and SHALL count no Waiting session as working.
+The system SHALL measure the dispatched sessions working, plan usage from its own weekly usage estimate, CPU and free memory, and SHALL count no Waiting session as working.
 
 #### Scenario: Sessions waiting on questions
 
