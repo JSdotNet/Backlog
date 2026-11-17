@@ -760,17 +760,22 @@ export function parseWorkspace(source, { file = "workspace.dsl", include } = {})
 /**
  * Reads a workspace file from disk. An `!include` is a relative path from the
  * including file and must land on a file under the workspace's own `c4/`
- * folder. File names in the result are relative to `root`, with `/`.
+ * folder. The workspace itself must be a `.dsl` file under `root`, link
+ * targets included; anything else throws before a byte is read. File names in
+ * the result are relative to `root`, with `/`.
  */
 export function readWorkspace(workspacePath, { root = process.cwd() } = {}) {
-    const absolute = path.resolve(root, workspacePath);
-    const label = (p) => path.relative(root, p).split(path.sep).join("/");
-    const allowed = path.join(path.dirname(absolute), "c4");
     const fold = (p) => (process.platform === "win32" ? p.toLowerCase() : p);
     const inside = (folder, p) => {
         const r = path.relative(fold(folder), fold(p));
         return r === "" || (!r.startsWith("..") && !path.isAbsolute(r));
     };
+    const absolute = path.resolve(root, workspacePath);
+    if (path.extname(absolute).toLowerCase() !== ".dsl" || !inside(root, absolute) || !inside(realpathSync(root), realpathSync(absolute))) {
+        throw new Error(`\`${workspacePath}\` is not a .dsl workspace under \`${root}\`; it was not read.`);
+    }
+    const label = (p) => path.relative(root, p).split(path.sep).join("/");
+    const allowed = path.join(path.dirname(absolute), "c4");
     const include = (target, fromFile) => {
         if (/^[a-z][a-z0-9+.-]*:/i.test(target) || path.isAbsolute(target) || target.startsWith("/") || target.startsWith("\\")) {
             return { problem: `\`!include ${target}\`: only a relative path is supported.` };

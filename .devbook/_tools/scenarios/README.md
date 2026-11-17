@@ -12,16 +12,16 @@ to `.devbook/_tools/scenarios/` where `domain/` is adopted. Edit the plugin, nev
 | `parse.mjs` | Reads a scenarios file's journeys with their setup fields, parts, steps, and `shot:` labels; a spec's header, `shot()` calls, and part titles; `profiles.json`. Its `resolveInside` refuses a path that resolves outside the repository, and every tool here reads through it |
 | `signature.mjs` | The journey signature: sha256 over the normalized setup fields, part headings, steps, and labels, first 8 hex. The canonical form is at the top of the file. As a CLI, `node signature.mjs <scenarios.md>[#<journey>]…` prints the signature a spec's header takes |
 | `scenario-page.vector.json` | The shared vector every implementation of the signature is tested against |
-| `setup.mjs`, `setup.ts` | The runner a derived spec imports: effective configuration, the setup hook, one browser context per portal, `start` |
+| `setup.mjs` | A journey's effective configuration, the profile with its flags and settings on top, which the reporter records |
 | `shot.ts` | `shot(page, label)` and the failure screenshot taken in `afterEach` |
-| `playwright.mjs` | Finds the `@playwright/test` the suite runs under, for the two `.ts` files |
-| `package.json` | `"type": "module"`, so Playwright loads the two `.ts` files and the `.mjs` they import as ES modules |
+| `playwright.mjs` | Finds the `@playwright/test` the suite runs under, for `shot.ts` |
+| `package.json` | `"type": "module"`, so Playwright loads `shot.ts` and the `.mjs` it imports as ES modules |
 | `report.mjs` | The Playwright reporter that writes `run.json` version 2 and the PNGs |
 | `check.mjs` | The coverage check |
 | `demo-sync.mjs` | Re-copies each linked walkthrough's and playthrough's step `text` and `signature` from its journey into a demo |
 
 Everything ending in `.mjs` is plain Node with no dependencies; `demo-sync.mjs` also imports
-`../devbook-meta/demo.mjs`, the checker installed beside this folder. The two `.ts` files use
+`../devbook-meta/demo.mjs`, the checker installed beside this folder. `shot.ts` uses
 `@playwright/test`, which the repository's e2e suite already has.
 
 ## Where the suite lives
@@ -31,12 +31,12 @@ repository root or a folder of its own, such as `.test/` with its own `node_modu
 with no mapping in a tsconfig and no file added under `.devbook/_tools/`:
 
 - `playwright.mjs` resolves `@playwright/test` from the script Playwright runs, then the
-  working folder, then this folder — so the runner and the suite share one Playwright, and a
+  working folder, then this folder — so `shot.ts` and the suite share one Playwright, and a
   copy at the root never shadows the suite's own.
 - The `package.json` here makes this folder an ES module scope, so when an ES module suite
-  imports `setup.ts`, it and the `.mjs` modules it loads run as ES modules.
+  imports `shot.ts`, it and the `.mjs` modules it loads run as ES modules.
 
-A CommonJS suite loads `setup.ts` through `require`, which compiles it to CommonJS whatever this
+A CommonJS suite loads `shot.ts` through `require`, which compiles it to CommonJS whatever this
 folder says; it then needs Node 22.12 or later to load the `.mjs` modules beside it.
 
 `tsc` over the specs follows the import into this folder, and looks for the Playwright types
@@ -47,39 +47,39 @@ of the package every spec loads.
 
 ## The contract
 
+devbook points at a journey's spec; the repository runs it. A spec is any Playwright spec file
+that keeps these, and is otherwise the repository's to write:
+
+- **The header**, the file's first two lines: `// scenario: <scenarios file>#<journey>` and
+  `// signature: <signature>`, the signature from `signature.mjs`.
+- **One test per part**, titled exactly as the part's `###` heading.
+- **One `test.step` per journey step**, titled as the step without the bold, where the run
+  should number the step that failed. Without them a failure records `step: null`.
+- **`shot(page, label)`** from `shot.ts` at each `shot:` label, and `failureShot(page, info)` in
+  an `afterEach` where a failed part should leave a screenshot.
+
 ```ts
 // scenario: .devbook/domain/work/scenarios.md#set-up-and-fill-the-backlog
 // signature: 9c41e2a0
-import { scenario, shot } from '../../../../.devbook/_tools/scenarios/setup';
+import { test } from '@playwright/test';
+import { shot } from '../../../../.devbook/_tools/scenarios/shot';
 
-scenario('set-up-and-fill-the-backlog', ({ part }) => {
-  part('Statuses are set up', async ({ page, step }) => {
-    await step('Given a product "Webshop" with no backlog statuses', async () => { /* … */ });
+test.describe('set-up-and-fill-the-backlog', () => {
+  test('Statuses are set up', async ({ page }) => {
+    await test.step('Given a product "Webshop" with no backlog statuses', async () => { /* … */ });
     await shot(page, 'statuses-set-up');
   });
 });
 ```
 
-One serial group per journey, one `part` per `###` titled exactly as the heading, one `step`
-per step, `shot` at each screenshot point. A spec sits at
-`<e2e folder>/<context>/<scenarios file without .md>/<journey>.spec.ts`. The setup hook is one
-file the repository writes; every method is optional until a journey needs it:
+How the parts are grouped is the repository's choice. Parts that continue one walk on one page
+run serially; parts that each set up their own state run independently. A spec sits at
+`<e2e folder>/<context>/<scenarios file without .md>/<journey>.spec.ts`.
 
-```ts
-export default {
-  applyTenant: async (tenant) => {},
-  importData: async (name, tenant, folder) => {},   // folder: <scenario folder>/data/<name>/
-  setFlag: async (tenant, flag, on) => {},
-  setSetting: async (tenant, setting, value) => {},
-  signIn: async (page, portal, actor) => {},
-};
-```
-
-Before the first part the runner applies the tenant, imports the data sets in order, sets
-every flag and setting of the effective configuration — the profile, then the journey's
-`flags` and `settings` — signs in once per portal an `actor` names, and opens `start`. It
-finds the journey by the spec's `// scenario:` header. A hook written as `.js` or `.mjs` always loads; a
-`.ts` hook relies on Playwright compiling a dynamic import, which depends on its version.
+The journey's setup fields — `profile`, `tenant`, `data`, `flags`, `settings`, `actor`, and
+`start` — state its preconditions, and the spec applies them through the suite's own fixtures.
+`setup.mjs` exports `effectiveConfig(journey, profiles)`, the configuration they resolve to, for
+a suite that wants to read it rather than repeat it.
 
 `<scenario folder>/profiles.json` holds the profiles by name; the first portal is the default:
 
@@ -92,9 +92,12 @@ finds the journey by the spec's `// scenario:` header. A hook written as `.js` o
 ```
 
 A portal URL or a tenant written `env:<NAME>` is read from the environment, and an unset one
-is an error. Flag and setting values are passed to the hook as written. A journey's `flags` name
-`feature-flag` chapters only, and reach `setFlag`; a switch the product models as a `setting`
-chapter goes under `settings` as `<chapter>=true` or `=false`, and reaches `setSetting`.
+is an error. A journey's `flags` name `feature-flag` chapters only; a switch the product models
+as a `setting` chapter goes under `settings` as `<chapter>=true` or `=false`.
+
+Before 1.37.0, devbook shipped a runner here, `setup.ts`, that every spec imported. Migration
+`038-journey-specs-own-runner` moved it into the repository, so a repository that used it still
+has it as its own code.
 
 ## Wiring it in
 
@@ -102,17 +105,15 @@ chapter goes under `settings` as `<chapter>=true` or `=false`, and reaches `setS
 // playwright.config.ts
 export default defineConfig({
   reporter: [['list'], ['../.devbook/_tools/scenarios/report.mjs']],
-  use: { scenarioHook: 'e2e/scenario-setup.ts' },
 });
 ```
 
 | Option | Where | Default |
 | --- | --- | --- |
-| `scenarioHook` | `use` | `e2e/scenario-setup.ts`, from the repository root |
-| `scenarioFolder` | `use`, and the reporter's options: where `profiles.json` and `data/` live | `.devbook/scenarios` |
+| `scenarioFolder` | the reporter's options: where `profiles.json` and `data/` live | `.devbook/scenarios` |
 | `repoRoot` | the reporter's options | the nearest folder upward holding `.devbook/` |
 | `project` | the reporter's options | the first project in the config that ran the spec; one run records one project |
-| `SCENARIO_PROFILE` | environment | the journey's `profile`, else `default` |
+| `SCENARIO_PROFILE` | environment | the journey's `profile`, else `default`, as the reporter records it |
 
 Keep `scenarioFolder` at its default in a repository the devbook check covers. The check's
 profile rule and its stale-walkthrough rule read `.devbook/scenarios/` and take no option, so

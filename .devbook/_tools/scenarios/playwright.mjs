@@ -1,6 +1,6 @@
 // playwright.mjs — finds the `@playwright/test` that is running the suite, for
-// `setup.ts` and `shot.ts`, which sit under `.devbook/_tools/scenarios/` and
-// not inside the e2e suite.
+// `shot.ts`, which sits under `.devbook/_tools/scenarios/` and not inside the
+// e2e suite.
 //
 // A static `import … from '@playwright/test'` resolves from this folder upward,
 // which misses a suite that is its own npm package — `.test/` with its own
