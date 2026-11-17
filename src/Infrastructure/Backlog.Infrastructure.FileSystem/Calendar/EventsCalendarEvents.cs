@@ -1,16 +1,16 @@
+using Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
+using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Events.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 
-namespace Backlog.Infrastructure.FileSystem.Events;
+namespace Backlog.Infrastructure.FileSystem.Calendar;
 
 /// <summary>
-/// ADAPTER — answers Tasks' <see cref="ICalendarEvents"/> from the Events context's
-/// published read contract, <see cref="IKnowledgeEventReader"/> (local ADR 0050 §7), the way
-/// <see cref="Calendar.RoadmapCalendarPlans"/> answers the plans from Roadmap's.
+/// ADAPTER — answers the Calendar's <see cref="ICalendarEvents"/> (local ADR 0055 §2) from
+/// the Events context's published read contract, <see cref="IKnowledgeEventReader"/>, the
+/// way <see cref="RoadmapCalendarPlans"/> answers the plans from Roadmap's.
 /// <para>
 /// It holds no event rule: which events are decided is the contract's answer. It only puts
 /// them in the Calendar's words — Considering tentative and the rest filled, the place as the
@@ -20,7 +20,8 @@ namespace Backlog.Infrastructure.FileSystem.Events;
 /// <para>
 /// With the <c>events</c> area off nothing is read, and the Calendar offers no events. No
 /// feature settings to ask reads as off too — unlike the roadmap's, the flag starts off, so
-/// the fail-closed answer is the area's own default.
+/// the fail-closed answer is the area's own default. Whether the events are shown is the
+/// Calendar's own view choice, not this adapter's.
 /// </para>
 /// </summary>
 public sealed class EventsCalendarEvents : ICalendarEvents
@@ -29,32 +30,13 @@ public sealed class EventsCalendarEvents : ICalendarEvents
 
     private readonly IKnowledgeEventReader _reader;
     private readonly IAppFeatureSettings? _features;
-    private readonly ShellNavigationStore? _store;
-    private bool _shown;
 
-    public EventsCalendarEvents(
-        IKnowledgeEventReader reader,
-        IAppFeatureSettings? features = null,
-        ShellNavigationStore? store = null)
+    public EventsCalendarEvents(IKnowledgeEventReader reader, IAppFeatureSettings? features = null)
     {
         ArgumentNullException.ThrowIfNull(reader);
 
         _reader = reader;
         _features = features;
-        _store = store;
-    }
-
-    public bool Shown => _store?.CalendarEventsShown ?? _shown;
-
-    public void SetShown(bool shown)
-    {
-        if (_store is null)
-        {
-            _shown = shown;
-            return;
-        }
-
-        _store.SetCalendarEventsShown(shown);
     }
 
     public async Task<CalendarEventsDto> ReadAsync(CancellationToken cancellationToken = default)

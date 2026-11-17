@@ -1,9 +1,9 @@
-namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+namespace Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
 
 /// <summary>
-/// The knowledge events in the Calendar's words: Tasks' own shape, so nothing of Events'
-/// crosses into this module (local ADR 0050 §7). Neither record carries an event id — the
-/// Calendar opens and writes nothing, so it keys what it draws by position.
+/// The knowledge events in the Calendar's words: the Calendar's own shape, so nothing of
+/// Events' crosses into this module (local ADR 0055 §2). Neither record carries an event
+/// id — the Calendar opens and writes nothing, so it keys what it draws by position.
 /// </summary>
 /// <param name="Events">Every decided event that has a start, in the order the events
 /// were first saved.</param>

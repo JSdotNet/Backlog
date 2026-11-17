@@ -28,7 +28,7 @@
            Layout="@Layout"
            BoardGrouping="@BoardGrouping"
            BoardGroupingChanged="SetBoardGrouping"
-           CalendarLayer="@CalendarLayer"
+           Body="@Body"
            LinkedWork="@_wiring?.LinkedWork" />
 
 @code {
@@ -65,9 +65,10 @@
     /// <summary>How this view lays the filtered rows out.</summary>
     protected virtual TasksLayout Layout => TasksLayout.List;
 
-    /// <summary>What the Calendar hands its Tasks part (local ADR 0055 §3); null on the
-    /// Tasks view and the Board.</summary>
-    protected virtual CalendarLayerInputs? CalendarLayer => null;
+    /// <summary>What this view draws under the filter bar in place of the list or the Board
+    /// (<see cref="TasksPane.Body"/>): the Calendar's Tasks part draws its calendar there
+    /// (local ADR 0055 §3); null on the Tasks view and the Board.</summary>
+    protected virtual RenderFragment<TasksPaneBody>? Body => null;
 
     private TasksViewWiring? _wiring;
     private ITasksViewPreferences? _preferences;

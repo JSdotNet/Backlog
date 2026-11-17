@@ -1,40 +1,25 @@
-using Backlog.Infrastructure.FileSystem.Events;
+using Backlog.Infrastructure.FileSystem.Calendar;
+using Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
+using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Events.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// The Tasks Calendar's events layer, answered from the events read contract (local ADR 0050
-/// §7, <c>.devbook/domain/events/requirements.md#events-on-the-calendar</c>): each decided event
+/// The Calendar's Events layer port, answered from the events read contract (local ADR 0055
+/// §2, <c>.devbook/domain/events/requirements.md#events-on-the-calendar</c>): each decided event
 /// in the Calendar's words, Considering drawn tentative and the rest firm, and each key date
 /// with the event it belongs to. With the <c>events</c> area off — or no feature settings to
 /// ask — nothing is read and the Calendar offers no events.
 /// </summary>
-public sealed class EventsCalendarEventsTests : IDisposable
+public sealed class EventsCalendarEventsTests
 {
     private static readonly DateOnly May12 = new(2026, 5, 12);
     private static readonly DateOnly May14 = new(2026, 5, 14);
-
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "events-calendar-events-tests-" + Guid.NewGuid().ToString("N"));
-
-    public void Dispose()
-    {
-        var path = NavigationPath();
-        ShellNavigationStore.WaitForPendingWrites(path);
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
 
     // --- The area's flag ------------------------------------------------------------------
 
@@ -147,40 +132,36 @@ public sealed class EventsCalendarEventsTests : IDisposable
         Assert.Equal([new CalendarKeyDateDto("Early bird ends", "Techorama", new DateOnly(2026, 3, 3))], read.KeyDates);
     }
 
-    // --- The "Show events" box ----------------------------------------------------------------
+    // --- The registration -------------------------------------------------------------------
 
     [Fact]
-    public void Without_a_store_the_box_is_off_and_holds_its_choice_for_the_run()
+    public void AddCalendarCrossContextAdapters_answers_the_calendars_events_over_the_events_reader_as_one_singleton()
     {
-        var calendar = new EventsCalendarEvents(new UnreadableReader(), new Features(events: true));
+        using var provider = new ServiceCollection()
+            .AddSingleton<IKnowledgeEventReader>(new ListedReader([]))
+            .AddCalendarCrossContextAdapters()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 
-        Assert.False(calendar.Shown);
+        var port = provider.GetRequiredService<ICalendarEvents>();
 
-        calendar.SetShown(true);
-        Assert.True(calendar.Shown);
-
-        calendar.SetShown(false);
-        Assert.False(calendar.Shown);
+        Assert.IsType<EventsCalendarEvents>(port);
+        Assert.Same(port, provider.GetRequiredService<ICalendarEvents>());
     }
 
+    /// <summary>A host composed without the Events module has no reader to ask: its
+    /// Calendar is answered Off, as with the area switched off, rather than failing when
+    /// the Calendar first asks.</summary>
     [Fact]
-    public void With_a_store_the_box_is_off_until_ticked_and_the_choice_is_kept_on_the_device()
+    public async Task AddCalendarCrossContextAdapters_without_the_events_module_offers_the_calendar_no_events()
     {
-        var store = new ShellNavigationStore(NavigationPath());
-        var calendar = new EventsCalendarEvents(new UnreadableReader(), new Features(events: true), store);
+        using var provider = new ServiceCollection()
+            .AddCalendarCrossContextAdapters()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 
-        Assert.False(calendar.Shown);
+        var read = await provider.GetRequiredService<ICalendarEvents>().ReadAsync(TestContext.Current.CancellationToken);
 
-        calendar.SetShown(true);
-
-        Assert.True(store.CalendarEventsShown);
-        Assert.False(store.CalendarPlansShown);
-        store.Flush();
-        var restarted = new EventsCalendarEvents(new UnreadableReader(), new Features(events: true), new ShellNavigationStore(NavigationPath()));
-        Assert.True(restarted.Shown);
+        Assert.False(read.Available);
     }
-
-    private string NavigationPath() => Path.Combine(_root, "shell-navigation.json");
 
     private static EventsCalendarEvents On(params DecidedEventDto[] events) =>
         new(new ListedReader(events), new Features(events: true));

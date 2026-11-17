@@ -12,10 +12,11 @@ namespace Backlog.Modules.Calendar.Extensions;
 public static class CalendarModuleRegistration
 {
     /// <summary>
-    /// Registers the module. It owns no data, so it registers no store; its one service is
-    /// the Plans layer's read policy, Scoped — one per window, as the
-    /// <see cref="ICalendarPlans"/> port it reads is. The port is optional: a host that
-    /// composed none gets a layer that offers no plans. Safe to call twice.
+    /// Registers the module. It owns no data, so it registers no store; its services are
+    /// the layers' read policies, each Scoped — one per window: the Plans layer, as the
+    /// <see cref="ICalendarPlans"/> port it reads is, and the Events layer over
+    /// <see cref="ICalendarEvents"/>. Each port is optional: a host that composed none gets
+    /// a layer that offers nothing. Safe to call twice.
     /// </summary>
     public static IServiceCollection AddCalendarModule(this IServiceCollection services)
     {
@@ -23,6 +24,9 @@ public static class CalendarModuleRegistration
 
         services.TryAddScoped<ICalendarPlansLayer>(sp =>
             new CalendarPlansLayer(sp.GetService<ICalendarPlans>(), sp.GetService<IAppFeatureSettings>()));
+
+        services.TryAddScoped<ICalendarEventsLayer>(sp =>
+            new CalendarEventsLayer(sp.GetService<ICalendarEvents>(), sp.GetService<IAppFeatureSettings>()));
 
         return services;
     }

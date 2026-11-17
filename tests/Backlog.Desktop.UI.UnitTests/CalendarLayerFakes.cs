@@ -1,7 +1,6 @@
 using Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
 using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Calendar.UI;
-using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.UI.Components.Tasks;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -57,30 +56,19 @@ internal sealed class FakeCalendarPlans(DateOnly today) : ICalendarPlans
 
 /// <summary>A Going event across yesterday to tomorrow, a Considering one today, and an
 /// early-bird key date today. What the adapter answers: Spotted and Skipped never reach the
-/// port, so the fake hands none in.</summary>
-internal sealed class FakeCalendarEvents(DateOnly today, ShellNavigationStore? store = null) : ICalendarEvents
+/// port, so the fake hands none in. Whether they are shown is the Calendar's view choice,
+/// not the port's.</summary>
+internal sealed class FakeCalendarEvents(DateOnly today) : ICalendarEvents
 {
-    private bool _shown;
-
-    /// <summary>Off, unless ticked — or the store's answer when one is given, as the real
-    /// adapter reads it.</summary>
-    public bool Shown => store?.CalendarEventsShown ?? _shown;
-
     public bool Available { get; set; } = true;
 
     public bool Fails { get; init; }
 
     /// <summary>When given, a read does not answer until it is released — as a read over
     /// the database does not.</summary>
-    public TaskCompletionSource? Gate { get; init; }
+    public TaskCompletionSource? Gate { get; set; }
 
     public int Reads { get; private set; }
-
-    public void SetShown(bool shown)
-    {
-        if (store is null) _shown = shown;
-        else store.SetCalendarEventsShown(shown);
-    }
 
     public async Task<CalendarEventsDto> ReadAsync(CancellationToken cancellationToken = default)
     {
@@ -111,16 +99,21 @@ internal sealed class FakeCalendarCapacity(decimal hours) : ICalendarCapacity
 }
 
 /// <summary>The Calendar's view choices, kept in memory. Show plans starts ticked, so a
-/// test about the plans sees them drawn without ticking the box first.</summary>
+/// test about the plans sees them drawn without ticking the box first; Show events starts
+/// off, as on a device that never chose.</summary>
 internal sealed class FakeCalendarViewPreferences : ICalendarViewPreferences
 {
     public CalendarRange Range { get; set; } = CalendarRange.Month;
 
     public bool PlansShown { get; set; } = true;
 
+    public bool EventsShown { get; set; }
+
     public void SetRange(CalendarRange range) => Range = range;
 
     public void SetPlansShown(bool shown) => PlansShown = shown;
+
+    public void SetEventsShown(bool shown) => EventsShown = shown;
 }
 
 /// <summary>A shell navigation file path of its own, removed again afterwards.</summary>

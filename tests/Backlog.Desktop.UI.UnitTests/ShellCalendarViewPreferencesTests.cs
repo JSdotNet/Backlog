@@ -61,7 +61,39 @@ public sealed class ShellCalendarViewPreferencesTests
         Assert.Equal("calendar", store.LastView);
         Assert.Equal(CalendarRange.Week, preferences.Range);
         Assert.True(preferences.PlansShown);
-        Assert.True(store.CalendarEventsShown);
+        Assert.True(preferences.EventsShown);
         Assert.Equal(before, ShellNavigationStoreTests.Written(file.Path));
+
+        // Ticking a box already ticked writes nothing: the file stays the bytes it was.
+        preferences.SetEventsShown(true);
+        preferences.SetPlansShown(true);
+        Assert.Equal(before, ShellNavigationStoreTests.Written(file.Path));
+    }
+
+    /// <summary>Show events is the Calendar's own view choice now, kept under the name the
+    /// file always used and apart from Show plans.</summary>
+    [Fact]
+    public void Show_events_is_off_until_ticked_and_kept_under_its_stored_name_across_a_restart()
+    {
+        using var file = new TempShellNavigationFile();
+        var preferences = new ShellCalendarViewPreferences(new ShellNavigationStore(file.Path));
+
+        Assert.False(preferences.EventsShown);
+
+        preferences.SetEventsShown(true);
+
+        using (var written = JsonDocument.Parse(ShellNavigationStoreTests.Written(file.Path)))
+        {
+            Assert.True(written.RootElement.GetProperty("calendarEventsShown").GetBoolean());
+            Assert.False(written.RootElement.TryGetProperty("calendarPlansShown", out _));
+        }
+
+        var restarted = new ShellCalendarViewPreferences(new ShellNavigationStore(file.Path));
+        Assert.True(restarted.EventsShown);
+        Assert.False(restarted.PlansShown);
+
+        restarted.SetEventsShown(false);
+        Assert.DoesNotContain("calendarEventsShown", ShellNavigationStoreTests.Written(file.Path), StringComparison.Ordinal);
+        Assert.False(new ShellCalendarViewPreferences(new ShellNavigationStore(file.Path)).EventsShown);
     }
 }

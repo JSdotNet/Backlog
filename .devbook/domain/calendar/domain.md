@@ -23,10 +23,9 @@ related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/ta
 ```
 
 What one source draws on the Calendar's days. There are three: the **Tasks layer**,
-always drawn, the **Plans layer** and the **Events layer**. The Plans layer is read
-through a port the Calendar owns, and the Events layer through Tasks' port until it
-[moves](context.md). The Tasks layer is drawn by a part Tasks offers, which the Calendar
-hosts. A layer writes only back through its source.
+always drawn, the **Plans layer** and the **Events layer**. The Plans and Events layers
+are read through [ports the Calendar owns](context.md). The Tasks layer is drawn by a part
+Tasks offers, which the Calendar hosts. A layer writes only back through its source.
 
 ### Layer Choice
 

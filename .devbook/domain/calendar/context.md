@@ -49,9 +49,9 @@ which is proposed. The module `Backlog.Modules.Calendar` is built.
   task state.
 - **Plans layer and the hours worked each day:** the Calendar's own ports, which adapters
   answer over Roadmap Planning.
-- **Range and Show plans:** the Calendar's own view choices.
-- **Events layer and Show events:** still reach the Calendar through Tasks'
-  `ICalendarEvents`, until they move.
+- **Events layer:** the Calendar's own port, which an adapter answers over Events. The
+  Calendar reads it for each window and hands it to the Tasks part to draw.
+- **Range, Show plans and Show events:** the Calendar's own view choices.
 
 ## Calendar range
 
@@ -100,9 +100,9 @@ apart from Show plans.
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Tasks](../tasks/features.md#tasks-on-the-calendar) | Customer/Supplier | A part Tasks offers, which the Calendar hosts and hands its range, Plans layer and hours; registered as `CalendarTasksLayer` in `Backlog.UI.Components` | The window's task state (filter, open task, selection), local ADR 0043 §5 | The tasks by due date, their hours, and the writes back |
+| [Tasks](../tasks/features.md#tasks-on-the-calendar) | Customer/Supplier | A part Tasks offers, which the Calendar hosts and hands its range, Plans layer, Events layer and hours; registered as `CalendarTasksLayer` in `Backlog.UI.Components` | The window's task state (filter, open task, selection), local ADR 0043 §5 | The tasks by due date, their hours, and the writes back |
 | [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier | `ICalendarPlans` and `ICalendarCapacity` in `Backlog.Modules.Calendar.Abstractions`, answered by `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` under `Infrastructure.FileSystem/Calendar/` over Roadmap's abstractions | Roadmap's plans, shelf and working week | The plan bars, the shelf drop, and a day's capacity |
-| [Events](../events/domain.md#knowledge-event) | Customer/Supplier | Events layer port, answered by an adapter (not built; today `ICalendarEvents` in Tasks) | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions` | The event bars and key dates |
+| [Events](../events/domain.md#knowledge-event) | Customer/Supplier | `ICalendarEvents` in `Backlog.Modules.Calendar.Abstractions`, answered by `EventsCalendarEvents` under `Infrastructure.FileSystem/Calendar/`, or `NoCalendarEvents` (Off) in a host without Events | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions` | The event bars and key dates |
 
 ### Inbound dependents (known)
 

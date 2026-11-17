@@ -1,5 +1,6 @@
 using System.Globalization;
 using Backlog.Modules.Calendar.Abstractions.Services;
+using Backlog.Modules.Calendar.UI;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.UI.Components.Tasks;
 using Bunit;
@@ -8,7 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// Planned hours through the Tasks pane, over a real store in a temporary folder: a
+/// Planned hours through the Tasks pane and the Tasks layer it offers the Calendar surface,
+/// over a real store in a temporary folder: a
 /// block made, changed and removed from a Calendar day and from the detail panel's
 /// Planned hours section, each written to the entry as its own field and read back
 /// from the store; the day's total against the capacity the Calendar's port answers and
@@ -28,8 +30,8 @@ public sealed class TasksPaneCalendarHoursTests
 
     private static string Iso(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
-    private static IRenderedComponent<TasksPane> RenderCalendar(TasksPaneHost host) =>
-        host.Context.Render<TasksPane>(parameters => parameters.Add(pane => pane.Layout, TasksLayout.Calendar));
+    private static IRenderedComponent<CalendarSurface> RenderCalendar(TasksPaneHost host) =>
+        host.WithCalendarSurface().RenderCalendarSurface();
 
     private static string BlockTestId(EntryRow row, DateOnly day) => $"task-calendar-block-{row.TaskId}-{Iso(day)}";
 

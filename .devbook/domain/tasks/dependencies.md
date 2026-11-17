@@ -24,7 +24,6 @@ Tasks is the customer in every Customer/Supplier row.
 | [Sessions](../sessions/domain.md#session-state) | Customer/Supplier | Port `ILinkedSessionStates`, answered by an adapter over `IAgentSessionSource` | `.devbook/domain/sessions/domain.md#session-state` | A task's work badge colours a linked session by its state. |
 | [Repository Management](../repository-management/domain.md#pull-request-status), for pull request state | Customer/Supplier | Port `ILinkedPullRequestStates`, answered by an adapter over Repository Management's contract | `.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#readiness-verdict`, `.devbook/domain/repository-management/domain.md#merge-command` | A task row reads and acts on a linked pull request's state and verdict. |
 | [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier | Reads the roadmap tag vocabulary for the task's tag picker | `.devbook/domain/roadmap/domain.md#roadmap-tag` | The tag picker offers every Roadmap Item tag, so a task can be filed against planned work. |
-| [Events](../events/domain.md#knowledge-event) | Customer/Supplier | Port `ICalendarEvents`, answered by `EventsCalendarEvents` over Events' read contract | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions`; local [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md) §7 | The Calendar draws the decided events and their key dates under Show events. |
 | [Sync](../sync/context.md) | OHS + Published Language (Sync = supplier) | `TaskSyncWorker` pushes and pulls the task feed; `TaskReplicaMerge` applies pulled documents | `TaskChange` and `TaskPayload` in `Backlog.Modules.Sync.Abstractions`; `.devbook/domain/sync/domain.md#change-precedence`; local ADR 0005 | A task reaches the person's other devices as one whole document, and a push never moves it backwards. |
 
 - **Brain:** Queries can span both contexts.
@@ -52,9 +51,6 @@ Tasks is the customer in every Customer/Supplier row.
     draws as it did before.
 - **Roadmap Planning:** A task is filed under the plan's own slug. Tasks conforms to
   that vocabulary and holds no roadmap state.
-- **Events:** The [Calendar](../calendar/features.md#calendar-view) reads the events and never
-  writes one. No Tasks type holds an event id. `EventsCalendarEvents` lives under
-  `Infrastructure.FileSystem/Events/` and answers nothing while the `events` flag is off.
 - **Sync:** The feed moves through the sync service, and `TaskReplicaMerge` lives in
   `Backlog.Infrastructure.Sync`. Sync stores the document without reading it. What a
   task is, and how a pulled copy merges into the local store, stay with Tasks
@@ -70,7 +66,7 @@ Tasks is the customer in every Customer/Supplier row.
 | [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Tasks = supplier) | Intended subscription to status and projection events; Tasks emits none yet | `.devbook/domain/tasks/domain.md#statuschanged`, `.devbook/domain/tasks/domain.md#taskprojected`, `.devbook/domain/tasks/domain.md#taskcompleted`, `.devbook/domain/tasks/domain.md#occurrencespawned` | Work-state and projection-state changes, and occurrence provenance. |
 | [Productivity](../productivity/domain.md#productivity-ledger) | OHS + Published Language (Tasks = supplier) | Subscribes to `AIWorkLogged` | `.devbook/domain/tasks/domain.md#aiworklogged` | AI-assisted activity evidence linked to a task. |
 | [Sessions](../sessions/context.md) | Customer/Supplier (Tasks = supplier) | Calls a capability Tasks publishes in `Backlog.Modules.Tasks.Abstractions`, from `SessionValidationAnswers` in `Backlog.Infrastructure.Sessions`, in process | `.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry`, `.devbook/domain/tasks/requirements.md#filing-a-follow-up-after-an-entry` | Tasks filing exactly one `ready` prompt after the gated entry per notification id. |
-| [Calendar](../calendar/context.md) | Customer/Supplier (Tasks = supplier) | A part Tasks offers, `TasksCalendarPart`, registered as `CalendarTasksLayer` in `Backlog.UI.Components` by `AddTasksCalendarLayer` | The window's task state; local [ADR 0055](../../arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md) §3 | The Tasks layer: the filtered tasks by due date, the tray, the hours, the drag and the open task, with the Calendar's range, Plans layer and hours handed in. |
+| [Calendar](../calendar/context.md) | Customer/Supplier (Tasks = supplier) | A part Tasks offers, `TasksCalendarPart`, registered as `CalendarTasksLayer` in `Backlog.UI.Components` by `AddTasksCalendarLayer` | The window's task state; local [ADR 0055](../../arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md) §3 | The Tasks layer: the filtered tasks by due date, the tray, the hours, the drag and the open task, with the Calendar's range, Plans layer, Events layer and hours handed in. |
 | Desktop shell (composition root), for Repository Management's pull requests pane and Sessions' detail panel | OHS + Published Language (Tasks = supplier) | A lookup port in Tasks' abstractions, `ITaskLookup`, from a session id or a pull request to its task | `.devbook/domain/tasks/domain.md#projection-ref` | A link being the `session` or `pull-request` Projection Ref a task carries. |
 
 - **Roadmap Planning:** The task id shows a planned item's progress. The tag and
@@ -83,8 +79,8 @@ Tasks is the customer in every Customer/Supplier row.
   **Built**: `ITaskFollowUps`, implemented by the `FileFollowUp` feature.
 - **Calendar:** Neither module references the other. The part's one parameter is
   `CalendarLayerInputs`, and it shares the filter, the open task and the selection with
-  Tasks and Board. The Events row under Outbound stays until the events layer moves to the
-  Calendar.
+  Tasks and Board. The part draws the Events layer it is handed, and no Tasks type holds
+  an event id.
 - **Desktop shell:** These find their task through the port
   (local [ADR 0042 §9](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#9-tasks-publishes-a-lookup-from-a-session-or-a-pull-request-to-its-task)):
   - the pane's Mine view;

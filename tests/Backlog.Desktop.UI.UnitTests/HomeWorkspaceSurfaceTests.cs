@@ -1653,8 +1653,8 @@ public sealed class HomeWorkspaceSurfaceTests
                 {
                     services.AddCalendarModule();
                     services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(today));
-                    services.AddSingleton<Backlog.Modules.Tasks.Abstractions.Services.ICalendarEvents>(
-                        new FakeCalendarEvents(today, shellNavigation));
+                    services.AddSingleton<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>(
+                        new FakeCalendarEvents(today));
                 });
             var component = Render(harness);
 

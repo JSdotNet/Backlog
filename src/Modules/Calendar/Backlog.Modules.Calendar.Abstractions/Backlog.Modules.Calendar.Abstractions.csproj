@@ -4,9 +4,10 @@
     The Calendar module's public surface (.devbook/domain/calendar, local ADR 0055) —
     everything another context or a host is allowed to see:
       Services/             the layer ports the Calendar owns and reads (ADR 0055 §2):
-                            ICalendarPlans and ICalendarCapacity, which infrastructure
-                            adapters answer over the source context's own abstractions,
-                            and ICalendarPlansLayer, the Plans layer's read policy
+                            ICalendarPlans, ICalendarCapacity and ICalendarEvents, which
+                            infrastructure adapters answer over the source context's own
+                            abstractions, and ICalendarPlansLayer and ICalendarEventsLayer,
+                            the Plans and Events layers' read policies
       DataTransferObjects/  the shapes those ports answer in, the Calendar's own
     The Calendar owns no data (ADR 0055 §6), so there is no aggregate behind this.
     Nothing here may reference the implementation, or anything else in the solution
