@@ -551,6 +551,34 @@ The system SHALL show no AI card for an item whose model call failed and SHALL l
 - **When** the reader opens an item in triage
 - **Then** the item is shown with its suggestions and its decisions, and with no AI card
 
+### Requirement: A Waiting for card asks who before it routes
+
+```meta
+type: requirement
+related: [.devbook/domain/inbox/features.md#ai-triage-cards, .devbook/domain/inbox/requirements.md#clarify-outcomes]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.The_waiting_for_card_opens_the_dialog_filled_with_who_and_confirming_routes_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.Cancelling_the_dialog_the_waiting_for_card_opened_routes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.Dismissing_the_waiting_for_card_hides_it_and_routes_nothing, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.A_waiting_for_card_is_read_with_who_it_waits_on, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.A_waiting_for_that_names_no_one_writable_is_dropped]
+```
+
+The system SHALL show a Waiting for card only when the model names who the item waits on, and SHALL take its main act by opening the Waiting for dialog filled with that name and no follow-up date, routing nothing until the reader confirms.
+
+#### Scenario: Confirming the name
+
+- **Given** triage shows the card "Waiting on Sam the roofer" for an item
+- **When** the reader presses its main act, changes the name to "Sam Jones" and confirms
+- **Then** the item is routed as **w** routes it, to a task waiting on "Sam Jones" with no follow-up date
+
+#### Scenario: Cancelling
+
+- **Given** the Waiting for card opened the dialog
+- **When** the reader cancels it
+- **Then** the item is still unprocessed and still shown
+
+#### Scenario: No one named
+
+- **Given** the model reads an item as Waiting for but names no one
+- **When** triage shows the item
+- **Then** no Waiting for card is shown
+
 ## Merge into a task
 
 ```meta
@@ -731,6 +759,21 @@ The system SHALL, when the Inbox has no item still waiting after decisions this 
 - **When** the reader opens it
 - **Then** the plain empty state is shown, with no counts
 
+### Requirement: The inbox is clear only when the Brain's inbox area is too
+
+```meta
+type: requirement
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxZeroTests.Notes_still_to_file_in_the_Brain_keep_the_inbox_from_reading_clear
+```
+
+The system SHALL NOT show inbox zero while the Brain's inbox area holds a note to file, even when the unfiled Inbox has none waiting.
+
+#### Scenario: The Inbox emptied, the Brain not
+
+- **Given** the reader decided the last waiting item this session and the Brain's inbox area holds two notes
+- **When** the pane redraws
+- **Then** the plain empty state is shown, not "Inbox is clear", and queue health reads "2 notes to file in the Brain"
+
 ## AI triage pass
 
 ```meta
@@ -848,6 +891,28 @@ The system SHALL stop Apply at the first decision refused, keep every decision a
 - **Given** the reader applies a route, a merge and an archive, and the backlog refuses the merge's comment
 - **When** Apply runs
 - **Then** the route stays, the archive is not tried, and the screen says it could not merge the item, naming it
+
+### Requirement: A Waiting for proposal applies with the name the reader leaves
+
+```meta
+type: requirement
+related: [.devbook/domain/inbox/features.md#ai-triage-pass, .devbook/domain/inbox/requirements.md#clarify-outcomes]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.A_waiting_for_proposal_shows_who_for_the_reader_to_change_then_applies_and_undoes, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassDraftTests.A_waiting_for_carries_the_name_the_reader_left_and_counts_only_while_it_can_be_written, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.Waiting_for_goes_through_the_route_w_takes_with_the_name_and_no_dates, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.A_waiting_for_with_no_name_stops_apply_and_names_the_item]
+```
+
+The system SHALL show each Waiting for proposal with who the item waits on in a field the reader may change, SHALL leave it out of Apply while that name is blank or holds a backtick, and SHALL apply it through the route **w** takes, with that name and no follow-up date.
+
+#### Scenario: A name changed before Apply
+
+- **Given** the pass proposes Waiting for on "Sam" for an item
+- **When** the reader changes the name to "Sam the roofer" and presses Apply
+- **Then** the item becomes a task waiting on "Sam the roofer", with no follow-up date, and **u** takes it back as it takes back Move to backlog
+
+#### Scenario: A name cleared
+
+- **Given** the pass proposes Waiting for on "Sam" and the reader clears the name
+- **When** the reader looks at the header
+- **Then** the field says to name who it waits on and Apply does not count the proposal
 
 ## Capture attachments
 
@@ -1158,6 +1223,27 @@ The system SHALL show in the side menu the number of unprocessed items in every 
 - **Given** no unprocessed items
 - **When** the pane opens
 - **Then** the side menu reads "Nothing waiting" and shows no bar
+
+### Requirement: The Brain's inbox area is counted beside the Inbox
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Queue_health_counts_the_notes_waiting_in_the_Brains_inbox_area, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Without_a_Brain_or_with_nothing_to_file_queue_health_says_nothing_about_the_Brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Pressing_the_Brain_count_asks_the_host_to_open_the_Brain_at_its_inbox_area, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.An_area_folder_asked_for_opens_that_areas_tab, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.The_notes_in_the_inbox_area_are_counted, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.Without_a_brain_there_is_no_count]
+```
+
+The system SHALL show in queue health the number of notes in the Brain's inbox area as "n notes to file in the Brain" while it holds any, open the Devbook on the Brain at that area when it is pressed, and show nothing for the Brain while no Brain folder is set or present.
+
+#### Scenario: Notes waiting in the Brain
+
+- **Given** a Brain whose inbox area holds three notes
+- **When** the pane opens
+- **Then** queue health reads "3 notes to file in the Brain", and pressing it opens the Devbook on the Brain at its inbox area
+
+#### Scenario: No Brain
+
+- **Given** no Brain folder is set
+- **When** the pane opens
+- **Then** queue health says nothing about the Brain
 
 ## Classification and enrichment
 
@@ -1697,3 +1783,156 @@ The phone SHALL offer no way to route, defer, accept or archive an Inbox Item, i
 - **Given** the phone's Inbox tab shows a capture the phone made that the desktop has not taken in
 - **When** the reader opens it
 - **Then** the capture is shown with no button to route, defer, accept or archive it
+
+## Clarify outcomes
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/domain/inbox/features.md#quick-triage-shortcuts, .devbook/domain/inbox/features.md#triage-mode, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/domain/inbox/features.md#route-to-brain, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+```
+
+> Local ADR 0054 decides these outcomes. The destination picker, Someday,
+> Done now and Waiting for are built.
+
+### Requirement: S, n and w take Someday, Done now and Waiting for
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.S_files_it_without_a_picker_and_u_takes_it_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.A_decided_item_is_not_routed_again_by_s_or_n, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests.W_in_triage_asks_who_and_when_then_routes_and_moves_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests.A_decided_item_is_not_routed_again_by_w]
+```
+
+The system SHALL take Someday on **s**, Done now on **n** and Waiting for on **w**, through the same act as the decision's button in the item's detail and in triage mode, and SHALL offer by key no act the detail withholds for that item.
+
+#### Scenario: Someday by key
+
+- **Given** an unprocessed item is chosen and the Brain has a `someday` area
+- **When** the reader presses s
+- **Then** the item is routed into the `someday` area, as the Someday button routes it
+
+#### Scenario: A routed item
+
+- **Given** an item already moved to the backlog is chosen
+- **When** the reader presses n or w
+- **Then** the item stays as it is and no task is made
+
+### Requirement: To Brain files where the destination picker points
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.B_twice_on_the_detail_keeps_today_s_route_into_the_inbox_area, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.Choosing_a_project_files_the_item_into_its_folder, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.The_destinations_are_the_areas_and_the_project_notes, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_route_with_a_destination_lands_in_it_and_names_its_area]
+```
+
+The system SHALL offer To Brain a destination picker listing the Brain's areas and the active notes in its `projects` area, starting on the inbox area, and SHALL write the note into the area chosen, or beside the project note chosen.
+
+#### Scenario: The default
+
+- **Given** a Brain under the PARA default
+- **When** the reader routes an item To Brain without changing the picker
+- **Then** the note is written into `_inbox`
+
+#### Scenario: A project
+
+- **Given** a Brain whose `projects` area holds the note `projects/sync-rewrite.md`
+- **When** the reader routes an item To Brain with *sync-rewrite* chosen
+- **Then** the note is written into `projects/`, beside `sync-rewrite.md`, and the item leaves the queue as routed
+
+### Requirement: Someday routes To Brain into the someday area
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.Someday_in_triage_files_the_item_in_the_someday_area_and_moves_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.A_brain_with_no_someday_area_offers_someday_disabled_with_the_reason]
+```
+
+The system SHALL route an item taken as Someday To Brain into the Brain's `someday` area, and SHALL offer Someday disabled, with its reason, while the Brain has no `someday` area.
+
+#### Scenario: A maybe
+
+- **Given** a capture titled "Learn to sail" and a Brain under the PARA default
+- **When** the reader takes Someday
+- **Then** `someday/` holds a note titled "Learn to sail" and the item has left the queue as routed
+
+#### Scenario: A Brain with its own areas
+
+- **Given** a `CONVENTIONS.md` declaring the areas `work` and `home` only
+- **When** the reader looks at the Someday button
+- **Then** it is disabled and says the Brain has no `someday` area
+
+### Requirement: Done now creates the task already ticked
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Done_now_asks_for_one_entry_completed_today_and_routes_the_item_to_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Done_now_routes_once_and_a_tasks_failure_leaves_the_item_open, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Done_now_writes_a_done_entry_ticked_on_the_day]
+```
+
+The system SHALL route an item taken as Done now to a task created ticked, with today's date as its `completed:`, and mark the item routed once the task is saved.
+
+#### Scenario: Two minutes
+
+- **Given** a capture titled "Reply to Anna about Friday"
+- **When** the reader takes Done now on 2026-11-12
+- **Then** the backlog holds a task titled "Reply to Anna about Friday" ticked on 2026-11-12, and the item has left the queue as routed
+
+#### Scenario: Tasks refuses
+
+- **Given** the Tasks side fails to save the task
+- **When** the reader takes Done now
+- **Then** no task is made and the item stays in the queue, unrouted
+
+### Requirement: Waiting for creates the task with its waiting-for
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Waiting_for_routes_like_move_to_backlog_with_the_waiting_for_on_every_entry, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Waiting_for_with_nobody_writable_routes_nothing, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Waiting_for_writes_the_waiting_and_followup_tokens, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests.Refused_by_tasks_it_leaves_the_item_open_and_the_dialog_up]
+```
+
+The system SHALL route an item taken as Waiting for to a task carrying the waiting-for the reader names, who and an optional follow-up date, and mark the item routed once the task is saved.
+
+#### Scenario: A reply owed
+
+- **Given** a capture titled "Quote for the roof"
+- **When** the reader takes Waiting for, names "Jansen Roofing" and the follow-up date 2026-11-20
+- **Then** the backlog holds the task with `waiting:Jansen Roofing` and `followup:2026-11-20`, and the item has left the queue as routed
+
+### Requirement: Move to backlog may set a due date or My Day
+
+```meta
+type: requirement
+```
+
+The system SHALL let the reader set a due date or put the task in My Day as part of Move to backlog, and SHALL save the task with it in the same route.
+
+#### Scenario: Due on Friday
+
+- **Given** an unprocessed item in triage mode
+- **When** the reader picks the due date 2026-11-13 and presses r
+- **Then** the task the item became is due on 2026-11-13
+
+#### Scenario: Today
+
+- **Given** an unprocessed item in triage mode
+- **When** the reader ticks My Day and presses r
+- **Then** the task the item became is in today's My Day
+
+## Capture to Inbox over MCP
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#work-the-queue-over-mcp, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md]
+```
+
+> Local ADR 0054 decides the tool.
+
+### Requirement: An assistant's capture lands in the Inbox
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxMcpToolsOverSqliteTests.An_assistants_capture_is_a_manual_unprocessed_item_in_the_queue, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.InboxToolsTests.Capture_goes_through_add_by_hand_as_a_manual_capture_and_answers_its_id]
+```
+
+The system SHALL make an assistant's `capture_to_inbox` call a new unprocessed Inbox item with the title and notes it sends, and SHALL write nothing into the Brain.
+
+#### Scenario: Remind me
+
+- **Given** an assistant connected to the app's MCP server, with the Inbox pane's switch on
+- **When** it calls `capture_to_inbox` with the title "Call Anna about the invoice"
+- **Then** the queue holds an unprocessed item titled "Call Anna about the invoice", and the Brain's inbox area is unchanged

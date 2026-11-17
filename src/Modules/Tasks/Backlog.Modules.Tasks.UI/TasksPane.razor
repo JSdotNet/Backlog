@@ -180,7 +180,53 @@
                                       PressedChanged="State.SetReadyInPlanFilter">
                             <PlayIcon CssClass="chip__icon" /><span class="sr-only">Ready in a plan</span><span class="chip__count">@ReadyInPlanCount</span>
                         </ToggleButton>
+
+                        @* The Waiting slice: the open tasks waiting on someone, soonest
+                           follow-up first and undated last — see
+                           TasksDesktopState.WaitingForOnly. *@
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@State.WaitingForOnly"
+                                      TestId="waitingfor-filter-option"
+                                      Title="@(State.WaitingForOnly ? "Show everything again" : "Show only what is waiting on someone, soonest follow-up first")"
+                                      PressedChanged="State.SetWaitingForFilter">
+                            <HourglassIcon CssClass="chip__icon" /><span class="sr-only">Waiting</span><span class="chip__count">@WaitingForCount</span>
+                        </ToggleButton>
+
+                        @* The Next actions slice: the open tasks that can be picked up
+                           now, grouped by context — see
+                           TasksDesktopState.NextActionsOnly. *@
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@State.NextActionsOnly"
+                                      TestId="nextactions-filter-option"
+                                      Title="@(State.NextActionsOnly ? "Show everything again" : "Show only the next actions, grouped by context")"
+                                      PressedChanged="State.SetNextActionsFilter">
+                            <ListTodoIcon CssClass="chip__icon" /><span class="sr-only">Next actions</span><span class="chip__count">@NextActionsCount</span>
+                        </ToggleButton>
                     </div>
+
+                    @* The areas the Next actions slice holds, while it is on: the type
+                       group's shape and for its reason — a task is filed under one
+                       area, so pressing another lets go of the first, and with
+                       nothing pressed the slice is every area. *@
+                    @if (State.AreaFilters.Count > 0)
+                    {
+                        <div class="filter-group filter-group--area" role="group" aria-label="Filter by area">
+                            @foreach (var area in State.AreaFilters)
+                            {
+                                <ToggleButton BaseClass="chip chip--filter"
+                                              PressedCssClass="chip--active"
+                                              Pressed="@(State.SelectedArea == area.Value)"
+                                              TestId="area-filter-option"
+                                              data-area="@(area.Value == TasksDesktopState.NoArea ? string.Empty : area.Value)"
+                                              Title="@(State.SelectedArea == area.Value ? "Show every area again" : $"Show only the next actions in {area.Label}")"
+                                              PressedChanged="pressed => State.SetAreaFilter(pressed ? area.Value : null)">
+                                    @area.Label<span class="chip__count">@area.Count</span>
+                                </ToggleButton>
+                            }
+                        </div>
+                    }
 
                     @* Source and Type: inline on a wide column, folded into one
                        Filter menu on a narrow one (48rem and under — see
@@ -684,7 +730,8 @@
                                       OnSelected="OnEntrySelectedAsync"
                                       OnToggle="OnEntryToggledAsync"
                                       OnRename="OnEntryRenamedAsync"
-                                      Reorderable="true"
+                                      Reorderable="@(!State.InGroupedSlice)"
+                                      SectionOf="@NextActionSection"
                                       OnReorder="OnEntryReorderedAsync"
                                       OnLink="OnEntryLinkedAsync"
                                       OnTagSelected="OnRowTagSelected"
@@ -986,7 +1033,10 @@
         Priority,
         Effort,
         Attachment,
-        Devbook
+        Devbook,
+        WaitingFor,
+        FollowUpOn,
+        Area
     }
 
     /// <summary>The row a right-click asked for a menu on. Held from the gesture
@@ -1035,6 +1085,7 @@
 
         _calendarPlans = Services.GetService(typeof(ICalendarPlans)) as ICalendarPlans;
         if (_calendarPlans is not null) _calendarPlans.Changed += HandleCalendarPlansChanged;
+        _brainAreaNames = Services.GetService(typeof(IBrainAreaNames)) as IBrainAreaNames;
 
         _calendarCapacity = Services.GetService(typeof(ICalendarCapacity)) as ICalendarCapacity;
         if (_calendarCapacity is not null) _calendarCapacity.Changed += HandleCalendarCapacityChanged;
@@ -3562,9 +3613,9 @@
             new(RowMenuDuePick, "Pick a date", "🗓"),
             new(RowMenuDueClear, "Remove due date", "🗓", Disabled: row.PreviewDueOn is null),
             MenuItem.Divider("order"),
-            new(RowMenuMoveTop, "Move to top", "⤒", Disabled: above is null),
-            new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null),
-            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null)
+            new(RowMenuMoveTop, "Move to top", "⤒", Disabled: above is null || State.InGroupedSlice),
+            new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null || State.InGroupedSlice),
+            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null || State.InGroupedSlice)
         ];
 
         // Where the work went, after where the row sits and before the act that
@@ -3872,6 +3923,36 @@
     /// <c>TasksDesktopState.IsReadyInPlan</c>, which already leaves finished rows
     /// out.</summary>
     private int ReadyInPlanCount => State.ScopedRows.Count(State.IsReadyInPlan);
+
+    /// <summary>How many of those same rows are waiting on someone — see
+    /// <c>TasksDesktopState.IsWaitingForSomeone</c>, which leaves finished rows
+    /// out.</summary>
+    private int WaitingForCount => State.ScopedRows.Count(State.IsWaitingForSomeone);
+
+    /// <summary>How many of those same rows are next actions — see
+    /// <c>TasksDesktopState.IsNextAction</c>.</summary>
+    private int NextActionsCount => State.ScopedRows.Count(State.IsNextAction);
+
+    /// <summary>The context heading a row is listed under while the Next actions
+    /// slice is on, and none otherwise: the list draws a heading where it changes.
+    /// Null for the list when the slice is off, so no other view pays for it.</summary>
+    private Func<TaskRow, string?>? NextActionSection
+    {
+        get
+        {
+            if (!State.NextActionsOnly) return null;
+
+            // Once per render over the rows in view, rather than a search of every
+            // row for each one the list draws.
+            var groups = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var row in State.FilteredRows)
+            {
+                groups.TryAdd(EntryTaskId(row), TasksDesktopState.NextActionGroupOf(row));
+            }
+
+            return task => groups.GetValueOrDefault(task.Id);
+        }
+    }
 
     // --- The open-work summary and its report --------------------------------
 
@@ -4364,6 +4445,17 @@
                     <Badge Kind="started" data-testid="entry-started-badge" title="Started">Started @FormatDate(started)</Badge>
                 }
 
+                @* Who the entry waits on, and the follow-up day, on the same terms:
+                   only when there is one. A passed follow-up says "overdue" in words,
+                   the way a passed reminder reads (.devbook/domain/tasks/domain.md#waiting-for). *@
+                @if (row.PreviewWaitingFor is { } waiting)
+                {
+                    <Badge Kind="waiting"
+                           Slug="@(IsFollowUpOverdue(row, waiting) ? "overdue" : null)"
+                           data-testid="entry-waiting-badge"
+                           title="Waiting on someone">@WaitingForBadgeText(waiting, IsFollowUpOverdue(row, waiting))</Badge>
+                }
+
                 @* Grouped and named after the entry, out loud. Both of these act on
                    the whole task — one files it as an issue, the other hands the
                    entry to a tool — and a step used to carry buttons that looked
@@ -4790,6 +4882,92 @@
                     }
                 </TaskActionGroup>
 
+                @* Who the task waits on, outside the backlog, and when to chase them
+                   (.devbook/domain/tasks/domain.md#waiting-for). Straight under
+                   Dependencies, because both answer "why is this not moving", and its
+                   own group rather than a row there: "Waiting for" above is the chain
+                   of other entries, and this is a person or a party, so the two are
+                   never said in one breath. Across the width with the other
+                   trailing groups, which leaves the two columns level as Ranking
+                   describes. The follow-up row appears once someone is
+                   named, because a date alone is no waiting-for; a passed date reads
+                   overdue, the way a passed reminder does. *@
+                <TaskActionGroup Label="Waiting on someone" TestId="entry-schedule-waiting">
+                    <TaskAction Icon="👤"
+                                Label="@(row.PreviewWaitingFor is null ? "Wait on someone" : "Waiting on")"
+                                Value="@row.PreviewWaitingFor?.Who"
+                                Set="@(row.PreviewWaitingFor is not null)"
+                                OnSet="() => TogglePicker(SchedulePicker.WaitingFor)"
+                                OnClear="() => State.ChangeWaitingForAsync(row, null)"
+                                TestId="entry-action-waiting" />
+
+                    @if (IsPickerOpen(SchedulePicker.WaitingFor))
+                    {
+                        @* @onchange rather than ValueChanged, for the reason the
+                           attachment path gives: every keystroke would be a save, and
+                           an empty value means "clear". *@
+                        <TextField Bare="true"
+                                   AriaLabel="Who it waits on"
+                                   Placeholder="A person or a party"
+                                   InputCssClass="entry-doc__schedule-input"
+                                   data-testid="entry-waiting-input"
+                                   Value="@(row.PreviewWaitingFor?.Who ?? string.Empty)"
+                                   @onchange="(ChangeEventArgs e) => OnWaitingForPickedAsync(row, e)" />
+                    }
+
+                    @if (row.PreviewWaitingFor is { } waitingFor)
+                    {
+                        <TaskAction Icon="📅"
+                                    Label="@(IsFollowUpOverdue(row, waitingFor) ? "Follow up — overdue" : waitingFor.FollowUpOn is null ? "Add a follow-up date" : "Follow up")"
+                                    Value="@FormatDate(waitingFor.FollowUpOn)"
+                                    Set="@(waitingFor.FollowUpOn is not null)"
+                                    OnSet="() => TogglePicker(SchedulePicker.FollowUpOn)"
+                                    OnClear="() => State.ChangeWaitingForAsync(row, new WaitingFor(waitingFor.Who))"
+                                    CssClass="@(IsFollowUpOverdue(row, waitingFor) ? "task-action--overdue" : null)"
+                                    TestId="entry-action-followup-on" />
+
+                        @if (IsPickerOpen(SchedulePicker.FollowUpOn))
+                        {
+                            <TextField Bare="true"
+                                       Type="date"
+                                       AriaLabel="Follow-up date"
+                                       InputCssClass="entry-doc__schedule-input"
+                                       data-testid="entry-followup-input"
+                                       Value="@(waitingFor.FollowUpOn is { } followUp ? EntryTextParser.DateToken(followUp) : string.Empty)"
+                                       @onchange="(ChangeEventArgs e) => OnFollowUpPickedAsync(row, waitingFor, e)" />
+                        }
+                    }
+                </TaskActionGroup>
+
+                @* The pile the task is filed under, in the person's own words
+                   (.devbook/domain/tasks/domain.md#area). A combobox rather than a
+                   select: the suggestions are the Brain's area names first, then the
+                   areas already used, and what is typed stands as typed — the
+                   taxonomy is the person's. Across the width with the other trailing
+                   groups, after the two that say why a task is not moving. *@
+                <TaskActionGroup Label="Area" TestId="entry-schedule-area">
+                    <TaskAction Icon="🗂"
+                                Label="@(string.IsNullOrWhiteSpace(row.PreviewArea) ? "File under an area" : "Area")"
+                                Value="@row.PreviewArea"
+                                Set="@(!string.IsNullOrWhiteSpace(row.PreviewArea))"
+                                OnSet="() => ToggleAreaPickerAsync()"
+                                OnClear="() => State.ChangeAreaAsync(row, null)"
+                                TestId="entry-action-area" />
+
+                    @if (IsPickerOpen(SchedulePicker.Area))
+                    {
+                        <Combobox Options="@AreaOptions()"
+                                  Value="@(row.PreviewArea ?? string.Empty)"
+                                  AriaLabel="Area"
+                                  ListAriaLabel="Suggested areas"
+                                  Placeholder="An area, or a new one"
+                                  Compact="true"
+                                  CssClass="entry-doc__area-picker"
+                                  TestId="entry-area-input"
+                                  OnCommit="commit => OnAreaCommittedAsync(row, commit)" />
+                    }
+                </TaskActionGroup>
+
                 @* Under Dependencies and across the full width for the same reason:
                    its value is a list of names. A row the store has never seen has
                    nowhere to keep a reference — the field is the entry's own, not a
@@ -4893,16 +5071,34 @@
                     <span class="entry-doc__devbook" role="list" aria-label="Devbook references" data-testid="entry-devbook-references">
                         @foreach (var reference in references)
                         {
-                            <DevbookReferenceChip role="listitem"
-                                                  @key="reference.Reference"
-                                                  Reference="@reference.Reference"
-                                                  Title="@ChipTitle(reference)"
-                                                  Status="@reference.Status"
-                                                  Broken="@reference.IsBroken"
-                                                  Problem="@DevbookProblem(reference.State)"
-                                                  OnOpen="@DevbookOpener(row, reference)"
-                                                  OnRemove="value => State.RemoveDevbookReferenceAsync(row, value)"
-                                                  TestId="entry-devbook-reference" />
+                            @* A note in the owner's Brain (local ADR 0053) wears the
+                               Brain's chip, not a repository chapter's: it opens on the
+                               Brain side, and no devbook status applies to it. *@
+                            @if (reference.IsBrainNote)
+                            {
+                                <span role="listitem" class="entry-doc__brain-reference" @key="reference.Reference">
+                                    <Backlog.UI.Components.Brain.BrainNoteChip Reference="@reference.Reference"
+                                                                               Title="@ChipTitle(reference)"
+                                                                               Unresolved="@(reference.State is not (DevbookReferenceState.Page or DevbookReferenceState.Chapter))"
+                                                                               Problem="@BrainProblem(reference)"
+                                                                               OnOpen="@BrainOpener(reference)"
+                                                                               OnRemove="value => State.RemoveDevbookReferenceAsync(row, value)"
+                                                                               TestId="entry-devbook-brain-reference" />
+                                </span>
+                            }
+                            else
+                            {
+                                <DevbookReferenceChip role="listitem"
+                                                      @key="reference.Reference"
+                                                      Reference="@reference.Reference"
+                                                      Title="@ChipTitle(reference)"
+                                                      Status="@reference.Status"
+                                                      Broken="@reference.IsBroken"
+                                                      Problem="@DevbookProblem(reference.State)"
+                                                      OnOpen="@DevbookOpener(row, reference)"
+                                                      OnRemove="value => State.RemoveDevbookReferenceAsync(row, value)"
+                                                      TestId="entry-devbook-reference" />
+                            }
                         }
                     </span>
                 }
@@ -4947,7 +5143,7 @@
                                     MatchValue="true"
                                     MaxOptions="DevbookPickerMaxOptions"
                                     AllowCreate="true"
-                                    Placeholder="Find a page or chapter, or type path#anchor"
+                                    Placeholder="Find a page or chapter, or type path#anchor or #brain:note.md"
                                     CssClass="entry-doc__devbook-picker"
                                     TestId="entry-devbook-select" />
                 }
@@ -5128,6 +5324,34 @@
             ? EventCallback.Factory.Create<string>(this, value =>
                 OnOpenDevbookReference.InvokeAsync(new DevbookReferenceRequest(State.DevbookRepositoryAliasFor(row), value)))
             : default;
+
+    /// <summary>A Brain note chip's opener: the note — its path inside the Brain and
+    /// heading — handed to the host to show on the Devbook pane's Brain side. None when
+    /// the host wired no Brain opener; the chip opens only once it resolved.</summary>
+    private EventCallback<string> BrainOpener(ResolvedDevbookReference reference) =>
+        OnOpenBrainNote.HasDelegate && Backlog.SharedKernel.BrainNoteAddress.TryParse(reference.Reference, out var address)
+            ? EventCallback.Factory.Create<string>(this, _ =>
+                OnOpenBrainNote.InvokeAsync(new Backlog.UI.Components.Brain.BrainNoteLink(address.Chapter, reference.Title)))
+            : default;
+
+    /// <summary>Why a Brain note reference does not open, in the Brain chip's own
+    /// words: no Brain readable on this device, or a Brain that holds no such note.
+    /// Null for one that resolved.</summary>
+    private static string? BrainProblem(ResolvedDevbookReference reference)
+    {
+        if (!Backlog.SharedKernel.BrainNoteAddress.TryParse(reference.Reference, out var address))
+        {
+            return Backlog.UI.Components.Brain.BrainNoteChip.NotABrainAddress;
+        }
+
+        return reference.State switch
+        {
+            DevbookReferenceState.Page or DevbookReferenceState.Chapter => null,
+            DevbookReferenceState.Unverified => Backlog.UI.Components.Brain.BrainNoteChip.NotInYourBrain,
+            DevbookReferenceState.UnknownHeading => $"No heading #{address.Slug} in the Brain note {address.Path} any more.",
+            _ => Backlog.UI.Components.Brain.BrainNoteChip.NotInThisBrain(address.Chapter)
+        };
+    }
 
     // --- Keyboard ----------------------------------------------------------
 
@@ -5385,6 +5609,99 @@
             DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var due)
                 ? due
                 : null);
+    }
+
+    /// <summary>Who the entry waits on, from its field. Blank clears the waiting-for,
+    /// the same gesture as the ✕; a name keeps the follow-up date already set. A
+    /// backtick cannot sit inside a token, so a name holding one is not written.</summary>
+    private async Task OnWaitingForPickedAsync(EntryRow row, ChangeEventArgs e)
+    {
+        var value = (e.Value?.ToString() ?? string.Empty).Trim();
+        ClosePicker();
+
+        if (value.Contains('`', StringComparison.Ordinal)) return;
+
+        await State.ChangeWaitingForAsync(
+            row,
+            value.Length == 0 ? null : new WaitingFor(value, row.PreviewWaitingFor?.FollowUpOn));
+    }
+
+    /// <summary>The Brain's area names, read when the Area picker opens; empty in a
+    /// host that composes no Brain.</summary>
+    private IReadOnlyList<string> _brainAreas = [];
+
+    /// <summary>Where the Brain's area names come from, or null in a host that
+    /// composes no Brain.</summary>
+    private IBrainAreaNames? _brainAreaNames;
+
+    /// <summary>Opens the Area picker, or closes it; opening reads the Brain's area
+    /// names again, off the render thread, so an area added in the Brain since is
+    /// offered.</summary>
+    private async Task ToggleAreaPickerAsync()
+    {
+        TogglePicker(SchedulePicker.Area);
+        if (!IsPickerOpen(SchedulePicker.Area)) return;
+
+        if (_brainAreaNames is { } brain)
+        {
+            try
+            {
+                _brainAreas = await brain.ListAsync();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A Brain folder that cannot be read is no area to suggest; the areas
+                // in use still are, and typing still files.
+                _brainAreas = [];
+            }
+        }
+    }
+
+    /// <summary>What the Area picker suggests: the Brain's areas, then those in use —
+    /// see <c>TasksDesktopState.AreaSuggestions</c> — each grouped by where it came
+    /// from.</summary>
+    private IReadOnlyList<SelectorOption> AreaOptions()
+    {
+        var brain = new HashSet<string>(_brainAreas, StringComparer.OrdinalIgnoreCase);
+
+        return
+        [
+            .. State.AreaSuggestions(_brainAreas)
+                .Select(area => new SelectorOption(area, area, Hint: null, Group: brain.Contains(area) ? "Brain" : "In use"))
+        ];
+    }
+
+    /// <summary>The area, from its field: a suggestion taken or what was typed. Blank
+    /// clears it, the same gesture as the ✕. A backtick cannot sit inside a token, so
+    /// an area holding one is refused and the field goes back.</summary>
+    private async Task OnAreaCommittedAsync(EntryRow row, ComboboxCommit commit)
+    {
+        var value = commit.Value.Trim();
+
+        if (value.Contains('`', StringComparison.Ordinal))
+        {
+            commit.Refuse();
+            return;
+        }
+
+        ClosePicker();
+        await State.ChangeAreaAsync(row, value.Length == 0 ? null : value);
+    }
+
+    /// <summary>The follow-up date, from its field. Clearing the native field clears
+    /// the date and keeps who the entry waits on.</summary>
+    private async Task OnFollowUpPickedAsync(EntryRow row, WaitingFor waitingFor, ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? string.Empty;
+        ClosePicker();
+
+        await State.ChangeWaitingForAsync(
+            row,
+            new WaitingFor(
+                waitingFor.Who,
+                DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var followUp)
+                    ? followUp
+                    : null));
     }
 
     private async Task OnReminderPickedAsync(EntryRow row, ChangeEventArgs e)
@@ -5721,6 +6038,20 @@
 
     private static string? FormatDate(DateOnly? date) =>
         date?.ToString("d", CultureInfo.CurrentCulture);
+
+    /// <summary>Whether the entry's follow-up day has passed while it is still open:
+    /// a ticked-off entry is never overdue, the way a finished date is not.</summary>
+    private static bool IsFollowUpOverdue(EntryRow row, WaitingFor waiting) =>
+        !row.IsPreviewCompleted && waiting.IsFollowUpOverdue(Today);
+
+    /// <summary>What the row's waiting badge says: who, and the follow-up day when
+    /// there is one, with "overdue" once that day has passed.</summary>
+    private static string WaitingForBadgeText(WaitingFor waiting, bool overdue) =>
+        waiting.FollowUpOn is { } followUp
+            ? overdue
+                ? $"Waiting on {waiting.Who} · follow up {FormatDate(followUp)} · overdue"
+                : $"Waiting on {waiting.Who} · follow up {FormatDate(followUp)}"
+            : $"Waiting on {waiting.Who}";
 
     private static string? FormatReminder(DateTime? remindAt) =>
         remindAt?.ToString("g", CultureInfo.CurrentCulture);

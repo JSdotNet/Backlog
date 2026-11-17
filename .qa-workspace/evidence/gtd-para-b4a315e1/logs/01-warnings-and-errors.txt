@@ -1,0 +1,7 @@
+16:30:34.802 WARN cosmos pgcosmos readiness check still waiting for Postgres startup (expected during boot). Will retry automatically
+16:30:35.803 WARN cosmos pgcosmos readiness check still waiting for Postgres startup (expected during boot). Will retry automatically
+16:30:36.803 WARN cosmos pgcosmos readiness check still waiting for Postgres startup (expected during boot). Will retry automatically
+16:30:37.805 WARN cosmos pgcosmos readiness check still waiting for Postgres startup (expected during boot). Will retry automatically
+16:30:38.806 WARN cosmos pgcosmos readiness check still waiting for Postgres startup (expected during boot). Will retry automatically
+16:30:37.787 WARN sync No Modules:Sync:Tokens:SigningKey configured; generated an ephemeral development key. Every device token is invalidated when this service
+restarts.

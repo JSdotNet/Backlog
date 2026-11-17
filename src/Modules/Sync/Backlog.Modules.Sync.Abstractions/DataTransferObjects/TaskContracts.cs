@@ -102,7 +102,16 @@ public sealed record TaskPayload(
     // reason StartedOn is: an older document carries none and reads as filed from
     // no answer, and a service built before it passes it through in Unrecognised.
     // Null on every other task, so its document serialises as it did before.
-    Guid? SourceNotificationId = null)
+    Guid? SourceNotificationId = null,
+    // Who the task waits on, free text, and the day to follow up (local ADR 0054
+    // §4) — the `waiting:` and `followup:` tokens, as their own members because
+    // the metadata line never crosses the wire. Last and defaulted for the reason
+    // StartedOn is: an older document carries neither and reads as waiting on
+    // nobody, and a service built before them passes them through in
+    // Unrecognised. Both null on every other task, so its document serialises as
+    // it did before.
+    string? WaitingFor = null,
+    DateOnly? FollowUpOn = null)
 {
     /// <summary>
     /// Every property the document carried that this build has no member for,

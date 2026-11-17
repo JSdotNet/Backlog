@@ -108,6 +108,42 @@ public sealed class EntryDevbookReferencesTests
         Assert.Equal("docs", host.State.DevbookRepositoryAliasFor(row));
     }
 
+    /// <summary>A note in the owner's Brain (local ADR 0053) wears the Brain's chip, not
+    /// a repository chapter's: titled from the Brain when it resolved, the address and
+    /// the reason when it did not, and removable either way.</summary>
+    [Fact]
+    public async Task A_brain_note_is_a_brain_chip_that_says_when_it_is_not_in_this_brain_and_can_be_removed()
+    {
+        const string found = "#brain:projects/sync.md";
+        const string missing = "#brain:projects/gone.md";
+        var devbook = new FakeDevbookReferenceResolver()
+            .BrainNote(found, DevbookReferenceState.Page, "Sync rework")
+            .BrainNote(missing, DevbookReferenceState.UnknownPage)
+            .Chapter(TaskChapter, "Task");
+        using var host = await TasksPaneHost.CreateAsync(devbook, Repositories);
+        var row = await host.WriteEntryAsync(Entry);
+        await host.State.SetDevbookReferencesAsync(row, [found, missing, TaskChapter]);
+
+        var pane = host.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            var brain = pane.FindAll("[data-testid='entry-devbook-brain-reference']");
+            Assert.Equal([found, missing], brain.Select(chip => chip.GetAttribute("data-note")));
+            Assert.Equal("true", brain[0].GetAttribute("data-resolved"));
+            Assert.Equal("Sync rework", brain[0].QuerySelector(".brain-note-chip__label")!.TextContent.Trim());
+            Assert.Equal("false", brain[1].GetAttribute("data-resolved"));
+            Assert.Contains("Not in your Brain", brain[1].QuerySelector(".brain-note-chip__unresolved")!.GetAttribute("aria-label"), StringComparison.Ordinal);
+
+            // The repository chapter keeps its own chip.
+            Assert.Equal([TaskChapter], pane.FindAll("[data-testid='entry-devbook-reference']").Select(chip => chip.GetAttribute("data-reference")));
+        });
+
+        await pane.Find($"[data-note='{missing}'] .devbook-chip__remove").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Equal([found, TaskChapter], row.DevbookReferences));
+    }
+
     [Fact]
     public async Task Removing_a_chip_writes_the_list_without_it()
     {

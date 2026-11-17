@@ -856,12 +856,14 @@ public sealed class TasksDetailPaneTests
 
     /// <summary>Types a tag into the picker and commits it, which is the gesture the
     /// picker calls "create": the popup opens on input, the new tag is the active
-    /// option when nothing else matches, and Enter takes it.</summary>
+    /// option when nothing else matches, and Enter takes it. Each gesture finds the field
+    /// and dispatches to it in one turn of the renderer, per <see cref="RaceSafeTestHelpers"/>:
+    /// the pane's save of the previous edit can still redraw the field under a new handler id.</summary>
     private static async Task AddTagAsync(IRenderedComponent<TasksPane> pane, string tag)
     {
-        var field = pane.Find("[data-testid='entry-tags-input'] input");
-        await field.InputAsync(new() { Value = tag });
-        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+        const string field = "[data-testid='entry-tags-input'] input";
+        await pane.InputAsync(field, tag);
+        await pane.InvokeAsync(() => pane.Find(field).KeyDownAsync(new KeyboardEventArgs { Key = "Enter" }));
     }
 
     // --- What is deliberately absent --------------------------------------
@@ -1056,9 +1058,10 @@ public sealed class TasksDetailPaneTests
                 .Children.Select(child => child.GetAttribute("data-testid")));
 
         // Under them, the groups whose value is a list: what the entry waits on,
-        // the Devbook chapters it points at, and the days it has hours planned on.
+        // who it waits on outside the backlog, the area it is filed under, the
+        // Devbook chapters it points at, and the days it has hours planned on.
         Assert.Equal(
-            ["entry-schedule-dependencies", "entry-schedule-devbook", "entry-planned-hours"],
+            ["entry-schedule-dependencies", "entry-schedule-waiting", "entry-schedule-area", "entry-schedule-devbook", "entry-planned-hours"],
             schedule.QuerySelector(".task-action-pane__trailing")!
                 .Children.Select(child => child.GetAttribute("data-testid")));
     }

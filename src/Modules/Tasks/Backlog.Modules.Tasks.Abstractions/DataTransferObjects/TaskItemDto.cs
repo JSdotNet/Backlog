@@ -84,6 +84,12 @@ namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 /// <paramref name="SourceInboxId"/>'s terms: its own column, never rebuilt from the
 /// text, fixed at birth. Last, for the reason <paramref name="StartedOn"/> is.
 /// </para>
+/// <para>
+/// <paramref name="WaitingFor"/> is who the entry waits on and when to follow up,
+/// or null. It round-trips through the text as <c>waiting:</c> and
+/// <c>followup:</c> tokens, so it is one of the fields the round-trip rule above is
+/// about. Last, for the reason <paramref name="StartedOn"/> is.
+/// </para>
 /// </summary>
 public sealed record TaskItemDto(
     Guid Id,
@@ -118,7 +124,8 @@ public sealed record TaskItemDto(
     SourceRef? SourceRef = null,
     AgendaTime? AgendaTime = null,
     IReadOnlyList<PlannedHoursDto>? PlannedHours = null,
-    Guid? SourceNotificationId = null)
+    Guid? SourceNotificationId = null,
+    WaitingFor? WaitingFor = null)
 {
     /// <summary>The hours the person set aside for the entry on given days, one block
     /// per day, in date order — the Calendar's planned hours. Published on

@@ -84,6 +84,91 @@ public sealed class InboxBacklogTargetTests
         Assert.Empty(parsed.Unreadable ?? []);
     }
 
+    /// <summary>A due date and My Day chosen beside Move to backlog are written
+    /// as Tasks' own tokens, and read back as the task's due date and the day
+    /// it was picked for.</summary>
+    [Fact]
+    public void A_due_date_and_my_day_parse_back_onto_the_entry()
+    {
+        var request = new InboxRouteRequestDto(Item, "Call the dentist", string.Empty, null, [], [])
+        {
+            DueOn = new DateOnly(2026, 11, 18),
+            InMyDayOn = new DateOnly(2026, 11, 11),
+        };
+
+        var parsed = EntryTextParser.Parse(InboxBacklogTarget.Compose(request, "JSdotNet/Backlog"));
+
+        Assert.Equal(new DateOnly(2026, 11, 18), parsed.DueOn);
+        Assert.Equal(new DateOnly(2026, 11, 11), parsed.InMyDayOn);
+        Assert.Equal(["JSdotNet/Backlog"], parsed.RepoIds);
+        Assert.Empty(parsed.Unreadable ?? []);
+    }
+
+    /// <summary>Done now's entry is born Done and ticked on the day — the two
+    /// facts the Tasks pane's checkbox writes — and parses back as both.</summary>
+    [Fact]
+    public void Done_now_writes_a_done_entry_ticked_on_the_day()
+    {
+        var request = new InboxRouteRequestDto(Item, "Reply to Sam", string.Empty, null, [], [])
+        {
+            CompletedOn = new DateOnly(2026, 11, 11),
+        };
+
+        var text = InboxBacklogTarget.Compose(request, null);
+        var parsed = EntryTextParser.Parse(text);
+
+        Assert.Equal("# Reply to Sam\n`task` `!done` `completed:2026-11-11`\n", text);
+        Assert.Equal(EntryStatus.Done, parsed.Status);
+        Assert.Equal(new DateOnly(2026, 11, 11), parsed.CompletedOn);
+        Assert.Empty(parsed.Unreadable ?? []);
+    }
+
+    /// <summary>Waiting for's entry is a plain draft carrying who it waits on and
+    /// the follow-up day, as Tasks' own writer spells them, and parses back as the
+    /// task's waiting-for.</summary>
+    [Fact]
+    public void Waiting_for_writes_the_waiting_and_followup_tokens()
+    {
+        var request = new InboxRouteRequestDto(Item, "Quote for the roof", string.Empty, null, [], ["JSdotNet/Backlog"])
+        {
+            WaitingFor = new InboxWaitingForDto("Sam the roofer", new DateOnly(2026, 12, 1)),
+        };
+
+        var text = InboxBacklogTarget.Compose(request, "JSdotNet/Backlog");
+        var parsed = EntryTextParser.Parse(text);
+
+        Assert.Equal("# Quote for the roof\n`task` `!draft` `repo:JSdotNet/Backlog` `waiting:Sam the roofer` `followup:2026-12-01`\n", text);
+        Assert.Equal(EntryStatus.Draft, parsed.Status);
+        Assert.Equal("Sam the roofer", parsed.WaitingFor?.Who);
+        Assert.Equal(new DateOnly(2026, 12, 1), parsed.WaitingFor?.FollowUpOn);
+        Assert.Empty(parsed.Unreadable ?? []);
+    }
+
+    [Fact]
+    public void Waiting_for_without_a_date_writes_no_followup_token()
+    {
+        var request = new InboxRouteRequestDto(Item, "Hear back from Ana", string.Empty, null, [], [])
+        {
+            WaitingFor = new InboxWaitingForDto("Ana"),
+        };
+
+        var text = InboxBacklogTarget.Compose(request, null);
+
+        Assert.Equal("# Hear back from Ana\n`task` `!draft` `waiting:Ana`\n", text);
+        Assert.Equal("Ana", EntryTextParser.Parse(text).WaitingFor?.Who);
+    }
+
+    /// <summary>Without either, the route's text is what it always was.</summary>
+    [Fact]
+    public void Without_a_schedule_no_due_or_my_day_token_is_written()
+    {
+        var request = new InboxRouteRequestDto(Item, "Call the dentist", string.Empty, null, [], []);
+
+        var text = InboxBacklogTarget.Compose(request, null);
+
+        Assert.Equal("# Call the dentist\n`task` `!draft`\n", text);
+    }
+
     [Fact]
     public void Without_a_repository_no_repo_token_is_written()
     {

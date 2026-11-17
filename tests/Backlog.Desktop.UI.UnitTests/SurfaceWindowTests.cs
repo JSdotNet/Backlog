@@ -1,4 +1,7 @@
 using Backlog.Desktop.UI.Shell;
+using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.Services;
+using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Tasks.Services;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -214,6 +217,34 @@ public sealed class SurfaceWindowTests
 
         window.WaitForAssertion(
             () => Assert.Equal(["Renamed in the main window"], RowTitles(window)),
+            TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>A popped-out window's Inbox hears an MCP capture as the main
+    /// window's does: its own Inbox state reloads, on its own dispatcher.</summary>
+    [Fact]
+    public async Task An_inbox_capture_made_outside_the_window_reloads_its_inbox()
+    {
+        using var host = await CreateHostAsync();
+        var signal = new InboxChangeSignal();
+        host.Pane.Context.Services.AddSingleton<IInboxChangeSignal>(signal);
+        host.Pane.Context.Services.AddSingleton(new Backlog.Infrastructure.GitHub.GitHubSettingsStore(
+            Path.Combine(Path.GetTempPath(), "backlog-surface-window-tests", Guid.NewGuid().ToString("n"), "github.json")));
+        var fake = InboxTestHost.AddInboxState(host.Pane.Context.Services);
+
+        var window = host.Render("rows");
+        var inbox = host.Pane.Context.Services.GetRequiredService<InboxDesktopState>();
+        await window.InvokeAsync(inbox.ReloadAsync);
+        Assert.Empty(inbox.Items);
+
+        await Task.Run(() =>
+        {
+            fake.Seed("Remind me to call the plumber");
+            signal.Raise();
+        }, TestContext.Current.CancellationToken);
+
+        window.WaitForAssertion(
+            () => Assert.Equal("Remind me to call the plumber", Assert.Single(inbox.Items).Title),
             TimeSpan.FromSeconds(10));
     }
 

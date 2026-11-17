@@ -33,6 +33,11 @@ internal sealed class UnavailableDevbookReferenceResolver : IDevbookReferenceRes
     /// no claim about whether it is there.</summary>
     internal static ResolvedDevbookReference Unverified(string reference)
     {
+        if (Backlog.SharedKernel.BrainNoteAddress.Is(reference))
+        {
+            return ResolvedDevbookReference.BrainNote(reference, DevbookReferenceState.Unverified);
+        }
+
         var hash = reference.IndexOf('#');
 
         return new ResolvedDevbookReference(

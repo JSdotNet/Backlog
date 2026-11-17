@@ -140,6 +140,10 @@
             _state.WrittenElsewhere += HandleTasksWrittenElsewhere;
         }
 
+        // This window's own Inbox state, which its Inbox surface loads when shown.
+        _inbox = Services.GetService<Backlog.Modules.Inbox.UI.InboxDesktopState>();
+        if (_inbox is not null) _inbox.WrittenElsewhere += HandleInboxWrittenElsewhere;
+
         // This window's own task list, which no shell here loads: the views read it,
         // and so do the Goals view's candidates and the scope chips' repositories.
         if (_state is { HasLoaded: false, IsLoading: false } state) _ = LoadAsync(state);
@@ -349,6 +353,35 @@
     /// one owed behind it. Only touched on the renderer's dispatcher.</summary>
     private readonly CoalescedReload _tasksReload = new();
 
+    /// <summary>This window's Inbox state, or null in a host that composes none.</summary>
+    private Backlog.Modules.Inbox.UI.InboxDesktopState? _inbox;
+
+    /// <summary>
+    /// The Inbox was written outside it — an assistant capturing or archiving over
+    /// MCP — so a popped-out Inbox reloads, as the main window's <c>Home</c> does for
+    /// its own: on this window's dispatcher, coalesced. The state raises this only
+    /// once it has loaded, so a window not showing the Inbox reads nothing.
+    /// </summary>
+    private void HandleInboxWrittenElsewhere() => _ = InvokeAsync(async () =>
+    {
+        if (_inbox is not { } inbox) return;
+
+        try
+        {
+            await _inboxReload.RunAsync(inbox.ReloadAsync);
+        }
+        catch (Exception exception)
+        {
+            Services.GetService<IToastChannel>()?.Publish(ToastMessage.Error(
+                $"The Inbox in this window could not be refreshed after a change made outside it: {exception.Message}",
+                ReloadFailedTestId));
+        }
+    });
+
+    /// <summary>The reload <see cref="HandleInboxWrittenElsewhere"/> runs, and the
+    /// one owed behind it. Only touched on the renderer's dispatcher.</summary>
+    private readonly CoalescedReload _inboxReload = new();
+
     /// <summary>The test id of the toast a failed reload of the window's list raises.</summary>
     private const string ReloadFailedTestId = "surface-window-reload-failed";
 
@@ -360,5 +393,7 @@
             _state.Changed -= HandleStateChanged;
             _state.WrittenElsewhere -= HandleTasksWrittenElsewhere;
         }
+
+        if (_inbox is not null) _inbox.WrittenElsewhere -= HandleInboxWrittenElsewhere;
     }
 }

@@ -61,13 +61,31 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     [McpServerTool(Name = ListGoals, Title = "List the goals", ReadOnly = true, Idempotent = true, OpenWorld = true)]
     [Description(
         "Every goal, in the order they were set: its id, title, outcome and due date, the plans, tasks and pull "
-        + "requests attached to it, and its progress as done/total with how many open items are doing, blocked "
-        + "and to do. Read-only.")]
+        + "requests attached to it, its progress as done/total with how many open items are doing, blocked "
+        + "and to do, and its forecast as the Goals view draws it: standing (on-track or at-risk), the day it is "
+        + "expected to land (null when no done rate says), the day it is due on and whether that is the iteration's "
+        + "end. forecast is null when the iteration reading could not be made. Read-only.")]
     public async Task<GoalsPayload> ListAsync(CancellationToken cancellationToken = default)
     {
         var listed = await goals.ListAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var forecasts = await ForecastsAsync(cancellationToken).ConfigureAwait(false);
 
-        return new GoalsPayload([.. listed.ValueOrThrow().Select(summary => GoalPayload.From(summary.Goal, summary.Progress))]);
+        return new GoalsPayload([.. listed.ValueOrThrow().Select(summary =>
+            GoalPayload.From(summary.Goal, summary.Progress, forecasts.GetValueOrDefault(summary.Goal.Id)))]);
+    }
+
+    /// <summary>Each goal's forecast from the reading the Goals view draws — the stand-up over
+    /// the person's own iteration length — by goal id. A reading that fails leaves every
+    /// forecast out rather than the goals.</summary>
+    private async Task<IReadOnlyDictionary<Guid, GoalForecastPayload>> ForecastsAsync(CancellationToken cancellationToken)
+    {
+        var reading = await standUp.ReadAsync(cancellationToken).ConfigureAwait(false);
+        if (reading.IsFailure) return new Dictionary<Guid, GoalForecastPayload>();
+
+        var forecasts = new Dictionary<Guid, GoalForecastPayload>();
+        foreach (var goal in reading.Value.Goals) forecasts.TryAdd(goal.Id, GoalForecastPayload.From(goal));
+
+        return forecasts;
     }
 
     /// <summary>
@@ -290,22 +308,39 @@ public sealed record GoalsPayload(IReadOnlyList<GoalPayload> Goals);
 /// the current iteration.</param>
 /// <param name="Items">The plans, tasks and pull requests attached to it, in the order they were attached.</param>
 /// <param name="Progress">How far it has come; null on the answer to a write, which reads no progress.</param>
+/// <param name="Forecast">Whether it lands in time, as the Goals view draws it; null on the answer
+/// to a write, and when the iteration reading could not be made.</param>
 public sealed record GoalPayload(
     Guid Id,
     string Title,
     string? Outcome,
     DateOnly? DueDate,
     IReadOnlyList<GoalItemPayload> Items,
-    GoalProgressPayload? Progress)
+    GoalProgressPayload? Progress,
+    GoalForecastPayload? Forecast = null)
 {
-    internal static GoalPayload From(GoalDto goal, GoalProgressDto? progress = null) =>
+    internal static GoalPayload From(GoalDto goal, GoalProgressDto? progress = null, GoalForecastPayload? forecast = null) =>
         new(
             goal.Id,
             goal.Title,
             goal.Outcome,
             goal.DueDate,
             [.. goal.Attachments.Select(GoalItemPayload.From)],
-            progress is null ? null : new GoalProgressPayload(progress.Done, progress.Total, progress.Doing, progress.Blocked, progress.ToDo));
+            progress is null ? null : new GoalProgressPayload(progress.Done, progress.Total, progress.Doing, progress.Blocked, progress.ToDo),
+            forecast);
+}
+
+/// <summary>A goal's forecast (<c>.devbook/domain/progress/domain.md#goal-forecast</c>), the one
+/// the Goals view's badge and expected-landing line draw.</summary>
+/// <param name="Standing">on-track or at-risk.</param>
+/// <param name="LandsOn">When it is expected to land, or null when no done rate says.</param>
+/// <param name="DueOn">The day it is due on: its own due date, or the iteration's last day.</param>
+/// <param name="DueIsIterationEnd">Whether <paramref name="DueOn"/> is the iteration's last day
+/// because the goal has no due date of its own.</param>
+public sealed record GoalForecastPayload(string Standing, DateOnly? LandsOn, DateOnly DueOn, bool DueIsIterationEnd)
+{
+    internal static GoalForecastPayload From(StandUpGoalDto goal) =>
+        new(IterationsPayload.ToWire(goal.Standing), goal.LandsOn, goal.DueDate, goal.DueIsIterationEnd);
 }
 
 /// <summary>One item a goal holds. Which identity fields are set follows <paramref name="Kind"/>.</summary>

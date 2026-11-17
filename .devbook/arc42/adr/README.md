@@ -52,8 +52,8 @@ between inherited ADRs 0005 and 0009.
 - **[0023 — Inbox items may be read by the Foundry model](0023-inbox-items-may-be-read-by-the-foundry-model.md)** *(accepted, built but for Ask again; reverses the "no model reads the item" line of the Inbox features)*
 - **[0024 — Claude Code's telemetry arrives as OTLP/HTTP logs on the in-app MCP listener](0024-claude-code-telemetry-arrives-on-the-mcp-listener.md)** *(accepted; extends 0012)*
 - **[0025 — Notes ride the task feed as a second Inbox document kind, synced both ways](0025-notes-ride-the-task-feed.md)** *(proposed, built; extends 0009)*
-- **[0026 — The Brain is a personal devbook, one folder per user outside any repository](0026-the-brain-is-a-personal-devbook-outside-any-repository.md)** *(proposed, not yet built; builds on 0004, 0015 and 0016)*
-- **[0027 — The Brain is a scope beside the repositories, the scope of everything filed against no repository](0027-the-brain-is-a-scope-beside-the-repositories.md)** *(proposed, not yet built; builds on 0026, amends 0022)*
+- **[0026 — The Brain is a personal devbook, one folder per user outside any repository](0026-the-brain-is-a-personal-devbook-outside-any-repository.md)** *(proposed, not yet built; builds on 0004, 0015 and 0016; §3 amended by 0052; §2 and §3 amended by 0054)*
+- **[0027 — The Brain is a scope beside the repositories, the scope of everything filed against no repository](0027-the-brain-is-a-scope-beside-the-repositories.md)** *(proposed, not yet built; builds on 0026, amends 0022; §6 amended by 0053)*
 - **[0028 — Progress is its own boundary, and Tasks knows no sprints](0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md)** *(proposed, not yet built; sprint parts superseded by 0035)*
 - **[0029 — An archived repository stays in the registry, and every consumer reads the flag](0029-an-archived-repository-stays-in-the-registry.md)** *(built, proposed; amends 0008, 0020, 0021 and 0027)*
 - **[0030 — Every stored credential goes through the OS-protected envelope](0030-stored-credentials-go-through-the-os-protected-envelope.md)** *(proposed, built; the MCP token of 0012 is its one exception)*
@@ -66,7 +66,7 @@ between inherited ADRs 0005 and 0009.
 - **[0037 — A session attaches to a goal as its own item](0037-a-session-attaches-to-a-goal-as-its-own-item.md)** *(proposed, not yet built; amends 0035 §2, §8 and §9)*
 - **[0038 — Backlog queues session requests and a Manager session dispatches them](0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)** *(accepted, built in PR #1491; adds a route and a tool group to 0012's listener, beside 0024; wait route and capacity amended by 0041; §3 amended in place on 2026-11-02: the holder's late report still counts until another dispatcher claims the request)*
 - **[0039 — Notifications are an owned document kind on their own replica container, and the realtime channel only nudges](0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md)** *(accepted, built and deployed; extends 0005, follows 0011; MCP `ask`, `get_answer` and `close` amended by 0041; §2 amended in place on 2026-11-04, not yet built: a viewer acknowledges an alert through a reply the owner takes)*
-- **[0040 — The Brain is its own bounded context](0040-the-brain-is-its-own-bounded-context.md)** *(proposed, specification only; supersedes 0026 in part)*
+- **[0040 — The Brain is its own bounded context](0040-the-brain-is-its-own-bounded-context.md)** *(proposed, specification only; supersedes 0026 in part; §3 and §4 amended by 0052)*
 - **[0041 — Agent questions reach Backlog by presence and come back through the hook or the Manager](0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)** *(proposed, not yet built; amends 0038 and 0039)*
 - **[0042 — Repository Management owns pull-request state, and every reader goes through its one contract](0042-repository-management-owns-pull-request-state.md)** *(accepted, built in PR #1617; amends 0035 §7's GitHub edge)*
 - **[0043 — A surface can open in its own window, and modules register the surfaces the shell shows](0043-a-surface-can-open-in-its-own-window.md)** *(accepted, built; keeps 0022's one view per window and replaces its surface enums, adds routes and a tool to 0012's listener)*
@@ -74,6 +74,9 @@ between inherited ADRs 0005 and 0009.
 - **[0045 — The sync service relays a phone dictation to Foundry for transcription and keeps none of it](0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md)** *(amends the thin-cloud constraint, beside 0023)*
 - **[0046 — C4 zoom navigation is one architecture surface behind its own switch, its links are read from devbook metadata, and its code from syntax trees](0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, built; builds on 0004, 0015 and 0016)*
 - **[0047 — The Domain view reads by unit](0047-the-domain-view-reads-by-unit.md)** *(proposed, built behind the `devbook-domain-view` switch)*
+- **[0052 — The app may write links into a Brain note and move a finished project note to the archive](0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md)** *(proposed, built; amends 0026 §3 and 0040 §3 and §4, leaves 0027 §6)*
+- **[0053 — A plan or a task may reference a Brain note](0053-a-plan-or-a-task-may-reference-a-brain-note.md)** *(proposed, built; amends 0027 §6, builds on 0052)*
+- **[0054 — Clarify outcomes follow GTD, and each item has one home](0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md)** *(proposed, built; amends 0026 §2 and §3, adds a tool to 0012's Inbox group)*
 
 ## Inherited decisions
 

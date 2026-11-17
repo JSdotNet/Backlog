@@ -54,5 +54,5 @@ public sealed class SetDevbookReferencesCommandHandler(ITaskRepository entries)
 
     private static Error InvalidReference(string? reference) => Error.Validation(
         InvalidReferenceCode,
-        $"`{reference}` is not a Devbook reference — write a page path with a folder or a .md ending, optionally followed by #anchor.");
+        $"`{reference}` is not a Devbook reference — write a page path with a folder or a .md ending, optionally followed by #anchor, or a Brain note as #brain:<path>.");
 }

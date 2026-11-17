@@ -1,3 +1,5 @@
+using Backlog.SharedKernel;
+
 namespace Backlog.Modules.Tasks.Abstractions.Services;
 
 /// <summary>
@@ -81,6 +83,42 @@ public sealed record ResolvedDevbookReference(
     /// read.
     /// </summary>
     public IReadOnlyList<ScenarioPartEvidence> ScenarioParts { get; init; } = [];
+
+    /// <summary>
+    /// Whether the reference names a note in the owner's Brain,
+    /// <c>#brain:&lt;path&gt;[#slug]</c> (local ADR 0053), rather than a chapter of the
+    /// repository's devbook. For one, <see cref="Path"/> is the note's path from the
+    /// Brain's root — what the knowledge read takes under <c>#brain</c> — and
+    /// <see cref="Folder"/> is null. It is resolved from this device's Brain alone and
+    /// never against a repository: <see cref="DevbookReferenceState.Unverified"/> where
+    /// no Brain is readable, <see cref="DevbookReferenceState.UnknownPage"/> where the
+    /// Brain holds no such note.
+    /// </summary>
+    public bool IsBrainNote { get; init; }
+
+    /// <summary>
+    /// A Brain address answered in <paramref name="state"/>: its path and slug read by
+    /// <see cref="BrainNoteAddress"/>, titled <paramref name="title"/> when the Brain
+    /// gave one, else by the reference itself. An address that names no note keeps
+    /// the reference as its path.
+    /// </summary>
+    public static ResolvedDevbookReference BrainNote(string reference, DevbookReferenceState state, string? title = null)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+
+        var parsed = BrainNoteAddress.TryParse(reference, out var address);
+        return new ResolvedDevbookReference(
+            reference,
+            parsed ? address!.Path : reference,
+            parsed ? address!.Slug : null,
+            state,
+            string.IsNullOrWhiteSpace(title) ? reference : title,
+            Status: null,
+            Folder: null)
+        {
+            IsBrainNote = true
+        };
+    }
 }
 
 /// <summary>One part of a journey and how its last run went.</summary>
