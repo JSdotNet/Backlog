@@ -12,7 +12,8 @@ public enum SessionAlertCause
     /// <summary>A schedule's latest runs skip themselves, because an earlier run is unarchived.</summary>
     Held,
 
-    /// <summary>A run reported a failure, and its session is not archived.</summary>
+    /// <summary>A run reported a failure, its session is not archived, and no later run of its
+    /// schedule finished clean.</summary>
     Failed,
 
     /// <summary>A schedule passed its due time by the grace with no run started.</summary>
@@ -95,7 +96,9 @@ public sealed record LoopWaitingWork(int SessionRequests, int Deliveries)
 /// The alerts of local ADR 0051 §5, read from the schedule and loop readings, as pure functions:
 /// <list type="bullet">
 /// <item><b>Needs you</b> and <b>Failed</b>: one per run that reads so, keyed on the run, so a
-/// run's alert stays until its session is archived and the next run's is its own.</item>
+/// run's alert stays until its session is archived and the next run's is its own. A Failed
+/// alert also clears once a later run of the same schedule finishes clean, which reads the
+/// failed run Handled (<see cref="ScheduleReading"/>); <see cref="Recoveries"/> says why.</item>
 /// <item><b>Held</b>: one per schedule's streak of skipping runs, keyed on the run that held it —
 /// the one a skip named, else the oldest skip in the streak — so the later skips of the same
 /// streak raise nothing more.</item>
@@ -149,6 +152,52 @@ public static partial class SessionAlerts
             "not-running" => "A dispatcher checked in again, or nothing waits any more",
             _ => "Cleared",
         };
+
+    /// <summary>
+    /// Why each Failed alert a recovery cleared closes, by its key: every failed run of
+    /// <paramref name="schedules"/> that reads Handled because a later run finished clean,
+    /// rather than because its session is archived, with <see cref="RecoveredReason"/> naming
+    /// that later run. The publisher closes these with this reason in place of
+    /// <see cref="ClosedReason"/>'s "Run archived".
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> Recoveries(IEnumerable<ScheduleReadingResult> schedules, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(schedules);
+        ArgumentNullException.ThrowIfNull(zone);
+
+        var reasons = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var schedule in schedules)
+        {
+            foreach (var reading in schedule.Runs)
+            {
+                if (reading is not { State: ScheduledRunState.Handled, RecoveredBy: { } recoverer }) continue;
+
+                reasons[FailedKey(schedule.Schedule.Id, reading.Run.SessionId)] = RecoveredReason(recoverer, zone);
+            }
+        }
+
+        return reasons;
+    }
+
+    /// <summary>
+    /// The words a Failed alert closes with when <paramref name="recoverer"/>, a later run of its
+    /// schedule, finished clean: "Handled: the Wed 11 Nov 05:40 run finished Review ready" —
+    /// the run named by the day and time it began, so two runs of one day stay apart. It names
+    /// what the run reported (<see cref="ScheduleReading.FinishedClean"/>), which stands once
+    /// that run is archived too.
+    /// </summary>
+    public static string RecoveredReason(ScheduledRun recoverer, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(recoverer);
+        ArgumentNullException.ThrowIfNull(zone);
+
+        var began = TimeZoneInfo.ConvertTime(ScheduleOverview.Began(recoverer), zone);
+
+        return $"Handled: the {began.ToString("ddd d MMM HH:mm", CultureInfo.InvariantCulture)} run finished Review ready";
+    }
+
+    private static string FailedKey(string scheduleId, string sessionId) => $"failed:schedule:{scheduleId}:{sessionId}";
 
     /// <summary>Every alert that holds now.</summary>
     /// <param name="schedules">The schedules as <see cref="ScheduleReading"/> reads them.</param>
@@ -219,7 +268,7 @@ public static partial class SessionAlerts
                 var error = run.Verdict ?? "It reported no error.";
 
                 alerts.Add(new SessionAlert(
-                    $"failed:schedule:{id}:{run.SessionId}",
+                    FailedKey(id, run.SessionId),
                     SessionAlertCause.Failed,
                     place,
                     Cut($"{name} failed", MaxTitle),
@@ -229,7 +278,7 @@ public static partial class SessionAlerts
 
                     > {Cut(error, 2000)}
 
-                    The alert closes once the run's session is archived.
+                    The alert closes once the run's session is archived, or once a later run of the schedule finishes Review ready.
                     """,
                     RunActions(run.SessionId, id)));
             }

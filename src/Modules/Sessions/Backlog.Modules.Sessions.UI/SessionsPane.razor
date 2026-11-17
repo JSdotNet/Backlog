@@ -87,7 +87,7 @@
     header's button switches to it, its breadcrumb switches back, and its Open run comes
     back to the list on the run's session row. The pane reads the schedule register with
     every reading, against the same session records, because a run reads Handled by its
-    session's archived flag.
+    session's archived flag (or, failed, once a later run of its schedule finishes clean).
 
     The loop sessions — the session dispatcher and the Brain tender a person keeps under
     /loop (local ADR 0051 §3) — lead the list in an Agents section under every grouping.
@@ -2182,7 +2182,8 @@ else
     }
 
     /// <summary>The records read against this reading's session records, whose archived
-    /// flag decides Handled, at the pane's clock in this machine's zone.</summary>
+    /// flag decides Handled beside a failed run's recovery, at the pane's clock in this
+    /// machine's zone.</summary>
     private void ReadSchedules((IReadOnlyList<ScheduleRecord> Records, string? Error) read)
     {
         _schedulesReadAt = _clock.GetUtcNow();

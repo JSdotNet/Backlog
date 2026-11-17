@@ -84,6 +84,21 @@ public sealed class ScheduleOverviewTests
     }
 
     [Fact]
+    public void A_failed_run_a_later_run_recovered_still_holds_a_skip_that_names_it_since_it_is_not_archived()
+    {
+        var recovered = new ScheduledRun("thu", "sweep", Now.AddDays(-4), Now.AddDays(-4), Now.AddDays(-4), "review-ready", [], false, false, null);
+        var reading = Schedule(
+            "sweep", "Issue sweep", "JSdotNet/Backlog", ScheduledRunState.Held, runs:
+            [
+                Run("fri", ScheduledRunState.Held, Now.AddDays(-1), skipped: true, heldBy: "wed"),
+                Run("thu", ScheduledRunState.ReviewReady, Now.AddDays(-4)),
+                Run("wed", ScheduledRunState.Handled, Now.AddDays(-5), failed: true) with { RecoveredBy = recovered },
+            ]);
+
+        Assert.Equal("wed", ScheduleOverview.Holder(reading)?.Run.SessionId);
+    }
+
+    [Fact]
     public void A_held_schedule_whose_skip_named_no_run_is_held_by_the_newest_run_that_did_not_skip()
     {
         var reading = Schedule(

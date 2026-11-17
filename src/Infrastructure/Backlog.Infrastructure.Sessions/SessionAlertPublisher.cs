@@ -21,7 +21,8 @@ namespace Backlog.Infrastructure.Sessions;
 /// that one the Sessions area's switch-off closed is raised again under the next generation's id
 /// once the area is back and its cause still holds;</item>
 /// <item>closes every open <c>sessions</c> / <c>alert</c> notification whose key no reading holds
-/// any more, with <see cref="SessionAlerts.ClosedReason"/>.</item>
+/// any more, with <see cref="SessionAlerts.ClosedReason"/> — or, for a Failed alert a later run
+/// of its schedule recovered, the <see cref="SessionAlerts.Recoveries"/> reason naming that run.</item>
 /// </list>
 /// It keeps nothing in memory: what is open is read back from the centre on every sweep, so a
 /// restart neither raises an alert twice nor leaves one open whose cause cleared meanwhile.
@@ -207,10 +208,10 @@ public sealed class SessionAlertPublisher(
         if (_notifications() is not { } port || _centre() is not { } owner) return (0, 0);
 
         var enabled = _enabled();
-        (IReadOnlyList<SessionAlert> Alerts, Func<string, string>? SessionIdOf) reading = enabled
+        AlertReading reading = enabled
             ? await ReadAsync(cancellationToken).ConfigureAwait(false)
-            : ([], null);
-        var (alerts, sessionIdOf) = reading;
+            : AlertReading.None;
+        var (alerts, sessionIdOf, recoveries) = reading;
         var holding = alerts.Select(alert => alert.Key).ToHashSet(StringComparer.Ordinal);
 
         var closed = 0;
@@ -222,7 +223,9 @@ public sealed class SessionAlertPublisher(
         foreach (var stale in open.Where(notification => !holding.Contains(notification.Subject!.Id)))
         {
             var subject = stale.Subject!;
-            var reason = enabled ? SessionAlerts.ClosedReason(subject.Id) : TurnedOffReason;
+            var reason = !enabled ? TurnedOffReason
+                : recoveries.TryGetValue(subject.Id, out var recovered) ? recovered
+                : SessionAlerts.ClosedReason(subject.Id);
             var result = await port.CloseForSubjectAsync(subject, reason, cancellationToken).ConfigureAwait(false);
 
             if (result.IsSuccess) closed += result.Value;
@@ -251,14 +254,25 @@ public sealed class SessionAlertPublisher(
         return (published, closed);
     }
 
-    /// <summary>The alerts that hold now, and the id the Sessions list knows each session by.</summary>
-    internal async Task<(IReadOnlyList<SessionAlert> Alerts, Func<string, string>? SessionIdOf)> ReadAsync(CancellationToken cancellationToken)
+    /// <summary>One reading: the alerts that hold now, the id the Sessions list knows each
+    /// session by, and why each Failed alert a later run recovered closes.</summary>
+    internal sealed record AlertReading(
+        IReadOnlyList<SessionAlert> Alerts,
+        Func<string, string>? SessionIdOf,
+        IReadOnlyDictionary<string, string> Recoveries)
+    {
+        public static AlertReading None { get; } = new([], null, new Dictionary<string, string>());
+    }
+
+    /// <summary>The alerts that hold now, the id the Sessions list knows each session by, and the
+    /// recoveries that clear Failed alerts.</summary>
+    internal async Task<AlertReading> ReadAsync(CancellationToken cancellationToken)
     {
         var scheduleRecords = schedules is null ? [] : await schedules.ListAsync(cancellationToken).ConfigureAwait(false);
         var loopRecords = loops is null ? [] : await loops.ListAsync(cancellationToken).ConfigureAwait(false);
 
         // Nothing has reported: no session reading, which is the costly part.
-        if (scheduleRecords.Count == 0 && loopRecords.Count == 0) return ([], null);
+        if (scheduleRecords.Count == 0 && loopRecords.Count == 0) return AlertReading.None;
 
         var now = _clock.GetUtcNow();
         var catalog = sessions is null
@@ -292,7 +306,10 @@ public sealed class SessionAlertPublisher(
             kind => kind == LoopKind.Dispatcher ? dispatcherWork : LoopWaitingWork.None,
             Zone);
 
-        return (alerts, id => byId.TryGetValue(id, out var session) ? session.Id : id);
+        return new AlertReading(
+            alerts,
+            id => byId.TryGetValue(id, out var session) ? session.Id : id,
+            SessionAlerts.Recoveries(scheduleReadings, Zone));
     }
 
     /// <summary>The session reading dated back to the oldest run or check-in held, less a day for
