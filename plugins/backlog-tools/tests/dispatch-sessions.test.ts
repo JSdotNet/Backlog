@@ -1,11 +1,11 @@
 import { expect, test } from 'claude-code/testing'
 
 // @ts-ignore -- a plain ES module asset of the skill, without declarations
-import { decide, dispatcherName, endpointFrom, isNews, settingsPath } from '../skills/dispatch-sessions/assets/wait-logic.mjs'
+import { decide, dispatcherName, isNews, noToken } from '../skills/dispatch-sessions/assets/wait-logic.mjs'
 
 // The decisions of the dispatch-sessions wait script. The script itself and the capacity probe
 // spawn processes, which this sandbox cannot: tests/dispatch-sessions-assets.test.mjs runs them
-// under `node --test`.
+// under `node --test`, and tests/backlog-grant.test.mjs how they find the Manager grant.
 
 const OPTIONS = { retryMs: 30_000, retryAfterMs: undefined }
 const request = (id: string) => JSON.stringify({ kind: 'request', id, requestKind: 'entry', repository: 'JSdotNet/Backlog', brief: '/backlog-tools:run-plan-item entry `x`:' })
@@ -58,20 +58,11 @@ test('says a request every time, and a failure only when the state changes', () 
   expect(isNews({ line: null, state: 'idle', waitMs: 0 }, 'flag-off')).toBe(false)
 })
 
-test('finds the port and token the way the telemetry forwarder does', () => {
-  expect(settingsPath({ LOCALAPPDATA: 'C:\\Users\\a\\AppData\\Local' }, 'win32', 'C:\\Users\\a'))
-    .toBe('C:\\Users\\a\\AppData\\Local\\Backlog\\settings.json')
-  expect(settingsPath({}, 'win32', 'C:\\Users\\a')).toBe('C:\\Users\\a\\AppData\\Local\\Backlog\\settings.json')
-  expect(settingsPath({}, 'darwin', '/Users/a')).toBe('/Users/a/Library/Application Support/Backlog/settings.json')
-  expect(settingsPath({}, 'linux', '/home/a')).toBe('/home/a/.local/share/Backlog/settings.json')
-
-  const settings = JSON.stringify({ mcpServer: { port: 6123, token: 'from-settings' } })
-  expect(endpointFrom({}, settings)).toEqual({ url: 'http://127.0.0.1:6123/session-requests/wait', token: 'from-settings' })
-  expect(endpointFrom({ BACKLOG_MCP_PORT: '7001', BACKLOG_MCP_TOKEN: 'from-env' }, settings))
-    .toEqual({ url: 'http://127.0.0.1:7001/session-requests/wait', token: 'from-env' })
-  expect(endpointFrom({ BACKLOG_MCP_PORT: '7001' }, settings)).toEqual({ url: 'http://127.0.0.1:7001/session-requests/wait', token: 'from-settings' })
-  expect(endpointFrom({}, null)).toEqual({ url: 'http://127.0.0.1:5757/session-requests/wait', token: null })
-  expect(endpointFrom({}, '{ half')).toEqual({ url: 'http://127.0.0.1:5757/session-requests/wait', token: null })
+test('says once that no Manager token could be had, and asks again after the retry', () => {
+  const outcome = noToken('The Backlog token broker refused grant g_m: revoked.', OPTIONS)
+  expect(outcome).toEqual({ line: 'no-token The Backlog token broker refused grant g_m: revoked.', state: 'no-token', waitMs: 30_000 })
+  expect(isNews(outcome, 'idle')).toBe(true)
+  expect(isNews(outcome, 'no-token')).toBe(false)
 })
 
 test('names the dispatcher after the machine, so a restarted Manager knows its claims', () => {
