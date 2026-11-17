@@ -430,8 +430,8 @@ public class WebHarnessHostTests
     /// rooted SQLite adapters. The one shell surface it registers is the Events takeover, gated
     /// on the <c>events</c> flag; with the default feature file that switch reads as off, so the
     /// catalog offers nothing of it. No settings section or Ask AI source of it is registered.
-    /// The events read contract and the Calendar's port over it (§7) are composed too, and
-    /// with the switch off the Calendar is offered no events.
+    /// The events read contract and the Calendar's Events layer port over it (local ADR 0055
+    /// §2) are composed too, and with the switch off the Calendar is offered no events.
     /// </summary>
     [Fact]
     public async Task The_desktop_harness_composes_the_events_pane_behind_its_switch_which_is_off()
@@ -469,8 +469,8 @@ public class WebHarnessHostTests
         Assert.Equal(module, harness.Services
             .GetRequiredService<Backlog.Modules.Events.Abstractions.Services.IKnowledgeEventReader>()
             .GetType().Assembly.GetName().Name);
-        var calendarEvents = harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ICalendarEvents>();
-        Assert.IsType<Backlog.Infrastructure.FileSystem.Events.EventsCalendarEvents>(calendarEvents);
+        var calendarEvents = harness.Services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>();
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Calendar.EventsCalendarEvents>(calendarEvents);
         Assert.False((await calendarEvents.ReadAsync(TestContext.Current.CancellationToken)).Available);
     }
 
@@ -497,9 +497,9 @@ public class WebHarnessHostTests
     /// <summary>
     /// The Calendar is its own module's view (local ADR 0055): one view-group surface with
     /// id <c>calendar</c> at order 30 from Calendar.UI, the Tasks part it hosts, its Plans and
-    /// working-week ports answered from Roadmap under the Calendar's namespace, one Plans
-    /// layer per window, and its view choices over the shell's file. The Events layer still
-    /// reaches it through Tasks' port until it moves.
+    /// working-week ports answered from Roadmap and its Events port answered from Events, all
+    /// under the Calendar's namespace, one Plans layer and one Events layer per window, and its
+    /// view choices over the shell's file.
     /// </summary>
     [Fact]
     public void The_desktop_harness_composes_the_calendar_surface_and_its_layers()
@@ -525,8 +525,17 @@ public class WebHarnessHostTests
             second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlansLayer>());
         Assert.IsType<Backlog.Desktop.UI.Shell.ShellCalendarViewPreferences>(
             services.GetRequiredService<Backlog.Modules.Calendar.UI.ICalendarViewPreferences>());
-        Assert.IsType<Backlog.Infrastructure.FileSystem.Events.EventsCalendarEvents>(
-            services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ICalendarEvents>());
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Calendar.EventsCalendarEvents>(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>());
+        Assert.Same(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>());
+        var eventsLayer = services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEventsLayer>();
+        Assert.True(eventsLayer.Offered);
+        Assert.Same(eventsLayer, services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEventsLayer>());
+        Assert.NotSame(
+            eventsLayer,
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEventsLayer>());
     }
 
     /// <summary>

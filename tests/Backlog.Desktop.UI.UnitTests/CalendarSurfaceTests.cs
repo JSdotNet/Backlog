@@ -1,7 +1,6 @@
 using System.Globalization;
 using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Calendar.UI;
-using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.UI.Components.Tasks;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,9 +10,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Calendar as its own module's view (local ADR 0055), rendered with the real Tasks
-/// part it hosts: the Plans layer the Calendar reads through its own port and hands the
-/// part — the bars, the milestones and the shelf, Show plans and the range it keeps — and
-/// when it reads them again.
+/// part it hosts: the Plans and Events layers the Calendar reads through its own ports and
+/// hands the part — the bars, the milestones and the shelf, the events and their key
+/// dates, Show plans, Show events and the range it keeps — and when it reads them again.
 /// <para>
 /// Dates are relative to the real today, because the Calendar and the pane read their own
 /// clock the way the list does for My Day.
@@ -325,18 +324,42 @@ public sealed class CalendarSurfaceTests
         });
     }
 
-    /// <summary>The Events layer is still the Tasks part's own until it moves: its box is
-    /// ticked apart from the Calendar's Show plans.</summary>
+    /// <summary>The Tasks layer's chips read the pane's live title: while the open panel
+    /// drafts a rename, the chip for that entry says the draft, as its row in the list
+    /// would, and nothing is written until the rename is committed.</summary>
+    [Fact]
+    public async Task A_chip_follows_the_open_panels_title_draft()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var dated = await host.WriteEntryAsync($"# Ship the calendar\n`task` `due:{Iso(Today)}`\n");
+        await host.OpenAsync(dated);
+        var chip = $"[data-testid='task-calendar-chip-{dated.TaskId}'] .task-calendar__chip-text";
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+        surface.WaitForAssertion(() => Assert.Equal("Ship the calendar", surface.Find(chip).TextContent));
+
+        await surface.Find("[data-testid='entry-panel-title']").ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
+        await surface.Find("[data-testid='entry-panel-rename']").InputAsync(new() { Value = "Ship the month view" });
+
+        surface.WaitForAssertion(() => Assert.Equal("Ship the month view", surface.Find(chip).TextContent));
+        Assert.Equal("Ship the calendar", dated.PreviewTitle);
+    }
+
+    // --- The Events layer ----------------------------------------------------
+
+    private const string KeyDateTestId = "task-calendar-key-date-k0";
+
+    /// <summary>Show plans and Show events are two of the Calendar's own view choices,
+    /// ticked apart.</summary>
     [Fact]
     public async Task Show_plans_and_show_events_are_ticked_apart()
     {
         using var host = await TasksPaneHost.CreateAsync();
-        var events = new FakeCalendarEvents(Today);
-        events.SetShown(true);
         host.Context.Services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(Today));
-        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+        host.Context.Services.AddSingleton<ICalendarEvents>(new FakeCalendarEvents(Today));
+        var preferences = new FakeCalendarViewPreferences { EventsShown = true };
 
-        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+        var surface = host.WithCalendarSurface(preferences).RenderCalendarSurface();
         surface.WaitForAssertion(() =>
         {
             Assert.NotEmpty(surface.FindAll($"[data-testid='{PlanTestId}']"));
@@ -347,6 +370,219 @@ public sealed class CalendarSurfaceTests
 
         surface.WaitForAssertion(() => Assert.Empty(surface.FindAll($"[data-testid='{PlanTestId}']")));
         Assert.NotEmpty(surface.FindAll($"[data-testid='{EventTestId}']"));
-        Assert.True(events.Shown);
+        Assert.False(preferences.PlansShown);
+        Assert.True(preferences.EventsShown);
+    }
+
+    [Fact]
+    public async Task Without_an_events_port_the_calendar_offers_no_events()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        var surface = host.WithCalendarSurface(new FakeCalendarViewPreferences { EventsShown = true }).RenderCalendarSurface();
+
+        Assert.NotEmpty(surface.FindAll("[data-testid='task-calendar']"));
+        Assert.Empty(surface.FindAll("[data-testid='task-calendar-show-events']"));
+        Assert.Empty(surface.FindAll(".task-calendar__event"));
+    }
+
+    /// <summary>The events area switched off answers Off: no box, and nothing drawn,
+    /// even on a device where the box was ticked before.</summary>
+    [Fact]
+    public async Task With_the_events_area_off_there_is_no_box_and_nothing_drawn_whatever_was_ticked()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var events = new FakeCalendarEvents(Today) { Available = false };
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var surface = host.WithCalendarSurface(new FakeCalendarViewPreferences { EventsShown = true }).RenderCalendarSurface();
+
+        surface.WaitForAssertion(() => Assert.Equal(1, events.Reads));
+        Assert.Empty(surface.FindAll("[data-testid='task-calendar-show-events']"));
+        Assert.Empty(surface.FindAll($"[data-testid='{EventTestId}']"));
+        Assert.Empty(surface.FindAll($"[data-testid='{KeyDateTestId}']"));
+    }
+
+    [Fact]
+    public async Task The_events_and_their_key_dates_are_drawn_from_the_port_once_the_box_is_ticked()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var events = new FakeCalendarEvents(Today);
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var surface = host.WithCalendarSurface(new FakeCalendarViewPreferences { EventsShown = true }).RenderCalendarSurface();
+
+        surface.WaitForAssertion(() =>
+        {
+            var bar = surface.FindAll($"[data-testid='{EventTestId}']")[0];
+            Assert.Equal("Techorama · Going · Antwerp", bar.GetAttribute("title"));
+            Assert.Contains("task-calendar__event--filled", bar.ClassName);
+            Assert.False(bar.HasAttribute("data-calendar-task"));
+            Assert.Contains("task-calendar__event--tentative", surface.FindAll("[data-testid='task-calendar-event-e1']")[0].ClassName);
+            var keyDate = surface.Find($"[data-calendar-day='{Iso(Today)}'] [data-testid='{KeyDateTestId}']");
+            Assert.Equal("Early bird ends", keyDate.QuerySelector(".task-calendar__milestone-text")!.TextContent);
+        });
+        Assert.Equal(1, events.Reads);
+    }
+
+    /// <summary>The events are read on arriving at the Calendar and on a feature change —
+    /// which is how the box comes and goes as the events area is switched — not on every
+    /// render.</summary>
+    [Fact]
+    public async Task The_events_are_read_again_on_returning_to_the_calendar_and_on_a_feature_change()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var events = new FakeCalendarEvents(Today) { Available = false };
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+        host.WithCalendarSurface();
+
+        var surface = host.RenderCalendarSurface();
+        surface.WaitForAssertion(() => Assert.Equal(1, events.Reads));
+        surface.Render();
+        Assert.Equal(1, events.Reads);
+        Assert.Empty(surface.FindAll("[data-testid='task-calendar-show-events']"));
+
+        // Leaving the Calendar and coming back to it.
+        await host.Context.DisposeComponentsAsync();
+        surface = host.RenderCalendarSurface();
+        surface.WaitForAssertion(() => Assert.Equal(2, events.Reads));
+
+        events.Available = true;
+        host.Features.SetEnabled("events", true);
+
+        surface.WaitForAssertion(() =>
+        {
+            Assert.Equal(3, events.Reads);
+            Assert.NotEmpty(surface.FindAll("[data-testid='task-calendar-show-events']"));
+        });
+    }
+
+    /// <summary>On a device that never chose, the box is unticked and nothing is drawn; a
+    /// tick is kept in the Calendar's view choices, under the stored name the file always
+    /// used, and survives a restart.</summary>
+    [Fact]
+    public async Task On_a_device_that_never_chose_the_events_are_off_until_ticked_and_the_tick_is_kept()
+    {
+        using var settings = new TempShellNavigationFile();
+        using var host = await TasksPaneHost.CreateAsync();
+        host.Context.Services.AddSingleton<ICalendarEvents>(new FakeCalendarEvents(Today));
+
+        var surface = host.WithCalendarSurface(new ShellCalendarViewPreferences(new ShellNavigationStore(settings.Path)))
+            .RenderCalendarSurface();
+
+        surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll("[data-testid='task-calendar-show-events']")));
+        Assert.False(surface.Find("[data-testid='task-calendar-show-events'] input").HasAttribute("checked"));
+        Assert.Empty(surface.FindAll($"[data-testid='{EventTestId}']"));
+        Assert.Empty(surface.FindAll($"[data-testid='{KeyDateTestId}']"));
+
+        surface.Find("[data-testid='task-calendar-show-events'] input").Change(true);
+
+        surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll($"[data-testid='{EventTestId}']")));
+        using (var written = System.Text.Json.JsonDocument.Parse(ShellNavigationStoreTests.Written(settings.Path)))
+        {
+            Assert.True(written.RootElement.GetProperty("calendarEventsShown").GetBoolean());
+        }
+
+        Assert.True(new ShellNavigationStore(settings.Path).CalendarEventsShown);
+
+        surface.Find("[data-testid='task-calendar-show-events'] input").Change(false);
+
+        surface.WaitForAssertion(() => Assert.Empty(surface.FindAll($"[data-testid='{EventTestId}']")));
+        Assert.DoesNotContain("calendarEventsShown", ShellNavigationStoreTests.Written(settings.Path), StringComparison.Ordinal);
+        Assert.False(new ShellNavigationStore(settings.Path).CalendarEventsShown);
+    }
+
+    /// <summary>Until the first read lands the Calendar does not know whether the events
+    /// area is on, so it offers no box: a box drawn in that gap could be ticked while the
+    /// area is off, and the tick would be kept.</summary>
+    [Fact]
+    public async Task No_show_events_box_is_offered_before_the_events_read_lands()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var gate = new TaskCompletionSource();
+        var events = new FakeCalendarEvents(Today) { Gate = gate };
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+
+        surface.WaitForAssertion(() => Assert.Equal(1, events.Reads));
+        Assert.NotEmpty(surface.FindAll("[data-testid='task-calendar'] [data-calendar-day]"));
+        Assert.Empty(surface.FindAll("[data-testid='task-calendar-show-events']"));
+
+        gate.SetResult();
+
+        surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll("[data-testid='task-calendar-show-events']")));
+    }
+
+    /// <summary>The window's Events layer outlives the surface, so returning to the Calendar
+    /// after the events area was switched off must not offer the box from the read it left
+    /// with: a tick in that gap would be kept while the area is off. Each arrival offers no
+    /// box until its own read lands.</summary>
+    [Fact]
+    public async Task A_returning_calendar_offers_no_show_events_box_before_its_own_read_lands()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var events = new FakeCalendarEvents(Today);
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+        host.WithCalendarSurface();
+
+        var surface = host.RenderCalendarSurface();
+        surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll("[data-testid='task-calendar-show-events']")));
+
+        // Leaving the Calendar; the events area is switched off meanwhile, and the next
+        // read is slow to answer.
+        await host.Context.DisposeComponentsAsync();
+        events.Available = false;
+        var gate = new TaskCompletionSource();
+        events.Gate = gate;
+
+        surface = host.RenderCalendarSurface();
+
+        surface.WaitForAssertion(() => Assert.Equal(2, events.Reads));
+        Assert.NotEmpty(surface.FindAll("[data-testid='task-calendar'] [data-calendar-day]"));
+        Assert.Empty(surface.FindAll("[data-testid='task-calendar-show-events']"));
+
+        gate.SetResult();
+
+        await surface.InvokeAsync(() => { });
+        surface.Render();
+        Assert.Empty(surface.FindAll("[data-testid='task-calendar-show-events']"));
+    }
+
+    /// <summary>A read made on an earlier day is read again on the next render, so the
+    /// Calendar left open overnight draws the events as they stand today.</summary>
+    [Fact]
+    public async Task The_events_are_read_again_once_the_day_has_moved_on()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var clock = new FakeTimeProvider(DateTimeOffset.Now);
+        var events = new FakeCalendarEvents(Today);
+        host.Context.Services.AddSingleton<TimeProvider>(clock);
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+        surface.WaitForAssertion(() => Assert.Equal(1, events.Reads));
+        surface.Render();
+        Assert.Equal(1, events.Reads);
+
+        clock.Advance(TimeSpan.FromDays(1));
+        surface.Render();
+
+        surface.WaitForAssertion(() => Assert.Equal(2, events.Reads));
+    }
+
+    [Fact]
+    public async Task An_events_read_that_fails_leaves_the_tasks_on_the_calendar()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var dated = await host.WriteEntryAsync($"# Ship the calendar\n`task` `!ready` `due:{Iso(Today)}`\n");
+        var events = new FakeCalendarEvents(Today) { Fails = true };
+        host.Context.Services.AddSingleton<ICalendarEvents>(events);
+
+        var surface = host.WithCalendarSurface(new FakeCalendarViewPreferences { EventsShown = true }).RenderCalendarSurface();
+
+        surface.WaitForAssertion(() => Assert.Equal(1, events.Reads));
+        Assert.NotEmpty(surface.FindAll($"[data-calendar-day='{Iso(Today)}'] [data-testid='task-calendar-chip-{dated.TaskId}']"));
+        Assert.Empty(surface.FindAll(".task-calendar__event"));
     }
 }

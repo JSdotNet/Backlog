@@ -5,8 +5,9 @@
     ADR 0055). It owns no data (ADR 0055 §6): the Calendar reads layers its sources
     answer through the ports in its Abstractions, and keeps only its view choices,
     which the host stores.
-      Services/    CalendarPlansLayer, the Plans layer's read policy: when a read of
-                   ICalendarPlans is owed, and what a failed one leaves
+      Services/    CalendarPlansLayer and CalendarEventsLayer, the Plans and Events
+                   layers' read policies: when a read of ICalendarPlans or
+                   ICalendarEvents is owed, and what a failed one leaves
       Extensions/  AddCalendarModule()
     This project may reference the shared kernel and its own Abstractions, and
     nothing else in the solution.

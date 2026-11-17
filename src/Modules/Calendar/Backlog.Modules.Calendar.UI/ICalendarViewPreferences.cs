@@ -3,9 +3,9 @@ using global::Backlog.UI.Components.Tasks;
 namespace Backlog.Modules.Calendar.UI;
 
 /// <summary>
-/// The Calendar's own view choices on this device (local ADR 0055 §1, §4): its range and
-/// its Show plans choice, kept by the host under the names it always used. Show events
-/// stays behind <c>ICalendarEvents</c> until the Events layer moves.
+/// The Calendar's own view choices on this device (local ADR 0055 §1, §4): its range, its
+/// Show plans choice and its Show events choice, each kept by the host under the name it
+/// always used and ticked apart from the other.
 /// </summary>
 public interface ICalendarViewPreferences
 {
@@ -17,7 +17,13 @@ public interface ICalendarViewPreferences
     /// until ticked.</summary>
     bool PlansShown { get; }
 
+    /// <summary>Whether the Calendar draws the knowledge events — its Show events box. Off
+    /// until ticked.</summary>
+    bool EventsShown { get; }
+
     void SetRange(CalendarRange range);
 
     void SetPlansShown(bool shown);
+
+    void SetEventsShown(bool shown);
 }

@@ -4,9 +4,9 @@
     The Calendar module's UI (.devbook/domain/calendar/features.md#calendar-view): the
     Calendar the desktop shell shows as a view (CalendarSurface, registered by
     AddCalendarSurface), which hosts the Tasks layer as the part Tasks offers through
-    Backlog.UI.Components and hands it the layers the Calendar reads — the Plans layer
-    and the hours worked a day — with the range and Show plans it keeps
-    (ICalendarViewPreferences). Its layout is the calendar's own rules in the shared
+    Backlog.UI.Components and hands it the layers the Calendar reads — the Plans layer,
+    the Events layer and the hours worked a day — with the range, Show plans and Show
+    events it keeps (ICalendarViewPreferences). Its layout is the calendar's own rules in the shared
     library's components.css, so it ships no stylesheet.
 
     It references the shared control library rather than growing its own controls,

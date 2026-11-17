@@ -5,8 +5,9 @@
 @*
     The Calendar as a shell surface (local ADR 0043 §1, local ADR 0055): a view of its own
     that hosts the Tasks layer as the part Tasks offers (CalendarTasksLayer) and hands it the
-    layers the Calendar reads — the Plans layer and the hours worked a day — with the range
-    and Show plans it keeps (ICalendarViewPreferences). It owns no data.
+    layers the Calendar reads — the Plans layer, the Events layer and the hours worked a day —
+    with the range, Show plans and Show events it keeps (ICalendarViewPreferences). It owns
+    no data.
 
     It draws no element of its own around the part, so the shell's pane and every selector
     under it stay what they were when the Calendar was a layout of the Tasks pane. With no
@@ -33,14 +34,16 @@
 
     private CalendarTasksLayer? _part;
     private ICalendarPlansLayer? _plans;
+    private ICalendarEventsLayer? _events;
     private ICalendarCapacity? _capacity;
     private ICalendarViewPreferences? _preferences;
 
     /// <summary>The choices this run keeps when the host composed no preferences.</summary>
     private CalendarRange _range = CalendarRange.Month;
     private bool _plansShown;
+    private bool _eventsShown;
 
-    /// <summary>The host's clock, or the system's: what "today" is for the plans' read.</summary>
+    /// <summary>The host's clock, or the system's: what "today" is for the layers' reads.</summary>
     private TimeProvider _clock = TimeProvider.System;
 
     private DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
@@ -49,40 +52,56 @@
 
     private bool PlansShown => _preferences?.PlansShown ?? _plansShown;
 
+    private bool EventsShown => _preferences?.EventsShown ?? _eventsShown;
+
     protected override void OnInitialized()
     {
         _part = Services.GetService<CalendarTasksLayer>();
         _plans = Services.GetService<ICalendarPlansLayer>();
+        _events = Services.GetService<ICalendarEventsLayer>();
         _capacity = Services.GetService<ICalendarCapacity>();
         _preferences = Services.GetService<ICalendarViewPreferences>();
         _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
 
+        // Arriving owes each layer a read, whatever the window read before it left.
         if (_plans is not null)
         {
-            // Arriving owes a read, whatever the window read before it left.
             _plans.Arrive();
-            _plans.Changed += HandlePlansChanged;
+            _plans.Changed += HandleLayerChanged;
+        }
+
+        if (_events is not null)
+        {
+            _events.Arrive();
+            _events.Changed += HandleLayerChanged;
         }
 
         if (_capacity is not null) _capacity.Changed += HandleCapacityChanged;
     }
 
-    /// <summary>The plans are read on arriving, when a read is owed and on a new day —
-    /// never on every render, because a read gathers the backlog per plan.</summary>
-    protected override Task OnParametersSetAsync() => ReadPlansIfOwedAsync();
+    /// <summary>The layers are read on arriving, when a read is owed and on a new day —
+    /// never on every render, because a read of the plans gathers the backlog per plan.</summary>
+    protected override Task OnParametersSetAsync() => ReadLayersIfOwedAsync();
 
-    /// <summary>The read the plans are owed, if any: asked on every way the surface draws
-    /// again — its parameters, a press of its own and the port's signal — because its own
+    /// <summary>The reads the layers are owed, if any: asked on every way the surface draws
+    /// again — its parameters, a press of its own and a layer's signal — because its own
     /// redraw does not pass through its parameters, and a Calendar left open past midnight
-    /// must not keep yesterday's windows.</summary>
-    private Task ReadPlansIfOwedAsync() => _plans?.ReadIfOwedAsync(Today) ?? Task.CompletedTask;
+    /// must not keep yesterday's windows or events. Both start at once, so a slow plans
+    /// read — it gathers the backlog per plan — does not hold the events back.</summary>
+    private Task ReadLayersIfOwedAsync()
+    {
+        var today = Today;
+        return Task.WhenAll(
+            _plans?.ReadIfOwedAsync(today) ?? Task.CompletedTask,
+            _events?.ReadIfOwedAsync(today) ?? Task.CompletedTask);
+    }
 
     private Dictionary<string, object?> PartParameters() =>
         new(StringComparer.Ordinal) { [CalendarTasksLayer.LayerParameter] = Inputs() };
 
-    /// <summary>What the part draws the Calendar's layers from: the plans as last read in
-    /// the calendar's own shapes, each window with its repositories so the part can colour
-    /// it, and the hours a day is set against.</summary>
+    /// <summary>What the part draws the Calendar's layers from: the plans and the events as
+    /// last read, in the calendar's own shapes — each window with its repositories so the
+    /// part can colour it — and the hours a day is set against.</summary>
     private CalendarLayerInputs Inputs()
     {
         var read = _plans?.Plans ?? CalendarPlansDto.Empty;
@@ -116,14 +135,45 @@
                 ],
                 EventCallback.Factory.Create<bool>(this, SetPlansShownAsync),
                 EventCallback.Factory.Create<CalendarPlanStart>(this, StartPlanAsync)),
-            _capacity is { } capacity ? day => capacity.HoursOn(day) : null);
+            _capacity is { } capacity ? day => capacity.HoursOn(day) : null,
+            EventsInputs());
+    }
+
+    /// <summary>The events as last read: each event as a bar and each key date as a
+    /// diamond, keyed by its place in the read — the port carries no event id, and the
+    /// Calendar opens and writes none.</summary>
+    private CalendarEventsInputs EventsInputs()
+    {
+        var read = _events?.Events ?? CalendarEventsDto.Off;
+
+        return new CalendarEventsInputs(
+            _events?.Available ?? false,
+            EventsShown,
+            [
+                .. read.Events.Select((calendarEvent, index) => new CalendarEvent(
+                    string.Create(CultureInfo.InvariantCulture, $"e{index}"),
+                    calendarEvent.Title,
+                    calendarEvent.State,
+                    calendarEvent.Place,
+                    calendarEvent.Start,
+                    calendarEvent.End,
+                    calendarEvent.Tentative))
+            ],
+            [
+                .. read.KeyDates.Select((keyDate, index) => new CalendarKeyDate(
+                    string.Create(CultureInfo.InvariantCulture, $"k{index}"),
+                    keyDate.Label,
+                    keyDate.EventTitle,
+                    keyDate.On))
+            ],
+            EventCallback.Factory.Create<bool>(this, SetEventsShownAsync));
     }
 
     private Task SetRange(CalendarRange range)
     {
         _range = range;
         _preferences?.SetRange(range);
-        return ReadPlansIfOwedAsync();
+        return ReadLayersIfOwedAsync();
     }
 
     /// <summary>Show plans ticked or unticked: remembered on this device, and ticked reads
@@ -135,7 +185,19 @@
         _plansShown = shown;
         _preferences?.SetPlansShown(shown);
         if (shown) await plans.ReadAsync(Today);
-        else await ReadPlansIfOwedAsync();
+        else await ReadLayersIfOwedAsync();
+    }
+
+    /// <summary>Show events ticked or unticked: remembered on this device apart from Show
+    /// plans, and ticked reads the events at once.</summary>
+    private async Task SetEventsShownAsync(bool shown)
+    {
+        if (_events is not { Offered: true } events) return;
+
+        _eventsShown = shown;
+        _preferences?.SetEventsShown(shown);
+        if (shown) await events.ReadAsync(Today);
+        else await ReadLayersIfOwedAsync();
     }
 
     /// <summary>A shelf plan dropped on a day: the roadmap places its window from there, by
@@ -151,13 +213,16 @@
             Toasts.Publish(ToastMessage.Warning($"+{start.Tag} could not be planned: {refusal}", PlanRefusedTestId));
         }
 
-        await ReadPlansIfOwedAsync();
+        await ReadLayersIfOwedAsync();
     }
 
-    private void HandlePlansChanged() =>
+    /// <summary>A layer said a read is owed — the plans changed, or a feature switched,
+    /// which is also what brings the Show events box in and out as the Events area is
+    /// switched.</summary>
+    private void HandleLayerChanged() =>
         _ = InvokeAsync(async () =>
         {
-            await ReadPlansIfOwedAsync();
+            await ReadLayersIfOwedAsync();
             StateHasChanged();
         });
 
@@ -165,7 +230,8 @@
 
     public void Dispose()
     {
-        if (_plans is not null) _plans.Changed -= HandlePlansChanged;
+        if (_plans is not null) _plans.Changed -= HandleLayerChanged;
+        if (_events is not null) _events.Changed -= HandleLayerChanged;
         if (_capacity is not null) _capacity.Changed -= HandleCapacityChanged;
     }
 }

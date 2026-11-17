@@ -219,9 +219,9 @@ public static class DesktopCompositionRegistration
         // behind the same feature; it has no settings section or Ask AI source yet.
         services.AddEventsModule();
 
-        // Calendar (local ADR 0055): it owns no data, and its one service is the Plans
-        // layer's read policy, one per window. Its view is the surface AddCalendarSurface
-        // registers below, which hosts the Tasks part.
+        // Calendar (local ADR 0055): it owns no data, and its services are the Plans and
+        // Events layers' read policies, one per window. Its view is the surface
+        // AddCalendarSurface registers below, which hosts the Tasks part.
         services.AddCalendarModule();
 
         // Capture: the module brings the run, and the head decides where the
@@ -237,8 +237,10 @@ public static class DesktopCompositionRegistration
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
 
-        // The Calendar's Plans layer and working week, answered over Roadmap's ports;
-        // after the Roadmap module and its adapters, whose ports these resolve.
+        // The Calendar's Plans layer and working week, answered over Roadmap's ports, and its
+        // Events layer over Events' read contract, offering nothing while the `events` area
+        // is off; after the Roadmap module and its adapters, whose ports these resolve. Each
+        // resolves its source's port when first asked, so the Events module above is enough.
         services.AddCalendarCrossContextAdapters();
 
         // The tasks goals name, read through Tasks' published ITaskItems.
@@ -260,9 +262,7 @@ public static class DesktopCompositionRegistration
 
         // Events' task target over Tasks' published port, Scoped like the port it holds, after
         // AddTasksModule(); and a stand-in for its Brain notes that the Brain's registration
-        // further down replaces. The same call answers the Calendar's events layer through
-        // Tasks' port over Events' read contract (local ADR 0050 §7) until that layer moves
-        // to the Calendar; it offers nothing while the `events` area is off.
+        // further down replaces.
         services.AddEventsCrossContextAdapters();
 
         // Half of a repository's configuration is workspace data and follows the
@@ -411,12 +411,12 @@ public static class DesktopCompositionRegistration
         // window a request came from.
         services.Add(new ServiceDescriptor(typeof(CurrentShellWindow), typeof(CurrentShellWindow), options.WindowStateLifetime));
         // What the views read beside the list: the Board's columns, and the Calendar's
-        // range and Show plans, from the shell's navigation file, and the Goals view's candidates from
-        // the window's own task list and reader of pull requests.
+        // range, Show plans and Show events, from the shell's navigation file, and the Goals view's
+        // candidates from the window's own task list and reader of pull requests.
         services.AddSingleton<ITasksViewPreferences>(sp =>
             new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
-        // The Calendar's own view choices (local ADR 0055 §1, §4) — its range and Show
-        // plans — in the same per-device file, under the names they always had.
+        // The Calendar's own view choices (local ADR 0055 §1, §4) — its range, Show plans
+        // and Show events — in the same per-device file, under the names they always had.
         services.AddSingleton<ICalendarViewPreferences>(sp =>
             new ShellCalendarViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
         // The notification centre's Group by and filters, per device in the same file.
