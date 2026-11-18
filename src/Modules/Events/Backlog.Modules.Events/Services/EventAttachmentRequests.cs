@@ -11,7 +11,8 @@ namespace Backlog.Modules.Events.Services;
 /// <see cref="KnowledgeEvent.LinkNote"/> keeps a note once whatever its title, so a request met
 /// twice saves nothing the second time and the first title stands.
 /// </summary>
-internal sealed class EventAttachmentRequests(IKnowledgeEventRepository events) : IEventAttachmentRequests
+internal sealed class EventAttachmentRequests(IKnowledgeEventRepository events, KnowledgeEventSaved? saved = null)
+    : IEventAttachmentRequests
 {
     public async Task<EventAttachmentOutcome> ApplyAsync(EventAttachmentRequestDto request, CancellationToken cancellationToken = default)
     {
@@ -34,6 +35,10 @@ internal sealed class EventAttachmentRequests(IKnowledgeEventRepository events) 
 
         knowledgeEvent.LinkNote(link);
         await events.SaveAsync(knowledgeEvent, cancellationToken).ConfigureAwait(false);
+
+        // The desktop's answer to the phone travels on the knowledge event feed, so it is
+        // announced as a person's change would be.
+        saved?.Raise();
 
         return EventAttachmentOutcome.Attached;
     }

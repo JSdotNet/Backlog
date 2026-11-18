@@ -32,7 +32,8 @@ namespace Backlog.Modules.Events.Services;
 internal sealed class HarvestTaskPolicy(
     IKnowledgeEventRepository events,
     IEventTaskTarget tasks,
-    ILogger<HarvestTaskPolicy>? log = null)
+    ILogger<HarvestTaskPolicy>? log = null,
+    KnowledgeEventSaved? saved = null)
 {
     private const string TitlePrefix = "Harvest ";
 
@@ -139,6 +140,7 @@ internal sealed class HarvestTaskPolicy(
         }
 
         await events.SaveAsync(current, cancellationToken).ConfigureAwait(false);
+        saved?.Raise();
         return filed.Value;
     }
 

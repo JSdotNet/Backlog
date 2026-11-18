@@ -591,11 +591,18 @@ sequenceDiagram
   incomplete each queue a tombstone, so a second desktop or a second tap links
   nothing twice.
 - **An unknown event defers the request.** A desktop that holds no event by that
-  id yet keeps the request and offers it again after each pull. The deferral
-  lives in memory, so a restart forgets it on that desktop.
+  id yet keeps the request and offers it again after each pull.
 - **A desktop without Events holds the request.** A head without the port leaves
   it on the replica for another desktop. With the `events` area off, a desktop
   defers it and applies it once the area is on again.
+- **A deferred request survives a restart.** The desktop keeps it in
+  `held-attachment-requests.json`, beside the knowledge event feed's progress.
+  It lets go once Events answers it, another desktop's tombstone arrives, or
+  the request proves unreadable.
+- **The answer leaves within seconds.** On a paired desktop with sync and the
+  `events` area on, every Events save starts a knowledge event cycle a few
+  seconds later. That includes the applied request. The footer's Sync runs
+  that loop too.
 
 ## Main Window Close, Hide and Quit
 
