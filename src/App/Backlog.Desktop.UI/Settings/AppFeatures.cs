@@ -146,9 +146,8 @@ public static class AppFeatures
         new(
             DevbookFeatures.DomainView,
             "New domain view",
-            "Read the Devbook's Domain area one unit at a time: the context map, each bounded context, and each file inside it, on a page drawn for the kind of file it is. Turned off, the Domain area reads as it always has.",
-            EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
+            "Read the Devbook's Domain area one unit at a time: the context map, each bounded context, and each file inside it, on a page drawn for the kind of file it is. Turned off, the Domain area reads as it always has, until a later release removes the old view.",
+            EnabledByDefault: true),
         new(
             DevPcFeatures.SystemTools,
             "System tools",
