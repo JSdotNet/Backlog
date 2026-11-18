@@ -70,6 +70,32 @@ public interface ITaskItems
         string? sourceInboxId = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Creates an entry from one block of entry markdown under
+    /// <paramref name="id"/>, the caller's id, only when this machine holds no task
+    /// with that id, live or deleted. Answers <see langword="true"/> when it created
+    /// the entry, and <see langword="false"/> when one was already held and nothing
+    /// was written — a deleted one stays deleted. Text with no title, or a
+    /// <c>plan</c> entry, is refused as <see cref="SaveFromTextAsync"/> refuses it.
+    /// <para>
+    /// For a caller that derives the id from what the entry is for, so two machines
+    /// asking for the same entry ask for the same id and the replica folds their
+    /// copies into one. The port is told an id and a text, never what the id was
+    /// derived from.
+    /// </para>
+    /// <para>
+    /// Implemented by default as a refusal, as <see cref="SetPlannedHoursAsync"/> is,
+    /// so a host or a test double that never files under an id still composes; the
+    /// module's own port overrides it.
+    /// </para></summary>
+    Task<Result<bool>> CreateFromTextIfAbsentAsync(
+        Guid id,
+        string rawText,
+        int order,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<Result<bool>>(Error.Validation(
+            "entry.create_under_id_unavailable",
+            "An entry cannot be created under a given id here."));
+
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>Position in the list becomes the entry's rank.</summary>

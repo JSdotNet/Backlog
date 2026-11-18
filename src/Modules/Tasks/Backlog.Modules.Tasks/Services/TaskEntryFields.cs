@@ -32,11 +32,15 @@ internal static class TaskEntryFields
     /// content, so it goes through the full constructor here and nowhere in
     /// <see cref="ApplyToExisting"/>. Null for every hand-typed entry; the inbox
     /// item's id when the Inbox routed one.
+    /// </para>
+    /// <para>
+    /// <paramref name="id"/> is the caller's, for a task filed under an id it derived; null
+    /// draws a random one, as every hand-typed entry has.
     /// </para></summary>
-    public static TaskItem CreateFrom(EntryTextParser.ParsedEntry parsed, int order, string? sourceInboxId = null)
+    public static TaskItem CreateFrom(EntryTextParser.ParsedEntry parsed, int order, string? sourceInboxId = null, Guid? id = null)
     {
         var entry = new TaskItem(
-            Guid.NewGuid(),
+            id ?? Guid.NewGuid(),
             parsed.Title,
             parsed.Body,
             parsed.Type ?? EntryType.Task,

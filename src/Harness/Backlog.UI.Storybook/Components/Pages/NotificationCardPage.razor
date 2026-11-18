@@ -221,7 +221,6 @@ Dismiss is a quiet choice: a small ghost text action on its own line after the b
             new NotificationCardChoice("approve", "Approve", NotificationCardChoiceStyle.Primary),
             new NotificationCardChoice("approve-follow-up", "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?"),
             new NotificationCardChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
-            new NotificationCardChoice("reject", "Reject", NotificationCardChoiceStyle.Destructive),
             new NotificationCardChoice("dismiss", "Dismiss", Quiet: true)
         ]),
         NotificationCardState.Open);
@@ -416,8 +415,8 @@ Dismiss is a quiet choice: a small ghost text action on its own line after the b
         // question.Answer = new NotificationCardAnswerSpec(
         // [
         //     new("approve", "Approve", NotificationCardChoiceStyle.Primary),
+        //     new("approve-follow-up", "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?"),
         //     new("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
-        //     new("reject", "Reject", NotificationCardChoiceStyle.Destructive),
         //     new("dismiss", "Dismiss", Quiet: true)
         // ]);
         // The reply: ChoiceIds ["revise"], Text "The toast overlaps the header".

@@ -1,6 +1,8 @@
 using Backlog.Modules.Events.Abstractions;
+using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -21,9 +23,22 @@ namespace Backlog.Infrastructure.Sync.KnowledgeEvents;
 /// and the loop starts as soon as it is turned on.
 /// </para>
 /// <para>
+/// The one thing an area turned off still sends is the move itself: the worker records every
+/// move of the switch, and while one turned off is unsent, with sync on and the device paired, a
+/// cycle sends that switch alone, so the phone withdraws its Events screen. A move turned on goes
+/// with the next full exchange.
+/// </para>
+/// <para>
 /// A cycle against a service that predates the feed ends as a success that says
 /// <see cref="KnowledgeEventSyncSummary.NotYetServed"/>, so <see cref="LastError"/> stays empty
 /// while the deployed service catches up.
+/// </para>
+/// <para>
+/// A local write runs a cycle <see cref="ChangeSettleDelay"/> after the last one, as a task
+/// write does (<see cref="TaskSyncWorker"/>): Events announces every save through
+/// <see cref="IKnowledgeEventReplication.Changed"/>, a desktop's answer to a phone's attachment
+/// request included, so neither waits for the tick. The footer's Sync asks through
+/// <see cref="RequestSync"/>.
 /// </para>
 /// </summary>
 public sealed class KnowledgeEventSyncWorker : IDisposable
@@ -36,6 +51,10 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
     /// minutes.</summary>
     internal static readonly TimeSpan CyclePeriod = TimeSpan.FromMinutes(5);
 
+    /// <summary>How long after the last local write a cycle runs — the task loop's settle
+    /// delay, so a burst of edits is one exchange.</summary>
+    internal static readonly TimeSpan ChangeSettleDelay = TaskSyncWorker.ChangeSettleDelay;
+
     public const string UnexpectedFailure = TaskSyncWorker.UnexpectedFailure;
 
     private readonly Lock _gate = new();
@@ -46,21 +65,34 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
     private readonly IKnowledgeEventSyncStateStore _state;
     private readonly TimeProvider _time;
     private readonly ILogger _log;
+    private readonly IKnowledgeEventReplication? _changes;
 
     private readonly CancellationTokenSource _lifetime = new();
 
     private int _cycleInFlight;
 
+    /// <summary>Set when the settle timer fired, cleared by the cycle that answers it, so a
+    /// write met while a cycle holds the guard runs one more cycle rather than waiting for the
+    /// tick — <see cref="TaskSyncWorker"/>'s arrangement.</summary>
+    private int _changeSettled;
+
     private ITimer? _timer;
+
+    /// <summary>The one-shot timer a local write arms, and re-arms while writes keep coming.</summary>
+    private ITimer? _settle;
+
     private bool _disposed;
 
+    /// <param name="changes">Events' replication port, for its local-change notice only, or
+    /// null on a head that composed none — then the loop is the schedule and the button.</param>
     public KnowledgeEventSyncWorker(
         IServiceProvider services,
         IAppFeatureSettings features,
         IDeviceCredentialStore credentials,
         IKnowledgeEventSyncStateStore state,
         TimeProvider time,
-        ILogger<KnowledgeEventSyncWorker>? log = null)
+        ILogger<KnowledgeEventSyncWorker>? log = null,
+        IKnowledgeEventReplication? changes = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(features);
@@ -74,10 +106,13 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         _state = state;
         _time = time;
         _log = log ?? NullLogger<KnowledgeEventSyncWorker>.Instance;
+        _changes = changes;
 
         _features.Changed += OnGateChanged;
         _credentials.Changed += OnGateChanged;
+        if (_changes is not null) _changes.Changed += OnLocalChange;
 
+        NoteSwitch();
         ApplyGates();
     }
 
@@ -108,10 +143,13 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
             _disposed = true;
             _timer?.Dispose();
             _timer = null;
+            _settle?.Dispose();
+            _settle = null;
         }
 
         _features.Changed -= OnGateChanged;
         _credentials.Changed -= OnGateChanged;
+        if (_changes is not null) _changes.Changed -= OnLocalChange;
 
         _lifetime.Cancel();
         _lifetime.Dispose();
@@ -131,12 +169,78 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
 
     /// <summary>All three gates: the <c>sync</c> feature every loop answers to, the
     /// <c>events</c> area this feed belongs to, and a paired device to replicate under.</summary>
-    private bool ShouldRun =>
-        _features.IsEnabled(SyncFeatures.Sync)
-        && _features.IsEnabled(EventsFeatures.Events)
-        && _credentials.Current is not null;
+    private bool ShouldRun => CanReachService && _features.IsEnabled(EventsFeatures.Events);
 
-    private void OnGateChanged() => ApplyGates();
+    /// <summary>The area is off here and the phone has not been told: sync on and paired, and the
+    /// switch's move not yet sent.</summary>
+    private bool ShouldWithdraw =>
+        CanReachService
+        && !_features.IsEnabled(EventsFeatures.Events)
+        && _state.Current.Area is { On: false, Sent: false };
+
+    /// <summary>The <c>sync</c> feature on and a paired device: what either kind of cycle needs.</summary>
+    private bool CanReachService => _features.IsEnabled(SyncFeatures.Sync) && _credentials.Current is not null;
+
+    private void OnGateChanged()
+    {
+        NoteSwitch();
+        ApplyGates();
+
+        // The phone is told as soon as it can be, not a cycle later; the timer retries.
+        if (ShouldWithdraw) RequestSync();
+    }
+
+    /// <summary>Records the <c>events</c> switch when it stands other than last recorded: a move,
+    /// stamped now and unsent. The first sight is recorded as sent, so upgrading moves
+    /// nothing.</summary>
+    private void NoteSwitch()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+
+            var on = _features.IsEnabled(EventsFeatures.Events);
+            var now = _time.GetUtcNow();
+
+            try
+            {
+                _state.Update(state => state.Area is { } area && area.On == on
+                    ? state
+                    : state with { Area = new EventsAreaSwitch(on, now, Sent: state.Area is null) });
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _log.LogWarning(ex, "The events switch could not be recorded, so the phone is not told it moved.");
+            }
+        }
+    }
+
+    /// <summary>An event or a series was saved here: arm the settle timer, or push it back if
+    /// it is already armed. Gated as a tick is, so a write with a gate shut arms nothing.</summary>
+    private void OnLocalChange()
+    {
+        lock (_gate)
+        {
+            if (_disposed || !ShouldRun) return;
+
+            if (_settle is null)
+            {
+                _settle = _time.CreateTimer(_ => OnSettled(), state: null, ChangeSettleDelay, Timeout.InfiniteTimeSpan);
+            }
+            else
+            {
+                _settle.Change(ChangeSettleDelay, Timeout.InfiniteTimeSpan);
+            }
+        }
+    }
+
+    /// <summary>The writes have stopped: run a cycle now, recorded first so a cycle already
+    /// holding the guard runs one more on its way out.</summary>
+    private void OnSettled()
+    {
+        Volatile.Write(ref _changeSettled, 1);
+        RequestSync();
+    }
 
     private void ApplyGates()
     {
@@ -144,7 +248,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         {
             if (_disposed) return;
 
-            if (!ShouldRun)
+            if (!ShouldRun && !ShouldWithdraw)
             {
                 _timer?.Dispose();
                 _timer = null;
@@ -181,7 +285,8 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
 
     private async Task RunCycleAsync()
     {
-        if (!ShouldRun) return;
+        var full = ShouldRun;
+        if (!full && !ShouldWithdraw) return;
 
         if (Interlocked.CompareExchange(ref _cycleInFlight, 1, 0) != 0) return;
 
@@ -189,12 +294,18 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
 
         try
         {
+            // Inside the guard and before anything is read, so this cycle's push carries every
+            // write that fired the settle timer.
+            Interlocked.Exchange(ref _changeSettled, 0);
+
             var session = ResolveSession();
 
             if (session is null) return;
 
-            var result = await RefusedTokenRerun.RunAsync(
-                _services, () => session.SyncAsync(_lifetime.Token), _log, "knowledge event").ConfigureAwait(false);
+            var result = full
+                ? await RefusedTokenRerun.RunAsync(
+                    _services, () => session.SyncAsync(_lifetime.Token), _log, "knowledge event").ConfigureAwait(false)
+                : await WithdrawAsync(session).ConfigureAwait(false);
 
             if (result.IsSuccess)
             {
@@ -221,8 +332,22 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         {
             Volatile.Write(ref _cycleInFlight, 0);
             Changed?.Invoke();
+
+            // A withdrawal sent leaves nothing for the loop to do while the area stays off.
+            if (!full) ApplyGates();
+
+            // Turned off while this exchange ran, after it had sent the switch: go again now.
+            else if (ShouldWithdraw) RequestSync();
+
+            // A write that settled while this cycle held the guard: its request was turned
+            // away, so it runs now rather than on the next tick.
+            if (Volatile.Read(ref _changeSettled) == 1 && ShouldRun) RequestSync();
         }
     }
+
+    /// <summary>The cycle of an area turned off: the switch alone.</summary>
+    private Task<Result<KnowledgeEventSyncSummary>> WithdrawAsync(KnowledgeEventSyncSession session) =>
+        RefusedTokenRerun.RunAsync(_services, () => session.WithdrawAsync(_lifetime.Token), _log, "events switch");
 
     /// <summary>A session for this cycle, where this host composed one; a head that registered
     /// the loop without Events has nothing to do rather than being broken.</summary>

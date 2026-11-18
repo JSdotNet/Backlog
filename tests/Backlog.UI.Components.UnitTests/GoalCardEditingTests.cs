@@ -453,7 +453,7 @@ public sealed class GoalCardEditingTests : IDisposable
         Assert.Equal(
             [new GoalDetachRequest("paid", T3), new GoalDetachRequest("paid", Bank), new GoalDetachRequest("paid", Pr1352)],
             calls.Detaches);
-        Assert.Empty(board.FindAll("[role='dialog']"));
+        Assert.Empty(board.FindAll("dialog"));
     }
 
     [Fact]

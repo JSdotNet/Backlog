@@ -437,8 +437,10 @@ public sealed class ContextMapTests
 
         var layout = ContextMapLayout.Arrange(map);
 
-        Assert.Equal(17, layout.Cards.Count);
+        Assert.Equal(18, layout.Cards.Count);
         Assert.Contains(map.Contexts, c => c.Id == "Brain");
+        Assert.Contains(map.Contexts, c => c.Id == "Calendar");
+        Assert.Equal(3, map.LinesTouching("Calendar"));
         Assert.DoesNotContain(map.Contexts, c => c.Id == "Shell");
         Assert.Equal(map.Lines.Count, layout.Strokes.Count);
         var ids = map.Contexts.Select(c => c.Id).ToList();

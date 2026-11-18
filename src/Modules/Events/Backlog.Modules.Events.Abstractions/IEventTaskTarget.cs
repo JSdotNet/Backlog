@@ -17,6 +17,14 @@ public interface IEventTaskTarget
     /// body — and answers its id. A refusal names why, and no task is filed.</summary>
     Task<Result<string>> FileAsync(string title, CancellationToken cancellationToken = default);
 
+    /// <summary>Files a task with <paramref name="title"/> alone under <paramref name="taskId"/>,
+    /// only when this backlog holds no task with that id, live or deleted — the Harvest Task
+    /// Policy's filing, under the id it derives from the event
+    /// (<c>.devbook/domain/events/domain.md#harvest-task-policy</c>). Answers
+    /// <see langword="true"/> when it filed the task, and <see langword="false"/> when one was
+    /// already held and nothing was written. A refusal names why, and no task is filed.</summary>
+    Task<Result<bool>> FileOnceAsync(string taskId, string title, CancellationToken cancellationToken = default);
+
     /// <summary>The tasks this backlog holds among <paramref name="taskIds"/>, by id. An id it
     /// does not hold is left out.</summary>
     Task<IReadOnlyDictionary<string, EventTaskFactsDto>> LookupAsync(

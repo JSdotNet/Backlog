@@ -5,6 +5,8 @@ using System.Text.Json;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.KnowledgeEvents;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
@@ -153,6 +155,72 @@ public sealed class AppFooterSyncTests
         footer.Find("[data-testid='sync-activity-sync-now']").Click();
 
         footer.WaitForAssertion(() => Assert.True(context.Service.Paths.Count > before));
+    }
+
+    /// <summary>The same press asks the knowledge event loop for a cycle, so an event edited
+    /// here reaches the phone now rather than on that loop's tick.</summary>
+    [Fact]
+    public async Task Sync_now_also_runs_the_knowledge_event_loop()
+    {
+        using var context = Context(withSync: true);
+        var root = Path.Combine(Path.GetTempPath(), "backlog-footer-sync", Guid.NewGuid().ToString("n"));
+        using var cleanup = new DeletesFolder(root);
+        var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
+        _ = features.SetEnabled(SyncFeatures.Sync, true);
+        _ = features.SetEnabled(EventsFeatures.Events, true);
+        var sessions = new CountingSessionProvider();
+        using var knowledgeEvents = new KnowledgeEventSyncWorker(
+            sessions,
+            features,
+            new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", "a-registration-credential")),
+            new FileKnowledgeEventSyncStateStore(Path.Combine(root, "knowledge-event-sync-state.json")),
+            new FakeTimeProvider());
+        context.Bunit.Services.AddSingleton(knowledgeEvents);
+        var footer = context.Render();
+
+        // The window is reachable only once there is a phrase, so the first task cycle is
+        // asked for directly — and waited out: a busy button ignores the press.
+        context.Worker!.RequestSync();
+        footer.WaitForAssertion(() => Assert.NotNull(context.Worker.LastSummary));
+        OpenWindow(footer);
+        footer.WaitForAssertion(() => Assert.Null(footer.Find("[data-testid='sync-activity-sync-now']").GetAttribute("aria-busy")));
+        Assert.Equal(0, sessions.Resolved);
+
+        footer.Find("[data-testid='sync-activity-sync-now']").Click();
+
+        // Awaited on the loop rather than through WaitForAssertion: the footer does not render
+        // when this loop finishes, and bUnit re-checks only on a render.
+        await sessions.FirstResolve.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        Assert.Equal(1, sessions.Resolved);
+    }
+
+    private sealed class DeletesFolder(string root) : IDisposable
+    {
+        public void Dispose()
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>A host that composed the loop and no exchange: the loop asks for its session,
+    /// which is all this footer test needs to see.</summary>
+    private sealed class CountingSessionProvider : IServiceProvider
+    {
+        private readonly TaskCompletionSource _first = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _resolved;
+
+        public int Resolved => Volatile.Read(ref _resolved);
+
+        public Task FirstResolve => _first.Task;
+
+        public object? GetService(Type serviceType)
+        {
+            if (serviceType != typeof(KnowledgeEventSyncSession)) return null;
+
+            Interlocked.Increment(ref _resolved);
+            _first.TrySetResult();
+            return null;
+        }
     }
 
     /// <summary>

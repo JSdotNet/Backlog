@@ -104,6 +104,16 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         return await inner.SetPlannedHoursAsync(id, blocks, cancellationToken);
     }
 
+    public async Task<Result<bool>> CreateFromTextIfAbsentAsync(
+        Guid id,
+        string rawText,
+        int order,
+        CancellationToken cancellationToken = default)
+    {
+        _writingHere.Value = true;
+        return await inner.CreateFromTextIfAbsentAsync(id, rawText, order, cancellationToken);
+    }
+
     public async Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;

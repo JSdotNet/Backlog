@@ -4,63 +4,47 @@ using System.Text;
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>
-/// What a host may add to the picture beyond what every C4 view draws.
+/// What a host hands the writer about one render beyond the view itself: which cards
+/// zoom, which step is current, which frames are selectable, and what the overlay
+/// counts. Each is data, not a switch: null, the default, adds nothing.
 /// <para>
-/// Every option is off by default, and a writer handed no options draws exactly
-/// what it drew before options existed. The C4 tab's explorer never passes any; the
-/// C4 zoom tab passes the ones its navigation needs. That is the rule local ADR 0046
-/// sets for the two tabs while they stand side by side: the new one may ask the shared
-/// renderer for more, and the old one must not notice.
+/// What the zoom navigation once asked for by switch — the step badges and the
+/// relationship ends — every picture now draws, since the C4 tab that had to stay
+/// unchanged beside it is retired (local ADR 0046).
 /// </para>
 /// </summary>
 /// <param name="ZoomInAliases">The cards that carry a <c>Zoom in</c> chip: a clickable
 /// mark, <c>g.c4-diagram__zoom-in</c> with <c>data-c4-zoom-in</c>, on the top edge of the
-/// card. Named by the host rather than read off <see cref="C4PlacedNode.Drillable"/>
-/// because where a card zooms to is the host's navigation, not the layout's: on a
-/// landscape the zoom tab opens a system's context view, which no drill offers.</param>
-/// <param name="NumberSteps">Whether a dynamic view's arrows carry their step number in a
-/// badge, <c>g.c4-diagram__step-badge</c>, rather than as a prefix to the label, and every
-/// numbered arrow says which step it is with <c>data-c4-step</c>. The zoom tab's steps
-/// panel plays the view by these numbers.</param>
+/// card. Named by the host rather than read off the layout because where a card zooms
+/// to is the host's navigation: on a landscape the zoom navigation opens a system's
+/// context view, which no drill offers.</param>
 /// <param name="CurrentStep">The step drawn as the current one: its arrow, label and
-/// badge carry <c>--current</c>, and every other numbered arrow does not. Read only with
-/// <paramref name="NumberSteps"/>.</param>
+/// badge carry <c>--current</c>, and every other numbered arrow does not.</param>
 public sealed record C4SvgOptions(
     IReadOnlySet<string>? ZoomInAliases = null,
-    bool NumberSteps = false,
     int? CurrentStep = null)
 {
-    /// <summary>No additions: the picture every view drew before options existed.</summary>
+    /// <summary>Nothing per render: the view as every host draws it.</summary>
     public static C4SvgOptions None { get; } = new();
 
     /// <summary>
     /// The frames, by the alias of the element each is drawn for, that a reader can
     /// select as well as look at. Such a frame is written as a <c>g.node</c> with the
-    /// card's id contract, <c>&lt;svg id&gt;-&lt;alias&gt;</c>, so the zoom tab's viewer
-    /// selects it the way it selects a card. The zoom tab sets it on a deployment
+    /// card's id contract, <c>&lt;svg id&gt;-&lt;alias&gt;</c>, so the zoom navigation's viewer
+    /// selects it the way it selects a card. The zoom navigation sets it on a deployment
     /// view, where a deployment node that runs something is drawn as a frame and is
     /// still the thing a reader asks about.
     /// </summary>
     public IReadOnlySet<string>? SelectableBoundaryAliases { get; init; }
 
     /// <summary>
-    /// The record counts the zoom tab's overlay puts on cards, by the alias of each
+    /// The record counts the zoom navigation's overlay puts on cards, by the alias of each
     /// card. A card named here with a decision count draws an <c>n ADR</c> chip; with an
     /// open-debt count it draws an <c>n TDR</c> chip and is drawn on the debt surface
     /// (<c>c4-diagram__node--debt</c>). A count of zero draws nothing, and a card not
     /// named here is drawn as it always was. Null, the default, is no overlay.
     /// </summary>
     public IReadOnlyDictionary<string, C4CardRecords>? RecordChips { get; init; }
-
-    /// <summary>
-    /// Whether every relationship says which cards it joins: <c>data-c4-from</c> and
-    /// <c>data-c4-to</c> on its line and on its label, by alias, and a second arrowhead,
-    /// <c>&lt;svg id&gt;-arrow-related</c>, drawn in the primary colour. The zoom tab's
-    /// viewer reads them to light the relationships into and out of the selected card
-    /// and dim the rest. False, the default, writes neither, so the C4 tab's picture is
-    /// what it always was.
-    /// </summary>
-    public bool EdgeEnds { get; init; }
 }
 
 /// <summary>What the overlay counts on one card: the decision records (ADRs) and the
@@ -115,12 +99,9 @@ public static class C4SvgWriter
 
         // The arrowhead a related line wears while its card is selected. A marker is
         // shared by every line that names it, so the lit one is a marker of its own.
-        if (options?.EdgeEnds == true)
-        {
-            svg.Append(Invariant($"<marker id=\"{Escape(id)}-arrow-related\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\""))
-                .Append(" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\">")
-                .Append("<path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"c4-diagram__arrowhead c4-diagram__arrowhead--related\" /></marker>");
-        }
+        svg.Append(Invariant($"<marker id=\"{Escape(id)}-arrow-related\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\""))
+            .Append(" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\">")
+            .Append("<path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"c4-diagram__arrowhead c4-diagram__arrowhead--related\" /></marker>");
 
         svg.Append("</defs>");
 
@@ -186,7 +167,7 @@ public static class C4SvgWriter
         svg.Append("<g class=\"c4-diagram__edge").Append(StepModifiers(edge, options, "c4-diagram__edge"))
             .Append(edge.Group is null ? string.Empty : " c4-diagram__edge--group").Append('"')
             .Append(edge.Group is null ? string.Empty : Invariant($" data-c4-group=\"{Escape(edge.Group)}\""))
-            .Append(StepAttribute(edge, options)).Append(EndAttributes(edge, options)).Append('>')
+            .Append(StepAttribute(edge)).Append(EndAttributes(edge)).Append('>')
             .Append(Invariant($"<path d=\"{Escape(edge.Path)}\" marker-end=\"url(#{Escape(id)}-arrow)\" />"))
             .Append("</g>");
     }
@@ -196,12 +177,12 @@ public static class C4SvgWriter
         if (string.IsNullOrWhiteSpace(edge.Label) && edge.Order is null) return;
 
         svg.Append("<g class=\"c4-diagram__edge-label").Append(StepModifiers(edge, options, "c4-diagram__edge-label")).Append('"')
-            .Append(StepAttribute(edge, options)).Append(EndAttributes(edge, options))
+            .Append(StepAttribute(edge)).Append(EndAttributes(edge))
             .Append(Invariant($" transform=\"translate({edge.LabelX:0.##}, {edge.LabelY:0.##})\">"));
 
         // The badge sits above the label's first line, centred on it like the label,
         // so it never has to know how wide the text beneath it is drawn.
-        if (options.NumberSteps && edge.Order is { } badge)
+        if (edge.Order is { } badge)
         {
             svg.Append("<g class=\"c4-diagram__step-badge\" aria-hidden=\"true\">")
                 .Append("<circle cx=\"0\" cy=\"-17\" r=\"9\" />")
@@ -210,12 +191,6 @@ public static class C4SvgWriter
         }
 
         svg.Append("<text text-anchor=\"middle\">");
-
-        if (!options.NumberSteps && edge.Order is { } order)
-        {
-            svg.Append(Invariant($"<tspan class=\"c4-diagram__edge-order\">{order}. </tspan>"));
-        }
-
         svg.Append(Escape(edge.Label ?? string.Empty)).Append("</text>");
 
         if (!string.IsNullOrWhiteSpace(edge.Technology))
@@ -227,24 +202,25 @@ public static class C4SvgWriter
     }
 
     /// <summary>The <c>--step</c> and <c>--current</c> modifiers a numbered arrow and its
-    /// label carry when the host plays the steps; nothing otherwise.</summary>
+    /// label carry; nothing on an arrow with no step number.</summary>
     private static string StepModifiers(C4PlacedEdge edge, C4SvgOptions options, string block)
     {
-        if (!options.NumberSteps || edge.Order is not { } order) return string.Empty;
+        if (edge.Order is not { } order) return string.Empty;
 
         return order == options.CurrentStep
             ? $" {block}--step {block}--current"
             : $" {block}--step";
     }
 
-    /// <summary>The cards a relationship joins, by alias, when the options ask for them.</summary>
-    private static string EndAttributes(C4PlacedEdge edge, C4SvgOptions options) =>
-        options.EdgeEnds
-            ? Invariant($" data-c4-from=\"{Escape(edge.FromAlias)}\" data-c4-to=\"{Escape(edge.ToAlias)}\"")
-            : string.Empty;
+    /// <summary>The cards a relationship joins, by alias: <c>data-c4-from</c> and
+    /// <c>data-c4-to</c>, which the zoom viewer reads to light the relationships into
+    /// and out of the selected card and dim the rest.</summary>
+    private static string EndAttributes(C4PlacedEdge edge) =>
+        Invariant($" data-c4-from=\"{Escape(edge.FromAlias)}\" data-c4-to=\"{Escape(edge.ToAlias)}\"");
 
-    private static string StepAttribute(C4PlacedEdge edge, C4SvgOptions options) =>
-        options.NumberSteps && edge.Order is { } order ? Invariant($" data-c4-step=\"{order}\"") : string.Empty;
+    /// <summary>Which step a numbered arrow is, which the steps panel plays by.</summary>
+    private static string StepAttribute(C4PlacedEdge edge) =>
+        edge.Order is { } order ? Invariant($" data-c4-step=\"{order}\"") : string.Empty;
 
     private static void WriteNode(StringBuilder svg, string id, C4PlacedNode node, C4SvgOptions options)
     {
@@ -386,8 +362,8 @@ public static class C4SvgWriter
     /// The classes a card carries.
     /// <para>
     /// <c>node</c> and the alias-bearing id are mermaid's contract, kept so the
-    /// explorer's viewer works unchanged. The rest is this renderer's: which level, is
-    /// it outside the scope, and does it lead anywhere.
+    /// zoom viewer selects a card the way it always did. The rest is this renderer's:
+    /// which level, is it outside the scope, and does it carry open debt.
     /// </para>
     /// </summary>
     private static string NodeClass(C4PlacedNode node, C4CardRecords? records)
@@ -395,7 +371,6 @@ public static class C4SvgWriter
         var classes = new List<string> { "node", "c4-diagram__node", $"c4-diagram__node--{Level(node.Node.Kind)}" };
 
         if (node.External) classes.Add("c4-diagram__node--external");
-        if (node.Drillable) classes.Add("c4-drillable");
         if (records is { OpenDebt: > 0 }) classes.Add("c4-diagram__node--debt");
 
         return string.Join(' ', classes);

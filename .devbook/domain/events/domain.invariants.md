@@ -66,14 +66,15 @@ Skipped is not on that path, so a move to it is refused the same way. Skipping w
 
 Enforced at: `MoveTo()`
 
-### Invariant: Only a Spotted or Considering event is skipped
+### Invariant: An event is skipped only before it is attended
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.A_spotted_or_considering_event_is_skipped, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.A_going_or_attended_event_cannot_be_skipped]
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.A_spotted_considering_or_going_event_is_skipped, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.An_attended_event_cannot_be_skipped]
 ```
 
-An event moves to Skipped only from Spotted or Considering (`knowledge_event.cannot_skip`).
+An event moves to Skipped only from Spotted, Considering or Going (`knowledge_event.cannot_skip`).
+An Attended event happened, so it is not skipped.
 
 Enforced at: `Skip()`
 
@@ -99,6 +100,18 @@ A Harvested or Skipped event moves to no other state (`knowledge_event.state_fin
 This refusal comes before every other: a final event is refused as final, never as a backward move or as one that cannot be skipped.
 
 Enforced at: `MoveTo()`, `Skip()`
+
+### Invariant: Only an event with no harvest task is removed
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.An_event_without_a_harvest_task_is_removed_from_any_state, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.An_event_with_a_harvest_task_cannot_be_removed, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventInvariantTests.Removing_a_removed_event_changes_nothing]
+```
+
+An event is removed, from any state, only while none of its Event Task Links has the purpose Harvest (`knowledge_event.has_harvest_task`).
+A refused removal leaves the event as it was, and removing a removed event changes nothing.
+
+Enforced at: `Remove()`
 
 ### Invariant: A verdict waits for the event
 
@@ -256,11 +269,23 @@ related: [.devbook/domain/events/domain.md#harvest-task-policy]
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_going_event_gets_its_harvest_task_the_day_after_it_ends, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_going_event_is_not_due_on_its_last_day, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_going_event_without_dates_is_never_due, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.An_event_with_only_a_start_is_due_the_day_after_its_start, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Only_a_going_event_is_due]
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_going_event_gets_its_harvest_task_the_day_after_it_ends, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_going_event_is_not_due_on_its_last_day, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_going_event_without_dates_is_never_due, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.An_event_with_only_a_start_is_due_the_day_after_its_start, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Only_a_going_event_is_due, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_removed_event_is_never_due]
 ```
 
 The policy files a harvest task only for an event that is Going and whose end day is before the desktop's local date.
-An event with a start and no end ends on its start day, and an event with no dates is never due.
+An event with a start and no end ends on its start day, and an event with no dates or a removed event is never due.
+
+Enforced at: `FileDue()`
+
+### Invariant: An event's harvest task is filed under the id derived from it
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.The_harvest_task_is_filed_under_the_id_derived_from_the_event, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_derived_task_already_held_is_linked_and_not_filed_again, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_derived_task_deleted_here_is_linked_and_not_filed_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.CreateTaskIfAbsentTests.A_task_held_live_is_left_as_it_is, unit:dotnet:Backlog.Modules.Tasks.UnitTests.CreateTaskIfAbsentTests.A_task_held_deleted_stays_deleted]
+```
+
+The policy files an event's harvest task only under the id derived from the event's id, and files none while a task
+with that id is held, live or deleted; it links that id either way.
 
 Enforced at: `FileDue()`
 

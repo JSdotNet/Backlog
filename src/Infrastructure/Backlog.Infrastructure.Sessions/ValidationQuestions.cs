@@ -10,14 +10,15 @@ namespace Backlog.Infrastructure.Sessions;
 
 /// <summary>
 /// The question Sessions asks when a delivery run reaches Personal Validation, titled
-/// "&lt;repository&gt; · &lt;run&gt; · Approve or revise", with the gate's handoff as its body and
-/// the choices Approve, Approve + follow-up, Revise and Reject, and a quiet Dismiss that
-/// withdraws the question and records nothing
+/// "&lt;run&gt; · Approve or revise", with the gate's handoff as its body and the choices
+/// Approve, Approve + follow-up and Revise, and a quiet Dismiss that withdraws the question
+/// and records nothing
 /// (<c>.devbook/domain/notifications/requirements.md#requirement-a-run-at-personal-validation-asks-to-be-approved</c>).
 /// It is about the run, so the run's end closes it, and its answer is recorded on the run
 /// file as the gate decision — the desktop session then opens the pull request, or marks
 /// the draft one it already opened ready for review. That pull request is shown first, and a
-/// review link only the desktop can open is marked so (<see cref="ReviewLinks"/>).
+/// review link only the desktop can open is left out of the body (<see cref="ReviewLinks"/>):
+/// the phone cannot open it, and the run's own panel at the desktop lists it.
 /// <para>
 /// The run file remembers the question under <c>validationQuestion</c>: the notification's
 /// id, when it was asked, whether it was answered, dismissed or closed, and whether the gate's current
@@ -294,26 +295,29 @@ internal static class ValidationQuestions
         // under delivery 1.35.0 there is none yet, and the copy then says so.
         var pulls = links.Where(link => ReviewLinks.Classify(link.Url) is ReviewLinkKind.PullRequest).ToList();
         if (pulls.Count == 0) pulls = [.. RunPullRequests.Of(run).Select(pull => pull.Link)];
-        var review = links.Where(link => ReviewLinks.Classify(link.Url) is not ReviewLinkKind.PullRequest).ToList();
+        // The phone opens no loopback or file address, so those stay on the run's own panel.
+        var review = links.Where(link => ReviewLinks.Classify(link.Url) is ReviewLinkKind.Web).ToList();
 
         return new NotificationDraft(
             new NotificationSource(SessionNotificationSubjects.Context, SessionNotificationSubjects.ValidationSourceKey(runId, worktree)),
             new NotificationSubject(SessionNotificationSubjects.Context, SessionNotificationSubjects.Run, runId),
             NotificationKind.Question,
             NotificationSeverity.Info,
-            NotificationText.Glance(repository, title, TitleAsk, MaxTitleLength),
+            // The origin names the repository, so the title does not repeat it.
+            NotificationText.Glance(null, title, TitleAsk, MaxTitleLength),
             pulls.Count > 0
                 ? "The run reached Personal Validation. Your answer is recorded on the run; approving lets the desktop session mark the pull request ready for review."
                 : "The run reached Personal Validation. Your answer is recorded on the run; the pull request is still opened at the desktop.",
-            Body(title, repository, followUp, handoff, pulls, review),
+            Body(handoff, pulls, review),
             new AnswerSpec(
                 [
                     new AnswerChoice(SessionNotificationSubjects.ApproveChoice, "Approve", AnswerChoiceStyle.Primary),
                     .. followUp
                         ? [new AnswerChoice(SessionNotificationSubjects.ApproveFollowUpChoice, "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?")]
                         : Array.Empty<AnswerChoice>(),
+                    // No Reject: that is decided at the desktop. A Reject an earlier build's
+                    // question offered still records (Decision).
                     new AnswerChoice(SessionNotificationSubjects.ReviseChoice, "Revise", TakesText: true, Placeholder: "What should change?"),
-                    new AnswerChoice(SessionNotificationSubjects.RejectChoice, "Reject", AnswerChoiceStyle.Destructive),
                     new AnswerChoice(SessionNotificationSubjects.DismissChoice, "Dismiss", Quiet: true)
                 ]),
             // The title names the run, so the place is the repository alone and the card does
@@ -323,46 +327,29 @@ internal static class ValidationQuestions
 
     /// <summary>
     /// The handoff as Markdown: the pull request first, where there is one, so it is what a
-    /// phone shows before anything else; what the answers do; then the other review links
-    /// (label, address, description), each one only the desktop can open marked so; and the
-    /// handoff text — cut to <see cref="MaxBodyBytes"/>, ending with a line that says so,
-    /// when it is longer.
+    /// phone shows before anything else; then the review links any device can open (label,
+    /// address, description), under a heading only when there is one; and the handoff text —
+    /// cut to <see cref="MaxBodyBytes"/>, ending with a line that says so, when it is longer.
+    /// The title, the summary and the origin already say which run, where, and what an answer
+    /// does, and the buttons name the answers, so the body repeats none of it.
     /// </summary>
     private static string Body(
-        string title,
-        string? repository,
-        bool followUp,
         string? handoff,
         IReadOnlyList<DeliveryStageLink> pulls,
         IReadOnlyList<DeliveryStageLink> links)
     {
         var body = new StringBuilder();
 
-        body.Append(CultureInfo.InvariantCulture, $"**{title}** reached Personal Validation{(string.IsNullOrWhiteSpace(repository) ? string.Empty : $" in `{repository}`")}.\n\n");
-
         if (pulls.Count > 0)
         {
             body.Append("## Pull request\n\n");
             foreach (var pull in pulls) AppendLink(body, pull, PullRequestLabel(pull));
-
-            // Its own heading, so the answers do not read as part of the pull request's list.
-            body.Append("\n## Your answer\n\n");
         }
-
-        body.Append("- **Approve** records the approval on the run.\n");
-        if (followUp) body.Append("- **Approve + follow-up** approves and files your words as a follow-up entry after this one.\n");
-        body.Append("- **Revise** sends it back with your words for another round.\n");
-        body.Append(followUp
-            ? "- **Reject** records a rejection, and the entry is blocked.\n"
-            : "- **Reject** records a rejection and ends the run without a revise round.\n");
-        body.Append("- **Dismiss** withdraws this question and records nothing on the run.\n\n");
-        body.Append(pulls.Count > 0
-            ? "Approving lets the desktop session mark the pull request ready for review.\n"
-            : "Opening the pull request still happens at the desktop, in the session that runs it.\n");
 
         if (links.Count > 0)
         {
-            body.Append("\n## Review links\n\n");
+            if (body.Length > 0) body.Append('\n');
+            body.Append("## Review links\n\n");
 
             foreach (var link in links)
             {
@@ -372,18 +359,17 @@ internal static class ValidationQuestions
 
         if (handoff is not null)
         {
-            body.Append("\n## Handoff\n\n").Append(handoff).Append('\n');
+            if (body.Length > 0) body.Append('\n');
+            body.Append("## Handoff\n\n").Append(handoff).Append('\n');
         }
 
         return Fit(body.ToString());
     }
 
-    /// <summary>One list line: the link, the desktop-only mark where only the machine that
-    /// runs the session can open it, and its description.</summary>
+    /// <summary>One list line: the link and its description.</summary>
     private static void AppendLink(StringBuilder body, DeliveryStageLink link, string label)
     {
         body.Append(CultureInfo.InvariantCulture, $"- [{label}]({link.Url})");
-        if (ReviewLinks.Classify(link.Url) is ReviewLinkKind.DesktopOnly) body.Append(" (desktop only)");
         if (!string.IsNullOrWhiteSpace(link.Description)) body.Append(CultureInfo.InvariantCulture, $" — {OneLine(link.Description)}");
         body.Append('\n');
     }

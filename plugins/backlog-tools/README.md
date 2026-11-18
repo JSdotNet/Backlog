@@ -163,7 +163,8 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   the `backlog` server's `list_sessions` reads `Waiting` on a question does not count — every plan
   limit under 80%, and — through the PowerShell probe `assets/capacity.ps1` — average CPU
   under 80% over 30 seconds and at least 4 GB free; all four are arguments with these
-  defaults, and a request that does not fit stays Requested. Oldest first, it claims the
+  defaults, and a request that does not fit stays Requested. In the order the person set in the
+  session queue, it claims the
   request (`claim_session_request`), starts a local session in the request's clone folder in
   its own worktree with the app's fixed brief as its whole prompt and `wake_when_done` on, and
   reports it (`mark_session_request` `started`), or gives the claim back (`released`) when

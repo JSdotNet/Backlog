@@ -25,6 +25,11 @@ namespace Backlog.Infrastructure.Sqlite.Events;
 /// order as the instants do — the reasoning <c>SqliteTaskRepository.ListChangedSinceAsync</c>
 /// records.
 /// </para>
+/// <para>
+/// A removed event keeps its row, its document marked <c>removed</c>: <see cref="GetAsync"/> and
+/// <see cref="ListAsync"/> leave it out, <see cref="IsRemovedAsync"/> tells it from an absent one, while <see cref="ListChangedSinceAsync"/> and
+/// <see cref="SaveReplicatedAsync"/> carry it, so the removal reaches the other devices.
+/// </para>
 /// </summary>
 public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, IKnowledgeEventReplicaStore
 {
@@ -54,8 +59,21 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, 
         command.Parameters.AddWithValue("$id", Key(id));
 
         return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is string document
-            ? Parse(document)
+            && Parse(document) is { IsRemoved: false } knowledgeEvent
+            ? knowledgeEvent
             : null;
+    }
+
+    public async Task<bool> IsRemovedAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+
+        command.CommandText = "SELECT document FROM events_knowledge_events WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", Key(id));
+
+        return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is string document
+            && Parse(document) is { IsRemoved: true };
     }
 
     public async Task<IReadOnlyList<KnowledgeEvent>> ListAsync(CancellationToken cancellationToken = default)
@@ -69,7 +87,7 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (Parse(reader.GetString(0)) is { } knowledgeEvent) all.Add(knowledgeEvent);
+            if (Parse(reader.GetString(0)) is { IsRemoved: false } knowledgeEvent) all.Add(knowledgeEvent);
         }
 
         return all;

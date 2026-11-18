@@ -19,6 +19,10 @@ public static class InboxSurfaceRegistration
     /// <summary>The Inbox's place among the takeovers: first, as it leads the header.</summary>
     public const int Order = 10;
 
+    /// <summary>The query key a jump opens one item by, its id: how an event's Talk note
+    /// opens (<c>.devbook/domain/events/features.md#linking-notes</c>).</summary>
+    public const string ItemKey = "item";
+
     public static IServiceCollection AddInboxSurface(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -36,6 +40,7 @@ public static class InboxSurfaceRegistration
             Order,
             typeof(InboxSurface),
             InboxFeatures.Pane,
+            QueryKeys: [ItemKey],
             EscapeCloses: false));
 
         return services;

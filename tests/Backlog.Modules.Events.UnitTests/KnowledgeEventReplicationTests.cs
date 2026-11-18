@@ -138,6 +138,25 @@ public sealed class KnowledgeEventReplicationTests : IDisposable
         Assert.Equal("dotNET Friday Q4", _events.Find(id)!.Event.Title);
     }
 
+    /// <summary>A removal is a write like any other: the tombstone is listed marked removed, and
+    /// a removed copy another desktop sends is stored removed.</summary>
+    [Fact]
+    public async Task A_removed_event_travels_marked_removed()
+    {
+        var removed = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Value;
+        Assert.True(removed.Remove().IsSuccess);
+        _events.Seed(removed, Noon);
+        var held = _events.Seed(KnowledgeEvent.Create(Guid.NewGuid(), "dotNET Friday").Value, Noon).Id;
+
+        var listed = await _replication.ListEventsChangedSinceAsync(DateTimeOffset.MinValue, Cancellation);
+        var taken = await _replication.ApplyEventAsync(Copy(held, "dotNET Friday", Noon.AddMinutes(1)) with { Removed = true }, Cancellation);
+
+        Assert.True(Assert.Single(listed, copy => copy.Id == removed.Id).Removed);
+        Assert.False(Assert.Single(listed, copy => copy.Id == held).Removed);
+        Assert.Equal(KnowledgeEventReplicaOutcome.Taken, taken);
+        Assert.True(_events.Find(held)!.Event.IsRemoved);
+    }
+
     public static TheoryData<string> UnreadableCopies() =>
     [
         "no id",

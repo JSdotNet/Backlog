@@ -1,7 +1,7 @@
 namespace Backlog.Mobile.UI.Notifications;
 
 /// <summary>
-/// The pager's stack on the phone's Notifications tab
+/// The pager's stack on the phone's Notifications screen
 /// (<c>.devbook/domain/notifications/features.md#answering-from-another-device</c>): the open
 /// notifications waiting on the person, oldest first, one per screen, and where the pager
 /// stands among them. Pure: it holds no clock and draws nothing, and moving through it never

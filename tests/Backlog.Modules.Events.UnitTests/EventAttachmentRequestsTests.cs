@@ -48,6 +48,23 @@ public sealed class EventAttachmentRequestsTests : IDisposable
     private static EventAttachmentRequestDto Request(Guid eventId, Guid noteId, string? title = "Keynote: Aspire in production") =>
         new(Guid.NewGuid(), eventId, noteId, title);
 
+    /// <summary>A removed event will never take the note, so the request is answered as one to
+    /// retire rather than one whose event has not arrived yet.</summary>
+    [Fact]
+    public async Task A_request_for_a_removed_event_is_retired_unapplied()
+    {
+        var removed = await SavedAsync();
+        Assert.True(removed.Remove().IsSuccess);
+        await _events.SaveAsync(removed, Cancellation);
+        var saves = _events.Saves;
+
+        var outcome = await _requests.ApplyAsync(Request(removed.Id, NoteId), Cancellation);
+
+        Assert.Equal(EventAttachmentOutcome.RemovedEvent, outcome);
+        Assert.Equal(saves, _events.Saves);
+        Assert.Equal(EventAttachmentOutcome.UnknownEvent, await _requests.ApplyAsync(Request(Guid.NewGuid(), NoteId), Cancellation));
+    }
+
     [Fact]
     public async Task The_event_gains_a_talk_note_link_with_the_note_title()
     {

@@ -1,11 +1,11 @@
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>
-/// One drawn node, as the explorer needs to know it.
+/// One drawn node, as the zoom navigation needs to know it.
 /// <para>
 /// <paramref name="Alias"/> is the thread back from the picture to the model.
-/// Mermaid puts it in the rendered shape's DOM id, so a click on a box, or a
-/// Highlighter dimming a box, both resolve through this and nothing else. It comes
+/// Mermaid puts it in the rendered shape's DOM id, so a click on a box resolves
+/// through this and nothing else. It comes
 /// from <see cref="C4MermaidWriter.AliasOf"/> rather than being derived again here,
 /// because two implementations of that sanitising would disagree exactly where it
 /// mattered.
@@ -25,30 +25,6 @@ public sealed record C4Node(
     string? Owner,
     string? Status,
     string? DrillViewKey);
-
-/// <summary>One value a Highlighter facet can be set to, and how many drawn nodes
-/// carry it.</summary>
-public sealed record C4FacetValue(string Value, int Count);
-
-/// <summary>
-/// The four things the Highlighter filters on, with the values actually present in
-/// the workspace.
-/// <para>
-/// Derived from the model rather than configured, so a facet with nothing in it is
-/// absent instead of being an empty dropdown. A workspace that never states an
-/// owner gets no Team facet at all.
-/// </para>
-/// </summary>
-public sealed record C4Facets(
-    IReadOnlyList<C4FacetValue> Tags,
-    IReadOnlyList<C4FacetValue> Technologies,
-    IReadOnlyList<C4FacetValue> Owners,
-    IReadOnlyList<C4FacetValue> Statuses)
-{
-    public static C4Facets Empty { get; } = new([], [], [], []);
-
-    public bool Any => Tags.Count > 0 || Technologies.Count > 0 || Owners.Count > 0 || Statuses.Count > 0;
-}
 
 /// <summary>
 /// One search hit: what matched, where it can be seen, and why it matched.
@@ -70,8 +46,8 @@ public enum C4SearchHitKind
 }
 
 /// <summary>
-/// What the explorer needs that is not the picture: where a node drills to, which
-/// facet values exist, and what a search matches.
+/// What the zoom navigation needs that is not the picture: where a node drills to,
+/// and what a search matches.
 /// <para>
 /// All of it derived from the workspace and none of it stored, for the same reason
 /// the chapter references are derived: a second copy is a second thing to be wrong.
@@ -82,9 +58,8 @@ public enum C4SearchHitKind
 /// </summary>
 public static class C4Exploration
 {
-    /// <summary>The four C4 levels, in the order a reader descends them. What the
-    /// Views panel groups by.</summary>
-    public static IReadOnlyList<C4ViewKind> Levels { get; } =
+    /// <summary>The C4 levels, in the order a reader descends them.</summary>
+    private static readonly C4ViewKind[] Levels =
     [
         C4ViewKind.SystemLandscape,
         C4ViewKind.SystemContext,
@@ -107,7 +82,7 @@ public static class C4Exploration
     };
 
     /// <summary>The views of a workspace in level order, which is the order the
-    /// Views panel lists them in: the big picture first, then down.</summary>
+    /// navigation lists them in: the big picture first, then down.</summary>
     public static IReadOnlyList<C4View> OrderedViews(C4Workspace workspace)
     {
         ArgumentNullException.ThrowIfNull(workspace);
@@ -125,12 +100,12 @@ public static class C4Exploration
     /// landscape.</summary>
     private static int LevelOrder(C4View view)
     {
-        for (var index = 0; index < Levels.Count; index++)
+        for (var index = 0; index < Levels.Length; index++)
         {
             if (Levels[index] == view.Kind) return index;
         }
 
-        return Levels.Count;
+        return Levels.Length;
     }
 
     /// <summary>
@@ -215,59 +190,6 @@ public static class C4Exploration
         return null;
     }
 
-    /// <summary>
-    /// The path from the top of the model down to this view, for the breadcrumb.
-    /// <para>
-    /// Built from the scope's own ancestry rather than from where the reader has
-    /// been. A trail of visited views would say how they arrived; this says where
-    /// they are, which is what stops a breadcrumb becoming a second, worse Back
-    /// button.
-    /// </para>
-    /// </summary>
-    public static IReadOnlyList<C4View> Trail(C4Workspace workspace, C4View view)
-    {
-        ArgumentNullException.ThrowIfNull(workspace);
-        ArgumentNullException.ThrowIfNull(view);
-
-        var trail = new List<C4View>();
-
-        // The landscape is the root of every trail when the workspace has one: it is
-        // the only view that is of the whole model.
-        if (workspace.Views.FirstOrDefault(candidate => candidate.Kind == C4ViewKind.SystemLandscape) is { } landscape
-            && !string.Equals(landscape.Key, view.Key, StringComparison.OrdinalIgnoreCase))
-        {
-            trail.Add(landscape);
-        }
-
-        // Ancestry runs element-upward, so it is reversed into reading order, and the
-        // view's own scope is left to the last entry — which is the view itself.
-        var ancestors = workspace.Ancestry(view.ScopeId).Skip(1).Reverse();
-
-        foreach (var ancestor in ancestors)
-        {
-            // The step for an ancestor is the view you would *drill into* from it —
-            // the same rule the drill affordance uses, so the trail retraces the way
-            // down rather than describing it differently.
-            //
-            // Which matters: a system has both a context view and a container view,
-            // and only the container view draws the container the reader descended
-            // through. Taking whichever came first in the file put the context view on
-            // the path, which is a sibling detour and not a step on it.
-            var opens = workspace.View(DrillViewKey(workspace, ancestor.Id))
-                ?? workspace.Views.FirstOrDefault(candidate =>
-                    string.Equals(candidate.ScopeId, ancestor.Id, StringComparison.OrdinalIgnoreCase)
-                    && candidate.Kind == C4ViewKind.SystemContext);
-
-            if (opens is not null && !trail.Any(existing => string.Equals(existing.Key, opens.Key, StringComparison.OrdinalIgnoreCase)))
-            {
-                trail.Add(opens);
-            }
-        }
-
-        trail.Add(view);
-        return trail;
-    }
-
     /// <summary>What a view is called on screen.</summary>
     public static string Label(C4Workspace workspace, C4View view)
     {
@@ -279,95 +201,6 @@ public static class C4Exploration
 
         var scope = workspace.Element(view.ScopeId)?.Name;
         return scope is null ? LevelLabel(view.Kind) : $"{LevelLabel(view.Kind)} — {scope}";
-    }
-
-    // ---- highlighter -----------------------------------------------------------
-
-    /// <summary>
-    /// The facet values present on the cards a view actually draws.
-    /// <para>
-    /// Per view, not per workspace. Offering every tag and technology in the model was
-    /// the first version and it was wrong in the way that matters: a Highlighter is a
-    /// question about the picture in front of you, and most of a workspace-wide list
-    /// matches nothing on it — so almost every chip dimmed the whole diagram. A filter
-    /// that is mostly dead options is not a filter, it is a catalogue.
-    /// </para>
-    /// <para>
-    /// The cost is that the chips change as the reader drills, which is the right
-    /// trade: they change because the picture changed, and every chip that remains
-    /// does something.
-    /// </para>
-    /// </summary>
-    public static C4Facets Facets(C4Workspace workspace, C4View view)
-    {
-        ArgumentNullException.ThrowIfNull(workspace);
-        ArgumentNullException.ThrowIfNull(view);
-
-        return Facets(Nodes(workspace, view));
-    }
-
-    /// <summary>The same, over cards already indexed — what the explorer uses, since
-    /// it is holding them anyway.</summary>
-    public static C4Facets Facets(IReadOnlyList<C4Node> nodes)
-    {
-        ArgumentNullException.ThrowIfNull(nodes);
-
-        var tags = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var technologies = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var owners = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var statuses = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        static void Count(Dictionary<string, int> into, string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value)) return;
-            into[value] = into.TryGetValue(value, out var seen) ? seen + 1 : 1;
-        }
-
-        foreach (var node in nodes)
-        {
-            foreach (var tag in node.Tags) Count(tags, tag);
-            Count(technologies, node.Technology);
-            Count(owners, node.Owner);
-            Count(statuses, node.Status);
-        }
-
-        return new C4Facets(Ordered(tags), Ordered(technologies), Ordered(owners), Ordered(statuses));
-
-        static IReadOnlyList<C4FacetValue> Ordered(Dictionary<string, int> counts) =>
-        [
-            .. counts
-                .OrderByDescending(pair => pair.Value)
-                .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
-                .Select(pair => new C4FacetValue(pair.Key, pair.Value))
-        ];
-    }
-
-    /// <summary>
-    /// Whether a node matches the selected facet values.
-    /// <para>
-    /// Across facets it is AND and within a facet it is OR, which is what makes the
-    /// Highlighter answer a real question: "the containers owned by either of these
-    /// two teams, that are also .NET". A facet with nothing selected constrains
-    /// nothing.
-    /// </para>
-    /// </summary>
-    public static bool Matches(
-        C4Node node,
-        IReadOnlyCollection<string>? tags,
-        IReadOnlyCollection<string>? technologies,
-        IReadOnlyCollection<string>? owners,
-        IReadOnlyCollection<string>? statuses)
-    {
-        ArgumentNullException.ThrowIfNull(node);
-
-        return Facet(tags, node.Tags)
-            && Facet(technologies, node.Technology is null ? [] : [node.Technology])
-            && Facet(owners, node.Owner is null ? [] : [node.Owner])
-            && Facet(statuses, node.Status is null ? [] : [node.Status]);
-
-        static bool Facet(IReadOnlyCollection<string>? selected, IReadOnlyList<string> has) =>
-            selected is null || selected.Count == 0
-            || has.Any(value => selected.Any(pick => string.Equals(pick, value, StringComparison.OrdinalIgnoreCase)));
     }
 
     // ---- search ----------------------------------------------------------------

@@ -3,7 +3,7 @@ using Backlog.Modules.Notifications.Abstractions;
 namespace Backlog.Mobile.UI.Notifications;
 
 /// <summary>
-/// What the phone's Notifications tab is narrowed to: a system under From, a repository — or
+/// What the phone's Notifications screen is narrowed to: a system under From, a repository — or
 /// <see cref="NotificationFilters.Brain"/> — under Repository; null for All. View state only,
 /// kept on the device (<see cref="INotificationFilterStore"/>), never sent anywhere.
 /// </summary>
