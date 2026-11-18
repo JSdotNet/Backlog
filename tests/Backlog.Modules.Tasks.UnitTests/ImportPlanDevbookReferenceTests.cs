@@ -116,6 +116,21 @@ public sealed class ImportPlanDevbookReferenceTests
         Assert.Equal([".devbook/domain/tasks/domain.md#task"], result.Entries.Single().DevbookReferences);
     }
 
+    /// <summary>A task entry may name a note in the owner's Brain (local ADR 0053 §2):
+    /// the token lands in the field as the Brain address, beside the repository
+    /// chapters, in the one spelling every writer stores.</summary>
+    [Fact]
+    public async Task A_devbook_token_naming_a_brain_note_lands_on_the_task()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var result = await Import(
+            store,
+            "# First prompt\n`prompt` `+myplan` `devbook:#Brain:projects/sync.md#later` `devbook:domain/tasks/domain.md#task`\n\nDo it.\n");
+
+        Assert.Equal(["#brain:projects/sync.md#later", ".devbook/domain/tasks/domain.md#task"], result.Entries.Single().DevbookReferences);
+    }
+
     /// <summary>A token naming no page is the plan's mistake, and Import refuses
     /// the plan before writing anything — the way it refuses a doubled
     /// <c>id:</c> — rather than quietly dropping the reference the plan asked

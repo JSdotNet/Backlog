@@ -24,8 +24,8 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
 4. **Deliver** each `list_deliveries` `state: pending` with a `desktopSessionId`, oldest first: `claim_delivery` (id, `dispatcher`),
    `claimed: false` → next; `send_message` to that id: "You asked: <question>. The answer from Backlog: <answer>", both verbatim.
    Sent or queued → `mark_delivery` `delivered`; the session no longer exists, or any other failure → `released`.
-5. **Queue.** `list_session_requests` `state: requested`, oldest first; empty → step 8. A
-   Monitor line other than `delivery`, `request` or `ready` → say it once, then step 8.
+5. **Queue.** `list_session_requests` `state: requested`, oldest first; empty, or `paused: true` (the person paused the
+   queue: every claim is refused until they resume it) → step 8. Any other Monitor line than `delivery`, `request`, `ready` → say it once, step 8.
 6. **Capacity**, before each start: hold the queue on step 1's answer's `capacity` `hasRoom: false`, or once starts since it bring
    its `workingSessions` to `sessions`. Measure each figure it lacks (absent or `null`), or all with no `capacity`; first failing holds:
    - `workingSessions`: fewer than `sessions` rows of `list_sessions` (`linked: true`, `limit: 100`) with `startedBy` your id

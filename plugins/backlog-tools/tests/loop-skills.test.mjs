@@ -18,9 +18,10 @@ const loopStarted = fs
   .map(({ name, file }) => ({ name, text: fs.readFileSync(file, "utf8") }))
   .filter(({ name, text }) => text.includes(`/loop /backlog-tools:${name}`));
 
-// standing-session.md's table: one row per loop skill, `| skill | title | kind |`.
+// standing-session.md's table: one row per loop skill, `| skill | title | kind |`, the kind `—`
+// for a loop `check_in` accepts no kind for yet.
 const rowOf = (name) =>
-  standing.match(new RegExp("^\\| `" + name + "` \\| `([^`]+)` \\| `([^`]+)` \\|$", "m"));
+  standing.match(new RegExp("^\\| `" + name + "` \\| `([^`]+)` \\| (?:`([^`]+)`|—) \\|$", "m"));
 
 const section = (text, heading) =>
   text.split(/^## /m).find((part) => part.startsWith(heading)) ?? "";
@@ -69,7 +70,12 @@ for (const { name, text } of loopStarted) {
   });
 
   // Every tick opens with a check-in, so the person's pause, resume or stop reaches the loop.
-  test(`${name} checks in first on every tick, as the kind check_in accepts`, () => {
+  test(`${name} checks in first on every tick, as the kind check_in accepts`, (t) => {
+    if (rowOf(name) && rowOf(name)[2] === undefined) {
+      // No kind yet: standing-session.md says such a loop does not check in, so it must not try.
+      assert.doesNotMatch(body, /`check_in`|#check-in/);
+      return t.skip(`${name} has no check_in kind yet`);
+    }
     const kind = rowOf(name)?.[2];
     assert.ok(["dispatcher", "brain-tender"].includes(kind), `${name}'s kind is ${kind}`);
     const steps = body.split(/^## /m).find((part) => /^Each (tick|turn)\r?\n/.test(part)) ?? "";

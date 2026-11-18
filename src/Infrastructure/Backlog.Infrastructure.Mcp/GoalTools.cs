@@ -10,8 +10,8 @@ using ModelContextProtocol.Server;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// The goal operations an agent performs through the server: read the goals, set one, edit
-/// it, attach and detach its work, and delete it
+/// The goal operations an agent performs through the server: read the goals and the
+/// iterations they are read over, set one, edit it, attach and detach its work, and delete it
 /// (<c>.devbook/domain/progress/features.md#setting-a-goal</c>,
 /// <c>#attaching-work-to-a-goal</c>, local ADR 0035).
 /// <para>
@@ -30,10 +30,16 @@ namespace Backlog.Infrastructure.Mcp;
 /// <param name="goals">Progress's goal port. Every call here goes through it.</param>
 /// <param name="repositories">The repository registry a pull request's repository is
 /// resolved through, never registered in (see <see cref="RepositoryScope"/>).</param>
+/// <param name="standUp">Progress's iteration reading, which <c>read_iterations</c> answers
+/// from. A port of this class rather than a class of its own, because a group is constructed
+/// from one class and the reading is the goals' (<see cref="BacklogMcpTools.Goals"/>).</param>
+/// <param name="clock">Where "today" comes from when a call names its own length. Optional, as
+/// on <see cref="RoadmapTools"/>; without a length the port reads the host's today itself.</param>
 [McpServerToolType]
-public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories)
+public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, IStandUp standUp, TimeProvider? clock = null)
 {
     internal const string ListGoals = "list_goals";
+    internal const string ReadIterations = "read_iterations";
     internal const string CreateGoal = "create_goal";
     internal const string UpdateGoal = "update_goal";
     internal const string AttachToGoal = "attach_to_goal";
@@ -55,14 +61,98 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories)
     [McpServerTool(Name = ListGoals, Title = "List the goals", ReadOnly = true, Idempotent = true, OpenWorld = true)]
     [Description(
         "Every goal, in the order they were set: its id, title, outcome and due date, the plans, tasks and pull "
-        + "requests attached to it, and its progress as done/total with how many open items are doing, blocked "
-        + "and to do. Read-only.")]
+        + "requests attached to it, its progress as done/total with how many open items are doing, blocked "
+        + "and to do, and its forecast as the Goals view draws it: standing (on-track or at-risk), the day it is "
+        + "expected to land (null when no done rate says), the day it is due on and whether that is the iteration's "
+        + "end. forecast is null when the iteration reading could not be made. Read-only.")]
     public async Task<GoalsPayload> ListAsync(CancellationToken cancellationToken = default)
     {
         var listed = await goals.ListAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var forecasts = await ForecastsAsync(cancellationToken).ConfigureAwait(false);
 
-        return new GoalsPayload([.. listed.ValueOrThrow().Select(summary => GoalPayload.From(summary.Goal, summary.Progress))]);
+        return new GoalsPayload([.. listed.ValueOrThrow().Select(summary =>
+            GoalPayload.From(summary.Goal, summary.Progress, forecasts.GetValueOrDefault(summary.Goal.Id)))]);
     }
+
+    /// <summary>Each goal's forecast from the reading the Goals view draws — the stand-up over
+    /// the person's own iteration length — by goal id. A reading that fails leaves every
+    /// forecast out rather than the goals.</summary>
+    private async Task<IReadOnlyDictionary<Guid, GoalForecastPayload>> ForecastsAsync(CancellationToken cancellationToken)
+    {
+        var reading = await standUp.ReadAsync(cancellationToken).ConfigureAwait(false);
+        if (reading.IsFailure) return new Dictionary<Guid, GoalForecastPayload>();
+
+        var forecasts = new Dictionary<Guid, GoalForecastPayload>();
+        foreach (var goal in reading.Value.Goals) forecasts.TryAdd(goal.Id, GoalForecastPayload.From(goal));
+
+        return forecasts;
+    }
+
+    /// <summary>
+    /// The iteration reading the goals view and the stand-up draw from, over
+    /// <see cref="IStandUp"/> (<c>.devbook/domain/progress/domain.md#stand-up-reading</c>), so a
+    /// session reports the figures the person sees. It moves nothing: Ready to resolve is a
+    /// reading, and a person resolves (local ADR 0035, 2026-10-29 amendment).
+    /// </summary>
+    // Open world for the reason list_goals is: the reading counts pull requests by their state
+    // on GitHub, for the goals, what was finished and what an impediment holds back.
+    [McpServerTool(Name = ReadIterations, Title = "Read the goals and iterations", ReadOnly = true, Idempotent = true, OpenWorld = true)]
+    [Description(
+        "The last and next iteration windows, and every goal read over them: its standing (on-track or at-risk), "
+        + "the day it is expected to land, and its progress with how many items it finished in the last window. "
+        + "Then the items finished in the last window and planned for the next, grouped by goal with No goal last; "
+        + "the planned effort against the capacity; how many impediments were resolved in the last window; and every "
+        + "open impediment with who it is with, its days open, the goal it holds back, each item it holds back and "
+        + "whether that is settled, and whether it reads ready to resolve. Read-only: ready to resolve is a reading, "
+        + "and resolving is set_impediment_state. Refused for a length that is not day, week, two-weeks or month "
+        + "(progress.iteration_length_unknown).")]
+    public async Task<IterationsPayload> ReadIterationsAsync(
+        [Description("Optional. The iteration length to read with: day, week, two-weeks or month. Without it, the "
+            + "person's own setting applies.")]
+        string? length = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(length))
+        {
+            var own = await standUp.ReadAsync(cancellationToken).ConfigureAwait(false);
+
+            return IterationsPayload.From(own.ValueOrThrow());
+        }
+
+        if (!Lengths.TryGetValue(length.Trim(), out var named))
+        {
+            throw RepositoryScope.Failure(SharedKernel.Results.Error.Validation(
+                "progress.iteration_length_unknown",
+                $"'{length}' is not an iteration length. Use day, week, two-weeks or month, or leave it out for the person's own."));
+        }
+
+        var read = await standUp.ReadAsync(Today(), named, cancellationToken).ConfigureAwait(false);
+
+        return IterationsPayload.From(read.ValueOrThrow());
+    }
+
+    /// <summary>The host's today in local time, the day <see cref="IStandUp.ReadAsync(CancellationToken)"/>
+    /// reads for when it chooses the length itself.</summary>
+    private DateOnly Today() => DateOnly.FromDateTime((clock ?? TimeProvider.System).GetLocalNow().DateTime);
+
+    /// <summary>The length tokens a call names, as the setting stores them
+    /// (<c>.devbook/domain/progress/context.md#iteration-length</c>).</summary>
+    internal static readonly IReadOnlyDictionary<string, IterationLength> Lengths =
+        new Dictionary<string, IterationLength>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["day"] = IterationLength.Day,
+            ["week"] = IterationLength.Week,
+            ["two-weeks"] = IterationLength.TwoWeeks,
+            ["month"] = IterationLength.Month,
+        };
+
+    internal static string ToWire(IterationLength length) => length switch
+    {
+        IterationLength.Day => "day",
+        IterationLength.Week => "week",
+        IterationLength.TwoWeeks => "two-weeks",
+        _ => "month",
+    };
 
     [McpServerTool(Name = CreateGoal, Title = "Set a goal", ReadOnly = false, Idempotent = false, Destructive = false, OpenWorld = false)]
     [Description(
@@ -218,22 +308,39 @@ public sealed record GoalsPayload(IReadOnlyList<GoalPayload> Goals);
 /// the current iteration.</param>
 /// <param name="Items">The plans, tasks and pull requests attached to it, in the order they were attached.</param>
 /// <param name="Progress">How far it has come; null on the answer to a write, which reads no progress.</param>
+/// <param name="Forecast">Whether it lands in time, as the Goals view draws it; null on the answer
+/// to a write, and when the iteration reading could not be made.</param>
 public sealed record GoalPayload(
     Guid Id,
     string Title,
     string? Outcome,
     DateOnly? DueDate,
     IReadOnlyList<GoalItemPayload> Items,
-    GoalProgressPayload? Progress)
+    GoalProgressPayload? Progress,
+    GoalForecastPayload? Forecast = null)
 {
-    internal static GoalPayload From(GoalDto goal, GoalProgressDto? progress = null) =>
+    internal static GoalPayload From(GoalDto goal, GoalProgressDto? progress = null, GoalForecastPayload? forecast = null) =>
         new(
             goal.Id,
             goal.Title,
             goal.Outcome,
             goal.DueDate,
             [.. goal.Attachments.Select(GoalItemPayload.From)],
-            progress is null ? null : new GoalProgressPayload(progress.Done, progress.Total, progress.Doing, progress.Blocked, progress.ToDo));
+            progress is null ? null : new GoalProgressPayload(progress.Done, progress.Total, progress.Doing, progress.Blocked, progress.ToDo),
+            forecast);
+}
+
+/// <summary>A goal's forecast (<c>.devbook/domain/progress/domain.md#goal-forecast</c>), the one
+/// the Goals view's badge and expected-landing line draw.</summary>
+/// <param name="Standing">on-track or at-risk.</param>
+/// <param name="LandsOn">When it is expected to land, or null when no done rate says.</param>
+/// <param name="DueOn">The day it is due on: its own due date, or the iteration's last day.</param>
+/// <param name="DueIsIterationEnd">Whether <paramref name="DueOn"/> is the iteration's last day
+/// because the goal has no due date of its own.</param>
+public sealed record GoalForecastPayload(string Standing, DateOnly? LandsOn, DateOnly DueOn, bool DueIsIterationEnd)
+{
+    internal static GoalForecastPayload From(StandUpGoalDto goal) =>
+        new(IterationsPayload.ToWire(goal.Standing), goal.LandsOn, goal.DueDate, goal.DueIsIterationEnd);
 }
 
 /// <summary>One item a goal holds. Which identity fields are set follows <paramref name="Kind"/>.</summary>

@@ -122,6 +122,51 @@ public sealed class SessionRequestsTests
         Assert.Equal(Noon.AddMinutes(5), outcome.Request.LeaseEndsAt);
     }
 
+    // --- a paused queue --------------------------------------------------------
+
+    [Fact]
+    public void A_Requested_request_cannot_be_claimed_while_the_queue_is_paused()
+    {
+        var waiting = Requested();
+
+        var outcome = SessionRequests.Claim(waiting, "manager-1", Noon, paused: true);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal("The session queue is paused.", outcome.Refusal);
+        Assert.Same(waiting, outcome.Request);
+        Assert.Equal(SessionRequestState.Requested, outcome.Request!.StateAt(Noon));
+    }
+
+    [Fact]
+    public void A_lapsed_claim_cannot_be_claimed_again_while_the_queue_is_paused()
+    {
+        var lapsed = Claimed("manager-1");
+
+        var outcome = SessionRequests.Claim(lapsed, "manager-2", Noon.AddMinutes(3), paused: true);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal("The session queue is paused.", outcome.Refusal);
+        Assert.Equal(SessionRequestState.Requested, outcome.Request!.StateAt(Noon.AddMinutes(3)));
+    }
+
+    [Fact]
+    public void A_Requested_request_can_be_claimed_once_the_queue_runs_again()
+    {
+        var outcome = SessionRequests.Claim(Requested(), "manager-1", Noon, paused: false);
+
+        Assert.True(outcome.Succeeded);
+        Assert.Equal(SessionRequestState.Claimed, outcome.Request!.State);
+    }
+
+    [Fact]
+    public void A_claim_refused_for_its_state_says_so_whether_or_not_the_queue_is_paused()
+    {
+        var outcome = SessionRequests.Claim(Started(), "manager-1", Noon.AddMinutes(1), paused: true);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Contains("only a Requested request can be claimed", outcome.Refusal, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_lapsed_holder_still_reports_its_session_while_nobody_else_claimed()
     {
@@ -371,11 +416,11 @@ public sealed class SessionRequestsTests
     }
 
     [Fact]
-    public void A_plan_request_is_briefed_with_the_execute_plan_line()
+    public void A_plan_request_is_briefed_with_the_execute_plan_line_landing_on_branches()
     {
         var request = SessionRequests.ForPlan("+session-dispatch", "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon);
 
-        Assert.Equal("/backlog-tools:execute-plan +session-dispatch", SessionRequests.BriefFor(request));
+        Assert.Equal("/backlog-tools:execute-plan +session-dispatch branch", SessionRequests.BriefFor(request));
     }
 
     /// <summary>A plan tag is text a person typed, so one that is not a tag — a space, a

@@ -11,6 +11,7 @@ A skill a person starts as `/loop /backlog-tools:<name>` is a long-running agent
 | --- | --- | --- |
 | `dispatch-sessions` | `📡 SESSION DISPATCHER` | `dispatcher` |
 | `tend-brain` | `🧠 BRAIN TENDER` | `brain-tender` |
+| `track-goals` | `🎯 GOAL TRACKER` | — |
 
 ## Mark
 
@@ -30,8 +31,8 @@ sets it apart:
 
 ## Check in
 
-Every tick opens with the `backlog` server's `check_in` (local ADR 0051 §3), before any other
-work: `kind` its row's kind, `sessionId` the id its skill passes, `state` `listening` unless its
+Every tick of a skill whose row names a kind opens with the `backlog` server's `check_in` (local
+ADR 0051 §3), before any other work: `kind` its row's kind, `sessionId` the id its skill passes, `state` `listening` unless its
 skill says otherwise, `heartbeatMinutes` the `/loop` interval the person gave, else its skill's
 fallback pace. The answer's `command` decides the tick:
 
@@ -46,3 +47,5 @@ fallback pace. The answer's `command` decides the tick:
   or pauses on a check-in it could not make.
 
 Backlog never stops the session itself; the loop obeys its answer.
+
+A row with no kind does not check in yet: `check_in` accepts no kind for it.

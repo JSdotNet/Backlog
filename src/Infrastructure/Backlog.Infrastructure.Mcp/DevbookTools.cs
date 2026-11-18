@@ -1,7 +1,9 @@
 using System.ComponentModel;
+using System.Globalization;
 
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
@@ -55,13 +57,17 @@ public sealed class DevbookTools(
     IDevbookAnnotationStore annotations,
     IRepositoryDirectory repositories,
     IDevbookPersonalSource? brain = null,
-    IBrainNoteWriter? brainNotes = null)
+    IBrainNoteWriter? brainNotes = null,
+    IBrainReviewDates? brainReviews = null,
+    TimeProvider? clock = null,
+    IRoadmapProjectNoteArchive? projectNotes = null)
 {
     internal const string ListKnowledgeContexts = "list_knowledge_contexts";
     internal const string ReadKnowledgeChapter = "read_knowledge_chapter";
     internal const string ListAnnotations = "list_annotations";
     internal const string ResolveAnnotation = "resolve_annotation";
     internal const string CaptureNote = "capture_note";
+    internal const string ListBrainReviews = "list_brain_reviews";
 
     /// <summary>The code <c>resolve_annotation</c>'s refusal for an archived
     /// repository carries (local ADR 0029 §4).</summary>
@@ -534,7 +540,8 @@ public sealed class DevbookTools(
         "Writes a new note into the Brain's inbox area — the person's own notes outside every repository — with the "
         + "title as its heading and the body below it, as the app's own Capture does. Never overwrites: a title whose "
         + "file name is taken gets the next free one, so calling this twice writes two notes. Answers the note's path "
-        + "from the Brain's root, which read_knowledge_chapter takes under " + BrainMcpScope.Value + ".")]
+        + "from the Brain's root, which read_knowledge_chapter takes under " + BrainMcpScope.Value + ". For an action "
+        + "the person still has to clarify, use the Inbox's capture_to_inbox instead.")]
     public async Task<CapturedNotePayload> CaptureNoteAsync(
         [Description("The note's title: one line, which is also what its file name is made from.")]
         string title,
@@ -566,6 +573,67 @@ public sealed class DevbookTools(
         }
 
         return new CapturedNotePayload(path, BrainNoteText.TitleOf(title) ?? title);
+    }
+
+    // Read-only and idempotent: it reads the Brain's database and nothing else,
+    // and no writer of the Brain sets the field it reads (local ADR 0054 §6).
+    // Closed, because the Brain is a folder on this machine. Brain-only, as
+    // capture_note is, so it takes no repository: no repository note has a review
+    // date.
+    [McpServerTool(Name = ListBrainReviews, Title = "List the Brain notes due for review", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [Description(
+        "Lists the Brain notes whose review date has come — the review: YYYY-MM-DD a note's top meta block names, "
+        + "on or before the given day — oldest date first, each with its path from the Brain's root, which "
+        + "read_knowledge_chapter takes under " + BrainMcpScope.Value + ". A note whose review value is no date is "
+        + "listed under warnings and left out of the due list; it is never an error. toArchive lists the project "
+        + "notes of finished plans still in the projects area, to move to the archive. Read-only: nothing sets a "
+        + "review date but the person and their agent, editing the note.")]
+    public async Task<BrainReviewsPayload> ListBrainReviewsAsync(
+        [Description("The day to compare against, as YYYY-MM-DD. Optional: today, on this machine's clock.")]
+        string? on = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (brainReviews is null || brain is null)
+        {
+            throw RepositoryScope.Failure(Error.NotFound("brain.unavailable", NoBrainHere));
+        }
+
+        if (string.IsNullOrWhiteSpace(brain.Root))
+        {
+            throw RepositoryScope.Failure(Error.NotFound(
+                "brain.not_set",
+                "No Brain folder is set. The person chooses one in Backlog's Brain pane or Settings."));
+        }
+
+        DateOnly today;
+        if (string.IsNullOrWhiteSpace(on))
+        {
+            today = DateOnly.FromDateTime((clock ?? TimeProvider.System).GetLocalNow().DateTime);
+        }
+        else if (BrainReviewDate.Parse(on) is { } asked)
+        {
+            today = asked;
+        }
+        else
+        {
+            throw RepositoryScope.Failure(Error.Validation(
+                "brain.review_day_invalid",
+                $"\"{on}\" is not a YYYY-MM-DD date. Leave it out for today."));
+        }
+
+        var answer = await brainReviews.DueAsync(today, cancellationToken).ConfigureAwait(false);
+
+        // A finished plan's project note still in the projects area (local ADR 0052
+        // §5): offered once in the app, and listed here every week until it moves.
+        var finished = projectNotes is null
+            ? []
+            : await projectNotes.FinishedAsync(cancellationToken).ConfigureAwait(false);
+
+        return new BrainReviewsPayload(
+            today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            [.. answer.Due.Select(note => new BrainReviewPayload(note.NotePath, note.Title, note.Review.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)))],
+            [.. answer.Unreadable.Select(note => new BrainReviewWarningPayload(note.NotePath, note.Title, note.Value, note.Message))],
+            [.. finished.Select(note => new BrainArchiveCandidatePayload(note.NotePath, note.NoteTitle, note.PlanTitle))]);
     }
 
     /// <summary>

@@ -53,7 +53,7 @@ public static class TasksCrossContextAdapterRegistration
         // the session states above answer with none.
         services.AddSingleton<SessionRequestActions>(sp =>
             sp.GetService<ISessionRequestStore>() is { } queue
-                ? new SessionRequestActions(queue, sp.GetService<IAppFeatureSettings>(), sp.GetService<TimeProvider>())
+                ? new SessionRequestActions(queue, sp.GetService<IAppFeatureSettings>(), sp.GetService<TimeProvider>(), sp.GetService<DispatcherContact>())
                 : SessionRequestActions.NotOffered);
         services.AddSingleton<IEntrySessionRequests>(sp => sp.GetRequiredService<SessionRequestActions>());
         services.AddSingleton<IPlanSessionRequests>(sp => sp.GetRequiredService<SessionRequestActions>());

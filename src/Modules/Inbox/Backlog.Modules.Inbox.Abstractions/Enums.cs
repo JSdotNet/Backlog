@@ -41,5 +41,10 @@ public enum RoutingDomain
 {
     Tasks,
     Devbook,
-    Archive
+    Archive,
+
+    /// <summary>To Event: the item became a Spotted knowledge event in Events
+    /// (<c>.devbook/domain/inbox/features.md#route-to-event</c>). Declared last so no
+    /// stored ordinal moves, though none is stored.</summary>
+    Events
 }

@@ -131,7 +131,8 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
             parsed.SubItems.Count(subItem => subItem.Done),
             existing?.Projections ?? [],
             RepoIds: parsed.RepoIds,
-            BlockedSince: parsed.BlockedSince);
+            BlockedSince: parsed.BlockedSince,
+            WaitingFor: parsed.WaitingFor);
 
         if (existing is not null) _entries[_entries.IndexOf(existing)] = saved;
         else _entries.Add(saved);

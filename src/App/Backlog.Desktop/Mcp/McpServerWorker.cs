@@ -667,7 +667,8 @@ public sealed class McpServerWorker : IDisposable
                     questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
                     sessions: context.RequestServices.GetService<IAgentSessionSource>(),
                     sessionId: context.Request.Query["sessionId"].ToString(),
-                    loops: context.RequestServices.GetService<ILoopRegister>()).ConfigureAwait(false);
+                    loops: context.RequestServices.GetService<ILoopRegister>(),
+                    contact: context.RequestServices.GetService<DispatcherContact>()).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
             {
@@ -976,8 +977,10 @@ public sealed class McpServerWorker : IDisposable
     /// <see cref="ISessionRequestStore"/> for the session-request wait route, which the
     /// dispatcher tools would carry across anyway but the route must not depend on, and
     /// <see cref="IWaitingQuestionStore"/> and <see cref="IAgentSessionSource"/> beside it
-    /// for the answer deliveries the same route hands out, on the same grounds, and
-    /// <see cref="ILoopRegister"/> for the check-in a Manager's wait records (local ADR 0051 §3).
+    /// for the answer deliveries the same route hands out, on the same grounds,
+    /// <see cref="ILoopRegister"/> for the check-in a Manager's wait records (local ADR 0051 §3), and
+    /// <see cref="DispatcherContact"/>, which the route records into and the Tasks pane
+    /// reads, so the two must be the app's one instance.
     /// </para>
     /// <para>
     /// The probe is <see cref="IServiceProviderIsService"/>, which every
@@ -1001,6 +1004,7 @@ public sealed class McpServerWorker : IDisposable
             .Append(typeof(IWaitingQuestionStore))
             .Append(typeof(IAgentSessionSource))
             .Append(typeof(ILoopRegister))
+            .Append(typeof(DispatcherContact))
             .Distinct();
 
     private IEnumerable<Type> ForwardedPorts(IServiceProviderIsService? probe)

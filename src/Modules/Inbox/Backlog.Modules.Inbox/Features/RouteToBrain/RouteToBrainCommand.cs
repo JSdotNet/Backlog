@@ -10,8 +10,10 @@ namespace Backlog.Modules.Inbox.Features.RouteToBrain;
 /// <summary>Writes an item into the person's Brain as a new note, keeping its
 /// title and body, and records that it went there — To Brain, <c>ItemTriaged</c>
 /// with the route set to the Brain, realised as a call on
-/// <see cref="IInboxBrainTarget"/> rather than an event.</summary>
-public sealed record RouteToBrainCommand(Guid Id);
+/// <see cref="IInboxBrainTarget"/> rather than an event. <paramref name="Folder"/>
+/// is the destination picked (<see cref="InboxBrainDestinationDto.Folder"/>), or
+/// null for the Brain's inbox area.</summary>
+public sealed record RouteToBrainCommand(Guid Id, string? Folder = null);
 
 /// <summary>
 /// The order of Route to Tasks, for its reason: the Brain is asked first and the
@@ -44,13 +46,13 @@ public sealed class RouteToBrainCommandHandler(
         if (target is null) return InboxErrors.BrainUnavailable(InboxErrors.NoBrainHere);
 
         var written = await target
-            .WriteNoteAsync(new InboxBrainNoteRequestDto(item.Id, item.Title, item.BodyMd, item.SourceUrl), cancellationToken)
+            .WriteNoteAsync(new InboxBrainNoteRequestDto(item.Id, item.Title, item.BodyMd, item.SourceUrl, command.Folder), cancellationToken)
             .ConfigureAwait(false);
         if (written.IsFailure) return written.Error;
 
         item.RouteToBrain(clock.GetUtcNow());
         await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
 
-        return new InboxBrainRoutedDto(item.Id, written.Value);
+        return new InboxBrainRoutedDto(item.Id, written.Value.NotePath, written.Value.Area);
     }
 }

@@ -4,7 +4,7 @@
 date: 2026-10-13
 related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/color-scheme.md#band-identity-tokens", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/devbook/features.md#area-selection-and-scope", ".devbook/domain/brain/features.md#bi-directional-linking", ".devbook/arc42/12-glossary.md#terms"]
 c4: [backlog.desktop.shell]
-c4-touches: [backlog.desktop.devbook, backlog.desktop.backlogModule, backlog.desktop.roadmap]
+c4-touches: [backlog.desktop.brain, backlog.desktop.devbook, backlog.desktop.tasks, backlog.desktop.roadmap]
 ```
 
 The header's repository scope gains a **Brain** chip. It comes first, it cannot
@@ -21,6 +21,12 @@ scope's anchor is Brain, and when nothing is pressed.
 Accepted, 2026-10-14. Built by the plan `+brain` (pull requests #1168 and #1197
 into `plan/brain`). Acceptance settled the two questions the proposal left open:
 Pull requests and the Roadmap read Brain alone as nothing pressed (§2 and §7).
+
+> **Amended 2026-11-11 by
+> [ADR 0053](0053-a-plan-or-a-task-may-reference-a-brain-note.md)
+> (proposed).** [§6](#6-links-run-from-the-brain-into-a-repository-never-back):
+> the owner's own plans and tasks may reference a Brain note as
+> `#brain:<path>`. A repository devbook still never links into a Brain.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -194,6 +200,10 @@ A repository chapter shows **From your Brain** backlinks to its owner only. The
 backlinks come from the owner's own Brain database in app storage (ADR 0026 §4).
 Nothing is written into the repository.
 
+Since ADR 0053, a Roadmap Item's Knowledge Ref and a task's Devbook references
+may name a Brain note as `#brain:<path>`. Plans and tasks are the owner's own
+records, not repository history, and the address resolves for the owner only.
+
 ### 7. An anchor of Brain shows the whole Roadmap
 
 ```meta
@@ -232,6 +242,7 @@ Negative:
 - **The empty string is a magic value.** Code that reads `repositoryScope` must
   know that `""` means Brain.
 - **A repository chapter cannot cite a Brain note.** Links run one way only.
+  The owner's plans and tasks may, since ADR 0053.
 
 Neutral:
 

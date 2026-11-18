@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.Toasts;
 using Backlog.Modules.Notifications.UI;
@@ -33,8 +34,13 @@ internal sealed class WindowsAppNotifications(
     INotificationCentre centre,
     NotificationCentreRequests requests,
     ShellWindows windows,
+    WorkspaceSettingsStore settings,
     ILogger<WindowsAppNotifications> logger) : IDisposable
 {
+    /// <summary>What the first hide to the tray ever says, once per machine (local ADR
+    /// 0043 §5).</summary>
+    public const string TrayHint = "Backlog is still running in the notification area. Quit it from the tray icon.";
+
     private bool _registered;
 
     /// <summary>Registers for presses and starts raising notifications. Called once, after the
@@ -58,11 +64,13 @@ internal sealed class WindowsAppNotifications(
         }
 
         centre.Changed += OnChanged;
+        windows.MainWindowHidden += OnMainWindowHidden;
     }
 
     public void Dispose()
     {
         centre.Changed -= OnChanged;
+        windows.MainWindowHidden -= OnMainWindowHidden;
         if (!_registered) return;
 
         try
@@ -88,6 +96,25 @@ internal sealed class WindowsAppNotifications(
         {
             _ = RemoveAsync(notification.Id);
         }
+    }
+
+    /// <summary>The first hide ever says where the app went, once: recorded only once
+    /// the toast was raised, so one Windows refused is tried again on the next hide.</summary>
+    private void OnMainWindowHidden()
+    {
+        if (settings.TrayHintShown) return;
+
+        try
+        {
+            AppNotificationManager.Default.Show(new AppNotificationBuilder().AddText(TrayHint).BuildNotification());
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Raising the tray hint failed.");
+            return;
+        }
+
+        _ = settings.MarkTrayHintShown();
     }
 
     private void Show(NotificationToastContent content)
@@ -194,24 +221,20 @@ internal sealed class WindowsAppNotifications(
     /// refused answer's reason is shown and the person can answer again. The main window, not
     /// whichever window the app lists first: with surfaces popped out beside it (local ADR 0043
     /// §4) the first is not always the main one, and it is the main window's shell that opens the
-    /// centre. A centre already open in a window of its own answers the request there too.</summary>
+    /// centre. Through <see cref="ShellWindows.ActivateMainWindow"/>, so a main window hidden to
+    /// the tray comes back (local ADR 0043 §5). A centre already open in a window of its own
+    /// answers the request there too.</summary>
     private void OpenCentre(Guid notificationId)
     {
         requests.Open(notificationId);
 
-        MainThread.BeginInvokeOnMainThread(() =>
+        try
         {
-            try
-            {
-                if (windows.MainWindow?.Handler?.PlatformView is Microsoft.UI.Xaml.Window window)
-                {
-                    window.Activate();
-                }
-            }
-            catch (Exception exception)
-            {
-                logger.LogDebug(exception, "Bringing the window forward failed.");
-            }
-        });
+            windows.ActivateMainWindow();
+        }
+        catch (Exception exception)
+        {
+            logger.LogDebug(exception, "Bringing the window forward failed.");
+        }
     }
 }

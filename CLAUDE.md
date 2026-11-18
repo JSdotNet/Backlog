@@ -50,7 +50,7 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its eleven skills, nor its hooks,
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its thirteen skills, nor its hooks,
 changes the paragraph above; the plan-progress band and pane (`hooks/register.tsx`) only read the
 calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
@@ -58,10 +58,10 @@ app, so neither is a flow and neither goes through the gate. `run-plan-item` is
 model-invoked when a plan item is pasted in, but it runs the item's instructions *through*
 the gate — the matching flow — rather than adding an execution path beside it.
 `execute-plan` is user-invoked and changes nothing itself: it hands each prompt
-entry of a plan to a nested session — or, unattended where the host refuses to start one, a
+entry of a plan to a nested session — or, where the host refuses to start one, a
 background sub-agent that parks at the gate — that runs it through `run-plan-item`, so every entry
-still passes the gate and its own Personal Validation — relayed to the person when attended,
-moved onto a draft pull request when unattended.
+still passes the gate and its own Personal Validation, moved onto a draft pull request: a run is
+always unattended.
 `final-check` is user-invoked and changes nothing: run once a plan has landed, it reviews what
 each entry implemented and runs the build and tests, and a fix it finds goes through the gate.
 `close-merged` is model-invoked when asked to close the merged items; it only moves the entries
@@ -84,6 +84,13 @@ repository, by the rules that folder carries, plus the Backlog `task` entries it
 follow-ups the person routes there — so it is no flow and never meets the gate.
 `weekly-cost-analysis` is model-invoked and changes nothing: it reads the `backlog` server's
 `list_run_usage` and ends on a report of what the window's runs cost, so it is no flow.
+`weekly-review` is model- or user-invoked and changes nothing: it reads the Inbox, the Brain and
+the backlog over the `backlog` server and ends on the GTD weekly review checklist (local ADR 0054
+§8) — each line an entry or note and the action to take — so it is no flow.
+`track-goals` is model- or user-invoked, once or under `/loop`, and changes no file: it writes
+only goal attachments through the `backlog` server — and an impediment, a goal, a pull request
+link or a move between goals only on the person's yes (local ADR 0035) — then reports where each goal stands, so it is
+no flow.
 `devbook-sweep` is the target of a repository's local devbook sweep routine, unattended by
 design: it reads each sync unit's direction from the `backlog` MCP server and lands every change
 as a draft pull request a person validates, the way `delivery-schedule`'s scheduled skills do —
@@ -202,8 +209,13 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   accepted to the sessions waiting on them (local ADR 0041); started by the person under `/loop`, no flow.
 - `plugins/backlog-tools/skills/tend-brain/SKILL.md` — tends a person's Brain folder (local
   ADR 0026) by its own root rules, once or under `/loop`; no flow.
+- `plugins/backlog-tools/skills/weekly-review/SKILL.md` — runs the GTD weekly review over the
+  Inbox, the Brain and the backlog and reports what to clarify, chase, plan or drop; no flow.
 - `plugins/backlog-tools/skills/weekly-cost-analysis/SKILL.md` — reports what the delivery runs
   on this machine cost in tokens, across every repository, from `list_run_usage`; no flow.
+- `plugins/backlog-tools/skills/track-goals/SKILL.md` — keeps the goals current: attaches a
+  task or plan whose dependencies, one or more, one goal holds; proposes the rest, pull request
+  links and impediments; and reports each goal's next step, once or under `/loop`; no flow.
 - `plugins/backlog-tools/skills/devbook-sweep/SKILL.md` — levels a devbook and its code in the
   direction Backlog keeps per sync unit, as draft pull requests; the per-repository routine's
   target, no flow.

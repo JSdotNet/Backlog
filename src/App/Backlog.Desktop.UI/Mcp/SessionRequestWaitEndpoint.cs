@@ -22,7 +22,10 @@ namespace Backlog.Desktop.UI.Mcp;
 /// their sessions already hold a worktree. One whose session the desktop app holds no record
 /// of — a CLI session, an ended one — is never offered: nobody could send it.</item>
 /// <item><c>request</c> — the oldest Requested session request, a lapsed claim included:
-/// <see cref="SessionRequestPayload"/> with its own entry-or-plan kind as <c>requestKind</c>.</item>
+/// <see cref="SessionRequestPayload"/> with its own entry-or-plan kind as <c>requestKind</c>.
+/// None while the person has paused the queue: <see cref="ISessionRequestStore.NextAsync"/>
+/// answers null then, so a paused queue holds and answers <c>204</c> as an empty one does,
+/// while deliveries keep flowing — they answer sessions already running.</item>
 /// </list>
 /// </para>
 /// <para>
@@ -100,6 +103,11 @@ public static class SessionRequestWaitEndpoint
     /// moves; null or blank when the call names none, and then nothing is recorded.</param>
     /// <param name="loops">The Loop Register the wait is recorded in; null where the host
     /// composed none.</param>
+    /// <param name="contact">Where the call is recorded as dispatcher contact: held for as
+    /// long as the call is, and heard again when it is answered. A call answered <c>404</c>
+    /// because the flag is off is no contact — the queue is not there to be served — and
+    /// one whose caller went away is recorded by its arrival alone. Null where the host
+    /// keeps no record.</param>
     public static async Task<Reply> WaitAsync(
         ISessionRequestStore requests,
         IAppFeatureSettings features,
@@ -110,18 +118,44 @@ public static class SessionRequestWaitEndpoint
         IWaitingQuestionStore? questions = null,
         IAgentSessionSource? sessions = null,
         string? sessionId = null,
-        ILoopRegister? loops = null)
+        ILoopRegister? loops = null,
+        DispatcherContact? contact = null)
     {
         ArgumentNullException.ThrowIfNull(requests);
         ArgumentNullException.ThrowIfNull(features);
         ArgumentNullException.ThrowIfNull(clock);
 
+        if (!features.IsEnabled(SessionFeatures.SessionRequests)) return new Reply(404, []);
+
+        Reply reply;
+
+        using (contact?.Hold())
+        {
+            reply = await HoldAsync(requests, features, clock, cancellationToken, hold, pollInterval, questions, sessions, sessionId, loops).ConfigureAwait(false);
+        }
+
+        if (reply.StatusCode != 404) contact?.Heard();
+
+        return reply;
+    }
+
+    /// <summary>The held call itself, once the flag has let it in.</summary>
+    private static async Task<Reply> HoldAsync(
+        ISessionRequestStore requests,
+        IAppFeatureSettings features,
+        TimeProvider clock,
+        CancellationToken cancellationToken,
+        TimeSpan? hold,
+        TimeSpan? pollInterval,
+        IWaitingQuestionStore? questions,
+        IAgentSessionSource? sessions,
+        string? sessionId,
+        ILoopRegister? loops)
+    {
         var interval = pollInterval ?? PollInterval;
         var deadline = clock.GetUtcNow() + (hold ?? Hold);
         var desktop = new DesktopSessionIds(sessions);
         Exception? keptFailure = null;
-
-        if (!features.IsEnabled(SessionFeatures.SessionRequests)) return new Reply(404, []);
 
         try
         {

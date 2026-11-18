@@ -107,6 +107,32 @@ public sealed class LinkedTaskPaneTests
         Assert.Equal(["Local1", "Fake2", "jira1"], chips.Select(chip => chip.TextContent.Trim()));
     }
 
+    /// <summary>A source chip counts what is still to do from it, like a tag chip:
+    /// a ticked-off task is still listed while no status is pressed, so it is in the
+    /// tooltip and not on the face.</summary>
+    [Fact]
+    public async Task A_source_chip_counts_its_open_tasks_and_its_tooltip_the_completed_ones()
+    {
+        var (host, _, _, _, _) = await FourAsync();
+        using var _host = host;
+
+        await host.WriteEntryAsync("# Sweep the porch\n`task` `!done` `completed:2026-09-22`\n");
+        var shipped = await host.WriteEntryAsync("# Ship the docs\n`task` `!done` `completed:2026-09-23`\n");
+        await LinkAsync(host, shipped, Reference(FakeConnector.Id, "#3", "someone"));
+        await host.State.ReloadFromStoreAsync();
+
+        Assert.Equal(
+            [("local", 1, 1), (FakeConnector.Id, 2, 1), ("jira", 1, 0)],
+            host.State.SourceFilters.Select(option => (option.Value, option.OpenCount, option.CompletedCount)));
+
+        var chips = host.Render().FindAll(SourceChip);
+
+        Assert.Equal(["Local1", "Fake2", "jira1"], chips.Select(chip => chip.TextContent.Trim()));
+        Assert.Equal(
+            ["Show only Local tasks — 1 open, 1 completed", "Show only Fake tasks — 2 open, 1 completed", "Show only jira tasks — 1 open"],
+            chips.Select(chip => chip.GetAttribute("title")));
+    }
+
     [Fact]
     public async Task Pressing_a_source_keeps_only_its_tasks_and_pressing_it_again_widens()
     {
@@ -124,6 +150,50 @@ public sealed class LinkedTaskPaneTests
         await pane.Find($"{SourceChip}[data-source='local']").ClickAsync(new());
         Assert.Equal(4, host.State.FilteredRows.Count);
     }
+
+    /// <summary>A source with nothing left to do narrows the list to finished work
+    /// only, so it has no chip — installed or not — unless it is the pressed one.</summary>
+    [Fact]
+    public async Task A_source_with_nothing_open_has_no_chip()
+    {
+        var (host, _, _, unknown, _) = await FourAsync();
+        using var _host = host;
+
+        await host.State.ToggleCompletedAsync(unknown, Today);
+
+        Assert.Equal(["local", FakeConnector.Id], host.State.SourceFilters.Select(option => option.Value));
+        Assert.Equal(["Local1", "Fake2"], host.Render().FindAll(SourceChip).Select(chip => chip.TextContent.Trim()));
+    }
+
+    [Fact]
+    public async Task A_pressed_source_keeps_its_chip_and_its_press_when_its_last_open_task_is_ticked_off()
+    {
+        var (host, _, _, unknown, _) = await FourAsync();
+        using var _host = host;
+
+        host.State.SetSourceFilter("jira");
+        await host.State.ToggleCompletedAsync(unknown, Today);
+
+        Assert.Equal("jira", host.State.SelectedSource);
+        Assert.Contains(("jira", 0, 1), host.State.SourceFilters.Select(option => (option.Value, option.OpenCount, option.CompletedCount)));
+        Assert.Equal("true", host.Render().Find($"{SourceChip}[data-source='jira']").GetAttribute("aria-pressed"));
+    }
+
+    /// <summary>An installed connector with no task through it leaves Local alone on
+    /// the group, and one chip narrows nothing.</summary>
+    [Fact]
+    public async Task A_source_group_left_with_only_local_work_is_not_drawn()
+    {
+        var sources = new LinkedTaskSources([new FakeConnector()], new InMemoryTargets());
+        using var host = await TasksPaneHost.CreateAsync(roadmapTags: null, [], linkedSources: sources);
+        await host.WriteEntryAsync("# Water the plants\n`task` `!ready`\n");
+        await host.State.SelectAsync(null);
+
+        Assert.Empty(host.State.SourceFilters);
+        Assert.Empty(host.Render().FindAll(".filter-group--source"));
+    }
+
+    private static readonly DateOnly Today = new(2026, 11, 11);
 
     [Fact]
     public async Task A_backlog_with_no_connector_and_no_linked_task_has_no_source_group()

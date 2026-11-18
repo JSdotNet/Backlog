@@ -1,16 +1,20 @@
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.Goals;
+using Backlog.Desktop.UI.Review;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.FileSystem.Calendar;
 using Backlog.Infrastructure.FileSystem.Dashboard;
+using Backlog.Infrastructure.FileSystem.Events;
 using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
@@ -23,12 +27,17 @@ using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
+using Backlog.Modules.Calendar.Extensions;
+using Backlog.Modules.Calendar.UI;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Brain.UI.Extensions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Events.Extensions;
+using Backlog.Modules.Events.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.UI;
@@ -38,6 +47,7 @@ using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.Progress.UI.WeeklyReview;
 using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.RepositoryManagement.Extensions;
 using Backlog.Modules.Roadmap.Extensions;
@@ -189,6 +199,15 @@ public static class DesktopCompositionRegistration
             sp.GetService<INotifications>,
             sp.GetService<ILogger<PullRequestSubjects>>()));
         services.AddSingleton<ISessionPullRequestStates>(sp => sp.GetRequiredService<PullRequestSubjects>());
+        // And while the app runs: an open Personal Validation question closes once its run's
+        // pull request merged or closed, or every session of the run is archived, through the
+        // same Sessions probe. The heads resolve it once, as they do the relay's timer.
+        services.AddSingleton(sp => new RunSubjectWatch(
+            sp.GetService<INotificationReplication>,
+            sp.GetServices<INotificationSubjectProbe>().First(probe => probe is SessionSubjectProbe),
+            sp.GetService<INotifications>,
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<RunSubjectWatch>>()));
         // The MCP ask tool's questions: the asking session polls get_answer, so its handler
         // only takes the answer, which stops the startup pass replaying it on every start.
         services.AddNotificationAnswerHandler<McpNotificationAnswers>();
@@ -205,6 +224,19 @@ public static class DesktopCompositionRegistration
         // module so the scoped stand-up port it holds exists.
         services.AddGoalsAiContentSource();
 
+        // Events (local ADR 0050): the module's one registration point. Its two stores are
+        // the events_knowledge_events and events_series tables AddSqlite registered above.
+        // It publishes IKnowledgeEvents, which the Inbox's To Event route reaches through
+        // the adapter AddInboxCrossContextAdapters registers, offered while the `events`
+        // feature is on. Its pane is the Events takeover AddEventsSurface registers below,
+        // behind the same feature; it has no settings section or Ask AI source yet.
+        services.AddEventsModule();
+
+        // Calendar (local ADR 0055): it owns no data, and its services are the Plans and
+        // Events layers' read policies, one per window. Its view is the surface
+        // AddCalendarSurface registers below, which hosts the Tasks part.
+        services.AddCalendarModule();
+
         // Capture: the module brings the run, and the head decides where the
         // monitored sources and what past runs said are kept. The source adapters
         // and the delivery come further down, after the Inbox they deliver into.
@@ -217,6 +249,12 @@ public static class DesktopCompositionRegistration
         // because only an adapter may see both contexts. Scoped, like the module
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
+
+        // The Calendar's Plans layer and working week, answered over Roadmap's ports, and its
+        // Events layer over Events' read contract, offering nothing while the `events` area
+        // is off; after the Roadmap module and its adapters, whose ports these resolve. Each
+        // resolves its source's port when first asked, so the Events module above is enough.
+        services.AddCalendarCrossContextAdapters();
 
         // The tasks goals name, read through Tasks' published ITaskItems.
         services.AddProgressCrossContextAdapters();
@@ -234,6 +272,11 @@ public static class DesktopCompositionRegistration
         // Inbox's intake, after AddInboxModule().
         services.AddInboxCrossContextAdapters();
         services.AddCaptureAdapters();
+
+        // Events' task target over Tasks' published port, Scoped like the port it holds, after
+        // AddTasksModule(); and a stand-in for its Brain notes that the Brain's registration
+        // further down replaces.
+        services.AddEventsCrossContextAdapters();
 
         // Half of a repository's configuration is workspace data and follows the
         // backlog folder: the root is read per call, and moving the workspace
@@ -265,6 +308,8 @@ public static class DesktopCompositionRegistration
         // Devbook subject state's progress sits beside the annotation progress, in its
         // own file: the folder is the per-installation one, the feed is separate.
         services.AddDevbookSubjectSyncStore(options.AnnotationSyncFolder);
+        // And the knowledge event feed's (local ADR 0050 §2), beside them in its own file.
+        services.AddKnowledgeEventSyncStore(options.AnnotationSyncFolder);
         services.AddNotificationSyncStore(options.NotificationSyncFolder ?? options.AnnotationSyncFolder);
         // What the last backup did, per installation. The worker reads the
         // repository and the schedule off the workspace settings and uploads through
@@ -298,6 +343,12 @@ public static class DesktopCompositionRegistration
         // settings, for the drafter's reasons and with its lifetime. A host that
         // wants a stand-in replaces this registration after the call.
         services.Add(new ServiceDescriptor(typeof(IInboxTriageAdvisor), typeof(AzureFoundryInboxTriageAdvisor), options.WindowStateLifetime));
+        // A meeting recording on a note, transcribed and summarized once it has come down
+        // (local ADR 0049): the transcription deployment with the desktop's own key and
+        // settings, and the summary over the chat client above. A singleton, because the
+        // Inbox's background worker resolves it from the root provider.
+        services.AddAzureFoundryDesktopTranscriptionClient();
+        services.AddSingleton<IInboxRecordingTranscriber, AzureFoundryInboxRecordingTranscriber>();
         // The embedding deployment beside the chat one: the devbook databases'
         // semantic tier (local ADR 0004), embedded by the refresher below and
         // asked by the search panel, both through FoundryDevbookEmbedder.
@@ -351,16 +402,21 @@ public static class DesktopCompositionRegistration
 
         // The shell's surfaces (local ADR 0043 §1): each module's .UI registers its
         // ShellSurface, one catalog holds them, and each window jumps between them
-        // through a navigator of its own (§3). The five views — Tasks, Board and
-        // Calendar from Tasks, the Roadmap, Goals — and the takeovers: the Inbox, the
-        // Devbook, Sessions, the Dashboard, the notification centre, Tools and the
-        // Lobes atlas from their modules, and the pull requests from the shell's own project, which
-        // reads GitHub for them.
+        // through a navigator of its own (§3). The five views — Tasks and Board from
+        // Tasks, the Calendar from its own module, which hosts Tasks' part (local ADR
+        // 0055), the Roadmap, Goals — and the takeovers: the Inbox, the Devbook, Events,
+        // Sessions, the Dashboard, the notification centre, Tools and the Lobes atlas from
+        // their modules, and the pull requests from the shell's own project, which reads
+        // GitHub for them.
         services.AddTasksSurfaces();
+        services.AddTasksCalendarLayer();
+        services.AddCalendarSurface();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
         services.AddDevbookSurface();
         services.AddInboxSurface();
+        services.AddEventsSurface();
+        services.AddWeeklyReviewSurface();
         services.AddSessionsSurface();
         services.AddPullRequestsSurface();
         services.AddDashboardSurface();
@@ -374,11 +430,15 @@ public static class DesktopCompositionRegistration
         // Which window a scope belongs to, for a head service that stands over the
         // window a request came from.
         services.Add(new ServiceDescriptor(typeof(CurrentShellWindow), typeof(CurrentShellWindow), options.WindowStateLifetime));
-        // What the views read beside the list: the Board's columns and the Calendar's
-        // range from the shell's navigation file, and the Goals view's candidates from
-        // the window's own task list and reader of pull requests.
+        // What the views read beside the list: the Board's columns, and the Calendar's
+        // range, Show plans and Show events, from the shell's navigation file, and the Goals view's
+        // candidates from the window's own task list and reader of pull requests.
         services.AddSingleton<ITasksViewPreferences>(sp =>
             new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
+        // The Calendar's own view choices (local ADR 0055 §1, §4) — its range, Show plans
+        // and Show events — in the same per-device file, under the names they always had.
+        services.AddSingleton<ICalendarViewPreferences>(sp =>
+            new ShellCalendarViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
         // The notification centre's Group by and filters, per device in the same file.
         services.AddSingleton<INotificationCentrePreferences>(sp =>
             new ShellNotificationCentrePreferences(sp.GetRequiredService<ShellNavigationStore>()));
@@ -390,8 +450,16 @@ public static class DesktopCompositionRegistration
             typeof(IGoalsViewSource),
             sp => sp.GetRequiredService<ShellGoalsViewSource>(),
             options.WindowStateLifetime));
+        // The weekly review's reading of the window's Inbox, task list, Brain, roadmap
+        // and goals, and its actions in this window.
+        services.Add(new ServiceDescriptor(
+            typeof(IWeeklyReviewSource),
+            sp => new ShellWeeklyReviewSource(sp),
+            options.WindowStateLifetime));
         services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
         services.Add(new ServiceDescriptor(typeof(ISurfaceNavigator), typeof(SurfaceNavigator), options.WindowStateLifetime));
+        // The Brain's area names the open task's Area picker suggests first.
+        services.AddSingleton<IBrainAreaNames>(sp => new ShellBrainAreaNames(sp.GetService<IBrainFolderSource>()));
         // The titles a Brain note's Tasks section draws, from the window's own task list.
         services.Add(new ServiceDescriptor(
             typeof(IDevbookTaskTitles),
@@ -446,6 +514,10 @@ public static class DesktopCompositionRegistration
         // The last prompt per Claude session, which the hook telemetry route feeds and the
         // head's presence reads (local ADR 0041). Read on this desktop only.
         services.AddSingleton(_ => new SessionPrompts());
+        // When a dispatcher last waited on the session-request route (local ADR 0038 §4),
+        // which the route records and the Tasks pane's session queue reads. In memory and
+        // on this desktop only, like the prompts above: a restart forgets it.
+        services.AddSingleton(sp => new DispatcherContact(sp.GetService<TimeProvider>()));
         // The question relay (local ADR 0041): the waiting questions in backlog.db, the
         // route from the head's presence — none reads as at the keyboard — and "notify
         // after" read from the workspace settings on every question. Its escalation timer
@@ -546,6 +618,10 @@ public static class DesktopCompositionRegistration
         // And devbook subject state, the annotations' sibling: the states the panels and
         // the MCP tools set travel to this person's other desktops on the same switch.
         services.AddDevbookSubjectSyncClient(SyncServiceAddress);
+        // And knowledge events and their series (local ADR 0050 §2): each desktop pushes what
+        // it saved and takes the later copy of what another saved, and the phone reads the
+        // same feed. Answers to the sync switch and to the events switch.
+        services.AddKnowledgeEventSyncClient(SyncServiceAddress);
 
         // The notification exchange (local ADR 0039): this desktop pushes the notifications it
         // owns and, while a question is open, takes the replies addressed to it every two
@@ -627,9 +703,13 @@ public static class DesktopCompositionRegistration
         services.AddSingleton<IDevbookQueryEmbedder>(sp => sp.GetRequiredService<FoundryDevbookEmbedder>());
         // What a task's Devbook references point at, for the Tasks detail panel and
         // the MCP reference tools: Tasks' port, answered over the same database and
-        // folders, falling back to the Markdown where there is no database.
+        // folders, falling back to the Markdown where there is no database. A
+        // #brain: reference is answered from the owner's own Brain where this host
+        // composes one, and is never looked up in a repository (local ADR 0053).
         services.AddSingleton<IDevbookReferenceResolver>(sp =>
-            new DevbookReferenceResolver(sp.GetRequiredService<IDevbookFolderSource>()));
+            new BrainDevbookReferenceResolver(
+                new DevbookReferenceResolver(sp.GetRequiredService<IDevbookFolderSource>()),
+                sp.GetService<IBrainFolderSource>()));
 
         // A person's remarks on Devbook chapters: one JSON file per repository
         // under the storage folder, following the root the way the inbox store

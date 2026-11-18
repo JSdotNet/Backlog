@@ -7,7 +7,9 @@ using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.Progress.Abstractions;
 using Backlog.SharedKernel;
 
 // The namespace deliberately does not match the folder, for the reason
@@ -80,6 +82,12 @@ public static class AppFeatures
         // --- Domain: an area of the product ---------------------------------
         new(TasksFeatures.Tasks, "Tasks", "Create, edit, filter, reorder, and store tasks.", AlwaysEnabled: true),
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
+        new(
+            ProgressFeatures.WeeklyReview,
+            "Weekly review",
+            "Offer the Weekly review beside the Inbox in the Home shell: the GTD review over the Inbox, the Brain and the backlog, one stage at a time, each finding with its action in place.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
         new(RoadmapFeatures.Roadmap, "Roadmap view", "Offer the Roadmap view in the Home shell's view switch, beside Tasks: plans on a graduated axis under their own Planning heading."),
         // The devbook keys carried the context's former name; the former keys
         // keep a features.json written before the rename reading as it did.
@@ -175,6 +183,12 @@ public static class AppFeatures
             NotificationsFeatures.Notifications,
             "Notifications",
             "Let this desktop tell you something, or ask you something, and hear the answer from whichever paired device you are holding.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
+        new(
+            EventsFeatures.Events,
+            "Events",
+            "Keep the knowledge events you attend to learn something: whether to go, and what you learned there.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
 

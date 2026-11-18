@@ -97,6 +97,56 @@ public sealed class DevbookStackLayoutTests
         Assert.Contains("overflow: auto;", RuleBody(components, ".c4-zoom-explorer__main,\n.c4-zoom-explorer__document {"), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// On the architecture surface the C4 picture sat in a frame of its own fixed
+    /// height (60vh), so at 1913x1155 the hint, the heading and the footer pushed the
+    /// main column past its row: the bottom row of the picture was cut off and the
+    /// column scrolled. The frame now fills what the column has left: the body takes
+    /// the old height only as its flex basis, so an unbounded host draws it as before,
+    /// and the frame grows from nothing to a floor of its own. The body and the stage
+    /// keep their automatic minimum, the frame's floor, so a short window scrolls the
+    /// column rather than letting the frame spill over the footer.
+    /// </summary>
+    [Fact]
+    public void On_the_architecture_surface_the_c4_picture_fills_the_main_column()
+    {
+        var components = NormalizeLineEndings(File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")));
+        var app = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        // The pane holding the surface is as tall as the section, so a short nav
+        // and aside do not leave the picture short of the section's foot.
+        Assert.Contains("height: 100%;", RuleBody(app, ".devbook-stack__section > .devbook-pane--arc42:has(> .arc42-surface) {"), StringComparison.Ordinal);
+
+        var body = RuleBody(components, ".c4-zoom-explorer--surface .c4-zoom-explorer__main > .c4-zoom-explorer__body {");
+        Assert.Contains("flex: 1 1 clamp(24rem, 60vh, 44rem);", body, StringComparison.Ordinal);
+        Assert.Contains("flex-direction: column;", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("min-height: 0;", body, StringComparison.Ordinal);
+
+        var stage = RuleBody(components, ".c4-zoom-explorer--surface .c4-zoom-explorer__stage {");
+        Assert.Contains("display: flex;", stage, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 auto;", stage, StringComparison.Ordinal);
+        Assert.Contains("flex-direction: column;", stage, StringComparison.Ordinal);
+        Assert.DoesNotContain("min-height: 0;", stage, StringComparison.Ordinal);
+
+        Assert.Contains("flex: 1 1 0;", RuleBody(components, ".c4-zoom-explorer--surface .c4-zoom-explorer__environment:not([hidden]) {"), StringComparison.Ordinal);
+        Assert.Contains("display: none;", RuleBody(components, ".c4-zoom-explorer__environment[hidden] {"), StringComparison.Ordinal);
+
+        var frame = RuleBody(components, ".c4-zoom-explorer--surface .c4-zoom-explorer__frame {");
+        Assert.Contains("flex: 1 1 0;", frame, StringComparison.Ordinal);
+        Assert.Contains("height: auto;", frame, StringComparison.Ordinal);
+        Assert.Contains("min-height: 20rem;", frame, StringComparison.Ordinal);
+        Assert.DoesNotContain("clamp(", frame, StringComparison.Ordinal);
+
+        // Everything else in the column keeps its own height.
+        Assert.Contains("flex: 0 0 auto;", RuleBody(components, ".c4-zoom-explorer--surface .c4-zoom-explorer__main > :not(.c4-zoom-explorer__body) {"), StringComparison.Ordinal);
+
+        // Off the surface the frame keeps its fixed height, untouched.
+        Assert.Contains("height: clamp(24rem, 60vh, 44rem);", RuleBody(components, "\n\n.c4-zoom-explorer__frame {\n"), StringComparison.Ordinal);
+
+        // The hint is kept short: the four moves in two columns.
+        Assert.Contains("grid-template-columns: repeat(2, minmax(0, 1fr));", RuleBody(components, ".c4-zoom-explorer--surface .c4-zoom-explorer__moves {"), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Domain_and_architecture_outer_panels_clip_instead_of_owning_the_scrollbar()
     {

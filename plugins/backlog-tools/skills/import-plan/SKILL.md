@@ -1,6 +1,6 @@
 ---
 name: import-plan
-description: Turn an agreed specification (a .devbook/domain feature, an ADR, or other planning material) into a Backlog import plan — an ordered, dependency-linked sequence of entries in Backlog's entry-text grammar, ready to paste or upload — together with a review view of it, always published as an artifact.
+description: Turn an agreed specification (a .devbook/domain feature, an ADR, a project note in the person's Brain, or other planning material) into a Backlog import plan — an ordered, dependency-linked sequence of entries in Backlog's entry-text grammar, ready to paste or upload — together with a review view of it, always published as an artifact.
 disable-model-invocation: true
 ---
 
@@ -10,8 +10,10 @@ Open the reply with `backlog-tools@<version>`, `version` read from `../../.claud
 
 A one-shot handoff: the spec is settled and it is time to generate the next batch of AI
 prompts for the Backlog app to import. This skill reads the agreed material, writes one
-Backlog import plan document, publishes a review view of it as an artifact, and stops — it never talks to the
-Backlog app, executes a generated prompt, or touches GitHub.
+Backlog import plan document, publishes a review view of it as an artifact, and stops — it never writes to the
+Backlog app, executes a generated prompt, or touches GitHub. Its one call to the app is a
+read: a [Brain note source](#a-brain-note-as-the-source), through the `backlog` MCP server's
+knowledge read tool.
 
 Read `assets/backlog-import-grammar.md` before writing anything. It carries the exact
 entry/sub-item shape, every metadata token and its values, and the plan-identity/re-import
@@ -20,8 +22,10 @@ mechanics; use only the syntax it defines.
 ## Inputs
 
 - **Source material.** Path(s) to the agreed `.devbook/domain` feature chapter, an
-  ADR, a design — an artifact, prototype or mockup, by URL or path — or, if nothing is
-  written down yet, the planning notes given inline.
+  ADR, a design — an artifact, prototype or mockup, by URL or path — a project note in the
+  person's Brain, by its address `#brain:projects/<note>.md` (see
+  [A Brain note as the source](#a-brain-note-as-the-source)), or, if nothing is written down
+  yet, the planning notes given inline.
 - **Plan subject.** What the batch delivers; derives the shared `+tag`.
 - **Target repositories.** One or more repository names the prompts target. Do not check
   whether a name is already registered in Backlog — Import auto-registers an unknown one.
@@ -53,8 +57,8 @@ Nothing else — an interview answer, a sizing table, the plan text — ends a t
    question as you read: an unresolved decision, an alternative left open, a `TBD`, an
    `annotation` fence, a value the work needs but the source does not give. Note each
    source's address too — the repository-relative path and `#anchor` of every section, the
-   URL of every artifact or design — since the steps' `Read first:` lines are built from them.
-   Then run the [interview](#interview)'s first round, before drafting any entry.
+   URL of every artifact or design, the `#brain:` address of a Brain note — since the steps'
+   `Read first:` lines are built from them. Then run the [interview](#interview)'s first round, before drafting any entry.
 2. Derive the plan's `+tag`: one slug from the plan subject, written with the `+` sigil
    Backlog stores plan tags under (a `#slug` is a general tag and a different plan from
    the `+slug` the app's picker offers). Reuse the exact same slug if
@@ -63,7 +67,9 @@ Nothing else — an interview answer, a sizing table, the plan text — ends a t
 3. Open the document with one **`plan` entry** — the Roadmap Item the steps fill, shaped
    by the grammar's `## Two levels`: titled with the plan subject; the `+tag`; `repo:` once
    per target repository; the `*priority` the source implies; `due:` only when the source
-   states a date; no `effort:`, `!status`, `id:` or body boilerplate.
+   states a date; a `devbook:#brain:<path>` token when the source is a Brain note, which
+   Import turns into the item's Knowledge Ref; no `effort:`, `!status`, `id:` or body
+   boilerplate.
    Then break the work into ordered step entries, one per unit of work. Every step is
    exactly one of three kinds, decided by who does it — see the grammar's `## Entry kinds`:
    - **`prompt`** — work an AI session runs. Draft every step as one unless it cannot be.
@@ -102,7 +108,9 @@ Nothing else — an interview answer, a sizing table, the plan text — ends a t
      when the source has no address — notes given inline — and then write what the step
      needs from them into the instructions. Write `devbook:` tokens for the same chapters
      too: Import moves those into the task's Devbook references and out of its text, so
-     the line is what survives a copy.
+     the line is what survives a copy. A Brain note source is named the same two ways, by
+     its address: `` `#brain:projects/<note>.md` `` on this line and
+     `` `devbook:#brain:projects/<note>.md` `` on the metadata line.
    - **Instructions next.** The rest of the body — concise, no padding — is the entry's
      primary content. Write every interview answer the step depends on into it as a
      settled fact — the chosen option, the exact name, value or wording — never as
@@ -194,8 +202,35 @@ Nothing else — an interview answer, a sizing table, the plan text — ends a t
    count, the repositories targeted, the dependency chain, the interview's answers and the
    prompts each went into, which drafted tasks or tests became prompts, every step kept
    manual with its reason, and which sizing answered — the
-   `estimate` skill, or this skill's fallback and the step it anchored on. Keep the report's prose to `../../resources/chat-reports.md`. Stop — do
+   `estimate` skill, or this skill's fallback and the step it anchored on. When the source
+   was a Brain note, remind the person that Import never writes into the note: the plan's
+   Roadmap Tag reaches the note's `roadmap` list only through the app's **Plan this project**
+   on it (local ADR 0052). Keep the report's prose to `../../resources/chat-reports.md`. Stop — do
    not open the Backlog app, run a prompt, or create a pull request.
+
+## A Brain note as the source
+
+A project note in the person's Brain (local ADR 0026) may be the agreed material, given as
+`#brain:projects/<note>.md` — its path from the Brain's root behind `#brain:`, the address of
+`.devbook/domain/brain/features.md#mcp-brain-scope` and local ADR 0053.
+
+- **Read it through the app, never off the disk.** Call the `backlog` MCP server's
+  `read_knowledge_chapter` with `repository` `#brain` and `chapterPath` the path without its
+  prefix (`projects/<note>.md`). The Brain is no repository: never look the address up in a
+  repository's devbook. Without the server, or when it answers that no Brain is set, say so
+  and ask for the note's text inline instead; it is then notes given inline, with no address.
+- **The `plan` entry carries its Knowledge Ref**: `` `devbook:#brain:projects/<note>.md` `` on
+  its metadata line, which Import makes the new Roadmap Item's Knowledge Ref.
+- **Every step that builds on it names it**: the address in its `Read first:` line and the
+  same `devbook:#brain:...` token on its metadata line, so the task's Devbook references hold
+  it and `run-plan-item` reads it before working. The review prompt names it too.
+- **Never copy the note's words** into a step beyond what the step needs to run: it is the
+  person's own, and a plan's text travels to every device and every reader of the backlog.
+- **`repo:` is unchanged.** It names the repositories the work lands in; the Brain is never
+  one.
+- **Import never writes into the note.** The plan's Roadmap Tag lands in the note's `roadmap`
+  list only when the person runs the app's **Plan this project** on it (local ADR 0052); the
+  report says so (step 8).
 
 ## Interview
 
@@ -279,7 +314,10 @@ under the same tag. Steps 5–8 apply unchanged.
   before the plan text is shown, its link is in the report (its fallback path only when the
   host has no artifact tool), and none of its checks fail.
 - No file changes in the working tree beyond a plan file the user named or the review
-  view's no-artifact fallback; no call to the Backlog app or GitHub.
+  view's no-artifact fallback; no call to the Backlog app or GitHub but the read of a Brain
+  note source.
+- A plan made from a Brain note carries its `devbook:#brain:` token on the `plan` entry and
+  on every step that builds on it, and names the address in those steps' `Read first:` lines.
 
 ## Reference
 

@@ -1,0 +1,166 @@
+@implements IDisposable
+@inject TasksDesktopState State
+@inject IToastChannel Toasts
+
+@*
+    The Tasks layer's calendar (local ADR 0055 §3): the body the Calendar's Tasks part draws
+    under the Tasks pane's filter bar in place of the list. The same filtered rows, placed by
+    due date, beside the same detail panel. A chip opens its entry the way a row does; a drop
+    writes the due date the way the detail panel's Due row does. An empty filter result is an
+    empty month and an empty tray rather than the list's empty state — the month bar is still
+    the thing to use.
+
+    The layers the Calendar reads arrive in Layer: the range it keeps, the Plans and Events
+    layers and the hours worked a day. The tasks, their hours and the colours are this
+    window's own, from TasksDesktopState.
+*@
+<TaskCalendar @ref="_calendar"
+              Tasks="@CalendarTasks()"
+              Today="@Today"
+              Range="@Inputs.Range"
+              RangeChanged="@Inputs.RangeChanged"
+              MyDayCount="@MyDayCount"
+              SelectedId="@State.SelectedRow?.TaskId"
+              OnOpen="Pane.OpenAsync"
+              OnDueChanged="OnDueChangedAsync"
+              PlansAvailable="@Inputs.Plans.Available"
+              ShowPlans="@Inputs.Plans.Shown"
+              ShowPlansChanged="@Inputs.Plans.ShownChanged"
+              Plans="@PlanWindows()"
+              Milestones="@Inputs.Plans.Milestones"
+              ShelfPlans="@Inputs.Plans.Shelf"
+              OnPlanStarted="@Inputs.Plans.OnStarted"
+              EventsAvailable="@Inputs.Events.Available"
+              ShowEvents="@Inputs.Events.Shown"
+              ShowEventsChanged="@Inputs.Events.ShownChanged"
+              Events="@Inputs.Events.Events"
+              KeyDates="@Inputs.Events.KeyDates"
+              HoursAvailable="true"
+              HoursBlocks="@HoursBlocks()"
+              CapacityOn="@Inputs.CapacityOn"
+              OnHoursChanged="OnHoursChangedAsync"
+              AriaLabel="Tasks by due date"
+              TestId="task-calendar" />
+
+@code {
+    /// <summary>The pane this calendar is drawn in.</summary>
+    [Parameter, EditorRequired]
+    public TasksPaneBody Pane { get; set; } = null!;
+
+    /// <summary>What the Calendar hands its Tasks part; null draws a month with no plans,
+    /// no events and no capacity.</summary>
+    [Parameter]
+    public CalendarLayerInputs? Layer { get; set; }
+
+    /// <summary>The month calendar; the pane's focus return puts the focus back on its
+    /// selected chip where it would put it back on a row.</summary>
+    private TaskCalendar? _calendar;
+
+    /// <summary>The Calendar's inputs, or none. The calendar takes a range press at once on
+    /// its own, so a host that does not hand the choice back still sees it kept.</summary>
+    private CalendarLayerInputs Inputs => Layer ?? CalendarLayerInputs.None;
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
+
+    private int MyDayCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && State.IsInMyDay(row, Today));
+
+    protected override void OnInitialized() => Pane.FocusSelectedWith(FocusSelectedAsync);
+
+    private Task FocusSelectedAsync() => _calendar?.FocusSelectedAsync() ?? Task.CompletedTask;
+
+    /// <summary>
+    /// The filtered entries, as the month calendar needs them: by due date, with the
+    /// lifecycle behind the status dot and the repository mark — which
+    /// <c>RepositoryMarkClass</c> already withholds while the colours are hidden.
+    /// A recurring entry is placed on its due date alone; the next occurrence is
+    /// written when this one is ticked off, so there is no series to draw.
+    /// </summary>
+    private IReadOnlyList<CalendarTask> CalendarTasks() =>
+        [.. State.FilteredRows.Select(row => new CalendarTask(
+            row.TaskId,
+            Pane.DisplayTitleOf(row),
+            row.PreviewDueOn,
+            StateOf(row),
+            Repeats: row.PreviewRecurrence is not null,
+            CssClass: State.RepositoryMarkClass(row),
+            Effort: TasksPane.FormatEffort(row.PreviewEffort)))];
+
+    /// <summary>The tick wins over the lifecycle, as it does on the list: an entry
+    /// ticked off is done whatever status its text still names.</summary>
+    private static CalendarTaskState StateOf(EntryRow row) =>
+        row.IsPreviewCompleted
+            ? CalendarTaskState.Done
+            : row.PreviewStatus switch
+            {
+                EntryStatus.Ready => CalendarTaskState.Ready,
+                EntryStatus.InProgress => CalendarTaskState.InProgress,
+                EntryStatus.Done => CalendarTaskState.Done,
+                EntryStatus.Archived => CalendarTaskState.Archived,
+                _ => CalendarTaskState.Draft
+            };
+
+    private EntryRow? RowFor(string taskId) =>
+        State.Rows.FirstOrDefault(row => string.Equals(row.TaskId, taskId, StringComparison.Ordinal));
+
+    /// <summary>A task dropped on a day: that day becomes its due date, through the
+    /// same write the detail panel's Due row makes.</summary>
+    private async Task OnDueChangedAsync(CalendarDueChange change)
+    {
+        if (RowFor(change.TaskId) is { } row) await State.ChangeDueAsync(row, change.DueOn);
+    }
+
+    // --- Planned hours on the Calendar -------------------------------------------
+    // The hours a day is set against come from the Calendar (Inputs.CapacityOn), which
+    // redraws the part when the working week changes; with none, a day total stands
+    // alone and is never over.
+
+    /// <summary>Every block of planned hours in the filtered rows, each on its day: the
+    /// filter bar narrows them as it narrows the chips, and the repository mark follows
+    /// the colours switch through <c>RepositoryMarkClass</c>, as a chip's does.</summary>
+    private IReadOnlyList<CalendarHoursBlock> HoursBlocks() =>
+        [
+            .. State.FilteredPlannedHours().Select(held => new CalendarHoursBlock(
+                held.Row.TaskId,
+                Pane.DisplayTitleOf(held.Row),
+                held.Block.On,
+                held.Block.Hours,
+                State.RepositoryMarkClass(held.Row)))
+        ];
+
+    /// <summary>Hours set, changed or removed on a Calendar day: written to the entry
+    /// through the module, as the detail panel's Planned hours writes them. The
+    /// roadmap is not told — the blocks are the person's own plan.</summary>
+    private async Task OnHoursChangedAsync(CalendarHoursChange change)
+    {
+        if (RowFor(change.TaskId) is not { } row) return;
+
+        // A task not saved yet has nowhere to keep hours; say so rather than drop them.
+        if (!row.IsPersisted)
+        {
+            Toasts.Publish(ToastMessage.Warning("Save the task before planning hours on it.", "calendar-hours-unsaved"));
+            return;
+        }
+
+        await State.SetPlannedHoursAsync(row, change.On, change.Hours);
+    }
+
+    /// <summary>Each window the Calendar handed down as a bar, wearing the band colour of
+    /// the first of its repositories that has one — <c>RepositoryColours</c> is empty while
+    /// the colours are hidden, so the bar is then neutral grey. The colours are this
+    /// window's, which the Calendar cannot see.</summary>
+    private IReadOnlyList<CalendarPlan> PlanWindows()
+    {
+        var colours = State.RepositoryColours;
+        return
+        [
+            .. Inputs.Plans.Windows.Select(window => window.Plan with
+            {
+                Band = window.RepositoryAliases
+                    .Select(alias => colours.TryGetValue(alias, out var band) ? band : (int?)null)
+                    .FirstOrDefault(band => band is not null),
+            })
+        ];
+    }
+
+    public void Dispose() => Pane.FocusSelectedWith(null);
+}

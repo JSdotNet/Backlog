@@ -78,6 +78,33 @@ enter the outbox. It serves the Notes editor and the capture sheet's photo.
   alternatives were ImageSharp, with its split licence, and a per-platform pair
   of Android `Bitmap` beside a browser canvas.
 
+## Android MediaRecorder
+
+```meta
+rating: adopted
+type: library
+depends-on: [".devbook/tech/mobile.md#android"]
+related: [".devbook/domain/capture/features.md#meeting-recording", ".devbook/domain/capture/features.md#speech-to-text-capture", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
+alternatives: ["AudioRecord with an encoder of our own", "Plugin.Maui.Audio"]
+```
+
+Android's own audio recorder, called directly from the MAUI head, with a
+foreground service of type microphone for a meeting recording.
+
+- **Used for** — `AndroidAudioRecorder` records a cloud dictation turn as M4A
+  (local ADR 0045). A meeting recording writes an AAC ADTS stream, 16 kHz mono
+  at 32 kbps (local ADR 0048), from `RecordingService`: a foreground service of
+  type microphone, started while the note is on screen, whose ongoing
+  notification carries the timer, Pause and Stop. The manifest declares
+  `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE` and the service.
+- **Why** — the platform API writes the file itself, with no package between,
+  for the reason the speech code gives. Android cuts a background app off the
+  microphone, and only a visible foreground service of that type keeps it with
+  the screen off. `AudioRecord` would need an encoder of our own; a wrapper
+  package hides the output format this choice depends on.
+- **Rating** — `adopted` for dictation. The meeting recorder and its service are
+  not built yet.
+
 ## Xamarin.Firebase.Messaging
 
 ```meta

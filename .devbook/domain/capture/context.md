@@ -56,21 +56,23 @@ type: setting
 key: capture-sources.json
 scope: user
 default: every source off, with no targets
-related: [.devbook/domain/capture/features.md#run-capture-now, .devbook/domain/capture/features.md#youtube-monitor, .devbook/domain/capture/features.md#website-monitor, .devbook/domain/capture/features.md#news-email-ingestion, .devbook/domain/capture/domain.md#capture-source, .devbook/domain/inbox/context.md#inbox-pane]
+related: [.devbook/domain/capture/features.md#run-capture-now, .devbook/domain/capture/features.md#youtube-monitor, .devbook/domain/capture/features.md#website-monitor, .devbook/domain/capture/features.md#event-page-monitor, .devbook/domain/capture/features.md#news-email-ingestion, .devbook/domain/capture/domain.md#capture-source, .devbook/domain/inbox/context.md#inbox-pane]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.CaptureSourcesSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.CaptureSourcesPanelTests, unit:dotnet:Backlog.Modules.Capture.UnitTests.RunCaptureCommandHandlerTests]
 ```
 
 This setting says which sources Capture watches and what each one is pointed at.
 It holds the [capture sources](domain.md#capture-source) that can be
-monitored: YouTube, website, and email, one entry each, in that order.
+monitored: YouTube, website, event page, and email, one entry each, in that order.
 An entry has:
 
-- the source's kind, written as its slug (`youtube`, `website`, `email`);
+- the source's kind, written as its slug (`youtube`, `website`, `event_page`, `email`);
 - whether it is on;
 - its list of targets.
 
 A target is a channel or
-feed URL or handle, a page URL, or a sender address. Targets are identifiers
+feed URL or handle, a page URL, or a sender address. The event page entry is
+listed and run only while the [Events area](../events/context.md#events-area) is
+on. Switched off, the entry stays in the file as it was. Targets are identifiers
 only, never a credential, because the file is plain text meant for hand-editing.
 Nothing is watched until the reader switches a source on.
 

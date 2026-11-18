@@ -887,6 +887,7 @@ this chapter only reads them.
 | `HOLD: X` | Hold | none | none | X |
 | `+tag:execute-plan [@repo]` | Plan run | tag | none | `execute-plan [@repo]` |
 | `tag:n - X` | Entry, step n | tag | none | `n - X` |
+| `n - X`, started by a Plan run | Entry, step n | the Plan run's tag | none | `n - X` |
 | anything else | Other | none | none | the whole title |
 
 A row whose session is a desktop scheduled task's run, or a schedule's row, is
@@ -902,6 +903,11 @@ The reading follows these rules:
   is. A malformed tag leaves a Plan session without one.
 - An unnumbered `tag - X` stays Other, because nothing tells it apart from an ordinary
   title.
+- execute-plan names an entry's session `n - X`, because the desktop app's sidebar
+  already nests it under the `+tag:execute-plan` session that started it. The desktop
+  record's `spawnedFrom` names that parent. A numbered `n - X` is an Entry only when its
+  parent's title reads as a Plan run, and it takes that run's tag. Under any other
+  parent, or none, it stays Other. A `tag:n - X` keeps its own tag whatever its parent.
 - Two tags name one plan when they match ignoring case, with one leading `+` lifted.
   An entry writes the bare tag and a plan run keeps the `+`, so both land under one plan.
 
@@ -1317,15 +1323,29 @@ cancels it. A dispatcher reads the next request on the listener's long poll, cla
 | `GET /session-requests/wait` | Answers one item at once, or holds the call up to 50 seconds and answers `204`. |
 | `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. |
 | `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. |
-| `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
+| `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts, and says whether the queue is paused. |
 
-- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it. A Manager names its own session as `sessionId`, and the call is its [dispatch wait](#loop-register).
-- **`claim_session_request`:** The holder asking again is told it holds it; the lease is not renewed.
+- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it. A Manager names its own session as `sessionId`, and the call is its [dispatch wait](#loop-register). Every call it lets in is also [Dispatcher Contact](#dispatcher-contact): held while the call is held, heard again when it is answered. A `404` while the flag is off records nothing.
+- **`claim_session_request`:** The holder asking again is told it holds it; the lease is not renewed. While the queue is paused, every other claim is refused with "The session queue is paused."
 - **`mark_session_request`:** Only the dispatcher holding the claim may mark it. Its `started` still counts after its lease ran out while nobody else claimed the request.
 
 Every answer carries the request's brief, built by the server from its kind and id, which a
 dispatcher passes on and never writes. All four sit behind the
 `session-requests` flag: off, the route answers `404` and the tools leave the endpoint.
+
+**Paused.** The person can pause the queue as a whole and resume it, in the app only;
+no dispatcher call pauses or resumes it. [A paused queue hands out no
+request](domain.invariants.md#invariant-a-paused-queue-hands-out-no-request): the route
+answers no `kind: request` item and every claim is refused, so a dispatcher starts
+nothing new. Everything else goes on as before:
+
+- answer deliveries are still handed out;
+- a claim already held still reports `started` and still releases;
+- the person can still queue a request and cancel one.
+
+Resumed, the route hands out the oldest Requested request again. The paused state is
+this machine's, kept in the app's local database beside the requests: it survives a
+restart and does not replicate, and a queue never paused reads as running.
 
 ### Session Request
 
@@ -1378,6 +1398,10 @@ stateDiagram-v2
   entry of its plan.
 - **Cancelled.** The person cancelled it.
 
+A pause is not a state of the request. It belongs to the [queue](#session-request-queue):
+pausing or resuming changes no request's state, and a request queued while paused is
+Requested.
+
 **The lease.** A claim holds the request for two minutes. [A lease that runs out
 returns the request to Requested](domain.invariants.md#invariant-a-lapsed-claim-returns-the-request-to-requested)
 for every other dispatcher, so a dispatcher that stopped mid-dispatch does not keep it.
@@ -1397,7 +1421,9 @@ it waits for a dispatcher until the person cancels it. Linked and Cancelled are 
 
 A **dispatcher** is whatever claims requests and starts their sessions. The first is
 the **Manager session**, a long-lived Claude Desktop session running a skill; a direct
-launch from the app is a later one. The context records a dispatcher only as the claim it made.
+launch from the app is a later one. The context records a dispatcher only as the claim it
+made and, anonymously, as [Dispatcher Contact](#dispatcher-contact): when any dispatcher
+last waited on the route.
 
 ## Question Relay
 
@@ -2110,3 +2136,21 @@ related: [.devbook/domain/sessions/domain.md#stage-resolution, .devbook/domain/s
 One more pass a run makes after a person asks for changes at the gate, the Personal
 Validation stage. Work done under the gate is a revise round's. A stage re-entered for
 a revise round counts it among its re-entries.
+
+### Dispatcher Contact
+
+```meta
+type: term
+aliases: [DispatcherContact, dispatcher contact, silent dispatcher]
+related: [.devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
+```
+
+When a dispatcher last reached this app on the wait route: now, while a call is held.
+It is kept in memory, on this desktop only, and forgotten on restart, which reads as
+"not heard since the app started". It names no dispatcher, because the route is called
+with the listener's token alone.
+
+A dispatcher is **silent** after two minutes without contact, counted from the app's
+start when none came. Two minutes is longer than the route's 50-second hold, so a
+dispatcher between two calls never reads as gone. Not [Presence](#presence), which is
+the person's.

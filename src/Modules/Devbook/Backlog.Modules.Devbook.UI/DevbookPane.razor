@@ -267,17 +267,10 @@
                 @(_atlasOpen ? "Hide atlas" : "Atlas")
             </AppButton>
         }
-        @* The way back for a host that shows the Devbook as a takeover — the
-           desktop shell gives it the whole screen — in the place and shape the
-           other takeovers' close sits: last on the header row, an icon-only ghost
-           button named by its label. Absent for a host that passes no OnClose. *@
-        @if (OnClose.HasDelegate)
-        {
-            <IconButton AriaLabel="@(BrainMode ? "Close the Brain" : "Close the Devbook")"
-                        CssClass="btn--ghost"
-                        TestId="devbook-close"
-                        OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
-        }
+        @* No close of its own (interaction-guidelines.md#shell-header, "A surface
+           draws no close of its own"): in the main window the Devbook's header
+           option pressed again, or Escape, is the way back; in a window of its own
+           the OS close closes it. *@
     </ListTrailing>
 
     <ChildContent>
@@ -476,12 +469,6 @@
     /// that composes no Brain it is no scope, and the pane has nothing to read.</summary>
     [Parameter]
     public string? RepositoryAlias { get; set; }
-
-    /// <summary>Reports that the ✕ was pressed. A host that shows the Devbook as a
-    /// takeover passes its way back here, as it does for every other takeover's
-    /// pane; with no delegate the pane draws no close control.</summary>
-    [Parameter]
-    public EventCallback OnClose { get; set; }
 
     /// <summary>
     /// The repository on the other side of the <c>Brain | repo</c> switch, while

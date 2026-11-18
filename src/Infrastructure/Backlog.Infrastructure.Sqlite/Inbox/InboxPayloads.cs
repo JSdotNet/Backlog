@@ -11,3 +11,16 @@ namespace Backlog.Infrastructure.Sqlite.Inbox;
 /// <param name="Auto">Whether a capture source suggested it rather than a
 /// person typing it. Short on purpose: it is a column payload, not a DTO.</param>
 internal sealed record InboxTagPayload(string Name, bool Auto);
+
+/// <summary>The <c>event_facts</c> column: what an event page capture found, as one
+/// JSON object, or null for an item from any other source. Short names for the
+/// reason <see cref="InboxTagPayload"/> gives.</summary>
+internal sealed record InboxEventFactsPayload(
+    InboxEventDatePayload? Start,
+    InboxEventDatePayload? End,
+    string? Place,
+    string? Page,
+    string? PageTitle);
+
+/// <summary>One end of an edition inside <see cref="InboxEventFactsPayload"/>.</summary>
+internal sealed record InboxEventDatePayload(DateOnly Date, TimeOnly? Time, TimeSpan? Offset);

@@ -6,7 +6,7 @@ public enum SessionRequestKind
     /// <summary>One prompt entry, briefed as <c>/backlog-tools:run-plan-item entry `&lt;id&gt;`:</c>.</summary>
     Entry,
 
-    /// <summary>A whole plan, briefed as <c>/backlog-tools:execute-plan +&lt;tag&gt;</c>.</summary>
+    /// <summary>A whole plan, briefed as <c>/backlog-tools:execute-plan +&lt;tag&gt; branch</c>.</summary>
     Plan
 }
 
@@ -134,6 +134,11 @@ public static class SessionRequests
     /// for a plan request. Built from the kind and the id alone, so no entry text can
     /// become one; a dispatcher passes it on and never writes its own.
     /// <para>
+    /// The plan line names the <c>branch</c> landing mode explicitly, so a dispatched
+    /// plan lands its entries on the plan's integration branch; execute-plan always runs
+    /// unattended and asks the person nothing.
+    /// </para>
+    /// <para>
     /// A plan tag is the one piece of a brief that started as text a person typed, so it
     /// is checked against the tag grammar here as well as when the request is made: a
     /// row that holds anything else — a space, a backtick, a line break — gets no brief.
@@ -150,7 +155,7 @@ public static class SessionRequests
             SessionRequestKind.Entry when request.EntryId is { } entryId && entryId != Guid.Empty =>
                 $"/backlog-tools:run-plan-item entry `{entryId:D}`:",
             SessionRequestKind.Plan when IsPlanTag(request.PlanTag) =>
-                $"/backlog-tools:execute-plan +{request.PlanTag}",
+                $"/backlog-tools:execute-plan +{request.PlanTag} branch",
             _ => throw new InvalidOperationException(
                 $"Session request {request.Id:D} has no well-formed target for a {request.Kind} brief.")
         };
@@ -186,10 +191,19 @@ public static class SessionRequests
     /// <summary>A plan tag without its sigil and surrounding space.</summary>
     public static string NormalizeTag(string? tag) => (tag ?? string.Empty).Trim().TrimStart('+', '#').Trim();
 
+    /// <summary>Why a claim is refused while the person has paused the queue.</summary>
+    public const string PausedRefusal = "The session queue is paused.";
+
     /// <summary>Requested → Claimed by <paramref name="dispatcher"/> until
     /// <see cref="Lease"/> from <paramref name="now"/>. Refused on any other state, so
-    /// two dispatchers never both hold one request.</summary>
-    public static SessionRequestOutcome Claim(SessionRequest request, string dispatcher, DateTimeOffset now)
+    /// two dispatchers never both hold one request — and refused on a Requested one
+    /// while the queue is <paramref name="paused"/>, so a paused queue starts nothing
+    /// new. The pause is the queue's, not a request state: the request stays Requested.</summary>
+    /// <param name="request">The request to claim.</param>
+    /// <param name="dispatcher">The dispatcher claiming it.</param>
+    /// <param name="now">The clock.</param>
+    /// <param name="paused">Whether the person has paused the queue.</param>
+    public static SessionRequestOutcome Claim(SessionRequest request, string dispatcher, DateTimeOffset now, bool paused = false)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -200,6 +214,8 @@ public static class SessionRequests
         {
             return SessionRequestOutcome.Refused(request, $"The request is {state}, and only a Requested request can be claimed.");
         }
+
+        if (paused) return SessionRequestOutcome.Refused(request, PausedRefusal);
 
         return SessionRequestOutcome.Done(request with
         {
@@ -385,11 +401,21 @@ public interface ISessionRequestStore
     /// <summary>Every request, or those reading as <paramref name="state"/> now, oldest first.</summary>
     Task<IReadOnlyList<SessionRequest>> ListAsync(SessionRequestState? state = null, CancellationToken cancellationToken = default);
 
-    /// <summary>The oldest request reading as Requested now, or null.</summary>
+    /// <summary>The request the queue hands a dispatcher next: the oldest reading as
+    /// Requested now, or null — none waits, or the queue is paused.</summary>
     Task<SessionRequest?> NextAsync(CancellationToken cancellationToken = default);
 
-    /// <summary><see cref="SessionRequests.Claim"/>, in one write.</summary>
+    /// <summary><see cref="SessionRequests.Claim"/> with the queue's paused state, read
+    /// in the same write, so a claim racing a pause cannot slip through.</summary>
     Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default);
+
+    /// <summary>Whether the person has paused the queue. A queue nobody ever paused runs.</summary>
+    Task<bool> IsPausedAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Pauses or resumes the queue as a whole. Called only by the app's own
+    /// Pause and Resume action: no dispatcher tool pauses. A pause holds every request
+    /// where it is and revokes no claim already held.</summary>
+    Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default);
 
     /// <summary><see cref="SessionRequests.Release"/>, in one write.</summary>
     Task<SessionRequestOutcome> ReleaseAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default);

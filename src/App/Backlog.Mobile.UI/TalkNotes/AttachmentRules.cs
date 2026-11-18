@@ -36,6 +36,19 @@ public static class AttachmentRules
         [".docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         [".xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         [".pptx"] = "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        [".aac"] = "audio/aac",
+        [".m4a"] = "audio/mp4",
+    };
+
+    /// <summary>The meeting recordings of local ADR 0048: AAC in an ADTS stream from the
+    /// phone, and in MPEG-4 from a browser or a file picked from the phone. Whether one may
+    /// go up is the shared list's call, as for every other file; this only names the
+    /// recordings, for the recorder's own files and the tile's player.</summary>
+    private static readonly HashSet<string> Audio = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "audio/aac",
+        "audio/mp4",
+        "audio/x-m4a",
     };
 
     private static readonly Dictionary<string, string> Labels = new(StringComparer.OrdinalIgnoreCase)
@@ -53,6 +66,9 @@ public static class AttachmentRules
         ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"] = "Word document",
         ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"] = "Excel workbook",
         ["application/vnd.openxmlformats-officedocument.presentationml.presentation"] = "PowerPoint deck",
+        ["audio/aac"] = "AAC audio",
+        ["audio/mp4"] = "AAC audio",
+        ["audio/x-m4a"] = "AAC audio",
     };
 
     /// <summary>The media type a file goes up as: the one it declared, unless it
@@ -80,7 +96,7 @@ public static class AttachmentRules
             var extension = Path.GetExtension(name);
             var what = extension.Length > 0 ? extension.ToLowerInvariant() : contentType;
 
-            return $"Not a type cloud sync takes ({what}). Pictures, PDF, text and Office files only.";
+            return $"Not a type cloud sync takes ({what}). Pictures, audio, PDF, text and Office files only.";
         }
 
         if (sizeBytes > SyncAttachmentLimits.DefaultMaxBytes)
@@ -97,6 +113,10 @@ public static class AttachmentRules
     /// <summary>A picture, for the "Photo · date" title and the downscaler.</summary>
     public static bool IsPicture(string contentType) =>
         contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A meeting recording's type: AAC, in ADTS or MPEG-4.</summary>
+    public static bool IsAudio(string? contentType) =>
+        !string.IsNullOrWhiteSpace(contentType) && Audio.Contains(contentType.Split(';')[0].Trim());
 
     /// <summary>The type as a person reads it: "PDF", "JPEG image".</summary>
     public static string Describe(string contentType) =>

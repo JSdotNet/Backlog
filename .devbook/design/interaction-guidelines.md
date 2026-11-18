@@ -353,7 +353,7 @@ screen that reloads shows its own loader, and the rest of the screen stays usabl
 | Refresh | A populated region that refreshes MUST keep its content, show a header `Spinner`, and never blank. |
 | Dimming | A refreshing region MAY dim its content. |
 | Frame first | A navigation or takeover MUST open its frame at once and load its body inside it. |
-| The frame | The frame is the header, title and close control. |
+| The frame | The frame is the header and title; a surface draws no close of its own (`#shell-header`). |
 | Every region resolves | Each region ends in content, an empty state (`#empty-states`), or an inline section error with **Retry** (`#error-states`). |
 
 ### Timing
@@ -401,6 +401,13 @@ related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 | No redundant save toasts | Routine auto-saves MUST NOT spam toasts, which are for failures and notable events only. |
 | Inline confirmation | Prefer subtle inline confirmation over a toast for small edits. |
 | Above an open dialog | A toast raised while a `Modal` is open MUST be seen above it. |
+| One action | An offer MAY carry one button that names its act; the press runs it and takes the toast down. Dismissing never runs it. |
+
+- **One action:** an offer the person can safely miss, because another screen
+  lists the same thing, is the only kind. It keeps the longer dwell an error
+  takes. The example is the roadmap's archive offer for a finished plan's project
+  note (`.devbook/domain/roadmap/features.md#archiving-a-finished-plans-project-note`),
+  which the weekly review lists again.
 
 - **Inline confirmation:** an example is a brief saved-confirmation flash on a
   saved inline edit, per `#motion-and-reduced-motion`.
@@ -765,7 +772,7 @@ Review surface: storybook → *Task list* → **Task card**.
 ## Shell Header
 
 ```meta
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/interaction-guidelines.md#popover-button", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/interaction-guidelines.md#popover-button", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/design/component-libraries.md"]
 ```
 
 The desktop shell's header is four regions in reading order, each answering one
@@ -775,18 +782,18 @@ question. Below it the workspace shows exactly one **main view**, unless a
 | Region | Answers | Holds |
 |---|---|---|
 | Identity | Over which repositories? | The repository scope, a fused group of chips led by the **Brain** chip, and nothing else. |
-| Navigation | What am I looking at? | Left to right: **Inbox**, the view switch, **Devbook**, the Goals group, the remaining takeovers. |
+| Navigation | What am I looking at? | Left to right: **Inbox**, the view switch, **Devbook**, **Events** (while its flag is on), the Goals group, the remaining takeovers. |
 | Status | How is the workspace doing? | The GitHub check, only while a task view is on screen. |
-| Utilities | What cuts across all of it? | **Ask AI**, while an area has something to ask about; then the **Settings** gear. |
+| Utilities | What cuts across all of it? | **Ask AI**, while an area has something to ask about. |
 
 - **Identity:** see `#focus-and-selection`, *Modifier-click scope*. The
   repository chips follow the Brain chip. The scope renders always, with the
   Brain chip alone when no repository is configured (local ADR 0027).
 - **Status:** ambient, the quietest region. Its auto margin carries it and the
   utilities to the right edge.
-- **Utilities:** **Ask AI** is the one accented control in the header. The gear
-  comes last and opens a menu of **Colors**, **Show archived** and a
-  **Settings** link (*The gear holds the occasional switches*).
+- **Utilities:** **Ask AI** is the one accented control in the header. The
+  **Settings** gear is not in the header: it closes the footer band (*The gear
+  holds the occasional switches*).
 
 The navigation region holds three kinds of control, and each MUST look and act
 as its kind:
@@ -796,6 +803,7 @@ as its kind:
 | View switch | `Tasks`, `Board`, `Calendar`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows; a view is never closed. |
 | Inbox toggle | `Inbox`, before the view switch | An on-or-off giving the Inbox the whole screen; pressed again, it returns to the view. |
 | Devbook toggle | `Devbook`, after the view switch; `Brain` while the Devbook shows the Brain | An on-or-off giving the Devbook the whole screen; a second press or Escape returns. |
+| Events toggle | `Events`, after the Devbook, under `events` | An on-or-off giving the Events pane the whole screen; a second press, its close button or Escape returns. |
 | Goals group | `Goals` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the work in flight; it always renders. |
 | Remaining takeovers | `Dashboard`, `Notifications`, `Tools`, `Atlas` | A loose group, each under its own flag, rendered while one of them is offered. |
 
@@ -816,14 +824,17 @@ as its kind:
 - **Remaining takeovers:** **Atlas** is under `atlas-lobes` ([Lobes
   atlas](../domain/brain/features.md#lobes-atlas)). **Notifications** opens the
   notification centre and wears the count of questions waiting, in the
-  question's gold, and no count while none wait.
+  question's gold, and no count while none wait. Each takeover a module
+  registers that the header does not place itself draws after the Devbook, in
+  its registered order. Today that is Events.
 
 | Rule | Requirement |
 |---|---|
-| The workspace cluster sits close | The Inbox toggle, view switch and Devbook toggle MUST sit at the tighter `spacing-xs` gap. |
+| The workspace cluster sits close | The Inbox toggle, view switch, Devbook toggle and Events toggle MUST sit at the tighter `spacing-xs` gap. |
 | A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view underneath. |
-| Every way back works | A takeover MUST close on Escape, its close button and a second press of its option. |
-| The atlas returns where it was opened | The **Atlas** takeover's Escape, close button and second press MUST return to the surface it opened over. |
+| Every way back works | A takeover MUST close on Escape and on a second press of its option. |
+| A surface draws no close of its own | A surface MUST NOT draw a close (✕) button that leaves the surface itself, in the main window or a popped-out one. A close for something inside it — an entry panel, a dialog, a sheet — stays. |
+| The atlas returns where it was opened | The **Atlas** takeover's Escape and second press MUST return to the surface it opened over. |
 | Nothing reads pressed under a takeover | During a takeover, or while the Inbox has the screen, no view option reads pressed. |
 | A surface pops out | Each header item a module registers as a surface MUST carry an **Open in new window** button. |
 | A popped-out window has a slim header | A popped-out window MUST draw a slim header, with no view switch or takeover options. |
@@ -835,17 +846,23 @@ as its kind:
 | A control acts on what is on screen | A header control whose target is off screen MUST NOT render. |
 | The shell reopens where it was left | The main view, open takeover or Inbox or Devbook, and scope MUST return on a fresh shell. |
 | The Brain chip leads the scope | The repository scope MUST start with the **Brain** chip, then a divider, then the repository chips. |
-| The gear holds the occasional switches | The **Settings** gear MUST be a `#popover-button` named **Settings** listing the occasional switches. |
+| The gear holds the occasional switches | The **Settings** gear MUST be a `#popover-button` named **Settings**, last in the main window's footer band. |
 | Views and work lead with a glyph | Each view-switch option and Goals group member MUST lead with a decorative glyph before its word. |
 
 - **The workspace cluster sits close:** the groups after it sit at the wider
-  navigation gap, so the Inbox and the Devbook read as belonging to the views.
+  navigation gap, so the Inbox, the Devbook and Events read as belonging to the
+  views.
 - **A takeover hides, it does not close:** closing it shows the view as it was.
   The Devbook is a takeover.
 - **Every way back works:** pressing a view option during a takeover MUST close
   it and show the workspace with that view on screen. The Inbox is left by a
   second press of its option, a view option or another takeover, never by
   Escape.
+- **A surface draws no close of its own:** the shell already gives the way
+  back. In the main window that is Escape and the second press of the
+  surface's header option; in a popped-out window it is the OS close.
+  - **Why:** a ✕ in the surface repeats one of them, and under a window's
+    caption it reads as a second close.
 - **The atlas returns where it was opened:**
   - It opens from its header option or the Devbook's own **Atlas** button, and
     returns to the main view, another takeover or the Devbook. Its tooltip names
@@ -874,46 +891,64 @@ as its kind:
   - Every press opens one more window and changes nothing in this one (local ADR
     0043 §4). A host that cannot open windows draws no button.
 - **A popped-out window has a slim header:**
-  - The order is:
+
+  ```text
+  title bar   [window title] ............ [pin][bookmark][–][□][✕]
+  slim header [surface title] [scope chips] .... [Show in main window]
+  ```
+
+  - The slim header's order is:
     1. the surface's title as its heading;
     2. the window's own repository scope chips, led by the Brain chip;
-    3. a **Keep on top** pin;
-    4. the **Remember this window** bookmark;
-    5. a **Show in main window** control that switches the main window to this
+    3. a **Show in main window** control that switches the main window to this
        surface and closes this one.
+  - The window's native title bar carries the two window toggles, **Keep on
+    top** then **Remember this window**, just left of the system's minimise,
+    maximise and close buttons. The desktop head draws them through MAUI's
+    `Window.TitleBar`, because the system's own caption buttons cannot be
+    extended (local ADR 0043 §4).
   - The pin is an icon-only toggle named **Keep on top**. Pressed, it keeps the
     window in front of every window not kept on top itself, and the next window
-    of that surface opens kept on top too. Only the desktop head draws it,
-    because a browser tab cannot stay on top.
+    of that surface opens kept on top too. Its tooltip is **Keep this window on
+    top of other windows**, and it exposes its pressed state to UI Automation as
+    a toggle. Only the desktop head draws it, because a browser tab cannot stay
+    on top.
   - A plain press on a chip scopes that one, and a press on the only one in scope
     clears it. The chips narrow this window alone, never the main window's scope.
-  - The header MUST carry no **Ask AI**, which stays in the main window, and no
-    close button of its own: the OS one closes it.
-  - The window's title follows the surface on screen.
+  - The window MUST carry no **Ask AI**, which stays in the main window, and no
+    close button but the OS one, in its header or in its surface.
+  - The title bar keeps the system's behaviour: drag to move, double-click to
+    maximise, the system menu and the Snap layouts flyout. Its colours come from
+    `color-scheme.md`'s dark tokens, legible while the window is active and
+    inactive.
+  - The window's title follows the surface on screen, in the title bar and on
+    the taskbar.
   - The footer band and toasts MUST show in the window as in the main one, except
-    in a docked window (local ADR 0043 §4, §5).
+    in a docked window (local ADR 0043 §4, §5). The **Settings** gear stays in
+    the main window.
 - **A popped-out window is remembered by its bookmark:**
-  - The bookmark MUST be an icon-only toggle between **Keep on top** and **Show
-    in main window**, at the header's trailing end. It uses the Lucide
-    `bookmark` glyph at `icon-sm`, hidden from assistive technology, with the
-    name **Remember this window** on the control itself.
-  - It reads pressed (`aria-pressed`) while this window is remembered. Its
-    tooltip says what the next press does: **Remember this window** or **Forget
-    this window**. A press changes this window alone, never another popped-out window or the main one.
+  - The bookmark MUST be an icon-only toggle in the title bar, between **Keep on
+    top** and the system's minimise button. It uses the Lucide `bookmark` glyph
+    at `icon-sm`, which assistive technology does not announce, with the name
+    **Remember this window** on the control itself.
+  - It reads pressed while this window is remembered, and exposes that state to
+    UI Automation as a toggle. Its tooltip says what the next press does:
+    **Remember this window** or **Forget this window**. A press changes this
+    window alone, never another popped-out window or the main one.
   - A remembered window reopens on the next start, after the main window, on the
     surface and query it showed at quit. Quitting keeps it remembered; closing
     the window, **Show in main window**, or pressing the bookmark again forgets
     it (local ADR 0043 §5).
   - A window without a key draws no bookmark, the web harness and the loopback
     pages among them.
-  - Its target matches **Keep on top**'s, under
-    `accessibility.md#target-sizes-and-text`'s 44 px for the same reason: the
-    slim header stays one height.
+  - Its target and **Keep on top**'s are the title bar's 32 px height, like the
+    system caption buttons beside them. That is an exception to
+    `accessibility.md#target-sizes-and-text`'s 44 px, recorded there.
 - **A docked window gives its rows to the list:**
   - A docked window sits beside other work, such as a list for today on a side
     monitor.
-  - Its header MUST put the title and its buttons on one row and the scope chips
-    on a row of their own. That row scrolls sideways rather than running off the
+  - Its header MUST put the title and **Show in main window** on one row and the
+    scope chips on a row of their own. That row scrolls sideways rather than running off the
     edge.
   - **Show in main window** keeps only its glyph, and its name stays on the
     control.
@@ -952,9 +987,13 @@ as its kind:
   - No *No repo* chip appears anywhere else: Brain is the one place that says
     "no repository".
 - **The gear holds the occasional switches:**
-  - The panel lines up with the gear's end edge. It MUST list the **Colors**
-    switch, then the **Show archived** switch, then a **Settings** link to the
-    Settings page.
+  - It sits after **Report issue** at the footer's trailing end. The Settings
+    page and popped-out windows draw no gear.
+  - **Why:** in the header it wrapped a whole row for one icon at common window
+    widths, and that row came out of the list.
+  - The panel opens upward and lines up with the gear's end edge. It MUST list
+    the **Colors** switch, then the **Show archived** switch, then a **Settings**
+    link to the Settings page.
   - Both switches are the shared `Toggle`, named by the visible word beside the
     track.
   - **Colors** is listed only while a repository is configured (local ADR 0027);
@@ -1004,8 +1043,8 @@ neither shares the window with the view. See local ADR 0022, amendments of
 ## Phone Tab Bar
 
 ```meta
-related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/progress/features.md#the-goals-view"]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_shows_once_the_phone_holds_a_notification]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/events/features.md#events-on-the-phone"]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_shows_once_the_phone_holds_a_notification, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_shows_before_notes_once_the_phone_holds_an_event, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_follows_notifications_when_both_are_held]
 ```
 
 The phone's shell has no header navigation. Its destinations are a row of tabs
@@ -1015,6 +1054,7 @@ along the bottom, where a thumb already is:
 - **Inbox**
 - **Notifications**, once the phone holds a notification
 - **Stand-up**, once a desktop has sent the stand-up
+- **Events**, once the phone holds a knowledge event
 - **Notes**
 
 Each is a route of its own, so the bar is a nav of links, not a tablist. The tabs are the phone's views, so
@@ -1031,7 +1071,8 @@ they lead with a glyph as the desktop's views do (`#shell-header`).
 - **Every tab or none:** one tab with a picture beside tabs without reads as the
   one that is different. The glyphs are a sun for Today (the My Day glyph), an
   inbox tray for Inbox and a target (Lucide `target`) for Stand-up. Notifications
-  takes a bell (Lucide `bell`) and Notes a sticky note (Lucide `sticky-note`).
+  takes a bell (Lucide `bell`), Events a calendar (Lucide `calendar`) and Notes
+  a sticky note (Lucide `sticky-note`).
   Stand-up and Notifications match the desktop's Goals and Notifications options.
 - **Glyph above the word:** the lit tab's glyph lights with its word. The word
   stays, because a glyph alone is not a name. See
@@ -1074,7 +1115,7 @@ is the pressed state's to say, not the shape's.
 ## Combobox
 
 ```meta
-related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/domain/tasks/features.md#planned-hours"]
+related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/domain/calendar/features.md#planned-hours"]
 ```
 
 A combobox is a text field with a list of suggestions under it. The reader may
@@ -1120,12 +1161,12 @@ figure typed, a figure refused).
 related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
-A popover button shows a small panel of the host's own controls under a button.
+A popover button shows a small panel of the host's own controls beside a button.
 They are settings a reader flips now and then and would rather not see all day. It is a
 disclosure, not a menu. The panel holds switches, buttons and links, not menu
-items, so the arrow keys stay those controls' own. The desktop header's
-**Settings** gear is its first use (`#shell-header`). `PopoverButton` in the
-shared library builds it.
+items, so the arrow keys stay those controls' own. The footer's **Settings** gear
+(`#shell-header`) and the narrow filter bar's **Filter** menu use it.
+`PopoverButton` in the shared library builds it.
 
 | Rule | Requirement |
 |---|---|
@@ -1136,6 +1177,7 @@ shared library builds it.
 | Outside click only closes | A click outside the open panel MUST close it and do nothing else. |
 | It stays open while used | Pressing a control inside the panel, such as flipping a switch, MUST leave it open. |
 | Lined up with its trigger | The panel MUST line up with the trigger's start edge, or its end edge at a row's end. |
+| Opens toward the room | The panel MUST open below the trigger, or above it when the trigger sits at the window's bottom edge. |
 
 - **Named on the trigger:** the tooltip shows the name unless the host gives
   another.
@@ -1145,10 +1187,15 @@ shared library builds it.
   the focus stays where the click left it. A second press of the trigger closes
   it the same way.
 - **It stays open while used:** a link that leaves the page closes it by
-  leaving.
+  leaving. A control that moves the reader's attention elsewhere, such as a row
+  that jumps to what it names, closes it through the host's `CloseAsync`, and the
+  focus goes where the host puts it. A switch or a Cancel still leaves it open.
+  When a press removes the control that held the focus and the panel has none
+  left to give it, the host calls `FocusAsync`: the focus goes to the trigger and
+  the panel stays open. The Tasks pane's session queue does both.
 
 Review surface: storybook → *Overlays* → **PopoverButton** (closed, open, a switch
-flipped with the panel still open).
+flipped with the panel still open) and **PopoverButton closed by the host**.
 
 ## Action Density and Overflow
 

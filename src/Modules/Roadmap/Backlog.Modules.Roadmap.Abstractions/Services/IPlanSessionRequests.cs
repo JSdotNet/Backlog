@@ -22,7 +22,8 @@ public enum PlanSessionRequestState
 /// <param name="Id">The request's own id, which Cancel names.</param>
 /// <param name="State">Where it stands now.</param>
 /// <param name="Repository">The repository it asks for, as <c>owner/name</c>.</param>
-public sealed record PlanSessionRequest(Guid Id, PlanSessionRequestState State, string Repository);
+/// <param name="RequestedAt">When the person asked.</param>
+public sealed record PlanSessionRequest(Guid Id, PlanSessionRequestState State, string Repository, DateTimeOffset RequestedAt);
 
 /// <summary>
 /// The plan queue icon's port (local ADR 0038 §2): queue a plan session — a request

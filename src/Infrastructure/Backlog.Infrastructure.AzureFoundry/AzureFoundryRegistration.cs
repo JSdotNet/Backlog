@@ -52,6 +52,10 @@ public static class AzureFoundryRegistration
         services.AddTransient<IAzureFoundryTriageClient>(sp =>
             (IAzureFoundryTriageClient)sp.GetRequiredService<IAzureFoundryChatClient>());
 
+        // The summary of a meeting transcript (local ADR 0049 §5), for the same reason.
+        services.AddTransient<IAzureFoundrySummaryClient>(sp =>
+            (IAzureFoundrySummaryClient)sp.GetRequiredService<IAzureFoundryChatClient>());
+
         // The experimental attribute on RemoveAllResilienceHandlers is a
         // warning about the API's shape, not its behaviour; it is the one
         // published way to take the host's default pipeline off a client.

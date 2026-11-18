@@ -558,7 +558,7 @@ public sealed class DomainUnitPageTests
             ["What is always true · 1 →", "How it moves →", "How it is built →", "Glossary →"],
             page.FindAll("[data-testid='domain-unit-links'] button").Select(link => link.TextContent));
 
-        // With no flow file, how it moves is the lifecycle on this page.
+        // How it moves is the lifecycle on this page.
         page.Find("[data-testid='domain-unit-link-flow']").Click();
         Assert.Null(followed);
         page.WaitForAssertion(() => Assert.IsType<ElementReference>(Assert.Single(Focused(context)).Arguments[0]));

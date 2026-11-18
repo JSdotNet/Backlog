@@ -60,7 +60,8 @@ public static class InboxEnumMap
         {
             [RoutingDomain.Tasks] = "tasks",
             [RoutingDomain.Devbook] = "devbook",
-            [RoutingDomain.Archive] = "archive"
+            [RoutingDomain.Archive] = "archive",
+            [RoutingDomain.Events] = "events"
         },
         // The wire token the member carried before the context was renamed; nothing
         // routed there, but a row that did would still be readable rather than thrown on.
@@ -100,7 +101,7 @@ public static class InboxEnumMap
         return trimmed.ToLowerInvariant() switch
         {
             "vscode" => "ide",
-            var known and ("mobile" or "youtube" or "website" or "email" or "web_clipper" or "ide" or "import" or ManualChannel) => known,
+            var known and ("mobile" or "youtube" or "website" or "event_page" or "email" or "web_clipper" or "ide" or "import" or ManualChannel) => known,
             _ => trimmed
         };
     }

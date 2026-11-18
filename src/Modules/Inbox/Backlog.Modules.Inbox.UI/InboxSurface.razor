@@ -18,7 +18,8 @@
 <InboxPane OnCapture="@CaptureCallback"
            CaptureRunning="@(_wiring?.CaptureRunning?.Invoke() ?? false)"
            CaptureMessage="@(_wiring?.CaptureMessage?.Invoke())"
-           Sources="@_wiring?.Sources" />
+           Sources="@_wiring?.Sources"
+           OnOpenBrainArea="@BrainAreaCallback" />
 
 @code {
     /// <summary>Unused: the Inbox takes no query.</summary>
@@ -32,7 +33,35 @@
 
     private InboxSurfaceWiring? _wiring;
 
-    protected override void OnInitialized() => _wiring = Services.GetService<InboxSurfaceWiring>();
+    private global::Backlog.SharedKernel.ISurfaceNavigator? _navigator;
+
+    protected override void OnInitialized()
+    {
+        _wiring = Services.GetService<InboxSurfaceWiring>();
+        _navigator = Services.GetService<global::Backlog.SharedKernel.ISurfaceNavigator>();
+    }
+
+    /// <summary>The Devbook surface's id and the keys it opens the Brain on (local ADR
+    /// 0043 §6) — strings, since the Inbox module references no Devbook project:
+    /// <c>DevbookSurfaceQuery</c>'s <c>SurfaceId</c>, <c>Scope</c> with its
+    /// <c>Brain</c> value, and <c>Chapter</c>, as the Roadmap writes them for a note.</summary>
+    private const string DevbookSurfaceId = "devbook";
+    private const string ScopeKey = "scope";
+    private const string BrainScopeValue = "brain";
+    private const string ChapterKey = "chapter";
+
+    /// <summary>Queue health's Brain count pressed: the Devbook on the Brain side, at
+    /// the inbox area's tab — the folder with a trailing slash, which names an area
+    /// rather than a note. None where the window has no navigator.</summary>
+    private EventCallback<string> BrainAreaCallback =>
+        _navigator is { } navigator
+            ? EventCallback.Factory.Create<string>(this, folder =>
+                navigator.Show(DevbookSurfaceId, new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [ScopeKey] = BrainScopeValue,
+                    [ChapterKey] = folder.TrimEnd('/') + "/",
+                }))
+            : default;
 
     /// <summary>The Capture button's press, or none where the window offers no capture.
     /// Raised on this component, so the button draws busy while the run is out and the

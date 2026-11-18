@@ -38,6 +38,15 @@ public abstract class DevbookCorpusProfile
     /// it (local ADR 0027 §6).</summary>
     public virtual bool ReadsCrossCorpusLinks => false;
 
+    /// <summary>
+    /// The list fields a <c>meta</c> block may also write as a YAML block list — the
+    /// field with no value, then one <c>- item</c> line per value — read as if
+    /// written <c>[a, b]</c>. The devbook parse skips those lines, so none by
+    /// default; the Brain's are the lists the app appends to in either style
+    /// (local ADR 0052 §1).
+    /// </summary>
+    public virtual IReadOnlyCollection<string> BlockListFields => [];
+
     /// <summary>The folders to index, relative to <paramref name="root"/> and in
     /// order, or <see langword="null"/> for the repository devbook layout's own
     /// discovery. An empty list is an ordinary answer: nothing to build.</summary>

@@ -1,8 +1,10 @@
 using Backlog.Desktop.UI.Tasks;
+using Backlog.Infrastructure.FileSystem.Calendar;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sqlite.Roadmap;
+using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -58,6 +60,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         services.AddTasksModule();
         services.AddRoadmapModule();
         services.AddRoadmapCrossContextAdapters();
+        services.AddCalendarCrossContextAdapters();
 
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
     }
@@ -109,6 +112,27 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         Assert.Equal(["backlog"], item.RepositoryAliases);
         Assert.Equal(EffortWindow.EndFrom(item.Start, 8, 7m, WorkingHours.Default), item.End); // placed against the effort already there
         Assert.Equal(["First step", "Second step"], await StepTitlesAsync(item));
+    }
+
+    /// <summary>Local ADR 0053 §2 — a Knowledge Ref may hold a Brain address — through the real adapter: a <c>plan</c> entry's
+    /// <c>devbook:</c> tokens land on the new item's Knowledge Refs, and in a host that
+    /// composed no Brain the Brain address is still gathered, unresolved.</summary>
+    [Fact]
+    public async Task A_plan_entry_s_brain_address_reaches_the_item_and_reads_unresolved_without_a_brain()
+    {
+        await ImportAsync("# Sync rework\n`plan` `+myplan` `devbook:domain/tasks/domain.md#task` `devbook:#brain:projects/sync.md`\n");
+
+        var item = await SingleItemAsync();
+        Assert.Equal([".devbook/domain/tasks/domain.md#task", "#brain:projects/sync.md"], item.KnowledgeRefs!);
+
+        using var scope = _provider.CreateScope();
+        var rollup = await scope.ServiceProvider.GetRequiredService<IRoadmapItemRollup>()
+            .GatherAsync(item, TestContext.Current.CancellationToken);
+
+        var note = Assert.Single(rollup.BrainNotes);
+        Assert.True(note.Unresolved);
+        Assert.Equal("#brain:projects/sync.md", note.Title);
+        Assert.DoesNotContain(rollup.KnowledgeChapters, chapter => chapter.Key.Contains("brain", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -177,7 +201,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         Assert.Equal(EffortWindow.EndFrom(b.Start, 3, 7m, WorkingHours.Default), b.End);
     }
 
-    /// <summary>The Calendar's shelf drop, through Tasks' own port and the real adapter:
+    /// <summary>The Calendar's shelf drop, through the Calendar's port and the real adapter:
     /// the plan whose tasks arrived first is on the shelf, and dropping it on a day has the
     /// roadmap's own import open its window there, sized from its points at the pace.</summary>
     [Fact]
@@ -247,7 +271,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
     }
 
     /// <summary>The Calendar reads a day's capacity from the roadmap's working week through
-    /// Tasks' own port, as the composed adapter answers it: nine to half five on a weekday,
+    /// the Calendar's own port, as the composed adapter answers it: nine to half five on a weekday,
     /// nothing at the weekend.</summary>
     [Fact]
     public void The_calendar_reads_a_days_capacity_from_the_roadmaps_working_week()

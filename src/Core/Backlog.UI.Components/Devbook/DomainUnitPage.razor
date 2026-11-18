@@ -394,20 +394,15 @@
         Follow(text, testId, ModelPath is null || anchor is null ? ModelPath : $"{ModelPath}#{anchor}");
 
     /// <summary>An aggregate's links out: its rules on Always true; how it moves —
-    /// the lifecycle in the flow file a group of its rules or its own
-    /// <c>related</c> names, else the first lifecycle its chapter draws on this
-    /// page, else a member's; how it is built, on Model; and the file's Glossary.</summary>
+    /// the first lifecycle its chapter draws on this page, else a member's; how it
+    /// is built, on Model; and the file's Glossary.</summary>
     private IReadOnlyList<DomainPageLink> AggregateLinks(DomainUnit unit)
     {
         var links = new List<DomainPageLink>();
         var count = RulesOf(unit).Sum(group => group.Rules.Count);
         if (count > 0) links.Add(new DomainPageLink($"What is always true · {count}", "domain-unit-link-always-true", () => ShowAlwaysTrue(unit)));
 
-        var flow = DomainUnits.RelatedOf(unit, File.Path)
-            .Concat(RulesOf(unit).SelectMany(group => group.Links).Select(link => link.Reference))
-            .FirstOrDefault(DomainUnits.IsFlowReference);
-        if (Follow("How it moves", "domain-unit-link-flow", flow) is { } moves) links.Add(moves);
-        else if (Lifecycle(unit) is { } drawn) links.Add(MovesLink(unit, drawn, "domain-unit-link-flow"));
+        if (Lifecycle(unit) is { } drawn) links.Add(MovesLink(unit, drawn, "domain-unit-link-flow"));
 
         if (ModelLink("How it is built", "domain-unit-link-model-built") is { } built) links.Add(built);
 

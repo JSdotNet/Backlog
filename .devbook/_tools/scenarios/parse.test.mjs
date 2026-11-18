@@ -182,7 +182,7 @@ test("reads a spec's header, its shot() labels, and its part titles", () => {
     const spec = [
         `// scenario: ${FILE}#set-up-and-fill-the-backlog`,
         "// signature: 9C41E2A0",
-        "import { scenario, shot } from '../../../.devbook/_tools/scenarios/setup';",
+        "import { scenario, shot } from '../../scenario-runner/setup';",
         "scenario('set-up-and-fill-the-backlog', ({ part }) => {",
         "  part('Statuses are set up', async ({ page, step }) => {",
         "    await shot(page, 'statuses-set-up');",

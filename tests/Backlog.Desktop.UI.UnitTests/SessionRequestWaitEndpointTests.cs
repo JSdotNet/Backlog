@@ -71,7 +71,7 @@ public class SessionRequestWaitEndpointTests
         Assert.Equal("request", json.RootElement.GetProperty("kind").GetString());
         Assert.Equal("plan", json.RootElement.GetProperty("requestKind").GetString());
         Assert.Equal("session-dispatch", json.RootElement.GetProperty("planTag").GetString());
-        Assert.Equal("/backlog-tools:execute-plan +session-dispatch", json.RootElement.GetProperty("brief").GetString());
+        Assert.Equal("/backlog-tools:execute-plan +session-dispatch branch", json.RootElement.GetProperty("brief").GetString());
     }
 
     [Fact]
@@ -501,6 +501,155 @@ public class SessionRequestWaitEndpointTests
     private static LoopCheckIn DispatcherCheckIn(DateTimeOffset at, LoopActivity activity = LoopActivity.Listening, LoopHeldWork? held = null) =>
         LoopSessions.CheckIn("manager-session", LoopKind.Dispatcher, activity, 5, held ?? LoopHeldWork.None, at);
 
+    // --- A paused queue ---------------------------------------------------------------
+
+    [Fact]
+    public async Task A_paused_queue_hands_out_no_request_and_answers_no_content_when_the_hold_ends()
+    {
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
+        queue.Add(Entry(Guid.NewGuid(), clock.GetUtcNow()));
+        await queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
+        var contact = new DispatcherContact(clock);
+
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, TestContext.Current.CancellationToken, ShortHold, contact: contact);
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
+
+        Assert.Equal(204, reply.StatusCode);
+        Assert.Empty(reply.Body);
+        Assert.Equal(clock.GetUtcNow(), contact.LastHeardAt);
+    }
+
+    [Fact]
+    public async Task A_paused_queue_still_hands_out_a_due_delivery()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var queue = new InMemorySessionRequestStore();
+        queue.Add(Entry(Guid.NewGuid(), now - TimeSpan.FromHours(1)));
+        await queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
+        var questions = new HeldWaitingQuestions();
+        var delivery = questions.AddPendingDelivery("cli-1", "Which database?", "Postgres", now);
+        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(
+            queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken, questions: questions, sessions: sessions);
+
+        Assert.Equal(200, reply.StatusCode);
+        using var json = JsonDocument.Parse(reply.Body);
+        Assert.Equal("delivery", json.RootElement.GetProperty("kind").GetString());
+        Assert.Equal(delivery.Id, json.RootElement.GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task A_held_call_hands_out_the_waiting_request_once_the_queue_is_resumed()
+    {
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
+        var request = queue.Add(Entry(Guid.NewGuid(), clock.GetUtcNow()));
+        await queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
+
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, TestContext.Current.CancellationToken);
+        Assert.False(waiting.IsCompleted, "A paused queue handed out a request.");
+
+        await queue.SetPausedAsync(false, TestContext.Current.CancellationToken);
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
+
+        Assert.Equal(200, reply.StatusCode);
+        using var json = JsonDocument.Parse(reply.Body);
+        Assert.Equal(request.Id, json.RootElement.GetProperty("id").GetGuid());
+    }
+
+    // --- Dispatcher contact (local ADR 0038 §4) -----------------------------------------
+
+    [Fact]
+    public async Task A_call_held_open_counts_as_dispatcher_contact_until_it_is_answered()
+    {
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
+        var contact = new DispatcherContact(clock);
+
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, TestContext.Current.CancellationToken, contact: contact);
+        clock.Advance(TimeSpan.FromSeconds(30));
+        await Task.Yield();
+
+        Assert.False(waiting.IsCompleted);
+        Assert.Equal(clock.GetUtcNow(), contact.LastHeardAt);
+
+        await AdvanceUntilAnsweredAsync(waiting, clock);
+    }
+
+    [Fact]
+    public async Task A_call_answered_no_content_leaves_its_reply_as_the_last_contact()
+    {
+        var clock = Clock();
+        var contact = new DispatcherContact(clock);
+
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(new InMemorySessionRequestStore(clock), Features(on: true), clock, TestContext.Current.CancellationToken, contact: contact);
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
+        var answeredAt = clock.GetUtcNow();
+        clock.Advance(TimeSpan.FromMinutes(1));
+
+        Assert.Equal(204, reply.StatusCode);
+        Assert.Equal(answeredAt, contact.LastHeardAt);
+    }
+
+    [Fact]
+    public async Task A_call_answered_with_a_request_is_contact()
+    {
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
+        queue.Add(Entry(Guid.NewGuid(), clock.GetUtcNow()));
+        var contact = new DispatcherContact(clock);
+        clock.Advance(TimeSpan.FromMinutes(5));
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, TestContext.Current.CancellationToken, contact: contact);
+
+        Assert.Equal(200, reply.StatusCode);
+        Assert.Equal(clock.GetUtcNow(), contact.LastHeardAt);
+    }
+
+    /// <summary>A dispatcher that reached the app but found the queue unreadable still
+    /// reached it: a <c>503</c> is contact.</summary>
+    [Fact]
+    public async Task A_call_answered_service_unavailable_is_still_contact()
+    {
+        var clock = Clock();
+        var contact = new DispatcherContact(clock);
+        clock.Advance(TimeSpan.FromMinutes(5));
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(new UnreadableQueue(), Features(on: true), clock, TestContext.Current.CancellationToken, contact: contact);
+
+        Assert.Equal(503, reply.StatusCode);
+        Assert.Equal(clock.GetUtcNow(), contact.LastHeardAt);
+    }
+
+    [Fact]
+    public async Task A_call_answered_not_found_while_the_flag_is_off_is_not_contact()
+    {
+        var clock = Clock();
+        var contact = new DispatcherContact(clock);
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(new InMemorySessionRequestStore(clock), Features(on: false), clock, TestContext.Current.CancellationToken, contact: contact);
+
+        Assert.Equal(404, reply.StatusCode);
+        Assert.Null(contact.LastHeardAt);
+    }
+
+    [Fact]
+    public async Task A_caller_that_goes_away_lets_go_of_its_hold()
+    {
+        var clock = Clock();
+        var contact = new DispatcherContact(clock);
+        using var gone = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(new InMemorySessionRequestStore(clock), Features(on: true), clock, gone.Token, contact: contact);
+        await gone.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
+        clock.Advance(TimeSpan.FromMinutes(1));
+
+        Assert.Equal(clock.Start, contact.LastHeardAt);
+    }
+
     private static IAppFeatureSettings Features(bool on) => new SessionRequestFlag(on);
 
     /// <summary>A fake clock, so a held call runs on advanced time rather than the wall clock.</summary>
@@ -547,6 +696,10 @@ public class SessionRequestWaitEndpointTests
         public Task<SessionRequestOutcome> ReportStartedAsync(Guid id, string dispatcher, string sessionId, CancellationToken cancellationToken = default) => Fail<SessionRequestOutcome>();
 
         public Task<SessionRequestOutcome> CancelAsync(Guid id, CancellationToken cancellationToken = default) => Fail<SessionRequestOutcome>();
+
+        public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default) => Fail<bool>();
+
+        public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default) => Fail<bool>();
 
         public Task<IReadOnlyList<SessionRequest>> LinkAsync(Guid entryId, IReadOnlyCollection<string> planTags, string sessionId, CancellationToken cancellationToken = default) =>
             Fail<IReadOnlyList<SessionRequest>>();

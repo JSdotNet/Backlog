@@ -216,7 +216,7 @@ public class SessionRequestToolsTests
         Assert.Equal("plan", plan.Kind);
         Assert.Equal("session-dispatch", plan.PlanTag);
         Assert.Null(plan.EntryId);
-        Assert.Equal("/backlog-tools:execute-plan +session-dispatch", plan.Brief);
+        Assert.Equal("/backlog-tools:execute-plan +session-dispatch branch", plan.Brief);
     }
 
     [Fact]
@@ -231,6 +231,49 @@ public class SessionRequestToolsTests
         Assert.Equal("claimed", answer.State);
         Assert.Equal(claimed.Id, Assert.Single(answer.Requests).Id);
         Assert.DoesNotContain(answer.Requests, request => request.Id == waiting.Id);
+    }
+
+    // --- a paused queue ---------------------------------------------------------
+
+    [Fact]
+    public async Task A_claim_on_a_paused_queue_is_refused_naming_the_pause_and_leaves_the_request_Requested()
+    {
+        var request = Entry();
+        await _queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
+
+        var answer = await _tools.ClaimSessionRequestAsync(request.Id, "manager-1", TestContext.Current.CancellationToken);
+
+        Assert.False(answer.Claimed);
+        Assert.Equal("The session queue is paused.", answer.Refusal);
+        Assert.Equal("requested", answer.Request.State);
+        Assert.Null(answer.Request.ClaimedBy);
+    }
+
+    [Fact]
+    public async Task The_holder_reclaiming_on_a_paused_queue_still_holds_its_claim()
+    {
+        var request = Entry();
+        await _tools.ClaimSessionRequestAsync(request.Id, "manager-1", TestContext.Current.CancellationToken);
+        await _queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
+
+        var answer = await _tools.ClaimSessionRequestAsync(request.Id, "manager-1", TestContext.Current.CancellationToken);
+
+        Assert.True(answer.Claimed);
+        Assert.Null(answer.Refusal);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_list_says_whether_the_queue_is_paused(bool paused)
+    {
+        Entry();
+        await _queue.SetPausedAsync(paused, TestContext.Current.CancellationToken);
+
+        var answer = await _tools.ListSessionRequestsAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(paused, answer.Paused);
+        Assert.Equal(1, answer.Count);
     }
 
     [Theory]

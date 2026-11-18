@@ -150,6 +150,10 @@ public static class BacklogMcpTools
             // this pane, behind the same key, with no switch of its own.
             DevbookTools.ResolveAnnotation,
             DevbookTools.CaptureNote,
+
+            // The Brain's review dates (local ADR 0054 §6), read-only, behind the
+            // same key as the Brain's other tools.
+            DevbookTools.ListBrainReviews,
         ]);
 
     /// <summary>The sessions tool, behind <c>sessions</c>. Its own group because
@@ -269,7 +273,8 @@ public static class BacklogMcpTools
         [LoopTools.CheckIn]);
 
     /// <summary>
-    /// The goal tools: read the goals, set, edit and delete one, attach and detach its work.
+    /// The goal tools: read the goals and the iterations they are read over, set, edit and
+    /// delete one, attach and detach its work.
     /// Progress's own, so their own group, beside <see cref="Impediments"/> rather than in it:
     /// a goal and an impediment are two things a model is told about. Behind <c>backlog</c>,
     /// the always-on Tasks key, for the reason the impediment tools give — Progress has no
@@ -280,6 +285,7 @@ public static class BacklogMcpTools
         typeof(GoalTools),
         [
             GoalTools.ListGoals,
+            GoalTools.ReadIterations,
             GoalTools.CreateGoal,
             GoalTools.UpdateGoal,
             GoalTools.AttachToGoal,
@@ -298,11 +304,11 @@ public static class BacklogMcpTools
         typeof(NotificationTools),
         [NotificationTools.Notify, NotificationTools.Ask, NotificationTools.GetAnswer, NotificationTools.Close]);
 
-    /// <summary>The Inbox's captures, behind the Inbox pane's key.</summary>
+    /// <summary>The Inbox's captures, and capturing into it, behind the Inbox pane's key.</summary>
     public static McpToolGroup Inbox { get; } = new(
         InboxFeatures.Pane,
         typeof(InboxTools),
-        [InboxTools.ListInboxItems, InboxTools.ReadInboxItem, InboxTools.ArchiveInboxItem]);
+        [InboxTools.ListInboxItems, InboxTools.ReadInboxItem, InboxTools.ArchiveInboxItem, InboxTools.CaptureToInbox]);
 
     /// <summary>
     /// <c>open_window</c>, which shows the person a registered surface in a window or

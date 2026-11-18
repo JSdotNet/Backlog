@@ -177,6 +177,7 @@ public sealed class ShellNavigationStore
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
+        CalendarEventsShown = dto?.CalendarEventsShown ?? false;
         CalendarRange = string.IsNullOrWhiteSpace(dto?.CalendarRange) ? DefaultCalendarRange : dto.CalendarRange;
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
@@ -191,6 +192,7 @@ public sealed class ShellNavigationStore
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
         C4ZoomHintDismissed = dto?.C4ZoomHintDismissed ?? false;
         BrainHiddenShown = dto?.BrainHiddenShown ?? false;
+        RoadmapArchiveOffered = dto?.RoadmapArchiveOffered ?? Empty;
         GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
         GoalsTwoWeekStart = DateOnly.TryParseExact(dto?.GoalsTwoWeekStart, IsoDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
             ? start
@@ -237,14 +239,20 @@ public sealed class ShellNavigationStore
     /// </summary>
     public string BoardColumns { get; private set; }
 
-    /// <summary>Whether the Tasks Calendar draws the roadmap's plans — its "Show plans"
+    /// <summary>Whether the Calendar draws the roadmap's plans — its "Show plans"
     /// box: off until the reader turns it on on this device. A file that carries no
     /// choice reads as off; one that says <c>false</c>, as a file from when the box
     /// was on by default does once it was turned off, reads as off too.</summary>
     public bool CalendarPlansShown { get; private set; }
 
+    /// <summary>Whether the Calendar draws the knowledge events — its "Show events"
+    /// box (local ADR 0050 §7): off until the reader turns it on on this device, and a
+    /// choice apart from <see cref="CalendarPlansShown"/>. A file that carries no choice
+    /// reads as off.</summary>
+    public bool CalendarEventsShown { get; private set; }
+
     /// <summary>
-    /// The Tasks Calendar's range — <c>Month</c> or <c>Week</c> — as the reader last
+    /// The Calendar's range — <c>Month</c> or <c>Week</c> — as the reader last
     /// left it on this device; <see cref="DefaultCalendarRange"/> until changed. A name,
     /// for the reason <see cref="BoardColumns"/> is one: the shell reads a name it does
     /// not know as Month. Only the range is kept, never the date it showed.
@@ -319,6 +327,11 @@ public sealed class ShellNavigationStore
     /// §2): off until turned on on this device. Read through the Devbook module's
     /// <c>IBrainShowHidden</c>.</summary>
     public bool BrainHiddenShown { get; private set; }
+
+    /// <summary>The roadmap items, by id, this device has offered to move a finished
+    /// plan's project note to the archive (local ADR 0052 §5): each is offered once,
+    /// whatever the person did with the offer. Empty until the first offer.</summary>
+    public IReadOnlyList<string> RoadmapArchiveOffered { get; private set; }
 
     /// <summary>The iteration length an earlier build kept per device, as the setting's
     /// value — <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>; null until one was
@@ -469,6 +482,14 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetCalendarEventsShown(bool shown)
+    {
+        if (shown == CalendarEventsShown) return;
+
+        CalendarEventsShown = shown;
+        Save();
+    }
+
     public void SetCalendarRange(string range)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(range);
@@ -565,6 +586,17 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    /// <summary>Remembers that the roadmap item <paramref name="itemId"/> was offered
+    /// the archive move. One already remembered writes nothing.</summary>
+    public void MarkRoadmapArchiveOffered(string itemId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
+        if (RoadmapArchiveOffered.Contains(itemId, StringComparer.OrdinalIgnoreCase)) return;
+
+        RoadmapArchiveOffered = [.. RoadmapArchiveOffered.Append(itemId).Order(StringComparer.Ordinal)];
+        Save();
+    }
+
     /// <summary>Keeps <paramref name="aliases"/> in the order given — the anchor first —
     /// so the same aliases reordered are a change.</summary>
     public void SetRepositoryScope(IReadOnlyList<string> aliases)
@@ -635,6 +667,9 @@ public sealed class ShellNavigationStore
                 BoardColumns = BoardColumns == DefaultBoardColumns ? null : BoardColumns,
                 // Left out while off, the default, so only turning it on writes a key.
                 CalendarPlansShown = CalendarPlansShown ? true : null,
+                // The same for the events box. A stored name: never rename it without
+                // reading the old one.
+                CalendarEventsShown = CalendarEventsShown ? true : null,
                 // Each of these is left out while at its default, the same way.
                 CalendarRange = CalendarRange == DefaultCalendarRange ? null : CalendarRange,
                 RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope],
@@ -662,6 +697,9 @@ public sealed class ShellNavigationStore
                 C4ZoomHintDismissed = C4ZoomHintDismissed ? true : null,
                 // Likewise left out while off, and likewise a stored name.
                 BrainHiddenShown = BrainHiddenShown ? true : null,
+                // Left out until the first offer. A stored name: never rename it
+                // without reading the old one.
+                RoadmapArchiveOffered = RoadmapArchiveOffered.Count == 0 ? null : [.. RoadmapArchiveOffered],
                 // Left out until chosen. Both keys are stored names: never rename them
                 // without reading the old ones.
                 GoalsIterationLength = GoalsIterationLength,
@@ -720,6 +758,9 @@ public sealed class ShellNavigationStore
         public bool? CalendarPlansShown { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? CalendarEventsShown { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? CalendarRange { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -769,6 +810,10 @@ public sealed class ShellNavigationStore
         /// <summary>Written as <c>brainHiddenShown</c>, and only while on.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? BrainHiddenShown { get; init; }
+
+        /// <summary>Written as <c>roadmapArchiveOffered</c>, and only once a plan was offered.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string[]? RoadmapArchiveOffered { get; init; }
 
         /// <summary>Written as <c>goalsIterationLength</c>: <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

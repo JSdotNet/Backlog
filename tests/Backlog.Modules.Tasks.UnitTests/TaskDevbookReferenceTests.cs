@@ -46,6 +46,34 @@ public sealed class TaskDevbookReferenceTests
         Assert.Equal(reference.Value, reference.ToString());
     }
 
+    /// <summary>A note in the owner's Brain (local ADR 0053 §1 and §2) is a reference
+    /// too, kept in the Brain address's one spelling — the prefix and all — so no
+    /// repository page can match it.</summary>
+    [Theory]
+    [InlineData("#brain:projects/sync.md", "#brain:projects/sync.md", null)]
+    [InlineData("#BRAIN:projects/sync.md#later", "#brain:projects/sync.md", "later")]
+    [InlineData("[#brain:/projects\\sync.md]", "#brain:projects/sync.md", null)]
+    [InlineData("  #brain:inbox.md  ", "#brain:inbox.md", null)]
+    [InlineData("#brain:./projects/sync.md", "#brain:projects/sync.md", null)]
+    public void A_brain_note_is_kept_as_its_address(string written, string path, string? anchor)
+    {
+        var reference = TaskDevbookReference.Parse(written);
+
+        Assert.Equal(path, reference.Path);
+        Assert.Equal(anchor, reference.Anchor);
+        Assert.Equal(anchor is null ? path : $"{path}#{anchor}", reference.Value);
+    }
+
+    /// <summary>A value wearing the Brain's prefix that names no note — no path, or one
+    /// climbing out of the Brain — is refused rather than kept as a repository path it
+    /// can never be.</summary>
+    [Theory]
+    [InlineData("#brain:")]
+    [InlineData("#brain:#later")]
+    [InlineData("#brain:../secrets.md")]
+    public void A_brain_address_naming_no_note_is_refused(string written) =>
+        Assert.False(TaskDevbookReference.TryParse(written, out _));
+
     /// <summary>A path with no folder and no Markdown extension names no page —
     /// <c>task</c> on its own is a word, not a chapter.</summary>
     [Theory]

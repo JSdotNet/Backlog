@@ -13,12 +13,18 @@
     harness - serves the endpoint on its own origin behind no token, and Aspire
     owns its port, so there the page draws that address and nothing to edit.
 
+    The third card is the app's life beside its window (local ADR 0043 §5): keep
+    running in the tray, and start at sign-in through IStartupRegistration. Only
+    the desktop head composes that port; elsewhere the card says there is no
+    window to keep running.
+
     The namespace is the screen's rather than the folder's, and this folder has
     no _Imports.razor, for the reason the note at the top of Settings.razor gives.
 *@
 @namespace Backlog.Desktop.UI.Shell
 @inherits SettingsPageBase
 @using Backlog.Desktop.UI.Extensions
+@using Backlog.Infrastructure.FileSystem
 @using Backlog.Modules.DevPc.Abstractions
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
@@ -144,9 +150,96 @@
             </div>
         }
     </SettingsCard>
+
+    @* The app's life beside its window (local ADR 0043 §5): whether closing the
+       main window keeps the server answering, and whether Backlog starts at
+       sign-in. Here because the reason to want either is the MCP server. *@
+    <SettingsCard Title="@BackgroundCardTitle"
+                  Id="mcp-server-background-title"
+                  Description="What closing the main window does, and whether Backlog starts when you sign in."
+                  TestId="mcp-server-background-card">
+        @if (_startup is null || _settings is null)
+        {
+            <p class="setting__note" data-testid="mcp-server-background-note">
+                This host has no window of its own to keep running.
+            </p>
+        }
+        else
+        {
+            <Toggle Label="Keep running in the tray when closed"
+                    Description="The MCP server keeps answering while the window is closed."
+                    Checked="@_settings.KeepRunningInTray"
+                    CheckedChanged="SetKeepRunningInTray"
+                    TestId="mcp-server-keep-in-tray" />
+            @if (_trayNote is not null)
+            {
+                <Alert BaseClass="setting__status"
+                       Role="status"
+                       TestId="mcp-server-keep-in-tray-status"
+                       Message="@_trayNote" />
+            }
+
+            <Toggle Label="Start Backlog when I sign in"
+                    Description="@StartupDescription"
+                    Checked="@(_startupState == StartupRegistrationState.Enabled)"
+                    CheckedChanged="SetStartAtSignInAsync"
+                    Disabled="@StartupLocked"
+                    TestId="mcp-server-start-at-sign-in" />
+        }
+    </SettingsCard>
 </div>
 
 @code {
+    /// <summary>The card with the tray and sign-in switches - the third of the
+    /// page's <c>SettingsSection.CardTitles</c>.</summary>
+    public const string BackgroundCardTitle = "In the background";
+
+    /// <summary>The sign-in switch's line where the process has no package identity.</summary>
+    public const string StartupUnavailableNote = "Available in the installed app";
+
+    /// <summary>The sign-in switch's line where Windows reports the task turned off
+    /// by the person or by policy, which only they can change.</summary>
+    public const string StartupLockedNote = "Turned off in Task Manager's Startup apps";
+
+    /// <summary>The sign-in switch's line while the app may change it.</summary>
+    public const string StartupNote = "Backlog starts in the tray, with no window.";
+
+    /// <summary>The host's startup registration, or null in a host that composes none.</summary>
+    private IStartupRegistration? _startup;
+
+    /// <summary>The per-machine settings the tray switch writes, or null in a host
+    /// without them.</summary>
+    private WorkspaceSettingsStore? _settings;
+
+    /// <summary>What Windows last said about starting at sign-in; null until it answered.</summary>
+    private StartupRegistrationState? _startupState;
+
+    /// <summary>What the store said about a tray choice it took but could not save.</summary>
+    private string? _trayNote;
+
+    private bool StartupLocked => _startupState is null
+        or StartupRegistrationState.Unavailable
+        or StartupRegistrationState.DisabledByUser
+        or StartupRegistrationState.DisabledByPolicy;
+
+    private string StartupDescription => _startupState switch
+    {
+        StartupRegistrationState.Unavailable => StartupUnavailableNote,
+        StartupRegistrationState.DisabledByUser or StartupRegistrationState.DisabledByPolicy => StartupLockedNote,
+        _ => StartupNote,
+    };
+
+    private void SetKeepRunningInTray(bool keepRunning) => _trayNote = _settings?.SetKeepRunningInTray(keepRunning);
+
+    private async Task SetStartAtSignInAsync(bool enabled)
+    {
+        if (_startup is null || StartupLocked) return;
+
+        _startupState = await _startup.SetEnabledAsync(enabled);
+    }
+
+    private void OnTrayChanged() => _ = InvokeAsync(StateHasChanged);
+
     /// <summary>The card with the listener's state, its address and its port -
     /// one of the page's <c>SettingsSection.CardTitles</c>.</summary>
     public const string EndpointCardTitle = "MCP endpoint";
@@ -237,7 +330,18 @@
             _ => $"The MCP server is not listening on port {_source.Port}.",
         };
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
+    {
+        _startup = Services.GetService<IStartupRegistration>();
+        _settings = _startup is null ? null : Services.GetService<WorkspaceSettingsStore>();
+        if (_settings is not null) _settings.TrayChanged += OnTrayChanged;
+
+        InitializeEndpoint();
+
+        if (_startup is not null && _settings is not null) _startupState = await _startup.GetStateAsync();
+    }
+
+    private void InitializeEndpoint()
     {
         _source = Services.GetService<IMcpEndpointSource>();
         if (_source is null) return;
@@ -316,5 +420,6 @@
     public void Dispose()
     {
         if (_source is not null) _source.Changed -= OnSourceChanged;
+        if (_settings is not null) _settings.TrayChanged -= OnTrayChanged;
     }
 }

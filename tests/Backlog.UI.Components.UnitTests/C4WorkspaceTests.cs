@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Backlog.UI.Components.UnitTests;
@@ -16,7 +15,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// workspace stops parsing clean and this is what says so.
 /// </para>
 /// <para>
-/// The reference tests are the other half. A <c>related</c> entry naming a view is
+/// The reference tests are the other half. An embed — <c>![…](c4:&lt;key&gt;)</c> — is
 /// the only statement tying a chapter to a picture, and a typo in one is invisible:
 /// the chapter still renders, the view still draws, and the link between them is
 /// simply not there.
@@ -30,8 +29,8 @@ public sealed class C4WorkspaceTests
     /// <summary>The only folder the workspace may <c>!include</c> from.</summary>
     private const string IncludeFolder = "c4";
 
-    /// <summary>The folder that held the workspaces before contract 33, and still holds
-    /// the authored reference map.</summary>
+    /// <summary>The folder that held the workspaces and the authored reference map
+    /// before contract 33; retired here (local ADR 0046).</summary>
     private const string ReferenceFolder = "_c4";
 
     /// <summary>A reference to a workspace as a chapter would spell one. Present in a
@@ -44,21 +43,6 @@ public sealed class C4WorkspaceTests
         new(@"!\[[^\]]*\]\(c4:(?<key>[A-Za-z0-9._-]+)\)", RegexOptions.Compiled);
 
     private static string Arc42Folder => Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "arc42");
-
-    /// <summary>The authored view-to-chapters map beside the workspace.</summary>
-    private static Dictionary<string, string[]> References()
-    {
-        var path = Path.Combine(Arc42Folder, ReferenceFolder, "references.json");
-        Assert.True(File.Exists(path), $"Expected an authored reference map at {path}.");
-
-        using var document = JsonDocument.Parse(File.ReadAllText(path));
-        var views = document.RootElement.GetProperty("views");
-
-        return views.EnumerateObject().ToDictionary(
-            property => property.Name,
-            property => property.Value.EnumerateArray().Select(entry => entry.GetString() ?? string.Empty).ToArray(),
-            StringComparer.OrdinalIgnoreCase);
-    }
 
     private static IReadOnlyList<FileInfo> Workspaces()
     {
@@ -291,59 +275,21 @@ public sealed class C4WorkspaceTests
         Assert.Empty(offending);
     }
 
-    [Fact]
-    public void The_reference_file_parses_and_names_only_views_that_exist()
-    {
-        var references = References();
-        Assert.NotEmpty(references);
-
-        var keys = Read(WorkspaceFile).Views.Select(view => view.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var unknown = references.Keys.Where(key => !keys.Contains(key)).ToList();
-
-        Assert.Empty(unknown);
-    }
-
-    /// <summary>
-    /// Every chapter a view claims to document has to exist. A typo here is invisible:
-    /// the view still draws and the reference simply goes nowhere.
-    /// </summary>
-    [Fact]
-    public void Every_chapter_a_view_documents_exists()
-    {
-        var missing = new List<string>();
-
-        foreach (var (key, chapters) in References())
-        {
-            foreach (var chapter in chapters)
-            {
-                var path = chapter.Split('#')[0].Replace('/', Path.DirectorySeparatorChar);
-                if (!File.Exists(Path.Combine(RepositoryRoot.Root.FullName, path)))
-                {
-                    missing.Add($"{key} documents {chapter}, which does not exist");
-                }
-            }
-        }
-
-        Assert.Empty(missing);
-    }
-
     /// <summary>
     /// A view nothing documents is a view the app can draw and no chapter admits to,
     /// which is the arrangement failing quietly — the whole point is that the two sit
-    /// beside each other with references. Either statement counts: a chapter embedding
-    /// the view as <c>![…](c4:&lt;key&gt;)</c>, or the authored reference map naming it.
+    /// beside each other with references. The statement is a chapter embedding the view
+    /// as <c>![…](c4:&lt;key&gt;)</c>.
     /// </summary>
     [Theory]
     [MemberData(nameof(WorkspaceFiles))]
     public void Every_view_of_the_committed_workspace_documents_a_chapter(string name)
     {
-        var references = References();
         var embeds = Embeds();
 
         var undocumented = Read(name).Views
             .Select(view => view.Key)
             .Where(key => !embeds.ContainsKey(key))
-            .Where(key => !references.TryGetValue(key, out var chapters) || chapters.Length == 0)
             .ToList();
 
         Assert.Empty(undocumented);
@@ -372,7 +318,7 @@ public sealed class C4WorkspaceTests
     [Fact]
     public void The_model_documents_both_the_architecture_chapters_and_a_domain_chapter()
     {
-        var documented = References().Values.SelectMany(chapters => chapters).ToList();
+        var documented = Embeds().Values.SelectMany(chapters => chapters).ToList();
 
         Assert.Contains(documented, chapter => chapter.StartsWith(".devbook/arc42/", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(documented, chapter => chapter.StartsWith(".devbook/domain/", StringComparison.OrdinalIgnoreCase));
@@ -432,10 +378,7 @@ public sealed class C4WorkspaceTests
     [InlineData(".devbook/arc42/07-deployment-view.md")]
     public void The_architecture_chapters_with_C4_content_are_documented_by_a_view(string chapter)
     {
-        var documented = References().Values
-            .SelectMany(chapters => chapters)
-            .Select(entry => entry.Split('#')[0])
-            .ToList();
+        var documented = Embeds().Values.SelectMany(chapters => chapters).ToList();
 
         Assert.Contains(chapter, documented);
     }

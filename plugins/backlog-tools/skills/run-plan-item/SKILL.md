@@ -59,8 +59,15 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    with this session's id, so the task can open the session. Read every `Read first:`
    reference — each path at its `#anchor`, each URL with the host's tool for it (an artifact
    by the artifact tool) — and the Devbook chapters `read_item` lists; the instructions are
-   built on them. Name any you could not open, and stop when the step cannot be done without
-   it. Then
+   built on them. The entry's Brain notes come next, before any work: each reference
+   written `#brain:<path>[#heading]` (local ADR 0053) is a note in the person's own Brain,
+   and `list_devbook_references` answers it with `scope: "#brain"` and `path` the note's path
+   from the Brain's root — read it with `read_knowledge_chapter`, `repository` `#brain`
+   and that `path` as `chapterPath`, at its `#heading` when it names one. One that answers
+   `unverified` or `unknown-page` cannot be read on this device: name it and go on. Never
+   look a `#brain:` reference up in the repository's devbook, and never copy a note's text
+   into the repository, a commit or a pull request — it is the person's own. Name any you
+   could not open, and stop when the step cannot be done without it. Then
    `Setup:` sub-items in order, then the instructions, exactly the way the repository's own
    instructions say work is done there — the matching flow its gate names, and its review
    and validation rules; this skill adds no execution path of its own. Tick `- [ ]` lines as they land;

@@ -133,6 +133,10 @@ public sealed class WorkspaceSettingsStore
         // reads as the defaults ADR 0041 settles.
         Presence = settings?.Notifications?.ToPresence() ?? PresenceSettings.Default;
 
+        // Absent reads as on, and as no hint shown yet (local ADR 0043 §5).
+        KeepRunningInTray = settings?.Tray?.KeepRunning ?? true;
+        TrayHintShown = settings?.Tray?.HintShown ?? false;
+
         ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
         SessionActivityCacheDirectory = Path.Combine(appData, SessionActivityCacheFolderName);
         SessionRecordsDirectory = Path.Combine(appData, SessionRecordsFolderName);
@@ -266,6 +270,20 @@ public sealed class WorkspaceSettingsStore
     /// whatever schedules a question's notify delay. Separate from the other events
     /// for the reason they are separate from each other.</summary>
     public event Action? PresenceChanged;
+
+    /// <summary>Whether closing the main window hides it to the notification area and
+    /// keeps the app — and the MCP server — running (local ADR 0043 §5). On until
+    /// somebody turns it off; off, closing the main window quits the app.</summary>
+    public bool KeepRunningInTray { get; private set; }
+
+    /// <summary>Whether the one-time toast saying the app is still running in the
+    /// notification area has been shown on this machine.</summary>
+    public bool TrayHintShown { get; private set; }
+
+    /// <summary>Raised when <see cref="KeepRunningInTray"/> or
+    /// <see cref="TrayHintShown"/> changes. Separate from the other events for the
+    /// reason they are separate from each other.</summary>
+    public event Action? TrayChanged;
 
     /// <summary>The folder somebody pointed branch snapshots at, or null while
     /// they go to <see cref="DefaultDevbookCacheDirectory"/>.</summary>
@@ -917,6 +935,30 @@ public sealed class WorkspaceSettingsStore
         return error;
     }
 
+    /// <summary>Turns keeping the app running in the tray on or off. The in-memory
+    /// value moves even when the write fails, the way every setter here behaves.</summary>
+    public string? SetKeepRunningInTray(bool keepRunning)
+    {
+        if (keepRunning == KeepRunningInTray) return null;
+
+        KeepRunningInTray = keepRunning;
+        var error = SaveSettings("Changed, but the choice couldn't be saved for next time.");
+        TrayChanged?.Invoke();
+        return error;
+    }
+
+    /// <summary>Records that the one-time tray toast was shown, so it never shows
+    /// again on this machine.</summary>
+    public string? MarkTrayHintShown()
+    {
+        if (TrayHintShown) return null;
+
+        TrayHintShown = true;
+        var error = SaveSettings("The tray hint was shown, but that couldn't be saved for next time.");
+        TrayChanged?.Invoke();
+        return error;
+    }
+
     /// <summary>
     /// Changes which loopback port the MCP server listens on.
     /// <para>
@@ -1111,7 +1153,10 @@ public sealed class WorkspaceSettingsStore
                 DevbookCacheDirectory = _devbookCacheOverride,
 
                 // Written as null while every setting is its default, for the same reason.
-                Notifications = StoreNotificationSettings.From(Presence)
+                Notifications = StoreNotificationSettings.From(Presence),
+
+                // Written as null while both are their defaults, for the same reason.
+                Tray = StoreTraySettings.From(KeepRunningInTray, TrayHintShown)
             };
             File.WriteAllText(_settingsPath, JsonSerializer.Serialize(settings, JsonOptions));
             return null;
@@ -1184,6 +1229,32 @@ public sealed class WorkspaceSettingsStore
         /// is its default. Absent reads as the defaults.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public StoreNotificationSettings? Notifications { get; init; }
+
+        /// <summary>The tray's settings, or null while both are their defaults.
+        /// Absent reads as keep running and no hint shown.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public StoreTraySettings? Tray { get; init; }
+    }
+
+    /// <summary>The tray's row: whether closing the main window keeps the app
+    /// running, and whether its one-time toast was shown. Each field is written only
+    /// while it differs from its default.</summary>
+    private sealed record StoreTraySettings
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? KeepRunning { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? HintShown { get; init; }
+
+        public static StoreTraySettings? From(bool keepRunning, bool hintShown) =>
+            keepRunning && !hintShown
+                ? null
+                : new StoreTraySettings
+                {
+                    KeepRunning = keepRunning ? null : false,
+                    HintShown = hintShown ? true : null
+                };
     }
 
     /// <summary>

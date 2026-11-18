@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.DevbookSubjects;
+using Backlog.Infrastructure.Sync.KnowledgeEvents;
 using Backlog.Infrastructure.Sync.Notifications;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Devbook.Abstractions;
@@ -573,6 +574,64 @@ public static class SyncClientRegistration
         services.TryAddTransient<DevbookSubjectSyncSession>();
 
         services.TryAddSingleton<DevbookSubjectSyncWorker>();
+
+        return services;
+    }
+
+    /// <summary>Where <see cref="AddKnowledgeEventSyncStore"/> puts this device's knowledge
+    /// event replication progress inside the folder it is given.</summary>
+    private const string KnowledgeEventSyncStateFileName = "knowledge-event-sync-state.json";
+
+    /// <summary>
+    /// The one file knowledge event replication keeps, inside <paramref name="folderPath"/> —
+    /// the per-installation folder the other feeds' progress sits in. One file, because the
+    /// events themselves live in the Events tables the host composes. <c>TryAdd</c>, so a host
+    /// or a test that chose its store keeps it.
+    /// </summary>
+    public static IServiceCollection AddKnowledgeEventSyncStore(this IServiceCollection services, string folderPath)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folderPath);
+
+        services.TryAddSingleton<IKnowledgeEventSyncStateStore>(
+            _ => new FileKnowledgeEventSyncStateStore(Path.Combine(folderPath, KnowledgeEventSyncStateFileName)));
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds knowledge event replication (local ADR 0050 §2) on top of <see cref="AddSyncClient"/>:
+    /// the replica client, the merge, the exchange and the loop that runs it.
+    /// <para>
+    /// Opt-in on <see cref="AddDevbookSubjectSyncClient(IServiceCollection, Uri)"/>'s terms: it
+    /// takes Events' <c>IKnowledgeEventReplication</c>, which a head composes with
+    /// <c>AddEventsModule()</c>, and an <see cref="IKnowledgeEventSyncStateStore"/> from
+    /// <see cref="AddKnowledgeEventSyncStore"/>. The loop is a singleton with a timer inside it,
+    /// so a head that calls this resolves <see cref="KnowledgeEventSyncWorker"/> once after
+    /// <c>Build()</c>.
+    /// </para>
+    /// </summary>
+    public static IServiceCollection AddKnowledgeEventSyncClient(this IServiceCollection services, Uri baseAddress)
+    {
+        ArgumentNullException.ThrowIfNull(baseAddress);
+        return services.AddKnowledgeEventSyncClient(_ => baseAddress);
+    }
+
+    /// <summary>The per-client-address form of <see cref="AddKnowledgeEventSyncClient(IServiceCollection, Uri)"/>;
+    /// pass the same callback <see cref="AddSyncClient(IServiceCollection, Func{IServiceProvider, Uri})"/> got.</summary>
+    public static IServiceCollection AddKnowledgeEventSyncClient(this IServiceCollection services, Func<IServiceProvider, Uri> baseAddress)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(baseAddress);
+
+        services.AddHttpClient<KnowledgeEventSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
+            .AddSyncPipeline()
+            .WithReplicationPipeline();
+
+        services.TryAddTransient<KnowledgeEventReplicaMerge>();
+        services.TryAddTransient<KnowledgeEventSyncSession>();
+
+        services.TryAddSingleton<KnowledgeEventSyncWorker>();
 
         return services;
     }

@@ -100,13 +100,54 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
     {
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
 
+        if (await PausedAsync(connection, null, cancellationToken).ConfigureAwait(false)) return null;
+
         var held = await ReadAsync(connection, null, cancellationToken).ConfigureAwait(false);
 
         return SessionRequests.Waiting(held, Now).FirstOrDefault();
     }
 
-    public Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) =>
-        ChangeAsync(id, (request, now) => SessionRequests.Claim(request, dispatcher, now), cancellationToken);
+    public async Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var transaction = await BeginAsync(connection, cancellationToken).ConfigureAwait(false);
+
+        // Read inside the immediate transaction that writes the claim: a pause committed
+        // before this claim took the write lock refuses it.
+        var paused = await PausedAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+
+        return await ChangeAsync(
+            connection,
+            transaction,
+            id,
+            (request, now) => SessionRequests.Claim(request, dispatcher, now, paused),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<bool> IsPausedAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+
+        return await PausedAsync(connection, null, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var transaction = await BeginAsync(connection, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            INSERT INTO session_request_queue (id, paused, paused_at) VALUES (1, $paused, $paused_at)
+            ON CONFLICT(id) DO UPDATE SET paused = excluded.paused, paused_at = excluded.paused_at;
+            """;
+        command.Parameters.AddWithValue("$paused", paused ? 1 : 0);
+        command.Parameters.AddWithValue("$paused_at", paused ? Text(Now)! : (object)DBNull.Value);
+
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public Task<SessionRequestOutcome> ReleaseAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, (request, now) => SessionRequests.Release(request, dispatcher, now), cancellationToken);
@@ -156,6 +197,16 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         await using var transaction = await BeginAsync(connection, cancellationToken).ConfigureAwait(false);
 
+        return await ChangeAsync(connection, transaction, id, transition, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<SessionRequestOutcome> ChangeAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        Guid id,
+        Func<SessionRequest, DateTimeOffset, SessionRequestOutcome> transition,
+        CancellationToken cancellationToken)
+    {
         var held = await ReadAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
 
         if (held.FirstOrDefault(request => request.Id == id) is not { } request)
@@ -182,6 +233,20 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
         // Not deferred: BEGIN IMMEDIATE takes the write lock before the read, so the
         // read a transition decides on cannot be overtaken by another writer.
         return Task.FromResult(connection.BeginTransaction(deferred: false));
+    }
+
+    /// <summary>Whether the queue's one row says paused. No row — a queue nobody ever
+    /// paused, or a database from before the pause — reads as running.</summary>
+    private static async Task<bool> PausedAsync(
+        SqliteConnection connection,
+        SqliteTransaction? transaction,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT paused FROM session_request_queue WHERE id = 1;";
+
+        return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is long paused && paused != 0;
     }
 
     private static async Task<IReadOnlyList<SessionRequest>> ReadAsync(
@@ -285,6 +350,11 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
                 created_at    TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS ix_session_requests_created ON session_requests (created_at, id);
+            CREATE TABLE IF NOT EXISTS session_request_queue (
+                id        INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
+                paused    INTEGER NOT NULL,
+                paused_at TEXT NULL
+            );
             """);
 }
 
@@ -338,6 +408,12 @@ public sealed class RootedSqliteSessionRequestStore(Func<string> currentRootDire
 
     public Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) =>
         Current.ClaimAsync(id, dispatcher, cancellationToken);
+
+    public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default) =>
+        Current.IsPausedAsync(cancellationToken);
+
+    public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default) =>
+        Current.SetPausedAsync(paused, cancellationToken);
 
     public Task<SessionRequestOutcome> ReleaseAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) =>
         Current.ReleaseAsync(id, dispatcher, cancellationToken);

@@ -370,6 +370,10 @@ public class LoopToolsTests
         public Task<SessionRequestOutcome> CancelAsync(Guid id, CancellationToken cancellationToken = default) => throw Locked;
 
         public Task<IReadOnlyList<SessionRequest>> LinkAsync(Guid entryId, IReadOnlyCollection<string> planTags, string sessionId, CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default) => throw Locked;
+
+        public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default) => throw Locked;
     }
 
     /// <summary>A question relay store whose database cannot be read.</summary>

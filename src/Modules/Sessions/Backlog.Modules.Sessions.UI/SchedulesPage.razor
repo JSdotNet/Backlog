@@ -56,7 +56,6 @@
                        OnClick="() => OnRefresh.InvokeAsync()">
                 @(Loading ? "Reading..." : "Refresh")
             </AppButton>
-            <IconButton AriaLabel="Close sessions pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
     </SectionHeader>
 
@@ -384,10 +383,6 @@
     /// <summary>Back to the session list, its filters and selection as they were.</summary>
     [Parameter]
     public EventCallback OnBack { get; set; }
-
-    /// <summary>The pane's own close: the page is inside the takeover.</summary>
-    [Parameter]
-    public EventCallback OnClose { get; set; }
 
     /// <summary>Read the sessions and the schedules again.</summary>
     [Parameter]

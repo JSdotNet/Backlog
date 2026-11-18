@@ -531,12 +531,6 @@ html, body {
     gap: var(--spacing-xs);
 }
 
-/* Remember this window is a glyph in a box, so it takes the folded sides an
-   icon-only toggle takes. */
-.sb-window-header__remember {
-    padding-inline: var(--spacing-sm);
-}
-
 /* A phone's whole screen, for something that covers one — the capture sheet
    rises from the bottom edge over a dimmed screen. The transform makes this box
    the containing block of the sheet's fixed layers, so the sheet covers the
@@ -682,6 +676,16 @@ html, body {
         grid-template-columns: minmax(0, 1fr);
         height: auto;
     }
+}
+
+/* A bottom band with room above it, so a panel that opens upward from a trigger
+   at its end has somewhere to open into, as it does over the app's footer. */
+.sb-footer-band {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 10rem;
+    padding-bottom: var(--spacing-xs);
+    border-bottom: var(--border-width) solid var(--color-border);
 }
 
 /* Gives an example a definite height to fill. A component that sizes itself to

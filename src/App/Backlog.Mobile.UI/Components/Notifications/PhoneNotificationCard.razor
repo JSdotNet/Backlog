@@ -10,12 +10,12 @@
     while the phone may answer, where it stands, and the desktop that owns it
     with whether that desktop is running (.devbook/domain/notifications/context.md).
 
-    The list draws it without the body and links the title to the detail; the
-    detail draws the Markdown body through MarkdownView, so a ```mermaid fence is
-    a diagram like it is everywhere else.
+    The pager draws it and links the title to the detail; the detail draws it too,
+    its title the page's heading. Both draw the whole Markdown body, through
+    MarkdownView, so a ```mermaid fence is a diagram like it is everywhere else.
 
     The answer controls are NotificationAnswerControls, the one implementation of
-    the answer shapes, which the pager draws too.
+    the answer shapes.
     The tray offers no actions for a question with a choice that takes text, so
     this card is where the phone answers it.
     A question that says answerOn: owner draws none: only its owner takes an
@@ -65,7 +65,7 @@
         <p class="phone-notification__summary" data-testid="notification-summary">@Item.Summary</p>
     }
 
-    @if (ShowBody && !string.IsNullOrWhiteSpace(Item.BodyMarkdown))
+    @if (!string.IsNullOrWhiteSpace(Item.BodyMarkdown))
     {
         <div class="phone-notification__body" data-testid="notification-body">
             <MarkdownView Blocks="@MarkdownPreview.ParseDocument(Item.BodyMarkdown)" Source="@Item.BodyMarkdown" />
@@ -112,10 +112,6 @@
     /// title is the page's heading.</summary>
     [Parameter]
     public string? Href { get; set; }
-
-    /// <summary>Whether the Markdown body is drawn: on the detail, not in the list.</summary>
-    [Parameter]
-    public bool ShowBody { get; set; }
 
     /// <summary>True while the host is keeping a reply.</summary>
     [Parameter]

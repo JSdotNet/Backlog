@@ -36,7 +36,7 @@ public sealed record DomainFlowchartNode(string Id, string Label, DomainFlowchar
 /// <param name="Arrow">Whether it ends in an arrowhead (<c>--&gt;</c>) or not (<c>---</c>).</param>
 public sealed record DomainFlowchartLink(string From, string To, string Label, DomainFlowchartLine Line, bool Arrow);
 
-/// <summary>A <c>flowchart</c> (or <c>graph</c>) the Flow page draws itself.</summary>
+/// <summary>A <c>flowchart</c> (or <c>graph</c>) the view draws itself.</summary>
 /// <param name="Across">True for <c>LR</c>, ranks left to right; false for
 /// <c>TD</c>/<c>TB</c>, ranks top to bottom.</param>
 /// <param name="Nodes">In the order the source first names them.</param>
@@ -63,8 +63,8 @@ public sealed record DomainFlowchartEdge(DomainFlowchartLink Link, string Path, 
 public sealed record DomainFlowchartLayout(double Width, double Height, IReadOnlyList<DomainFlowchartBox> Boxes, IReadOnlyList<DomainFlowchartEdge> Edges);
 
 /// <summary>
-/// Reads a flow chapter's <c>flowchart</c> and lays it out in ranks, in the
-/// lifecycle's cards and lines (local ADR 0047, the Flow page): each node a rank
+/// Reads a domain chapter's <c>flowchart</c> and lays it out in ranks, in the
+/// lifecycle's cards and lines (local ADR 0047): each node a rank
 /// past every node that links to it, every line running between the ranks with a
 /// rounded turn, and a link back to an earlier rank round the outside. Pure, so
 /// the storybook draws the same chart from a sample string.

@@ -240,6 +240,10 @@ public sealed class CapacityReaderTests
 
         public Task<SessionRequestOutcome> ReportStartedAsync(Guid id, string dispatcher, string sessionId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
+        public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default) => Task.FromResult(false);
+
+        public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task<SessionRequestOutcome> CancelAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<IReadOnlyList<SessionRequest>> LinkAsync(Guid entryId, IReadOnlyCollection<string> planTags, string sessionId, CancellationToken cancellationToken = default) =>

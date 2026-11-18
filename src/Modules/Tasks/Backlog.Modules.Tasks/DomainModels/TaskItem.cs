@@ -233,6 +233,12 @@ public sealed class TaskItem
     /// status, still counts as ready to a chain, and can still be ticked off.</summary>
     public DateOnly? BlockedSince { get; private set; }
 
+    /// <summary>Who the entry waits on and when to follow up, or null when it waits
+    /// on nobody (<c>.devbook/domain/tasks/domain.md#waiting-for</c>). Not the hand-set
+    /// <see cref="BlockedSince"/> and not an Impediment: it names a party the person
+    /// is waiting to hear from. No lifecycle rule reads it.</summary>
+    public WaitingFor? WaitingFor { get; private set; }
+
     /// <summary>Which reading of the body the person last asked for, or null when
     /// they have never said. Held on the aggregate and not in a view-model because
     /// the entry's markdown is canonical: the preference is written on the metadata
@@ -524,6 +530,14 @@ public sealed class TaskItem
     /// rule reads it, and the screens do not either — they read the
     /// <c>blocked:</c> token off the entry's text, the way they read the tick.</summary>
     public bool IsBlocked => BlockedSince is not null;
+
+    /// <summary>Records who the entry waits on and its follow-up date, or clears the
+    /// waiting-for with null. Touches nothing else — see <see cref="WaitingFor"/>.</summary>
+    public void SetWaitingFor(WaitingFor? waitingFor)
+    {
+        WaitingFor = waitingFor;
+        Touch();
+    }
 
     /// <summary>
     /// Attaches a place, or detaches whatever was attached.

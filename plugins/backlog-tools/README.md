@@ -1,13 +1,13 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or devbook tooling. Eleven skills: one for each direction of a plan,
+general-purpose or devbook tooling. Thirteen skills: one for each direction of a plan,
 one for running a whole plan, one for checking it once it has run, one for closing the entries
 whose pull request merged, one for bringing another tool's items into the Inbox, one for the
 remarks a person leaves while reading, one that dispatches the session requests the app
-queues, one that tends a person's Brain, one that reports what the week's runs cost, and one
-that levels a devbook and its code in the direction Backlog keeps — and a pane that follows a
-running plan.
+queues, one that tends a person's Brain, one that runs the weekly review, one that reports what
+the week's runs cost, one that levels a devbook and its code in the direction Backlog keeps,
+and one that keeps a person's goals current — and a pane that follows a running plan.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -24,7 +24,10 @@ running plan.
   `skills/import-plan/assets/plan-review.html` that parses the embedded plan
   itself and shows its checks, dependency order and entries, published as an artifact every
   run before the plan text is shown — a local HTML file only when the host has no artifacts. User-invoked only
-  (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub.
+  (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub, except to
+  read a Brain project note given as its source (`#brain:projects/<note>.md`, local ADR 0053)
+  through the knowledge read tool under `#brain` — the plan then names the note on its `plan`
+  entry and its steps as a `devbook:#brain:` token, and Import never writes into the note.
   A plan imports at two levels (ADR 0013:
   `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`): it opens with
   one `plan` entry, which Import turns into the Roadmap Item, and the step entries under it
@@ -66,34 +69,29 @@ running plan.
   branch and runs the entry through `run-plan-item` — so every
   entry passes the repository's gate and its own Personal Validation. Claude Desktop starts a
   session only on a turn the person typed or one chained to it by sessions finishing, so a
-  start it refuses — on a wake-up, or in a session another started — runs, unattended, the same
-  brief as a background sub-agent in its own worktree that parks at its gate, rather than
-  waiting on a card; attended, it stays a card for the person. Every check watch runs in the
+  start it refuses — on a wake-up, or in a session another started — runs the same brief as a
+  background sub-agent in its own worktree that parks at its gate. Every check watch runs in the
   foreground to keep the chain. Entries that wait on
-  nothing run in parallel. Before it starts anything — attended or unattended — it opens every entry's `Read first:`
-  references and linked Devbook chapters, and warns about each one it cannot reach, asking
-  once whether to go, hold the entries that name it, or stop to fix the plan.
+  nothing run in parallel. It always runs unattended and asks the person nothing. Before it
+  starts anything it opens every entry's `Read first:` references and linked Devbook chapters,
+  and holds each entry that names one it cannot reach — blocked, with a `source not reachable`
+  comment — until a later invocation finds the source again.
   An entry is done when its pull request merges — into `<integration>` in
   branch mode, into the base branch otherwise; the orchestrator
   then moves it to Done and starts what waited on it. It stops at `task` and `test` entries,
   listing what they hold up, starts the application in its own worktree for the first one
-  that validates landed work, and resumes from the plan's state when invoked again. Three
-  landing modes, defined in `skills/execute-plan/assets/landing-modes.md`: *per item*, each
-  pull request to the base branch; *branch*, each into one integration branch, by default `plan/<tag without its +>`, that the
+  that validates landed work, and resumes from the plan's state when invoked again. Two
+  landing modes, defined in `skills/execute-plan/assets/landing-modes.md`: *branch*, the
+  default, each into one integration branch, by default `plan/<tag without its +>`, that the
   orchestrator merges into, ending in a single pull request to the base branch; and
   *stacked*, each cut from and targeting its predecessor's branch, so a chain runs before
-  anything merges and the person merges bottom-up. *Attended*, the entry session ends its turn
-  at each Personal Validation, and the orchestrator relays it to the person, takes the first
-  answer — from the chat or from the question the gate raises on the person's devices
-  (`skills/execute-plan/assets/gates.md`) — and sends it back to that session (`SendMessage`);
-  Reject blocks the entry, and a follow-up an Approve + follow-up files runs as a ready entry
-  once the gated one lands; *unattended* (branch or stacked), each entry parks at
-  its gate and lands as a draft pull request whose body is the review handoff, so the whole
-  plan runs without anyone present and Personal Validation happens on the drafts — in branch
-  mode on the closing draft to the base branch. A failed entry blocks only what depends on
+  anything merges and the person merges bottom-up. Each entry parks at its gate and lands as a
+  draft pull request whose body is the review handoff, so the whole plan runs without anyone
+  present and Personal Validation happens on the drafts — in branch mode on the closing draft
+  to the base branch. A failed entry blocks only what depends on
   it. It titles its own session `<tag>:execute-plan` and each entry session
-  `<tag>:<n> - <Title>`, and a ready entry in another repository is handed to a new session
-  in that repository's checkout running the same plan, per
+  `<n> - <Title>` — the plan tag is already in the parent's name — and a ready entry in
+  another repository is handed to a new session in that repository's checkout running the same plan, per
   `skills/execute-plan/assets/handoff.md`. Branch names and pull request titles follow the
   repository's `.devbook/backlog-tools.json`, with an optional ticket the plan supplies and no
   tracker dependency (**Repository conventions** in `landing-modes.md`). The app itself moves an
@@ -216,6 +214,28 @@ running plan.
   reject it; neither comes back. It never edits the rule files, and writes no state file, index
   or log into the folder. Model-invoked as well — "tend my second brain" runs one tick — and no
   flow.
+- **`weekly-review`** — the GTD weekly review of local ADR 0054 §8
+  (`.devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md`), over the
+  three homes: the Inbox, the Brain and the backlog. It reads them through the `backlog` MCP
+  server — `list_inbox_items` (unprocessed and deferred), `list_entries`, `get_roadmap` and
+  `get_plan_items`, `list_goals`, `list_brain_reviews`, and `read_knowledge_chapter` under
+  `#brain` for each note's `tasks` and `roadmap` fields. The server says whether a Brain is set
+  but never where it is, so the skill lists an area's notes from the folder given as
+  `brain:<path>`, or from the working directory when it holds a `CONVENTIONS.md`. Without either,
+  the note-listing lines say so, and the review dates still come from `list_brain_reviews`. It reports three sections. **Get clear** covers the
+  open Inbox items, the notes in the Brain's inbox area, and each deferred item whose review day
+  falls this week or that has none ("No review date: look at it again", as the app's review
+  says). **Get current**
+  covers each plan with open entries but no next action (an entry ready or in progress, not
+  waiting, not marked blocked, every `after:` done), each roadmap plan with no entry at all, each `projects/` note no plan gathers, each
+  finished plan's project note still to archive, each waiting-for past its follow-up date, each
+  overdue due date, and each goal with open items whose forecast is at risk. **Get creative**
+  covers the `someday` area, the notes whose `review` date has come (and a `review` value that is
+  no date), and each `areas/` note with no linked entry created, started or completed in 30 days.
+  Every line names the entry or note and the action to take. The review day is the Inbox
+  answer's `deferredUntil`, the forecast the goals answer's `forecast` — the one the Goals view
+  draws; `node --test plugins/backlog-tools/tests/weekly-review-fields.test.mjs` holds the skill to
+  both. Model- and user-invoked. It writes nothing anywhere, so it is no flow.
 - **`weekly-cost-analysis`** — reports what the delivery runs on this machine cost in tokens
   over a window — 7 days, or an ISO range — across every repository, grouped by repository
   first, with the changes that would save the most. It reads the `backlog` server's
@@ -239,28 +259,55 @@ running plan.
   resolver. Every pull request it opens is a draft; it never sets a direction. Its test runs
   under `node --test plugins/backlog-tools/tests/devbook-sweep-select.test.mjs`. Not a flow:
   it is the target of the routine below, and run by hand the same way.
+- **`track-goals`** — keeps a person's goals current, so the stand-up and the weekly update
+  read correct facts and each goal says what to do next (local ADR 0035:
+  `.devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md`). Run once ("update my
+  goals") or as `/loop /backlog-tools:track-goals`. Each tick reads the last and next
+  iteration, each goal's standing and the open impediments through `read_iterations`, and what
+  each goal holds through `list_goals`. It finds the work no goal holds yet: tasks in progress
+  (`list_entries`), pull requests updated since the last iteration began (`gh pr list`, each
+  resolved to its entry with `find_item`), and roadmap plans with an open entry. Work a goal
+  already counts — directly, or through a held plan's `+tag` or a held task's pull request — is
+  skipped, and a task is never attached past its plan, which would move its count. A pull request
+  not yet linked to an entry, whose branch or body names an entry id or plan tag a goal holds, is
+  that held work: attaching it would count it twice, so the skill proposes linking it to that entry
+  (`link_change`) instead. The skill attaches a task or plan itself only when it depends on at
+  least one item and exactly one goal holds all of them. One with no dependencies, a title match,
+  or an unlinked pull request that names nothing held is only a proposal. It also proposes raising an impediment for a held task blocked for 2 worked days
+  or a held pull request whose checks have failed for a day, and resolving one that reads ready to
+  resolve; both thresholds are arguments with these defaults. A proposal is applied only on the person's yes: in chat when they
+  started the run, else through `ask` and the answer `get_answer` reads or `dispatch-sessions`
+  delivers (local ADR 0041). Raising and resolving stay the person's move, as ADR 0035 sets. It
+  reports per goal its standing, what finished in the last iteration, the next step and its open
+  impediments, then what needs the person; `weekly` reads a week and words it for a stakeholder.
+  It never transitions, tags or edits an entry, never deletes a goal, creates or edits one or links a
+  pull request only on a yes, and keeps no state file: Backlog's store is its state. Model-invoked; it changes no file
+  and is no flow. `tests/track-goals-tools.test.mjs` holds every tool it names to a tool the
+  server has.
 
 `import-plan`, `import-inbox`, `run-plan-item`, `execute-plan`, `final-check`, `close-merged`,
-`handle-remarks` and `tend-brain` open what they hand back with the `show-me` skill's
-orientation card when it has one, and read as before without it. `devbook-sweep` and
+`handle-remarks`, `tend-brain`, `weekly-review` and `track-goals` open what they hand back with
+the `show-me` skill's orientation card when it has one, and read as before without it. `devbook-sweep` and
 `dispatch-sessions` run with nobody present and `weekly-cost-analysis` keeps its fixed shape, so
 those three skip it.
 
 `resources/standing-session.md` is how a skill a person keeps running under `/loop` stands out
-as a long-running agent: on its first turn `dispatch-sessions` and `tend-brain` title their own
-Claude Desktop session with an icon and an ALL CAPS name (`📡 SESSION DISPATCHER`,
-`🧠 BRAIN TENDER`), file it under the `Agents` sidebar section and pin it, skipping any step the
-host lacks. Every tick then opens with the `backlog` server's `check_in` (local ADR 0051 §3),
+as a long-running agent: on its first turn `dispatch-sessions`, `tend-brain` and `track-goals`
+title their own Claude Desktop session with an icon and an ALL CAPS name (`📡 SESSION DISPATCHER`,
+`🧠 BRAIN TENDER`, `🎯 GOAL TRACKER`), file it under the `Agents` sidebar section and pin it, skipping any step the
+host lacks. Every tick of `dispatch-sessions` and `tend-brain` then opens with the `backlog` server's `check_in` (local ADR 0051 §3),
 which passes the session's own id (`${CLAUDE_SESSION_ID}`), its state and its heartbeat, and
 whose answer carries the person's last command: `pause` does no work and keeps checking in at
 the heartbeat, `resume` carries on, and `stop` ends the loop and says so. A loop that cannot
 check in — the `sessions` flag off, the app closed — carries on as before. `tend-brain` checks
-in only under `/loop`, so a one-off tick never reads as a loop. `tests/loop-skills.test.mjs`
+in only under `/loop`, so a one-off tick never reads as a loop. `track-goals` does not check in
+yet: `check_in` accepts no kind for it. `tests/loop-skills.test.mjs`
 holds every `/loop`-started skill to all of it, and to the 40-line body budget.
 
-`resources/chat-reports.md` is the one statement of how short a skill's chat report is. Nine
-skills point to it from their report step; `devbook-sweep` and `dispatch-sessions` run with
-nobody present, so they do not.
+`resources/chat-reports.md` is the one statement of how short a skill's chat report is. Eleven
+skills point to it from their report step — `track-goals` except for its `weekly` report, which a
+stakeholder reads in full sentences; `devbook-sweep` and `dispatch-sessions` run with nobody
+present, so they do not.
 
 ### The devbook sweep routine
 
