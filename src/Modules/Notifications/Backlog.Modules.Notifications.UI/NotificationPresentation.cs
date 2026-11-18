@@ -374,7 +374,8 @@ public static class NotificationPresentation
                 _ => NotificationCardChoiceStyle.Default
             },
             choice.TakesText,
-            choice.Placeholder))],
+            choice.Placeholder,
+            choice.Quiet))],
         spec.AllowMultiple,
         spec.Open is { } open ? new NotificationCardOpenAnswer(open.Placeholder, open.MaxLength) : null,
         spec.MinChoices,

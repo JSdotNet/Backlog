@@ -186,6 +186,12 @@ one of four shapes:
 
 Each set choice has an id, a label, and an optional style: primary or destructive.
 
+A set choice of a single-choice question may also be **quiet**: a quiet choice is
+drawn as a small text action apart from the buttons, so it takes little room, as
+Dismiss does on the Personal Validation question. A quiet choice takes no text, and
+a multiple-choice question has none. A reader that predates the mark draws it as an
+ordinary button.
+
 A set choice of a single-choice question may also take text, with or without an
 open answer beside it. A reply that picks it carries the person's words as
 plain text. The open answer's length limit holds them, or 2,000 characters when the

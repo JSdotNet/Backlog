@@ -158,12 +158,18 @@ public sealed record NotificationSubject(string Context, string Type, string Id)
 /// choices for a question that has one.</param>
 /// <param name="Placeholder">The hint shown in the text box of a choice that takes text, or
 /// null.</param>
+/// <param name="Quiet">Whether the choice is drawn as a small text action apart from the
+/// buttons — one that takes little room, such as withdrawing the question. A flag rather than
+/// an <see cref="AnswerChoiceStyle"/>, so a reader that predates it draws an ordinary button
+/// instead of dropping the notification on an unknown style. Allowed in a single-choice
+/// question only, and a quiet choice takes no text.</param>
 public sealed record AnswerChoice(
     string Id,
     string Label,
     AnswerChoiceStyle Style = AnswerChoiceStyle.Default,
     bool TakesText = false,
-    string? Placeholder = null);
+    string? Placeholder = null,
+    bool Quiet = false);
 
 /// <summary>
 /// The plain-text answer a question takes, with an optional placeholder and a length
