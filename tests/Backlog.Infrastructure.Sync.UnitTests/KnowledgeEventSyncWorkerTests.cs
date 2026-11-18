@@ -7,6 +7,7 @@ using Backlog.Infrastructure.Sync.Notifications;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -224,9 +225,134 @@ public sealed class KnowledgeEventSyncWorkerTests
         Assert.DoesNotContain(KnowledgeEventSyncWorker.FirstCycleDelay, others);
     }
 
+    /// <summary>The withdrawal (<c>.devbook/domain/events/requirements.md#requirement-no-events-screen-while-the-area-is-off</c>):
+    /// a desktop that turns the area off sends that switch alone, at once, and then nothing more
+    /// while the area stays off.</summary>
+    [Fact]
+    public async Task Turning_the_area_off_sends_the_withdrawal_alone_and_then_stops()
+    {
+        using var fixture = Fixture.Create(syncOn: true, eventsOn: true, paired: true);
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(KnowledgeEventSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.DoesNotContain(fixture.Handler.Requests, request => request.Method == HttpMethod.Post);
+
+        var withdrawal = fixture.NextCycle();
+        fixture.Clock.Advance(TimeSpan.FromMinutes(1));
+        fixture.Features.SetEnabled(EventsFeatures.Events, false);
+        await withdrawal.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        var push = Assert.Single(fixture.Handler.Requests, request => request.Method == HttpMethod.Post);
+        var change = Assert.Single(Fixture.Pushed(fixture.Bodies[^1]));
+        Assert.Equal((KnowledgeEventKinds.EventsArea, Noon + KnowledgeEventSyncWorker.FirstCycleDelay + TimeSpan.FromMinutes(1)), (change.Kind, change.UpdatedAt));
+        Assert.False(KnowledgeEventDocuments.ReadArea(change)!.On);
+        Assert.Equal(new EventsAreaSwitch(false, change.UpdatedAt, Sent: true), fixture.State.Current.Area);
+        Assert.Null(fixture.Worker.LastError);
+
+        var requests = fixture.Handler.Requests.Count;
+        fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
+        Assert.Equal(requests, fixture.Handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task An_area_turned_off_while_sync_is_off_is_withdrawn_once_sync_comes_on()
+    {
+        using var fixture = Fixture.Create(syncOn: false, eventsOn: true, paired: true);
+
+        fixture.Features.SetEnabled(EventsFeatures.Events, false);
+        fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
+        Assert.Empty(fixture.Handler.Requests);
+
+        var withdrawal = fixture.NextCycle();
+        fixture.Features.SetEnabled(SyncFeatures.Sync, true);
+        await withdrawal.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        var change = Assert.Single(Fixture.Pushed(Assert.Single(fixture.Bodies)));
+        Assert.False(KnowledgeEventDocuments.ReadArea(change)!.On);
+        Assert.True(fixture.State.Current.Area!.Sent);
+    }
+
+    /// <summary>A deployed service from before the switch refuses its kind: nothing shows wrong,
+    /// and the switch stays unsent for the next cycle.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_withdrawal_the_service_cannot_take_yet_shows_nothing_wrong_and_stays_unsent(bool refusedKind)
+    {
+        using var fixture = Fixture.Create(
+            syncOn: true,
+            eventsOn: true,
+            paired: true,
+            respond: (request, _) => request.Method != HttpMethod.Post
+                ? Fixture.Ordinary(request)
+                : refusedKind
+                    ? StubHttpMessageHandler.Problem(HttpStatusCode.BadRequest, SyncErrorCodes.KnowledgeEventInvalid, "Refused.")
+                    : new HttpResponseMessage(HttpStatusCode.NotFound));
+
+        var withdrawal = fixture.NextCycle();
+        fixture.Features.SetEnabled(EventsFeatures.Events, false);
+        await withdrawal.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Null(fixture.Worker.LastError);
+        Assert.True(fixture.Worker.LastSummary?.NotYetServed);
+        Assert.False(fixture.State.Current.Area!.Sent);
+
+        var retry = fixture.NextCycle();
+        fixture.Clock.Advance(KnowledgeEventSyncWorker.CyclePeriod);
+        await retry.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, fixture.Handler.Requests.Count(request => request.Method == HttpMethod.Post));
+    }
+
+    [Fact]
+    public async Task Turning_the_area_on_sends_the_switch_with_the_first_exchange()
+    {
+        using var fixture = Fixture.Create(syncOn: true, eventsOn: false, paired: true);
+
+        var first = fixture.NextCycle();
+        fixture.Features.SetEnabled(EventsFeatures.Events, true);
+        fixture.Clock.Advance(KnowledgeEventSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        var change = Assert.Single(Fixture.Pushed(Assert.Single(fixture.Bodies)));
+        Assert.True(KnowledgeEventDocuments.ReadArea(change)!.On);
+        Assert.Equal(Noon, change.UpdatedAt);
+        Assert.True(fixture.Worker.LastSummary?.AreaSent);
+    }
+
+    /// <summary>A desktop that upgrades sees its switch for the first time and sends nothing: a
+    /// first sight is no move, so it never overrides a switch another desktop moved.</summary>
+    [Fact]
+    public async Task The_first_sight_of_the_switch_sends_nothing()
+    {
+        using var on = Fixture.Create(syncOn: true, eventsOn: true, paired: true);
+
+        var first = on.NextCycle();
+        on.Clock.Advance(KnowledgeEventSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Empty(on.Bodies);
+        Assert.Equal(new EventsAreaSwitch(true, Noon, Sent: true), on.State.Current.Area);
+
+        using var off = Fixture.Create(syncOn: true, eventsOn: false, paired: true);
+        off.Clock.Advance(Fixture.WellPastSeveralCycles);
+
+        Assert.Empty(off.Handler.Requests);
+        Assert.Equal(new EventsAreaSwitch(false, Noon, Sent: true), off.State.Current.Area);
+    }
+
     private sealed class Fixture : IDisposable
     {
         public static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
+
+        private static readonly System.Text.Json.JsonSerializerOptions Web = new(System.Text.Json.JsonSerializerDefaults.Web);
+
+        public static IReadOnlyList<KnowledgeEventChange> Pushed(string body) =>
+            System.Text.Json.JsonSerializer.Deserialize<PushKnowledgeEventsRequest>(body, Web)!.Events;
+
+        /// <summary>Every request body the stub was sent, in order.</summary>
+        public List<string> Bodies { get; }
 
         public static readonly TimeSpan WellPastSeveralCycles = TimeSpan.FromMinutes(30);
 
@@ -240,9 +366,11 @@ public sealed class KnowledgeEventSyncWorkerTests
             KeyedFeatureSettings features,
             InMemoryDeviceCredentialStore credentials,
             FakeTimeProvider clock,
-            bool compose)
+            bool compose,
+            List<string> bodies)
         {
             _http = http;
+            Bodies = bodies;
             _compose = compose;
 
             Handler = handler;
@@ -288,7 +416,16 @@ public sealed class KnowledgeEventSyncWorkerTests
             bool compose = true,
             Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null)
         {
-            var handler = new StubHttpMessageHandler((request, index) => respond is not null ? respond(request, index) : Ordinary(request));
+            var bodies = new List<string>();
+            var handler = new StubHttpMessageHandler((request, index) =>
+            {
+                if (request.Content is not null)
+                {
+                    lock (bodies) bodies.Add(request.Content.ReadAsStringAsync(TestContext.Current.CancellationToken).GetAwaiter().GetResult());
+                }
+
+                return respond is not null ? respond(request, index) : Ordinary(request);
+            });
 
             return new Fixture(
                 new HttpClient(handler) { BaseAddress = new Uri("https://sync.test") },
@@ -296,7 +433,8 @@ public sealed class KnowledgeEventSyncWorkerTests
                 new KeyedFeatureSettings(syncOn, eventsOn),
                 paired ? new InMemoryDeviceCredentialStore(Paired) : new InMemoryDeviceCredentialStore(),
                 new FakeTimeProvider(Noon),
-                compose);
+                compose,
+                bodies);
         }
 
         public Task NextCycle()

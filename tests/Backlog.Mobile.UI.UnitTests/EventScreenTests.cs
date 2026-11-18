@@ -284,6 +284,58 @@ public sealed class EventScreenTests
             app.FindAll("[data-testid='note-event-select'] option").Select(option => option.TextContent.Trim()));
     }
 
+    /// <summary>The withdrawal (<c>.devbook/domain/events/requirements.md#requirement-no-events-screen-while-the-area-is-off</c>,
+    /// local ADR 0050 §6): a phone that holds events offers no Events screen once the latest
+    /// switch a desktop moved says off — no tab, no event on the page a person is still on, no
+    /// attach control on a note — and offers it again once a later switch says on.</summary>
+    [Fact]
+    public void A_switch_turned_off_withdraws_the_screen_and_a_later_one_on_brings_it_back()
+    {
+        var keynote = Note("Keynote", Now.AddDays(-1));
+        var techorama = TestEvents.Event("Techorama 2026", Pushed, new DateOnly(2026, 10, 26));
+        var (host, events) = Phone(tasks: new ScriptedTaskService(keynote), events: [techorama]);
+        using var disposing = host;
+        var app = host.Open("events");
+        app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='event-row']")));
+        Assert.Contains("Events", Tabs(app));
+
+        events.Switch(on: false, Now.AddMinutes(-5));
+        host.Service<AppLifecycle>().Resume();
+
+        app.WaitForAssertion(() => Assert.DoesNotContain("Events", Tabs(app)));
+        Assert.NotNull(app.Find("[data-testid='events-withdrawn']"));
+        Assert.Empty(app.FindAll("[data-testid='event-row']"));
+
+        host.Navigation.NavigateTo($"events/{techorama.Id:D}");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='event-withdrawn']")));
+        Assert.Empty(app.FindAll("[data-testid='event-page']"));
+
+        host.Navigation.NavigateTo("notes");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='note-row']")));
+        host.Navigation.NavigateTo($"notes/{keynote.Id:D}");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='note-editor']")));
+        Assert.Empty(app.FindAll("[data-testid='note-event']"));
+
+        events.Switch(on: true, Now);
+        host.Service<AppLifecycle>().Resume();
+
+        app.WaitForAssertion(() => Assert.Contains("Events", Tabs(app)));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='note-event-select'] select")));
+    }
+
+    [Fact]
+    public void A_phone_that_already_holds_the_switch_off_never_offers_the_screen()
+    {
+        var (host, events) = Phone(events: [TestEvents.Event("Techorama 2026", Pushed, new DateOnly(2026, 10, 26))]);
+        using var disposing = host;
+        events.Switch(on: false, Pushed);
+
+        var app = host.Open("");
+
+        app.WaitForAssertion(() => Assert.True(events.Pulls > 0));
+        Assert.Equal(["Today", "Inbox", "Notes"], Tabs(app));
+    }
+
     [Fact]
     public void A_note_offers_no_event_while_the_phone_holds_none()
     {

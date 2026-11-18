@@ -47,6 +47,48 @@ public sealed class EventViewProjectionTests : IDisposable
         Assert.True(_events.HoldsAny);
     }
 
+    /// <summary>The withdrawal (<c>.devbook/domain/events/requirements.md#requirement-no-events-screen-while-the-area-is-off</c>):
+    /// the latest switch a desktop moved decides, by its stamp; holding none is the area on.</summary>
+    [Fact]
+    public async Task The_latest_switch_decides_whether_the_screen_is_offered()
+    {
+        _service.Publish(TestEvents.Event("Techorama 2026", Morning, Today));
+        await _events.PullAsync(Cancellation);
+        Assert.True(_events.IsOffered);
+        Assert.False(_events.IsWithdrawn);
+
+        _service.Switch(on: false, Morning.AddHours(2));
+        await _events.PullAsync(Cancellation);
+        Assert.True(_events.IsWithdrawn);
+        Assert.False(_events.IsOffered);
+        Assert.True(_events.HoldsAny);
+
+        // An older switch on, pulled late, loses to the later off.
+        _service.Switch(on: true, Morning.AddHours(1));
+        await _events.PullAsync(Cancellation);
+        Assert.True(_events.IsWithdrawn);
+
+        _service.Switch(on: true, Morning.AddHours(3));
+        await _events.PullAsync(Cancellation);
+        Assert.True(_events.IsOffered);
+
+        // Read back from the store by a projection made after the pulls.
+        _service.Switch(on: false, Morning.AddHours(4));
+        await _events.PullAsync(Cancellation);
+        using var reopened = Projection();
+        Assert.True(reopened.IsWithdrawn);
+    }
+
+    [Fact]
+    public async Task A_switch_on_alone_offers_nothing_while_the_phone_holds_no_event()
+    {
+        _service.Switch(on: true, Morning);
+        await _events.PullAsync(Cancellation);
+
+        Assert.False(_events.HoldsAny);
+        Assert.False(_events.IsOffered);
+    }
+
     [Fact]
     public async Task The_upcoming_list_leaves_out_skipped_and_past_events_and_lists_the_soonest_first_with_undated_ones_after()
     {

@@ -67,7 +67,8 @@ adapter in Infrastructure.
 Events owns its documents the way Notifications does
 ([ADR 0039 §3](../../arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md#3-notifications-get-their-own-replica-containers)).
 A knowledge event is a document of kind `knowledge-event` on a replica container of
-its own, `knowledgeEvents`. An event series rides the same container as kind `event-series`.
+its own, `knowledgeEvents`. An event series rides the same container as kind `event-series`,
+and the `events` switch a desktop last moved as kind `events-area` ([Events area](#events-area)).
 Sync stores and carries the documents and reads none of their fields. Each desktop keeps the person's events in its own store and pushes
 its changes.
 
@@ -107,9 +108,16 @@ It ships off and marked `DEV`, the settings screen's mark for a feature still un
 construction
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
 The key joins the feature catalog in `AppFeatures.cs`, and a person's choice is kept
-in `features.json` beside the app's other per-device choices. The phone keeps no flag
-of its own: it shows the Events screen while it holds an event, and a desktop pushes
-events only while its `events` flag is on. The flag is retired when the Events area leaves `DEV`.
+in `features.json` beside the app's other per-device choices. The flag is retired when
+the Events area leaves `DEV`.
+
+The phone keeps no flag of its own. It honours the latest switch any desktop made:
+a desktop that turns the flag off or on sends that switch as one document on the
+events feed, and a later switch replaces an earlier one. The phone shows the Events
+screen while it holds an event and the latest switch it holds is not off. Holding no
+switch counts as on. A desktop pushes events only while its own flag is on, and it
+never takes another desktop's switch as its own
+([ADR 0050 §6](../../arc42/adr/0050-events-is-its-own-bounded-context.md#6-the-events-switch-withdraws-the-whole-area)).
 
 ## Desktop clock
 

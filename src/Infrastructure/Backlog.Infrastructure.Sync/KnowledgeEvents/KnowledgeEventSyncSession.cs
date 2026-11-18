@@ -1,4 +1,6 @@
+using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Events.Abstractions.Services;
+using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
 
@@ -26,6 +28,10 @@ public sealed record KnowledgeEventSyncSummary(int Pushed, int Pulled, int Appli
     /// updated by hand and lags — and nothing moved, so the next cycle after it is updated sends
     /// everything.</summary>
     public bool NotYetServed { get; init; }
+
+    /// <summary>Whether this exchange sent this desktop's <c>events</c> switch (local ADR 0050
+    /// §6).</summary>
+    public bool AreaSent { get; init; }
 }
 
 /// <summary>
@@ -93,10 +99,38 @@ public sealed class KnowledgeEventSyncSession
     {
         if (_credentials.Current is not { } me) return;
 
-        var state = _state.Current;
-        if (state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId) return;
+        // The switch is this desktop's, whoever it is paired as: a move not yet sent goes to the new owner.
+        _state.Update(state => state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId
+            ? state
+            : new KnowledgeEventSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId, state.Area));
+    }
 
-        _state.Save(new KnowledgeEventSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
+    /// <summary>
+    /// Sends this desktop's <c>events</c> switch when it moved and the replica does not have it
+    /// yet (local ADR 0050 §6), alone in its request, so a service that refuses the kind refuses
+    /// nothing else. Answers whether it sent one. The switch is marked sent only while it still
+    /// stands as sent: a move made during the request is sent on the next exchange.
+    /// </summary>
+    public async Task<Result<bool>> PushAreaAsync(CancellationToken cancellationToken = default)
+    {
+        ReconcileIdentity();
+
+        if (_state.Current.Area is not { Sent: false } area) return Result.Success(false);
+
+        var change = KnowledgeEventDocuments.ToChange(new EventsAreaReplicaDto(EventsAreaReplicaDto.WellKnownId, area.On, area.At));
+
+        var response = await _client.PushAsync([change], cancellationToken).ConfigureAwait(false);
+        if (response.IsFailure) return Result.Failure<bool>(response.Error);
+
+        // Not taken: the replica holds a later switch, by another desktop's clock. That one stands.
+        if (response.Value.Accepted == 0)
+        {
+            _log.LogInformation("The events switch was not taken: the replica holds a later one from another desktop.");
+        }
+
+        _state.Update(state => state.Area == area ? state with { Area = area with { Sent = true } } : state);
+
+        return Result.Success(true);
     }
 
     /// <summary>
@@ -158,7 +192,7 @@ public sealed class KnowledgeEventSyncSession
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, change => change.UpdatedAt) is { } advanced)
             {
-                _state.Save(_state.Current with { PushWatermark = advanced });
+                _state.Update(state => state with { PushWatermark = advanced });
             }
         }
 
@@ -194,7 +228,7 @@ public sealed class KnowledgeEventSyncSession
 
                 startedOver = true;
                 cursor = null;
-                _state.Save(_state.Current with { PullCursor = null });
+                _state.Update(state => state with { PullCursor = null });
                 pulled = 0;
                 applied = 0;
 
@@ -205,7 +239,7 @@ public sealed class KnowledgeEventSyncSession
             applied += (await _merge.ApplyAsync(page.Value.Events, cancellationToken).ConfigureAwait(false)).Applied;
 
             cursor = page.Value.Since;
-            _state.Save(_state.Current with { PullCursor = cursor });
+            _state.Update(state => state with { PullCursor = cursor });
 
             if (!page.Value.HasMore) break;
         }
@@ -213,12 +247,46 @@ public sealed class KnowledgeEventSyncSession
         return Result.Success(new KnowledgeEventSyncSummary(0, pulled, applied, _time.GetUtcNow()));
     }
 
-    /// <summary>Push, then pull; a failed push stops the exchange. A bare 404 from either half is
-    /// a service without the route and ends the exchange as a success that says so.</summary>
+    /// <summary>
+    /// The exchange of a desktop whose area is off: the switch alone. It fails as
+    /// <see cref="SyncAsync"/> does, except where the service is older than the switch — a bare
+    /// 404, or the kind refused — which ends as a success that says it is not yet served, so the
+    /// worker shows nothing wrong while the deployed service catches up and the switch stays
+    /// unsent.
+    /// </summary>
+    public async Task<Result<KnowledgeEventSyncSummary>> WithdrawAsync(CancellationToken cancellationToken = default)
+    {
+        var sent = await PushAreaAsync(cancellationToken).ConfigureAwait(false);
+
+        if (sent.IsSuccess)
+        {
+            return Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { AreaSent = sent.Value });
+        }
+
+        if (string.Equals(sent.Error.Code, SyncErrorCodes.KnowledgeEventInvalid, StringComparison.Ordinal))
+        {
+            _log.LogInformation("The sync service refused the events switch ({Code}); it goes again next exchange.", sent.Error.Code);
+            return Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { NotYetServed = true });
+        }
+
+        return NotYetOr(sent.Error);
+    }
+
+    /// <summary>Push, then the switch, then pull; a failed push stops the exchange. A bare 404
+    /// from either half is a service without the route and ends the exchange as a success that
+    /// says so. The switch failing stops nothing: it stays unsent, is named in the log, and goes
+    /// again next exchange — a service deployed before the switch's kind refuses it.</summary>
     public async Task<Result<KnowledgeEventSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
         if (push.IsFailure) return NotYetOr(push.Error);
+
+        var area = await PushAreaAsync(cancellationToken).ConfigureAwait(false);
+        if (area.IsFailure)
+        {
+            _log.LogInformation(
+                "The events switch was not sent and goes again next exchange: {Code} {Message}", area.Error.Code, area.Error.Message);
+        }
 
         var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
         if (pull.IsFailure) return NotYetOr(pull.Error);
@@ -231,6 +299,7 @@ public sealed class KnowledgeEventSyncSession
         {
             Refused = push.Value.Refused,
             Skipped = push.Value.Skipped,
+            AreaSent = area.IsSuccess && area.Value,
         });
     }
 

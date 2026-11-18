@@ -50,6 +50,10 @@ internal sealed class ScriptedEventService
     /// <summary>Stores a series as a desktop pushed it.</summary>
     public void Publish(EventSeriesReplicaDto series) => Store(KnowledgeEventDocuments.ToChange(series));
 
+    /// <summary>Stores the <c>events</c> switch as the desktop that moved it last pushed it.</summary>
+    public void Switch(bool on, DateTimeOffset at) =>
+        Store(KnowledgeEventDocuments.ToChange(new EventsAreaReplicaDto(EventsAreaReplicaDto.WellKnownId, on, at)));
+
     /// <summary>Stores any change, readable or not.</summary>
     public void Store(KnowledgeEventChange change)
     {
