@@ -24,14 +24,33 @@ public sealed record SessionQueueRow(
     /// <summary>Whether the row offers Cancel: only while no dispatcher has claimed it.</summary>
     public bool CanCancel => Request.State is EntrySessionRequestState.Requested;
 
+    /// <summary>Whether the row can move in the queue: only while Requested, a lapsed
+    /// claim included — a Claimed or Started request already has its dispatcher.</summary>
+    public bool CanMove => Request.State is EntrySessionRequestState.Requested;
+
     /// <summary>The row's stable key, for <c>@key</c> and test ids.</summary>
     public string Key => EntryId is { } id ? $"entry-{id:n}" : $"plan-{PlanTag}";
 }
 
+/// <summary>The three ways a Requested row moves in the session queue.</summary>
+public enum SessionQueueStep
+{
+    /// <summary>One place nearer the head.</summary>
+    Up,
+
+    /// <summary>One place further back.</summary>
+    Down,
+
+    /// <summary>To the head: the next one a dispatcher is handed.</summary>
+    Top
+}
+
 /// <summary>
-/// The session queue's words and order: every open request, entry and plan, oldest
-/// first, named from what the pane already holds — the Sessions record carries no entry
-/// text (local ADR 0038 §1), so a title is joined here and never travels back.
+/// The session queue's words and order: every open request, entry and plan — the
+/// Claimed and Started ones first, then the Requested ones in the order the person set
+/// (local ADR 0038 §4, amended) — named from what the pane already holds. The Sessions
+/// record carries no entry text (local ADR 0038 §1), so a title is joined here and never
+/// travels back.
 /// </summary>
 public static class SessionQueue
 {
@@ -45,17 +64,24 @@ public static class SessionQueue
     /// <summary>The remedy the dispatcher warning names.</summary>
     public const string StartDispatcher = "/loop /backlog-tools:dispatch-sessions";
 
-    /// <summary>The queue's rows, oldest first; ties keep entries before plans and then
-    /// the name, so a redraw never reorders two requests made in the same instant.</summary>
+    /// <summary>The queue's rows: the Claimed and Started ones first, oldest first, since
+    /// a dispatcher already has them; then the Requested ones in queue order — by
+    /// <paramref name="pendingOrder"/> while a move is on its way, else by each one's
+    /// <see cref="EntrySessionRequest.QueuePosition"/>, and oldest first where none is
+    /// known. Ties keep entries before plans and then the name, so a redraw never
+    /// reorders two requests made in the same instant.</summary>
     /// <param name="entries">Open entry requests, by entry id.</param>
     /// <param name="plans">Open plan requests, by bare tag.</param>
     /// <param name="titleOf">The loaded entry's title, or null when no loaded row has the id.</param>
     /// <param name="planOnBar">Whether a plan, by bare tag, has a chip on the bar.</param>
+    /// <param name="pendingOrder">The Requested requests' ids in the order a move on its
+    /// way will leave them, or null when none is.</param>
     public static IReadOnlyList<SessionQueueRow> Rows(
         IReadOnlyDictionary<Guid, EntrySessionRequest> entries,
         IReadOnlyDictionary<string, EntrySessionRequest> plans,
         Func<Guid, string?> titleOf,
-        Func<string, bool> planOnBar)
+        Func<string, bool> planOnBar,
+        IReadOnlyList<Guid>? pendingOrder = null)
     {
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(plans);
@@ -80,12 +106,61 @@ public static class SessionQueue
             rows.Add(new SessionQueueRow(request, EntryId: null, tag, $"+{tag}", planOnBar(tag)));
         }
 
+        int? Pending(SessionQueueRow row)
+        {
+            if (pendingOrder is null) return null;
+
+            for (var index = 0; index < pendingOrder.Count; index++)
+            {
+                if (pendingOrder[index] == row.Request.Id) return index;
+            }
+
+            return null;
+        }
+
+        int? Place(SessionQueueRow row) => Pending(row) ?? row.Request.QueuePosition;
+
         return rows
-            .OrderBy(row => row.Request.RequestedAt)
+            .OrderBy(row => row.CanMove)
+            .ThenBy(row => row.CanMove && Place(row) is null)
+            .ThenBy(row => row.CanMove ? Place(row) : null)
+            .ThenBy(row => row.Request.RequestedAt)
             .ThenBy(row => row.EntryId is null)
             .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    /// <summary>The Requested rows' request ids, in the order <paramref name="rows"/>
+    /// lists them: what a move counts positions in.</summary>
+    public static IReadOnlyList<Guid> Waiting(IReadOnlyList<SessionQueueRow> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        return [.. rows.Where(row => row.CanMove).Select(row => row.Request.Id)];
+    }
+
+    /// <summary>What the live region says once a move landed: "Moved to position 2 of 3."
+    /// Both numbers count the Requested rows only, from 1.</summary>
+    public static string MovedAnnouncement(int position, int count) => $"Moved to position {position} of {count}.";
+
+    /// <summary>The words a Move control is named by, the row's name in them:
+    /// "Move +gtd-para up", "Move +gtd-para down", "Move +gtd-para to the top".</summary>
+    public static string MoveLabel(SessionQueueStep step, string name) => step switch
+    {
+        SessionQueueStep.Up => $"Move {name} up",
+        SessionQueueStep.Down => $"Move {name} down",
+        _ => $"Move {name} to the top"
+    };
+
+    /// <summary>Where <paramref name="step"/> takes the row at <paramref name="from"/>
+    /// among <paramref name="count"/> Requested rows, or null at the edge it cannot pass.</summary>
+    public static int? MoveTarget(SessionQueueStep step, int from, int count) => step switch
+    {
+        SessionQueueStep.Up when from > 0 => from - 1,
+        SessionQueueStep.Down when from >= 0 && from < count - 1 => from + 1,
+        SessionQueueStep.Top when from > 0 => 0,
+        _ => null
+    };
 
     /// <summary>The trigger's name, the count in words: "Session queue, 3 waiting", or
     /// "Session queue, empty".</summary>

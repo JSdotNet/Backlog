@@ -21,7 +21,8 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <see cref="AnswerDeliveryPayload"/>. Deliveries come first, oldest answer first, because
 /// their sessions already hold a worktree. One whose session the desktop app holds no record
 /// of — a CLI session, an ended one — is never offered: nobody could send it.</item>
-/// <item><c>request</c> — the oldest Requested session request, a lapsed claim included:
+/// <item><c>request</c> — the Requested session request at the head of the queue, in the
+/// order the person set (oldest first among requests never moved), a lapsed claim included:
 /// <see cref="SessionRequestPayload"/> with its own entry-or-plan kind as <c>requestKind</c>.</item>
 /// </list>
 /// </para>
@@ -70,7 +71,7 @@ public static class SessionRequestWaitEndpoint
     public const string RequestKind = "request";
 
     /// <summary>
-    /// Waits for a delivery or the oldest Requested request, for up to <paramref name="hold"/>
+    /// Waits for a delivery or the Requested request at the head of the queue, for up to <paramref name="hold"/>
     /// (<see cref="Hold"/> when null), asking the queue every
     /// <paramref name="pollInterval"/> (<see cref="PollInterval"/> when null).
     /// <para>

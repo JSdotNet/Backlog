@@ -1092,7 +1092,8 @@
 
         _sessionRequests = new TasksSessionRequests(
             Services.GetService(typeof(IEntrySessionRequests)) as IEntrySessionRequests,
-            Services.GetService(typeof(TimeProvider)) as TimeProvider);
+            Services.GetService(typeof(TimeProvider)) as TimeProvider,
+            Services.GetService(typeof(ISessionQueueOrder)) as ISessionQueueOrder);
         _sessionRequests.Changed += HandleSessionRequestsChanged;
         _sessionRequests.Refreshed += HandleSessionRequestsRefreshed;
         _sessionClock = Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
@@ -1779,7 +1780,8 @@
             _sessionRequests.Open,
             _planSessions.Open,
             entryId => State.Rows.FirstOrDefault(row => row.Id == entryId) is { } entry ? entry.PreviewTitle ?? string.Empty : null,
-            bareTag => PlanChipFor(bareTag) is not null);
+            bareTag => PlanChipFor(bareTag) is not null,
+            _sessionRequests.PendingOrder);
 
     private void OnSessionQueueOpenChanged(bool open) => _sessionQueueOpen = open;
 
@@ -1789,14 +1791,20 @@
     }
 
     /// <summary>The panel: the dispatcher warning when one is owed, then every open
-    /// request oldest first — or the line that says nothing is waiting.</summary>
+    /// request — the Claimed and Started ones first, then the Requested ones in queue
+    /// order, each with its Move controls — or the line that says nothing is waiting. The
+    /// live region is drawn whenever the panel is, so it is in the page before a move
+    /// speaks through it.</summary>
     private RenderFragment RenderSessionQueue(IReadOnlyList<SessionQueueRow> queue)
     {
         var now = _sessionClock.GetUtcNow();
         var contact = _sessionRequests.DispatcherContact;
         var warns = contact.WarnsFor(queue.Select(row => row.Request));
+        var waiting = SessionQueue.Waiting(queue);
+        var reorder = _sessionRequests.CanReorder && waiting.Count > 1;
 
         return @<text>
+            <span class="sr-only" role="status" aria-live="polite" data-testid="session-queue-announcement">@_sessionQueueAnnouncement</span>
             @if (warns)
             {
                 <Callout Tone="warning"
@@ -1818,7 +1826,13 @@
                 <ul class="session-queue__list" data-testid="session-queue-list">
                     @foreach (var row in queue)
                     {
-                        <li @key="row.Key" class="session-queue__row" data-testid="session-queue-row" data-key="@row.Key">
+                        var place = IndexOfRequest(waiting, row.Request.Id);
+                        var movable = reorder && row.CanMove && place >= 0;
+                        <li @key="row.Key"
+                            class="@(movable ? "session-queue__row session-queue__row--movable" : "session-queue__row")"
+                            data-testid="session-queue-row"
+                            data-key="@row.Key"
+                            @onkeydown="e => OnSessionQueueRowKeyDownAsync(e, row)">
                             @if (row.InView)
                             {
                                 <AppButton Variant="ButtonVariant.Ghost"
@@ -1838,6 +1852,32 @@
                             <span class="session-queue__meta" data-testid="session-queue-meta">
                                 @row.Request.Repository · @SessionQueue.StateLabel(row.Request.State) · <span title="@row.Request.RequestedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)">@SessionQueue.Age(row.Request.RequestedAt, now)</span>
                             </span>
+                            @if (movable)
+                            {
+                                <span class="session-queue__order" data-testid="session-queue-order">
+                                    @foreach (var step in SessionQueueSteps)
+                                    {
+                                        var target = SessionQueue.MoveTarget(step, place, waiting.Count);
+                                        var label = SessionQueue.MoveLabel(step, row.Name);
+                                        <AppButton Variant="ButtonVariant.Ghost"
+                                                   Size="ButtonSize.Small"
+                                                   CssClass="@($"session-queue__move session-queue__move--{SessionQueueStepName(step)}")"
+                                                   IconAlone="@(step is not SessionQueueStep.Top)"
+                                                   Icon="@(step is SessionQueueStep.Top ? null : SessionQueueStepGlyph(step))"
+                                                   Disabled="@(target is null)"
+                                                   aria-label="@label"
+                                                   title="@label"
+                                                   TestId="@($"session-queue-move-{SessionQueueStepName(step)}")"
+                                                   id="@SessionQueueControlId($"move-{SessionQueueStepName(step)}", row)"
+                                                   OnClick="() => OnSessionQueueMoveAsync(row, step)">
+                                            @if (step is SessionQueueStep.Top)
+                                            {
+                                                <text>Top</text>
+                                            }
+                                        </AppButton>
+                                    }
+                                </span>
+                            }
                             @if (row.CanCancel)
                             {
                                 <AppButton Variant="ButtonVariant.Ghost"
@@ -1928,6 +1968,111 @@
         }
 
         return SessionQueueFocusTrigger;
+    }
+
+    /// <summary>What the queue's live region last said: the place a move landed in.</summary>
+    private string? _sessionQueueAnnouncement;
+
+    private static readonly SessionQueueStep[] SessionQueueSteps = [SessionQueueStep.Up, SessionQueueStep.Down, SessionQueueStep.Top];
+
+    private static string SessionQueueStepName(SessionQueueStep step) => step switch
+    {
+        SessionQueueStep.Up => "up",
+        SessionQueueStep.Down => "down",
+        _ => "top"
+    };
+
+    /// <summary>One chevron for both directions; Move down turns it in the stylesheet.</summary>
+    private static RenderFragment SessionQueueStepGlyph(SessionQueueStep step) =>
+        @<ChevronUpIcon CssClass="@(step is SessionQueueStep.Down ? "session-queue__glyph session-queue__glyph--down" : "session-queue__glyph")" Size="14" />;
+
+    /// <summary>Alt+ArrowUp and Alt+ArrowDown move the focused row one place, and
+    /// Alt+Shift+ArrowUp to the top — the keys the task list reorders with.</summary>
+    private Task OnSessionQueueRowKeyDownAsync(KeyboardEventArgs e, SessionQueueRow row)
+    {
+        if (!e.AltKey) return Task.CompletedTask;
+
+        SessionQueueStep? step = e.Key switch
+        {
+            "ArrowUp" when e.ShiftKey => SessionQueueStep.Top,
+            "ArrowUp" => SessionQueueStep.Up,
+            "ArrowDown" when !e.ShiftKey => SessionQueueStep.Down,
+            _ => null
+        };
+
+        return step is { } move ? OnSessionQueueMoveAsync(row, move) : Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// A Move pressed or keyed on a Requested row: the new order is drawn at once and
+    /// saved, then read back. A refused or failed move draws the order the queue holds
+    /// again and says why in a toast; a move that landed is announced as the row's new
+    /// place. Either way the focus stays on the row — on the control pressed while it
+    /// still can move that way, else on the row's next control that can be pressed.
+    /// </summary>
+    private async Task OnSessionQueueMoveAsync(SessionQueueRow row, SessionQueueStep step)
+    {
+        if (!row.CanMove || !_sessionRequests.CanReorder || _sessionRequests.PendingOrder is not null) return;
+
+        var waiting = SessionQueue.Waiting(SessionQueueRows());
+        var from = IndexOfRequest(waiting, row.Request.Id);
+        if (SessionQueue.MoveTarget(step, from, waiting.Count) is not { } to) return;
+
+        var moved = await _sessionRequests.MoveAsync(waiting, row.Request.Id, to, _planSessions.ReadBackAsync);
+
+        var after = SessionQueueRows();
+        var landed = SessionQueue.Waiting(after);
+
+        if (moved)
+        {
+            var at = IndexOfRequest(landed, row.Request.Id);
+            if (at >= 0) _sessionQueueAnnouncement = SessionQueue.MovedAnnouncement(at + 1, landed.Count);
+        }
+        else if (_sessionRequests.Error is { } error)
+        {
+            Toasts.Publish(ToastMessage.Error(error, "session-queue-move-failed"));
+        }
+
+        _focusSessionQueue = SessionQueueFocusAfterMove(after, row.Key, step);
+        StateHasChanged();
+    }
+
+    /// <summary>The control the focus goes back to once a move has redrawn the queue —
+    /// the moved row's node may have moved with it, and a node moved in the page loses
+    /// the focus. The control pressed when it can still move that way, then the row's
+    /// other Move controls that can, then its Cancel or name; the trigger when the row
+    /// is gone.</summary>
+    private static string SessionQueueFocusAfterMove(IReadOnlyList<SessionQueueRow> rows, string key, SessionQueueStep step)
+    {
+        var at = IndexOfKey(rows, key);
+        if (at < 0) return SessionQueueFocusTrigger;
+
+        var row = rows[at];
+        var waiting = SessionQueue.Waiting(rows);
+        var place = IndexOfRequest(waiting, row.Request.Id);
+
+        if (row.CanMove && place >= 0 && waiting.Count > 1)
+        {
+            foreach (var candidate in (SessionQueueStep[])[step, .. SessionQueueSteps.Where(other => other != step)])
+            {
+                if (SessionQueue.MoveTarget(candidate, place, waiting.Count) is not null)
+                {
+                    return SessionQueueControlId($"move-{SessionQueueStepName(candidate)}", row);
+                }
+            }
+        }
+
+        return SessionQueueFocusTarget(row) ?? SessionQueueFocusTrigger;
+    }
+
+    private static int IndexOfRequest(IReadOnlyList<Guid> ids, Guid id)
+    {
+        for (var index = 0; index < ids.Count; index++)
+        {
+            if (ids[index] == id) return index;
+        }
+
+        return -1;
     }
 
     private static string? SessionQueueFocusTarget(SessionQueueRow row) =>

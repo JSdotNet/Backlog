@@ -28,7 +28,7 @@ internal sealed class InMemorySessionRequestStore(TimeProvider? clock = null) : 
         {
             var open = SessionRequests.OpenDuplicateOf(candidate, _held.Values, _clock.GetUtcNow());
 
-            return Task.FromResult(open ?? Add(candidate));
+            return Task.FromResult(open ?? Add(SessionRequests.RankedLast(candidate, _held.Values)));
         }
     }
 
@@ -43,13 +43,20 @@ internal sealed class InMemorySessionRequestStore(TimeProvider? clock = null) : 
 
         lock (_gate)
         {
-            return Task.FromResult<IReadOnlyList<SessionRequest>>(
-            [
-                .. _held.Values
-                    .Where(request => state is null || request.StateAt(now) == state)
-                    .OrderBy(request => request.CreatedAt)
-                    .ThenBy(request => request.Id)
-            ]);
+            return Task.FromResult(SessionRequests.InQueueOrder(
+                _held.Values.Where(request => state is null || request.StateAt(now) == state)));
+        }
+    }
+
+    public Task<SessionRequestOutcome> MoveAsync(Guid id, int toIndex, CancellationToken cancellationToken = default)
+    {
+        lock (_gate)
+        {
+            var move = SessionRequests.Move(_held.Values, id, toIndex, _clock.GetUtcNow());
+
+            foreach (var request in move.Queue) _held[request.Id] = request;
+
+            return Task.FromResult(move.Outcome);
         }
     }
 
