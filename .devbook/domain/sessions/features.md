@@ -1681,11 +1681,14 @@ decides it.
 | Failed | reported a failure | Alerts |
 | Missed | no start 30 minutes past its due time | Alerts |
 | Review ready | reported work to review, session not archived | Row only |
-| Handled | has its session archived | Row only |
+| Handled | has its session archived, or failed and a later run finished Review ready | Row only |
 | No summary yet | started and has not reported its finish | Row only |
 
 The person marks a run done the way they do today: they archive its session in Claude Desktop.
 Backlog reads that from the session record it already reads, and the run reads Handled.
+
+A failed schedule stops alerting once a later run finishes Review ready. Its failed run still
+holds the next runs back until the person archives it.
 
 ### Where the Schedules page is reached from
 
@@ -1737,7 +1740,8 @@ decides it.
 
 A loop checks in with Backlog on every tick, through the MCP `check_in` tool. A Manager's wait
 for the next request counts as a check-in too. The answer tells the loop whether the person
-paused, resumed or stopped it, and what work waits for it.
+paused, resumed or stopped it, what work waits for it, and for the Manager whether the machine
+has room against the limits it sends.
 
 | State | When | Alerts |
 | --- | --- | --- |
@@ -1761,7 +1765,8 @@ titles `📡 SESSION DISPATCHER` and `🧠 BRAIN TENDER`. The Purpose filter off
 
 Each loop's row shows its state, its repository and machine, when it last checked in, how long it
 has run, and one line on its work. For the Manager the line counts the requests waiting, the
-sessions working against its limit, and the answers to deliver.
+sessions working against the limit it checked in with, and the answers to deliver. While it
+holds, a second line names the limit that holds it: "Plan usage is 84%, over the 80% limit."
 
 ### The detail of a loop session
 
@@ -1771,9 +1776,9 @@ related: [.devbook/domain/sessions/domain.md#capacity-reading]
 ```
 
 A loop's detail shows the `/loop` command it runs, and four tiles that say how much room the
-machine has. Backlog measures them itself:
+machine has, each against the limit the loop checked in with. Backlog measures them itself:
 
-- the dispatched sessions working, against the loop's limit, with Waiting sessions not counted;
+- the dispatched sessions working, with Waiting sessions not counted;
 - plan usage, the app's own [weekly usage estimate](#share-of-the-week-and-the-weekly-limit);
 - CPU;
 - free memory.
@@ -1782,8 +1787,9 @@ Beside the tiles, the detail's facts say when the loop last checked in, how long
 and for the Manager how many session requests it dispatched today.
 
 Under the tiles, the Manager's detail lists its queue: each session request and each answer
-delivery, with its state. A Holding loop names the limit that holds it, and offers **See usage**,
-which opens the Dashboard's Sessions tab where the app shows plan usage. A Not running loop
+delivery, with its state. A Holding loop names the limit that holds it, as Backlog read it at
+the loop's check-in, or by the latest tiles when that reading reached none. With neither, it says
+it holds the waiting requests until a limit leaves room. It offers **See usage**, which opens the Dashboard's Sessions tab where the app shows plan usage. A Not running loop
 offers its `/loop` command to copy. A Not running Manager also offers **Cancel requests**, which
 asks first and cancels the waiting requests. It is not offered while another Manager checks in.
 

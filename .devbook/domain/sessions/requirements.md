@@ -546,7 +546,7 @@ The system SHALL learn of a schedule and its runs only from the start and finish
 type: requirement
 ```
 
-The system SHALL read a run as Needs you, Held, Failed, Review ready or No summary yet from its reports while its session is not archived, and as Handled once its session is archived.
+The system SHALL read a run as Needs you, Held, Failed, Review ready or No summary yet from its reports while its session is not archived, and as Handled once its session is archived or, for a Failed run, once a later run of its schedule finishes Review ready.
 
 #### Scenario: A run that needs the person
 
@@ -571,6 +571,18 @@ The system SHALL read a run as Needs you, Held, Failed, Review ready or No summa
 - **Given** a schedule that reads Needs you
 - **When** the person archives the run's session in Claude Desktop
 - **Then** the run reads Handled at the next reading of the session records
+
+#### Scenario: A later run recovers the schedule
+
+- **Given** a weekly update whose Tuesday run failed
+- **When** its Wednesday run finishes Review ready
+- **Then** the Tuesday run reads Handled, and the schedule reads Review ready
+
+#### Scenario: A recovered run still holds the next one
+
+- **Given** an issue sweep whose failed Friday run a later run recovered, with the Friday session not archived
+- **When** Monday's run skips itself for the Friday run
+- **Then** the schedule reads Held
 
 ### Requirement: A schedule that does not start in time reads Missed
 
@@ -606,6 +618,36 @@ The system SHALL raise one Alert, with its Windows notification, when a schedule
 - **When** the person archives that run's session
 - **Then** the alert closes
 
+#### Scenario: The schedule recovers
+
+- **Given** an Open Failed alert for a weekly update's Tuesday run
+- **When** its run that began on Wednesday 11 November at 05:40 finishes Review ready
+- **Then** the alert closes with the reason "Handled: the Wed 11 Nov 05:40 run finished Review ready"
+
+#### Scenario: Archived and recovered
+
+- **Given** a failed run whose session the person archived, and a later run that finished Review ready
+- **When** Backlog reads the schedule
+- **Then** the run's Failed alert closes with the reason "Run archived"
+
+#### Scenario: Another schedule's run
+
+- **Given** an Open Failed alert for one schedule
+- **When** another schedule's run finishes Review ready
+- **Then** the alert stays open
+
+#### Scenario: Another alert kind
+
+- **Given** an Open Needs you alert for a schedule's run
+- **When** a later run of that schedule finishes Review ready
+- **Then** the Needs you alert stays open
+
+#### Scenario: The next run fails too
+
+- **Given** an Open Failed alert for a schedule's run
+- **When** its next run fails as well
+- **Then** the first alert stays open, and the second run raises its own
+
 #### Scenario: Ready for review
 
 - **Given** a run that reported work ready for review
@@ -629,7 +671,7 @@ related: [.devbook/domain/sessions/features.md#loop-sessions, .devbook/domain/se
 type: requirement
 ```
 
-The system SHALL read a loop session as Listening when it checked in within 2 minutes, Holding when it checks in while work waits and a capacity limit is reached, Stalled when its process is alive with no check-in past its heartbeat plus 10 minutes, and Not running when it has no process or its session is archived.
+The system SHALL read a loop session as Listening when it checked in within 2 minutes, Holding when it checks in while work waits and a capacity limit is reached, as Backlog's reading at the check-in finds it or, where that reading cannot decide, as the loop says it, Stalled when its process is alive with no check-in past its heartbeat plus 10 minutes, and Not running when it has no process or its session is archived.
 
 #### Scenario: A Manager waits for requests
 
@@ -643,6 +685,18 @@ The system SHALL read a loop session as Listening when it checked in within 2 mi
 - **When** plan usage reads 84% at its check-in
 - **Then** it reads Holding and names the usage limit
 
+#### Scenario: A reading that cannot decide
+
+- **Given** a Manager whose CPU reads unavailable and whose other figures have room
+- **When** it checks in saying it holds
+- **Then** it reads Holding
+
+#### Scenario: A reading with room
+
+- **Given** a Manager whose four figures all read within its limits
+- **When** it checks in saying it holds, with requests waiting
+- **Then** it reads Listening
+
 #### Scenario: A hung loop
 
 - **Given** a Manager with a 30-minute heartbeat whose session still has a process
@@ -655,13 +709,19 @@ The system SHALL read a loop session as Listening when it checked in within 2 mi
 type: requirement
 ```
 
-The system SHALL answer every `check_in` with the work waiting for the loop, whether there is room for it, and the `pause`, `resume` or `stop` the person last set on the loop.
+The system SHALL answer every `check_in` with the `pause`, `resume` or `stop` the person last set on the loop, and a dispatcher's with the work waiting for it and the room Backlog measured against the limits that check-in sent.
 
 #### Scenario: The person pauses the Manager
 
 - **Given** a Listening Manager
 - **When** the person pauses it and it next checks in
 - **Then** the answer carries `pause`, and the Manager starts no request until an answer carries `resume`
+
+#### Scenario: Own limits
+
+- **Given** a Manager that checks in with a usage limit of 50%
+- **When** plan usage reads 60%
+- **Then** the answer says there is no room and names the usage limit
 
 ### Requirement: The app measures capacity for a loop
 
