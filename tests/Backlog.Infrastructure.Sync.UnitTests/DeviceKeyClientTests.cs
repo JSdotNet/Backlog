@@ -637,9 +637,26 @@ public sealed class DeviceKeyClientTests
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
 
-        return CngKey.Exists(name, CngProvider.MicrosoftPlatformCryptoProvider)
+        return ExistsIn(name, CngProvider.MicrosoftPlatformCryptoProvider)
             ? CngKey.Open(name, CngProvider.MicrosoftPlatformCryptoProvider)
             : CngKey.Open(name, CngProvider.MicrosoftSoftwareKeyStorageProvider);
+    }
+
+    /// <summary>Whether the key is in this provider. A machine with no TPM — a CI
+    /// runner — answers the TPM provider with "device not ready", which here means
+    /// the key is not in it.</summary>
+    private static bool ExistsIn(string name, CngProvider provider)
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+
+        try
+        {
+            return CngKey.Exists(name, provider);
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
     }
 
     private static void DeleteTestKey(string name)
