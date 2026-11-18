@@ -10,8 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Domain view's context page, reached the way a reader reaches it: the New
-/// domain view switch on, a context's row picked. The row opens one page with no
+/// The Domain view's context page, reached the way a reader reaches it: a
+/// context's row picked. The row opens one page with no
 /// tabs (local ADR 0047): the neighbours, read from <c>dependencies.md</c> or the
 /// <c>## Dependencies</c> chapter of a <c>context.md</c> that keeps its tables
 /// inline, then the Overview — the boundary prose, the chapters per kind, the proof
@@ -317,7 +317,6 @@ public sealed class DomainViewContextPageTests : IDisposable
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
-        _ = features.SetEnabled(DevbookFeatures.DomainView, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);

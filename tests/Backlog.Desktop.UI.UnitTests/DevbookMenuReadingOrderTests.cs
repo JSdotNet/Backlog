@@ -320,68 +320,6 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
     }
 
     /// <summary>
-    /// The nested level: a bounded context's own documents read in the
-    /// convention's <c>domain/*</c> sequence, which is the sequence the domain
-    /// panel beside the rail already shows.
-    /// </summary>
-    [Fact]
-    public async Task Orders_a_domain_context_by_the_bounded_context_convention()
-    {
-        var repo = TempDir();
-        var domain = Path.Combine(repo, ".domain");
-        var inbox = Path.Combine(domain, "inbox");
-        Directory.CreateDirectory(inbox);
-        File.WriteAllText(Path.Combine(domain, "context-map.md"), "# Context map");
-        foreach (var file in new[] { "domain.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md" })
-        {
-            File.WriteAllText(Path.Combine(inbox, file), "# Inbox");
-        }
-
-        var tree = await LoadAsync(repo, "domain");
-
-        var context = Assert.Single(tree.Children, node => node.Path == "inbox");
-        Assert.Equal(
-            ["inbox/domain.md", "inbox/features.md", "inbox/model.md", "inbox/dependencies.md", "inbox/flow.md", "inbox/naming.md"],
-            context.Children.Select(node => node.Path));
-    }
-
-    /// <summary>
-    /// Contract 17's invariants subpage reads directly after its domain page, and
-    /// its row says what it holds. Title-casing the filename drew
-    /// <c>domain.invariants.md</c> as "Domain.invariants"; the subpage is a
-    /// domain page's rules, so it is "Invariants", and a split page's is
-    /// "Order invariants" — still a filename label, and still one no sibling
-    /// shares.
-    /// </summary>
-    [Fact]
-    public async Task Labels_an_invariants_subpage_by_what_it_holds_after_its_domain_page()
-    {
-        var repo = TempDir();
-        var domain = Path.Combine(repo, ".domain");
-        var capture = Path.Combine(domain, "capture");
-        Directory.CreateDirectory(capture);
-        File.WriteAllText(Path.Combine(domain, "context-map.md"), "# Context map");
-        foreach (var file in new[] { "context.md", "domain.md", "domain.invariants.md", "domain.order.md", "domain.order.invariants.md", "features.md", "requirements.md" })
-        {
-            File.WriteAllText(Path.Combine(capture, file), "# Capture");
-        }
-
-        var tree = await LoadAsync(repo, "domain");
-
-        var context = Assert.Single(tree.Children, node => node.Key == "capture");
-        Assert.Equal(
-            [
-                ("capture/domain.md", "Domain"),
-                ("capture/domain.invariants.md", "Invariants"),
-                ("capture/domain.order.md", "Domain.order"),
-                ("capture/domain.order.invariants.md", "Order invariants"),
-                ("capture/features.md", "Features"),
-                ("capture/requirements.md", "Requirements")
-            ],
-            context.Children.Select(node => (node.Path, node.Label)));
-    }
-
-    /// <summary>
     /// The second symptom: the rail humanised the folder name, so the context
     /// whose chapters all say "Dev PC Management" was labelled "Dev Pc
     /// Management". The database holds the real title, and here it is worth
@@ -444,8 +382,11 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
 
         var context = Assert.Single(tree.Children, node => node.Path == "inbox");
         Assert.Equal("Inbox", context.Label);
+        // Listed by unit (local ADR 0047): dependencies.md is a tab of the context
+        // page and draws no row, and a file the convention does not name follows
+        // the kinds.
         Assert.Equal(
-            ["Domain", "Features", "Model", "Dependencies", "Flow", "Naming"],
+            ["Domain", "Features", "Model", "Flow", "Naming"],
             context.Children.Select(node => node.Label));
 
         // The property behind all three guards: whatever a level adopts, its rows
@@ -536,49 +477,6 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
         {
             foreach (var handle in locks) handle.Dispose();
         }
-    }
-
-    /// <summary>
-    /// A chapter keeps its filename label even when its generated title is
-    /// perfectly distinguishing, because an H1 is written to open a chapter and a
-    /// rail row is not the place for a sentence. A bounded context is ordered by
-    /// the convention, so every guard above this one lets its chapters through,
-    /// and record titles show how long an H1 runs — from 57 to 104 characters in
-    /// `.arc42/adr`, "ADR 0008:
-    /// Devbook reads from a cached branch snapshot when there is no clone; only
-    /// a clone is editable" where the rail draws "0008 Devbook Reads From A
-    /// Branch Snapshot When There Is No Clone". Only a directory takes its label
-    /// from the outline, which is where the two labels the issue names live.
-    /// </summary>
-    [Fact]
-    public async Task Keeps_a_chapter_label_even_where_the_outline_title_distinguishes_it()
-    {
-        var repo = TempDir();
-        var domain = Path.Combine(repo, ".domain");
-        var inbox = Path.Combine(domain, "inbox");
-        Directory.CreateDirectory(inbox);
-        File.WriteAllText(Path.Combine(domain, "context-map.md"), "# Context map");
-        File.WriteAllText(Path.Combine(inbox, "domain.md"), "# Inbox & Triage");
-        File.WriteAllText(Path.Combine(inbox, "features.md"), "# Inbox: capture, triage and promote an entry");
-        File.WriteAllText(Path.Combine(inbox, "model.md"), "# Inbox model, entities and invariants");
-
-        WriteDatabase(repo, ".domain",
-        [
-            new OutlineRow("directory", "inbox", ".domain/inbox", "Inbox & Triage", IsRoot: false),
-            new OutlineRow("file", "domain.md", ".domain/inbox/domain.md", "Inbox & Triage", IsRoot: true, Parent: ".domain/inbox"),
-            new OutlineRow("file", "features.md", ".domain/inbox/features.md", "Inbox: capture, triage and promote an entry", IsRoot: false, Parent: ".domain/inbox"),
-            new OutlineRow("file", "model.md", ".domain/inbox/model.md", "Inbox model, entities and invariants", IsRoot: false, Parent: ".domain/inbox")
-        ]);
-
-        var tree = await LoadAsync(repo, "domain");
-        var context = Assert.Single(tree.Children, node => node.Path == "inbox");
-
-        // The directory row does take its title: that is the whole point of
-        // reading the outline at all.
-        Assert.Equal("Inbox & Triage", context.Label);
-
-        // Its chapters do not, however well their titles would have told them apart.
-        Assert.Equal(["Domain", "Features", "Model"], context.Children.Select(node => node.Label));
     }
 
     /// <summary>

@@ -9,21 +9,26 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// Following a reference in a chapter, from the pane that owns the selection.
 /// <para>
-/// The panel renders the reference and the pane decides what is shown, so neither
-/// half proves the feature on its own: a panel test can only say the request was
-/// made, and a pane test with no panel in it has nobody to make one. These render
+/// The view renders the reference and the pane decides what is shown, so neither
+/// half proves the feature on its own: a view test can only say the request was
+/// made, and a pane test with no view in it has nobody to make one. These render
 /// the pane against a folder on disk and press the reference the way a reader
 /// does, which is also the shape of the report — the reference looked right and
-/// the chapter did not move.
+/// the chapter did not move. The references sit in a Domain file the view opens as
+/// written, <c>tasks/notes.md</c>, whose prose draws them as the convention writes
+/// them.
 /// </para>
 /// </summary>
 public sealed class DevbookPaneChapterNavigationTests : IDisposable
 {
+    /// <summary>The Domain file holding the references, which opens as written.</summary>
+    private const string NotesPath = ".domain/tasks/notes.md";
+
     /// <summary>Two references in the prose: one to another chapter of this
     /// section, one to a chapter of another. Both are written the way the
     /// convention writes them, in a code span carrying the repository path.</summary>
-    private const string ContextMap = """
-        # Context Map
+    private const string Notes = """
+        # Notes
 
         ```meta
         status: draft
@@ -40,15 +45,15 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
+        var component = harness.Render(new DevbookOpenRequest(NotesPath, 1));
+        component.WaitForAssertion(() => Assert.Equal(NotesPath, ChapterPath(component)));
 
-        Reference(component, ".domain/tasks/domain.md#domain-event-aiworklogged").Click();
+        await ClickReferenceAsync(component, ".domain/tasks/domain.md#domain-event-aiworklogged");
 
         // The chapter the reference names, shown as the file it is — and the menu
         // beside it marking where the reader now is, because arriving from a
         // reference and arriving from the menu have to leave the same pane.
-        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
+        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
         Assert.Equal("Domain", component.Find(".devbook-menu__item--active").TextContent.Trim());
     }
 
@@ -57,11 +62,11 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+        var component = harness.Render(new DevbookOpenRequest(NotesPath, 1));
+        component.WaitForAssertion(() => Assert.Equal(NotesPath, ChapterPath(component)));
         Assert.Equal("true", component.Find("#tab-domain").GetAttribute("aria-selected"));
 
-        Reference(component, ".arc42/03-context-and-scope.md").Click();
+        await ClickReferenceAsync(component, ".arc42/03-context-and-scope.md");
 
         // The section strip follows the reference too. Selecting a chapter of the
         // architecture folder while the Domain tab was still the open one would
@@ -80,11 +85,11 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
     {
         await using var harness = CreateHarness(c4Zoom: true);
 
-        var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+        var component = harness.Render(new DevbookOpenRequest(NotesPath, 1));
+        component.WaitForAssertion(() => Assert.Equal(NotesPath, ChapterPath(component)));
         Assert.Single(component.FindAll(".devbook-stack__menu-column"));
 
-        Reference(component, ".arc42/03-context-and-scope.md").Click();
+        await ClickReferenceAsync(component, ".arc42/03-context-and-scope.md");
 
         component.WaitForAssertion(() =>
         {
@@ -96,68 +101,68 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         Assert.Single(component.FindAll(".devbook-stack__body--without-menu"));
 
         // Back on Domain the menu is the pane's again.
-        component.Find("#tab-domain").Click();
+        await component.InvokeAsync(() => component.Find("#tab-domain").Click());
         component.WaitForAssertion(() => Assert.Single(component.FindAll(".devbook-stack__menu-column")));
     }
 
     [Fact]
     public async Task A_reference_to_a_chapter_the_menu_does_not_have_changes_nothing()
     {
-        await using var harness = CreateHarness(contextMap: ContextMap + "\n\nAnd `.domain/tasks/renamed.md` no longer exists.\n");
+        await using var harness = CreateHarness(notes: Notes + "\n\nAnd `.domain/tasks/renamed.md` no longer exists.\n");
 
-        var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
+        var component = harness.Render(new DevbookOpenRequest(NotesPath, 1));
+        component.WaitForAssertion(() => Assert.Equal(NotesPath, ChapterPath(component)));
 
-        Reference(component, ".domain/tasks/renamed.md").Click();
+        await ClickReferenceAsync(component, ".domain/tasks/renamed.md");
 
         // A reference is prose, and prose goes stale. Selecting a path with nothing
-        // behind it would empty the panel, which reads as the pane having broken
+        // behind it would empty the view, which reads as the pane having broken
         // rather than as the reference having.
-        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
+        component.WaitForAssertion(() => Assert.Equal(NotesPath, ChapterPath(component)));
     }
 
     /// <summary>A chapter linking the way the devbook folders actually link: the
     /// author writes the path their own editor resolves, which is relative to the
     /// file they are in and never rooted at the repository.</summary>
-    private const string RelativeContextMap = """
-        # Context Map
+    private const string RelativeNotes = """
+        # Notes
 
         ```meta
         status: draft
         ```
 
-        Work is logged against a [task](tasks/domain.md#domain-event-aiworklogged),
-        the system in its surroundings is drawn in [context and scope](../.arc42/03-context-and-scope.md),
+        Work is logged against a [task](domain.md#domain-event-aiworklogged),
+        the system in its surroundings is drawn in [context and scope](../../.arc42/03-context-and-scope.md),
         and the shape of it is [in the picture](assets/context.png).
         """;
 
     [Fact]
     public async Task Following_a_relative_reference_opens_the_chapter_it_resolves_to()
     {
-        await using var harness = CreateHarness(contextMap: RelativeContextMap);
+        await using var harness = CreateHarness(notes: RelativeNotes);
 
-        var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
+        var component = harness.Render(new DevbookOpenRequest(NotesPath, 1));
+        component.WaitForAssertion(() => Assert.Equal(NotesPath, ChapterPath(component)));
 
-        Reference(component, ".domain/tasks/domain.md#domain-event-aiworklogged").Click();
+        await ClickReferenceAsync(component, ".domain/tasks/domain.md#domain-event-aiworklogged");
 
         // The same landing as the rooted form: the chapter as a file, and the menu
         // marking where the reader now is. It used to be an anchor with
         // target="_blank" on `tasks/domain.md`, which is the reader's browser
         // asking the app's own origin for a repository path.
-        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
+        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
         Assert.Equal("Domain", component.Find(".devbook-menu__item--active").TextContent.Trim());
     }
 
     [Fact]
     public async Task Following_a_relative_reference_across_folders_switches_section()
     {
-        await using var harness = CreateHarness(contextMap: RelativeContextMap);
+        await using var harness = CreateHarness(notes: RelativeNotes);
 
-        var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+        var component = harness.Render(new DevbookOpenRequest(NotesPath, 1));
+        component.WaitForAssertion(() => Assert.Equal(NotesPath, ChapterPath(component)));
 
-        Reference(component, ".arc42/03-context-and-scope.md").Click();
+        await ClickReferenceAsync(component, ".arc42/03-context-and-scope.md");
 
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
         Assert.Contains("Context And Scope", component.Find(".devbook-menu__item--active").TextContent, StringComparison.Ordinal);
@@ -166,18 +171,19 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
     [Fact]
     public async Task A_relative_link_that_is_not_a_chapter_is_not_a_way_out_to_the_browser()
     {
-        await using var harness = CreateHarness(contextMap: RelativeContextMap);
+        await using var harness = CreateHarness(notes: RelativeNotes);
 
-        var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+        var component = harness.Render(new DevbookOpenRequest(NotesPath, 1));
+        component.WaitForAssertion(() => Assert.Equal(NotesPath, ChapterPath(component)));
 
         // An image beside the chapter is not a chapter, and nothing in this pane
         // can open one. The author's words stay because they wrote them; the
         // destination goes, because there was never one to offer.
-        var body = component.Find("[data-testid='domain-chapter-file'] .file-view__body");
-
-        Assert.Contains("in the picture", body.QuerySelector("span.md-link--inert")!.TextContent, StringComparison.Ordinal);
-        Assert.Empty(body.QuerySelectorAll("a.md-link"));
+        component.WaitForAssertion(() => Assert.Contains(
+            "in the picture",
+            component.Find("[data-testid='domain-view'] span.md-link--inert").TextContent,
+            StringComparison.Ordinal));
+        Assert.Empty(component.FindAll("[data-testid='domain-view'] a.md-link"));
     }
 
     [Fact]
@@ -191,13 +197,13 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         // catalog and the menu disagree about what it holds.
         await using var harness = CreateHarness(withDecisionRecords: true);
 
-        var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+        var component = harness.Render(new DevbookOpenRequest(NotesPath, 1));
+        component.WaitForAssertion(() => Assert.Equal(NotesPath, ChapterPath(component)));
 
-        Reference(component, ".arc42/03-context-and-scope.md").Click();
+        await ClickReferenceAsync(component, ".arc42/03-context-and-scope.md");
         WaitForChapter(component, ".arc42/03-context-and-scope.md", "The system in its surroundings");
 
-        Reference(component, ".arc42/adr/0004-index.md").Click();
+        await ClickReferenceAsync(component, ".arc42/adr/0004-index.md");
 
         WaitForChapter(component, ".arc42/adr/0004-index.md", "The index is generated");
     }
@@ -213,19 +219,19 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         // reference that reads correctly and goes nowhere.
         await using var harness = CreateHarness(withDecisionRecords: true);
 
-        var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+        var component = harness.Render(new DevbookOpenRequest(NotesPath, 1));
+        component.WaitForAssertion(() => Assert.Equal(NotesPath, ChapterPath(component)));
 
-        Reference(component, ".arc42/03-context-and-scope.md").Click();
+        await ClickReferenceAsync(component, ".arc42/03-context-and-scope.md");
         WaitForChapter(component, ".arc42/03-context-and-scope.md", "The system in its surroundings");
 
-        Reference(component, ".arc42/adr/0004-index.md").Click();
+        await ClickReferenceAsync(component, ".arc42/adr/0004-index.md");
         WaitForChapter(component, ".arc42/adr/0004-index.md", "The index is generated");
 
         // The resolved destination is on the control itself, so a base that named
         // the folder twice fails here — on the reference — rather than later on
         // what the pane did with it.
-        Reference(component, ".arc42/adr/0005-replica.md").Click();
+        await ClickReferenceAsync(component, ".arc42/adr/0005-replica.md");
 
         WaitForChapter(component, ".arc42/adr/0005-replica.md", "A replica of the store.");
     }
@@ -292,7 +298,7 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
 
         // The reader moves on, inside the pane.
-        component.Find("#tab-arc42").Click();
+        await component.InvokeAsync(() => component.Find("#tab-arc42").Click());
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
 
         // The same chapter pressed again on the task is a new request, and it lands.
@@ -315,7 +321,7 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         var component = harness.Render(request);
         component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
 
-        component.Find("#tab-arc42").Click();
+        await component.InvokeAsync(() => component.Find("#tab-arc42").Click());
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
 
         // The shell re-renders for its own reasons and hands the same request back.
@@ -392,26 +398,26 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         component.WaitForAssertion(() =>
         {
             Assert.Equal(".domain/tasks/domain.md", ChapterPath(component));
-            Assert.Equal("what-the-tasks-context-is", component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor);
+            Assert.Equal("what-the-tasks-context-is", component.FindComponent<DomainView>().Instance.Focus?.Anchor);
         });
-        var first = component.FindComponent<DomainDevbookPanel>().Instance.Focus!.Sequence;
+        var first = component.FindComponent<DomainView>().Instance.Focus!.Sequence;
 
         // The same part asked for again is a new request: a new sequence, so the
         // page scrolls to it again.
         component.Render(parameters => parameters
             .Add(pane => pane.OpenReference, new DevbookOpenRequest(".devbook/domain/tasks/domain.md#what-the-tasks-context-is", 2)));
-        component.WaitForAssertion(() => Assert.True((component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Sequence ?? 0) > first));
+        component.WaitForAssertion(() => Assert.True((component.FindComponent<DomainView>().Instance.Focus?.Sequence ?? 0) > first));
 
         // The reader picks another chapter, then comes back to this one: the
         // focus was the request's, not the chapter's.
         await ClickMenuItemAsync(component, "Context Map");
         component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", ChapterPath(component)));
-        Assert.Null(component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor);
+        Assert.Null(component.FindComponent<DomainView>().Instance.Focus?.Anchor);
 
         component.Render(parameters => parameters
             .Add(pane => pane.OpenReference, new DevbookOpenRequest(".devbook/domain/tasks/domain.md", 3)));
         component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
-        Assert.Null(component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor);
+        Assert.Null(component.FindComponent<DomainView>().Instance.Focus?.Anchor);
     }
 
     /// <summary>
@@ -476,14 +482,14 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render(new DevbookOpenRequest(".domain/tasks/domain.md#what-the-tasks-context-is", 1));
-        component.WaitForAssertion(() => Assert.Equal("what-the-tasks-context-is", component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor));
+        component.WaitForAssertion(() => Assert.Equal("what-the-tasks-context-is", component.FindComponent<DomainView>().Instance.Focus?.Anchor));
 
         await component.InvokeAsync(() => component.Find("#tab-arc42").Click());
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
         await component.InvokeAsync(() => component.Find("#tab-domain").Click());
 
         component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
-        Assert.Null(component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor);
+        Assert.Null(component.FindComponent<DomainView>().Instance.Focus?.Anchor);
     }
 
     /// <summary>A part asked for in one repository is that repository's: switched to
@@ -495,15 +501,15 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         Assert.NotNull(harness.ForkAlias);
 
         var component = harness.Render(new DevbookOpenRequest(".domain/tasks/domain.md#what-the-tasks-context-is", 1));
-        component.WaitForAssertion(() => Assert.Equal("what-the-tasks-context-is", component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor));
+        component.WaitForAssertion(() => Assert.Equal("what-the-tasks-context-is", component.FindComponent<DomainView>().Instance.Focus?.Anchor));
 
         component.Render(parameters => parameters.Add(pane => pane.RepositoryAlias, harness.ForkAlias));
 
         component.WaitForAssertion(() =>
         {
             Assert.Equal(".domain/tasks/domain.md", ChapterPath(component));
-            Assert.Equal(harness.ForkAlias, component.FindComponent<DomainDevbookPanel>().Instance.RepositoryAlias);
-            Assert.Null(component.FindComponent<DomainDevbookPanel>().Instance.Focus);
+            Assert.Equal(harness.ForkAlias, component.FindComponent<DomainView>().Instance.RepositoryAlias);
+            Assert.Null(component.FindComponent<DomainView>().Instance.Focus);
         });
     }
 
@@ -516,8 +522,8 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
-        var follow = component.FindComponent<DomainDevbookPanel>().Instance.OnNavigateToChapter;
+        component.WaitForAssertion(() => Assert.NotNull(OpenDomainPath(component)));
+        var follow = component.FindComponent<DomainView>().Instance.OnNavigateToChapter;
 
         await component.InvokeAsync(() => follow.InvokeAsync(DevbookChapterLink.ForFolder("design")!));
         Assert.Equal("true", component.Find("#tab-domain").GetAttribute("aria-selected"));
@@ -532,8 +538,17 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
             .Single(item => string.Equals(item.QuerySelector(".devbook-menu__label")?.TextContent.Trim(), label, StringComparison.Ordinal))
             .Click());
 
-    private static string ChapterPath(IRenderedComponent<DevbookPane> component) =>
-        component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent;
+    /// <summary>The Domain chapter the pane has open, as the document path the
+    /// requests name it by: <c>.domain/</c> and the menu path the view was handed.</summary>
+    private static string? ChapterPath(IRenderedComponent<DevbookPane> component) =>
+        OpenDomainPath(component) is { } path ? ".domain/" + path : null;
+
+    /// <summary>The menu path the Domain view is showing; null while no Domain view
+    /// is drawn or it has nothing selected.</summary>
+    private static string? OpenDomainPath(IRenderedComponent<DevbookPane> component) =>
+        component.FindComponents<DomainView>().SingleOrDefault()?.Instance.SelectedPath is { Length: > 0 } path
+            ? path.Replace('\\', '/').TrimStart('/')
+            : null;
 
     /// <summary>The chapter the arc42 panel is showing, waited for as one thing.
     /// The file view's path is set from the selection and its body is read off disk
@@ -554,9 +569,18 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         component.FindAll("button.devbook-ref--action")
             .Single(button => string.Equals(button.GetAttribute("title"), raw, StringComparison.Ordinal));
 
-    private Harness CreateHarness(string? contextMap = null, bool withDecisionRecords = false, bool withFork = false, bool c4Zoom = false)
+    /// <summary>Presses a reference once the page drawing it is on screen: the
+    /// selection lands before the file is read, so the control is waited for, then
+    /// found and clicked in one dispatch so a render in between cannot retire it.</summary>
+    private static async Task ClickReferenceAsync(IRenderedComponent<DevbookPane> component, string raw)
     {
-        var root = NewRoot(contextMap);
+        component.WaitForAssertion(() => Reference(component, raw));
+        await component.InvokeAsync(() => Reference(component, raw).Click());
+    }
+
+    private Harness CreateHarness(string? notes = null, bool withDecisionRecords = false, bool withFork = false, bool c4Zoom = false)
+    {
+        var root = NewRoot(notes);
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), $"# Context and scope\n\nThe system in its surroundings{(withDecisionRecords ? ", decided in `.arc42/adr/0004-index.md`" : string.Empty)}.\n\n## Quality goals\n\nFast to open.\n");
 
         if (withDecisionRecords)
@@ -574,8 +598,6 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
-        // These read the old Domain view, which stays reachable with the switch off until a later plan retires it.
-        _ = features.SetEnabled(DevbookFeatures.DomainView, false);
         if (c4Zoom)
         {
             _ = features.SetEnabled(DevbookFeatures.C4Diagrams, true);
@@ -590,7 +612,7 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         // asked for, is a second clone with the same chapters at the same paths.
         List<DevbookFolderSetting> folders = [.. DevbookFolderSetting.Defaults().Select(folder => folder with { Enabled = folder.Key is ".domain" or ".arc42" })];
         var configured = repositories
-            .Select((entry, index) => entry with { CloneDirectory = index == 0 ? root : NewRoot(contextMap), DevbookFolders = folders })
+            .Select((entry, index) => entry with { CloneDirectory = index == 0 ? root : NewRoot(notes), DevbookFolders = folders })
             .ToList();
         var repository = configured[0];
         Assert.Null(gitHub.SetRepositories(configured));
@@ -627,14 +649,15 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
     }
 
     /// <summary>A clone with the Domain and arc42 chapters every test here reads.</summary>
-    private string NewRoot(string? contextMap)
+    private string NewRoot(string? notes)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-navigation", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
         _roots.Add(root);
 
-        File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), contextMap ?? ContextMap);
+        File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts and what joins them.\n");
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "notes.md"), notes ?? Notes);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), "# Domain\n\n```meta\nstatus: draft\n```\n\nWhat the tasks context is.\n");
         return root;
     }

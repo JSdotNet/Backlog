@@ -17,13 +17,13 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </para>
 /// <para>
 /// Driven through the folder source rather than through each store, because that is
-/// the one port all four stores read through and the place a folder moving mid-pull
+/// the one port the stores read through and the place a folder moving mid-pull
 /// actually throws.
 /// </para>
 /// </summary>
 public sealed class DevbookPanelLoadStatesTests
 {
-    public static TheoryData<string> Panels => ["arc42", "domain", "technology", "design"];
+    public static TheoryData<string> Panels => ["arc42", "technology", "design"];
 
     [Theory]
     [MemberData(nameof(Panels))]
@@ -110,13 +110,12 @@ public sealed class DevbookPanelLoadStatesTests
     }
 
     /// <summary>What each panel shows once its folder did read. The workspace
-    /// writes a domain and a design folder, and neither an architecture nor a
+    /// writes a design folder, and neither an architecture nor a
     /// technology one, so those two answer with their own "no folder here" state —
     /// which is still the load succeeding.</summary>
     private static string Loaded(string panel) => panel switch
     {
         "arc42" => "No arc42 folder here yet",
-        "domain" => "Context Map: Alpha",
         "technology" => "Open repository settings",
         _ => "Design: Alpha"
     };
@@ -135,7 +134,6 @@ public sealed class DevbookPanelLoadStatesTests
         builder.OpenComponent(0, panel switch
         {
             "arc42" => typeof(Arc42DevbookPanel),
-            "domain" => typeof(DomainDevbookPanel),
             "technology" => typeof(TechnologyDevbookPanel),
             _ => typeof(DesignDevbookView)
         });

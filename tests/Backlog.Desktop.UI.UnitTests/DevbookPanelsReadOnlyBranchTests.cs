@@ -1,5 +1,4 @@
 using Backlog.Desktop.UI.Devbook;
-using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
 using Bunit;
@@ -27,116 +26,6 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];
-
-    // --- Domain ----------------------------------------------------------------
-
-    [Fact]
-    public void The_domain_panel_offers_no_edit_on_a_branch()
-    {
-        using var harness = DomainHarness(DevbookSourceKind.Branch);
-
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
-            .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
-
-        component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
-        Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-edit']"));
-    }
-
-    [Fact]
-    public void The_domain_panel_offers_the_edit_on_a_clone()
-    {
-        using var harness = DomainHarness(DevbookSourceKind.LocalFolder);
-
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
-            .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
-
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
-    }
-
-    // --- An archived repository (local ADR 0029 §4) ----------------------------
-
-    /// <summary>"A clone of an archived repository": the chapter reads, and
-    /// neither an edit nor a remark is offered.</summary>
-    [Fact]
-    public void The_domain_panel_offers_no_edit_and_no_remark_on_an_archived_repositorys_clone()
-    {
-        using var harness = DomainHarness(DevbookSourceKind.LocalFolder, archived: true);
-
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
-            .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
-
-        component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
-        Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-edit']"));
-        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-']"));
-    }
-
-    /// <summary>A remark kept from before the archive reads, with no resolve,
-    /// edit or delete control: each would write to the replicated store.</summary>
-    [Fact]
-    public void The_domain_panel_shows_a_kept_remark_read_only_on_an_archived_repository()
-    {
-        using var harness = DomainHarness(DevbookSourceKind.LocalFolder, archived: true);
-        var store = new SessionDevbookAnnotationStore();
-        var kept = store.Add("backlog", ".domain/context-map.md", 0, "someone");
-        store.Edit(kept.Id, "Kept from before the archive.");
-        harness.Context.Services.AddSingleton<IDevbookAnnotationStore>(store);
-
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
-            .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
-
-        component.WaitForAssertion(() => Assert.Contains("Kept from before the archive.", component.Markup, StringComparison.Ordinal));
-        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-resolve-']"));
-        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-edit-']"));
-        Assert.Empty(component.FindAll("[data-testid^='markdown-comment-delete-']"));
-    }
-
-    /// <summary>The remark is refused on the repository being archived, not on
-    /// the folder being read-only: a branch snapshot of an active repository keeps
-    /// the remarks it always had, because a remark is the app's, not the
-    /// file's.</summary>
-    [Fact]
-    public void The_domain_panel_still_takes_remarks_on_an_active_repositorys_branch()
-    {
-        using var harness = DomainHarness(DevbookSourceKind.Branch);
-
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
-            .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
-    }
-
-    /// <summary>A remark is about the chapter as the branch it was read from has it:
-    /// on a named branch's snapshot the panel lists that branch's remarks and none
-    /// of the default branch's, and a new one is kept under the branch.</summary>
-    [Fact]
-    public async Task The_domain_panel_keeps_a_named_branchs_remarks_under_that_branch()
-    {
-        using var harness = DomainHarness(DevbookSourceKind.Branch);
-        harness.Folders.Branch = "feature/remark-kinds";
-        var store = new SessionDevbookAnnotationStore();
-        var onDefault = store.Add("backlog", ".domain/context-map.md", 0, "someone");
-        store.Edit(onDefault.Id, "Left on the default branch.");
-        var onBranch = store.Add("backlog", ".domain/context-map.md", 0, "someone", branch: "feature/remark-kinds");
-        store.Edit(onBranch.Id, "Left on the feature branch.");
-        harness.Context.Services.AddSingleton<IDevbookAnnotationStore>(store);
-
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
-            .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
-
-        component.WaitForAssertion(() => Assert.Contains("Left on the feature branch.", component.Markup, StringComparison.Ordinal));
-        Assert.DoesNotContain("Left on the default branch.", component.Markup, StringComparison.Ordinal);
-
-        await component.InvokeAsync(() => component.Find("[data-testid='markdown-comment-0']").ClickAsync(new()));
-
-        component.WaitForAssertion(() => Assert.Equal(2, store.List("backlog", ".domain/context-map.md", "feature/remark-kinds").Count));
-        Assert.Single(store.List("backlog", ".domain/context-map.md"));
-    }
 
     // --- A debt record's state (the subject store) --------------------------------
 
@@ -306,21 +195,6 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
     }
 
     // --- Fixtures --------------------------------------------------------------
-
-    private Harness DomainHarness(DevbookSourceKind source, bool archived = false)
-    {
-        var root = WithDomain();
-        var (context, folders) = Context(root, source);
-        folders.Archived = archived;
-
-        context.Services.AddSingleton<IAppFeatureSettings>(
-            new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json")));
-        context.Services.AddSingleton(new DomainDevbookStore(folders));
-        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
-        context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
-
-        return new Harness(context, folders);
-    }
 
     private const string DebtPath = ".arc42/tdr/0001-sync-lag.md";
 

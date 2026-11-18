@@ -10,23 +10,12 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The bounded-context overview, reached from the pane.
-///
-/// <para>The panel draws a row of context tabs when no chapter is open, and until
-/// now the pane could not produce that state: it assigns a chapter the moment the
-/// menu loads and every route through it only ever assigns another one. So the row
-/// existed and no reader could reach it — the standalone <c>/devbook/domain</c>
-/// page was the only way in.</para>
-///
-/// <para>That mattered beyond the markup. The context list, its order and the
-/// status beside each name are what <c>DomainDevbookStore</c> builds from the
-/// generated devbook database, and the per-file drift check in local ADR 0004 is
-/// what keeps them honest between refreshes. None of it was on screen in the pane,
-/// so none of it could be validated by running the app.</para>
+/// A bounded context's page, reached from the pane.
 ///
 /// <para>The route is the context folder in the menu. It is already a row, it
-/// already carries the context's path, and clicking it did nothing but open the
-/// twisty — selecting the folder is what a tree row is for.</para>
+/// already carries the context's path, and selecting the folder is what a tree
+/// row is for: the Domain view opens the context's page on it (local ADR 0047),
+/// and the pane keeps that selection across a section switch.</para>
 /// </summary>
 public sealed class DevbookPaneContextOverviewTests : IDisposable
 {
@@ -38,33 +27,14 @@ public sealed class DevbookPaneContextOverviewTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
+        component.WaitForAssertion(() => Assert.Equal("context-map", Page(component)));
 
         MenuItem(component, "Tasks").Click();
 
-        // The folder the reader pressed is the context the overview opens on —
-        // not the first context the panel happened to load.
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context']")));
-        Assert.Equal("Tasks", ContextTitle(component));
-        Assert.Empty(component.FindAll("[data-testid='domain-chapter-file']"));
-    }
-
-    [Fact]
-    public async Task The_pane_draws_no_context_tabs_because_its_menu_already_lists_them()
-    {
-        await using var harness = CreateHarness();
-
-        var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
-        Assert.Empty(component.FindAll("nav[aria-label='Bounded contexts']"));
-
-        MenuItem(component, "Tasks").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context']")));
-
-        // The row above the page repeated the menu beside it, name for name, and
-        // was removed for it. The standalone page keeps its row: it has no menu.
-        Assert.Empty(component.FindAll("nav[aria-label='Bounded contexts']"));
-        Assert.Empty(component.FindAll("button.domain-context-tab"));
+        // The folder the reader pressed is the context the page opens on —
+        // not the first context the view happened to load.
+        component.WaitForAssertion(() => Assert.Equal("context", Page(component)));
+        Assert.Equal("tasks", component.FindComponent<DomainView>().Instance.SelectedPath);
     }
 
     [Fact]
@@ -73,10 +43,10 @@ public sealed class DevbookPaneContextOverviewTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+        component.WaitForAssertion(() => Assert.Equal("context-map", Page(component)));
 
         MenuItem(component, "Tasks").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context']")));
+        component.WaitForAssertion(() => Assert.Equal("context", Page(component)));
 
         component.Find("#tab-arc42").Click();
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
@@ -85,9 +55,9 @@ public sealed class DevbookPaneContextOverviewTests : IDisposable
 
         // Switching section runs the pane's "make sure something is selected" pass,
         // and a folder is something: without that, coming back would silently
-        // replace the reader's overview with the context map chapter.
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context']")));
-        Assert.Equal("Tasks", ContextTitle(component));
+        // replace the reader's context page with the context map.
+        component.WaitForAssertion(() => Assert.Equal("context", Page(component)));
+        Assert.Equal("tasks", component.FindComponent<DomainView>().Instance.SelectedPath);
     }
 
     [Fact]
@@ -96,23 +66,24 @@ public sealed class DevbookPaneContextOverviewTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+        component.WaitForAssertion(() => Assert.Equal("context-map", Page(component)));
 
         MenuItem(component, "Tasks").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context']")));
+        component.WaitForAssertion(() => Assert.Equal("context", Page(component)));
 
+        component.WaitForAssertion(() => MenuItem(component, "Domain"));
         MenuItem(component, "Domain").Click();
 
         // The way out is the way in reversed. A chapter row selects a chapter, so
-        // the overview is not a mode the reader can get stuck in.
-        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
-        Assert.Empty(component.FindAll("[data-testid='domain-context']"));
+        // the context page is not a mode the reader can get stuck in.
+        component.WaitForAssertion(() => Assert.Equal("domain", Page(component)));
+        Assert.Equal("tasks/domain.md", component.FindComponent<DomainView>().Instance.SelectedPath);
     }
 
-    /// <summary>The overview's heading, which names the context it is showing now
-    /// that no tab is pressed to say so.</summary>
-    private static string ContextTitle(IRenderedComponent<DevbookPane> component) =>
-        component.Find("[data-testid='domain-context'] h3").TextContent.Trim();
+    /// <summary>The page the Domain view is drawing: <c>context-map</c>,
+    /// <c>context</c>, <c>domain</c>.</summary>
+    private static string? Page(IRenderedComponent<DevbookPane> component) =>
+        component.Find("[data-testid='domain-view']").GetAttribute("data-page");
 
     /// <summary>One menu row, by the label a reader reads. Matched on the row's own
     /// label span rather than on its text, because a folder row also carries a
@@ -138,8 +109,6 @@ public sealed class DevbookPaneContextOverviewTests : IDisposable
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
-        // These read the old Domain view, which stays reachable with the switch off until a later plan retires it.
-        _ = features.SetEnabled(DevbookFeatures.DomainView, false);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);

@@ -3,8 +3,9 @@ namespace Backlog.ArchitectureTests;
 /// <summary>
 /// A selector is declared in one top-level rule of a stylesheet, not several.
 ///
-/// <para>The desktop stylesheet declared <c>.devbook-stack__section &gt;
-/// .domain-devbook</c> in three rules a hundred lines apart, and two of them
+/// <para>The desktop stylesheet once declared the old Domain panel's
+/// <c>.devbook-stack__section &gt; .domain-devbook</c> in three rules a hundred
+/// lines apart, and two of them
 /// disagreed: one said <c>max-height: none; overflow: visible</c>, the next
 /// <c>max-height: 100%; overflow: hidden</c>. Only the last applied, and nobody
 /// editing either could see that from where they stood. Finding a selector and
@@ -81,7 +82,6 @@ public class StylesheetDuplicateSelectorTests
             new(".folder-devbook__documents", 2, SharedWithSiblings),
             new(".folder-document", 2, SharedWithSiblings),
             new(".folder-section", 4, SharedWithSiblings),
-            new(".domain-document", 2, SharedWithSiblings),
         ],
         [Components] =
         [
@@ -257,28 +257,6 @@ public class StylesheetDuplicateSelectorTests
         Assert.Empty(unexplained);
     }
 
-    /// <summary>The contradiction the issue was opened for, settled the way the
-    /// cascade already settled it: the last of the three rules won, so the panel
-    /// clips at the section's height and its document scrolls inside it.</summary>
-    [Fact]
-    public void The_domain_panel_in_the_devbook_stack_has_one_rule_with_the_values_that_won()
-    {
-        const string selector = ".devbook-stack__section > .domain-devbook";
-
-        var rules = CssRules.TopLevel(Read(App))
-            .Where(rule => rule.Selectors.Contains(selector, StringComparer.Ordinal))
-            .ToList();
-
-        var rule = Assert.Single(rules);
-
-        Assert.Equal(
-            "background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background)); "
-            + "border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-lg); "
-            + "box-shadow: var(--shadow-md); display: flex; flex-direction: column; max-height: 100%; min-height: 0; "
-            + "overflow: hidden; padding: var(--spacing-md); position: static",
-            Canonical(rule.Declarations.ToDictionary(d => d.Key, d => d.Value, StringComparer.Ordinal)));
-    }
-
     /// <summary>Folding moves declarations, and must not change what they add up
     /// to. These are the values each folded selector — and each sibling that
     /// shared a grouped list with one — had from its top-level rules before the
@@ -291,8 +269,6 @@ public class StylesheetDuplicateSelectorTests
     [InlineData(DevPc, ".tools-panel__message", "color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; overflow-wrap: anywhere")]
     [InlineData(App, ".design-token", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-md); padding: var(--spacing-md)")]
     [InlineData(App, ".folder-section", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-md); display: grid; gap: var(--spacing-md); grid-template-columns: minmax(0, 1fr); overflow-x: auto; padding: var(--spacing-md)")]
-    [InlineData(App, ".domain-document", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-md); display: grid; gap: var(--spacing-md); padding: var(--spacing-md)")]
-    [InlineData(App, ".devbook-stack__section > .domain-devbook", "background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background)); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-lg); box-shadow: var(--shadow-md); display: flex; flex-direction: column; max-height: 100%; min-height: 0; overflow: hidden; padding: var(--spacing-md); position: static")]
     [InlineData(App, ".devbook-stack__header", "background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background)); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-lg); box-shadow: var(--shadow-md); display: grid; gap: 0.375rem; padding: var(--spacing-md)")]
     [InlineData(App, ".devbook-stack__section > .devbook-pane", "background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background)); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-lg); box-shadow: var(--shadow-md); max-height: none; overflow: visible; padding: var(--spacing-md); position: static")]
     [InlineData(App, ".devbook-stack__section > .folder-devbook", "background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background)); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-lg); box-shadow: var(--shadow-md); max-height: none; overflow: visible; padding: var(--spacing-md); position: static")]

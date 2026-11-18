@@ -10,10 +10,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Domain view's Demo strip (local ADR 0047): with the New domain view switch
-/// on, a page that owns a click demo shows a Demo button above it, and pressing the
-/// button shows the demo in a DemoView the way the old panel draws it. Which demos
-/// a page owns is the old panel's answer — the demo beside the file by name, and
+/// The Domain view's Demo strip (local ADR 0047): a page that owns a click demo
+/// shows a Demo button above it, and pressing the button shows the demo in a
+/// DemoView. Which demos a page owns: the demo beside the file by name, and
 /// those its chapters' <c>demo</c> fields name, once each, with their places.
 /// </summary>
 public sealed class DomainViewDemoTests : IDisposable
@@ -245,7 +244,6 @@ public sealed class DomainViewDemoTests : IDisposable
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
-        _ = features.SetEnabled(DevbookFeatures.DomainView, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);

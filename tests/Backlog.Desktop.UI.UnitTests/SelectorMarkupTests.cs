@@ -56,27 +56,26 @@ public sealed class SelectorMarkupTests
     /// same shared selector the backlog does — through the library, not through
     /// the backlog folder.
     /// <para>
-    /// Two of the three panels draw a selector of their own directly: Technology in
-    /// its inspector, Domain beside a section while its body is being edited. The third,
-    /// arc42, no longer draws one at all — it hands the whole status to the shared
+    /// Technology draws a selector of its own directly, in its inspector. Arc42
+    /// no longer draws one at all — it hands the whole status to the shared
     /// <c>FileView</c> through <c>RenderDevbookMetadata</c>, which is the same
     /// shared selector reached one control further in. That is the stronger form of
     /// the rule this test exists for, not an exception to it: a panel that draws no
     /// selector of its own cannot draw a hand-rolled one. So arc42 is pinned to the
-    /// shared file view instead, and all three are pinned against reaching into the
+    /// shared file view instead, and both are pinned against reaching into the
     /// backlog folder for a selector.
     /// </para>
     /// </summary>
     [Fact]
     public void Devbook_panels_use_the_same_shared_status_selector()
     {
-        foreach (var panel in new[] { "Arc42DevbookPanel.razor", "DomainDevbookPanel.razor", "TechnologyInspector.razor" })
+        foreach (var panel in new[] { "Arc42DevbookPanel.razor", "TechnologyInspector.razor" })
         {
             var markup = NormalizeLineEndings(File.ReadAllText(
                 RepositoryRoot.File("src", "Modules", "Devbook", "Backlog.Modules.Devbook.UI", panel)));
 
-            // The status is a shared control either way: drawn directly by the two
-            // panels that still keep a selector of their own, and reached through
+            // The status is a shared control either way: drawn directly by the
+            // panel that still keeps a selector of its own, and reached through
             // the shared file view's devbook metadata by arc42, which keeps none.
             Assert.True(
                 markup.Contains("<StatusSelector", StringComparison.Ordinal)
