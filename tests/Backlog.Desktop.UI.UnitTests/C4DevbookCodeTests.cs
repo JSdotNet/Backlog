@@ -144,7 +144,6 @@ public sealed class C4DevbookCodeTests : IDisposable
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(scratch, "features", "features.json"));
         Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Zoom, true));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(scratch, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");

@@ -301,50 +301,49 @@ A reviewer should be able to unplug the mouse and lose nothing but the picture.
 ### C4 workspaces
 
 ```meta
-related: [".devbook/tech/tooling.md#c4hero", ".devbook/design/content-editing.md", ".devbook/design/accessibility.md"]
+related: [".devbook/tech/tooling.md#c4hero", ".devbook/design/content-editing.md", ".devbook/design/accessibility.md", ".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md"]
 ```
 
 A C4 view is not a chapter diagram: it is one view of a model authored beside the
 architecture chapters. The rules below make it read as part of the section rather
 than as a second product bolted to its side.
 
-The Architecture panel's C4 tab, `C4Explorer`, offers these affordances:
+While the model is on, the Architecture panel is one surface that offers these
+affordances, described in
+[C4 zoom navigation](../domain/devbook/features.md#c4-zoom-navigation):
 
-- a Views panel listing every view, grouped by level;
-- click-to-drill on a system or container, with a **Drill into** row as its
-  keyboard equivalent;
-- a breadcrumb, and a Back button that walks the history;
-- search over element names, descriptions, technologies and view titles;
-- the Highlighter for filtering by tag, technology, team and status;
-- pan and zoom;
-- a minimap;
-- presentation mode.
+- a zoom bar naming the element each level is about;
+- a left navigation with a find field and the views as a tree;
+- an inspector for the selected element;
+- Decisions and Debt overlays;
+- − / Fit / + zoom controls.
 
 | Rule | Guidance |
 |---|---|
 | Drawn here, in this palette | The product lays out and draws a view on one hue, never a hue per level. |
-| A tab beside the chapters, not an entry inside them | The Architecture panel keeps two tabs: chapters on the first, the model on the second. |
-| Every gesture has a control beside it | Drilling in by clicking a box is also a button: the Views panel and the Drill into row. |
-| Where you are and how you got here are two controls | The breadcrumb derives from the open view's scope, and the Back button walks the history. |
-| Dimmed, not hidden | The Highlighter takes non-matching elements down to a low opacity and leaves them in place. |
+| One surface, not an entry in the chapter list | The model takes the whole panel, and chapters and records open inside it. |
+| Every gesture has a control beside it | Zooming in by double-clicking a card is also a **Zoom in** chip and the Enter key. |
+| Where you are stays on screen | The zoom bar names each level's element and rings the current step. |
+| Dimmed, not hidden | A record's container view dims what the record does not name and leaves it in place. |
 | The reference is drawn on both sides | A view names the chapter section that documents it; a chapter lists the views it embeds. |
-| What could not be read is said, not hidden | The unreadable constructs appear as a plain list under the diagram. |
+| What could not be read is said, not hidden | The unreadable constructs appear as a plain list, not as an error. |
 | The generated Mermaid is never shown as the source | The `.dsl` is the authored text, not the Mermaid generated from it. |
 
 - **Drawn here, in this palette:** a library that sizes its own boxes and writes
   its own colours cannot sit inside a section. Levels are told apart by weight
   and glyph on the single hue `color-scheme.md#chart-roles` allows: solid for the
   subject, outline for anything outside it.
-- **A tab beside the chapters, not an entry inside them:** the shape Technology
-  already uses. A C4 view is not a chapter, so it stays out of the chapter list
-  even though the section that embeds it draws it inline. The tab is absent
-  rather than empty when there is no workspace.
+- **One surface, not an entry in the chapter list:** a C4 view is not a chapter,
+  so it stays out of the chapter list even though the section that embeds it draws
+  it inline. With no workspace the surface shows its chapters alone, with no
+  picture; with `c4-diagrams` off the panel shows its **Chapters** tab. The surface replaced the earlier **C4** tab (local ADR
+  0046).
 - **Every gesture has a control beside it:** drilling in by clicking a box is
   invisible to a keyboard. `accessibility.md#target-sizes-and-text` is the rule;
   a shape in an SVG is not a focusable target, so the pointer cannot be the only
   way.
-- **Where you are and how you got here are two controls:** collapsing them into
-  one makes the survivor a worse version of both.
+- **Where you are stays on screen:** a reader three levels in still sees which
+  system and container the open view belongs to.
 - **Dimmed, not hidden:** the shape of the diagram stays readable, and a filter
   reads as emphasis rather than a different picture.
 - **The reference is drawn on both sides:** both read the same authored
@@ -353,7 +352,7 @@ The Architecture panel's C4 tab, `C4Explorer`, offers these affordances:
   empty row.
 - **What could not be read is said, not hidden:** a workspace the reader only
   partly understood still draws a complete-looking picture. The list is a
-  footnote under something that rendered, not an error that stopped one.
+  footnote to something that rendered, not an error that stopped one.
 - **The generated Mermaid is never shown as the source:** a reader who wants the
   source wants the workspace, not the Mermaid it was turned into.
 

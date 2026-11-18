@@ -8573,23 +8573,8 @@ a.pull-request-detail-checks__name:hover {
     gap: var(--spacing-xs);
 }
 
-/* The C4 views, listed under the chapters. A rule above the group rather than a
-   gap on each item: it separates two lists of the same shape, and the chapters
-   above already carry their own spacing. The label is the nav's accessible name,
-   so nothing is drawn for it. */
-.devbook-chapters--c4 {
-    margin-top: var(--spacing-sm);
-    padding-top: var(--spacing-sm);
-    border-top: var(--border-width) solid var(--color-border);
-}
-
-.devbook-c4-references {
-    margin-top: var(--spacing-sm);
-}
-
 /* A C4 view a chapter embeds as ![…](c4:<key>), drawn where the image was. A block
-   inside the paragraph, the full width of the chapter, framed like the explorer's
-   stage; the diagram's inline host keeps the picture's own aspect ratio. */
+   inside the paragraph, the full width of the chapter, framed; the diagram's inline host keeps the picture's own aspect ratio. */
 .devbook-c4-embed {
     display: flex;
     flex-direction: column;
@@ -8615,7 +8600,7 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /* A C4 view drawn inside the arc42 chapter that documents it, under the section
-   the view map names, while c4-zoom is on (plan c4-zoom-navigation, the design's
+   the view map names, while c4-diagrams is on (local ADR 0046, the design's
    arc42 screen). A figure with its own edge: it is not part of the chapter's text,
    and the chapter's own fence is still drawn where the chapter writes it. */
 .md-chapter-insert {
@@ -8691,7 +8676,7 @@ a.pull-request-detail-checks__name:hover {
     outline-offset: 2px;
 }
 
-/* Where an ADR or a TDR lands on the model, beside the record while `c4-zoom` is
+/* Where an ADR or a TDR lands on the model, beside the record while `c4-diagrams` is
    on (the design's ADR screen). A column of its own beside the chapter, which keeps
    scrolling on its own; in a narrow pane it goes under the chapter, capped so the
    chapter still has the room. */
@@ -11984,9 +11969,9 @@ a.pull-request-detail-checks__name:hover {
     outline-offset: var(--border-width);
 }
 
-/* ---- the architecture surface (c4-zoom on) ----
+/* ---- the architecture surface (c4-diagrams on) ----
 
-   The Architecture pane as one surface (plan c4-zoom-navigation): the zoom bar, then
+   The Architecture pane as one surface (local ADR 0046): the zoom bar, then
    the left navigation headed by the find field, the main area and the right-hand
    panel (the explorer lays those out; components.css). There is no header row: the
    open line in the navigation and the main area's heading say where the reader is.

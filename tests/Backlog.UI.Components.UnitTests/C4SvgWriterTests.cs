@@ -88,19 +88,6 @@ public sealed class C4SvgWriterTests
         Assert.Equal(cards, Occurrences(svg, "class=\"node c4-diagram__node"));
     }
 
-    /// <summary>Only the cards that lead somewhere are marked, which is what the hand
-    /// cursor and the hover outline hang off. Marking all of them promised a click
-    /// most of them could not answer.</summary>
-    [Fact]
-    public void Only_a_card_with_a_deeper_view_is_marked_drillable()
-    {
-        var svg = Svg("containers");
-
-        Assert.Matches(@"id=""diag-backlog_desktop""", svg);
-        Assert.Contains("c4-drillable\" id=\"diag-backlog_desktop\"", svg, StringComparison.Ordinal);
-        Assert.DoesNotContain("c4-drillable\" id=\"diag-backlog_store\"", svg, StringComparison.Ordinal);
-    }
-
     // ---- what the picture says --------------------------------------------------
 
     [Fact]
@@ -378,9 +365,9 @@ public sealed class C4SvgWriterTests
         }
     }
 
-    // ---- the zoom tab's option ---------------------------------------------------
+    // ---- what a host hands the writer per render ------------------------------
 
-    /// <summary>The C4 tab passes no options, and its picture must be the one it was:
+    /// <summary>A picture handed no zoom targets, a chapter's embed, carries no chip:
     /// no options and the empty options write the same string, with no chip in it.</summary>
     [Fact]
     public void Without_options_the_picture_is_unchanged_and_carries_no_zoom_chip()
@@ -395,29 +382,16 @@ public sealed class C4SvgWriterTests
         }
     }
 
-    /// <summary>Without the edge-ends option no line names its cards and there is no
-    /// second arrowhead: the C4 tab's picture never gets them.</summary>
-    [Fact]
-    public void Without_edge_ends_no_line_names_its_cards()
-    {
-        foreach (var key in new[] { "landscape", "context", "containers", "components" })
-        {
-            var plain = Svg(key);
-            Assert.DoesNotContain("data-c4-from", plain, StringComparison.Ordinal);
-            Assert.DoesNotContain("arrow-related", plain, StringComparison.Ordinal);
-        }
-    }
-
     /// <summary>
-    /// With edge ends every relationship's line and label name the cards it joins, by
-    /// the alias the cards' ids end in, and the picture carries the lit arrowhead the
-    /// viewer swaps in for the selected card's relationships.
+    /// Every relationship's line and label name the cards it joins, by the alias the
+    /// cards' ids end in, and the picture carries the lit arrowhead the viewer swaps in
+    /// for the selected card's relationships.
     /// </summary>
     [Fact]
-    public void With_edge_ends_each_line_and_label_name_the_cards_it_joins()
+    public void Each_line_and_label_name_the_cards_it_joins()
     {
         var diagram = Layout("containers");
-        var svg = C4SvgWriter.Write(diagram, "diag", "A view", new C4SvgOptions { EdgeEnds = true });
+        var svg = C4SvgWriter.Write(diagram, "diag", "A view");
 
         Assert.Contains("<marker id=\"diag-arrow-related\"", svg, StringComparison.Ordinal);
         Assert.Contains("c4-diagram__arrowhead--related", svg, StringComparison.Ordinal);
@@ -452,9 +426,9 @@ public sealed class C4SvgWriterTests
         Assert.Contains("<title>Zoom in</title>", svg, StringComparison.Ordinal);
     }
 
-    // ---- the zoom tab's record overlay --------------------------------------------
+    // ---- the zoom navigation's record overlay -------------------------------------
 
-    /// <summary>The C4 tab never sets <see cref="C4SvgOptions.RecordChips"/>, and an
+    /// <summary>A chapter's embed never sets <see cref="C4SvgOptions.RecordChips"/>, and an
     /// overlay with nothing to count must not change the picture either: no option, a
     /// null map and an empty one all write the same string, with no chip and no debt
     /// surface in it.</summary>
@@ -585,7 +559,9 @@ public sealed class C4SvgWriterTests
         var diagram = C4LayoutEngine.Build(workspace, workspace.View("capture")!);
 
         Assert.Equal([1, 2], diagram.Edges.Select(edge => edge.Order));
-        Assert.Contains("1. ", C4SvgWriter.Write(diagram, "diag"), StringComparison.Ordinal);
+        var svg = C4SvgWriter.Write(diagram, "diag");
+        Assert.Contains("data-c4-step=\"1\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-c4-step=\"2\"", svg, StringComparison.Ordinal);
     }
 
     // ---- safety -----------------------------------------------------------------
@@ -649,15 +625,15 @@ public sealed class C4SvgWriterTests
 
     // ---- group bands ------------------------------------------------------------
 
-    private static string Banded(string key, C4LayoutOptions? options = null) =>
-        C4SvgWriter.Write(C4LayoutGroupTests.Layout(key, options), "diag", "A view");
+    private static string Banded(string key) =>
+        C4SvgWriter.Write(C4LayoutGroupTests.Layout(key), "diag", "A view");
 
     /// <summary>Each band is a labelled frame of its own, named for its group, as the
     /// design's landscape draws the capture sources, work tracking and operations.</summary>
     [Fact]
     public void Each_group_is_drawn_as_a_labelled_band()
     {
-        var svg = Banded("landscape", C4LayoutGroupTests.Bands);
+        var svg = Banded("landscape");
 
         foreach (var name in new[] { "Capture sources", "Work tracking", "Operations" })
         {
@@ -673,7 +649,7 @@ public sealed class C4SvgWriterTests
     [Fact]
     public void A_band_is_not_a_node_the_viewer_can_select()
     {
-        var document = System.Xml.Linq.XDocument.Parse(Banded("landscape", C4LayoutGroupTests.Bands));
+        var document = System.Xml.Linq.XDocument.Parse(Banded("landscape"));
 
         var bands = document.Descendants()
             .Where(element => element.Attribute("data-c4-group") is not null && element.Attribute("class")?.Value == "c4-diagram__group")
@@ -688,7 +664,7 @@ public sealed class C4SvgWriterTests
     [Fact]
     public void Bands_are_painted_under_the_cards()
     {
-        var svg = Banded("landscape", C4LayoutGroupTests.Bands);
+        var svg = Banded("landscape");
 
         var lastBand = svg.LastIndexOf("class=\"c4-diagram__group\"", StringComparison.Ordinal);
         var firstCard = svg.IndexOf("c4-diagram__node", StringComparison.Ordinal);
@@ -701,11 +677,11 @@ public sealed class C4SvgWriterTests
     [Fact]
     public void A_line_drawn_to_a_band_names_its_group()
     {
-        var svg = Banded("landscape", C4LayoutGroupTests.Bands);
+        var svg = Banded("landscape");
 
-        Assert.Contains("<g class=\"c4-diagram__edge c4-diagram__edge--group\" data-c4-group=\"Capture sources\">", svg, StringComparison.Ordinal);
-        Assert.Contains("<g class=\"c4-diagram__edge c4-diagram__edge--group\" data-c4-group=\"Operations\">", svg, StringComparison.Ordinal);
-        Assert.Contains("<g class=\"c4-diagram__edge\">", svg, StringComparison.Ordinal);
+        Assert.Contains("<g class=\"c4-diagram__edge c4-diagram__edge--group\" data-c4-group=\"Capture sources\" data-c4-from=", svg, StringComparison.Ordinal);
+        Assert.Contains("<g class=\"c4-diagram__edge c4-diagram__edge--group\" data-c4-group=\"Operations\" data-c4-from=", svg, StringComparison.Ordinal);
+        Assert.Contains("<g class=\"c4-diagram__edge\" data-c4-from=", svg, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -713,28 +689,9 @@ public sealed class C4SvgWriterTests
     {
         foreach (var key in new[] { "landscape", "context-backlog", "containers-backlog" })
         {
-            var document = System.Xml.Linq.XDocument.Parse(Banded(key, C4LayoutGroupTests.Bands));
+            var document = System.Xml.Linq.XDocument.Parse(Banded(key));
 
             Assert.Equal("svg", document.Root!.Name.LocalName);
-        }
-    }
-
-    /// <summary>
-    /// The C4 tab's explorer asks the layout for no options, and its picture must be the
-    /// one it was even on a model full of groups: no options and the empty options lay
-    /// out and write the same string, with no band and no line to one in it.
-    /// </summary>
-    [Fact]
-    public void Without_the_band_option_a_grouped_model_draws_no_band()
-    {
-        foreach (var key in new[] { "landscape", "context-backlog", "containers-backlog" })
-        {
-            var plain = Banded(key);
-
-            Assert.Equal(plain, Banded(key, C4LayoutOptions.None));
-            Assert.Equal(plain, Banded(key, new C4LayoutOptions(GroupBands: false)));
-            Assert.DoesNotContain("c4-diagram__group", plain, StringComparison.Ordinal);
-            Assert.DoesNotContain("data-c4-group", plain, StringComparison.Ordinal);
         }
     }
 

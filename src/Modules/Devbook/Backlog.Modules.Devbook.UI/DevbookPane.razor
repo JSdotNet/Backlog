@@ -966,12 +966,12 @@
     }
 
     /// <summary>The C4 model's store, resolved like the other optional stores: only
-    /// asked whether <c>c4-zoom</c> is on.</summary>
+    /// asked whether <c>c4-diagrams</c> is on.</summary>
     private C4DevbookStore? _c4Store;
 
     /// <summary>
     /// Whether the Architecture section draws its own left navigation: while
-    /// <c>c4-zoom</c> is on it is the architecture surface (plan c4-zoom-navigation),
+    /// <c>c4-diagrams</c> is on it is the architecture surface (local ADR 0046),
     /// whose design has one left navigation on every screen — the C4 views, the
     /// chapters that document the open view, the records — so this pane's chapter
     /// menu stands down for that section rather than stand beside a second one. The
@@ -980,7 +980,7 @@
     private bool SurfaceOwnsMenu =>
         !BrainMode
         && string.Equals(EffectiveSection, "arc42", StringComparison.Ordinal)
-        && _c4Store is { ZoomEnabled: true };
+        && _c4Store is { Enabled: true };
 
     /// <summary>
     /// The mode's strip action wrote a note: the pane opens it, on the tab whose

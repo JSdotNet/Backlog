@@ -60,7 +60,7 @@ public sealed record C4RecordCitation(string Path, string? Anchor, string Number
 
 /// <summary>
 /// Where an ADR or a TDR lands on the model, and where it sits among the other records
-/// — the right-hand panel of the design's ADR screen (plan c4-zoom-navigation).
+/// — the right-hand panel of the design's ADR screen (local ADR 0046).
 /// <para>
 /// Every part is read from what the chapters already say, never from a file kept
 /// beside the model (local ADR 0046): the map from the record's <c>c4</c> and

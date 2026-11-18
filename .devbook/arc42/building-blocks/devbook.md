@@ -20,8 +20,8 @@ database tables and the Brain's use of the same builder.
 ```meta
 ```
 
-- **The Devbook pane:** `DevbookPane`, which the shell offers. While `c4-zoom` and
-  `c4-diagrams` are on, its architecture section is the C4 zoom surface.
+- **The Devbook pane:** `DevbookPane`, which the shell offers. While `c4-diagrams`
+  is on, its architecture section is the C4 zoom surface.
 - **The ports:** `IDevbookFolderSource`, `IDevbookSubjectStateStore` and the other
   interfaces in `Backlog.Modules.Devbook.Abstractions`, with the switch keys in
   `DevbookFeatures`.

@@ -642,28 +642,12 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']"));
     }
 
-    // ---- where a decision or debt record lands on the model (c4-zoom) -------------
-
-    /// <summary>
-    /// The switch off, and the C4 tab still on: the record reads as it always did, with
-    /// no map, no chain and no layout of its own (requirement "The switch off").
-    /// </summary>
-    [Fact]
-    public async Task With_c4_zoom_off_a_decision_record_shows_no_model_panel()
-    {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: false);
-
-        var component = harness.Render(ModelDecisionPath);
-        component.WaitForAssertion(() => Assert.Contains("The replica decision.", component.Markup, StringComparison.Ordinal));
-
-        Assert.Empty(component.FindAll("[data-testid='arc42-record-model']"));
-        Assert.Empty(component.FindAll(".arc42-devbook-layout--record"));
-    }
+    // ---- where a decision or debt record lands on the model ----------------------
 
     [Fact]
-    public async Task With_c4_zoom_on_a_chapter_that_is_no_record_shows_no_model_panel()
+    public async Task A_chapter_that_is_no_record_shows_no_model_panel()
     {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        await using var harness = CreateModelHarness();
 
         var component = harness.Render(".arc42/05-building-block-view.md");
         component.WaitForAssertion(() => Assert.Contains("The static decomposition.", component.Markup, StringComparison.Ordinal));
@@ -678,9 +662,21 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// no container is said under the map rather than dropped.
     /// </summary>
     [Fact]
-    public async Task With_c4_zoom_on_a_decision_record_marks_what_it_decides_and_touches()
+    public async Task With_c4_diagrams_off_a_decision_record_shows_no_model_panel()
     {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        await using var harness = CreateModelHarness(c4DiagramsEnabled: false);
+
+        var component = harness.Render(ModelDecisionPath);
+        component.WaitForAssertion(() => Assert.Contains("The replica decision.", component.Markup, StringComparison.Ordinal));
+
+        Assert.Empty(component.FindAll("[data-testid='arc42-record-model']"));
+        Assert.Empty(component.FindAll(".arc42-devbook-layout--record"));
+    }
+
+    [Fact]
+    public async Task With_c4_diagrams_on_a_decision_record_marks_what_it_decides_and_touches()
+    {
+        await using var harness = CreateModelHarness();
 
         var component = harness.Render(ModelDecisionPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-model']")));
@@ -704,9 +700,9 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// of supersession reads back from ADR 0004.
     /// </summary>
     [Fact]
-    public async Task With_c4_zoom_on_a_decision_record_shows_its_decision_chain()
+    public async Task With_c4_diagrams_on_a_decision_record_shows_its_decision_chain()
     {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        await using var harness = CreateModelHarness();
 
         var component = harness.Render(ModelDecisionPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-chain']")));
@@ -734,7 +730,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_guideline_sharing_a_local_number_is_superseded_by_nothing_and_a_chip_opens_its_record()
     {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        await using var harness = CreateModelHarness();
         var asked = new List<DevbookChapterLink>();
 
         var guideline = harness.Render(".arc42/adr/guidelines/0004-guide.md", asked);
@@ -753,9 +749,9 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// <summary>The arc42 sections whose <c>related:</c> name the record, each a way to
     /// that section: a request to the host, which owns the selection.</summary>
     [Fact]
-    public async Task With_c4_zoom_on_a_decision_record_lists_the_chapters_that_cite_it()
+    public async Task With_c4_diagrams_on_a_decision_record_lists_the_chapters_that_cite_it()
     {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        await using var harness = CreateModelHarness();
         var asked = new List<DevbookChapterLink>();
 
         var component = harness.Render(ModelDecisionPath, asked);
@@ -777,7 +773,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     [Fact]
     public async Task Open_in_C4_zoom_opens_the_container_view_with_the_decided_element_selected()
     {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        await using var harness = CreateModelHarness();
 
         var component = harness.Render(ModelDecisionPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-open-zoom']")));
@@ -801,7 +797,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_guideline_in_the_chain_is_told_apart_from_the_local_record_of_its_number()
     {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        await using var harness = CreateModelHarness();
 
         var component = harness.Render(ModelDecisionPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-chain']")));
@@ -823,9 +819,9 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// <c>related:</c> does not is no part of it.
     /// </summary>
     [Fact]
-    public async Task With_c4_zoom_on_a_debt_record_shows_its_originating_and_related_decisions()
+    public async Task With_c4_diagrams_on_a_debt_record_shows_its_originating_and_related_decisions()
     {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        await using var harness = CreateModelHarness();
         var asked = new List<DevbookChapterLink>();
 
         var component = harness.Render(".arc42/tdr/0001-debt.md", asked);
@@ -849,7 +845,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_debt_record_whose_origin_names_a_guideline_takes_the_guideline_and_not_its_local_namesake()
     {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        await using var harness = CreateModelHarness();
 
         var component = harness.Render(".arc42/tdr/0002-guided.md");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-chain']")));
@@ -865,7 +861,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_debt_record_that_names_no_decision_says_its_chain_is_empty()
     {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        await using var harness = CreateModelHarness();
 
         var component = harness.Render(".arc42/tdr/0003-alone.md");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-chain']")));
@@ -877,9 +873,9 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// <summary>A TDR shows the same map, with its severity and where it stands on the
     /// debt ladder.</summary>
     [Fact]
-    public async Task With_c4_zoom_on_a_debt_record_shows_the_map_with_its_severity_and_lifecycle()
+    public async Task With_c4_diagrams_on_a_debt_record_shows_the_map_with_its_severity_and_lifecycle()
     {
-        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        await using var harness = CreateModelHarness();
 
         var component = harness.Render(".arc42/tdr/0001-debt.md");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-model']")));
@@ -938,7 +934,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// (proposed) and ADR 0007 build on it; TDR 0001 names it and the mobile app; and
     /// chapter 05's Containers section cites it.
     /// </summary>
-    private ModelHarness CreateModelHarness(bool c4ZoomEnabled)
+    private ModelHarness CreateModelHarness(bool c4DiagramsEnabled = true)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-panel-tests", Guid.NewGuid().ToString("N"));
         _roots.Add(root);
@@ -986,8 +982,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
-        if (c4ZoomEnabled) Assert.Null(features.SetEnabled(DevbookFeatures.C4Zoom, true));
+        Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, c4DiagramsEnabled));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");

@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The group bands the C4 zoom tab asks the layout for: the outside systems a
+/// The group bands the layout draws: the outside systems a
 /// <c>group</c> block gathered, kept together and drawn as one labelled band, as the
 /// design's landscape screen draws them.
 /// <para>
@@ -62,13 +62,11 @@ public sealed class C4LayoutGroupTests
 
     internal static readonly C4Workspace Workspace = C4DslReader.Read(Source);
 
-    internal static readonly C4LayoutOptions Bands = new(GroupBands: true);
-
-    internal static C4Diagram Layout(string key, C4LayoutOptions? options = null)
+    internal static C4Diagram Layout(string key)
     {
         var view = Workspace.View(key);
         Assert.NotNull(view);
-        return C4LayoutEngine.Build(Workspace, view, options);
+        return C4LayoutEngine.Build(Workspace, view);
     }
 
     [Fact]
@@ -81,21 +79,9 @@ public sealed class C4LayoutGroupTests
     }
 
     [Fact]
-    public void Without_the_option_no_band_is_laid_out()
+    public void Each_group_is_one_band_holding_its_members()
     {
-        foreach (var key in new[] { "landscape", "context-backlog", "containers-backlog" })
-        {
-            var diagram = Layout(key);
-
-            Assert.Empty(diagram.Groups);
-            Assert.All(diagram.Edges, edge => Assert.Null(edge.Group));
-        }
-    }
-
-    [Fact]
-    public void With_the_option_each_group_is_one_band_holding_its_members()
-    {
-        var diagram = Layout("landscape", Bands);
+        var diagram = Layout("landscape");
 
         Assert.Equal(["Capture sources", "Work tracking", "Operations"], diagram.Groups.Select(group => group.Name));
         Assert.Equal(["youtube", "email", "websites"], Band(diagram, "Capture sources").MemberAliases);
@@ -108,7 +94,7 @@ public sealed class C4LayoutGroupTests
     [Fact]
     public void Every_member_sits_inside_its_band_and_nothing_else_does()
     {
-        var diagram = Layout("landscape", Bands);
+        var diagram = Layout("landscape");
 
         foreach (var band in diagram.Groups)
         {
@@ -126,7 +112,7 @@ public sealed class C4LayoutGroupTests
     [Fact]
     public void Bands_do_not_overlap_each_other_and_fit_the_canvas()
     {
-        var diagram = Layout("landscape", Bands);
+        var diagram = Layout("landscape");
         var bands = diagram.Groups.ToList();
 
         for (var i = 0; i < bands.Count; i++)
@@ -149,7 +135,7 @@ public sealed class C4LayoutGroupTests
     [Fact]
     public void Relationships_to_several_members_of_a_group_are_drawn_once_to_the_band()
     {
-        var diagram = Layout("landscape", Bands);
+        var diagram = Layout("landscape");
 
         var capture = Assert.Single(diagram.Edges, edge => edge.Group == "Capture sources");
         Assert.Equal("backlog", capture.FromAlias);
@@ -164,7 +150,7 @@ public sealed class C4LayoutGroupTests
     [Fact]
     public void A_band_line_whose_relationships_differ_says_how_many_it_stands_for()
     {
-        var diagram = Layout("landscape", Bands);
+        var diagram = Layout("landscape");
 
         Assert.Equal("3 relationships", Assert.Single(diagram.Edges, edge => edge.Group == "Capture sources").Label);
         Assert.Equal("2 relationships", Assert.Single(diagram.Edges, edge => edge.Group == "Operations").Label);
@@ -193,7 +179,7 @@ public sealed class C4LayoutGroupTests
 
         var workspace = C4DslReader.Read(source);
         Assert.Empty(workspace.Problems);
-        var diagram = C4LayoutEngine.Build(workspace, workspace.View("landscape")!, Bands);
+        var diagram = C4LayoutEngine.Build(workspace, workspace.View("landscape")!);
 
         var line = Assert.Single(diagram.Edges, edge => edge.Group == "Capture sources");
         Assert.Equal("Polls", line.Label);
@@ -202,19 +188,6 @@ public sealed class C4LayoutGroupTests
 
     // ---- bands beside --------------------------------------------------------------
 
-    internal static readonly C4LayoutOptions Beside = new(GroupBands: true) { BandsBeside = true };
-
-    /// <summary>Without the option the bands stay on the rows their relationships rank
-    /// them onto: on this landscape, not all of them to the right of the system.</summary>
-    [Fact]
-    public void Without_bands_beside_the_bands_keep_their_rows()
-    {
-        var diagram = Layout("landscape", Bands);
-        var backlog = Card(diagram, "backlog");
-
-        Assert.Contains(diagram.Groups, band => band.X < backlog.X + backlog.Width);
-    }
-
     /// <summary>The design's landscape: the system in the middle, the bands in one column
     /// to its right, beside it rather than on the row above.</summary>
     [Theory]
@@ -222,7 +195,7 @@ public sealed class C4LayoutGroupTests
     [InlineData("context-backlog")]
     public void With_bands_beside_every_band_sits_right_of_the_system_beside_it(string key)
     {
-        var diagram = Layout(key, Beside);
+        var diagram = Layout(key);
         var backlog = Card(diagram, "backlog");
         var bands = diagram.Groups.ToList();
 
@@ -237,7 +210,7 @@ public sealed class C4LayoutGroupTests
     [Fact]
     public void Bands_beside_stack_in_one_column_in_the_order_they_were_declared()
     {
-        var diagram = Layout("landscape", Beside);
+        var diagram = Layout("landscape");
         var bands = diagram.Groups.ToList();
 
         Assert.Equal(["Capture sources", "Work tracking", "Operations"], bands.Select(band => band.Name));
@@ -252,7 +225,7 @@ public sealed class C4LayoutGroupTests
     [Fact]
     public void Bands_beside_leave_every_member_inside_its_band_and_nothing_else_under_them()
     {
-        var diagram = Layout("landscape", Beside);
+        var diagram = Layout("landscape");
 
         foreach (var band in diagram.Groups)
         {
@@ -277,7 +250,7 @@ public sealed class C4LayoutGroupTests
     public void A_band_holding_a_person_keeps_the_top_row_with_bands_beside()
     {
         var workspace = C4DslReader.Read(Edges);
-        var diagram = C4LayoutEngine.Build(workspace, workspace.View("landscape")!, Beside);
+        var diagram = C4LayoutEngine.Build(workspace, workspace.View("landscape")!);
 
         var people = Band(diagram, "People");
         var capture = Band(diagram, "Capture sources");
@@ -295,7 +268,7 @@ public sealed class C4LayoutGroupTests
     [Fact]
     public void A_single_relationship_to_a_member_stays_its_own_line()
     {
-        var diagram = Layout("landscape", Bands);
+        var diagram = Layout("landscape");
 
         Assert.Contains(diagram.Edges, edge => edge.FromAlias == "backlog" && edge.ToAlias == "github" && edge.Group is null);
         Assert.Contains(diagram.Edges, edge => edge.FromAlias == "github" && edge.ToAlias == "backlog" && edge.Group is null);
@@ -304,7 +277,7 @@ public sealed class C4LayoutGroupTests
     [Fact]
     public void A_line_to_a_band_ends_on_the_bands_edge()
     {
-        var diagram = Layout("landscape", Bands);
+        var diagram = Layout("landscape");
         var band = Band(diagram, "Capture sources");
         var edge = Assert.Single(diagram.Edges, edge => edge.Group == band.Name);
 
@@ -323,7 +296,7 @@ public sealed class C4LayoutGroupTests
     [Fact]
     public void A_boundary_is_still_a_frame_where_bands_are_drawn()
     {
-        var diagram = Layout("containers-backlog", Bands);
+        var diagram = Layout("containers-backlog");
 
         Assert.Contains(diagram.Boundaries, boundary => boundary.Id == "backlog");
         Assert.DoesNotContain(diagram.Groups.SelectMany(group => group.MemberAliases), alias => alias.StartsWith("backlog_", StringComparison.Ordinal));
@@ -360,7 +333,7 @@ public sealed class C4LayoutGroupTests
     {
         var workspace = C4DslReader.Read(Edges);
         Assert.Empty(workspace.Problems);
-        return C4LayoutEngine.Build(workspace, workspace.View(key)!, Bands);
+        return C4LayoutEngine.Build(workspace, workspace.View(key)!);
     }
 
     /// <summary>A dynamic view plays its arrows one by one, so two numbered steps into

@@ -315,8 +315,8 @@
         }
 
         // A file picked in the Devbook menu is a request to read that file, so
-        // the comparison steps aside for it — the move the arc42 panel makes when
-        // a chapter is chosen while the C4 tab is the one up.
+        // the comparison steps aside for it, so the file asked for is the one on
+        // screen.
         if (!string.IsNullOrWhiteSpace(SelectedPath)) _tab = FilesTab;
 
         await LoadSelectedChapterAsync();

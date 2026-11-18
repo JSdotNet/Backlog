@@ -7,8 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Architecture pane as one surface while <c>c4-zoom</c> is on (plan
-/// c4-zoom-navigation, entry 15b): no header row — the find field heads the left
+/// The Architecture pane as one surface while <c>c4-diagrams</c> is on (local ADR
+/// 0046): no header row — the find field heads the left
 /// navigation — the zoom bar always there, the left navigation — the C4 views, the chapters that
 /// document the open view, the records — and a chapter, an ADR or a TDR opened inside
 /// the surface with its own left list and right-hand panel.
@@ -420,15 +420,15 @@ public sealed class Arc42SurfaceTests : IDisposable
     }
 
     [Fact]
-    public async Task With_c4_zoom_off_the_pane_keeps_its_tabs_and_has_no_surface()
+    public async Task With_c4_diagrams_off_the_pane_is_its_chapters_tab_and_has_no_surface()
     {
-        await using var harness = CreateHarness(zoom: false);
+        await using var harness = CreateHarness(c4: false);
         var component = harness.Render(ChapterPath);
         Settle(component);
 
         Assert.Empty(component.FindAll("[data-testid='arc42-surface']"));
         Assert.Empty(component.FindAll("[data-testid='arc42-surface-nav']"));
-        Assert.Equal(["Chapters", "C4"], component.FindAll("[role='tab']").Select(tab => tab.TextContent.Trim()));
+        Assert.Equal(["Chapters"], component.FindAll("[role='tab']").Select(tab => tab.TextContent.Trim()));
     }
 
     // ---- a record's state, from the subject store (local ADRs 0044 §5 and 0046) ----
@@ -611,7 +611,7 @@ public sealed class Arc42SurfaceTests : IDisposable
         return (await store.LoadAsync(harness.RepositoryAlias), await c4.LoadAsync(harness.RepositoryAlias));
     }
 
-    private Harness CreateHarness(bool zoom = true, string references = References, bool embed = false, IDevbookSubjectStateStore? subjects = null, bool? status = null)
+    private Harness CreateHarness(bool c4 = true, string references = References, bool embed = false, IDevbookSubjectStateStore? subjects = null, bool? status = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-surface-tests", Guid.NewGuid().ToString("N"));
         _roots.Add(root);
@@ -643,8 +643,7 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
-        if (zoom) Assert.Null(features.SetEnabled(DevbookFeatures.C4Zoom, true));
+        if (c4) Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
         if (status is { } shown) Assert.Null(features.SetEnabled(DevbookFeatures.Status, shown));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));

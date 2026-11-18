@@ -117,7 +117,6 @@ public sealed class AppFeatureSettingsStoreTests
                 DevbookFeatures.RepositoryDevbook,
                 DevbookFeatures.ArchifyDiagrams,
                 DevbookFeatures.C4Diagrams,
-                DevbookFeatures.C4Zoom,
                 DevbookFeatures.LobesAtlas,
                 DevbookFeatures.Search,
                 DevbookFeatures.SemanticSearch,
@@ -170,7 +169,6 @@ public sealed class AppFeatureSettingsStoreTests
     [InlineData(DashboardFeatures.Dashboard, AppFeatureStatus.Released, true)]
     [InlineData(DevbookFeatures.C4Diagrams, AppFeatureStatus.Released, false)]
     [InlineData(DevbookFeatures.ArchifyDiagrams, AppFeatureStatus.Released, false)]
-    [InlineData(DevbookFeatures.C4Zoom, AppFeatureStatus.Dev, false)]
     [InlineData(SyncFeatures.Sync, AppFeatureStatus.Beta, false)]
     public void Graduated_features_keep_their_maturity_and_default_apart(string key, AppFeatureStatus status, bool enabledByDefault)
     {
@@ -360,6 +358,43 @@ public sealed class AppFeatureSettingsStoreTests
 
             Assert.True(store.IsEnabled(SyncFeatures.Sync));
             Assert.Equal([SyncFeatures.Sync], store.Current.EnabledFeatures);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The C4 zoom switch is retired: the zoom navigation is the only reading of the
+    /// C4 model and follows <c>c4-diagrams</c> alone. A file written while
+    /// <c>"c4-zoom"</c> was on still loads, keeps <c>c4-diagrams</c> as it was, and
+    /// the next save no longer carries the retired key. It is not a former key of
+    /// <c>c4-diagrams</c>: it only ever took effect with that switch already on.
+    /// </summary>
+    [Fact]
+    public void A_stored_c4_zoom_choice_is_dropped_on_the_next_save()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(new
+            {
+                enabledFeatures = new[] { "c4-diagrams", "c4-zoom" }
+            }));
+
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+
+            Assert.True(store.IsEnabled(DevbookFeatures.C4Diagrams));
+            Assert.Equal([DevbookFeatures.C4Diagrams], store.Current.EnabledFeatures);
+
+            store.SetEnabled(AppFeatures.FeedbackReporting, enabled: false);
+
+            var saved = File.ReadAllText(path);
+            Assert.Contains("c4-diagrams", saved);
+            Assert.DoesNotContain("c4-zoom", saved);
         }
         finally
         {

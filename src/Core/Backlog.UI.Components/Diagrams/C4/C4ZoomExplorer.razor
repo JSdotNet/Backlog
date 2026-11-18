@@ -2,16 +2,12 @@
 @inject IJSRuntime Js
 
 @*
-    The C4 zoom tab: one model a reader zooms through a level at a time, where the C4
-    tab (C4Explorer) lists views one by one. Both stand side by side behind the c4-zoom
-    switch until the zoom tab is validated (local ADR 0046), so this shares the
-    renderer — C4LayoutEngine, C4SvgWriter, C4Exploration — and changes nothing about
-    how the C4 tab draws: the additions to the shared writer, the Zoom in chip, the
-    selectable deployment-node frame and the overlay's record chips, are options only
-    this component sets, as are
-    the layout's group bands, nested frames and wider gaps (C4LayoutOptions). (The one
-    shared change both tabs see is a layout fix: a deployment instance is drawn inside
-    the deployment node that runs it, where the node used to be dropped.)
+    The C4 zoom navigation: one model a reader zooms through a level at a time, and
+    the only reading of the C4 model since it replaced the C4 tab (local ADR 0046). It
+    draws through the shared renderer — C4LayoutEngine, C4SvgWriter, C4Exploration —
+    and hands the writer what is particular to one render: the cards with a Zoom in
+    chip, the current step, the selectable deployment-node frames and the overlay's
+    record chips (C4SvgOptions).
 
     It holds two things, the open view and the selected element. Everything the zoom
     bar says and everywhere a move goes is C4ZoomNavigation's, derived from those two.
@@ -36,12 +32,13 @@
 *@
 
 @*
-    The surface (Navigation set — the architecture surface, plan c4-zoom-navigation):
+    The surface (Navigation set — the architecture surface, local ADR 0046):
     the bar across the top, and under it three columns — the host's navigation, the
     picture, the inspector. A host Document stands in for the picture and the inspector
     while it is open; the bar stays, drawn with no step current, and any press on it
     hands the reader back to the model through OnNavigate. Without Navigation the
-    explorer draws exactly what the C4 zoom tab always drew.
+    explorer draws the picture with its bar, title and inspector alone, as the
+    storybook shows it.
 *@
 @*
     Escape with an element selected is the explorer's: it clears the selection and
@@ -130,7 +127,7 @@
 @code {
     /// <summary>The open view: the bar (off the surface), the hint, and either the Code
     /// level or the picture with everything under it. Off the surface the inspector is
-    /// drawn beside the picture, as the C4 zoom tab always drew it; on the surface it is
+    /// drawn beside the picture; on the surface it is
     /// the right-hand column instead.</summary>
     private void RenderPicture(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder)
     {
@@ -407,20 +404,6 @@
     /// on the bar. Cleared on the attach that honours it.</summary>
     private bool _refocus;
 
-    /// <summary>The layout this tab asks for. Outside systems a <c>group</c> block
-    /// gathered are kept together in a labelled band, in one column beside the system,
-    /// as the design's landscape draws them. Every deployment node is framed, however
-    /// deep, so a node that holds only other nodes can be selected too. And the gaps
-    /// are wider, so the labels on a larger view have room. The C4 tab asks for none
-    /// and draws what it always drew.</summary>
-    internal static readonly C4LayoutOptions Layout = new(GroupBands: true)
-    {
-        BandsBeside = true,
-        NestedDeploymentNodes = true,
-        ColumnGap = 80,
-        RowGap = 144
-    };
-
     private C4Diagram? _diagram;
     private C4Workspace? _diagramWorkspace;
     private string? _diagramViewKey;
@@ -514,7 +497,7 @@
     /// <summary>
     /// The architecture surface's left navigation. Set, the explorer draws as the
     /// surface: the bar across the top, then this, the picture and the inspector as
-    /// three columns. Null — the C4 zoom tab — draws the explorer as it always was.
+    /// three columns. Null draws the bar, the picture and the inspector beside it.
     /// </summary>
     [Parameter]
     public RenderFragment? Navigation { get; set; }
@@ -636,7 +619,7 @@
 
     protected override void OnParametersSet()
     {
-        // Keyed on the workspace's identity, as the C4 tab's explorer is: a reload
+        // Keyed on the workspace's identity: a reload
         // hands over a fresh record, and re-deriving is cheaper than diffing it.
         var key = $"{Workspace.Name}#{Workspace.Views.Count}#{Workspace.Elements.Count}";
         if (string.Equals(_loadedFor, key, StringComparison.Ordinal) && _view is not null && Workspace.View(_view.Key) is not null)
@@ -685,8 +668,7 @@
 
         RefreshPlayback();
 
-        var numberSteps = _playback.Count > 0;
-        int? currentStep = numberSteps ? _playback[_stepIndex].Order : null;
+        int? currentStep = _playback.Count > 0 ? _playback[_stepIndex].Order : null;
 
         // A deployment node that runs something is drawn as a frame; on a deployment
         // view the frame is selectable, because the node is what a reader asks about.
@@ -699,11 +681,10 @@
         if (_options.ZoomInAliases is null
             || !_options.ZoomInAliases.SetEquals(zoomable)
             || !SameSet(_options.SelectableBoundaryAliases, frames)
-            || _options.NumberSteps != numberSteps
             || _options.CurrentStep != currentStep
             || !SameChips(_options.RecordChips, chips))
         {
-            _options = new C4SvgOptions(zoomable, numberSteps, currentStep) { SelectableBoundaryAliases = frames, RecordChips = chips, EdgeEnds = true };
+            _options = new C4SvgOptions(zoomable, currentStep) { SelectableBoundaryAliases = frames, RecordChips = chips };
         }
 
         _environments = C4ZoomDeployment.Environments(Workspace, _view);
@@ -1295,7 +1276,7 @@
             || !ReferenceEquals(_diagramWorkspace, Workspace)
             || !string.Equals(_diagramViewKey, view.Key, StringComparison.OrdinalIgnoreCase))
         {
-            _diagram = C4LayoutEngine.Build(Workspace, view, Layout);
+            _diagram = C4LayoutEngine.Build(Workspace, view);
             _diagramWorkspace = Workspace;
             _diagramViewKey = view.Key;
         }
