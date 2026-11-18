@@ -17,6 +17,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Logging;
+using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Devbook;
@@ -338,6 +339,11 @@ public static class MauiProgram
         // And the linked task sync's timer, on the same terms: each connected
         // repository or product syncs on its own interval only while this exists.
         _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
+
+        // And the session queue's completion sweep (local ADR 0038 §3), on the same
+        // terms: it closes a request whose entry or plan the person finished, at start
+        // and after every task write.
+        _ = app.Services.GetRequiredService<SessionRequestCompletion>();
 
         // And the Desktop clock of the Events area, on the same terms: it files a harvest task
         // the day after a Going event ends, at start and when the local day turns, and checks

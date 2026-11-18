@@ -34,8 +34,10 @@ A run is always unattended: it asks the person nothing, from the first step to t
 
 ## Workflow
 
-1. **Graph.** Title this session per **Names** in `assets/handoff.md`. Skip the `plan`
-   entry. Keep `prompt`, `task`, `test` steps with their type, status, `after:` edges, `repo:` and title. Refuse a cycle. Read **Repository conventions** in `assets/landing-modes.md`, resolve every
+1. **Graph.** Title this session per **Names** in `assets/handoff.md`. With the server,
+   `link_session` the plan's first entry with this session's id — its entry sessions link
+   with their own, so only this link takes a dispatched plan out of the app's session
+   queue. Skip the `plan` entry. Keep `prompt`, `task`, `test` steps with their type, status, `after:` edges, `repo:` and title. Refuse a cycle. Read **Repository conventions** in `assets/landing-modes.md`, resolve every
    branch name by it, and refuse there a missing ticket or a bad pattern. Read each entry's pull request
    (`gh pr list --head <entry-branch> --state all --json number,state,isDraft,baseRefName,headRefName,body`).
    An entry is *done* when its status is Done/Archived or its pull request merged — into

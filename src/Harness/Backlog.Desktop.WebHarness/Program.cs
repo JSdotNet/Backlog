@@ -3,6 +3,7 @@ using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.Composition;
 using Backlog.UI.Components.AppUpdate;
@@ -287,6 +288,10 @@ _ = app.Services.GetRequiredService<BackupWorker>();
 // And the linked task sync's timer, on the same terms and for the same reason the
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
+
+// And the session queue's completion sweep, for the same reason the desktop head
+// resolves it.
+_ = app.Services.GetRequiredService<SessionRequestCompletion>();
 
 // And the Desktop clock of the Events area, on the same terms and for the same reason the
 // desktop head resolves it.

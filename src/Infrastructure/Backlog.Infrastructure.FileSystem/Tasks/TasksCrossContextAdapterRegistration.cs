@@ -6,6 +6,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Infrastructure.FileSystem.Tasks;
 
@@ -55,6 +56,20 @@ public static class TasksCrossContextAdapterRegistration
             sp.GetService<ISessionRequestStore>() is { } queue
                 ? new SessionRequestActions(queue, sp.GetService<IAppFeatureSettings>(), sp.GetService<TimeProvider>(), sp.GetService<DispatcherContact>())
                 : SessionRequestActions.NotOffered);
+        // Resolved once at startup by each head, the way its sync workers are: a
+        // singleton nobody asks for never hears a task write.
+        services.AddSingleton(sp => new SessionRequestCompletion(
+            sp.GetService<ISessionRequestStore>(),
+            async cancellationToken =>
+            {
+                var scope = sp.GetRequiredService<IServiceScopeFactory>().CreateAsyncScope();
+                await using var disposing = scope.ConfigureAwait(false);
+
+                return await scope.ServiceProvider.GetRequiredService<ITaskItems>().ListAsync(cancellationToken).ConfigureAwait(false);
+            },
+            sp.GetService<ITaskChangeSignal>(),
+            sp.GetService<IAppFeatureSettings>(),
+            sp.GetService<ILogger<SessionRequestCompletion>>()));
         services.AddSingleton<IEntrySessionRequests>(sp => sp.GetRequiredService<SessionRequestActions>());
         services.AddSingleton<IPlanSessionRequests>(sp => sp.GetRequiredService<SessionRequestActions>());
 
