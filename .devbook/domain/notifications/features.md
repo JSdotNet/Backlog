@@ -178,8 +178,8 @@ Anything else covers:
 - an alert;
 - a reply already on its way.
 
-The Personal Validation question offers Approve, Approve + follow-up,
-Revise and Reject. The tray shows it with no actions, and the person taps through to
+The Personal Validation question offers Approve, Approve + follow-up
+and Revise. The tray shows it with no actions, and the person taps through to
 the app.
 
 An action or an inline reply leaves through the same `notification-reply` outbox
@@ -219,7 +219,11 @@ A gate that has only gone in progress has nothing to show yet.
 | Approve | an approval | The flow goes on to the pull request. |
 | Approve + follow-up, with text | an approval, with the person's words as its note and the id of the follow-up entry | Tasks files one [follow-up entry](../tasks/features.md#filing-a-follow-up-after-an-entry) after the gated entry, in the same plan. |
 | Revise, with text | a rejection in the person's words | The flow starts a [revise round](../sessions/domain.md#revise-round). |
-| Reject | a rejection with a fixed note and none of the person's words | `execute-plan` blocks the entry instead of revising it. |
+| Reject, on a question an earlier build asked | a rejection with a fixed note and none of the person's words | `execute-plan` blocks the entry instead of revising it. |
+
+The question no longer offers Reject: a run that should end is ended at the desktop.
+The body carries the handoff alone. The origin names the repository and the buttons
+name the answers, so the body repeats neither.
 
 The run's approval also records which choice answered it, and for Approve +
 follow-up the id of the follow-up entry. `get_run` returns both, so an
