@@ -150,7 +150,9 @@ flowchart LR
     Notify -->|OHS + Published Language<br/>INotifications| Devbook
     Notify -->|OHS + Published Language<br/>Close by subject| Tasks
 
-    %% Events. Local ADR 0050. Every edge but the Brain reference is built.
+    %% Events. Local ADR 0050. Every edge is built. The Brain edge is dashed
+    %% because it is a one-way id reference, answered by EventsBrainNotes over
+    %% IEventBrainNotes, not a contract the Brain offers.
     %% Inbox -> Events is the To Event route; Capture -> Events the event facts
     %% a capture carries, through the Inbox. Tasks -> Events files, reads and
     %% completes the prep and harvest tasks by id (IEventTaskTarget, answered by

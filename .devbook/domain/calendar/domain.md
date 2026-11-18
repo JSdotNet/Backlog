@@ -6,7 +6,8 @@ related: [.devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-la
 ```
 
 The Calendar owns no aggregate, domain service or domain event: everything it shows
-belongs to another context. It owns the words below.
+belongs to another context. With no aggregate to hold a rule, it has no invariants page.
+It owns the words below.
 
 ## Ubiquitous Language
 

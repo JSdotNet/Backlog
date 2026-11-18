@@ -5,8 +5,8 @@ type: invariants
 ```
 
 What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each,
-with the unit tests that prove each rule built so far. The Attachment Request is not built
-yet, so its rules name no test.
+with the unit tests that prove it. Every rule names its tests except "A request never
+changes", which names none.
 
 ## Knowledge Event
 
