@@ -38,7 +38,7 @@ The system SHALL let the person add a knowledge event with a title alone, in the
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_spotted_event_offers_every_later_state_and_skip_and_marked_going_offers_neither_back_nor_skip, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_spotted_event_marked_going_is_going, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_going_event_offers_no_way_back_and_refuses_one, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_harvested_event_moves_nowhere]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_spotted_event_offers_every_later_state_and_skip_and_marked_going_offers_skip_but_no_way_back, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_spotted_event_marked_going_is_going, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_going_event_offers_no_way_back_and_refuses_one, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_harvested_event_moves_nowhere]
 ```
 
 The system SHALL offer only the states after an event's current one, including states further on than the next.
@@ -59,10 +59,10 @@ The system SHALL offer only the states after an event's current one, including s
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Skip_asks_why_refuses_a_blank_reason_and_shows_the_reason_once_skipped, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_considering_event_skipped_with_a_reason_shows_the_reason, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_blank_skip_reason_is_refused, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_going_event_cannot_be_skipped]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Skip_asks_why_refuses_a_blank_reason_and_shows_the_reason_once_skipped, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_considering_event_skipped_with_a_reason_shows_the_reason, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_blank_skip_reason_is_refused, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_going_event_called_off_is_skipped_with_its_reason, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.An_attended_event_cannot_be_skipped]
 ```
 
-The system SHALL skip a Spotted or Considering event only with the reason the person gives, and show that reason on the event.
+The system SHALL skip a Spotted, Considering or Going event only with the reason the person gives, and show that reason on the event.
 
 #### Scenario: Skipped with a reason
 
@@ -70,11 +70,50 @@ The system SHALL skip a Spotted or Considering event only with the reason the pe
 - **When** the person skips it with the reason "Clashes with the release"
 - **Then** the event is Skipped and shows "Clashes with the release"
 
-#### Scenario: A Going event cannot be skipped
+#### Scenario: A conference called off
 
 - **Given** a Going event
+- **When** the person skips it with the reason "Cancelled by the organiser"
+- **Then** the event is Skipped, shows the reason, and no harvest task is filed after its end day
+
+#### Scenario: An attended event cannot be skipped
+
+- **Given** an Attended event
 - **When** the person opens its state choice
 - **Then** Skipped is not offered
+
+### Requirement: An event added by mistake can be removed
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneRemoveTests.A_removed_event_leaves_the_list_and_no_longer_opens, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneRemoveTests.Removing_leaves_the_prep_task_in_tasks, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneRemoveTests.An_event_with_a_harvest_task_is_refused_and_kept, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Remove_asks_to_confirm_and_takes_the_event_off_the_list, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.An_event_with_a_harvest_task_offers_no_remove, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteKnowledgeEventRepositoryTests.A_removed_event_is_neither_listed_nor_got, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteKnowledgeEventReplicaStoreTests.A_removed_event_is_still_offered_and_taken_as_removed, integration:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventReplicationTests.A_removed_event_travels_marked_removed, integration:dotnet:Backlog.Mobile.UI.UnitTests.EventViewProjectionTests.A_removed_event_leaves_the_phone]
+```
+
+The system SHALL remove an event the person confirms removing, unless it holds a harvest task, from the pane, the Calendar and the phone on every device. Its tasks and notes stay where they are.
+
+#### Scenario: A duplicate removed
+
+- **Given** an Inbox item routed To Event twice
+- **When** the person removes one of the two events and confirms
+- **Then** the pane lists one
+
+#### Scenario: Its tasks stay
+
+- **Given** a Spotted event with the prep task "Book the hotel"
+- **When** the person removes it
+- **Then** the task is still in Tasks
+
+#### Scenario: An event with a harvest task stays
+
+- **Given** a Going event whose harvest task was filed
+- **When** the person opens it
+- **Then** Remove is not offered
+
+#### Scenario: Gone on every device
+
+- **Given** an event a second desktop and the phone hold
+- **When** the person removes it on one desktop
+- **Then** after the next sync neither shows it
 
 ### Requirement: A moved Brain note shows as missing
 

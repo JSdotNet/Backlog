@@ -40,11 +40,29 @@ related: [.devbook/domain/events/domain.md#knowledge-event-state]
 
 The person moves an event forward as they decide: Considering, Going, Attended,
 Harvested. A move may skip states, so a dotNET Friday afternoon goes from Spotted
-straight to Going. A Spotted or Considering event can be Skipped, and the pane asks
-why.
+straight to Going. A Spotted, Considering or Going event can be Skipped, and the
+pane asks why. A Going one is Skipped when it is called off or the person gives up
+the ticket.
 
 While deciding, the person records what they want to learn, the key dates, the
 ticket state and the cost.
+
+### Removing an event
+
+```meta
+type: sub-feature
+related: [.devbook/domain/events/requirements.md#requirement-an-event-added-by-mistake-can-be-removed, .devbook/domain/events/domain.invariants.md#invariant-only-an-event-with-no-harvest-task-is-removed]
+```
+
+The person removes an event added by mistake, such as a second copy of an item
+routed To Event twice, once they confirm. The pane offers no remove for an event
+with a harvest task, because its harvest is worth keeping. A Going one that was
+called off is Skipped instead.
+
+Removing takes nothing with it. The prep and linked tasks stay in Tasks, the notes
+stay in the Brain and the Inbox, and the series stays. The removal reaches the other
+desktops and the phone with their next sync. A removed event cannot be brought back
+in the first version.
 
 ### Event series
 
@@ -93,7 +111,8 @@ Events takes the route through `IKnowledgeEvents`, its published contract in
 
 The route is the Inbox's [Route to Event](../inbox/features.md#route-to-event),
 which also picks the event's Series. The watched pages are Capture's
-[event page monitor](../capture/features.md#event-page-monitor).
+[event page monitor](../capture/features.md#event-page-monitor). Undoing the route
+leaves the event it made, and the person [removes it](#removing-an-event) in the pane.
 
 ## Prep tasks
 
@@ -156,8 +175,8 @@ related: [.devbook/domain/events/requirements.md#events-on-the-phone, .devbook/a
 An **Events** tab appears once the phone holds an event, and leaves again when a
 desktop turns the [Events area](context.md#events-area) off. A person still on the
 Events list, or following a link to an event, then reads that Events are off. It lists the upcoming
-events, soonest first, then the undated ones. Skipped events and those whose last
-day has passed stay off the list.
+events, soonest first, then the undated ones. Skipped and removed events, and those
+whose last day has passed, stay off the list.
 
 At the venue the person opens the event on the phone: its state, series, dates,
 place, link, key dates, what they wanted to learn, and its notes. The phone changes

@@ -1,7 +1,7 @@
 # ADR 0050: Events is its own bounded context
 
 ```meta
-date: 2026-11-17
+date: 2026-11-18
 related: [".devbook/domain/events/context.md", ".devbook/domain/events/context.md#events-area", ".devbook/domain/events/domain.md#knowledge-event", ".devbook/domain/events/domain.md#event-series", ".devbook/domain/events/domain.md#harvest-task-policy", ".devbook/domain/events/features.md#harvest-task", ".devbook/domain/events/features.md#events-on-the-phone", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md"]
 ```
 
@@ -305,6 +305,7 @@ Look for these in the specification and, once built, in the code:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | A removed knowledge event travels as its document marked removed, the latest write winning as for any other edit; every device hides it. | §2's latest write wins needs a tombstone for a removal to reach the other devices; the person had no way to remove an event added by mistake. |
 | 2026-11-18 | §6 says whose switch the phone honours: the latest any desktop made, sent as an `events-area` document on the knowledge event feed when a desktop's switch moves. | The phone kept showing events a desktop had withdrawn, because it read no switch at all. |
 | 2026-11-17 | The events layer's port now sits in the Calendar: `ICalendarEvents` in `Backlog.Modules.Calendar.Abstractions`, answered by `EventsCalendarEvents` under `Backlog.Infrastructure.FileSystem/Calendar/` over the unchanged read contract. Tasks no longer draws the events layer. | ADR 0055's Events layer was built, at step 13 of the `knowledge-events` plan. |
 | 2026-11-11 | §7 superseded in part by ADR 0055: the Calendar is a surface of its own, and the events layer's port moves from Tasks to the Calendar. The read contract stays. | The Calendar reads more sources than tasks, so a Tasks-owned port per source stopped making sense. |
