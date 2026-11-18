@@ -27,8 +27,9 @@ public interface IDeviceAssertionVerifier
 /// <see cref="SyncAssertion"/>, and a library's job of accepting many algorithms and
 /// key types is the opposite of what is wanted here.
 /// <para>
-/// The signature is checked before any claim is read, so nothing an unsigned body
-/// says decides anything. Then: <c>iss</c> and <c>sub</c> both the device,
+/// The header must name ES256, carry no <c>crit</c>, and say <c>typ</c> JWT or
+/// nothing. The signature is checked before any claim is read, so nothing an
+/// unsigned body says decides anything. Then: <c>iss</c> and <c>sub</c> both the device,
 /// <c>aud</c> <see cref="SyncAssertion.Audience"/>, <c>exp</c> not past and
 /// <c>iat</c> not ahead by more than <see cref="ClockSkew"/>, <c>exp</c> after
 /// <c>iat</c> by at most <see cref="SyncAssertion.MaxLifetime"/>, and a <c>jti</c>.
@@ -67,7 +68,7 @@ public sealed class EcdsaDeviceAssertionVerifier(TimeProvider clock) : IDeviceAs
         try
         {
             using var header = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[0]));
-            if (!IsString(header.RootElement, "alg", SyncAssertion.Algorithm))
+            if (!HeaderAccepted(header.RootElement))
             {
                 return null;
             }
@@ -119,18 +120,29 @@ public sealed class EcdsaDeviceAssertionVerifier(TimeProvider clock) : IDeviceAs
         }
 
         var now = clock.GetUtcNow();
-        var acceptableUntil = expiresAt + ClockSkew;
 
-        if (acceptableUntil <= now
-            || issuedAt > now + ClockSkew
+        // The bounds on iat and the lifetime come first: together they hold exp
+        // within minutes of now, so the addition below cannot run past the end of
+        // the calendar however far out a caller writes exp.
+        if (issuedAt > now + ClockSkew
             || expiresAt <= issuedAt
             || expiresAt - issuedAt > SyncAssertion.MaxLifetime)
         {
             return null;
         }
 
-        return new VerifiedAssertion(id, acceptableUntil);
+        var acceptableUntil = expiresAt + ClockSkew;
+
+        return acceptableUntil <= now ? null : new VerifiedAssertion(id, acceptableUntil);
     }
+
+    /// <summary><c>alg</c> ES256, <c>typ</c> absent or <c>JWT</c>, and no <c>crit</c>:
+    /// a critical extension is one the signer requires the reader to understand
+    /// (RFC 7515 §4.1.11), and this reader understands none.</summary>
+    private static bool HeaderAccepted(JsonElement header) =>
+        IsString(header, "alg", SyncAssertion.Algorithm)
+        && !header.TryGetProperty("crit", out _)
+        && (!header.TryGetProperty("typ", out _) || IsString(header, "typ", "JWT"));
 
     private static bool IsString(JsonElement element, string name, string expected) =>
         element.ValueKind is JsonValueKind.Object

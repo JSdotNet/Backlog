@@ -142,7 +142,7 @@ public sealed class SecureValueDeviceCredentialStore : IDeviceCredentialStore
             credential = null;
         }
 
-        if (credential is null || string.IsNullOrWhiteSpace(credential.Credential))
+        if (credential is not { IsUsable: true })
         {
             Forget();
             return null;

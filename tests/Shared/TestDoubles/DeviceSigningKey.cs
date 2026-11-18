@@ -27,6 +27,12 @@ internal sealed class DeviceSigningKey : IDisposable
     /// An assertion for <paramref name="deviceId"/>, issued at <paramref name="issuedAt"/>
     /// and good for <paramref name="lifetime"/> — a minute unless a test says otherwise.
     /// </summary>
+    /// <param name="type">The header's <c>typ</c>; null leaves it out.</param>
+    /// <param name="critical">Adds a <c>crit</c> header naming <c>exp</c>.</param>
+    /// <param name="signed">False leaves the signature segment empty, the way an
+    /// <c>alg: none</c> token is written.</param>
+    /// <param name="expiresAt">An <c>exp</c> in Unix seconds that overrides
+    /// <paramref name="lifetime"/>, for values no lifetime reaches.</param>
     internal string Assertion(
         Guid deviceId,
         DateTimeOffset issuedAt,
@@ -34,20 +40,40 @@ internal sealed class DeviceSigningKey : IDisposable
         string audience = SyncAssertion.Audience,
         string? id = null,
         string algorithm = SyncAssertion.Algorithm,
-        Guid? issuer = null)
+        Guid? issuer = null,
+        Guid? subject = null,
+        string? type = "JWT",
+        bool critical = false,
+        bool signed = true,
+        long? expiresAt = null)
     {
-        var header = new Dictionary<string, object> { ["alg"] = algorithm, ["typ"] = "JWT" };
+        var header = new Dictionary<string, object> { ["alg"] = algorithm };
+        if (type is not null)
+        {
+            header["typ"] = type;
+        }
+
+        if (critical)
+        {
+            header["crit"] = new[] { "exp" };
+        }
+
         var claims = new Dictionary<string, object>
         {
             ["iss"] = (issuer ?? deviceId).ToString("D"),
-            ["sub"] = deviceId.ToString("D"),
+            ["sub"] = (subject ?? deviceId).ToString("D"),
             ["aud"] = audience,
             ["jti"] = id ?? Guid.NewGuid().ToString("N"),
             ["iat"] = issuedAt.ToUnixTimeSeconds(),
-            ["exp"] = issuedAt.Add(lifetime ?? TimeSpan.FromMinutes(1)).ToUnixTimeSeconds(),
+            ["exp"] = expiresAt ?? issuedAt.Add(lifetime ?? TimeSpan.FromMinutes(1)).ToUnixTimeSeconds(),
         };
 
         var signingInput = Encode(header) + "." + Encode(claims);
+        if (!signed)
+        {
+            return signingInput + ".";
+        }
+
         var signature = _key.SignData(
             Encoding.ASCII.GetBytes(signingInput),
             HashAlgorithmName.SHA256,

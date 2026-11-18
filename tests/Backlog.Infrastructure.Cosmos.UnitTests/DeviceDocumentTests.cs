@@ -4,7 +4,9 @@
 //
 // Not tested here, deliberately: the point read, the owner count, and the
 // cross-partition query behind it need a store — the emulator can give one, a
-// fake would only assert that the fake was written to match the code.
+// fake would only assert that the fake was written to match the code. Binding a
+// key is the exception: its etag guard is a contract of the container, which
+// CosmosDeviceRegistryBindKeyTests holds to with a container that honours If-Match.
 
 using System.Text.Json;
 using Backlog.Infrastructure.Cosmos.Devices;

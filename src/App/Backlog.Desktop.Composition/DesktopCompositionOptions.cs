@@ -50,6 +50,11 @@ public sealed class DesktopCompositionOptions
     /// content root in the harness, so it pairs as a device of its own.</summary>
     public required Func<IServiceProvider, IDeviceCredentialStore> DeviceCredentialStore { get; init; }
 
+    /// <summary>The key this device proves itself with (local ADR 0052 §2): a
+    /// non-exportable CNG key, TPM first, in the installed app; a DPAPI-sealed software
+    /// key beside the harness's credential, so it lives exactly as long as that does.</summary>
+    public required Func<IServiceProvider, IDeviceKeyStore> DeviceKeyStore { get; init; }
+
     /// <summary>This device's task replication progress, beside the credential and
     /// never under the workspace root: the watermark describes how far this machine
     /// has got, and a workspace root can be a folder some other product syncs.</summary>

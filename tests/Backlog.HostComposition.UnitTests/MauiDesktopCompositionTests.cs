@@ -260,6 +260,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             second.ServiceProvider.GetRequiredService<ITaskChangeSignal>());
 
         Assert.IsType<DpapiDeviceCredentialStore>(provider.GetRequiredService<IDeviceCredentialStore>());
+        Assert.IsType<CngDeviceKeyStore>(provider.GetRequiredService<IDeviceKeyStore>());
         Assert.IsType<DevToolService>(provider.GetRequiredService<IDevToolService>());
     }
 
@@ -540,6 +541,9 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         {
             DeviceIdentity = new DeviceIdentityStore(Path.Combine(appData, "device.json")),
             DeviceCredentialStore = _ => new DpapiDeviceCredentialStore(Path.Combine(appData, "device-credential.json")),
+            // A name of the test's own: nothing here signs, but nothing here may ever
+            // open the installed app's key either.
+            DeviceKeyStore = _ => new CngDeviceKeyStore("Backlog.Sync.DeviceKey.CompositionTests"),
             TaskSyncStateStore = _ => new FileTaskSyncStateStore(Path.Combine(appData, "task-sync-state.json")),
             SessionSyncFolder = appData,
             AnnotationSyncFolder = appData,

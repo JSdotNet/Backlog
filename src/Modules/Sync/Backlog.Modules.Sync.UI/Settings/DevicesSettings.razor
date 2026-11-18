@@ -118,6 +118,17 @@
                 </Callout>
             }
 
+            @* The key this device signs in with is in software, not the TPM
+               (local ADR 0052 §2). Nothing reads it out, but a full copy of
+               the Windows profile carries it, which a TPM key never is. *@
+            @if (KeyIsInSoftware)
+            {
+                <Callout Tone="warning" Heading="This PC has no TPM"
+                         TestId="devices-key-in-software">
+                    So the key this device signs in with is kept in software, sealed to your Windows account. Anyone with a full copy of your Windows profile could sign in to sync as this device. On a PC with a TPM the key never leaves the chip.
+                </Callout>
+            }
+
             <p class="setting__body" data-testid="devices-paired">
                 @if (DeviceNoLongerRegistered)
                 {
@@ -156,8 +167,15 @@
                         Description="Register it to start an owner of your own, or pair it with a device that is already in." />
         }
 
-        <p class="setting__note">
-            The registration credential is kept in <code>@CredentialStorePath</code> - outside the backlog folder, so it is never synced or committed with entries.
+        <p class="setting__note" data-testid="devices-credential-note">
+            @if (StoredDevice is { IsKeyBound: true } || (StoredDevice is null && _deviceKeys is not null))
+            {
+                <text>This device signs in with a key that cannot be copied out of this PC, and stores no password-like secret. Which device it is is kept in <code>@CredentialStorePath</code> - outside the backlog folder, so it is never synced or committed with entries.</text>
+            }
+            else
+            {
+                <text>The registration credential is kept in <code>@CredentialStorePath</code> - outside the backlog folder, so it is never synced or committed with entries.</text>
+            }
         </p>
     </SettingsCard>
 
@@ -457,6 +475,9 @@
     private bool UpdateRequired => _compatibility?.UpdateRequired == true;
     private IDeviceCredentialStore? _deviceCredentials;
 
+    /// <summary>This device's key, on a host that keeps one (local ADR 0052 §2).</summary>
+    private IDeviceKeyStore? _deviceKeys;
+
     /// <summary>Optional for the reason the pairing client is: a host that has
     /// not registered an <c>ITaskSyncStateStore</c> - which every host must do
     /// for itself, because a shared one would collapse two devices into one -
@@ -606,6 +627,29 @@
         StoredDevice is { } stored
             ? $"This machine will forget the credential it holds for {stored.DeviceName}. Nothing on the sync service is deleted, and the entries in this backlog are untouched - but pairing again means registering or redeeming a code."
             : "This machine will forget the credential it holds.";
+
+    /// <summary>
+    /// Whether this paired device's key is in software rather than the TPM. Asked
+    /// only of a paired device: asking opens the key, or creates it, and an unpaired
+    /// device has no use for one yet. A key that cannot be opened at all is no
+    /// warning here - the token exchange then falls back or fails, and says so.
+    /// </summary>
+    private bool KeyIsInSoftware
+    {
+        get
+        {
+            if (StoredDevice is null || _deviceKeys is null) return false;
+
+            try
+            {
+                return _deviceKeys.Protection == DeviceKeyProtection.Software;
+            }
+            catch (System.Security.Cryptography.CryptographicException)
+            {
+                return false;
+            }
+        }
+    }
 
     private string CredentialStorePath =>
         _deviceCredentials?.StorePath ?? "nowhere - cloud sync is not configured in this build";
@@ -1121,6 +1165,7 @@
     {
         _devicePairing = Services.GetService<DevicePairingClient>();
         _deviceCredentials = Services.GetService<IDeviceCredentialStore>();
+        _deviceKeys = Services.GetService<IDeviceKeyStore>();
         // Optional the way the pairing client is: a head that composes the sync
         // clients against a fixed address has no URL to offer and hides the field.
         _syncService = Services.GetService<SyncServiceSettingsStore>();

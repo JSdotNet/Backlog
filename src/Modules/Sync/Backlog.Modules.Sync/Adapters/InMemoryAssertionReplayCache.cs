@@ -10,38 +10,41 @@ namespace Backlog.Modules.Sync.Adapters;
 /// assertion may live (<see cref="Abstractions.SyncAssertion.MaxLifetime"/>). A
 /// second replica needs a shared store behind the port.
 /// <para>
-/// Lapsed entries are swept on the way in, so the table holds no more than the
-/// assertions of the last few minutes.
+/// Lapsed entries are swept on the way in, at most once every
+/// <see cref="SweepInterval"/>, so the table holds no more than the assertions of
+/// the last few minutes and a burst of calls does not walk it on every one. An id
+/// that lapsed since the last sweep still reads as spent until the next: a refusal
+/// in the safe direction, for an id no honest device reuses.
 /// </para>
 /// </summary>
 public sealed class InMemoryAssertionReplayCache(TimeProvider clock) : IAssertionReplayCache
 {
+    private static readonly TimeSpan SweepInterval = TimeSpan.FromSeconds(30);
+
     private readonly ConcurrentDictionary<(DeviceId Device, string Id), DateTimeOffset> _spent = new();
+
+    private long _nextSweepTicks;
 
     public Task<bool> TryAdd(DeviceId deviceId, string assertionId, DateTimeOffset acceptableUntil, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(assertionId);
 
-        var now = clock.GetUtcNow();
-        Sweep(now);
+        SweepIfDue(clock.GetUtcNow());
 
-        var key = (deviceId, assertionId);
-
-        if (_spent.TryAdd(key, acceptableUntil))
-        {
-            return Task.FromResult(true);
-        }
-
-        // Spent before, and lapsed since — the sweep and this call raced. Taking it
-        // again is only right if nobody else just did.
-        return Task.FromResult(
-            _spent.TryGetValue(key, out var until)
-            && until <= now
-            && _spent.TryUpdate(key, acceptableUntil, until));
+        return Task.FromResult(_spent.TryAdd((deviceId, assertionId), acceptableUntil));
     }
 
-    private void Sweep(DateTimeOffset now)
+    private void SweepIfDue(DateTimeOffset now)
     {
+        var due = Interlocked.Read(ref _nextSweepTicks);
+
+        // One caller per interval wins the exchange and sweeps; the rest go on.
+        if (now.UtcTicks < due
+            || Interlocked.CompareExchange(ref _nextSweepTicks, (now + SweepInterval).UtcTicks, due) != due)
+        {
+            return;
+        }
+
         foreach (var entry in _spent)
         {
             if (entry.Value <= now)

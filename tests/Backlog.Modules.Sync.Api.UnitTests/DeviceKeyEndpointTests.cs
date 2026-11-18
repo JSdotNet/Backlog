@@ -80,7 +80,7 @@ public sealed class DeviceKeyEndpointTests : IDisposable
         var client = _service.CreateClient();
         var device = await client.RegisterDevice("Study desktop");
 
-        var migrated = await RequestToken(client, new DeviceTokenRequest(device.DeviceId, device.Credential, PublicKey: _key.PublicKey));
+        var migrated = await RequestToken(client, Migration(device));
         Assert.Equal(HttpStatusCode.OK, migrated.StatusCode);
 
         await AssertUnauthorized(await RequestToken(client, new DeviceTokenRequest(device.DeviceId, device.Credential)));
@@ -89,13 +89,40 @@ public sealed class DeviceKeyEndpointTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, signed.StatusCode);
     }
 
+    /// <summary>A key offered without an assertion it signed proves only the
+    /// credential, which is not enough to bind it.</summary>
+    [Fact]
+    public async Task A_migration_without_an_assertion_is_unauthorized_and_binds_nothing()
+    {
+        var client = _service.CreateClient();
+        var device = await client.RegisterDevice("Study desktop");
+
+        await AssertUnauthorized(await RequestToken(client, new DeviceTokenRequest(device.DeviceId, device.Credential, PublicKey: _key.PublicKey)));
+
+        Assert.Equal(HttpStatusCode.OK, (await RequestToken(client, new DeviceTokenRequest(device.DeviceId, device.Credential))).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_migration_whose_assertion_another_key_signed_is_unauthorized()
+    {
+        var client = _service.CreateClient();
+        var device = await client.RegisterDevice("Study desktop");
+        using var other = new DeviceSigningKey();
+
+        await AssertUnauthorized(await RequestToken(
+            client,
+            Migration(device) with { ClientAssertion = other.Assertion(device.DeviceId, DateTimeOffset.UtcNow) }));
+
+        Assert.Equal(HttpStatusCode.OK, (await RequestToken(client, new DeviceTokenRequest(device.DeviceId, device.Credential))).StatusCode);
+    }
+
     [Fact]
     public async Task A_migration_with_a_key_that_is_not_one_is_a_bad_request()
     {
         var client = _service.CreateClient();
         var device = await client.RegisterDevice("Study desktop");
 
-        var response = await RequestToken(client, new DeviceTokenRequest(device.DeviceId, device.Credential, PublicKey: "not-a-key"));
+        var response = await RequestToken(client, Migration(device) with { PublicKey = "not-a-key" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var problem = await response.Content.ReadFromJsonAsync<ProblemBody>(Cancellation);
@@ -144,6 +171,14 @@ public sealed class DeviceKeyEndpointTests : IDisposable
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<DeviceRegistrationResponse>(Cancellation))!;
     }
+
+    private DeviceTokenRequest Migration(DeviceRegistrationResponse device) =>
+        new(
+            device.DeviceId,
+            device.Credential,
+            SyncAssertion.ClientAssertionType,
+            _key.Assertion(device.DeviceId, DateTimeOffset.UtcNow),
+            _key.PublicKey);
 
     private static DeviceTokenRequest Signed(Guid deviceId, string assertion) =>
         new(deviceId, ClientAssertionType: SyncAssertion.ClientAssertionType, ClientAssertion: assertion);

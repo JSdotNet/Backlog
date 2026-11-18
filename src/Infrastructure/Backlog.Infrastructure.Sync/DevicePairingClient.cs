@@ -14,6 +14,9 @@ namespace Backlog.Infrastructure.Sync;
 /// <para>
 /// Registering and pairing both end with a credential that is shown once, so
 /// both write it into the <see cref="IDeviceCredentialStore"/> before returning.
+/// With an <see cref="IDeviceKeyStore"/> both send the device's public key instead,
+/// and what is stored is the device's identity with no secret in it (local ADR 0052
+/// §2).
 /// Doing it here rather than in the screen is what stops a second caller — the
 /// mobile pairing panel beside the desktop one — from being the place the secret
 /// is dropped.
@@ -57,6 +60,7 @@ public sealed class DevicePairingClient : IDeviceRoster
     private readonly IDeviceCredentialStore _credentials;
     private readonly PairingSubjects? _pairings;
     private readonly ISystemBrowser? _browser;
+    private readonly IDeviceKeyStore? _keys;
     private readonly TimeSpan _signInTimeout;
 
     /// <param name="http">The client <c>AddSyncClient</c> configures.</param>
@@ -66,12 +70,16 @@ public sealed class DevicePairingClient : IDeviceRoster
     /// <param name="browser">Where the owner signs in to register a first device; none on a
     /// host that only pairs by code.</param>
     /// <param name="signInTimeout">How long to wait for the browser to come back.</param>
+    /// <param name="keys">This device's key (local ADR 0052 §2): with one, registering and
+    /// pairing send its public key and the service hands back no credential to keep. None
+    /// on a host that keeps no key — the Android head — which goes on with a credential.</param>
     public DevicePairingClient(
         HttpClient http,
         IDeviceCredentialStore credentials,
         PairingSubjects? pairings = null,
         ISystemBrowser? browser = null,
-        TimeSpan? signInTimeout = null)
+        TimeSpan? signInTimeout = null,
+        IDeviceKeyStore? keys = null)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(credentials);
@@ -80,6 +88,7 @@ public sealed class DevicePairingClient : IDeviceRoster
         _credentials = credentials;
         _pairings = pairings;
         _browser = browser;
+        _keys = keys;
         _signInTimeout = signInTimeout ?? DefaultSignInTimeout;
     }
 
@@ -134,14 +143,9 @@ public sealed class DevicePairingClient : IDeviceRoster
         return await StoreAsync(
             () => _http.PostAsJsonAsync(
                 SyncRoutes.Absolute(SyncRoutes.RegisterDevice),
-                new RegisterDeviceRequest(name, code.Value, verifier),
+                new RegisterDeviceRequest(name, code.Value, verifier, PublicKeyOrNull()),
                 cancellationToken),
-            registration => new DeviceCredential(
-                registration.OwnerId,
-                registration.DeviceId,
-                name,
-                // This client sends no public key, so the service always mints a credential.
-                registration.Credential ?? string.Empty),
+            registration => new DeviceCredential(registration.OwnerId, registration.DeviceId, name, registration.Credential),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -248,14 +252,9 @@ public sealed class DevicePairingClient : IDeviceRoster
         return await StoreAsync(
             () => _http.PostAsJsonAsync(
                 SyncRoutes.Absolute(SyncRoutes.RedeemPairingCode),
-                new RedeemPairingCodeRequest(normalized, name),
+                new RedeemPairingCodeRequest(normalized, name, PublicKeyOrNull()),
                 cancellationToken),
-            registration => new DeviceCredential(
-                registration.OwnerId,
-                registration.DeviceId,
-                name,
-                // This client sends no public key, so the service always mints a credential.
-                registration.Credential ?? string.Empty),
+            registration => new DeviceCredential(registration.OwnerId, registration.DeviceId, name, registration.Credential),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -284,6 +283,24 @@ public sealed class DevicePairingClient : IDeviceRoster
             cancellationToken).ConfigureAwait(false);
 
         return revoked.IsSuccess ? Result.Success() : Result.Failure(revoked.Error);
+    }
+
+    /// <summary>This device's public key to bind, or null to be handed a credential
+    /// instead: on a host with no key store, and where the store cannot open or make a
+    /// key — a device on a credential still syncs, where one with no proof at all
+    /// would not.</summary>
+    private string? PublicKeyOrNull()
+    {
+        if (_keys is null) return null;
+
+        try
+        {
+            return _keys.GetOrCreate().PublicKey;
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
     }
 
     private async Task<Result<DeviceCredential>> StoreAsync(

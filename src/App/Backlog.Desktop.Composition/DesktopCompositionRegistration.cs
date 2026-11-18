@@ -261,6 +261,7 @@ public static class DesktopCompositionRegistration
         // registers no store of its own, so a head without one would have the
         // session registered and unconstructable.
         services.AddSingleton(options.DeviceCredentialStore);
+        services.AddSingleton(options.DeviceKeyStore);
         services.AddSingleton(options.TaskSyncStateStore);
         services.AddSessionSyncStores(options.SessionSyncFolder);
         services.AddAnnotationSyncStore(options.AnnotationSyncFolder);

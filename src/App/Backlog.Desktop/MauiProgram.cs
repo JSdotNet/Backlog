@@ -94,6 +94,9 @@ public static class MauiProgram
             // Windows one; the credential belongs to this machine and not to the
             // workspace.
             DeviceCredentialStore = _ => new DpapiDeviceCredentialStore(Path.Combine(appData, "device-credential.json")),
+            // The device key (local ADR 0052 §2): non-exportable CNG, TPM first, with the
+            // software provider as the fallback the Devices page warns about.
+            DeviceKeyStore = _ => new CngDeviceKeyStore(),
             // Plaintext because neither value is a secret.
             TaskSyncStateStore = _ => new FileTaskSyncStateStore(Path.Combine(appData, "task-sync-state.json")),
             SessionSyncFolder = appData,

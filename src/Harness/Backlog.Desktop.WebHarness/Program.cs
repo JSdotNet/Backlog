@@ -71,6 +71,12 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
         builder.Environment.ContentRootPath,
         "BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH",
         Path.Combine("obj", "local-development", "device-credential.json")),
+    // A software key beside the credential, never the installed app's CNG key: a
+    // harness device bound to the real key would sign in as this PC's own app.
+    DeviceKeyStore = _ => DeviceKeyStoreFactory.CreateLocalDevelopmentStore(
+        builder.Environment.ContentRootPath,
+        "BACKLOG_DESKTOP_DEVICE_KEY_PATH",
+        Path.Combine("obj", "local-development", "device-key.json")),
     TaskSyncStateStore = _ => TaskSyncStateStoreFactory.CreateLocalDevelopmentStore(
         builder.Environment.ContentRootPath,
         "BACKLOG_DESKTOP_TASK_SYNC_STATE_PATH",

@@ -1093,6 +1093,113 @@ public sealed class SettingsDevicesTests
         Assert.Null(context.SyncSettings.Current.ServiceUrl);
     }
 
+    /// <summary>A PC with no TPM keeps its device key in software (local ADR 0052 §2),
+    /// and the person is told what that costs: a copy of the profile signs in as this
+    /// device.</summary>
+    [Fact]
+    public void A_device_whose_key_is_in_software_is_warned_that_a_copy_of_the_profile_could_sign_in()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: true, keys: new FixedKeyStore(DeviceKeyProtection.Software));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var warning = context.Component.Find("[data-testid='devices-key-in-software']");
+            Assert.Contains("no TPM", warning.TextContent, StringComparison.Ordinal);
+            Assert.Contains("copy of your Windows profile", warning.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_device_whose_key_is_in_the_TPM_shows_no_warning()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: true, keys: new FixedKeyStore(DeviceKeyProtection.Hardware));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-paired']")));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-key-in-software']"));
+    }
+
+    /// <summary>An unpaired device is not warned, and its key is not made just to
+    /// render the page.</summary>
+    [Fact]
+    public void An_unpaired_device_is_not_warned_and_its_key_is_left_alone()
+    {
+        var keys = new FixedKeyStore(DeviceKeyProtection.Software);
+        using var context = RenderSettings(syncEnabled: true, keys: keys);
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-empty']")));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-key-in-software']"));
+        Assert.Equal(0, keys.Asked);
+    }
+
+    /// <summary>A device bound to its key holds no secret, so the note under the card
+    /// no longer says a credential is kept.</summary>
+    [Fact]
+    public void A_key_bound_device_is_told_it_stores_no_secret()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: true, keys: new FixedKeyStore(DeviceKeyProtection.Hardware));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var note = context.Component.Find("[data-testid='devices-credential-note']").TextContent;
+            Assert.Contains("stores no password-like secret", note, StringComparison.Ordinal);
+            Assert.DoesNotContain("registration credential is kept", note, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_device_on_a_host_without_a_key_is_still_told_where_its_credential_is()
+    {
+        using var context = RenderSettings(syncEnabled: true, paired: true);
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(
+                "registration credential is kept",
+                context.Component.Find("[data-testid='devices-credential-note']").TextContent,
+                StringComparison.Ordinal));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-key-in-software']"));
+    }
+
+    /// <summary>A key store that answers a fixed protection, and counts how often it
+    /// was asked to open its key.</summary>
+    private sealed class FixedKeyStore(DeviceKeyProtection protection) : IDeviceKeyStore, IDisposable
+    {
+        private readonly InMemoryDeviceKeyStore _inner = new();
+
+        public int Asked { get; private set; }
+
+        public DeviceKeyProtection Protection
+        {
+            get
+            {
+                Asked++;
+                return protection;
+            }
+        }
+
+        public IDeviceKey GetOrCreate()
+        {
+            Asked++;
+            return _inner.GetOrCreate();
+        }
+
+        public void Dispose() => _inner.Dispose();
+    }
+
     private static SettingsRenderContext RenderSettings(
         bool syncEnabled,
         bool paired = false,
@@ -1102,7 +1209,9 @@ public sealed class SettingsDevicesTests
         Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
         bool withTokenPipeline = false,
         Dictionary<string, string>? environment = null,
-        bool registerSection = true)
+        bool registerSection = true,
+        IDeviceKeyStore? keys = null,
+        bool keyBound = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devices-tests", Guid.NewGuid().ToString("n"));
 
@@ -1119,7 +1228,7 @@ public sealed class SettingsDevicesTests
         var github = new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe());
 
         var credentials = paired
-            ? new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", "a-registration-credential"))
+            ? new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", keyBound ? null : "a-registration-credential"))
             : new InMemoryDeviceCredentialStore();
 
         var service = new ScriptedSyncService(respond);
@@ -1172,6 +1281,7 @@ public sealed class SettingsDevicesTests
         testContext.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         testContext.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         testContext.Services.AddSingleton<IDeviceCredentialStore>(credentials);
+        if (keys is not null) testContext.Services.AddSingleton(keys);
         // Transient, the way AddSyncClient registers it, and counted: the page
         // has to ask for a fresh one after the service URL changes, because the
         // one it opened with keeps the base address it was configured with.

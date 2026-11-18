@@ -57,7 +57,8 @@ public sealed record RedeemPairingCodeRequest(string Code, string DeviceName, st
 /// set to <see cref="SyncAssertion.ClientAssertionType"/> (local ADR 0052 §2); its
 /// credential is refused. A device still on a credential sends
 /// <paramref name="Credential"/>, and may add <paramref name="PublicKey"/> once to
-/// bind a key in its place: the service then forgets the credential.
+/// bind a key in its place, with an assertion signed by that key to prove it holds
+/// it: the service then forgets the credential.
 /// </para>
 /// </summary>
 public sealed record DeviceTokenRequest(

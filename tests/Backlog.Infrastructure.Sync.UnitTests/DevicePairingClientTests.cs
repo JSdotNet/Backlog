@@ -451,7 +451,8 @@ public sealed class DevicePairingClientTests
             Func<HttpRequestMessage, int, HttpResponseMessage> respond,
             ISystemBrowser? browser = null,
             Uri? signInAddress = null,
-            TimeSpan? signInTimeout = null)
+            TimeSpan? signInTimeout = null,
+            IDeviceKeyStore? keys = null)
         {
             var bodies = new List<string>();
             Fixture? fixture = null;
@@ -484,7 +485,7 @@ public sealed class DevicePairingClientTests
             fixture = new Fixture(
                 http,
                 handler,
-                new DevicePairingClient(http, credentials, browser: browser ?? new UnusedBrowser(), signInTimeout: signInTimeout),
+                new DevicePairingClient(http, credentials, browser: browser ?? new UnusedBrowser(), signInTimeout: signInTimeout, keys: keys),
                 bodies);
             return fixture;
         }
