@@ -123,7 +123,7 @@ flowchart TB
 ## Desktop App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md", ".devbook/domain/sync/features.md#pairing-a-device"]
+related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/domain/events/context.md", ".devbook/domain/calendar/context.md", ".devbook/domain/sync/features.md#pairing-a-device"]
 ```
 
 The desktop app is the local-first Windows client and the one channel that serves every domain. It runs **Standalone** or **Connected** (`.devbook/arc42/12-glossary.md#terms`).
@@ -147,6 +147,8 @@ graph TB
       ToolsUI["Backlog.Modules.DevPc.UI\n(Tools)"]
       SessionsUI["Backlog.Modules.Sessions.UI"]
       SyncUI["Backlog.Modules.Sync.UI\n(Devices settings)"]
+      EventsUI["Backlog.Modules.Events.UI"]
+      CalendarUI["Backlog.Modules.Calendar.UI"]
     end
 
     subgraph "Modules"
@@ -156,6 +158,8 @@ graph TB
       Dashboard["Backlog.Modules.Dashboard"]
       Capture["Backlog.Modules.Capture"]
       RepoMgmt["Backlog.Modules.RepositoryManagement\n(pull-request contract, one cache)"]
+      Events["Backlog.Modules.Events\n(knowledge events, series,\nharvest task worker)"]
+      Calendar["Backlog.Modules.Calendar\n(Plans and Events layer policies,\nno data of its own)"]
     end
 
     subgraph "Background workers"
@@ -165,8 +169,9 @@ graph TB
     end
 
     subgraph "Adapters (Backlog.Infrastructure.*)"
-      Sqlite["Infrastructure.Sqlite\n(backlog.db: tasks, roadmap,\ninbox_items, inbox_lists, inbox_groups)"]
-      FileSystem["Infrastructure.FileSystem\n(InboxBacklogTarget, backups)"]
+      Sqlite["Infrastructure.Sqlite\n(backlog.db: tasks, roadmap,\ninbox_items, inbox_lists, inbox_groups,\nevents_knowledge_events, events_series)"]
+      FileSystem["Infrastructure.FileSystem\n(InboxBacklogTarget, InboxEventTarget,\nEventsTaskTarget, EventsCalendarEvents,\nRoadmapCalendarPlans, backups)"]
+      BrainInfra["Infrastructure.Brain\n(EventsBrainNotes)"]
       DevbookInfra["Infrastructure.Devbook\n(devbook database in app storage)"]
       SyncClient["Infrastructure.Sync\n(Sync Client, optional)"]
       Mcp["Infrastructure.Mcp\n(MCP server, loopback only)"]
@@ -185,7 +190,7 @@ graph TB
   Sources["YouTube, websites / feeds,\nimport manifests"]
   FoundryApi["Azure AI Foundry"]
 
-  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & DashboardUI & CaptureUI & ToolsUI & SessionsUI & SyncUI
+  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & DashboardUI & CaptureUI & ToolsUI & SessionsUI & SyncUI & EventsUI & CalendarUI
   Shell --> Foundry & Claude & GitHubInfra & FileSystem & SyncClient & Mcp
 
   TasksUI -->|Abstractions| Tasks
@@ -196,6 +201,9 @@ graph TB
   ToolsUI -->|DevPc.Abstractions| DevPcInfra
   SessionsUI -->|Sessions.Abstractions| SessionsInfra
   SyncUI -->|pairing, sync loops| SyncClient
+  EventsUI -->|Abstractions| Events
+  CalendarUI -->|Abstractions| Calendar
+  TasksUI -.->|"Tasks layer part (CalendarTasksLayer)"| CalendarUI
   Shell -->|IPullRequests| RepoMgmt
 
   TasksUI --> Copilot & GitHubInfra
@@ -212,12 +220,21 @@ graph TB
   GitHubInfra -->|IPullRequestSource, IRegisteredRepositories| RepoMgmt
   FileSystem -->|"IPullRequests for Tasks and Progress, ISettledPullRequestStore"| RepoMgmt
 
+  Events --> Sqlite
+  Events -->|IEventTaskTarget| FileSystem
+  Events -->|IEventBrainNotes| BrainInfra
+  Inbox -->|IInboxEventTarget| FileSystem
+  FileSystem -->|IKnowledgeEvents, IKnowledgeEventReader| Events
+  Calendar -->|ICalendarEvents, ICalendarPlans| FileSystem
+  FileSystem -->|Roadmap ports| Roadmap
+
   Capture -->|ICaptureDelivery| CaptureInfra
   CaptureInfra --> Sources
   CaptureInfra -->|IInboxIntake| Inbox
 
   SyncWorkers --> SyncClient
   SyncClient -->|captures via IInboxIntake| Inbox
+  SyncClient -->|IKnowledgeEventReplication, IEventAttachmentRequests| Events
   SyncClient -.->|push / pull| SyncAPI
   BackupWorker --> FileSystem
 
@@ -236,6 +253,19 @@ Capture sources and background workers run inside the desktop process, so extern
 Module UI projects reference adapters directly where a pane needs one: Tasks.UI and Devbook.UI reference Copilot and GitHub, Roadmap.UI references GitHub, and Devbook.UI references `Backlog.Infrastructure.Devbook` (local ADR 0015). `ModuleBoundaryTests` permits a module UI to take an adapter and forbids another module's implementation. `PullRequestStateBoundaryTests` forbids a module UI calling a pull-request member of the GitHub adapter (local ADR 0042 §8).
 
 **Repository Management** is `Backlog.Modules.RepositoryManagement` and its `.Abstractions`: the pull-request state of the registered repositories, with one status, one readiness verdict and one cache (local ADR 0042). It has no `.UI` project; the pull requests pane and session card stay in the shell and read `IPullRequests`. `Backlog.Infrastructure.GitHub` answers its source ports. `Backlog.Infrastructure.FileSystem` keeps its settled pull requests and translates its contract for Tasks (`ILinkedPullRequestStates`) and Progress (`IGoalPullRequestReader`). Tasks.UI keeps its GitHub reference for issues and settings only.
+
+**Events** is `Backlog.Modules.Events`, with its `.Abstractions` and `.UI` (local ADR 0050). Its stores are the `events_knowledge_events` and `events_series` tables in `backlog.db`. Its pane is a takeover behind the `events` feature, and its `HarvestTaskWorker` runs the harvest task filing after start-up and at each day turn. No other module sees it and it sees none, so three adapters carry its joins:
+
+- `EventsTaskTarget`, in `Backlog.Infrastructure.FileSystem/Events/`, answers `IEventTaskTarget` over Tasks' `ITaskItems`. It is the one place a prep or harvest task becomes entry text.
+- `EventsBrainNotes`, in `Backlog.Infrastructure.Brain`, answers `IEventBrainNotes`: whether a note is at the path an event links, and its title. It writes nothing to the Brain.
+- `InboxEventTarget`, in `Backlog.Infrastructure.FileSystem/Inbox/`, answers the Inbox's `IInboxEventTarget` over `IKnowledgeEvents`, so an item routed To Event becomes a Spotted event.
+
+The Sync Client's `KnowledgeEventSyncWorker` replicates the events through `IKnowledgeEventReplication`. `TaskReplicaMerge` hands the phone's attachment requests to `IEventAttachmentRequests`.
+
+**Calendar** is `Backlog.Modules.Calendar`, with its `.Abstractions` and `.UI` (local ADR 0055). It owns no data: its services are the read policies of the Plans and Events layers, one per window. Its view hosts the Tasks layer as a part Tasks.UI offers through `CalendarTasksLayer` in the component library. Adapters in `Backlog.Infrastructure.FileSystem/Calendar/` answer its ports:
+
+- `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` answer `ICalendarPlans` and `ICalendarCapacity` over Roadmap's ports.
+- `EventsCalendarEvents` answers `ICalendarEvents` over Events' `IKnowledgeEventReader`. With the `events` area off it reads nothing, and the Calendar offers no events.
 
 **Devbook database** is `Backlog.Infrastructure.Devbook`: the C# builder that indexes a repository's devbook folders and the read-only reader over the result. It indexes:
 

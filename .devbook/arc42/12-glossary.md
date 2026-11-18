@@ -9,7 +9,7 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devb
 ## Terms
 
 ```meta
-related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/domain/events/domain.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md"]
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/domain/events/domain.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/domain/calendar/domain.md#calendar-layer", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md"]
 ```
 
 | Term | Definition |
@@ -32,6 +32,7 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/featu
 | **Event Series** | An organiser's recurring run of knowledge events, such as a yearly conference. |
 | **Talk** | One talk given at a knowledge event. |
 | **Talk picks** | The talks the person means to hear at a knowledge event. |
+| **Calendar layer** | What one source draws on the Calendar's days: the Tasks, Plans or Events layer. |
 
 - **Brain:** also the scope of everything filed against no repository. The Brain context owns the term ([Brain](../domain/brain/domain.md#brain)).
 - **Dot-folder contract:** a repository's devbook folders sit under `.devbook/` (`.devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md`); the Brain is one folder per user outside every repository (`.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md`).
@@ -56,6 +57,7 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/featu
 - **Event Series:** it keeps only the link to its organiser's page. The pages Capture watches stay Capture's targets. See [Event Series](../domain/events/domain.md#event-series).
 - **Talk:** never a *session*, for the reason the Talk note entry gives. Talks are not modelled yet. See [Talk](../domain/events/domain.md#talk).
 - **Talk picks:** never an *agenda*, because Tasks has [Agenda Time](../domain/tasks/domain.md#agenda-time). See [Talk picks](../domain/events/domain.md#talk-picks).
+- **Calendar layer:** the Tasks layer is always drawn; **Show plans** and **Show events** switch the other two. A layer writes only back through its source, because the Calendar owns no data. The Calendar context owns the term ([Calendar Layer](../domain/calendar/domain.md#calendar-layer)), and local ADR 0055 decides it.
 
 ## Shared Data Types
 
