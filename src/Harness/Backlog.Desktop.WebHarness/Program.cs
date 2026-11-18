@@ -240,7 +240,7 @@ builder.Services.AddSingleton<Backlog.Infrastructure.Mcp.ISurfaceWindowHost, Har
 // Windows Hello (local ADR 0052 §6): this harness has none to ask, so it answers not
 // available and an Allow is refused here. It keeps no grants and composes no access desk,
 // so request_access says that too.
-builder.Services.AddSingleton<Backlog.Infrastructure.Mcp.IUserConsent, Backlog.Infrastructure.Mcp.UnavailableUserConsent>();
+builder.Services.AddSingleton<Backlog.SharedKernel.IUserConsent, Backlog.SharedKernel.UnavailableUserConsent>();
 // This assembly's own pages, under Components/Pages: they exist only to be
 // driven — the shipped app has no route that throws on request.
 builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));

@@ -1115,6 +1115,9 @@ public sealed class McpServerWorker : IDisposable
             .Append(typeof(IWaitingQuestionStore))
             .Append(typeof(IAgentSessionSource))
             .Append(typeof(IMcpAuditLog))
+            // Windows Hello for a tasks:admin tool (local ADR 0052 §6), which the step-up filter
+            // reads from this container: missing, every such call would be refused unlogged.
+            .Append(typeof(Backlog.SharedKernel.IUserConsent))
             // The caller of one request, which the listener's own container scopes per request
             // (AddBacklogMcpServer): forwarded from the head it would be one for every call.
             .Where(port => port != typeof(McpCallContext))

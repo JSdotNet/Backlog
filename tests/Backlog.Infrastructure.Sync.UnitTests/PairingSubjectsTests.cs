@@ -324,5 +324,8 @@ public sealed class PairingSubjectsTests
             Revoked.Add(deviceId);
             return Task.FromResult(RevokeResult);
         }
+
+        public Task<Result> RefuseDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default) =>
+            RevokeDeviceAsync(deviceId, cancellationToken);
     }
 }

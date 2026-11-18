@@ -167,7 +167,10 @@ public static class BacklogMcpServerRegistration
             // After the scopes, so a switched-off tool is unknown before its
             // arguments are read. See ToolArguments for why the surface's are read
             // here at all: the SDK answers a binding failure with no reason.
-            .WithRequestFilters(filters => filters.AddCallToolFilter(ToolArguments.Filter));
+            .WithRequestFilters(filters => filters.AddCallToolFilter(ToolArguments.Filter))
+            // Last, so Windows Hello is asked only for a call every check above admitted: a
+            // tasks:admin tool waits here for the person (local ADR 0052 §6).
+            .WithRequestFilters(filters => filters.AddCallToolFilter(McpStepUp.Filter));
     }
 
     /// <summary>

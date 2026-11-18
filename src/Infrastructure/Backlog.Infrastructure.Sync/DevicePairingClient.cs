@@ -64,6 +64,7 @@ public sealed class DevicePairingClient : IDeviceRoster
     private readonly PairingSubjects? _pairings;
     private readonly ISystemBrowser? _browser;
     private readonly IDeviceKeyStore? _keys;
+    private readonly DeviceStepUp? _stepUp;
     private readonly TimeSpan _signInTimeout;
     private readonly ILogger _log;
 
@@ -81,6 +82,9 @@ public sealed class DevicePairingClient : IDeviceRoster
     /// <param name="keys">This device's key (local ADR 0052 §2): with one, registering and
     /// pairing send its public key and the service hands back no credential to keep. None
     /// on a host that keeps no key — the Android head — which goes on with a credential.</param>
+    /// <param name="stepUp">Windows Hello before minting a pairing code or revoking a device
+    /// (local ADR 0052 §6). None on a host that keeps no step-up — the web harness and the
+    /// phone — which mints and revokes without asking.</param>
     public DevicePairingClient(
         HttpClient http,
         IDeviceCredentialStore credentials,
@@ -88,7 +92,8 @@ public sealed class DevicePairingClient : IDeviceRoster
         ISystemBrowser? browser = null,
         TimeSpan? signInTimeout = null,
         IDeviceKeyStore? keys = null,
-        ILogger<DevicePairingClient>? log = null)
+        ILogger<DevicePairingClient>? log = null,
+        DeviceStepUp? stepUp = null)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(credentials);
@@ -98,6 +103,7 @@ public sealed class DevicePairingClient : IDeviceRoster
         _pairings = pairings;
         _browser = browser;
         _keys = keys;
+        _stepUp = stepUp;
         _signInTimeout = signInTimeout ?? DefaultSignInTimeout;
         _log = log ?? NullLogger<DevicePairingClient>.Instance;
     }
@@ -220,10 +226,22 @@ public sealed class DevicePairingClient : IDeviceRoster
 
     /// <summary>A paired device asks for a short code to read out loud. Bearer:
     /// only a device that is already in may invite another one. A code issued opens a
-    /// pairing in <see cref="PairingSubjects"/>, which ends when the code expires.</summary>
+    /// pairing in <see cref="PairingSubjects"/>, which ends when the code expires. With a
+    /// <see cref="DeviceStepUp"/>, the person confirms with Windows Hello first, and a code they
+    /// do not confirm is never asked for.</summary>
     public async Task<Result<PairingCodeResponse>> IssuePairingCodeAsync(
         CancellationToken cancellationToken = default)
     {
+        if (_stepUp is not null)
+        {
+            var confirmed = await _stepUp.ConfirmAsync(
+                "Make a pairing code that lets another device into your backlog?",
+                "No pairing code was made",
+                cancellationToken).ConfigureAwait(false);
+
+            if (confirmed.IsFailure) return Result.Failure<PairingCodeResponse>(confirmed.Error);
+        }
+
         var issued = await SyncHttp.SendAsync<PairingCodeResponse>(
             () => _http.PostAsync(SyncRoutes.Absolute(SyncRoutes.PairingCodes), content: null, cancellationToken),
             cancellationToken).ConfigureAwait(false);
@@ -284,8 +302,28 @@ public sealed class DevicePairingClient : IDeviceRoster
 
     /// <summary>Revokes another device of this owner. A device that is gone already
     /// answers <see cref="SyncErrorCodes.DeviceNotFound"/>, which a caller that only
-    /// wants it gone treats as done.</summary>
+    /// wants it gone treats as done. With a <see cref="DeviceStepUp"/>, the person confirms
+    /// with Windows Hello first, and a revocation they do not confirm is never sent.</summary>
     public async Task<Result> RevokeDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default)
+    {
+        if (_stepUp is not null)
+        {
+            var confirmed = await _stepUp.ConfirmAsync(
+                "Revoke a device, so it can no longer sync your backlog?",
+                "The device was not revoked",
+                cancellationToken).ConfigureAwait(false);
+
+            if (confirmed.IsFailure) return confirmed;
+        }
+
+        return await DeleteDeviceAsync(deviceId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public Task<Result> RefuseDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default) =>
+        DeleteDeviceAsync(deviceId, cancellationToken);
+
+    private async Task<Result> DeleteDeviceAsync(Guid deviceId, CancellationToken cancellationToken)
     {
         var revoked = await SyncHttp.SendAsync(
             () => _http.DeleteAsync(SyncRoutes.DeviceFor(deviceId), cancellationToken),
