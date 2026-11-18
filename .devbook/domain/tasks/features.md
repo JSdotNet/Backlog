@@ -240,7 +240,7 @@ related: [.devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-t
 Say how much work is open, not only how it splits. The total is one line: how many tasks
 are open, the points they carry, and how many carry none. It sits at the end of the
 filter bar. In a narrow list it moves beside **New entry**, so the bar keeps its room for filters.
-The Board and the Calendar have no **New entry** row, so there it stays on the bar.
+The Board has no **New entry** row, so there it stays on the bar.
 
 It counts what the
 repository scope leaves in view, before any status, tag or other filter narrows
@@ -818,16 +818,17 @@ every repository. A scope narrowed back to one comes back as that one. Where an
 appears in the scope, the Board and the pickers is set by
 [its requirements](../repository-management/requirements.md#archiving-a-repository).
 
-The filtered tasks can be read three ways, picked in the header's view switch:
-**Tasks**, the list with the open task beside it; the
-[Board](#board-view); and the [Calendar](../calendar/features.md#calendar-view), a
-surface of its own on which Tasks draws the [Tasks layer](#tasks-on-the-calendar). The three share one
-filter bar, one open task and one selection, so switching never loses what the reader narrowed to.
+The filtered tasks can be read two ways, picked in the header's view switch:
+**Tasks**, the list with the open task beside it, and the
+[Board](#board-view). The two share one filter bar, one open task and one selection, so
+switching never loses what the reader narrowed to. The
+[Calendar](../calendar/features.md#calendar-view) is a surface of its own, under a header
+tab of its own, and shows the tasks as its [Tasks layer](#tasks-on-the-calendar). The
+filter bar does not reach it.
 
 Among the filters is the [Task Type](domain.md#task-type): prompt, task, idea or
-test, one at a time. The Board and the Calendar, including its tray of tasks with
-no due date, narrow by type like the list. The filter bar belongs to
-these three views only, and on the Calendar it narrows the Tasks layer alone. The app reopens on the view last
+test, one at a time. The Board narrows by type like the list. The filter bar belongs to
+these two views only. The app reopens on the view last
 chosen, and on Tasks by default. The Inbox and the Devbook open
 beside any of them.
 
@@ -927,27 +928,32 @@ With the task open beside it, the board scrolls sideways rather than squeezing i
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/calendar/features.md#planned-hours, .devbook/domain/calendar/domain.md#calendar-layer, .devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/tasks/features.md#my-day, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md]
+related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/calendar/features.md#planned-hours, .devbook/domain/calendar/domain.md#calendar-layer, .devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/calendar/context.md#show-tasks, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md]
 ```
 
-The [Calendar](../calendar/features.md#calendar-view) is a surface of its own, and Tasks
-draws on it as the Tasks layer (local ADR 0055). The layer lays the filtered tasks out
-by their [Due Date](domain.md#due-date), under the same filters and beside the same open
-task as the Tasks view. The Calendar's other layers do not narrow by these filters.
+The [Calendar](../calendar/features.md#calendar-view) is a surface of its own, and the
+tasks are its Tasks layer (local ADR 0056). The Calendar reads them through a port it
+owns, which an adapter answers over Tasks' published contract, so Tasks registers
+nothing for the Calendar. The layer lays out each task with a
+[Due Date](domain.md#due-date) in the range, within the repository scope. The Tasks
+filter bar does not narrow it, and the open task and the selection stay in Tasks. The
+Calendar's [Show tasks](../calendar/context.md#show-tasks) choice turns the layer off.
 
-Today says how many tasks are in [My Day](#my-day). Each day lists its tasks with their
-lifecycle state. An open task past its due date stands out as overdue, and a finished
-one is struck through. On the month, past two a day folds the rest behind a count that
-opens the whole day. A recurring task shows on its due date only, because the next
-occurrence is written when this one is finished.
+Each day lists its tasks with their lifecycle state. An open task past its due date
+stands out as overdue, and a finished one is struck through and never overdue. An
+archived task is left out, as the Tasks view leaves it out by default. On the month,
+past two a day folds the rest behind a count that opens the whole day. A recurring task
+shows on its due date only, because the next occurrence is written when this one is
+finished.
 
-The open tasks with no due date wait beside the calendar. Dragging one onto a day gives
-it that due date, and dragging a task to another day moves it. Only the due date places
-a task here.
+Pressing a task shows the Tasks view with that task selected and open. Dragging a task
+to another day moves its due date. Only the due date places a task here: a task with no
+due date is not on the Calendar, and gets one in Tasks.
 
 The [planned hours](../calendar/features.md#planned-hours) on a day are the task's
 [Planned Hours](domain.md#planned-hours). Every change the layer makes, a due date or
-an hours figure, goes through Tasks, as the task's own editor makes it.
+an hours figure, goes through Tasks' published contract, as the task's own editor makes
+it.
 
 ## Prompt features
 

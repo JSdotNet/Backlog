@@ -133,4 +133,5 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0052 — The app may write links into a Brain note and move a finished project note to the archive](adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md) (proposed; amends ADR 0026 §3 and ADR 0040 §3 and §4)
 - [ADR 0053 — A plan or a task may reference a Brain note](adr/0053-a-plan-or-a-task-may-reference-a-brain-note.md) (proposed; amends ADR 0027 §6)
 - [ADR 0054 — Clarify outcomes follow GTD, and each item has one home](adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md) (proposed; amends ADR 0026 §2 and §3)
-- [ADR 0055 — Calendar is a surface of its own that reads layers](adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md) (proposed, Tasks, Plans and Events layers built)
+- [ADR 0055 — Calendar is a surface of its own that reads layers](adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md) (proposed, Tasks, Plans and Events layers built; superseded in part by ADR 0056)
+- [ADR 0056 — The Calendar owns its grid, and Tasks is one layer](adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (proposed; supersedes ADR 0055 §2, §3 and §6 in part, amends ADR 0022 §2)

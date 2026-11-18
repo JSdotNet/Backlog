@@ -14,7 +14,7 @@ related: [.devbook/domain/calendar/features.md]
 
 ```meta
 type: requirements
-related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/events/requirements.md#events-on-the-calendar]
+related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/events/requirements.md#events-on-the-calendar, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md]
 ```
 
 > What the person gets when they lay their work out on a month or a week.
@@ -91,6 +91,94 @@ The system SHALL list every task of each of a Week's seven days, Monday first, w
 - **When** the person shows that Wednesday's week
 - **Then** the Wednesday lists all five tasks
 
+### Requirement: Tasks are drawn while Show tasks is ticked
+
+```meta
+type: requirement
+```
+
+The system SHALL draw the Tasks layer, the tasks and their planned hours, while Show tasks is ticked, tick it on a device that never chose, and remember the choice on this device.
+
+#### Scenario: On until unticked
+
+- **Given** a device whose `shell-navigation.json` holds no Show tasks choice
+- **When** the person opens the Calendar
+- **Then** the tasks and their hours are drawn, and unticking Show tasks hides both
+
+#### Scenario: Off survives a restart
+
+- **Given** the person unticked Show tasks
+- **When** the app starts again
+- **Then** no task and no hours are drawn, and Show tasks is unticked
+
+### Requirement: No Tasks filter narrows the Calendar
+
+```meta
+type: requirement
+```
+
+The system SHALL draw every task with a due date in the range and within the repository scope on the Calendar, whatever the Tasks filter bar holds, and show no Tasks filter bar, open task, tray of undated tasks or My Day count there.
+
+#### Scenario: A filter set on Tasks
+
+- **Given** the Tasks view is filtered to the type idea, and a prompt is due on Monday
+- **When** the person shows the Calendar
+- **Then** Monday shows the prompt, and no filter bar is drawn
+
+#### Scenario: The repository scope
+
+- **Given** the scope chips press one repository, and tasks of two repositories are due this week
+- **When** the person shows the week
+- **Then** only the pressed repository's tasks are drawn
+
+### Requirement: Pressing a task opens it in Tasks
+
+```meta
+type: requirement
+```
+
+The system SHALL show the Tasks view with a task selected and open when the person presses that task on the Calendar.
+
+#### Scenario: A due-date chip
+
+- **Given** the task "Refactor sync" is due on Wednesday
+- **When** the person presses its chip on the Calendar
+- **Then** the Tasks view replaces the Calendar, with "Refactor sync" selected and open
+
+### Requirement: Plans and events are drawn without Tasks
+
+```meta
+type: requirement
+```
+
+The system SHALL draw the Plans and Events layers under their own choices, and offer no Show tasks, in a host with no Tasks module.
+
+#### Scenario: A host without Tasks
+
+- **Given** a host with no Tasks module, Show plans ticked and a plan in this month
+- **When** the person opens the Calendar
+- **Then** the plan's bar is drawn and no Show tasks choice is offered
+
+### Requirement: The Calendar is a header tab of its own
+
+```meta
+type: requirement
+```
+
+The system SHALL offer the Calendar as a header tab of its own after the view switch `Tasks | Board | Roadmap`, offer neither the GitHub check nor the Tasks area of Ask AI while it shows, and reopen a stored `lastView: calendar` on it.
+
+#### Scenario: The header
+
+- **Given** the Calendar is the main view
+- **When** the person reads the header
+- **Then** the view switch reads Tasks, Board, Roadmap, the Calendar tab after it is pressed, and no GitHub check is offered
+
+#### Scenario: A file from before the tab
+
+- **Given** a `shell-navigation.json` with `lastView: calendar` and no Show tasks choice
+- **When** the app starts
+- **Then** the Calendar opens under its own tab on the stored range and choices, with the tasks drawn
+
 ### Requirement: Plans are drawn only while Show plans is ticked
 
 ```meta
@@ -154,20 +242,26 @@ The system SHALL start a plan from the shelf on the day it is dropped on, throug
 - **When** the person drops it on a day and the roadmap refuses the start
 - **Then** the refusal is said and the plan stays on the shelf
 
-### Requirement: A layer that cannot be read leaves the tasks
+### Requirement: A layer that cannot be read leaves the others
 
 ```meta
 type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarSurfaceTests.A_plans_read_that_fails_leaves_the_tasks_on_the_calendar, unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarSurfaceTests.An_events_read_that_fails_leaves_the_tasks_on_the_calendar, unit:dotnet:Backlog.Modules.Calendar.UnitTests.CalendarPlansLayerTests.A_read_that_fails_leaves_the_plans_empty_and_still_available, unit:dotnet:Backlog.Modules.Calendar.UnitTests.CalendarEventsLayerTests.A_read_that_fails_leaves_the_events_empty_and_still_available]
 ```
 
-The system SHALL keep drawing the tasks when the plans or the events cannot be read.
+The system SHALL keep drawing the other layers when one layer cannot be read.
 
 #### Scenario: The plans fail to read
 
 - **Given** Show plans is ticked
 - **When** the plans cannot be read
 - **Then** the tasks are still drawn by due date, with no plan bar
+
+#### Scenario: The tasks fail to read
+
+- **Given** Show tasks and Show plans are ticked
+- **When** the tasks cannot be read
+- **Then** the plan bars are still drawn, with no task
 
 ### Requirement: The Calendar keeps only its range and choices
 
@@ -186,9 +280,9 @@ The system SHALL store nothing for the Calendar but its range and its layer choi
 
 #### Scenario: The choices reopen as they were
 
-- **Given** the person picked Week and ticked Show plans and Show events
+- **Given** the person picked Week, unticked Show tasks, and ticked Show plans and Show events
 - **When** the app starts again
-- **Then** the Calendar opens on Week with both layers ticked, from the choices remembered on this device
+- **Then** the Calendar opens on Week with the tasks off and the plans and events on, from the choices remembered on this device
 
 ## Planned hours
 
@@ -229,11 +323,11 @@ tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarHoursTests.A_shi
 
 The system SHALL ask only for the figure when a task is dragged onto a day with Shift held, and leave its due date as it was.
 
-#### Scenario: From the tasks with no due date
+#### Scenario: Hours on another day
 
-- **Given** a task with no due date
+- **Given** a task due on Friday
 - **When** the person drags it onto Tuesday with Shift held and gives 2
-- **Then** Tuesday shows the task's 2 hours and the task still has no due date
+- **Then** Tuesday shows the task's 2 hours and the task is still due on Friday
 
 ### Requirement: A figure that cannot be planned is refused with why
 
@@ -252,7 +346,7 @@ The system SHALL refuse a figure that is not a number, is none, or is more than 
 
 #### Scenario: Back to the figure that stood
 
-- **Given** the open task's Planned hours shows 3 on a day
+- **Given** in Tasks, the open task's Planned hours shows 3 on a day
 - **When** the person types "abc" for that day
 - **Then** the refusal is said and the day goes back to 3
 
