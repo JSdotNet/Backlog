@@ -1070,6 +1070,66 @@ h1, h2, h3 {
     grid-row: 1 / span 2;
 }
 
+/* Pause or Resume, at the panel's top: it acts on the whole queue, above any row. */
+.session-queue__controls {
+    display: flex;
+    justify-content: flex-end;
+    margin-block-end: var(--spacing-xs);
+}
+
+/* The commands that start the long-running agents, under the list and set off from
+   it: they are not requests, and they show whether or not anything waits. */
+.session-queue__agents {
+    margin-block-start: var(--spacing-sm);
+    padding-block-start: var(--spacing-sm);
+    border-block-start: var(--border-width) solid var(--color-border);
+}
+
+.session-queue__agents-heading {
+    margin: 0 0 var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.session-queue__agents-list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.session-queue__agent {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--spacing-sm);
+}
+
+.session-queue__agent-name {
+    grid-column: 1;
+    font-size: var(--font-size-sm);
+}
+
+.session-queue__agent-command {
+    grid-column: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--font-size-xs);
+}
+
+.session-queue__agent-copy {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+}
+
+.session-queue__agent-purpose {
+    grid-column: 1;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
 .chip--summary {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;

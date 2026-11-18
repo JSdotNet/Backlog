@@ -98,6 +98,28 @@ public sealed class SessionRequestActions(
         return ToPlan(held) ?? new PlanSessionRequest(held.Id, PlanSessionRequestState.Requested, held.Repository, held.CreatedAt);
     }
 
+    public async Task<bool> IsPausedAsync(CancellationToken cancellationToken = default)
+    {
+        if (queue is null) return false;
+
+        try
+        {
+            return await queue.IsPausedAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // An unreadable queue is not a pause, as it is not a state: it reads as running.
+            return false;
+        }
+    }
+
+    public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default) =>
+        Queue.SetPausedAsync(paused, cancellationToken);
+
     public async Task<bool> CancelAsync(Guid requestId, CancellationToken cancellationToken = default)
     {
         var outcome = await Queue.CancelAsync(requestId, cancellationToken).ConfigureAwait(false);

@@ -1309,15 +1309,29 @@ cancels it. A dispatcher reads the next request on the listener's long poll, cla
 | `GET /session-requests/wait` | Answers one item at once, or holds the call up to 50 seconds and answers `204`. |
 | `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. |
 | `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. |
-| `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
+| `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts, and says whether the queue is paused. |
 
 - **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it. Every call it lets in is also [Dispatcher Contact](#dispatcher-contact): held while the call is held, heard again when it is answered. A `404` while the flag is off records nothing.
-- **`claim_session_request`:** The holder asking again is told it holds it; the lease is not renewed.
+- **`claim_session_request`:** The holder asking again is told it holds it; the lease is not renewed. While the queue is paused, every other claim is refused with "The session queue is paused."
 - **`mark_session_request`:** Only the dispatcher holding the claim may mark it. Its `started` still counts after its lease ran out while nobody else claimed the request.
 
 Every answer carries the request's brief, built by the server from its kind and id, which a
 dispatcher passes on and never writes. All four sit behind the
 `session-requests` flag: off, the route answers `404` and the tools leave the endpoint.
+
+**Paused.** The person can pause the queue as a whole and resume it, in the app only;
+no dispatcher call pauses or resumes it. [A paused queue hands out no
+request](domain.invariants.md#invariant-a-paused-queue-hands-out-no-request): the route
+answers no `kind: request` item and every claim is refused, so a dispatcher starts
+nothing new. Everything else goes on as before:
+
+- answer deliveries are still handed out;
+- a claim already held still reports `started` and still releases;
+- the person can still queue a request and cancel one.
+
+Resumed, the route hands out the oldest Requested request again. The paused state is
+this machine's, kept in the app's local database beside the requests: it survives a
+restart and does not replicate, and a queue never paused reads as running.
 
 ### Session Request
 
@@ -1369,6 +1383,10 @@ stateDiagram-v2
 - **Linked.** The started session called `link_session`. For a plan request, on any
   entry of its plan.
 - **Cancelled.** The person cancelled it.
+
+A pause is not a state of the request. It belongs to the [queue](#session-request-queue):
+pausing or resuming changes no request's state, and a request queued while paused is
+Requested.
 
 **The lease.** A claim holds the request for two minutes. [A lease that runs out
 returns the request to Requested](domain.invariants.md#invariant-a-lapsed-claim-returns-the-request-to-requested)

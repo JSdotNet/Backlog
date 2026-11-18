@@ -349,6 +349,64 @@ public class SessionRequestWaitEndpointTests
         Assert.Equal(1, sessions.Reads);
     }
 
+    // --- A paused queue ---------------------------------------------------------------
+
+    [Fact]
+    public async Task A_paused_queue_hands_out_no_request_and_answers_no_content_when_the_hold_ends()
+    {
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
+        queue.Add(Entry(Guid.NewGuid(), clock.GetUtcNow()));
+        await queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
+        var contact = new DispatcherContact(clock);
+
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, TestContext.Current.CancellationToken, ShortHold, contact: contact);
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
+
+        Assert.Equal(204, reply.StatusCode);
+        Assert.Empty(reply.Body);
+        Assert.Equal(clock.GetUtcNow(), contact.LastHeardAt);
+    }
+
+    [Fact]
+    public async Task A_paused_queue_still_hands_out_a_due_delivery()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var queue = new InMemorySessionRequestStore();
+        queue.Add(Entry(Guid.NewGuid(), now - TimeSpan.FromHours(1)));
+        await queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
+        var questions = new HeldWaitingQuestions();
+        var delivery = questions.AddPendingDelivery("cli-1", "Which database?", "Postgres", now);
+        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(
+            queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken, questions: questions, sessions: sessions);
+
+        Assert.Equal(200, reply.StatusCode);
+        using var json = JsonDocument.Parse(reply.Body);
+        Assert.Equal("delivery", json.RootElement.GetProperty("kind").GetString());
+        Assert.Equal(delivery.Id, json.RootElement.GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task A_held_call_hands_out_the_waiting_request_once_the_queue_is_resumed()
+    {
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
+        var request = queue.Add(Entry(Guid.NewGuid(), clock.GetUtcNow()));
+        await queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
+
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, TestContext.Current.CancellationToken);
+        Assert.False(waiting.IsCompleted, "A paused queue handed out a request.");
+
+        await queue.SetPausedAsync(false, TestContext.Current.CancellationToken);
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
+
+        Assert.Equal(200, reply.StatusCode);
+        using var json = JsonDocument.Parse(reply.Body);
+        Assert.Equal(request.Id, json.RootElement.GetProperty("id").GetGuid());
+    }
+
     // --- Dispatcher contact (local ADR 0038 §4) -----------------------------------------
 
     [Fact]
@@ -486,6 +544,10 @@ public class SessionRequestWaitEndpointTests
         public Task<SessionRequestOutcome> ReportStartedAsync(Guid id, string dispatcher, string sessionId, CancellationToken cancellationToken = default) => Fail<SessionRequestOutcome>();
 
         public Task<SessionRequestOutcome> CancelAsync(Guid id, CancellationToken cancellationToken = default) => Fail<SessionRequestOutcome>();
+
+        public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default) => Fail<bool>();
+
+        public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default) => Fail<bool>();
 
         public Task<IReadOnlyList<SessionRequest>> LinkAsync(Guid entryId, IReadOnlyCollection<string> planTags, string sessionId, CancellationToken cancellationToken = default) =>
             Fail<IReadOnlyList<SessionRequest>>();

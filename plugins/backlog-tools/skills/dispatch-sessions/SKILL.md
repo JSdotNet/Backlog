@@ -23,7 +23,8 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
    `claim_delivery` (id, `dispatcher`), `claimed: false` → next; `send_message` to that id:
    "You asked: <question>. The answer from Backlog: <answer>", both verbatim. Sent or queued →
    `mark_delivery` `delivered`; the session no longer exists, or any other failure → `released`.
-4. **Queue.** `list_session_requests` `state: requested`, oldest first; empty → step 7. A
+4. **Queue.** `list_session_requests` `state: requested`, oldest first; empty, or `paused: true` —
+   the person paused the queue, and every claim is refused until they resume it → step 7. A
    Monitor line other than `delivery`, `request` or `ready` → say it once, then step 7.
 5. **Capacity**, before each start, cheapest first; the first that fails holds the queue:
    - fewer than `sessions` rows of `list_sessions` (`linked: true`, `limit: 100`) with `startedBy`
