@@ -175,6 +175,13 @@ public static class SessionsAdapterRegistration
             new DevbookSyncVerdictStore(
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude")));
 
+        // The signal an open Sessions pane re-reads its runs on, raised by the lifecycle
+        // after every run write. One for the process (local ADR 0043, §5): the MCP
+        // listener writes through the lifecycle on a request thread, and every window's
+        // pane listens on the instance the container hands it. TryAdd, so a host or a
+        // test that composed its own first keeps it.
+        services.TryAddSingleton<IDeliveryRunChangeSignal, DeliveryRunChangeSignal>();
+
         services.AddSingleton<IDeliverySurfaceLifecycle>(sp =>
             new LocalDeliverySurfaceLifecycle(
                 sp.GetRequiredService<IDeviceIdentitySource>(),
@@ -185,7 +192,8 @@ public static class SessionsAdapterRegistration
                 sp.GetService<ISessionRepositoryResolver>(),
                 // Resolved per call: the desktop shell composes it, after this registration.
                 sp.GetService<ISessionPullRequestStates>,
-                sp.GetService<TimeProvider>()));
+                sp.GetService<TimeProvider>(),
+                sp.GetService<IDeliveryRunChangeSignal>()));
 
         // And the measured half of the same runs: the hook events a session forwards,
         // attributed to the run it is driving. A singleton because it carries each

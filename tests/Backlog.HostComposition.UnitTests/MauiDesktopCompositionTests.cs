@@ -259,6 +259,14 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Same(
             first.ServiceProvider.GetRequiredService<ITaskChangeSignal>(),
             second.ServiceProvider.GetRequiredService<ITaskChangeSignal>());
+        // So is the delivery run change signal: the MCP listener raises it from the root,
+        // and the Sessions pane in every window listens on the same one.
+        Assert.Same(
+            provider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>(),
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>());
+        Assert.Same(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>());
         // The Calendar's layers (local ADR 0055): the Plans port and its read policy are a
         // window's, as the roadmap ports they read are; the working week is the process's.
         Assert.NotSame(
