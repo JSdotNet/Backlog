@@ -434,7 +434,7 @@ graph TB
     CaptureSheet["Capture sheet\n(Inbox, Note or Today)"]
     NoteTab["Notes tab\n(list, search, editor)"]
     TasksTab["Today tab\n(My Day grouped, tick, open)"]
-    NotificationsTab["Notifications tab\n(list, detail, pager, answer)"]
+    NotificationsScreen["Notifications screen\n(app-bar bell; list, detail, pager, answer)"]
     EventsTab["Events tab\n(upcoming list, detail)"]
   end
 
@@ -481,9 +481,9 @@ graph TB
   Shell --> CaptureSheet
   TasksTab --> TaskView
   TasksTab --> Outbox
-  Shell --> NotificationsTab
-  NotificationsTab --> Outbox
-  NotificationsTab --> Speech
+  Shell --> NotificationsScreen
+  NotificationsScreen --> Outbox
+  NotificationsScreen --> Speech
   Shell --> EventsTab
   EventsTab --> EventView
   NoteTab --> EventView
@@ -497,7 +497,7 @@ graph TB
   Creds -.->|bearer| API
 ```
 
-The shell (`MainLayout`) is a title bar with the version control and sync status, the page, and bottom tabs, withheld until the device is paired.
+The shell (`MainLayout`) is an app bar, the page, and bottom tabs. The app bar holds the version control, the sync line, the Notifications bell and the settings cog. The tabs and the bell are withheld until the device is paired.
 
 The **version control** (`AppUpdateControl`) is the app bar's title. It names the app and running version and opens the update bottom sheet, the phone's counterpart of the desktop footer's version control. The sheet offers Check, then Install update once a newer APK is found; a quiet check after launch only puts a dot on the control.
 
@@ -509,7 +509,8 @@ The tabs are:
 - **Notes:** every note in `note_view`, newest first and searched on the phone, with an editor. A note has a title, a dictated Markdown body, and attached pictures and files. It saves a second after typing stops and is sent as outbox kind `note`. While the phone holds a knowledge event, the note's Event section attaches the note to one, sent as outbox kind `event-attachment-request`.
 - **Events:** shown once the phone holds a knowledge event. It lists the upcoming events in `event_view`, soonest first, and opens a detail that edits nothing. A Talk note the phone holds opens from it, and a Brain note shows its title only (local ADR 0050).
 - **Tasks:** My Day from `task_view`, and the phone's task writes: add a task for today, mark one in today's My Day done or undone, tick a step, or move it to tomorrow.
-- **Notifications:** the notifications the paired desktops published, as a list, a detail and a swipe pager. A question is answered there, each answer box dictatable through the speech transcriber. The reply leaves through the outbox as `notification-reply`.
+
+The **Notifications screen** is not a tab. The app bar's bell opens it once the phone holds a notification. It shows the notifications the paired desktops published, as a list, a detail and a swipe pager. A question is answered there, each answer box dictatable through the speech transcriber. The reply leaves through the outbox as `notification-reply`.
 
 The **Capture sheet** (`/capture`, opened from Today's capture button) is a sheet over the screen it was opened from, not a tab. It sends one thought to the Inbox as a capture, creates it as a note through the note view, or adds it to today through `task_view`. It offers dictation and a photo.
 
