@@ -82,6 +82,10 @@ builder.AddOwnerEnrolment();
 // issuer, on the same terms — before AddSyncModule, so the configured settings win.
 builder.AddConnectorAuthorization();
 
+// The remote /mcp endpoint the connector's tokens are for (local ADR 0052 §8): its own bearer
+// scheme, the inbox:capture policy and the MCP server with its one tool group.
+builder.AddRemoteMcpServer();
+
 builder.Services.AddSyncModule();
 
 // The module declares the port and the host implements it, so the signing key
@@ -129,6 +133,10 @@ app.MapGitHubCallback();
 // The remote connector's authorization server, at the root for the same reason: claude.ai
 // finds it from the issuer, and RFC 8414 puts the metadata at the origin.
 app.MapAuthorizationServer();
+
+// The resource server those tokens are for, and its RFC 9728 metadata, at the root: the
+// /mcp URL is the tokens' audience (RFC 8707).
+app.MapRemoteMcp();
 
 var sync = app.MapGroup(SyncRoutes.Base);
 

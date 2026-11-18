@@ -239,7 +239,7 @@ leaves out are placed so: `list_devbook_references` is `tasks:read`, and
 `tasks:write`. `list_knowledge_contexts` is `devbook:read` and `list_sessions` is
 `runs:write`. Reading the Inbox is `tasks:read` and archiving a capture `tasks:write`,
 because `inbox:capture` is write-only and no local tool captures yet. `inbox:capture` is a
-policy with no tool until §8. A grant that asks for a scope
+policy with no tool on the desktop listener; the remote endpoint of §8 serves it. A grant that asks for a scope
 outside the table is refused when it is created.
 
 **A pop-out link is minted under `ui:open`.** This amends ADR 0043 §7. The cookie a
@@ -395,6 +395,21 @@ server** for it.
 The desktop listener stays bound to loopback. The person can revoke the connector's
 access from Settings.
 
+*Built 2026-11-18 by entries 21 (`authorization-server`) and 22 (`remote-mcp-endpoint`),
+not yet deployed.* The authorization server answers RFC 8414 metadata, an S256
+authorization code grant for the one client `claude-connector`, the owner's GitHub
+sign-in, a consent page, and 15-minute access tokens whose audience is the configured
+`/mcp` resource. The resource server is `/mcp` on the sync service, stateless, behind a
+bearer scheme of its own: it accepts a token only for that audience and issuer, under the
+connector key, and from the client generation the store still holds, so revoking or
+replacing the secret refuses a live token at once. A device token fails there, and a
+connector token fails on the sync API. A 401 names
+`/.well-known/oauth-protected-resource/mcp`, whose RFC 9728 document names the service as
+the authorization server; a token without `inbox:capture` is a 403 `insufficient_scope`.
+The one tool, `capture_to_inbox`, calls the handler behind `POST /api/sync/inbox` in
+process under the token's owner, so the capture is a `capture`-kind document (ADR 0009)
+filed under the channel `claude`, and the token goes no further.
+
 ### 9. The Aspire web harness keeps no auth
 
 ```meta
@@ -472,6 +487,7 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | Built §8's resource server: `/mcp` on the sync service accepts only connector tokens for its own audience and the current client generation, challenges with its RFC 9728 metadata, and serves `capture_to_inbox` under `inbox:capture` alone, writing a capture document to the replica. | Plan `zero-trust-auth` entry 22, Phase 3. |
 | 2026-11-18 | Built §6's step-up: every `tasks:admin` tool, minting a pairing code and revoking a device ask for Windows Hello, and a cancelled or unavailable prompt refuses the act. Refusing a pairing revokes without a prompt. The tool call waits for the desktop prompt instead of using MCP elicitation, and the web harness and the phone ask nothing. | Plan `zero-trust-auth` entry 19, Phase 2. |
 | 2026-11-15 | Settled the migration's grants: Backlog delivery gains `devbook:write` and `ui:open`, a Manager grant holds `sessions:dispatch` alone, and an install migrated before gets both once. The Dev PC row registers through the headers helper, and the rewrite of Claude Code's files keeps a concurrent write. | Plan `zero-trust-auth` entry 9b; the person chose a Manager grant over giving the delivery grant `sessions:dispatch`. |
 | 2026-11-13 | Built §5's granter agents: `list_agent_requests`, `grant_agent`, `edit_agent_scopes` and `revoke_agent` under `agents:grant`, held by the access desk to its five rules. Delegated grants expire after 7 days unless renewed, mint only within the granter's scopes, and are revoked in the granter's write. Switching `agents:grant` on asks for Windows Hello, and delegated rows sit under their granter. | Plan `zero-trust-auth` entry 12, Phase 1. |

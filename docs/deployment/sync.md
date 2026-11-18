@@ -213,13 +213,17 @@ hash, in the `connectorCredentials` container. To connect claude.ai:
 3. Connect. claude.ai sends you through the owner's GitHub sign-in and a consent page on
    the sync service; only the owner's GitHub account can allow it.
 
-Revoking the secret on the same card disconnects claude.ai at once: every code and refresh
-token issued under it stops working. **Replace secret** on the card swaps in a new one with the same effect on the old.
+Revoking the secret on the same card disconnects claude.ai at once: every code, refresh
+token and access token issued under it stops working, the access tokens on their next call
+to `/mcp`. **Replace secret** on the card swaps in a new one with the same effect on the old.
 
-The authorization server is in place, but the `/mcp` resource it issues tokens for is not
-served yet. The connector works end to end once the Backlog plan entry 22 ("Serve remote
-MCP from the sync service for Inbox capture") adds `/mcp`; until then claude.ai completes
-the sign-in and consent and then finds no MCP server at the URL.
+`/mcp` is the resource server those tokens are for. It serves one tool, `capture_to_inbox`,
+under the `inbox:capture` scope; a capture lands on the replica and reaches the desktop's
+Inbox, under the channel Claude, at its next sync. A call without a valid token is answered
+401 with `WWW-Authenticate: Bearer resource_metadata="<SYNC_SERVICE_URI>/.well-known/oauth-protected-resource/mcp"`,
+and that metadata (RFC 9728) names the service itself as the authorization server. A token
+for another audience is refused, as is a device token; one without `inbox:capture` is
+answered 403 `insufficient_scope`.
 
 ## Current state
 
