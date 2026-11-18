@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 
 using Backlog.Infrastructure.Sync.KnowledgeEvents;
+using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
@@ -253,6 +254,79 @@ public sealed class KnowledgeEventSyncSessionTests
 
         Assert.True(stopped.IsFailure);
         Assert.Single(failing.Handler.Requests);
+    }
+
+    /// <summary>The switch goes alone, after the events and before the pull, and is marked sent
+    /// (local ADR 0050 §6).</summary>
+    [Fact]
+    public async Task An_unsent_switch_goes_alone_between_the_push_and_the_pull()
+    {
+        var replication = new InMemoryKnowledgeEventReplication();
+        replication.Seed(KnowledgeEventCopies.Event("dotNET Friday", Noon.AddHours(1)));
+        var state = new InMemoryKnowledgeEventSyncStateStore(
+            Mine(DateTimeOffset.MinValue, null) with { Area = new EventsAreaSwitch(false, Noon.AddHours(3), Sent: false) });
+
+        using var fixture = Fixture.Create(replication, state, AsTheServiceAnswers);
+
+        var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value.AreaSent);
+        Assert.Equal([HttpMethod.Post, HttpMethod.Post, HttpMethod.Get], fixture.Handler.Requests.Select(request => request.Method).ToArray());
+
+        var change = Assert.Single(Pushed(fixture.Bodies[1]));
+        Assert.Equal((EventsAreaReplicaDto.WellKnownId, KnowledgeEventKinds.EventsArea, Noon.AddHours(3)), (change.Id, change.Kind, change.UpdatedAt));
+        Assert.Equal("e7e47a5e-0000-4000-8000-0000000000a1", change.Document.GetProperty("id").GetString());
+        Assert.False(change.Document.GetProperty("on").GetBoolean());
+        Assert.True(state.Current.Area!.Sent);
+
+        using var again = Fixture.Create(replication, state, AsTheServiceAnswers);
+        var quiet = await again.Session.PushAreaAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(quiet.Value);
+        Assert.Empty(again.Handler.Requests);
+    }
+
+    /// <summary>A deployed service from before the switch refuses its kind. The events still
+    /// sync, and the switch waits for the next exchange.</summary>
+    [Fact]
+    public async Task A_refused_switch_stays_unsent_and_holds_back_nothing_else()
+    {
+        var replication = new InMemoryKnowledgeEventReplication();
+        replication.Seed(KnowledgeEventCopies.Event("dotNET Friday", Noon.AddHours(1)));
+        var state = new InMemoryKnowledgeEventSyncStateStore(
+            Mine(DateTimeOffset.MinValue, null) with { Area = new EventsAreaSwitch(false, Noon.AddHours(3), Sent: false) });
+
+        using var fixture = Fixture.Create(replication, state, (request, index) =>
+            request.Method == HttpMethod.Post && Pushed(request.Content!.ReadAsStringAsync(TestContext.Current.CancellationToken).GetAwaiter().GetResult())
+                .Any(change => change.Kind == KnowledgeEventKinds.EventsArea)
+                ? StubHttpMessageHandler.Problem(HttpStatusCode.BadRequest, SyncErrorCodes.KnowledgeEventInvalid, "Refused.")
+                : AsTheServiceAnswers(request, index));
+
+        var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.Value.Pushed);
+        Assert.False(result.Value.AreaSent);
+        Assert.Equal("cursor-1", state.Current.PullCursor);
+        Assert.False(state.Current.Area!.Sent);
+    }
+
+    [Fact]
+    public async Task An_unsent_switch_survives_a_change_of_identity()
+    {
+        var unsent = new EventsAreaSwitch(false, Noon.AddHours(3), Sent: false);
+        var state = new InMemoryKnowledgeEventSyncStateStore(
+            new KnowledgeEventSyncState(Noon, "their-cursor", AnotherOwner, ThisDevice, unsent));
+
+        using var fixture = Fixture.Create(new InMemoryKnowledgeEventReplication(), state, AsTheServiceAnswers);
+
+        var sent = await fixture.Session.PushAreaAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(sent.Value);
+        Assert.Equal(ThisOwner, state.Current.OwnerId);
+        Assert.Null(state.Current.PullCursor);
+        Assert.Equal(unsent with { Sent = true }, state.Current.Area);
     }
 
     /// <summary>The deployed sync service is updated by hand and lags the desktop. A service

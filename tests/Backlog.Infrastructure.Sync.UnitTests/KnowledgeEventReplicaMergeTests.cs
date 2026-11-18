@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Backlog.Infrastructure.Sync.KnowledgeEvents;
 using Backlog.Modules.Events.Abstractions;
+using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 using Microsoft.Extensions.Logging;
@@ -172,5 +173,41 @@ public sealed class KnowledgeEventReplicaMergeTests
         Assert.Equal([kept.Id], replication.Taken);
         Assert.Equal(2, log.Lines.Count(line => line.Level == LogLevel.Warning));
         Assert.Contains(log.Lines, line => line.Message.Contains(foreign.Id.ToString(), StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The switch is the phone's to read (local ADR 0050 §6): a desktop passes over it
+    /// without a word and files nothing, so its own flag never follows another's.</summary>
+    [Fact]
+    public async Task The_events_switch_is_passed_over_without_a_word()
+    {
+        var replication = new InMemoryKnowledgeEventReplication();
+        var log = new CapturingLogger<KnowledgeEventReplicaMerge>();
+        var merge = new KnowledgeEventReplicaMerge(replication, log);
+
+        var off = KnowledgeEventDocuments.ToChange(new EventsAreaReplicaDto(EventsAreaReplicaDto.WellKnownId, false, Noon));
+
+        var outcome = await merge.ApplyAsync([Record(off, 1)], Cancellation);
+
+        Assert.Equal(0, outcome.Applied);
+        Assert.Empty(replication.Taken);
+        Assert.Empty(log.Lines);
+    }
+
+    [Fact]
+    public void The_switch_crosses_the_wire_and_reads_back_only_at_its_own_id()
+    {
+        var sent = new EventsAreaReplicaDto(EventsAreaReplicaDto.WellKnownId, false, Noon);
+
+        var change = KnowledgeEventDocuments.ToChange(sent);
+
+        Assert.Equal(KnowledgeEventKinds.EventsArea, change.Kind);
+        Assert.Null(KnowledgeEventRecordLimits.WhyRefused(change));
+        Assert.Equal(sent, KnowledgeEventDocuments.ReadArea(change));
+        Assert.Null(KnowledgeEventDocuments.ReadEvent(change));
+        Assert.Null(KnowledgeEventDocuments.ReadArea(change with { Id = Guid.NewGuid() }));
+        Assert.Null(KnowledgeEventDocuments.ReadArea(change with
+        {
+            Document = JsonDocument.Parse("""{"id":"e7e47a5e-0000-4000-8000-0000000000a1"}""").RootElement.Clone(),
+        }));
     }
 }

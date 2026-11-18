@@ -23,9 +23,31 @@ internal sealed class InMemoryKnowledgeEventSyncStateStore : IKnowledgeEventSync
 
     public void Save(KnowledgeEventSyncState state)
     {
-        Current = state;
-        Saved.Add(state);
+        lock (Saved)
+        {
+            Current = state;
+            Saved.Add(state);
+        }
+
         Changed?.Invoke();
+    }
+
+    public KnowledgeEventSyncState Update(Func<KnowledgeEventSyncState, KnowledgeEventSyncState> change)
+    {
+        KnowledgeEventSyncState next;
+
+        lock (Saved)
+        {
+            var held = Current;
+            next = change(held);
+            if (ReferenceEquals(next, held)) return held;
+
+            Current = next;
+            Saved.Add(next);
+        }
+
+        Changed?.Invoke();
+        return next;
     }
 }
 

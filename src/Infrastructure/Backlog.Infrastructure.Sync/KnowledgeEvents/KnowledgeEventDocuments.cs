@@ -8,7 +8,8 @@ namespace Backlog.Infrastructure.Sync.KnowledgeEvents;
 
 /// <summary>
 /// The knowledge event feed's opaque document (local ADR 0050 §2), written and read: an
-/// <see cref="KnowledgeEventReplicaDto"/> or an <see cref="EventSeriesReplicaDto"/> as the JSON
+/// <see cref="KnowledgeEventReplicaDto"/>, an <see cref="EventSeriesReplicaDto"/> or the
+/// <see cref="EventsAreaReplicaDto"/> switch as the JSON
 /// the sync service stores unread inside a <see cref="KnowledgeEventChange"/>. The one place
 /// the wire shape is serialized (guideline ADR 0014), so the desktop that pushes and the phone
 /// that pulls read it alike.
@@ -92,6 +93,41 @@ public static class KnowledgeEventDocuments
         if (Read<EventSeriesReplicaDto>(change.Document) is not { } copy
             || copy.Id != change.Id
             || copy.Name is null)
+        {
+            return null;
+        }
+
+        return copy with { UpdatedAt = change.UpdatedAt };
+    }
+
+    /// <summary>The change that carries <paramref name="copy"/>, the <c>events</c> switch a desktop
+    /// last moved (local ADR 0050 §6).</summary>
+    public static KnowledgeEventChange ToChange(EventsAreaReplicaDto copy)
+    {
+        ArgumentNullException.ThrowIfNull(copy);
+
+        return new KnowledgeEventChange(
+            copy.Id,
+            KnowledgeEventKinds.EventsArea,
+            copy.UpdatedAt,
+            JsonSerializer.SerializeToElement(copy, Options));
+    }
+
+    /// <summary>The switch <paramref name="change"/> carries, at the envelope's stamp, or null on
+    /// <see cref="ReadEvent"/>'s terms — and when it names any id but
+    /// <see cref="EventsAreaReplicaDto.WellKnownId"/>.</summary>
+    public static EventsAreaReplicaDto? ReadArea(KnowledgeEventChange change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        if (!string.Equals(change.Kind, KnowledgeEventKinds.EventsArea, StringComparison.Ordinal)) return null;
+        if (change.Id != EventsAreaReplicaDto.WellKnownId) return null;
+
+        if (change.Document.ValueKind is not JsonValueKind.Object
+            || !change.Document.TryGetProperty("on", out var on)
+            || on.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
+            || Read<EventsAreaReplicaDto>(change.Document) is not { } copy
+            || copy.Id != change.Id)
         {
             return null;
         }

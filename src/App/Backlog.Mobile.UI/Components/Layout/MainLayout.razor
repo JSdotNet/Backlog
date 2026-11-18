@@ -60,9 +60,10 @@
     the Inbox.
 
     The Events tab sits after Stand-up and before Notes once the phone holds a knowledge
-    event (EventViewProjection.HoldsAny): a desktop pushes events only with its events
-    feature on, so a phone whose desktops have it off never shows the tab (local ADR 0050
-    §6). The layout pulls the event feed with the others - once drawn, on every return to
+    event and no desktop has since turned its events switch off (EventViewProjection.IsOffered):
+    a desktop pushes events only with its events feature on, and the latest switch a desktop
+    moved travels with them, so a phone whose desktops have it off never shows the tab
+    (local ADR 0050 §6). The layout pulls the event feed with the others - once drawn, on every return to
     the front and on a new pairing - so the tab appears on whichever tab the app is on.
 *@
 
@@ -150,7 +151,7 @@
 
             // Last before Notes, which keeps the bar's end: after the stand-up, events are
             // what a person looks ahead to, and a note taken at one is a tap away.
-            if (EventView.HoldsAny) tabs = [.. tabs.SkipLast(1), EventsTab, tabs[^1]];
+            if (EventView.IsOffered) tabs = [.. tabs.SkipLast(1), EventsTab, tabs[^1]];
 
             // After Inbox: both are what reached the phone, and a question waiting is the
             // tab a person comes back for.
