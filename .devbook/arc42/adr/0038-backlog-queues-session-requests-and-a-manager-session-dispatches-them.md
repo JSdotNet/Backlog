@@ -104,8 +104,8 @@ Validation question a run asks
 ([Asking from the contexts](../../domain/notifications/requirements.md#asking-from-the-contexts))
 can be answered **Approve + follow-up** on any paired device. That answer files one
 ready prompt entry in the gated entry's plan and repository, `after:` the gated entry
-([Tasks](../../domain/tasks/features.md#filing-a-follow-up-after-an-entry)). An attended `execute-plan` orchestrator then
-dispatches it like any ready entry. The answer never creates a session request, so
+([Tasks](../../domain/tasks/features.md#filing-a-follow-up-after-an-entry)). An `execute-plan` session running that plan
+re-reads the plan after each entry lands and dispatches it like any ready entry. The answer never creates a session request, so
 only a click still creates one. The accepted trust is that a paired device already
 approves the gate, so it may also queue the next step behind it. `run-plan-item` still
 treats the follow-up's text as an item to check.
@@ -118,11 +118,16 @@ treats the follow-up's text as an item to check.
 | Kind | Created on | Brief |
 | --- | --- | --- |
 | Entry request | a prompt entry | `/backlog-tools:run-plan-item entry `<id>`:` |
-| Plan request | a plan's roadmap item | `/backlog-tools:execute-plan +<tag>` |
+| Plan request | a plan's roadmap item | `/backlog-tools:execute-plan +<tag> branch` |
 
 An entry request runs one entry. A plan request starts one session that runs the whole
 plan with its own sub-agents. Because both skills check what has already landed,
 dispatching the same request twice does no harm.
+
+**Amended 2026-11-18: the plan brief names its landing mode.** It ends in `branch`, so a
+dispatched plan lands its entries on the plan's integration branch whatever the skill's
+default becomes. `execute-plan` always runs unattended: it asks the person nothing, and
+each entry parks at its gate as a draft pull request the person validates.
 
 ### 3. Five states, a lease on the claim, no expiry
 
@@ -321,6 +326,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | §2 amended: the plan brief is `/backlog-tools:execute-plan +<tag> branch`, and `execute-plan` always runs unattended, with no attended mode, gate relay or per-entry landing; §1 now says the plan's `execute-plan` session dispatches a follow-up entry. Built in PR #1846. | A dispatched plan session stopped on questions nobody answers, and a dispatched plan lands its entries on the plan's integration branch. |
 | 2026-11-18 | §3 amended: the person can cancel a Started request, so a request whose session never called `link_session` leaves the queue. It stops no session, and a later `link_session` links nothing. Requests still never expire. Built in the same pull request. | Started rows whose session never linked sat in the session queue for days with nothing to clear them. |
 | 2026-11-18 | §3 and §4 amended: the person can pause and resume the queue in the app. While it is paused, every claim is refused inside its transaction and the wait route hands out no request, while answer deliveries keep flowing, held claims still report and release, and requests can still be queued and cancelled. `list_session_requests` carries `paused`, and no MCP tool pauses or resumes. The state is a machine-local single-row table in the app's database. Built in the same pull request. | A person wants to stop new sessions from starting without cancelling every request or stopping the Manager. |
 | 2026-11-18 | §4 amended: the person orders the Requested requests in the session queue, one order for entry and plan requests, new requests last; the wait route, `list_session_requests` and the Manager take them in that order, not oldest first. No MCP tool reorders. | The person wants the request they put first to be the one the Manager starts next. |
