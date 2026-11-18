@@ -16,7 +16,8 @@ namespace Backlog.Infrastructure.Sessions;
 /// It is about the run, so the run's end closes it, and its answer is recorded on the run
 /// file as the gate decision — the desktop session then opens the pull request, or marks
 /// the draft one it already opened ready for review. That pull request is shown first, and a
-/// review link only the desktop can open is marked so (<see cref="ReviewLinks"/>).
+/// review link only the desktop can open is left out of the body (<see cref="ReviewLinks"/>):
+/// the phone cannot open it, and the run's own panel at the desktop lists it.
 /// <para>
 /// The run file remembers the question under <c>validationQuestion</c>: the notification's
 /// id, when it was asked, whether it was answered or closed, and whether the gate's current
@@ -268,7 +269,8 @@ internal static class ValidationQuestions
         // under delivery 1.35.0 there is none yet, and the copy then says so.
         var pulls = links.Where(link => ReviewLinks.Classify(link.Url) is ReviewLinkKind.PullRequest).ToList();
         if (pulls.Count == 0) pulls = [.. RunPullRequests.Of(run).Select(pull => pull.Link)];
-        var review = links.Where(link => ReviewLinks.Classify(link.Url) is not ReviewLinkKind.PullRequest).ToList();
+        // The phone opens no loopback or file address, so those stay on the run's own panel.
+        var review = links.Where(link => ReviewLinks.Classify(link.Url) is ReviewLinkKind.Web).ToList();
 
         return new NotificationDraft(
             new NotificationSource(SessionNotificationSubjects.Context, SessionNotificationSubjects.ValidationSourceKey(runId, worktree)),
@@ -296,10 +298,10 @@ internal static class ValidationQuestions
 
     /// <summary>
     /// The handoff as Markdown: the pull request first, where there is one, so it is what a
-    /// phone shows before anything else; what the answers do; then the other review links
-    /// (label, address, description), each one only the desktop can open marked so; and the
-    /// handoff text — cut to <see cref="MaxBodyBytes"/>, ending with a line that says so,
-    /// when it is longer.
+    /// phone shows before anything else; what the answers do; then the review links any
+    /// device can open (label, address, description), under a heading only when there is
+    /// one; and the handoff text — cut to <see cref="MaxBodyBytes"/>, ending with a line that
+    /// says so, when it is longer.
     /// </summary>
     private static string Body(
         string title,
@@ -350,12 +352,10 @@ internal static class ValidationQuestions
         return Fit(body.ToString());
     }
 
-    /// <summary>One list line: the link, the desktop-only mark where only the machine that
-    /// runs the session can open it, and its description.</summary>
+    /// <summary>One list line: the link and its description.</summary>
     private static void AppendLink(StringBuilder body, DeliveryStageLink link, string label)
     {
         body.Append(CultureInfo.InvariantCulture, $"- [{label}]({link.Url})");
-        if (ReviewLinks.Classify(link.Url) is ReviewLinkKind.DesktopOnly) body.Append(" (desktop only)");
         if (!string.IsNullOrWhiteSpace(link.Description)) body.Append(CultureInfo.InvariantCulture, $" — {OneLine(link.Description)}");
         body.Append('\n');
     }
