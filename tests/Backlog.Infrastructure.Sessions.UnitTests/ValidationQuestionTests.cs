@@ -4,6 +4,7 @@ using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Markdown;
 using Backlog.SharedKernel.Results;
 using Backlog.Tests;
 using Microsoft.Extensions.Time.Testing;
@@ -397,6 +398,48 @@ public sealed class ValidationQuestionTests : IDisposable
         var draft = Assert.Single(_notifications.Published).Draft;
         Assert.Equal("notifications:11 - Raise notifications · Approve or revise", draft.Title);
         Assert.Equal(new NotificationOrigin("Claude Code", Via: "Agent session"), draft.Origin);
+    }
+
+    [Fact]
+    public async Task A_handoffs_criteria_read_as_a_checklist_and_its_evidence_and_open_points_as_bullet_lists()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+
+        await surface.UpdateStageAsync(
+            Worktree, run, Gate, "in_progress",
+            output: "Check the toast on the phone.\n\n"
+                + "Acceptance criteria: the toast shows; it closes after 5 s, unless hovered\n\n"
+                + "Evidence: .qa-workspace/toast.png; draft PR not opened (classifier denied gh pr create; retry); 1 unverified fixed. Open: cosmetic spacing",
+            cancellationToken: Cancellation);
+
+        var body = Assert.Single(_notifications.Published).Draft.BodyMarkdown!;
+        Assert.EndsWith(
+            "## Handoff\n\n"
+            + "Check the toast on the phone.\n\n"
+            + "**Acceptance criteria**\n\n"
+            + "- [ ] the toast shows\n"
+            + "- [ ] it closes after 5 s, unless hovered\n\n"
+            + "**Evidence**\n\n"
+            + "- .qa-workspace/toast.png\n"
+            + "- draft PR not opened (classifier denied gh pr create; retry)\n"
+            + "- 1 unverified fixed\n\n"
+            + "**Open**\n\n"
+            + "- cosmetic spacing\n",
+            body,
+            StringComparison.Ordinal);
+
+        // Both cards render the body through MarkdownPreview: the criteria are read-only
+        // checkboxes, the evidence and the open points plain bullets.
+        var lists = MarkdownPreview.ParseDocument(body).OfType<MdList>().Select(Items).ToList();
+        Assert.Contains([("the toast shows", (bool?)false), ("it closes after 5 s, unless hovered", false)], lists);
+        Assert.Contains(
+            [(".qa-workspace/toast.png", (bool?)null), ("draft PR not opened (classifier denied gh pr create; retry)", null), ("1 unverified fixed", null)],
+            lists);
+        Assert.Contains([("cosmetic spacing", (bool?)null)], lists);
+
+        static List<(string Text, bool? Done)> Items(MdList list) =>
+            [.. list.Items.Select(item => (string.Concat(item.Content.OfType<MdText>().Select(text => text.Text)), item.Done))];
     }
 
     [Fact]

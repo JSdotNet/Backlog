@@ -301,8 +301,9 @@ internal static class ValidationQuestions
     /// <summary>
     /// The handoff as Markdown: the pull request first, where there is one, so it is what a
     /// phone shows before anything else; then the review links any device can open (label,
-    /// address, description), under a heading only when there is one; and the handoff text —
-    /// cut to <see cref="MaxBodyBytes"/>, ending with a line that says so, when it is longer.
+    /// address, description), under a heading only when there is one; and the handoff text, its
+    /// labelled paragraphs laid out as lists (<see cref="HandoffText"/>) — cut to
+    /// <see cref="MaxBodyBytes"/>, ending with a line that says so, when it is longer.
     /// The title, the summary and the origin already say which run, where, and what an answer
     /// does, and the buttons name the answers, so the body repeats none of it.
     /// </summary>
@@ -333,7 +334,7 @@ internal static class ValidationQuestions
         if (handoff is not null)
         {
             if (body.Length > 0) body.Append('\n');
-            body.Append("## Handoff\n\n").Append(handoff).Append('\n');
+            body.Append("## Handoff\n\n").Append(HandoffText.Structure(handoff)).Append('\n');
         }
 
         return Fit(body.ToString());
