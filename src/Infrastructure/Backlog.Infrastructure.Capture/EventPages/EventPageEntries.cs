@@ -23,13 +23,15 @@ internal sealed record WatchedPage(string Url, string? Title)
 /// The external id is the whole of "delivered once" (<c>CaptureIds</c> derives
 /// the item's id from it), so it is built from what does not move: the
 /// listing's own number when the edition came from Eventbrite, otherwise the
-/// watched page, the year it starts and its place. Next year's edition on the
-/// same page is a new item; a date that moves within the year is not — the
-/// known limit the feature chapter records.
+/// watched page, the year it starts and its place — the event's own URL after
+/// them when an upcoming edition that starts earlier holds that id. Next year's
+/// edition on the same page is a new item; a date that moves within the year is
+/// not — the known limit the feature chapter records.
 /// </para>
 /// <para>
 /// An edition whose end — or start, when it has no end — is before today is
-/// skipped, because an organiser's page often still shows last year's.
+/// skipped, because an organiser's page often still shows last year's, and the
+/// read goes on to the next step.
 /// </para>
 /// </summary>
 internal static partial class EventPageEntries
@@ -47,10 +49,10 @@ internal static partial class EventPageEntries
     }
 
     /// <summary>
-    /// Every structured-data event that has not passed, as its own entry. When
-    /// every one has, the target says so instead: the step gave a date, so it
-    /// is the step the page is read by, and the reader is owed the reason
-    /// nothing arrived.
+    /// Every structured-data event that has not passed, as its own entry, or
+    /// null when every one has: a passed edition does not stop the read,
+    /// because a page often still carries last edition's event, or links its
+    /// listing, after its text names the next one.
     /// </summary>
     /// <param name="events">What the step found.</param>
     /// <param name="foundOn">The page the events were read from — the watched
@@ -59,40 +61,36 @@ internal static partial class EventPageEntries
     /// URL of its own.</param>
     /// <param name="watched">The page the person watches.</param>
     /// <param name="today">The reader's today.</param>
-    public static TargetReading FromSchema(IReadOnlyList<SchemaEvent> events, Uri foundOn, string link, WatchedPage watched, DateOnly today)
+    public static TargetReading? FromSchema(IReadOnlyList<SchemaEvent> events, Uri foundOn, string link, WatchedPage watched, DateOnly today)
     {
         var upcoming = events.Where(found => !HasPassed(found.Start, found.End, today)).ToList();
+        var ids = EditionIds(upcoming, foundOn, watched);
 
-        if (upcoming.Count == 0) return TargetReading.Remark(Passed(events.Max(found => (found.End ?? found.Start).Date)));
+        // One event carried twice, in two blocks or a graph, is one edition.
+        var entries = upcoming
+            .Select((found, index) => (Found: found, Id: ids[index]))
+            .DistinctBy(pair => pair.Id, StringComparer.Ordinal)
+            .Select(pair => Entry(
+                pair.Id,
+                pair.Found.Name ?? watched.Name,
+                OwnUrl(pair.Found)?.AbsoluteUri ?? link,
+                new CaptureEventFacts(pair.Found.Start, pair.Found.End, pair.Found.Place, watched.Url, watched.Title)))
+            .ToList();
 
-        var entries = upcoming.Select(found =>
-        {
-            var own = found.Url is not null && Uri.TryCreate(found.Url, UriKind.Absolute, out var url) && SourceTargets.IsFetchable(url) ? url : null;
-            var listing = ListingIdOf(own) ?? ListingIdOf(foundOn);
-            var facts = new CaptureEventFacts(found.Start, found.End, found.Place, watched.Url, watched.Title);
-
-            return Entry(
-                listing is not null ? $"eventbrite:{listing}" : EditionId(watched, found.Start.Date.Year, found.Place),
-                found.Name ?? watched.Name,
-                own?.AbsoluteUri ?? link,
-                facts);
-        });
-
-        return new TargetReading([.. entries]);
+        return entries.Count == 0 ? null : new TargetReading(entries);
     }
 
     /// <summary>
     /// The first date in the page text that has not passed, as one entry —
     /// the first, because a page leads with the edition it is announcing and
-    /// what follows is a programme or last year's recap. When every date has
-    /// passed the target says so, naming the latest end, the edition the page
-    /// still shows.
+    /// what follows is a programme or last year's recap — or null when every
+    /// date has passed.
     /// </summary>
-    public static TargetReading FromText(IReadOnlyList<PageDateSpan> spans, WatchedPage watched, DateOnly today)
+    public static TargetReading? FromText(IReadOnlyList<PageDateSpan> spans, WatchedPage watched, DateOnly today)
     {
         var upcoming = spans.FirstOrDefault(span => span.End >= today);
 
-        if (upcoming is null) return TargetReading.Remark(Passed(spans.Max(span => span.End)));
+        if (upcoming is null) return null;
 
         var start = new CaptureEventDate(upcoming.Start);
         var end = upcoming.End == upcoming.Start ? null : new CaptureEventDate(upcoming.End);
@@ -106,6 +104,24 @@ internal static partial class EventPageEntries
                 new CaptureEventFacts(start, end, Place: null, watched.Url, watched.Title))
         ]);
     }
+
+    /// <summary>The last day of the latest edition a step read, or null when
+    /// it read none.</summary>
+    public static DateOnly? LastDayOf(IReadOnlyList<SchemaEvent> events) =>
+        events.Count == 0 ? null : events.Max(found => (found.End ?? found.Start).Date);
+
+    /// <inheritdoc cref="LastDayOf(IReadOnlyList{SchemaEvent})"/>
+    public static DateOnly? LastDayOf(IReadOnlyList<PageDateSpan> spans) =>
+        spans.Count == 0 ? null : spans.Max(span => span.End);
+
+    /// <summary>The reading when every edition the steps read has passed: no
+    /// entry, and the reason nothing arrived, naming the latest end — the
+    /// edition the page still shows — and a registration page that could not
+    /// be read, since the next edition may be behind it.</summary>
+    public static TargetReading Passed(DateOnly ended, string? hopFailure = null) =>
+        TargetReading.Remark(
+            $"the edition it shows has passed (ended {Day(ended)})"
+            + (hopFailure is null ? string.Empty : $", and {hopFailure}"));
 
     /// <summary>A page no step found a date on still arrives — with its link,
     /// so the person can look — under the page's own id, so it arrives once.
@@ -186,6 +202,62 @@ internal static partial class EventPageEntries
             new CaptureFacts(ContentKind: null, Tags: [], Person: null, List: null) { Event = facts });
     }
 
+    /// <summary>
+    /// Each upcoming event's external id, in the order given. The listing
+    /// number when there is one; otherwise the page, the year and the place.
+    /// Two upcoming events under that one id are told apart by their own URL:
+    /// the one that starts first keeps the plain id, and a later one whose URL
+    /// differs from it gets that URL appended.
+    /// <para>
+    /// The earliest keeps the plain id because it is the edition delivered
+    /// under it before the URL counted: every upcoming edition got the plain
+    /// id then, and the first of them was the one delivered. When it passes,
+    /// the next takes over the plain id, which is already known, so nothing
+    /// arrives twice: that next edition was delivered under its URL while the
+    /// earlier one was still to come. Ranking by start rather than by place on
+    /// the page keeps an id still when an organiser reorders the list.
+    /// </para>
+    /// </summary>
+    private static string[] EditionIds(IReadOnlyList<SchemaEvent> events, Uri foundOn, WatchedPage watched)
+    {
+        var firstUrls = new Dictionary<string, string?>(StringComparer.Ordinal);
+        var ids = new string[events.Count];
+
+        // Stable, so editions that start alike keep the page's own order.
+        var byStart = Enumerable.Range(0, events.Count).OrderBy(index => events[index].Start.Date).ThenBy(index => events[index].Start.Time ?? TimeOnly.MinValue);
+
+        foreach (var index in byStart)
+        {
+            var found = events[index];
+            var own = OwnUrl(found);
+
+            if ((ListingIdOf(own) ?? ListingIdOf(foundOn)) is { } listing)
+            {
+                ids[index] = $"eventbrite:{listing}";
+                continue;
+            }
+
+            var plain = EditionId(watched, found.Start.Date.Year, found.Place);
+            var url = own is null ? null : PageId(own);
+
+            if (!firstUrls.TryGetValue(plain, out var first))
+            {
+                firstUrls[plain] = url;
+                ids[index] = plain;
+            }
+            else
+            {
+                ids[index] = url is null || string.Equals(url, first, StringComparison.Ordinal) ? plain : $"{plain}|{url}";
+            }
+        }
+
+        return ids;
+    }
+
+    /// <summary>The event's own page, when it names one that can be fetched.</summary>
+    private static Uri? OwnUrl(SchemaEvent found) =>
+        found.Url is not null && Uri.TryCreate(found.Url, UriKind.Absolute, out var url) && SourceTargets.IsFetchable(url) ? url : null;
+
     /// <summary>The page, the year and the place — lower case and trimmed,
     /// empty when the page did not say — so a venue written twice two ways is
     /// one edition.</summary>
@@ -194,9 +266,6 @@ internal static partial class EventPageEntries
 
     private static bool HasPassed(CaptureEventDate start, CaptureEventDate? end, DateOnly today) =>
         (end ?? start).Date < today;
-
-    private static string Passed(DateOnly ended) =>
-        $"the edition it shows has passed (ended {Day(ended)})";
 
     private static string Point(CaptureEventDate date) =>
         Day(date.Date)

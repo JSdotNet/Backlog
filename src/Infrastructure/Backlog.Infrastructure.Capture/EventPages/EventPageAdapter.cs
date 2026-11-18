@@ -10,8 +10,8 @@ namespace Backlog.Infrastructure.Capture.EventPages;
 /// announces their events (<c>.devbook/domain/capture/features.md#event-page-monitor</c>):
 /// each upcoming edition on it becomes an entry carrying its dates and place.
 /// <para>
-/// Each target is read by fixed rules, stopping at the first step that gives a
-/// date:
+/// Each target is read by fixed rules, stopping at the first step that gives an
+/// edition still to come:
 /// </para>
 /// <list type="number">
 /// <item>a schema.org event in the page's structured data
@@ -23,6 +23,12 @@ namespace Backlog.Infrastructure.Capture.EventPages;
 /// (<see cref="PageDates"/>);</item>
 /// <item>no date at all: the page arrives with its link, so the person can look.</item>
 /// </list>
+/// <para>
+/// A step that reads only passed editions — last edition's event still on the
+/// page, or the listing it still links — does not stop the read: the page text
+/// may already name the next date. Only when no step finds an edition to come
+/// does the target say the edition passed, naming the latest end any step read.
+/// </para>
 /// <para>
 /// No AI model reads a page, and nothing but the feed fetcher is asked: the
 /// same page gives the same entries, which is what lets a run know an edition
@@ -57,8 +63,9 @@ internal sealed class EventPageAdapter(FeedFetcher fetcher, TimeProvider clock) 
 
         var onPage = SchemaOrgEvents.In(html);
 
-        if (onPage.Count > 0) return EventPageEntries.FromSchema(onPage, page.Url, watched.Url, watched, today);
+        if (EventPageEntries.FromSchema(onPage, page.Url, watched.Url, watched, today) is { } fromPage) return fromPage;
 
+        var lastPassed = EventPageEntries.LastDayOf(onPage);
         string? hopFailure = null;
 
         if (EventPageHtml.RegistrationLinkIn(html, page.Url) is { } registration)
@@ -68,7 +75,9 @@ internal sealed class EventPageAdapter(FeedFetcher fetcher, TimeProvider clock) 
                 var listing = await fetcher.GetAsync(registration, cancellationToken).ConfigureAwait(false);
                 var listed = SchemaOrgEvents.In(listing.Text);
 
-                if (listed.Count > 0) return EventPageEntries.FromSchema(listed, listing.Url, listing.Url.AbsoluteUri, watched, today);
+                if (EventPageEntries.FromSchema(listed, listing.Url, listing.Url.AbsoluteUri, watched, today) is { } fromListing) return fromListing;
+
+                lastPassed = Later(lastPassed, EventPageEntries.LastDayOf(listed));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -84,8 +93,20 @@ internal sealed class EventPageAdapter(FeedFetcher fetcher, TimeProvider clock) 
 
         var inText = PageDates.In(EventPageHtml.TextOf(html));
 
-        if (inText.Count > 0) return EventPageEntries.FromText(inText, watched, today);
+        if (EventPageEntries.FromText(inText, watched, today) is { } fromText) return fromText;
+
+        // A date was read, only every one had passed: the reader is owed the
+        // reason nothing arrived, not a dateless item for a page that has dates.
+        // A failed hop is named beside it only when the text had no date
+        // either, since then the next edition may be behind that link.
+        if (Later(lastPassed, EventPageEntries.LastDayOf(inText)) is { } ended)
+        {
+            return EventPageEntries.Passed(ended, inText.Count == 0 ? hopFailure : null);
+        }
 
         return new TargetReading([EventPageEntries.Undated(watched)], hopFailure);
     }
+
+    private static DateOnly? Later(DateOnly? one, DateOnly? other) =>
+        one is null ? other : other is null ? one : one > other ? one : other;
 }
