@@ -503,12 +503,26 @@ The system SHALL attach a Talk note chosen on the phone to the event once one of
 
 ```meta
 type: requirement
+related: [.devbook/domain/events/context.md#events-area]
+tests: [integration:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.A_switch_turned_off_withdraws_the_screen_and_a_later_one_on_brings_it_back, integration:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.A_phone_that_already_holds_the_switch_off_never_offers_the_screen, integration:dotnet:Backlog.Mobile.UI.UnitTests.EventViewProjectionTests.The_latest_switch_decides_whether_the_screen_is_offered, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.KnowledgeEventSyncWorkerTests.Turning_the_area_off_sends_the_withdrawal_alone_and_then_stops, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.KnowledgeEventSyncWorkerTests.An_area_turned_off_while_sync_is_off_is_withdrawn_once_sync_comes_on, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.KnowledgeEventSyncWorkerTests.The_first_sight_of_the_switch_sends_nothing, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.KnowledgeEventSyncWorkerTests.Turning_the_area_on_sends_the_switch_with_the_first_exchange]
 ```
 
-The system SHALL show no Events screen on the phone while the `events` flag is off.
+The system SHALL show no Events screen on the phone while the `events` flag a desktop last switched is off.
 
 #### Scenario: Phone area off
 
 - **Given** the `events` flag is off
 - **When** the person opens the phone app
 - **Then** no Events screen is offered
+
+#### Scenario: A desktop turns the area off
+
+- **Given** a phone that holds events and shows the Events tab
+- **When** the person turns the `events` flag off on a desktop, and the phone syncs
+- **Then** the Events tab and the Talk note's event section leave the phone, and the events stay stored
+
+#### Scenario: The latest switch wins
+
+- **Given** two desktops with the `events` flag on, and a phone that shows the Events tab
+- **When** the person turns the flag off on one desktop, then on again on the other
+- **Then** the phone shows the Events tab again

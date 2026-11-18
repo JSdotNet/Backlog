@@ -153,7 +153,9 @@ feature-flag: .devbook/domain/events/context.md#events-area
 related: [.devbook/domain/events/requirements.md#events-on-the-phone, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md]
 ```
 
-An **Events** tab appears once the phone holds an event. It lists the upcoming
+An **Events** tab appears once the phone holds an event, and leaves again when a
+desktop turns the [Events area](context.md#events-area) off. A person still on the
+Events list, or following a link to an event, then reads that Events are off. It lists the upcoming
 events, soonest first, then the undated ones. Skipped events and those whose last
 day has passed stay off the list.
 

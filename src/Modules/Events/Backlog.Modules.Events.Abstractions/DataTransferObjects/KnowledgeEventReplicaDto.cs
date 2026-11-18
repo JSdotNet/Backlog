@@ -79,3 +79,18 @@ public sealed record EventCostReplicaDto(decimal Amount, string Currency);
 /// <param name="Link">The series' page, or null.</param>
 /// <param name="UpdatedAt">When a desktop last changed it.</param>
 public sealed record EventSeriesReplicaDto(Guid Id, string Name, string? Organiser, string? Link, DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// The <c>events</c> switch as the phone reads it (local ADR 0050 §6): one per owner, at
+/// <see cref="WellKnownId"/>, written by the desktop whose switch last moved. The latest write
+/// wins, so the phone honours the latest switch any desktop made. The phone offers its Events
+/// screen unless the copy it holds says off; holding none is the area on.
+/// </summary>
+/// <param name="Id">Always <see cref="WellKnownId"/>.</param>
+/// <param name="On">Whether the area is on.</param>
+/// <param name="UpdatedAt">When the switch moved, on that desktop's clock.</param>
+public sealed record EventsAreaReplicaDto(Guid Id, bool On, DateTimeOffset UpdatedAt)
+{
+    /// <summary>The one id an owner's switch document has, on a container that is per owner.</summary>
+    public static readonly Guid WellKnownId = new("e7e47a5e-0000-4000-8000-0000000000a1");
+}

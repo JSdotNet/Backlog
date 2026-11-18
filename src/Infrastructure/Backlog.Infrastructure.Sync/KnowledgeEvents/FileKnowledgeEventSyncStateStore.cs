@@ -18,6 +18,7 @@ public sealed class FileKnowledgeEventSyncStateStore : IKnowledgeEventSyncStateS
     };
 
     private readonly string _path;
+    private readonly Lock _write = new();
 
     public FileKnowledgeEventSyncStateStore(string path)
     {
@@ -46,10 +47,34 @@ public sealed class FileKnowledgeEventSyncStateStore : IKnowledgeEventSyncStateS
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        File.WriteAllText(_path, JsonSerializer.Serialize(state, JsonOptions));
+        lock (_write) Write(state);
 
-        Current = state;
         Changed?.Invoke();
+    }
+
+    public KnowledgeEventSyncState Update(Func<KnowledgeEventSyncState, KnowledgeEventSyncState> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        KnowledgeEventSyncState next;
+
+        lock (_write)
+        {
+            var held = Current;
+            next = change(held);
+            if (ReferenceEquals(next, held)) return held;
+
+            Write(next);
+        }
+
+        Changed?.Invoke();
+        return next;
+    }
+
+    private void Write(KnowledgeEventSyncState state)
+    {
+        File.WriteAllText(_path, JsonSerializer.Serialize(state, JsonOptions));
+        Current = state;
     }
 
     private KnowledgeEventSyncState Read()
