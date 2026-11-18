@@ -202,8 +202,18 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   unless the rules name a field or a filename form — and moved out of the inbox to the folder the
   rules keep for processed input, else `archive/processed/`. The folders and the `source:` links
   are its only state, so a tick over an unchanged folder changes nothing — and costs little: it
-  re-reads the rules only when one changed, and stops after one line when the inbox is empty and
-  no follow-up is open. A remark the person routes to the rules' Backlog follow-up heading, with
+  re-reads the rules only when one changed, and stops after one line when the inbox is empty,
+  no follow-up is open and the app's inbox holds nothing. With the `backlog` MCP server present it
+  also triages the Backlog app's inbox (`list_inbox_items`, `read_inbox_item`). A follow-up first
+  gets its `task` entry, or a `plan` when it has several steps — found by its title or created, and
+  with two matches it waits, nothing written. Then every reference, capture or follow-up gets one
+  file per item id where the rules file it, else `_inbox/` — where the next tick files it as input —
+  with the item's words verbatim, its source URL, tags and attachments by path, `source:
+  backlog-inbox <id>` and any task id in `tasks:`. An unclear item, or one whose attachments are
+  not downloaded yet, stays in the app inbox, its reason reported. Only once its file exists is an
+  item archived with `archive_inbox_item` — never deleted — and the report says, per item, where
+  its file went, the task id it created, and whether it was archived or left waiting.
+  A remark the person routes to the rules' Backlog follow-up heading, with
   no reference yet, becomes a `task` entry through the `backlog` MCP server — `find_item` by
   its title first, so a second tick files no duplicate — and the new id is reported for the
   person to fill in; the line itself is never edited. An input with more than one possible home, or whose filing needs a fact it does not
