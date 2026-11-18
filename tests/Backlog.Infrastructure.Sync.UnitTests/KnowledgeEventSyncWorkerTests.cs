@@ -151,6 +151,46 @@ public sealed class KnowledgeEventSyncWorkerTests
         Assert.Equal(1, fixture.SessionsResolved);
     }
 
+    /// <summary>The settle timer is created on the writer's call — inside an Events pane's save.
+    /// It is created with the execution context's flow suppressed, so the writer's context (its
+    /// self-write mark, its window's scope) is not held by the timer and does not run every cycle
+    /// after for the app's life.</summary>
+    [Fact]
+    public void The_settle_timer_does_not_take_the_writers_execution_context()
+    {
+        var clock = new FlowRecordingClock(Noon);
+        using var fixture = Fixture.Create(syncOn: true, eventsOn: true, paired: true, clock: clock);
+        var before = clock.Created.Count;
+
+        fixture.Changes.RaiseLocalChange();
+
+        var created = clock.Created.Skip(before).ToList();
+        Assert.NotEmpty(created);
+        Assert.All(created, suppressed => Assert.True(suppressed, "A timer created on a local change took the writer's execution context."));
+    }
+
+    /// <summary>A writer whose flow is suppressed already — work started under
+    /// <c>SuppressFlow</c> — still arms the settle timer: suppressing it again would throw.</summary>
+    [Fact]
+    public void A_local_write_from_a_flow_already_suppressed_still_arms_the_settle_timer()
+    {
+        var clock = new FlowRecordingClock(Noon);
+        using var fixture = Fixture.Create(syncOn: true, eventsOn: true, paired: true, clock: clock);
+        var before = clock.Created.Count;
+
+        Exception? thrown;
+        bool stillSuppressed;
+        using (ExecutionContext.SuppressFlow())
+        {
+            thrown = Record.Exception(fixture.Changes.RaiseLocalChange);
+            stillSuppressed = ExecutionContext.IsFlowSuppressed();
+        }
+
+        Assert.Null(thrown);
+        Assert.True(stillSuppressed, "Arming the timer handed the writer its flow back.");
+        Assert.Equal([true], clock.Created.Skip(before));
+    }
+
     [Fact]
     public void A_local_write_while_the_events_area_is_off_runs_nothing()
     {
@@ -342,6 +382,19 @@ public sealed class KnowledgeEventSyncWorkerTests
         Assert.Equal(new EventsAreaSwitch(false, Noon, Sent: true), off.State.Current.Area);
     }
 
+    /// <summary>A fake clock that records, for each timer created on it, whether the execution
+    /// context's flow was suppressed at the time.</summary>
+    private sealed class FlowRecordingClock(DateTimeOffset start) : FakeTimeProvider(start)
+    {
+        public List<bool> Created { get; } = [];
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            Created.Add(ExecutionContext.IsFlowSuppressed());
+            return base.CreateTimer(callback, state, dueTime, period);
+        }
+    }
+
     private sealed class Fixture : IDisposable
     {
         public static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
@@ -414,7 +467,8 @@ public sealed class KnowledgeEventSyncWorkerTests
             bool eventsOn,
             bool paired,
             bool compose = true,
-            Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null)
+            Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
+            FakeTimeProvider? clock = null)
         {
             var bodies = new List<string>();
             var handler = new StubHttpMessageHandler((request, index) =>
@@ -432,7 +486,7 @@ public sealed class KnowledgeEventSyncWorkerTests
                 handler,
                 new KeyedFeatureSettings(syncOn, eventsOn),
                 paired ? new InMemoryDeviceCredentialStore(Paired) : new InMemoryDeviceCredentialStore(),
-                new FakeTimeProvider(Noon),
+                clock ?? new FakeTimeProvider(Noon),
                 compose,
                 bodies);
         }

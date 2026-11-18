@@ -38,8 +38,17 @@ internal sealed class InMemoryKnowledgeEvents : IKnowledgeEventRepository
         return Task.FromResult<IReadOnlyList<KnowledgeEvent>>([.. _saved.Where(saved => AnswersTombstones || !saved.IsRemoved).Select(Copy)]);
     }
 
+    /// <summary>When set, the next save throws, as a store that could not be written would.</summary>
+    public bool FailNextSave { get; set; }
+
     public Task SaveAsync(KnowledgeEvent knowledgeEvent, CancellationToken cancellationToken = default)
     {
+        if (FailNextSave)
+        {
+            FailNextSave = false;
+            throw new InvalidOperationException("The events store could not be written.");
+        }
+
         Saves++;
         var at = _saved.FindIndex(saved => saved.Id == knowledgeEvent.Id);
         if (at >= 0) _saved[at] = Copy(knowledgeEvent);
@@ -151,9 +160,16 @@ internal sealed class FakeEventTaskTarget : IEventTaskTarget
         return Task.FromResult(Result.Success());
     }
 
-    public Task<IReadOnlyDictionary<string, EventTaskFactsDto>> LookupAsync(IReadOnlyCollection<string> taskIds, CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyDictionary<string, EventTaskFactsDto>>(
-            taskIds.Where(Held.ContainsKey).Distinct().ToDictionary(id => id, id => Held[id], StringComparer.Ordinal));
+    /// <summary>When set, a lookup waits on it, as a slow Tasks read would: the pane's answer
+    /// after a save is read through it.</summary>
+    public TaskCompletionSource? LookupGate { get; set; }
+
+    public async Task<IReadOnlyDictionary<string, EventTaskFactsDto>> LookupAsync(IReadOnlyCollection<string> taskIds, CancellationToken cancellationToken = default)
+    {
+        if (LookupGate is { } gate) await gate.Task;
+
+        return taskIds.Where(Held.ContainsKey).Distinct().ToDictionary(id => id, id => Held[id], StringComparer.Ordinal);
+    }
 
     public event Action? Changed;
 

@@ -67,13 +67,14 @@ public class InfrastructureGraphTests
             + "here, which issues the pairing codes a notification can be about, tells Notifications when one ends. "
             + "Events' surface is the knowledge event exchange's (local ADR 0050 §2): it reads and applies events "
             + "through IKnowledgeEventReplication and serializes the wire shape the phone reads."),
-        ("Backlog.Infrastructure.Mcp", 8,
+        ("Backlog.Infrastructure.Mcp", 9,
             "The MCP server is one adapter: the agent tools over each context's published port, one tool "
             + "group per context behind that context's own key (local ADR 0012 §7) — Tasks, Roadmap, Devbook, "
             + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0039), for the "
             + "impediment tools beside set_blocked, Progress (local ADR 0035), and the Brain (local ADR 0040) "
             + "for `#brain` and the capture tool, and the Inbox for list_inbox_items, read_inbox_item, "
-            + "archive_inbox_item and capture_to_inbox. It references abstractions only, never a module's implementation."),
+            + "archive_inbox_item and capture_to_inbox, and Events for add_knowledge_event, through the Events pane's "
+            + "own port behind the events key (local ADR 0050 §6, §7). It references abstractions only, never a module's implementation."),
         ("Backlog.Infrastructure.Brain", 5,
             "The Brain's adapter project (local ADR 0040 §1): every join that reads or writes the person's "
             + "notes lives here rather than in folders spread across FileSystem, Devbook and Mcp. Beside the "

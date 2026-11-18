@@ -454,6 +454,37 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     }
 
     /// <summary>
+    /// <c>add_knowledge_event</c> in this head: <c>EventTools</c> is built out of a scope the way
+    /// the MCP listener's forwarding builds it, from <c>IEventsPane</c> and the clock, and the
+    /// event it adds reaches an Events pane open in another scope, a window's, on that pane's
+    /// <c>Changed</c> — the one notice an MCP write has to reach an open page by.
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_builds_the_events_tool_and_an_open_events_pane_hears_what_it_adds()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        var ct = TestContext.Current.CancellationToken;
+        using var provider = BuildMauiShaped(validateScopes: true);
+        using var window = provider.CreateScope();
+        using var request = provider.CreateScope();
+        var pane = window.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventsPane>();
+        var heard = 0;
+        pane.Changed += () => Interlocked.Increment(ref heard);
+
+        var tools = ActivatorUtilities.CreateInstance<Backlog.Infrastructure.Mcp.EventTools>(request.ServiceProvider);
+        var added = await tools.AddAsync("Techorama Belgium 2027", series: "Techorama", start: "2027-05-18", cancellationToken: ct);
+
+        Assert.Equal(1, Volatile.Read(ref heard));
+        Assert.Equal(("Spotted", "2027-05-18", "Typed"), (added.State, added.Start, added.DateSource));
+        Assert.Contains((await pane.ListAsync(ct)).SelectMany(group => group.Events), listed => listed.Id == added.Id);
+    }
+
+    /// <summary>
     /// The roadmap's actual hours are answered by the adapter over the agent activity,
     /// and one instance serves every window, as the activity source it reads does.
     /// </summary>
