@@ -1090,7 +1090,8 @@ public sealed class TaskReplicaMerge(
     /// <summary>
     /// Hands an attachment request the phone wrote to Events, which links the Talk note to the
     /// event, and queues the request's tombstone once Events has answered it — attached, already
-    /// attached or incomplete alike, since none of those answers changes on a second asking
+    /// attached, incomplete or for an event removed here alike, since none of those answers
+    /// changes on a second asking
     /// (<c>.devbook/domain/events/domain.md#attachment-request</c>). A retired request and one on
     /// a head without Events are left alone: another desktop may still apply them, and a retired
     /// one this desktop holds is let go. One met while the <c>events</c> area is off is deferred,

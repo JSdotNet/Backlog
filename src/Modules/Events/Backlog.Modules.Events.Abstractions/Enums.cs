@@ -2,8 +2,8 @@ namespace Backlog.Modules.Events.Abstractions;
 
 /// <summary>Where a knowledge event stands
 /// (<c>.devbook/domain/events/domain.md#knowledge-event-state</c>). It moves only forward on the
-/// path Spotted, Considering, Going, Attended, Harvested; Skipped is reached from Spotted or
-/// Considering alone. Harvested and Skipped are final.</summary>
+/// path Spotted, Considering, Going, Attended, Harvested; Skipped is reached from Spotted,
+/// Considering or Going. Harvested and Skipped are final.</summary>
 public enum KnowledgeEventState
 {
     /// <summary>Found, from a watched page, a colleague or a link. Dates may be unknown.</summary>
@@ -21,7 +21,7 @@ public enum KnowledgeEventState
     /// <summary>The takeaways are written up. Final.</summary>
     Harvested,
 
-    /// <summary>Decided against, with a reason. Final.</summary>
+    /// <summary>Decided against, or called off, with a reason. Final.</summary>
     Skipped
 }
 

@@ -24,7 +24,10 @@ internal sealed class EventAttachmentRequests(IKnowledgeEventRepository events, 
         var attachment = created.Value;
         if (await events.GetAsync(attachment.EventId, cancellationToken).ConfigureAwait(false) is not { } knowledgeEvent)
         {
-            return EventAttachmentOutcome.UnknownEvent;
+            // Absent and removed read alike through GetAsync; only an absent event may still arrive.
+            return await events.IsRemovedAsync(attachment.EventId, cancellationToken).ConfigureAwait(false)
+                ? EventAttachmentOutcome.RemovedEvent
+                : EventAttachmentOutcome.UnknownEvent;
         }
 
         var link = attachment.ToNoteLink();

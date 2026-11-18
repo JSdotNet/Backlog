@@ -1,4 +1,5 @@
 using Backlog.Modules.Events.Abstractions;
+using Backlog.Modules.Events.Services;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -68,15 +69,31 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
     }
 
     [Fact]
-    public async Task A_going_event_cannot_be_skipped()
+    public async Task A_going_event_called_off_is_skipped_with_its_reason()
+    {
+        var id = await Dated("Techorama Belgium", new DateOnly(2026, 11, 7));
+        var going = (await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value;
+
+        var skipped = await Pane.SkipAsync(id, "Cancelled by the organiser", Token);
+        await new HarvestTaskPolicy(Store, Tasks).FileDueAsync(new DateOnly(2026, 11, 10), Token);
+
+        Assert.True(going.Moves.CanSkip);
+        Assert.Equal(KnowledgeEventState.Skipped, skipped.Value.State);
+        Assert.Equal("Cancelled by the organiser", (await Pane.GetAsync(id, Token)).Value.SkipReason);
+        Assert.Empty(Tasks.Filed);
+    }
+
+    [Fact]
+    public async Task An_attended_event_cannot_be_skipped()
     {
         var id = await Add("Techorama Belgium");
-        var going = (await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value;
+        var attended = (await Pane.MoveToAsync(id, KnowledgeEventState.Attended, Token)).Value;
 
         var skipped = await Pane.SkipAsync(id, "Too busy", Token);
 
-        Assert.False(going.Moves.CanSkip);
+        Assert.False(attended.Moves.CanSkip);
         Assert.Equal("knowledge_event.cannot_skip", skipped.Error.Code);
+        Assert.Equal(KnowledgeEventState.Attended, (await Pane.GetAsync(id, Token)).Value.State);
     }
 
     // --- AC-13 The editor ---------------------------------------------------------------

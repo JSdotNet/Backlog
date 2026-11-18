@@ -137,6 +137,29 @@ public sealed class EventViewProjectionTests : IDisposable
         Assert.Equal(Today.AddDays(1), held.FirstDay);
     }
 
+    /// <summary>A removal reaches the phone as a later copy marked removed, and the phone leaves
+    /// the event out everywhere it reads one.</summary>
+    [Fact]
+    public async Task A_removed_event_leaves_the_phone()
+    {
+        var talk = Guid.NewGuid();
+        var shown = TestEvents.Event(
+            "Techorama 2026", Morning, Today,
+            notes: [new EventNoteLinkReplicaDto(NoteLinkKind.Talk, talk.ToString("D"), "Keynote")]);
+        _service.Publish(shown);
+        await _events.PullAsync(Cancellation);
+        Assert.Equal(shown.Id, Assert.Single(_events.Upcoming()).Id);
+
+        _service.Publish(shown with { UpdatedAt = Morning.AddMinutes(5), Removed = true });
+        await _events.PullAsync(Cancellation);
+
+        Assert.Empty(_events.Upcoming());
+        Assert.Empty(_events.Held());
+        Assert.Null(_events.Find(shown.Id));
+        Assert.Empty(_events.LinkingNote(talk));
+        Assert.False(_events.HoldsAny);
+    }
+
     [Fact]
     public async Task An_event_reads_whole_with_the_name_of_its_series()
     {

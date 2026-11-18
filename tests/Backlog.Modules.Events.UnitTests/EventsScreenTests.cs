@@ -1,4 +1,5 @@
 using Backlog.Modules.Events.Abstractions;
+using Backlog.Modules.Events.Services;
 using Backlog.Modules.Events.UI;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Feedback;
@@ -14,7 +15,7 @@ namespace Backlog.Modules.Events.UnitTests;
 /// <summary>
 /// The Events pane's screens over the real pane service, its in-memory stores and the task and
 /// Brain targets at the boundary: the list grouped by state, adding by title alone, the state
-/// choice and its skip dialog, the Harvest chips, the task chips and Add prep task, and the jumps
+/// choice and its skip dialog, Remove and its confirmation, the Harvest chips, the task chips and Add prep task, and the jumps
 /// out through the window's navigator.
 /// </summary>
 public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
@@ -134,7 +135,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     // --- Deciding ------------------------------------------------------------------------
 
     [Fact]
-    public async Task A_spotted_event_offers_every_later_state_and_skip_and_marked_going_offers_neither_back_nor_skip()
+    public async Task A_spotted_event_offers_every_later_state_and_skip_and_marked_going_offers_skip_but_no_way_back()
     {
         var id = await Add("Techorama Belgium");
         var pane = RenderOn(id);
@@ -151,7 +152,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         Assert.Equal(
             ["Attended", "Harvested"],
             pane.FindAll("[data-testid='events-moves'] button").Select(button => button.TextContent.Trim()));
-        Assert.Empty(pane.FindAll("[data-testid='events-skip']"));
+        Assert.NotNull(pane.Find("[data-testid='events-skip']"));
         Assert.Equal(KnowledgeEventState.Going, (await Pane.GetAsync(id, Token)).Value.State);
     }
 
@@ -176,6 +177,146 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         Assert.Empty(pane.FindAll("[data-testid='events-skip-dialog']"));
         Assert.Equal("Skipped: Clashes with the release", Text(pane, "events-skip-reason-shown"));
         Assert.Empty(pane.FindAll("[data-testid='events-moves']"));
+    }
+
+    // --- Removing ------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Remove_asks_to_confirm_and_takes_the_event_off_the_list()
+    {
+        var kept = await Add("Techorama Belgium");
+        var duplicate = await Add("Techorama Belgium 2027");
+        var pane = RenderOn(duplicate);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-remove']"));
+
+        pane.Find("[data-testid='events-remove']").Click();
+
+        pane.WaitForAssertion(() => Assert.Contains(
+            "Remove Techorama Belgium 2027?",
+            pane.Find("[data-testid='events-remove-dialog']").TextContent,
+            StringComparison.Ordinal));
+
+        pane.Find("[data-testid='events-remove-cancel']").Click();
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='events-remove-dialog']")));
+        Assert.True((await Pane.GetAsync(duplicate, Token)).IsSuccess);
+        Assert.NotNull(pane.Find($"[data-testid='events-row-{duplicate:N}']"));
+
+        pane.Find("[data-testid='events-remove']").Click();
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-remove-confirm']"));
+        pane.Find("[data-testid='events-remove-confirm']").Click();
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll($"[data-testid='events-row-{duplicate:N}']")));
+        Assert.NotNull(pane.Find("[data-testid='events-pane-nothing-picked']"));
+        Assert.Empty(pane.FindAll("[data-testid='events-remove-dialog']"));
+        Assert.Equal("knowledge_event.not_found", (await Pane.GetAsync(duplicate, Token)).Error.Code);
+        Assert.NotNull(pane.Find($"[data-testid='events-row-{kept:N}']"));
+        var addEventId = pane.Find("[data-testid='events-add-open']").Id;
+        pane.WaitForAssertion(() => Assert.Equal(addEventId, FocusCalls().LastOrDefault()));
+    }
+
+    [Fact]
+    public async Task An_event_with_a_harvest_task_offers_no_remove()
+    {
+        var spotted = await Add("dotNET Friday");
+        var going = await GoingWithItsHarvestTaskDue("Techorama Belgium");
+        await new HarvestTaskPolicy(Store, Tasks).FileDueAsync(new DateOnly(2026, 11, 10), Token);
+        var pane = RenderOn(going);
+        pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium", Text(pane, "events-editor-title")));
+
+        Assert.Empty(pane.FindAll("[data-testid='events-remove']"));
+
+        pane.Find($"[data-testid='events-row-{spotted:N}']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("dotNET Friday", Text(pane, "events-editor-title")));
+        Assert.NotNull(pane.Find("[data-testid='events-remove']"));
+    }
+
+    [Fact]
+    public async Task A_remove_refused_because_the_harvest_task_was_filed_meanwhile_says_why_and_keeps_the_event()
+    {
+        var going = await GoingWithItsHarvestTaskDue("Techorama Belgium");
+        var pane = RenderOn(going);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-remove']"));
+
+        // Filed after the editor read the event, so Remove is still on screen.
+        await new HarvestTaskPolicy(Store, Tasks).FileDueAsync(new DateOnly(2026, 11, 10), Token);
+        pane.Find("[data-testid='events-remove']").Click();
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-remove-confirm']"));
+        pane.Find("[data-testid='events-remove-confirm']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "The event holds its harvest task, so it is kept.",
+            Text(pane, "events-remove-error")));
+        Assert.Empty(pane.FindAll("[data-testid='events-remove-dialog']"));
+        Assert.Empty(pane.FindAll("[data-testid='events-editor-save'].save-indicator--error"));
+        Assert.Equal("Techorama Belgium", Text(pane, "events-editor-title"));
+        Assert.NotNull(pane.Find($"[data-testid='events-row-{going:N}']"));
+        Assert.True((await Pane.GetAsync(going, Token)).IsSuccess);
+
+        // Read again, the event no longer offers Remove; the refusal still says why, and a
+        // save that holds afterwards reads saved.
+        Tasks.RaiseChanged();
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='events-remove']")));
+        Assert.Equal("The event holds its harvest task, so it is kept.", Text(pane, "events-remove-error"));
+
+        var title = pane.Find("[data-testid='events-field-title'] input");
+        title.Input("Techorama Belgium 2026");
+        title.Change("Techorama Belgium 2026");
+
+        pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium 2026", Text(pane, "events-editor-title")));
+        Assert.Empty(pane.FindAll("[data-testid='events-editor-save'].save-indicator--error"));
+    }
+
+    [Fact]
+    public async Task Text_still_waiting_is_written_before_a_remove()
+    {
+        var going = await GoingWithItsHarvestTaskDue("Techorama");
+        var pane = RenderOn(going);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-remove']"));
+        await new HarvestTaskPolicy(Store, Tasks).FileDueAsync(new DateOnly(2026, 11, 10), Token);
+
+        // Typed and still waiting on its delay, which the pinned clock never ends.
+        pane.Find("[data-testid='events-field-title'] input").Input("Techorama Belgium");
+        Assert.Equal("Techorama", Saved(going).Title);
+
+        pane.Find("[data-testid='events-remove']").Click();
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-remove-confirm']"));
+        pane.Find("[data-testid='events-remove-confirm']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium", Saved(going).Title));
+        pane.WaitForAssertion(() => Assert.Equal(
+            "The event holds its harvest task, so it is kept.",
+            Text(pane, "events-remove-error")));
+    }
+
+    [Fact]
+    public async Task An_event_removed_elsewhere_meanwhile_counts_as_removed()
+    {
+        var kept = await Add("dotNET Friday");
+        var duplicate = await Add("Techorama Belgium");
+        var pane = RenderOn(duplicate);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-remove']"));
+
+        // Another desktop removed it, and the replica caught up, after the editor read it.
+        Assert.True((await Pane.RemoveAsync(duplicate, Token)).IsSuccess);
+        pane.Find("[data-testid='events-remove']").Click();
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-remove-confirm']"));
+        pane.Find("[data-testid='events-remove-confirm']").Click();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='events-pane-nothing-picked']")));
+        Assert.Empty(pane.FindAll($"[data-testid='events-row-{duplicate:N}']"));
+        Assert.Empty(pane.FindAll("[data-testid='events-remove-error']"));
+        Assert.NotNull(pane.Find($"[data-testid='events-row-{kept:N}']"));
+    }
+
+    /// <summary>A Going event that ended before the pinned clock's day, so the Harvest Task
+    /// Policy files its harvest task on the next run.</summary>
+    private async Task<Guid> GoingWithItsHarvestTaskDue(string title)
+    {
+        var id = await Dated(title, new DateOnly(2026, 11, 7));
+        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).IsSuccess);
+        return id;
     }
 
     [Fact]

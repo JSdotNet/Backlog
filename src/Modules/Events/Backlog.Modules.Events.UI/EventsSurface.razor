@@ -17,7 +17,8 @@
     changing underneath reads the open event again, so its chips follow.
 
     The editor is keyed by the event it shows, so nothing typed into one event's fields or
-    sections is carried to the next; leaving writes what was still waiting. Every write of
+    sections is carried to the next; leaving writes what was still waiting. An event removed
+    from it leaves the list and the detail, and the focus goes to Add event. Every write of
     the pane goes through one queue (EventWriteQueue), so two never overlap.
 
     Opening the add row puts the focus in its title; closing it puts it back on Add event.
@@ -128,6 +129,7 @@
                                          Writes="_writes"
                                          OnSaved="SavedAsync"
                                          OnOpenEvent="SelectAsync"
+                                         OnRemoved="RemovedAsync"
                                          Revision="_revision" />
                         }
                         else
@@ -294,6 +296,28 @@
     {
         if (saved.Id == _selectedId) _selected = saved;
 
+        await ReloadListAsync();
+    }
+
+    /// <summary>An event removed from the editor: it no longer opens, so the detail goes back
+    /// to Pick an event and the list is read without it. The focus was on Remove, which goes
+    /// with the editor, so it lands on Add event: the one control there whether events are
+    /// left or not. The query's event, if it named this one, was applied once already, so it
+    /// does not open it again.</summary>
+    private async Task RemovedAsync(Guid id)
+    {
+        if (_selectedId == id)
+        {
+            _selected = null;
+            _selectedId = null;
+        }
+
+        await ReloadListAsync();
+        _focusAfterRender = _adding ? _addTitleId : _addOpenId;
+    }
+
+    private async Task ReloadListAsync()
+    {
         try
         {
             _groups = await Pane.ListAsync();

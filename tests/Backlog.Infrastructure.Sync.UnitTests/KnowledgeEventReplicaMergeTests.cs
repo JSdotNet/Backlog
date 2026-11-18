@@ -54,6 +54,11 @@ public sealed class KnowledgeEventReplicaMergeTests
         Assert.Equal(sent.Ticket, read.Ticket);
         Assert.Equal(sent.Cost, read.Cost);
         Assert.Equal(sent.Tasks, read.Tasks);
+        Assert.False(read.Removed);
+
+        var tombstone = KnowledgeEventDocuments.ToChange(sent with { Removed = true });
+        Assert.True(tombstone.Document.GetProperty("removed").GetBoolean());
+        Assert.True(KnowledgeEventDocuments.ReadEvent(tombstone)!.Removed);
     }
 
     [Fact]
@@ -118,6 +123,7 @@ public sealed class KnowledgeEventReplicaMergeTests
         Assert.Empty(read.KeyDates);
         Assert.Empty(read.Tasks);
         Assert.Equal(KnowledgeEventState.Spotted, read.State);
+        Assert.False(read.Removed);
     }
 
     [Fact]

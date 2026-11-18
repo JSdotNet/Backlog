@@ -98,6 +98,27 @@ public sealed class EventAttachmentRequestSyncTests
         Assert.Single(retirements.Waiting());
     }
 
+    /// <summary>A request for an event this desktop holds removed is never applied, so it is
+    /// retired rather than deferred and offered again after every pull.</summary>
+    [Fact]
+    public async Task A_request_for_a_removed_event_is_retired_unapplied()
+    {
+        var retirements = new PhoneRequestRetirements();
+        var attachments = new RecordingEventAttachments { Answer = EventAttachmentOutcome.RemovedEvent };
+        var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
+
+        var merge = Merge(new InMemoryTaskStore(), attachments, retirements, time: new FakeTimeProvider(Morning.AddMinutes(10)));
+
+        var merged = await merge.ApplyAsync([TaskChanges.Record(change, Phone, 100)], Cancellation);
+
+        Assert.Equal(new TaskMergeOutcome(0, 0), merged);
+        var tombstone = Assert.Single(retirements.Waiting());
+        Assert.Equal(change.Id, tombstone.Id);
+        Assert.Equal(Morning.AddMinutes(10), tombstone.DeletedAt);
+        Assert.Equal(0, await merge.RetryDeferredRequestsAsync(Cancellation));
+        Assert.Single(attachments.Offered);
+    }
+
     [Fact]
     public async Task A_desktop_without_events_or_with_the_events_area_off_holds_the_request_on_the_replica()
     {

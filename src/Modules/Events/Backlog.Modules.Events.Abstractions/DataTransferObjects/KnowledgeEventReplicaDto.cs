@@ -31,6 +31,9 @@ namespace Backlog.Modules.Events.Abstractions.DataTransferObjects;
 /// <param name="Verdict">Whether it was worth it, once Attended or Harvested.</param>
 /// <param name="UpdatedAt">When a desktop last changed the event, on that desktop's clock: the
 /// stamp the later copy wins by.</param>
+/// <param name="Removed">Whether the person removed the event: the copy is its tombstone, and
+/// every device leaves it out. Absent in a document from an older build, which reads as not
+/// removed.</param>
 public sealed record KnowledgeEventReplicaDto(
     Guid Id,
     string Title,
@@ -50,7 +53,8 @@ public sealed record KnowledgeEventReplicaDto(
     EventCostReplicaDto? Cost,
     IReadOnlyList<EventTaskLinkReplicaDto> Tasks,
     string? Verdict,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    bool Removed = false);
 
 /// <summary>An event's start or end: a calendar date, plus a time of day and its UTC offset
 /// when they are known.</summary>

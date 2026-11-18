@@ -12,6 +12,10 @@ namespace Backlog.Infrastructure.Sqlite.Events;
 /// module's owned document (local ADR 0050 §2, the shape ADR 0039 §3 gives an owned document).
 /// Versioned so a later shape can be told from this one. The JSON mapping lives here and only
 /// here: no domain type carries a serialization attribute (guideline ADR 0014).
+/// <para>
+/// <c>removed</c> marks a removed event's tombstone. It was added within version 1: a document
+/// written before it has none and reads as not removed, and an older build ignores it.
+/// </para>
 /// </summary>
 internal sealed record KnowledgeEventDocument(
     int Version,
@@ -31,7 +35,8 @@ internal sealed record KnowledgeEventDocument(
     CostDocument? Cost,
     IReadOnlyList<NoteLinkDocument>? Notes,
     IReadOnlyList<TaskLinkDocument>? Tasks,
-    string? Verdict)
+    string? Verdict,
+    bool Removed = false)
 {
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -61,7 +66,8 @@ internal sealed record KnowledgeEventDocument(
         knowledgeEvent.Cost is { } cost ? new CostDocument(cost.Amount, cost.Currency) : null,
         [.. knowledgeEvent.Notes.Select(note => new NoteLinkDocument(note.Kind, note.Reference, note.Title))],
         [.. knowledgeEvent.Tasks.Select(task => new TaskLinkDocument(task.TaskId, task.Purpose))],
-        knowledgeEvent.Verdict?.Text);
+        knowledgeEvent.Verdict?.Text,
+        knowledgeEvent.IsRemoved);
 
     /// <summary>The knowledge event this document holds. Throws <see cref="JsonException"/> for
     /// one that parsed but does not read as an event — a later shape, no id or title, a value
@@ -94,7 +100,8 @@ internal sealed record KnowledgeEventDocument(
             Cost?.ToCost(),
             (Notes ?? []).Select(note => Required(note, "note link").ToNoteLink()),
             (Tasks ?? []).Select(task => Required(task, "task link").ToTaskLink()),
-            Verdict);
+            Verdict,
+            Removed);
     }
 
     private static T Required<T>(T? value, string what) where T : class =>
