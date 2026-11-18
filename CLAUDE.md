@@ -103,7 +103,7 @@ so it is no flow and adds no execution path beside the gate.
 Every flow reports its stages to the bound delivery surfaces — the `delivery-surface-*`
 MCP servers, `mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__*` and
 `mcp__plugin_delivery-surface-dashboard_delivery-surface-dashboard__*`. Skip surface calls
-only when a surface genuinely answers unavailable; do not substitute chat-only tracking
+only when a surface answers unavailable; do not substitute chat-only tracking
 when the tools are present but erroring.
 
 Never skip Personal Validation, and never create a pull request or mark a flow complete
