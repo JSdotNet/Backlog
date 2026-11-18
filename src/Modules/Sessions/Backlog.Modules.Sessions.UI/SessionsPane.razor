@@ -1026,6 +1026,11 @@ else
     /// which shows the first row the list draws.</summary>
     private string? _selectedKey;
 
+    /// <summary>Whether <see cref="_selectedKey"/> is a background run read's pin on
+    /// the row that was on screen rather than a row the reader pressed. A full read
+    /// drops a pin, so until a row is pressed the panel follows the first row drawn.</summary>
+    private bool _pinned;
+
     private bool _loading;
 
     private static readonly string[] SkeletonWidths = ["100%", "92%", "96%", "88%"];
@@ -1715,6 +1720,8 @@ else
     {
         _disposed = true;
         _loopTimer?.Dispose();
+
+        if (_runChanges is not null) _runChanges.Changed -= OnRunsChanged;
     }
 
     /// <summary>What one row cost, worked out once its requests are in — and the effort
@@ -1974,7 +1981,7 @@ else
     /// is the same thirty runs for every run that follows them, so each is priced once
     /// per refresh rather than once per row — the task kept, so two rows asking at once
     /// share one pricing.</summary>
-    private readonly Dictionary<DeliveryRun, Task<IReadOnlyList<DeliveryRunStageCost>>> _earlierCosts = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<DeliveryRun, Task<IReadOnlyList<DeliveryRunStageCost>>> _earlierCosts = new(DeliveryRunIdentity.Instance);
 
     /// <summary>
     /// A run's costs against its usual: the last thirty finished runs of its flow
@@ -2024,7 +2031,7 @@ else
 
     /// <summary>The row that holds a run, whose session and model price it.</summary>
     private SessionRow? OwnerOf(DeliveryRun run) =>
-        _rows.FirstOrDefault(row => row.Runs.Any(candidate => ReferenceEquals(candidate, run)));
+        _rows.FirstOrDefault(row => row.Runs.Any(candidate => DeliveryRunIdentity.Same(candidate, run)));
 
     /// <summary>What an earlier run's stages cost, read from the row that holds it.</summary>
     private Task<IReadOnlyList<DeliveryRunStageCost>> PriceAsync(DeliveryRun run)
@@ -2090,8 +2097,10 @@ else
     {
         if (_economicsOpener is not { } run || Selected is not { } row) return OpenEconomicsId;
 
-        var drawn = row.Runs.Any(candidate => ReferenceEquals(candidate, run))
-                    && CostsOf(row)?.ComparisonOf(run)?.Insight is not null;
+        // By identity: a run file written while the page was open re-read the runs,
+        // and the opener is then a run of the reading before.
+        var current = row.Runs.FirstOrDefault(candidate => DeliveryRunIdentity.Same(candidate, run));
+        var drawn = current is not null && CostsOf(row)?.ComparisonOf(current)?.Insight is not null;
 
         return drawn ? DeliveryRunInsightLine.DomId(run) : OpenEconomicsId;
     }
@@ -2104,7 +2113,7 @@ else
     /// returns, so a later selection draws its runs folded as usual.
     /// </summary>
     private bool ReopensOnReturn(DeliveryRun run) =>
-        _focusAfterEconomics && ReferenceEquals(run, _economicsOpener);
+        _focusAfterEconomics && DeliveryRunIdentity.Same(run, _economicsOpener);
 
     /// <summary>Whether the pane shows the Schedules page instead of the list.</summary>
     private bool _schedulesPage;
@@ -2232,7 +2241,7 @@ else
             _economicsRowsFor = _rows;
             _economicsScopeFor = scope;
             _economicsRuns = Scoped
-                ? [.. ScopedSessions.SelectMany(row => row.Runs).Distinct<DeliveryRun>(ReferenceEqualityComparer.Instance)]
+                ? [.. ScopedSessions.SelectMany(row => row.Runs).Distinct(DeliveryRunIdentity.Instance)]
                 : _runs.Runs;
 
             return _economicsRuns;
@@ -2399,6 +2408,12 @@ else
         _records = Services.GetService<IAgentSessionRecordStore>();
         _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
 
+        // Before the first read, so a run written while it is out folds into a
+        // follow-up rather than being missed. A host that composed no signal keeps
+        // the pane on Refresh alone, as it was.
+        _runChanges = Services.GetService<IDeliveryRunChangeSignal>();
+        if (_runChanges is not null) _runChanges.Changed += OnRunsChanged;
+
         await RefreshAsync();
 
         // The loops are the one part of the list that moves on its own: a check-in can
@@ -2514,31 +2529,143 @@ else
         if (_reading is { IsCompleted: false } running)
         {
             _readAgain = true;
+
+            // The read out may be a runs-only one, which shows no busy state; the
+            // Refresh queued behind it is the reader's, and shows it from now.
+            _loading = true;
+
             return running;
         }
 
-        return _reading = ReadUntilSettledAsync();
+        return _reading = ReadUntilSettledAsync(full: true);
     }
 
-    private async Task ReadUntilSettledAsync()
+    /// <summary>The run-change signal, where the host composed one.</summary>
+    private IDeliveryRunChangeSignal? _runChanges;
+
+    /// <summary>Whether a run file was written while a read was out.</summary>
+    private bool _runsAgain;
+
+    /// <summary>
+    /// A run file was written — by the delivery surface's MCP tools or a validation
+    /// answer. Raised on the writer's thread, possibly while it still holds the run's
+    /// lock, so this only queues the re-read on the pane's dispatcher and returns.
+    /// </summary>
+    private void OnRunsChanged()
     {
-        _loading = true;
+        if (_disposed) return;
+
+        _ = InvokeAsync(RefreshRunsAsync);
+    }
+
+    /// <summary>
+    /// The runs read again on the same gate as Refresh: while a read is out the
+    /// write folds into one follow-up — runs-only, so a burst of stage updates costs
+    /// one more run read and never a sessions read.
+    /// </summary>
+    private Task RefreshRunsAsync()
+    {
+        if (_disposed) return Task.CompletedTask;
+
+        if (_reading is { IsCompleted: false } running)
+        {
+            _runsAgain = true;
+            return running;
+        }
+
+        return _reading = ReadUntilSettledAsync(full: false);
+    }
+
+    private async Task ReadUntilSettledAsync(bool full)
+    {
+        var readSessions = false;
 
         try
         {
-            do
+            while (true)
             {
-                _readAgain = false;
-                await ReadOnceAsync();
+                if (full)
+                {
+                    _loading = true;
+                    _readAgain = false;
+
+                    // A full read reads the runs too.
+                    _runsAgain = false;
+                    await ReadOnceAsync();
+                    readSessions = true;
+                }
+                else
+                {
+                    _runsAgain = false;
+                    await ReadRunsOnceAsync();
+                }
+
+                if (_readAgain) full = true;
+                else if (_runsAgain && !_disposed) full = false;
+                else break;
             }
-            while (_readAgain);
         }
         finally
         {
             _loading = false;
         }
 
-        RevealFocused();
+        // Only a reading of the sessions moves the list under the reader's focus
+        // request; a run written in the background reveals nothing.
+        if (readSessions) RevealFocused();
+    }
+
+    /// <summary>
+    /// A run file changed: the runs read again and the rows rebuilt over the sessions
+    /// already read. Not a Refresh — no busy state, the "read at" moment stays, focus is
+    /// not moved — so the selected row, an open run card and the filters stay put. Only
+    /// what was worked out from the runs is dropped; the pull request verdicts already
+    /// in are kept, so a stage tick does not ask GitHub again.
+    /// </summary>
+    private async Task ReadRunsOnceAsync()
+    {
+        DeliveryRunCatalog runs;
+
+        try
+        {
+            // On the pool, for the same reason as the full read: a warm cache answers
+            // synchronously off the disk.
+            runs = await Task.Run(() => Runs.GetRunsAsync());
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // A background re-read that failed keeps what is on screen; Refresh is
+            // where a failing source is shown.
+            return;
+        }
+
+        if (_disposed) return;
+
+        // The row on screen stays the row on screen. A reader who never clicked one
+        // is looking at the first drawn row, and a run that just moved another row
+        // to the top would otherwise take the panel, and the card open in it, away.
+        // Only until the next full read, which drops the pin. Worked out from the
+        // rows as they stand rather than from the last render: a follow-up to a
+        // Refresh runs before the Refresh's rows were drawn, and pinning the row
+        // drawn before it would undo what the Refresh handed back.
+        if (_selectedKey is null && Selected?.Key is { } shown)
+        {
+            _selectedKey = shown;
+            _pinned = true;
+        }
+
+        _runs = runs;
+        _rows = SessionRows.Of(_catalog.Sessions, _runs.Runs);
+
+        ResetVanishedChoices();
+
+        // An ask still out belongs to the reading this one replaces and will be
+        // dropped on arrival, so it is asked again; the answers already in are kept,
+        // so a stage tick does not ask GitHub again.
+        _asked.RemoveWhere(key => !_statuses.ContainsKey(key));
+        ForgetRunFigures();
+
+        StateHasChanged();
     }
 
     private async Task ReadOnceAsync()
@@ -2564,24 +2691,46 @@ else
         _read = true;
         _readAt = DateTimeOffset.UtcNow;
 
-        // A re-read can lose the environment the list was narrowed to. Left in
-        // place, the select would read "All machines" over a list narrowed to
-        // nothing; widening back out is the honest reset.
-        if (_environmentId is not null && Environments.All(environment => environment.Id != _environmentId))
+        // A row nobody pressed was only held still for the background reads; a full
+        // read hands the panel back to the first row drawn.
+        if (_pinned)
         {
-            _environmentId = null;
+            _selectedKey = null;
+            _pinned = false;
         }
 
-        // The same for a plan the new reading no longer names.
-        if (_planTag is not null && !Plans.Any(plan => SessionTitles.SameTag(plan.Tag, _planTag)))
-        {
-            _planTag = null;
-        }
+        ResetVanishedChoices();
 
         // A fresh reading may hold newer verdicts too, newer requests, and prices
         // somebody changed in Settings since.
         _statuses.Clear();
         _asked.Clear();
+        ForgetRunFigures();
+    }
+
+    /// <summary>
+    /// A re-read can lose the environment the list was narrowed to. Left in place, the
+    /// select would read "All machines" over a list narrowed to nothing; widening back
+    /// out is the honest reset. The same for a plan the new reading no longer names.
+    /// </summary>
+    private void ResetVanishedChoices()
+    {
+        if (_environmentId is not null && Environments.All(environment => environment.Id != _environmentId))
+        {
+            _environmentId = null;
+        }
+
+        if (_planTag is not null && !Plans.Any(plan => SessionTitles.SameTag(plan.Tag, _planTag)))
+        {
+            _planTag = null;
+        }
+    }
+
+    /// <summary>Drops everything worked out from the runs — costs, shares, the week,
+    /// earlier runs' pricing — and starts a new reading, so a figure still being
+    /// worked out for the last one is dropped on arrival.</summary>
+    private void ForgetRunFigures()
+    {
         _costs.Clear();
         _costAsked.Clear();
         _earlierCosts.Clear();
@@ -2659,6 +2808,7 @@ else
 
         // The session asked for is the one the panel shows.
         _selectedKey = focused.Key;
+        _pinned = false;
 
         if (!Visible.Any(IsFocused))
         {
@@ -2769,10 +2919,11 @@ else
     }
 
     /// <summary>Picks a row; a failed loop command belongs to the loop it was set on, so
-    /// it goes with the selection.</summary>
+    /// it goes with the selection. A pressed row is no longer a pin a full read drops.</summary>
     private void Select(SessionRow row)
     {
         _selectedKey = row.Key;
+        _pinned = false;
         _openedRunRowKey = null;
         _commandError = null;
     }
