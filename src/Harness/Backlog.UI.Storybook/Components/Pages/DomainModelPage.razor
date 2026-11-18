@@ -7,7 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="Model page"
-           Description="The page a Model row opens. Diagram is first and open, headed by the root's name, how to read the drawing and its legend; All fields on the root card opens Fields, which lists each class's attributes by kind (Domain model fields), and Events each event as a contract (Domain events). The services strip is the context's domain-service chapters."
+           Description="The page a Model row opens. Diagram is first and open, headed by the root's name, how to read the drawing and its legend; All fields on the root card opens Fields, which lists each class's attributes by kind (Domain model fields), and Events each event as a contract (Domain events). The services strip is the context's domain-service chapters, each captioned with what calls it — the first sentence of its Invocation semantics — and with none where the chapter states none."
            Code="@PageCode"
            Source="@Tasks"
            SourceLabel="classDiagram"
@@ -162,7 +162,8 @@
     private static readonly DomainChapterReading Chapters = new(
         [
             new DomainServiceInvocation("Projection", "#projection", "Creates one GitHub issue per target repository and records a Projection Ref.", null),
-            new DomainServiceInvocation("Occurrence Spawning", "#occurrence-spawning", "Creates the next task, which points back through recurrence_source_id.", null)
+            // The caption beside its name is the first sentence of how it runs.
+            new DomainServiceInvocation("Occurrence Spawning", "#occurrence-spawning", "Creates the next task, which points back through recurrence_source_id.", "Called when a repeat is ticked. No mediator (guideline ADR 0006).")
         ],
         []);
 

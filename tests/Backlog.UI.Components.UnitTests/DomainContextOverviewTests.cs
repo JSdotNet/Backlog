@@ -549,6 +549,30 @@ public sealed class DomainContextOverviewTests
         Assert.Equal(2, overview.Proved);
     }
 
+    /// <summary>The cards count proof as the Requirements page and Always true do:
+    /// any linked test, whatever its level.</summary>
+    [Fact]
+    public void Any_linked_test_proves_a_requirement_or_an_invariant_whatever_its_level()
+    {
+        var rules = Rules.ReplaceLineEndings("\n").Replace(
+            "type: invariant\n```\n\nNever moves.",
+            "type: invariant\ntests: [e2e:playwright:tasks/keep.spec.ts]\n```\n\nNever moves.",
+            StringComparison.Ordinal);
+        Assert.NotEqual(Rules.ReplaceLineEndings("\n"), rules);
+
+        var overview = DomainContextOverview.Read(Boundary, Root,
+        [
+            new(".devbook/domain/tasks/domain.md", Domain2),
+            new(".devbook/domain/tasks/domain.invariants.md", rules),
+            new(".devbook/domain/tasks/requirements.md", Requirements)
+        ]);
+
+        // A unit test proves the requirement, an end-to-end test the invariant.
+        Assert.Equal(1, overview.Requirements.Proved);
+        Assert.Equal(2, overview.Invariants.Proved);
+        Assert.Equal(overview.Requirements.Proved + overview.Invariants.Proved, overview.Proved);
+    }
+
     [Fact]
     public void Requirement_scenarios_are_counted_by_their_headings()
     {
@@ -655,8 +679,42 @@ public sealed class DomainContextOverviewTests
         Assert.Equal(".devbook/domain/tasks/model.md#events", events.Reference);
         Assert.Equal("What does it tell other contexts, and what does it listen to?", events.Question);
 
-        // Events takes Model's second clause away with it.
-        Assert.Equal("What is it made of?", overview.Lenses[1].Question);
+        // Model names the context's one aggregate; what it tells others is Events'.
+        Assert.Equal("What is a task made of?", overview.Lenses[1].Question);
+    }
+
+    [Fact]
+    public void Model_asks_about_it_when_the_context_has_no_single_aggregate()
+    {
+        var two = Events + """
+
+
+            ## Inbox Item
+
+            ```meta
+            type: aggregate
+            ```
+
+            Raw input.
+            """;
+
+        var several = DomainContextOverview.Read(Boundary, Root,
+            [new(".devbook/domain/tasks/domain.md", two), new(".devbook/domain/tasks/model.md", Model)]);
+        Assert.Equal("What is it made of?", several.Lenses.Single(lens => lens.Title == "Model").Question);
+
+        var none = DomainContextOverview.Read(Boundary, Root, [new(".devbook/domain/tasks/model.md", Model)]);
+        Assert.Equal("What is it made of?", none.Lenses.Single(lens => lens.Title == "Model").Question);
+    }
+
+    [Fact]
+    public void Model_names_its_aggregate_with_the_article_it_reads_with()
+    {
+        var item = Events.Replace("## Task", "## Inbox Item", StringComparison.Ordinal);
+
+        var overview = DomainContextOverview.Read(Boundary, Root,
+            [new(".devbook/domain/inbox/domain.md", item), new(".devbook/domain/inbox/model.md", Model)]);
+
+        Assert.Equal("What is an inbox item made of?", overview.Lenses.Single(lens => lens.Title == "Model").Question);
     }
 
     [Fact]
@@ -665,7 +723,8 @@ public sealed class DomainContextOverviewTests
         var overview = DomainContextOverview.Read(Boundary, Root, [.. Files, new(".devbook/domain/tasks/model.md", Model)]);
 
         Assert.Equal(["Features", "Model", "Requirements", "Glossary"], overview.Lenses.Select(lens => lens.Title));
-        Assert.Equal("What is it made of, and what does it tell other contexts?", overview.Lenses[1].Question);
+        // Nothing is told to other contexts, so Model does not ask it.
+        Assert.Equal("What is a task made of?", overview.Lenses[1].Question);
 
         // Events reads as a tab of Model, so with no model.md it is not offered either.
         var noModel = DomainContextOverview.Read(Boundary, Root, [new(".devbook/domain/tasks/domain.md", Events)]);

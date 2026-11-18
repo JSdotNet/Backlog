@@ -1,7 +1,12 @@
 @*
     "Domain services · how they run", on the Model page's Fields tab (local ADR
     0047 §6): each domain-service chapter of the context with its first sentence
-    and its Invocation semantics prose. How a service is called is technical
+    and a row per fact the chapters give about how it runs — its Invocation
+    semantics prose; why it is a service, from its "It is a service because"
+    sentence; the events whose raiser it is, each with its state; and the rules it
+    relies on, a group of a unit's Always true per line, each opening its rules in
+    place. A row the chapters give nothing for is left out, except Invocation,
+    which says the chapter does not say. How a service is called is technical
     detail, so it is shown here and not on the service's own Domain page.
 *@
 
@@ -12,6 +17,8 @@
         <ul class="domain-services__list">
             @foreach (var service in Services)
             {
+                var raises = Raised(service);
+                var reliances = DomainServiceReliance.Of(service, RuleCatalog);
                 <li class="domain-services__item" data-testid="domain-service-invocation" data-name="@service.Title">
                     <h4 class="domain-services__name">
                         <span class="domain-model__element-glyph" aria-hidden="true">@DomainModelArrangement.KindGlyph(DomainModelKind.Service)</span>
@@ -21,16 +28,85 @@
                     {
                         <div class="domain-services__summary"><MarkdownView Blocks="@MarkdownPreview.ParseDocument(service.Summary)" /></div>
                     }
-                    @if (service.Invocation is { } invocation)
-                    {
-                        <div class="domain-services__invocation" data-testid="domain-service-runs">
-                            <MarkdownView Blocks="@MarkdownPreview.ParseDocument(invocation)" />
+                    <dl class="domain-services__facts">
+                        <div class="domain-services__fact">
+                            <dt class="domain-services__label">Invocation</dt>
+                            <dd class="domain-services__value">
+                                @if (service.Invocation is { } invocation)
+                                {
+                                    <div class="domain-services__invocation" data-testid="domain-service-runs">
+                                        <MarkdownView Blocks="@MarkdownPreview.ParseDocument(invocation)" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="domain-services__unsaid" data-testid="domain-service-unsaid">The chapter does not say how it runs.</p>
+                                }
+                            </dd>
                         </div>
-                    }
-                    else
-                    {
-                        <p class="domain-services__unsaid" data-testid="domain-service-unsaid">The chapter does not say how it runs.</p>
-                    }
+                        @if (service.Reason is { } reason)
+                        {
+                            <div class="domain-services__fact" data-testid="domain-service-why">
+                                <dt class="domain-services__label">Why a service</dt>
+                                <dd class="domain-services__value"><MarkdownView Blocks="@MarkdownPreview.ParseDocument(reason)" /></dd>
+                            </div>
+                        }
+                        @if (raises.Count > 0)
+                        {
+                            var shared = raises.Select(e => e.Delivery).Distinct().Count() == 1;
+                            <div class="domain-services__fact" data-testid="domain-service-raises">
+                                <dt class="domain-services__label">Raises</dt>
+                                <dd class="domain-services__value">
+                                    @for (var i = 0; i < raises.Count; i++)
+                                    {
+                                        var raised = raises[i];
+                                        if (i > 0)
+                                        {
+                                            <text>@(" · ")</text>
+                                        }
+                                        <code class="domain-services__event" data-testid="domain-service-raised" data-name="@raised.Title" data-delivery="@DeliveryKey(raised)">@raised.Title</code>
+                                        if (!shared)
+                                        {
+                                            <text>@($" ({DeliveryKey(raised)})")</text>
+                                        }
+                                    }
+                                    @if (shared)
+                                    {
+                                        <text>@($" — {DeliveryText(raises[0])}")</text>
+                                    }
+                                </dd>
+                            </div>
+                        }
+                        @if (reliances.Count > 0)
+                        {
+                            <div class="domain-services__fact" data-testid="domain-service-relies">
+                                <dt class="domain-services__label">Relies on</dt>
+                                <dd class="domain-services__value domain-services__reliances">
+                                    @for (var i = 0; i < reliances.Count; i++)
+                                    {
+                                        var reliance = reliances[i];
+                                        var key = $"{_headingId}-{DomainUnits.Slug(service.Title)}-{i}";
+                                        var shown = _rulesShown.Contains(key);
+                                        <AppButton Variant="ButtonVariant.None"
+                                                   BaseClass="domain-model__rules"
+                                                   TestId="domain-service-rules"
+                                                   OnClick="@(() => ToggleRules(key))"
+                                                   aria-expanded="@(shown ? "true" : "false")"
+                                                   aria-controls="@($"{key}-rules")">@reliance.Label</AppButton>
+                                        if (shown)
+                                        {
+                                            <DomainRuleList Rules="@reliance.Rules"
+                                                            OnOpen="OnOpenRule"
+                                                            AriaLabel="@($"Rules {service.Title} relies on: {reliance.Label}")"
+                                                            CssClass="domain-model__rule-list"
+                                                            TestId="domain-service-rule-list"
+                                                            id="@($"{key}-rules")" />
+                                        }
+                                    }
+                                </dd>
+                            </div>
+                        }
+                    </dl>
                 </li>
             }
         </ul>
@@ -41,8 +117,39 @@
     [Parameter]
     public IReadOnlyList<DomainServiceInvocation> Services { get; set; } = [];
 
+    /// <summary>The context's events: a service raises those whose
+    /// <see cref="DomainEventContract.RaisedBy"/> names it.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainEventContract> Events { get; set; } = [];
+
+    /// <summary>Every rule of the context with its place on Always true: what a
+    /// service's "Relies on" lines count and open in place. Unset, no line shows.</summary>
+    [Parameter]
+    public DomainRuleCatalog? RuleCatalog { get; set; }
+
+    /// <summary>A rule shown in place, followed to its row on Always true.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenRule { get; set; }
+
     [Parameter]
     public string? TestId { get; set; } = "domain-services";
 
     private readonly string _headingId = $"domain-services-{Guid.NewGuid():N}";
+
+    // The "Relies on" lines whose rules the reader opened.
+    private readonly HashSet<string> _rulesShown = new(StringComparer.Ordinal);
+
+    private void ToggleRules(string key)
+    {
+        if (!_rulesShown.Remove(key)) _rulesShown.Add(key);
+    }
+
+    private List<DomainEventContract> Raised(DomainServiceInvocation service) =>
+        [.. Events.Where(e => e.RaisedBy.Contains(service.Title, StringComparer.OrdinalIgnoreCase))];
+
+    private static string DeliveryKey(DomainEventContract contract) =>
+        contract.Delivery == DomainEventDelivery.Emitted ? "emitted" : "documented";
+
+    private static string DeliveryText(DomainEventContract contract) =>
+        contract.Delivery == DomainEventDelivery.Emitted ? "emitted" : "documented, not emitted";
 }

@@ -29,7 +29,7 @@ public sealed class DomainContextViewTests
         Assert.Equal([neighbours, overview], page.Children.Where(child => child == neighbours || child == overview));
         Assert.Single(view.FindAll("[data-testid='domain-neighbours-legend']"));
         Assert.Equal(2, view.FindAll("[data-testid='domain-context-page-switch']").Count);
-        Assert.Contains("1 of 2 name a test", view.Find("[data-testid='domain-context-page-proof']").TextContent);
+        Assert.Contains("1 of 2 linked to a test", view.Find("[data-testid='domain-context-page-proof']").TextContent);
     }
 
     [Fact]
@@ -121,14 +121,14 @@ public sealed class DomainContextViewTests
 
         var view = context.Render<DomainNeighboursView>(p => p
             .Add(v => v.ContextName, "Tasks")
-            .Add(v => v.ContextSummary, "Core · draft")
+            .Add(v => v.ContextSummary, "Core · module · draft")
             .Add(v => v.Neighbours, neighbours));
 
         Assert.Equal("Tasks and its neighbours", view.Find("[data-testid='domain-neighbours-title']").TextContent);
         Assert.Equal(
             "Who Tasks listens to on the left, who listens to Tasks on the right, and who it works hand in hand with below.",
             view.Find("[data-testid='domain-neighbours-lede']").TextContent);
-        Assert.Equal("Core · draft", view.Find("[data-testid='domain-neighbours-summary']").TextContent);
+        Assert.Equal("Core · module · draft", view.Find("[data-testid='domain-neighbours-summary']").TextContent);
         Assert.Single(view.FindAll("[data-testid='domain-neighbour'][data-name='Inbox'] [data-testid='domain-neighbour-core']"));
         Assert.Single(view.FindAll("[data-testid='domain-neighbour'][data-name='GitHub'] [data-testid='domain-neighbour-external']"));
         Assert.Empty(view.FindAll("[data-testid='domain-neighbour'][data-name='Sessions'] [data-testid='domain-neighbour-core']"));
@@ -231,11 +231,41 @@ public sealed class DomainContextViewTests
             .Add(v => v.Overview, Board())
             .Add(v => v.OnOpenAlwaysTrue, link => opened = link));
 
-        Assert.Contains("2 invariants · 1 open", view.Find("[data-testid='domain-context-page-proof-invariants']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("2 guarantees · 1 open", view.Find("[data-testid='domain-context-page-proof-invariants']").TextContent, StringComparison.Ordinal);
         view.Find("[data-testid='domain-context-page-proof-invariants']").Click();
 
         Assert.NotNull(opened);
         Assert.Equal(".devbook/domain/tasks/domain.md#task", opened!.Reference);
+    }
+
+    [Fact]
+    public void The_proof_cards_speak_of_promises_and_guarantees_linked_to_a_test()
+    {
+        using var context = Context();
+
+        var view = context.Render<DomainContextView>(p => p.Add(v => v.Overview, Board()));
+
+        var requirements = view.Find("[data-testid='domain-context-page-proof-requirements']");
+        Assert.Equal("2 promises · 0 scenarios", requirements.QuerySelector(".domain-context-page__proof-facts")!.TextContent);
+        Assert.Equal("1 of 2 linked to a test", requirements.QuerySelector(".domain-context-page__proof-caption")!.TextContent.Trim());
+        Assert.Equal("1 of 2 linked to a test", requirements.QuerySelector("[role='img']")!.GetAttribute("aria-label"));
+
+        var invariants = view.Find("[data-testid='domain-context-page-proof-invariants']");
+        Assert.Equal("2 guarantees · 1 open", invariants.QuerySelector(".domain-context-page__proof-facts")!.TextContent);
+        Assert.Equal("1 of 2 linked to a test", invariants.QuerySelector(".domain-context-page__proof-caption")!.TextContent.Trim());
+    }
+
+    [Theory]
+    [InlineData("module", "Module")]
+    [InlineData("service", "Service")]
+    [InlineData("library", "Library")]
+    public void The_deployment_badge_is_the_chapters_own_word(string deployment, string badge)
+    {
+        using var context = Context();
+
+        var view = context.Render<DomainContextView>(p => p.Add(v => v.Overview, Board() with { Deployment = deployment }));
+
+        Assert.Equal(badge, view.Find("[data-testid='domain-context-page-deployment']").TextContent);
     }
 
     [Fact]

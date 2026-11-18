@@ -374,7 +374,7 @@ public sealed class ContextMapTests
             .Add(v => v.OnOpen, (ContextMapContext _) => { }));
         opening.Find("[data-testid='context-map-page-tab-list']").Click();
         Assert.Equal(
-            "4 bounded contexts and 2 relationships. Each card says why the context exists and how many relationships touch it. Pick one to open it on its neighbours.",
+            "4 parts of the product and 2 relationships. Each card says why the part exists and how many relationships touch it. Pick one to open it on its neighbours.",
             opening.Find("[data-testid='context-map-page-intro']").TextContent.Trim());
 
         var reading = context.Render<ContextMapView>(p => p.Add(v => v.Map, ContextMaps.Read(Contracts, [])));
@@ -393,10 +393,10 @@ public sealed class ContextMapTests
             .Add(v => v.OnNavigate, reference => followed = reference));
 
         Assert.Equal("Backlog", view.Find("[data-testid='context-map-page-title']").TextContent);
-        Assert.StartsWith("4 bounded contexts and how they rely on each other.", view.Find("[data-testid='context-map-page-intro']").TextContent, StringComparison.Ordinal);
+        Assert.Equal("4 parts of the product and how they rely on each other. Point at a line to read it.", view.Find("[data-testid='context-map-page-intro']").TextContent.Trim());
 
         view.Find("[data-testid='context-map-page-tab-list']").Click();
-        Assert.StartsWith("4 bounded contexts and 2 relationships.", view.Find("[data-testid='context-map-page-intro']").TextContent, StringComparison.Ordinal);
+        Assert.StartsWith("4 parts of the product and 2 relationships.", view.Find("[data-testid='context-map-page-intro']").TextContent, StringComparison.Ordinal);
 
         var languages = view.Find("[data-testid='context-map-list-languages']");
         Assert.Equal("Published languages and contracts", languages.QuerySelector("h3")!.TextContent);
@@ -412,6 +412,103 @@ public sealed class ContextMapTests
         Assert.Equal(4, rules.Count);
         Assert.Equal("Only the owning context defines a published language", rules[0].QuerySelector("[data-testid='context-map-rule-title']")!.TextContent.Trim());
         Assert.Contains("Consumers conform", rules[0].TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_map_intro_and_legend_speak_of_parts_of_the_product()
+    {
+        using var context = Context();
+
+        var view = context.Render<ContextMapView>(p => p
+            .Add(v => v.Map, ContextMaps.Read(Map, Sources))
+            .Add(v => v.OnOpen, (ContextMapContext _) => { }));
+
+        Assert.Equal(
+            "5 parts of the product and how they rely on each other. Point at a line to read it; pick a part to zoom in.",
+            view.Find("[data-testid='context-map-page-intro']").TextContent.Trim());
+        var legend = view.Find("[data-testid='context-map-legend']");
+        Assert.Equal(
+            ["between core parts", "with a supporting part", "planned, not built"],
+            legend.QuerySelectorAll("li").Select(item => item.TextContent.Trim()));
+        Assert.EndsWith("the number is how many lines touch a part", legend.QuerySelector(".context-map__legend-note")!.TextContent.Trim(), StringComparison.Ordinal);
+    }
+
+    // Inbox's ItemTriaged, Tasks' TaskCompleted — an event Tasks' model has no
+    // contract for here — and Billing, which no context of the map is.
+    private static ContextMap OwnedMap() => ContextMaps.Read(
+        Map.ReplaceLineEndings("\n").Replace(
+            "| Inbox | `.devbook/domain/inbox/domain.md#itemtriaged` | Tasks |",
+            "| Inbox | `.devbook/domain/inbox/domain.md#itemtriaged` | Tasks |\n| Tasks | `.devbook/domain/tasks/domain.md#taskcompleted` | Inbox |\n| Billing | `Invoice` | Tasks |",
+            StringComparison.Ordinal),
+        Sources);
+
+    // Only Inbox's model documents the event its contract names.
+    private static DevbookReference? InboxEventsOnly(ContextMapContext owner, ContextMapContract contract) =>
+        owner.Slug == "inbox" && contract.Names.Any(name => name.Reference?.EndsWith("#itemtriaged", StringComparison.Ordinal) == true)
+            ? DevbookReference.Parse(".devbook/domain/inbox/model.md#itemtriaged")
+            : null;
+
+    [Fact]
+    public void An_owner_whose_contract_names_a_documented_event_opens_its_model_on_that_event()
+    {
+        using var context = Context();
+        DevbookReference? followed = null;
+        ContextMapContext? opened = null;
+
+        var view = context.Render<ContextMapView>(p => p
+            .Add(v => v.Map, OwnedMap())
+            .Add(v => v.OnNavigate, reference => followed = reference)
+            .Add(v => v.OnOpen, owner => opened = owner)
+            .Add(v => v.EventsOf, InboxEventsOnly));
+        view.Find("[data-testid='context-map-page-tab-list']").Click();
+
+        var owners = view.FindAll("[data-testid='context-map-contract-owner']");
+        Assert.Equal(["Inbox", "Tasks", "Billing"], owners.Select(owner => owner.TextContent.Trim()));
+        Assert.Equal("events", owners[0].GetAttribute("data-opens"));
+        // The name says which event opens, and still holds the visible words.
+        Assert.Equal("Inbox: ItemTriaged on Model", owners[0].GetAttribute("aria-label"));
+        Assert.Contains("devbook-ref--action", owners[1].ClassList);
+        Assert.Contains("context-map-contracts__owner", owners[1].ClassList);
+
+        owners[0].Click();
+        Assert.Equal(".devbook/domain/inbox/model.md", followed?.Path);
+        Assert.Equal("itemtriaged", followed?.Slug);
+        Assert.Null(opened);
+    }
+
+    [Fact]
+    public void An_owner_whose_contract_names_no_documented_event_opens_its_context_and_an_unknown_owner_is_plain()
+    {
+        using var context = Context();
+        DevbookReference? followed = null;
+        ContextMapContext? opened = null;
+
+        var view = context.Render<ContextMapView>(p => p
+            .Add(v => v.Map, OwnedMap())
+            .Add(v => v.OnNavigate, reference => followed = reference)
+            .Add(v => v.OnOpen, owner => opened = owner)
+            .Add(v => v.EventsOf, InboxEventsOnly));
+        view.Find("[data-testid='context-map-page-tab-list']").Click();
+
+        var tasks = view.Find("[data-testid='context-map-contract-owner'][data-opens='context']");
+        Assert.Equal("Tasks", tasks.TextContent.Trim());
+        Assert.Equal("BUTTON", tasks.TagName);
+        tasks.Click();
+        Assert.Equal("tasks", opened?.Slug);
+        Assert.Null(followed);
+
+        Assert.Equal("SPAN", view.FindAll("[data-testid='context-map-contract-owner']").Single(owner => owner.TextContent.Trim() == "Billing").TagName);
+    }
+
+    [Fact]
+    public void With_no_way_to_follow_an_owner_every_owner_is_plain()
+    {
+        using var context = Context();
+
+        var view = context.Render<ContextMapView>(p => p.Add(v => v.Map, OwnedMap()));
+        view.Find("[data-testid='context-map-page-tab-list']").Click();
+
+        Assert.All(view.FindAll("[data-testid='context-map-contract-owner']"), owner => Assert.Equal("SPAN", owner.TagName));
     }
 
     [Fact]

@@ -102,6 +102,13 @@
     [Parameter]
     public string? ActiveRule { get; set; }
 
+    /// <summary>The diagram the opened unit focuses, by its place among those its
+    /// chapter draws (<see cref="DomainFlows.InChapter"/>) — the lifecycle a move
+    /// on Model's Events linked to. An aggregate turns to About for it, as its
+    /// own "How it moves" does.</summary>
+    [Parameter]
+    public int? ActiveFlow { get; set; }
+
     /// <summary>A rule shown here whose Always true is another file's, followed:
     /// the host opens that unit there. Unset, such a rule links nowhere.</summary>
     [Parameter]
@@ -124,6 +131,26 @@
     [Parameter]
     public string? ModelPath { get; set; }
 
+    /// <summary>Every Model file of the context, which the Glossary pairs each
+    /// row's own domain file with (<see cref="DomainUnits.ModelFileFor"/>). Empty
+    /// means <see cref="ModelPath"/> alone.</summary>
+    [Parameter]
+    public IReadOnlyList<string> ModelPaths { get; set; } = [];
+
+    // The Model files the Glossary pairs with, kept as one list per pair of
+    // parameters so its pairing cache holds across renders.
+    private (IReadOnlyList<string>? Paths, string? Path, IReadOnlyList<string> Files) _glossaryModels = (null, null, []);
+
+    private IReadOnlyList<string> GlossaryModels
+    {
+        get
+        {
+            if (!ReferenceEquals(_glossaryModels.Paths, ModelPaths) || _glossaryModels.Path != ModelPath)
+                _glossaryModels = (ModelPaths, ModelPath, ModelPaths.Count > 0 ? ModelPaths : ModelPath is { } path ? [path] : []);
+            return _glossaryModels.Files;
+        }
+    }
+
     /// <summary>The domain's name as its context map heads it — "Backlog" — which
     /// a unit's events say the rest of hears. Unset reads "the domain".</summary>
     [Parameter]
@@ -142,6 +169,7 @@
     private string? _activeParameter;
     private string? _unitPageParameter;
     private string? _ruleParameter;
+    private int? _flowParameter;
 
     // The rule each unit's Always true is focused on, when a link asked for one.
     private readonly Dictionary<string, string?> _focusOf = [];
@@ -183,6 +211,16 @@
         {
             _ruleParameter = ActiveRule;
             if (OpenUnit is { } focused) _focusOf[focused.Key] = ActiveRule;
+        }
+
+        if (_flowParameter != ActiveFlow)
+        {
+            _flowParameter = ActiveFlow;
+            if (ActiveFlow is { } flow && OpenUnit is { Kind: DomainUnitKind.Aggregate or DomainUnitKind.DomainService } moving)
+            {
+                if (moving.Kind == DomainUnitKind.Aggregate) _pageOf[moving.Key] = AboutId(moving);
+                _flowFocusOf[moving.Key] = flow;
+            }
         }
     }
 
@@ -521,11 +559,16 @@
                                         DomainName="@DomainName"
                                         HeroFooter="@Notes(unit)"
                                         OnNavigate="NavigateAsync" />
-                    <DomainChapterFlows Unit="@unit.Chapter" DocumentPath="@File.Path" ModelPath="@ModelPath" OnNavigate="NavigateAsync" />
+                    <DomainChapterFlows Unit="@unit.Chapter"
+                                        DocumentPath="@File.Path"
+                                        ModelPath="@ModelPath"
+                                        OnNavigate="NavigateAsync"
+                                        FocusFlow="@_flowFocusOf.GetValueOrDefault(unit.Key)"
+                                        FocusFlowChanged="@(asked => _flowFocusOf[unit.Key] = asked)" />
                     break;
                 default:
                     <h2 class="domain-unit__title"><DevbookTypeMarker Value="@unit.Type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@unit.Label</h2>
-                    <DomainGlossary Chapter="@unit.Chapter" Files="@EventFiles" DocumentPath="@File.Path" OnNavigate="NavigateAsync" RulesAbout="@Catalog.About" OnOpenRule="OpenRuleAsync" />
+                    <DomainGlossary Chapter="@unit.Chapter" Files="@EventFiles" DocumentPath="@File.Path" ModelPaths="@GlossaryModels" OnNavigate="NavigateAsync" RulesAbout="@Catalog.About" OnOpenRule="OpenRuleAsync" />
                     @Notes(unit)
                     break;
             }

@@ -180,11 +180,12 @@ public sealed partial record DomainContextOverview(
     /// <summary>The pages a context may have, the file each reads and the question
     /// it answers, in the order the Overview offers them. Events is the Model
     /// page's Events tab, offered as a question of its own when the context
-    /// raises a domain event; Model then asks only what it is made of.</summary>
-    private static readonly (string Title, string File, string Question)[] LensPages =
+    /// raises a domain event. Model's question names the aggregate and is read
+    /// from the chapters (<see cref="ModelQuestion"/>), so it has none here.</summary>
+    private static readonly (string Title, string File, string? Question)[] LensPages =
     [
         ("Features", "features.md", "What can a person do with it, and what does each build on?"),
-        ("Model", "model.md", "What is it made of, and what does it tell other contexts?"),
+        ("Model", "model.md", null),
         ("Events", "model.md", "What does it tell other contexts, and what does it listen to?"),
         ("Requirements", "requirements.md", "What does it promise, and what can never be false?"),
         ("Glossary", "domain.md", "What do we call things, and what must not be confused?")
@@ -305,6 +306,8 @@ public sealed partial record DomainContextOverview(
     private static bool Is(MetaChapter chapter, string type) =>
         string.Equals(chapter.Type, type, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Whether the chapter's <c>tests</c> name any test, whatever its
+    /// level: what the Requirements page and Always true count as proved.</summary>
     private static bool Proven(MetaChapter chapter) => chapter.Meta.Tests.Count > 0;
 
     private static string? Field(MetaChapter chapter, string name) =>
@@ -331,7 +334,7 @@ public sealed partial record DomainContextOverview(
             if (title == "Glossary")
             {
                 if (chapters.FirstOrDefault(chapter => Is(chapter, "ubiquitous-language")) is { } language)
-                    lenses.Add(new DomainContextLens(title, question, language.Reference));
+                    lenses.Add(new DomainContextLens(title, question!, language.Reference));
                 continue;
             }
             if (title == "Events" && !raisesEvents) continue;
@@ -339,16 +342,26 @@ public sealed partial record DomainContextOverview(
 
             lenses.Add(title switch
             {
-                "Events" => new DomainContextLens(title, question, $"{found.Path}#events"),
-                "Model" when raisesEvents => new DomainContextLens(title, ModelAlone, found.Path),
-                _ => new DomainContextLens(title, question, found.Path)
+                "Events" => new DomainContextLens(title, question!, $"{found.Path}#events"),
+                "Model" => new DomainContextLens(title, ModelQuestion(chapters), found.Path),
+                _ => new DomainContextLens(title, question!, found.Path)
             });
         }
         return lenses;
     }
 
-    /// <summary>Model's question while Events asks the rest of it.</summary>
-    private const string ModelAlone = "What is it made of?";
+    /// <summary>
+    /// Model's question, naming the context's one aggregate — "What is a task made
+    /// of?" — or "it" where the context has none or several. What the context
+    /// tells others is Events' question, asked only where it raises an event.
+    /// </summary>
+    private static string ModelQuestion(List<MetaChapter> chapters)
+    {
+        var aggregates = chapters.Where(chapter => Is(chapter, "aggregate")).Select(chapter => chapter.Title)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var subject = aggregates.Count == 1 ? DomainUnits.WithArticle(aggregates[0]) : "it";
+        return $"What is {subject} made of?";
+    }
 
     private static string FileName(string path) => System.IO.Path.GetFileName(path.Replace('\\', '/'));
 

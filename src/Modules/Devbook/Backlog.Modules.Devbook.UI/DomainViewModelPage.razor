@@ -25,6 +25,7 @@
                      Rules="@_rules"
                      RuleCatalog="@_catalog"
                      OnOpenAlwaysTrue="OnOpenAlwaysTrue"
+                     OnOpenMove="OnOpenMove"
                      Profiles="@_profiles"
                      Title="@_title"
                      Context="@_context"
@@ -60,6 +61,11 @@ else if (_problem is not null)
     /// unit's Always true tab.</summary>
     [Parameter]
     public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
+
+    /// <summary>A move an event fires on, followed from Events to the lifecycle
+    /// on the Domain page that draws it.</summary>
+    [Parameter]
+    public EventCallback<DomainEventMove> OnOpenMove { get; set; }
 
     private DomainDevbookStore? _store;
     private IReadOnlyList<DomainModelFence>? _fences;
