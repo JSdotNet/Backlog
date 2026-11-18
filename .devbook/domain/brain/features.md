@@ -72,7 +72,7 @@ related: [.devbook/domain/brain/requirements.md#bi-directional-linking, .devbook
 Link a Brain note to the tasks it is about, and see the link from both ends. A note names its tasks in its `tasks` field, one [Task Link](domain.md#task-link) per task, by the task's stored id. The Brain's database carries the field, and the app reads it both ways:
 
 - **From the note.** Under its links into devbooks, the note shows a **Tasks** section. Each task this backlog holds is a gold chip reading its title, which opens the task in the task list. An id this backlog does not hold is a dashed chip reading *not in this backlog*. It is never an error, because one Brain is read beside more than one backlog.
-- **From the task.** A task row, in the Brain scope and a repository scope, carries a teal **◆ n note** badge counting the Brain notes that name it. With one note, pressing it opens the Devbook on the Brain side at that note; with several, it lists them to pick from. Where the Devbook is off or has no Brain to read, the press shows a *not available* toast and opens nothing.
+- **From the task.** A task row, in the Brain scope and a repository scope, carries a teal **◆ n note** badge counting the Brain notes that name it. With one note, pressing it opens the Devbook on the Brain side at that note; with several, it lists them to pick from. Where the Devbook has no Brain to read, the press shows a *not available* toast and opens nothing.
 
 The link is written into the note only: a task's record carries no note. When the app makes a task from a note, through the pane's **Create task**, it appends the task's id to the note's `tasks` field. For a plan, made by **Plan this project**, it appends the plan's [Roadmap Tag](../tasks/domain.md#roadmap-tag) to the `roadmap` field ([Brain mode of the Devbook pane](#brain-mode-of-the-devbook-pane)). It changes nothing else in the file and adds no value the list already holds. A list written one `- id` per line stays that way, and the Brain's database reads it back as it reads `[a, b]`. It refuses a note whose top `meta` block it cannot parse (local ADR 0052). The badge is drawn only for the Brain's owner, from their own Brain (local ADR 0027 §6), so another reader of the same backlog sees none. Embedding a note's content in a task's details is not built.
 
@@ -115,7 +115,6 @@ The shipped `CONVENTIONS.md` declares its areas as a table under an `## Areas` h
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/brain/requirements.md#brain-mode-of-the-devbook-pane, .devbook/domain/devbook/features.md#area-selection-and-scope, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/design/interaction-guidelines.md#shell-header]
 ```
 
@@ -207,7 +206,7 @@ Its close button, Escape and a second press of **Atlas** return to where the per
 - the takeover that was up;
 - the Devbook, when its button opened the atlas.
 
-If that takeover or the Devbook has since been switched off, they return to the main view instead, and the tooltip names the main view.
+If that takeover has since been switched off, they return to the main view instead, and the tooltip names the main view.
 
 **Scopes.** The atlas draws what the shell header's repository scope selects: one member is that scope alone; several, or none pressed (every repository), is **All** with just those. Ghost devbooks are in no repository scope, so a **Ghosts** toggle at the top right, offered while one exists, draws every ghost in All too. A change of what is drawn brings the camera home. The new layout's brains turn from where the last view left them to the default view in about half a second, easing in and out. Under reduced motion the new layout starts at the default view.
 

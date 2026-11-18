@@ -483,16 +483,19 @@ related: [".devbook/arc42/04-solution-strategy.md", ".devbook/domain/devbook/fea
 
 - **Optional capabilities are switchable per installation.** Each of these can be turned
   on:
-  - repository knowledge;
   - the individual knowledge areas;
-  - additional repositories;
   - system tools;
   - GitHub integration;
-  - feedback reporting;
   - Copilot CLI;
   - AI assistance.
 
-  Core backlog editing is always available and is never switchable.
+- **A finished capability is permanent, not a switch.** Core backlog editing, the
+  Devbook, the roadmap, the dashboard, additional repositories, feedback reporting
+  and copying an entry have no switch. A flag is retired once its feature is
+  finished: its key, its catalog row and every check of it go together.
+- **A key is a persisted value and is never renamed.** The store reads no former
+  keys. A key the catalog no longer defines is ignored on load and left out of the
+  next save, so a retired flag disappears from a settings file on its own.
 - **Disabled is the default.** The stored setting records only what has been switched
   *on*, so a capability added later stays out of the way until it is deliberately
   chosen.

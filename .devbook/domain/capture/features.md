@@ -556,7 +556,6 @@ source link and capture timestamp.
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/capture/context.md#feedback-reporting
 related: [.devbook/domain/repository-management/features.md#github-access-resolution]
 ```
 

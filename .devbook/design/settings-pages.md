@@ -251,8 +251,8 @@ related: [".devbook/design/typography-and-layout.md#type-scale"]
 ```
 
 A page whose state is a few figures shows them first, as a row of the shared
-`MetricTile` before any card. Features has three tiles: Turned on, Unfinished
-and on, and Always available. AI providers has one tile per AI provider, and the
+`MetricTile` before any card. Features has two tiles: Turned on, and Unfinished
+and on. AI providers has one tile per AI provider, and the
 Backup card shows its figures in a `MetricGrid`.
 
 - A figure tile MUST be the shared `MetricTile`; a page MUST NOT draw a figure in

@@ -39,40 +39,6 @@ Outside it:
 - gathering chapters under planned work, which
   [Roadmap Planning](../roadmap/domain.md#roadmap-item) answers.
 
-## Devbook pane
-
-```meta
-type: feature-flag
-key: repository-devbook
-default: on
-related: [".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/devbook/features.md#area-selection-and-scope", ".devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane"]
-```
-
-Turning on `repository-devbook` offers the Devbook, which takes the whole screen in place of the
-main view. The pane shows the repository the scope's anchor names, with these
-sections:
-
-- design;
-- architecture;
-- domain;
-- technology;
-- AI adoption;
-- instructions.
-
-The pane shows the Brain when the anchor is Brain or nothing is pressed. The Brain
-mode has no switch of its own (local ADR 0027). Which sections show, by scope, is
-in [Area selection and scope](features.md#area-selection-and-scope).
-
-The Shell reads the switch to decide whether to offer the pane, and this context's
-scope service reads it to decide which sections to show. The flag is released and
-on by default.
-
-The catalog also reads three former keys: `repository-knowledge`,
-`devbook-sections` and `knowledge-sections`. Turning any of them off in
-`features.json` keeps Devbook off. The settings screen lists the switch from the
-catalog in `AppFeatures.cs`, and the choice is kept in `features.json` beside the
-app's other per-device choices.
-
 ## Devbook editing
 
 ```meta
