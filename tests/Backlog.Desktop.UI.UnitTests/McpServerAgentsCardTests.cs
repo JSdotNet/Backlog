@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.Mcp;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Mcp;
 using Backlog.UI.Components.Buttons;
 using Backlog.UI.Components.Settings;
