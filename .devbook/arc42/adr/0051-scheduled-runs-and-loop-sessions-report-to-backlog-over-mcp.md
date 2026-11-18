@@ -151,19 +151,22 @@ Backlog still never stops a session itself.
 ```mermaid
 stateDiagram-v2
   direction LR
-  [*] --> Listening: checked in within 2 min
+  [*] --> Listening: checks in
   Listening --> Holding: work waiting, a capacity limit reached
-  Holding --> Listening: room again
+  Holding --> Listening: room again, or its check-in's heartbeat passed
   Listening --> Stalled: process alive, no check-in past heartbeat + 10 min
   Holding --> Stalled: process alive, no check-in past heartbeat + 10 min
   Stalled --> Listening: checks in again
   Listening --> NotRunning: no process, or session archived
+  Holding --> NotRunning: no process, or session archived
   Stalled --> NotRunning: no process, or session archived
   NotRunning --> Listening: checks in again
 ```
 
-- **Listening.** It checked in within 2 minutes.
-- **Holding.** It is checking in, work is waiting, and a capacity limit is reached. Backlog's own
+- **Listening.** It is checking in, and nothing holds it.
+- **Holding.** It is checking in, session requests are waiting, and a capacity limit is
+  reached. A paused queue has no session request waiting. What a `check_in` says about holding stands only until that check-in's own heartbeat has
+  passed: a dispatch wait moves the time of the check-in but measures nothing. Backlog's own
   reading at the check-in decides when it can: a limit is reached, or all four figures are
   measured. When the reading cannot decide, or a limit is reached and the work waiting cannot be
   read, the loop's own `holding` decides. The reading cannot decide when there is none, or when a figure is unavailable
@@ -172,9 +175,13 @@ stateDiagram-v2
   minutes.
 - **Not running.** It has no process, or its session is archived.
 
-Between 2 minutes and its heartbeat plus 10 minutes, a loop keeps the state it last had. Whether
-its process is alive is read by the [Liveness Assessment](../../domain/sessions/domain.md#liveness-assessment)
-the Sessions context already runs.
+A check-in or a dispatch wait keeps a loop off Stalled. Whether its process is alive is read by
+the [Liveness Assessment](../../domain/sessions/domain.md#liveness-assessment) the Sessions
+context already runs.
+
+The goal tracker, `track-goals`, also runs under `/loop` but does not check in. It has no queue
+and holds nothing back, and its proposals already reach the person as Backlog questions. A
+stopped goal tracker therefore raises no alert.
 
 ### 4. The app measures capacity itself
 
@@ -186,7 +193,7 @@ Backlog measures four figures, and the loop's limits decide whether there is roo
 - dispatched sessions working, with Waiting sessions not counted, as ADR 0041 has it;
 - plan usage, read from the app's own
   [Weekly Usage](../../domain/sessions/domain.md#weekly-usage) estimate;
-- CPU;
+- CPU, its busy share over the last 30 seconds;
 - free memory.
 
 Plan usage is the estimate's share of the calibrated weekly limit. It reads unavailable until a
@@ -223,6 +230,14 @@ ready. The schedule has recovered, so the failure no longer needs the person. Ar
 failed run's session still closes it too.
 
 Review ready shows on the row only. No alert source of its own is built.
+
+Work waits for a stopped Manager while session requests wait in a running queue, or answers wait
+for delivery. A paused queue's requests do not count.
+
+Neither register prunes its rows. The alert sweep reads sessions back only as far as an alert can
+still open or close, so its read does not grow with them. The sweep remembers each run it has
+seen archived until the app restarts, so unarchiving that run's session does not reopen its alert
+before then.
 
 ### 6. The screens sit in the Sessions takeover, behind the `sessions` flag
 
@@ -281,6 +296,8 @@ Negative, and accepted:
   clear it.
 - **The Manager depends on the app for capacity.** With Backlog closed it has no answer, so it
   starts nothing, which it could not do anyway without the wait route.
+- **A stopped goal tracker is not seen.** It never checks in, so nothing reads it Stalled or Not
+  running.
 
 Neutral:
 
@@ -305,6 +322,8 @@ Neutral:
 - **A Failed alert that only archiving closes.** A schedule whose next run succeeded would still
   alert about a failure that no longer needs the person.
 - **Plan usage from a Claude usage cache.** No such cache holds plan percents the app can read.
+- **A third loop kind for the goal tracker.** It would hold nothing back and raise no alert the
+  person needs, while every screen and alert would learn a third loop.
 - **A flag of its own.** The screens belong to the Sessions area, and a second switch would only
   add a combination nobody wants.
 
@@ -315,6 +334,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | Review fixes (plan entry 23): Holding lapses once the last `check_in`'s heartbeat passes, a paused queue has no request waiting, CPU is the last 30 seconds, and the alert sweep's read is bounded. The 2-minute Listening rule goes. §5 says what work waits for a stopped Manager, that neither register prunes, and that the sweep remembers archived runs until restart. §3 records why the goal tracker does not check in. §3, §4, §5, Consequences and Rejected say so. | A review of the closing pull request found a stale Holding, a paused queue read as work, a CPU window up to 30 minutes long, and a rule the code never applied. |
 | 2026-11-18 | Built: `check_in` takes the loop's limits, and a dispatcher's answer carries the app's capacity reading. Holding reads from that reading, and from the loop's own word where the reading cannot decide (plan entry 15). A Failed alert closes once a later run finishes Review ready (plan entry 21). Status, §2, §3, §4 and Amends say so. | Both changes landed on the plan branch, and the record still listed them as not built. |
 | 2026-11-17 | Status names what the plan built. §4 reads plan usage from the in-app Weekly Usage estimate. §5 closes a schedule's Failed alert once a later run finishes Review ready; plan entry 21 builds it. | The owner settled the plan's open questions, and the status still said nothing was built. |
 | 2026-11-11 | Proposed: scheduled runs report through a `backlog-tools` hook pair, loop sessions check in through `check_in`, Backlog decides their states, measures capacity, alerts through the notification centre, and shows them in the Sessions takeover. Amends ADR 0038 §4's capacity. | Unattended runs and loop sessions stop without the person noticing, and Claude Desktop's own files are no contract. |

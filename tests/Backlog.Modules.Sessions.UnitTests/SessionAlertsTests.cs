@@ -294,6 +294,90 @@ public sealed class SessionAlertsTests
         Assert.EndsWith("The alert closes once the run's session is archived, or once a later run of the schedule finishes Review ready.", alert.Body, StringComparison.Ordinal);
     }
 
+    // --- How far back the session reading reaches (local ADR 0051 §5) ---------------------
+
+    private static readonly DateTimeOffset Now = Due.AddDays(100);
+
+    private static ScheduledRun Run(
+        string session,
+        DateTimeOffset at,
+        string? verdict = "review-ready",
+        IReadOnlyList<string>? needsYou = null,
+        bool failed = false,
+        bool skipped = false,
+        string? heldBy = null) =>
+        new(session, "issue-sweep", at, at, skipped ? null : at.AddMinutes(10), verdict, needsYou ?? [], failed, skipped, heldBy);
+
+    private static ScheduleRecord Scheduled(params ScheduledRun[] runs) =>
+        new(new Schedule("issue-sweep", "Issue sweep", "JSdotNet/Backlog", "30 5 * * *", runs.Min(run => run.FirstReportedAt), runs.Max(run => run.FirstReportedAt)), runs);
+
+    private static LoopSession CheckedIn(string session, LoopKind kind, DateTimeOffset at) =>
+        new(new LoopCheckIn(session, kind, LoopActivity.Listening, 30, LoopHeldWork.None, at), LoopCommand.None, null);
+
+    private static DateTimeOffset Horizon(IEnumerable<ScheduleRecord> schedules, IEnumerable<LoopSession>? loops = null, Func<string, bool>? archived = null) =>
+        SessionAlerts.Horizon(schedules, loops ?? [], archived ?? (_ => false), Now, Utc);
+
+    [Fact]
+    public void With_nothing_reported_the_reading_reaches_back_a_day()
+    {
+        Assert.Equal(Now.AddDays(-1), Horizon([]));
+    }
+
+    [Fact]
+    public void A_schedules_latest_run_is_read_and_its_finished_runs_before_it_are_not()
+    {
+        var record = Scheduled(Run("run-old", Now.AddDays(-90)), Run("run-new", Now.AddDays(-1)));
+
+        Assert.Equal(Now.AddDays(-2), Horizon([record]));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_needs_you_or_failed_run_not_known_archived_is_read_however_old(bool failed)
+    {
+        var old = failed
+            ? Run("run-old", Now.AddDays(-90), "gh: authentication required", failed: true)
+            : Run("run-old", Now.AddDays(-90), "needs-you", ["Review it"]);
+        var record = Scheduled(old, Run("run-new", Now.AddDays(-1), "needs-you", ["And this"]));
+
+        Assert.Equal(Now.AddDays(-91), Horizon([record]));
+        Assert.Equal(Now.AddDays(-2), Horizon([record], archived: id => id == "run-old"));
+    }
+
+    [Fact]
+    public void A_failed_run_a_later_run_recovered_is_not_read()
+    {
+        var record = Scheduled(
+            Run("run-failed", Now.AddDays(-90), "gh: authentication required", failed: true),
+            Run("run-clean", Now.AddDays(-89)),
+            Run("run-new", Now.AddDays(-1)));
+
+        Assert.Equal(Now.AddDays(-2), Horizon([record]));
+    }
+
+    [Fact]
+    public void The_run_holding_the_latest_skip_is_read_until_it_is_known_archived()
+    {
+        var record = Scheduled(Run("run-holder", Now.AddDays(-50)), Run("run-skip", Now.AddDays(-1), verdict: null, skipped: true, heldBy: "run-holder"));
+
+        Assert.Equal(Now.AddDays(-51), Horizon([record]));
+        Assert.Equal(Now.AddDays(-2), Horizon([record], archived: id => id == "run-holder"));
+    }
+
+    [Fact]
+    public void Only_the_latest_check_in_of_each_loop_kind_is_read()
+    {
+        IReadOnlyList<LoopSession> loops =
+        [
+            CheckedIn("manager-old", LoopKind.Dispatcher, Now.AddDays(-60)),
+            CheckedIn("manager-new", LoopKind.Dispatcher, Now.AddHours(-1)),
+            CheckedIn("brain", LoopKind.BrainTender, Now.AddDays(-10))
+        ];
+
+        Assert.Equal(Now.AddDays(-11), Horizon([], loops));
+    }
+
     [Theory]
     [InlineData("needs-you:schedule:sweep:run-1", "Run archived")]
     [InlineData("failed:schedule:sweep:run-1", "Run archived")]

@@ -95,6 +95,7 @@ public class LoopToolsTests
         Assert.Equal(15, stored.CheckIn.HeartbeatMinutes);
         Assert.Equal(new LoopHeldWork(0, 0, 2, 0), stored.CheckIn.Held);
         Assert.Equal(Noon + TimeSpan.FromMinutes(2), stored.CheckIn.At);
+        Assert.Null(stored.CheckIn.ReportedAt);
     }
 
     [Fact]
@@ -227,6 +228,26 @@ public class LoopToolsTests
         Assert.Equal(new CapacityReading(1, 84, 30, 12, CapacityLimits.Default), stored.Reading);
         Assert.Equal(2, stored.WorkWaiting);
         Assert.Equal(LoopState.Holding, LoopSessions.StateAt(stored, LoopProcess.Alive, Noon));
+    }
+
+    /// <summary>A paused queue hands out no request (local ADR 0038 §3), so nothing it holds
+    /// is work waiting: none on the wire, none stored, and a reached limit holds nothing back.
+    /// A pending delivery still counts — deliveries flow while the queue is paused.</summary>
+    [Fact]
+    public async Task A_paused_queue_has_no_work_waiting()
+    {
+        _requests.Add(SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon));
+        _requests.Add(SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon));
+        await _requests.SetPausedAsync(true, Ct);
+        _questions.AddPendingDelivery("asking-session", "Which branch?", "main", Noon);
+        var tools = new LoopTools(_register, _clock, _requests, _questions, new MeasuredCapacity(working: 3, usage: 84, cpu: 30, free: 12));
+
+        var answer = await tools.CheckInAsync("dispatcher", "manager-session", "listening", 5, cancellationToken: Ct);
+
+        Assert.Equal(new LoopWaitingPayload(SessionRequests: 0, Deliveries: 1), answer.Waiting);
+        var stored = (await _register.GetAsync("manager-session", Ct))!.CheckIn;
+        Assert.Equal(0, stored.WorkWaiting);
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(stored, LoopProcess.Alive, Noon));
     }
 
     [Fact]

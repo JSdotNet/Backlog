@@ -199,7 +199,29 @@ public sealed class SqliteLoopRegisterTests : IDisposable
 
         await register.RecordWaitAsync("manager-session", Noon + TimeSpan.FromMinutes(5), Ct);
 
-        Assert.Equal(checkIn with { At = Noon + TimeSpan.FromMinutes(5) }, (await Register().GetAsync("manager-session", Ct))!.CheckIn);
+        Assert.Equal(checkIn with { At = Noon + TimeSpan.FromMinutes(5), ReportedAt = Noon }, (await Register().GetAsync("manager-session", Ct))!.CheckIn);
+    }
+
+    /// <summary>The time of the last full check-in survives a wait and a fresh register, so
+    /// a Holding it reported lapses at its own heartbeat however many waits follow.</summary>
+    [Fact]
+    public async Task The_full_check_ins_time_survives_a_wait_and_a_new_register()
+    {
+        var register = Register();
+        var limits = new CapacityLimits(2, 70, 90, 8);
+        await register.CheckInAsync(CheckIn("manager-session", Noon, LoopActivity.Holding) with
+        {
+            Limits = limits,
+            Reading = new CapacityReading(2, 71, 20, 16, limits),
+            WorkWaiting = 3
+        }, Ct);
+        await register.RecordWaitAsync("manager-session", Noon + TimeSpan.FromMinutes(20), Ct);
+        await Register().RecordWaitAsync("manager-session", Noon + TimeSpan.FromMinutes(35), Ct);
+
+        var read = (await Register().GetAsync("manager-session", Ct))!.CheckIn;
+
+        Assert.Equal(Noon + TimeSpan.FromMinutes(35), read.At);
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(read, LoopProcess.Alive, Noon + TimeSpan.FromMinutes(35)));
     }
 
     [Fact]
@@ -287,7 +309,7 @@ public sealed class SqliteLoopRegisterTests : IDisposable
     }
 
     [Fact]
-    public async Task A_wait_moves_only_the_check_in_time_and_keeps_the_command()
+    public async Task A_wait_moves_only_the_check_in_time_keeps_the_full_check_ins_own_and_the_command()
     {
         var register = Register();
         var checkIn = CheckIn("manager-session", Noon, LoopActivity.Holding);
@@ -297,7 +319,8 @@ public sealed class SqliteLoopRegisterTests : IDisposable
 
         var waited = await register.RecordWaitAsync(" manager-session ", Noon + TimeSpan.FromMinutes(5), Ct);
 
-        var expected = new LoopSession(checkIn with { At = Noon + TimeSpan.FromMinutes(5) }, LoopCommand.Pause, Noon + TimeSpan.FromMinutes(1));
+        var expected = new LoopSession(
+            checkIn with { At = Noon + TimeSpan.FromMinutes(5), ReportedAt = Noon }, LoopCommand.Pause, Noon + TimeSpan.FromMinutes(1));
         Assert.Equal(expected, waited);
         Assert.Equal(expected, await Register().GetAsync("manager-session", Ct));
     }

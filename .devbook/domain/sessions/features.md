@@ -1776,12 +1776,14 @@ has room against the limits it sends.
 
 | State | When | Alerts |
 | --- | --- | --- |
-| Listening | it checked in within 2 minutes | No |
-| Holding | it checks in, work waits, and a capacity limit is reached | Row only |
+| Listening | it checks in, and nothing holds it | No |
+| Holding | it checks in, work waits, and a capacity limit is reached, until that check-in's heartbeat has passed | Row only |
 | Stalled | its process is alive, with no check-in past its heartbeat plus 10 minutes | Once |
 | Not running | it has no process, or its session is archived | Once, while work waits |
 
-The Brain tender has no queue, so it never reads Holding.
+The Brain tender has no queue, so it never reads Holding. A paused queue's requests hold no
+Manager in Holding and raise no alert, though the Manager's row still counts them. The goal tracker also runs under `/loop` but never checks in, so the list never shows
+it as a loop.
 
 ### An Agents section leads the list
 
@@ -1811,7 +1813,7 @@ machine has, each against the limit the loop checked in with. Backlog measures t
 
 - the dispatched sessions working, with Waiting sessions not counted;
 - plan usage, the app's own [weekly usage estimate](#share-of-the-week-and-the-weekly-limit);
-- CPU;
+- CPU, its busy share over the last 30 seconds;
 - free memory.
 
 Beside the tiles, the detail's facts say when the loop last checked in, how long it has run,

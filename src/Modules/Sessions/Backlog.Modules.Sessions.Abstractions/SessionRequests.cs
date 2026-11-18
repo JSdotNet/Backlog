@@ -338,6 +338,17 @@ public static class SessionRequests
         ];
     }
 
+    /// <summary>How many requests among <paramref name="held"/> wait for a dispatcher: the
+    /// <see cref="Waiting"/> ones, or none while the queue is <paramref name="paused"/> — a
+    /// paused queue hands out no request, so what it holds waits for the person, not for a
+    /// dispatcher. The one rule <c>check_in</c> and the loop alerts count work by.</summary>
+    public static int WaitingWork(IEnumerable<SessionRequest> held, bool paused, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(held);
+
+        return paused ? 0 : Waiting(held, now).Count;
+    }
+
     private static SessionRequest New(SessionRequestKind kind, Guid? entryId, string? tag, string repository, string cloneFolder, DateTimeOffset now) =>
         new(
             Guid.NewGuid(),

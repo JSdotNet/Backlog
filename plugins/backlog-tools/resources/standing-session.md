@@ -1,6 +1,6 @@
 ---
 name: standing-session
-description: How a backlog-tools skill a person keeps running under /loop behaves as a long-running agent — it marks its Claude Desktop session on its first turn (an icon and an ALL CAPS title, pinned, filed under the Agents section) so it stands out from task sessions, and checks in with Backlog on every tick and obeys the pause, resume or stop the answer carries.
+description: How a backlog-tools skill a person keeps running under /loop behaves as a long-running agent — it marks its Claude Desktop session on its first turn (an icon and an ALL CAPS title, pinned, filed under the Agents section) so it stands out from task sessions, and, where it has a loop kind, checks in with Backlog on every tick and obeys the pause, resume or stop the answer carries.
 ---
 
 # Standing session
@@ -48,4 +48,4 @@ fallback pace. The answer's `command` decides the tick:
 
 Backlog never stops the session itself; the loop obeys its answer.
 
-A row with no kind does not check in yet: `check_in` accepts no kind for it.
+A row with no kind never checks in: it holds nothing back, so local ADR 0051 §3 gives it no kind.

@@ -24,8 +24,8 @@ namespace Backlog.Infrastructure.Sessions;
 /// any more, with <see cref="SessionAlerts.ClosedReason"/> — or, for a Failed alert a later run
 /// of its schedule recovered, the <see cref="SessionAlerts.Recoveries"/> reason naming that run.</item>
 /// </list>
-/// It keeps nothing in memory: what is open is read back from the centre on every sweep, so a
-/// restart neither raises an alert twice nor leaves one open whose cause cleared meanwhile.
+/// What is open is read back from the centre on every sweep, so a restart neither raises an alert
+/// twice nor leaves one open whose cause cleared meanwhile.
 /// <para>
 /// A plain singleton the head resolves once at startup, as <see cref="QuestionRelayEscalation"/>
 /// is. Nothing is raised while <paramref name="enabled"/> answers false — the <c>sessions</c> flag
@@ -34,9 +34,13 @@ namespace Backlog.Infrastructure.Sessions;
 /// the timer, and the one under way at <see cref="Dispose"/> is cancelled.
 /// </para>
 /// <para>
-/// The session reading is dated back to the oldest run or check-in the registers hold, rather than
-/// the inventory's newest hundred, so a run archived long ago still reads archived and an archived
-/// loop still reads as having no process.
+/// The session reading is dated back only as far as an alert can still change
+/// (<see cref="SessionAlerts.Horizon"/>) — the latest check-in of each loop kind, each schedule's
+/// latest run, and the runs not yet seen archived whose archiving raises or clears one — rather
+/// than the inventory's newest hundred, so an archived loop still reads as having no process.
+/// The one thing it keeps in memory is the runs it has seen archived: one leaves the window after
+/// the sweep that saw it, and still reads archived. After a restart the first sweep reads back
+/// as far as it must, once; the registers' rows are never pruned.
 /// </para>
 /// </summary>
 /// <param name="schedules">The Schedule Register; null where the host composed none.</param>
@@ -45,7 +49,8 @@ namespace Backlog.Infrastructure.Sessions;
 /// <param name="notifications">The port alerts are published and closed through, resolved per sweep.</param>
 /// <param name="centre">The owner's centre, read for the alerts still open; resolved per sweep.</param>
 /// <param name="enabled">Whether the Sessions area is on.</param>
-/// <param name="requests">The session request queue, counted as work waiting for a dispatcher.</param>
+/// <param name="requests">The session request queue, counted as work waiting for a dispatcher
+/// while it is not paused.</param>
 /// <param name="questions">The waiting questions, whose pending deliveries are work waiting for a dispatcher.</param>
 /// <param name="clock">What "now" is; optional so a test can pin it.</param>
 /// <param name="logger">Where a refused publish or close is logged.</param>
@@ -76,6 +81,7 @@ public sealed class SessionAlertPublisher(
     private readonly ILogger _logger = (ILogger?)logger ?? NullLogger.Instance;
     private readonly Lock _gate = new();
     private readonly CancellationTokenSource _stopping = new();
+    private readonly HashSet<string> _archivedRuns = new(StringComparer.Ordinal);
     private ITimer? _timer;
     private Task _running = Task.CompletedTask;
 
@@ -275,9 +281,17 @@ public sealed class SessionAlertPublisher(
         if (scheduleRecords.Count == 0 && loopRecords.Count == 0) return AlertReading.None;
 
         var now = _clock.GetUtcNow();
+        Func<string, bool> seenArchived;
+        lock (_gate)
+        {
+            var seen = _archivedRuns.ToHashSet(StringComparer.Ordinal);
+            seenArchived = seen.Contains;
+        }
+
+        var horizon = SessionAlerts.Horizon(scheduleRecords, loopRecords, seenArchived, now, Zone);
         var catalog = sessions is null
             ? null
-            : await sessions.GetSessionsAsync(Since(scheduleRecords, loopRecords, now), cancellationToken).ConfigureAwait(false);
+            : await sessions.GetSessionsAsync(AgentSessionQuery.Since(horizon).TimestampsOnly(), cancellationToken).ConfigureAwait(false);
 
         // A session is found by its own id or the desktop app's, as a report may name either.
         var byId = new Dictionary<string, AgentSession>(StringComparer.Ordinal);
@@ -287,7 +301,13 @@ public sealed class SessionAlertPublisher(
             if (session.DesktopSessionId is { Length: > 0 } desktopId) byId.TryAdd(desktopId, session);
         }
 
-        var scheduleReadings = ScheduleReading.Read(scheduleRecords, ScheduleReading.ArchivedIn(catalog), now, Zone);
+        // A run seen archived stays archived though the window no longer reaches its session.
+        var archivedNow = ScheduleReading.ArchivedIn(catalog);
+        bool IsArchived(string id) => archivedNow(id) || seenArchived(id);
+
+        Remember(scheduleRecords, archivedNow);
+
+        var scheduleReadings = ScheduleReading.Read(scheduleRecords, IsArchived, now, Zone);
         var loopReadings = loopRecords
             .Select(loop =>
             {
@@ -312,25 +332,32 @@ public sealed class SessionAlertPublisher(
             SessionAlerts.Recoveries(scheduleReadings, Zone));
     }
 
-    /// <summary>The session reading dated back to the oldest run or check-in held, less a day for
-    /// a session that began before it reported; the timestamps alone, as archived flags and
-    /// liveness need nothing more.</summary>
-    private static AgentSessionQuery Since(IReadOnlyList<ScheduleRecord> schedules, IReadOnlyList<LoopSession> loops, DateTimeOffset now)
+    /// <summary>Remembers every run, and every session a skip named as its holder, that
+    /// <paramref name="archived"/> reads archived. Archiving is how the person marks a run
+    /// done, so the set only grows.</summary>
+    private void Remember(IReadOnlyList<ScheduleRecord> schedules, Func<string, bool> archived)
     {
-        var oldest = schedules
-            .SelectMany(schedule => schedule.Runs.Select(run => run.FirstReportedAt))
-            .Concat(loops.Select(loop => loop.CheckIn.At))
-            .DefaultIfEmpty(now)
-            .Min();
-
-        return AgentSessionQuery.Since(oldest - TimeSpan.FromDays(1)).TimestampsOnly();
+        lock (_gate)
+        {
+            foreach (var run in schedules.SelectMany(schedule => schedule.Runs))
+            {
+                if (archived(run.SessionId)) _archivedRuns.Add(run.SessionId);
+                if (run.HeldBy is { Length: > 0 } holder && archived(holder)) _archivedRuns.Add(holder);
+            }
+        }
     }
 
+    /// <summary>The work waiting for a dispatcher: the requests a running queue would hand out
+    /// (<see cref="SessionRequests.WaitingWork"/>, none while paused) and the pending answer
+    /// deliveries, which flow while the queue is paused.</summary>
     private async Task<LoopWaitingWork> WaitingAsync(DateTimeOffset now, CancellationToken cancellationToken)
     {
         var waitingRequests = requests is null
             ? 0
-            : SessionRequests.Waiting(await requests.ListAsync(null, cancellationToken).ConfigureAwait(false), now).Count;
+            : SessionRequests.WaitingWork(
+                await requests.ListAsync(null, cancellationToken).ConfigureAwait(false),
+                await requests.IsPausedAsync(cancellationToken).ConfigureAwait(false),
+                now);
         var waitingDeliveries = questions is null
             ? 0
             : (await questions.ListUndeliveredAsync(cancellationToken).ConfigureAwait(false))

@@ -73,8 +73,9 @@ internal sealed class CapacityReader(
         }
     }
 
-    /// <summary>The week's usage over every stored request inside the horizon, as the
-    /// Sessions pane reads it: records that fail only lose the refusals.</summary>
+    /// <summary>The week's usage over the stored requests inside the horizon, as the
+    /// Sessions pane reads it: records that fail only lose the refusals. Both reads are
+    /// bounded by date in the store, so a check-in never reads the whole history.</summary>
     private async Task<(WeeklyUsage? Weekly, IReadOnlyList<ClaudeApiRequest>? Requests)> ReadWeeklyAsync(CancellationToken cancellationToken)
     {
         if (apiRequests is null) return (null, null);
@@ -85,8 +86,7 @@ internal sealed class CapacityReader(
         try
         {
             // Only the limit horizon and the week before its oldest refusal can matter.
-            var from = now - LimitHitHorizon - UsageWeek.Length;
-            week = [.. (await apiRequests.ListAsync(cancellationToken: cancellationToken).ConfigureAwait(false)).Where(request => request.Timestamp >= from)];
+            week = await apiRequests.ListSinceAsync(now - LimitHitHorizon - UsageWeek.Length, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -101,8 +101,10 @@ internal sealed class CapacityReader(
             try
             {
                 var since = now - LimitHitHorizon;
-                var all = await Task.Run(records.All, cancellationToken).ConfigureAwait(false);
-                hits = [.. all.SelectMany(record => record.Activity?.LimitHits ?? []).Where(hit => hit.At >= since)];
+                // A refusal is folded into its record no earlier than it happened, so a record
+                // last amended before the horizon holds none inside it.
+                var amended = await Task.Run(() => records.AmendedSince(since), cancellationToken).ConfigureAwait(false);
+                hits = [.. amended.SelectMany(record => record.Activity?.LimitHits ?? []).Where(hit => hit.At >= since)];
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {

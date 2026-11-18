@@ -79,6 +79,26 @@ public sealed class SqliteClaudeApiRequestStoreTests : IDisposable
         Assert.Equal(["req_early", "req_late"], session.Select(r => r.RequestId));
     }
 
+    /// <summary>The bounded read answers the requests at or after the time, every session's,
+    /// oldest first — a time given in another offset bounds the same instant.</summary>
+    [Fact]
+    public async Task Requests_since_a_time_are_those_at_or_after_it_oldest_first()
+    {
+        var store = new SqliteClaudeApiRequestStore(_root);
+
+        await store.AddAsync(
+        [
+            Request("req_late", at: Noon.AddDays(2)),
+            Request("req_before", at: Noon.AddTicks(-1)),
+            Request("req_at", session: "session-b", at: Noon),
+            Request("req_long_ago", at: Noon.AddDays(-40))
+        ], Ct);
+
+        var since = await store.ListSinceAsync(Noon.ToOffset(TimeSpan.FromHours(2)), Ct);
+
+        Assert.Equal(["req_at", "req_late"], since.Select(r => r.RequestId));
+    }
+
     [Fact]
     public async Task The_table_shares_the_file_with_the_tasks_without_touching_them()
     {

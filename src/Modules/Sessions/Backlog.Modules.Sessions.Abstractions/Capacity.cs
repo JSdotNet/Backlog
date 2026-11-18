@@ -42,7 +42,7 @@ public sealed record CapacityLimits(int Sessions, double UsagePercent, double Cp
 
 /// <summary>This machine's CPU and free memory as one read found them. A figure the
 /// machine could not give is null.</summary>
-/// <param name="CpuPercent">CPU busy since the previous read, 0–100.</param>
+/// <param name="CpuPercent">CPU busy over the last 30 seconds, 0–100.</param>
 /// <param name="FreeMemoryGb">Physical memory available, in GB (bytes / 1024³).</param>
 public sealed record MachineLoad(double? CpuPercent, double? FreeMemoryGb)
 {

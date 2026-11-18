@@ -1,83 +1,78 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
+using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Sessions.Abstractions;
 
 namespace Backlog.Desktop.Services;
 
 /// <summary>
 /// This desktop's CPU and free memory, for a loop's <see cref="CapacityReading"/> (local
-/// ADR 0051 §4). CPU is the busy share of <c>GetSystemTimes</c> since the previous read;
-/// the first read has no previous one, so it samples over <see cref="FirstWindow"/>.
-/// Free memory is <c>GlobalMemoryStatusEx</c>'s available physical memory. A call that
-/// fails leaves its figure null.
+/// ADR 0051 §4). CPU is the busy share of <c>GetSystemTimes</c> over the last 30 seconds
+/// (<see cref="CpuWindow"/>), sampled every <see cref="SampleEvery"/> from the first read on
+/// for the app's life, so no read waits 30 seconds and none averages over the hours since
+/// the one before. The first read has nothing sampled before it, so it samples over
+/// <see cref="FirstWindow"/>. Free memory is <c>GlobalMemoryStatusEx</c>'s available
+/// physical memory. A call that fails leaves its figure null.
 /// </summary>
+/// <param name="clock">What drives the sampler and stamps the samples; the system clock when null.</param>
 [SupportedOSPlatform("windows")]
-public sealed class WindowsMachineLoad : IMachineLoad
+public sealed class WindowsMachineLoad(TimeProvider? clock = null) : IMachineLoad, IDisposable
 {
     /// <summary>The first read's window: long enough to smooth a scheduler tick, short
     /// enough not to stall a check-in.</summary>
     internal static readonly TimeSpan FirstWindow = TimeSpan.FromSeconds(1);
 
+    /// <summary>How often the sampler reads the CPU times: one syscall, six to a window.</summary>
+    internal static readonly TimeSpan SampleEvery = TimeSpan.FromSeconds(5);
+
     private const double BytesPerGb = 1024d * 1024 * 1024;
 
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+    private readonly CpuWindow _window = new(clock);
     private readonly Lock _gate = new();
-    private Sample? _previous;
-    private double? _lastCpu;
+    private ITimer? _sampler;
 
     public async Task<MachineLoad> ReadAsync(CancellationToken cancellationToken = default)
     {
-        var sample = TakeSample();
-
-        if (sample is { } first && IsFirst(first))
+        if (StartSampler())
         {
-            await Task.Delay(FirstWindow, cancellationToken).ConfigureAwait(false);
-            sample = TakeSample();
+            await Task.Delay(FirstWindow, _clock, cancellationToken).ConfigureAwait(false);
         }
 
-        return new(Cpu(sample), FreeMemoryGb());
+        // A fresh sample, so the window ends now rather than at the sampler's last tick.
+        Sample();
+
+        return new(_window.BusyPercent(), FreeMemoryGb());
     }
 
-    /// <summary>Records the sample as the first one when there was none before.</summary>
-    private bool IsFirst(Sample sample)
+    public void Dispose()
     {
         lock (_gate)
         {
-            if (_previous is not null) return false;
+            _sampler?.Dispose();
+            _sampler = null;
+        }
+    }
 
-            _previous = sample;
+    /// <summary>Takes the first sample and starts the sampler, on the first read only;
+    /// answers whether this was it.</summary>
+    private bool StartSampler()
+    {
+        lock (_gate)
+        {
+            if (_sampler is not null) return false;
+
+            Sample();
+            _sampler = _clock.CreateTimer(_ => Sample(), null, SampleEvery, SampleEvery);
             return true;
         }
     }
 
-    /// <summary>The busy share since the previous sample, which this one replaces. With no
-    /// time passed between them, the last share read.</summary>
-    private double? Cpu(Sample? current)
+    private void Sample()
     {
-        if (current is not { } now) return null;
-
-        lock (_gate)
-        {
-            var before = _previous;
-            _previous = now;
-
-            if (before is not { } then) return null;
-
-            // Kernel time includes idle time, so the total is kernel plus user.
-            var total = (now.Kernel - then.Kernel) + (now.User - then.User);
-            var idle = now.Idle - then.Idle;
-
-            if (total == 0) return _lastCpu;
-
-            _lastCpu = Math.Clamp((total - idle) * 100d / total, 0, 100);
-            return _lastCpu;
-        }
+        if (NativeMethods.GetSystemTimes(out var idle, out var kernel, out var user)) _window.Add(new CpuTimes(idle, kernel, user));
     }
-
-    private static Sample? TakeSample() =>
-        NativeMethods.GetSystemTimes(out var idle, out var kernel, out var user)
-            ? new Sample(idle, kernel, user)
-            : null;
 
     private static double? FreeMemoryGb()
     {
@@ -85,9 +80,6 @@ public sealed class WindowsMachineLoad : IMachineLoad
 
         return NativeMethods.GlobalMemoryStatusEx(ref status) ? status.AvailablePhysical / BytesPerGb : null;
     }
-
-    /// <summary>One <c>GetSystemTimes</c> reading, in 100-nanosecond units.</summary>
-    private readonly record struct Sample(ulong Idle, ulong Kernel, ulong User);
 
     private static class NativeMethods
     {
