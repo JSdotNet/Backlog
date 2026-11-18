@@ -381,8 +381,9 @@ public sealed class DomainModelArrangementTests
     /// <para>
     /// Every context with a <c>context.md</c> has a model, except the ones in
     /// <see cref="ContextsWithoutAggregate"/>, which own no aggregate and so have no model
-    /// an aggregate root could anchor. An exempt context must really have no model file:
-    /// one that appears later is held to the same rule as every other.
+    /// an aggregate root could anchor. An exempt context may still keep a model file that
+    /// draws how it is put together; with no aggregate root it opens on mermaid, as the
+    /// feature says, so its class diagrams need only parse.
     /// </para>
     /// </summary>
     [Fact]
@@ -398,11 +399,7 @@ public sealed class DomainModelArrangementTests
             .Where(d => File.Exists(Path.Combine(d.FullName, "context.md")))
             .Select(d => d.Name)
             .ToList();
-        foreach (var exempt in ContextsWithoutAggregate)
-        {
-            Assert.Contains(exempt, contexts);
-            Assert.DoesNotContain(models, model => model.Context == exempt);
-        }
+        foreach (var exempt in ContextsWithoutAggregate) Assert.Contains(exempt, contexts);
 
         Assert.Superset(
             contexts.Except(ContextsWithoutAggregate, StringComparer.Ordinal).ToHashSet(StringComparer.Ordinal),
@@ -415,6 +412,7 @@ public sealed class DomainModelArrangementTests
             {
                 var diagram = DomainClassDiagramReader.TryRead(fence);
                 Assert.True(diagram is not null, $"{context}: a classDiagram fence does not parse.");
+                if (ContextsWithoutAggregate.Contains(context, StringComparer.Ordinal)) continue;
                 var stray = diagram!.Classes.Where(c => c.Stereotype is { } s && !convention.Contains(s.Trim())).Select(c => $"{c.Name} <<{c.Stereotype}>>").ToList();
                 Assert.True(stray.Count == 0, $"{context}: stereotypes outside the convention: {string.Join(", ", stray)}");
                 Assert.True(DomainModelArrangement.Arrange(diagram) is not null, $"{context}: a classDiagram fence names no <<aggregate root>>.");
@@ -423,7 +421,7 @@ public sealed class DomainModelArrangementTests
     }
 
     /// <summary>
-    /// The bounded contexts that own no aggregate, and so have no model file: the Calendar
+    /// The bounded contexts that own no aggregate, and so no model an aggregate root anchors: the Calendar
     /// reads layers its sources own and keeps no data of its own
     /// (<c>.devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md</c>
     /// §6: its core project holds no aggregate; <c>.devbook/domain/calendar/domain.md</c>:
