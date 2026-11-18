@@ -343,8 +343,8 @@ can carry `devbook:decide`.
 
 The desktop app asks for Windows Hello through `UserConsentVerifier` before it:
 
-- runs a `tasks:admin` tool, such as deleting a goal or a bulk change, asked
-  through MCP elicitation;
+- runs a `tasks:admin` tool, such as deleting a goal or a bulk change: the tool
+  call waits for the desktop prompt;
 - revokes a device;
 - mints a pairing code;
 - allows an agent's grant;
@@ -352,6 +352,16 @@ The desktop app asks for Windows Hello through `UserConsentVerifier` before it:
 
 **A transition to Done asks for no step-up.** A delivery flow makes it routinely,
 and it can be undone.
+
+*Built 2026-11-18 by entry 19 (`hello-step-up`).* `IUserConsent` lives in the shared
+kernel, so the MCP listener and the sync client ask the same port. The listener's last
+call filter asks it for every tool `tasks:admin` serves, after the scope and argument
+checks. A cancelled or unavailable prompt refuses the call, the audit records the
+refusal, and nothing changes. The sync client asks it before minting a pairing code
+and before revoking a device, and sends neither unconfirmed. The desktop head alone
+composes that step-up. Refusing a pairing, the "Pair it?" answer, revokes the device
+that redeemed the code without a prompt: it shuts out a device nobody trusted yet, and
+the answer may come from the phone while nobody is at the desktop.
 
 ### 7. Devbook decisions are the person's
 
@@ -473,6 +483,7 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | Built §6's step-up: every `tasks:admin` tool, minting a pairing code and revoking a device ask for Windows Hello, and a cancelled or unavailable prompt refuses the act. Refusing a pairing revokes without a prompt. The tool call waits for the desktop prompt instead of using MCP elicitation, and the web harness and the phone ask nothing. | Plan `zero-trust-auth` entry 19, Phase 2. |
 | 2026-11-18 | Built §2 on the phone: a non-exportable P-256 key in Android Keystore, StrongBox first, signs the same `private_key_jwt` assertion as the desktop. A phone paired on a credential moves onto the key at its next sync and deletes the credential. | Plan `zero-trust-auth` entry 18, Phase 2. |
 | 2026-11-15 | Settled the migration's grants: Backlog delivery gains `devbook:write` and `ui:open`, a Manager grant holds `sessions:dispatch` alone, and an install migrated before gets both once. The Dev PC row registers through the headers helper, and the rewrite of Claude Code's files keeps a concurrent write. | Plan `zero-trust-auth` entry 9b; the person chose a Manager grant over giving the delivery grant `sessions:dispatch`. |
 | 2026-11-13 | Built §5's granter agents: `list_agent_requests`, `grant_agent`, `edit_agent_scopes` and `revoke_agent` under `agents:grant`, held by the access desk to its five rules. Delegated grants expire after 7 days unless renewed, mint only within the granter's scopes, and are revoked in the granter's write. Switching `agents:grant` on asks for Windows Hello, and delegated rows sit under their granter. | Plan `zero-trust-auth` entry 12, Phase 1. |

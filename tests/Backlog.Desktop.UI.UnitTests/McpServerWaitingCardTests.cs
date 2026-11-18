@@ -1,6 +1,7 @@
 using Backlog.Desktop.UI.Mcp;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Mcp;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Mcp;
 using Backlog.UI.Components.Settings;
 
