@@ -1,6 +1,6 @@
 ---
 name: final-check
-description: Check a finished Backlog plan once, at the end, in the session it was written in — bring the checkout up to the plan's landed tip, review what each entry actually implemented against the plan and the specification it was planned from, and confirm the whole builds and its tests pass. Reports per entry; changes nothing. Run after execute-plan has landed every entry.
+description: Close a finished Backlog plan once, at the end, in the session it was written in — bring the checkout up to the plan's landed tip, review what each entry actually implemented against the plan and the specification this session holds (its artifacts, design or plan text), confirm the whole builds and its tests pass, then fix the gaps the person accepts in this same session through the repository's gate. Run after execute-plan has landed every entry.
 disable-model-invocation: true
 ---
 
@@ -19,12 +19,14 @@ and `../execute-plan/assets/landing-modes.md`.
    Per step: type, status, and its pull request
    (`gh pr list --head <entry-branch> --state all --json number,state,baseRefName,mergedAt,url`,
    the name resolved per **Repository conventions** in `landing-modes.md`).
+   The specification is what this session agreed the plan from: the artifacts it published
+   (read each back, the latest version), a design canvas, the plan text.
 2. **Update.** `git fetch origin`. The tip is `origin/<base>`, except while work is still
    open on its way there: in branch mode `origin/<integration>` while its closing pull request
    is open (**The closing pull request** in `landing-modes.md`), in stacked mode the top of the
    unmerged stack. A clean checkout with no commits of its own →
    `git merge --ff-only <tip>`; otherwise `git worktree add --detach` at the tip in the
-   scratch directory and check there, removed at the end. Never stash, rebase or switch a
+   scratch directory and check there, removed before step 6. Never stash, rebase or switch a
    branch with work on it.
 3. **Review.** Per `prompt` entry, read its instructions, its `- [ ]` checks and its
    `Read first:` sections, then find each promised behaviour at the tip — `file:line` for
@@ -38,10 +40,18 @@ and `../execute-plan/assets/landing-modes.md`.
    not its exit code. Then `gh run list --branch <base> --limit 5` for red CI on the tip.
 5. **Report**, opened with the `show-me` skill's orientation card when it has one. One table: `<n> - <Title>`, status, pull request, verdict, evidence. Then build,
    tests and CI with their failures verbatim, the cross-entry findings, the `task`/`test`
-   entries still open — the sign-off ready to tick or not, and why. Close with the fixes as a
-   question; a fix the person accepts goes through the repository's gate as its own change. Keep the report's prose to `../../resources/chat-reports.md`.
+   entries still open — the sign-off ready to tick or not, and why. Number each gap and close
+   with one question: fix all, fix some, or none. Keep the report's prose to `../../resources/chat-reports.md`.
+6. **Fix**, only on the person's yes, here in this session: one run of the repository's code
+   gate (its `flow-*` skill) for the accepted gaps together, its request naming each gap with
+   its entry and `file:line`. Its base is the tip's branch — the base, the integration branch,
+   or the stack's top entry branch — and it works in this checkout when step 2 fast-forwarded
+   it, else in its own worktree cut from that branch. A gap where the specification itself is
+   wrong, not the code short of it, goes to the gate's spec flow instead. A *not landed* entry
+   is no gap: say which pull request it waits on.
 
 ## Never
 
-- Edit, commit, push, merge, transition an entry or tick a check.
+- Edit, commit, push or merge outside step 6's gate run.
+- Transition an entry or tick a check.
 - Call an entry implemented from its pull request's title or a green build alone.
