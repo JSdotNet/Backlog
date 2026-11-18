@@ -1273,7 +1273,8 @@ detail column with **Edit note**, and the edit reaches the phone on the next
 sync. An archived note offers no edit, because it has left the phone. Routing,
 deferring and archiving work as for any item, and [To Brain](#route-to-brain)
 files it among the reader's own notes. Routing a note leaves it on the phone.
-Archiving or deleting it removes it from the phone.
+Archiving or deleting it removes it from the phone. A note an event links opens
+from the event's chip: the Inbox opens on it, in the list it is filed in.
 
 ### Triage stays on the desktop
 

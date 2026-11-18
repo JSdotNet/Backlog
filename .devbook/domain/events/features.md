@@ -29,7 +29,9 @@ type: sub-feature
 ```
 
 The person adds an event by its title alone, and fills in the rest when they know
-it. A new event starts Spotted. Dates typed here carry the date source Typed.
+it. A new event starts Spotted. Dates typed here carry the date source Typed. Beside
+the dates the pane shows where they came from, Typed or Event page, because a listing
+and the event's own page can disagree.
 
 ### Deciding on an event
 
@@ -45,7 +47,8 @@ pane asks why. A Going one is Skipped when it is called off or the person gives 
 the ticket.
 
 While deciding, the person records what they want to learn, the key dates, the
-ticket state and the cost.
+ticket state and the cost. A cost needs its currency: emptying the currency of a saved
+cost keeps the cost as it was, and the field says a currency is needed.
 
 ### Removing an event
 
@@ -83,9 +86,13 @@ related: [.devbook/domain/events/domain.md#note-link, .devbook/domain/brain/doma
 ```
 
 The person links Brain notes holding the takeaways, and Talk notes taken on the
-phone. Each link opens its note. A Brain note no longer at its path shows as
-missing, and the person can link it again. A wrong link can be removed. Once the
-event is Attended, the person writes the verdict.
+phone. Each link opens its note: a Brain note in the Devbook on the Brain side, a
+Talk note in the Inbox, in the list it is filed in. The note picker narrows its
+list to the notes whose title or path holds what is typed. A Brain path names one
+note whatever its case, and with or without `./`, so a note is never linked twice. A
+Brain note no longer at its path shows as missing, and the person can link it again.
+A wrong link can be removed. Once the event is Attended, the person writes the
+verdict.
 
 ## To Event route
 

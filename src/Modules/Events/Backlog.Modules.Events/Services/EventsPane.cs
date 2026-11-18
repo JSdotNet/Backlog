@@ -407,11 +407,7 @@ internal sealed class EventsPane(
         return made.IsFailure ? Result.Failure<EventDate?>(made.Error) : Result.Success<EventDate?>(made.Value);
     }
 
-    /// <summary>A Brain note's path as an event stores it: forward slashes, from the root, no
-    /// leading slash. Null for a blank one.</summary>
-    private static string? NotePath(string? path)
-    {
-        var normalized = path?.Trim().Replace('\\', '/').TrimStart('/');
-        return string.IsNullOrEmpty(normalized) ? null : normalized;
-    }
+    /// <summary>A Brain note's path as an event stores it (<see cref="NoteLink.BrainPath"/>).
+    /// Null for a blank one.</summary>
+    private static string? NotePath(string? path) => NoteLink.BrainPath(path);
 }

@@ -164,9 +164,10 @@
     private string _newSeries = string.Empty;
     private string? _addError;
 
-    /// <summary>The query last handed in, so a newer jump is noticed.</summary>
-    private IReadOnlyDictionary<string, string>? _query;
-    private Guid? _focusApplied;
+    /// <summary>The jump last applied. Every jump is a new query instance, so the same id asked
+    /// again, after the person picked another event, opens it again, while a re-render handing
+    /// the same query back opens nothing.</summary>
+    private IReadOnlyDictionary<string, string>? _appliedQuery;
 
     /// <summary>The query the surface was shown with: <c>event</c>, or nothing.</summary>
     [Parameter]
@@ -205,9 +206,6 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (ReferenceEquals(Query, _query)) return;
-
-        _query = Query;
         if (_loaded) await ApplyFocusAsync();
     }
 
@@ -255,9 +253,9 @@
     /// <summary>Opens on the event a jump asked for, once per jump.</summary>
     private async Task ApplyFocusAsync()
     {
-        if (FocusEventId is not { } focus || focus == _focusApplied) return;
+        if (FocusEventId is not { } focus || ReferenceEquals(Query, _appliedQuery)) return;
 
-        _focusApplied = focus;
+        _appliedQuery = Query;
         await SelectAsync(focus);
     }
 

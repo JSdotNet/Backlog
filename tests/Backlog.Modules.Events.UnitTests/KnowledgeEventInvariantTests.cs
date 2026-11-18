@@ -477,6 +477,31 @@ public sealed class KnowledgeEventInvariantTests
         Assert.Equal(2, going.Notes.Count);
     }
 
+    [Theory]
+    [InlineData("./events//techorama.md")]
+    [InlineData(@"\events\.\techorama.md")]
+    public void A_brain_link_stores_its_path_without_dot_segments_or_empty_ones(string spelling) =>
+        Assert.Equal("events/techorama.md", NoteLink.Create(NoteLinkKind.Brain, spelling, null).Reference);
+
+    [Fact]
+    public void An_event_restored_with_one_brain_note_linked_under_two_spellings_holds_it_once()
+    {
+        var going = At(KnowledgeEventState.Going);
+        var stored = KnowledgeEvent.Restore(
+            going.Id, going.Title, null, null, null, null, null, null, going.State, null, null, [], null, null,
+            [
+                NoteLink.Create(NoteLinkKind.Brain, "Events/Techorama.md", "Techorama"),
+                NoteLink.Create(NoteLinkKind.Brain, "events/techorama.md", "Techorama again"),
+            ],
+            [], null);
+
+        Assert.Equal("Techorama", Assert.Single(stored.Notes).Title);
+
+        stored.UnlinkNote(NoteLink.Create(NoteLinkKind.Brain, "./events/techorama.md", null));
+
+        Assert.Empty(stored.Notes);
+    }
+
     [Fact]
     public void Linking_a_task_twice_leaves_one_link_whatever_its_purpose()
     {

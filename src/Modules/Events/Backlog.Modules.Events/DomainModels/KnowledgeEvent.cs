@@ -116,7 +116,9 @@ public sealed class KnowledgeEvent
         ArgumentNullException.ThrowIfNull(notes);
         ArgumentNullException.ThrowIfNull(tasks);
 
-        return new KnowledgeEvent(id, title, [.. keyDates], [.. notes], [.. tasks])
+        // Distinct: links stored before a Brain path compared case-blind may name one note
+        // twice; the first stands, so each chip removes the link it shows.
+        return new KnowledgeEvent(id, title, [.. keyDates], [.. notes.Distinct()], [.. tasks])
         {
             Series = series,
             Start = start,

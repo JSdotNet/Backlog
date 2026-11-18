@@ -123,6 +123,10 @@
                        TestId="events-field-end-time"
                        @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _endTime = value, e))" />
         </div>
+        @if (Event.Start is not null && Event.DateSource is { } dateSource)
+        {
+            <p class="events-editor__byline" data-testid="events-date-source">Source: @EventPresentation.DateSourceLabel(dateSource)</p>
+        }
 
         <div class="events-editor__row">
             <Checkbox Label="Online"
@@ -209,6 +213,7 @@
                        Placeholder="EUR"
                        Value="@_currency"
                        ValueChanged="@(value => _currency = value)"
+                       ErrorMessage="@Error("currency")"
                        TestId="events-field-currency"
                        maxlength="3"
                        @onchange="@((ChangeEventArgs e) => CostChangedAsync(value => _currency = value, e))" />
@@ -351,6 +356,10 @@
 @code {
     /// <summary>How long text waits after the last keystroke before it saves.</summary>
     public static readonly TimeSpan TextDelay = TimeSpan.FromMilliseconds(750);
+
+    /// <summary>What Currency says when a saved cost's currency is emptied: the cost keeps the
+    /// one it had until another is typed.</summary>
+    public const string CurrencyNeeded = "A cost needs its currency. Type one, or empty the cost to clear it.";
 
     private static readonly IReadOnlyList<SelectorOption> TicketOptions =
     [
@@ -782,6 +791,7 @@
     private Task CostChangedAsync(Action<string> input, ChangeEventArgs change)
     {
         input(change.Value?.ToString() ?? string.Empty);
+        _errors.Remove("currency");
 
         // No amount is no cost, whatever the currency says.
         if (string.IsNullOrWhiteSpace(_amount))
@@ -796,10 +806,13 @@
             return Task.CompletedTask;
         }
 
-        // An amount typed before its currency waits for it, rather than being refused.
+        // An amount typed before its currency waits for it, rather than being refused. A saved
+        // cost whose currency was emptied keeps its currency until one is typed again, and
+        // says so, since nothing else would show the change did not hold.
         if (string.IsNullOrWhiteSpace(_currency))
         {
             _errors.Remove("cost");
+            if (Event.Cost is not null) _errors["currency"] = CurrencyNeeded;
             return Task.CompletedTask;
         }
 

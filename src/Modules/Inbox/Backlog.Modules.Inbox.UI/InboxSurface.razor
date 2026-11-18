@@ -1,4 +1,5 @@
 @using Microsoft.Extensions.DependencyInjection
+@implements IDisposable
 @inject InboxDesktopState State
 @inject IServiceProvider Services
 
@@ -14,6 +15,10 @@
     deferred item due since the Inbox was last on screen is back before anyone reads
     the queue. Capture is another context's, answered through the window's
     InboxSurfaceWiring.
+
+    `item=<id>` opens it on that item, in the slice it is filed in: an event's Talk note
+    opens this way. Each jump applies once, when the items are there; an id the Inbox does
+    not hold opens the Inbox as it stood.
 *@
 <InboxPane OnCapture="@CaptureCallback"
            CaptureRunning="@(_wiring?.CaptureRunning?.Invoke() ?? false)"
@@ -22,9 +27,14 @@
            OnOpenBrainArea="@BrainAreaCallback" />
 
 @code {
-    /// <summary>Unused: the Inbox takes no query.</summary>
+    /// <summary>The query the surface was shown with: <c>item</c>, or nothing.</summary>
     [Parameter]
     public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>The query last handed in, so a newer jump is noticed, and the item it asks for
+    /// while that is still to be opened.</summary>
+    private IReadOnlyDictionary<string, string>? _query;
+    private Guid? _openPending;
 
     /// <summary>Closes the surface. The Inbox draws no close of its own: its header
     /// option, or another surface's, is the way back.</summary>
@@ -35,10 +45,58 @@
 
     private global::Backlog.SharedKernel.ISurfaceNavigator? _navigator;
 
+    /// <summary>Whether this instance's opening read is done: until it is, a jump waits, so it
+    /// is applied to the items as read now rather than to an older snapshot.</summary>
+    private bool _opened;
+
+    /// <summary>Whether this instance's own opening read is out: the changes it raises are
+    /// waited out rather than taken as another instance's load landing.</summary>
+    private bool _readingHere;
+
     protected override void OnInitialized()
     {
         _wiring = Services.GetService<InboxSurfaceWiring>();
         _navigator = Services.GetService<global::Backlog.SharedKernel.ISurfaceNavigator>();
+        State.Changed += OnStateChanged;
+    }
+
+    public void Dispose() => State.Changed -= OnStateChanged;
+
+    // Every jump is a new query instance, so the same id asked again opens it again.
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(Query, _query)) return;
+
+        _query = Query;
+        _openPending = Query is not null
+            && Query.TryGetValue(InboxSurfaceRegistration.ItemKey, out var text)
+            && Guid.TryParse(text, out var id)
+                ? id
+                : null;
+        if (_opened) OpenPending();
+    }
+
+    /// <summary>Another instance's first load landed while this one waited on it.</summary>
+    private void OnStateChanged()
+    {
+        if (_openPending is not null && !_opened && !_readingHere && State.Loaded)
+        {
+            _ = InvokeAsync(() =>
+            {
+                _opened = true;
+                OpenPending();
+            });
+        }
+    }
+
+    /// <summary>Opens the item the last jump asked for, once, on the items as read. An id the
+    /// Inbox does not hold is let go: a later read never pulls the reader to it.</summary>
+    private void OpenPending()
+    {
+        if (_openPending is not { } id || !State.Loaded) return;
+
+        _openPending = null;
+        State.OpenItem(id);
     }
 
     /// <summary>The Devbook surface's id and the keys it opens the Brain on (local ADR
@@ -79,20 +137,37 @@
 
         if (State.Loaded)
         {
-            await State.OpenedAsync();
+            _readingHere = true;
+            try
+            {
+                await State.OpenedAsync();
+            }
+            finally
+            {
+                _readingHere = false;
+            }
+
+            _opened = true;
+            OpenPending();
             return;
         }
 
+        // Another instance's first load is out: the jump waits for it (OnStateChanged).
         if (!FirstLoads.TryAdd(State, new object())) return;
 
+        _readingHere = true;
         try
         {
             await State.InitializeAsync();
         }
         finally
         {
+            _readingHere = false;
             // A load that failed is tried again on the next opening.
             if (!State.Loaded) FirstLoads.Remove(State);
         }
+
+        _opened = true;
+        OpenPending();
     }
 }
