@@ -49,14 +49,20 @@ a, .btn-link {
 .app-tabs .tab-bar__tab { line-height: var(--line-height-normal); }
 
 /*
-  The sum above holds only while every word stays on one line. The bar holds five
-  tabs at most (Notifications is the title bar's bell, not a tab), and five share
-  a 360px screen at 72px each. The library's --spacing-sm inline padding left
-  "Stand-up" too little room, so it broke at its hyphen and the bar outgrew the
-  dock; the tabs give up most of that padding, and every word fits whole. The
+  The sum above holds only while every word stays on one line. The bar aims at
+  five tabs at most, and five share a 360px screen at 72px each. A phone holding a
+  stand-up, a notification and an event draws six until tabs are merged, and then
+  the ellipsis below cuts "Stand-up" - a known gap, described once in
+  .devbook/design/interaction-guidelines.md#phone-tab-bar. Notifications is an
+  icon-only tab (NavItem.IconOnly): it shows the bell and keeps its word as hidden
+  text, which is .sr-only rather than .tab-bar__label, so the rule below never
+  cuts it. Being shorter than a worded tab, it never sets the row's height, so the
+  sum still holds. The library's --spacing-sm inline padding left "Stand-up" too
+  little room, so it broke at its hyphen and the bar outgrew the dock; the tabs
+  give up most of that padding, and at five tabs every shown word fits whole. The
   ellipsis stays as a guard for a larger text scale: a word that still does not
-  fit ends in one instead of wrapping, and no layout may rely on it. The link
-  keeps its whole word as its name; only the ink is cut.
+  fit ends in one instead of wrapping, and no layout may rely on it but that gap. The link keeps its
+  whole word as its name; only the ink is cut.
 */
 .app-tabs .tab-bar__tab {
     min-width: 0;

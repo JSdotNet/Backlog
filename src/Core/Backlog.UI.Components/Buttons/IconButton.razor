@@ -7,9 +7,8 @@
     tighter row action would grow the row rather than adopt the component.
 
     Given an Href it is a link to a page of the app instead, wearing the same
-    classes: the phone's Notifications bell opens a route, as the tab it replaced
-    did, so it must be a link a screen reader announces as going somewhere, and
-    it must say when its page is the one on screen. NavLink does the matching, the
+    classes: a glyph that opens a route must be a link a screen reader announces
+    as going somewhere, and it must say when its page is the one on screen. NavLink does the matching, the
     way TabBar's tabs do, so "is this the current page" has one answer across the
     shell and survives a deep link and a back press. While current it carries
     aria-current="page" and CurrentCssClass. Match defaults to a prefix, so the

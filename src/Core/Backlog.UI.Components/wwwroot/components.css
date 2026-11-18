@@ -20216,6 +20216,28 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     line-height: 0;
 }
 
+/*
+  An icon-only tab (NavItem.IconOnly) shows its glyph alone; its word is in the
+  link as .sr-only text. It is positioned, as every .sr-only host in this file
+  is, so the hidden word resolves against the tab rather than a far-off
+  containing block.
+*/
+.tab-bar__tab--icon {
+    position: relative;
+}
+
+/*
+  Centred, the lone glyph would sit lower than its siblings' glyphs, which
+  share their column with a word - and a word that wraps in a narrow column
+  (Stand-up at its hyphen) moves its own glyph again. So a bar holding an
+  icon-only tab starts every tab's content at the top: the tabs share padding
+  and border, so every glyph sits on one line whatever its word does. A bar
+  without one keeps its centred tabs.
+*/
+.tab-bar:has(.tab-bar__tab--icon) .tab-bar__tab {
+    justify-content: flex-start;
+}
+
 /* Weight and a bar, not colour alone, say which tab is current. */
 .tab-bar__tab--active {
     border-top-color: var(--color-primary);

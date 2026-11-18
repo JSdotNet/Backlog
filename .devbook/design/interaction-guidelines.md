@@ -1044,7 +1044,7 @@ neither shares the window with the view. See local ADR 0022, amendments of
 
 ```meta
 related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/events/features.md#events-on-the-phone"]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_bell_shows_in_the_app_bar_once_the_phone_holds_a_notification, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_shows_before_notes_once_the_phone_holds_an_event, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_sits_before_notes_beside_the_bell_when_both_are_held, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_bar_holds_five_tabs_when_stand_up_notifications_and_events_are_all_held]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_shows_its_glyph_alone_and_is_still_named_by_its_word, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_is_lit_on_its_route_like_any_other, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_without_a_glyph_falls_back_to_its_word, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_shows_once_the_phone_holds_a_notification, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_is_lit_on_the_notifications_screen_and_its_details, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_shows_before_notes_once_the_phone_holds_an_event, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_follows_notifications_when_both_are_held]
 ```
 
 The phone's shell has no header navigation. Its destinations are a row of tabs
@@ -1052,62 +1052,61 @@ along the bottom, where a thumb already is:
 
 - **Today**
 - **Inbox**
+- **Notifications**, once the phone holds a notification, icon-only
 - **Stand-up**, once a desktop has sent the stand-up
 - **Events**, once the phone holds a knowledge event
 
 The phone has no Notes tab. Notes and meetings are listed in the Inbox, per
 `#phone-inbox`.
 
-Notifications is not a tab. It is a bell in the app bar, once the phone holds a
-notification, as the desktop's Notifications option sits in its header
+Each is a route of its own, so the bar is a nav of links, not a tablist. The tabs
+are the phone's views, so they lead with a glyph as the desktop's views do
 (`#shell-header`).
-
-Each is a route of its own, so the bar is a nav of links, not a tablist, and the
-bell is a link too. The tabs are the phone's views, so they lead with a glyph as
-the desktop's views do (`#shell-header`).
 
 | Rule | Requirement |
 |---|---|
-| Five at most | The bar MUST hold no more than five tabs. A sixth destination goes to the app bar or into a page. |
-| Every word whole | Each tab's word MUST fit its column whole at `font-size-sm`, in the lit tab's weight, on a 360px screen. |
+| Five at most | The bar MUST hold no more than five tabs. A sixth destination goes to the app bar or into a page. One state breaks this today; see the known gap below. |
+| Every word whole | Each shown word MUST fit its column whole at `font-size-sm`, in the lit tab's weight, on a 360px screen. The six-tab known gap below breaks this too. |
 | Every tab or none | Each tab MUST lead with a decorative glyph, or none may. |
 | Glyph above the word | The glyph sits above the tab's word, at `icon-md` (20px), in the word's ink. |
 | The word is the name | The glyph MUST be hidden from assistive technology, so each tab is announced by its word. |
+| Icon-only keeps its name | A tab that shows its glyph alone MUST keep its word as a visually hidden name and as its tooltip. |
 | The target holds | Every tab stays at least 48px tall with its glyph, past the 44px minimum in `accessibility.md#target-sizes-and-text`. |
 | Lit by more than colour | The current tab carries a top-edge bar and a heavier word, never its glyph's colour alone. |
-| The bell is the way to Notifications | While the phone holds a notification, the app bar MUST carry a **Notifications** bell link. |
 
 - **Five at most:** Material 3's navigation bar and Apple's tab bar both stop at
   five. At 360px five tabs leave each word 68px, and six leave 56px, where
   Stand-up no longer fits.
+  - Known gap: a phone that holds a stand-up, a notification and an event draws
+    six tabs. At 360px Stand-up then no longer fits its column, and the ellipsis
+    cuts it. This breaks **Five at most** and **Every word whole**, and it is
+    accepted until tabs are merged, which is follow-up work of its own.
 - **Every word whole:** a word MUST NOT be shortened or set smaller to fit, because
-  `font-size-sm` is the floor. Notifications fits no bar of more than four tabs,
-  which is why it is the bell. The ellipsis in `app.css` stays as the guard for a
-  larger text scale. It keeps the name and cuts only the ink, and no layout may
-  rely on it.
+  `font-size-sm` is the floor. Notifications fits no column of a bar of more than
+  four tabs, which is why its tab is icon-only. The ellipsis in `app.css` stays as
+  the guard for a larger text scale. It keeps the name and cuts only the ink, and
+  no layout may rely on it, the six-tab known gap above aside.
 - **Every tab or none:** one tab with a picture beside tabs without reads as the
   one that is different. The glyphs are a sun for Today (the My Day glyph), an
-  inbox tray for Inbox and a target (Lucide `target`) for Stand-up. Events takes
-  a calendar (Lucide `calendar`). Stand-up matches the desktop's Goals option.
+  inbox tray for Inbox and a target (Lucide `target`) for Stand-up. Notifications
+  takes a bell (Lucide `bell`) and Events a calendar (Lucide `calendar`). Stand-up
+  and Notifications match the desktop's Goals and Notifications options.
 - **Glyph above the word:** the lit tab's glyph lights with its word. The word
   stays, because a glyph alone is not a name. See
   `accessibility.md#iconography-accessibility`.
-- **The bell is the way to Notifications:**
-  - It takes the Lucide `bell` at `icon-md` (20px) in a 44 × 44px target, the
-    gear's size. The glyph is hidden from assistive technology, and the name
-    **Notifications** is on the link.
-  - It carries `aria-current="page"` while the notification list or any
-    notification's detail is on screen. It is lit by more than colour: a 2px
-    `color-primary` bar on its bottom edge, the tab's bar turned to face the
-    page. No tab reads lit meanwhile.
-  - It is an icon button between the sync line and the **Settings** gear.
-    **Settings** stays last and never moves, whether the bell shows or not. The
-    sync line gives up the bell's width, as it gives way to the title.
-  - A tap on a notification in the Android tray still opens its detail. The bell
-    is the way back to the list.
+- **Icon-only keeps its name:**
+  - Notifications is the one icon-only tab. Its bell sits on the line of its
+    siblings' glyphs, not centred in the tab, so the glyph row reads straight.
+  - Its word stays in the link as visually hidden text, so the tab is announced
+    and found as **Notifications**, as `accessibility.md#iconography-accessibility`
+    asks of every icon-only control. A long press or hover shows it as the tooltip.
+  - It takes a full column like its siblings, so no tab moves as it comes and goes.
+    It is lit on the notification list and on any notification's detail.
+  - The library's `NavItem` marks it `IconOnly`. Without a glyph the flag falls
+    back to the word.
 
 Review surface: storybook → *App shell* → **Tab bar with glyphs**, which shows the
-five-tab maximum, and storybook → *Buttons* for the icon button drawn as a link.
+five-tab maximum, and **Tab bar with an icon-only tab**, which shows Notifications.
 
 ## Phone Inbox
 
