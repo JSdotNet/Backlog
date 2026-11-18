@@ -623,16 +623,17 @@ related: [.devbook/domain/notifications/features.md#asking-from-the-contexts, .d
 ```meta
 type: requirement
 related: [.devbook/domain/tasks/requirements.md#requirement-a-follow-up-is-filed-once-after-the-gated-entry]
-tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_first_gate_report_with_a_handoff_asks_to_approve_the_run_with_the_handoff_as_its_body, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_that_goes_in_progress_with_no_links_and_no_handoff_asks_nothing_until_a_report_carries_one, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_handoff_longer_than_the_body_holds_is_cut_to_fit_and_ends_with_a_line_that_says_so, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_its_entry_is_offered_approve_approve_with_a_follow_up_revise_and_reject, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_no_entry_is_offered_approve_revise_and_reject_with_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_reported_twice_with_its_handoff_asks_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.After_a_revise_round_the_gate_asks_again_with_only_the_new_attempts_handoff, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Re_reporting_the_gate_after_it_was_approved_asks_nothing_more, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_answer_is_recorded_on_the_run_as_its_gate_decision, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Approve_with_a_follow_up_files_one_entry_after_the_gated_entry_and_records_its_id, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_answer_delivered_twice_leaves_the_run_unchanged_and_files_no_second_entry, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_whose_gated_entry_is_gone_records_the_approval_with_the_words_and_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_replayed_answer_changes_nothing_and_the_next_gate_asks_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_decision_the_desktop_recorded_after_the_question_wins_over_a_late_answer_and_files_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_desktop_decision_taken_while_the_follow_up_is_filed_stands, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_gate_moving_on_at_the_desktop_closes_the_unanswered_question, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Get_run_carries_the_gate_decision_the_answer_chosen_and_the_follow_up_entry]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_first_gate_report_with_a_handoff_asks_to_approve_the_run_with_the_handoff_as_its_body, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_that_goes_in_progress_with_no_links_and_no_handoff_asks_nothing_until_a_report_carries_one, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_handoff_longer_than_the_body_holds_is_cut_to_fit_and_ends_with_a_line_that_says_so, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_its_entry_is_offered_approve_approve_with_a_follow_up_and_revise, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_no_entry_is_offered_approve_and_revise_with_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_body_carries_neither_the_repository_nor_what_each_answer_does, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_reported_twice_with_its_handoff_asks_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.After_a_revise_round_the_gate_asks_again_with_only_the_new_attempts_handoff, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Re_reporting_the_gate_after_it_was_approved_asks_nothing_more, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_answer_is_recorded_on_the_run_as_its_gate_decision, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Approve_with_a_follow_up_files_one_entry_after_the_gated_entry_and_records_its_id, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_answer_delivered_twice_leaves_the_run_unchanged_and_files_no_second_entry, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_whose_gated_entry_is_gone_records_the_approval_with_the_words_and_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_replayed_answer_changes_nothing_and_the_next_gate_asks_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_decision_the_desktop_recorded_after_the_question_wins_over_a_late_answer_and_files_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_desktop_decision_taken_while_the_follow_up_is_filed_stands, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_gate_moving_on_at_the_desktop_closes_the_unanswered_question, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Get_run_carries_the_gate_decision_the_answer_chosen_and_the_follow_up_entry]
 ```
 
-The system SHALL ask "Approve the validation of *run*?" with the run's gate handoff as its body and the choices Approve, Approve + follow-up, Revise and Reject when a delivery run's Personal Validation stage first reports a handoff, and SHALL record the answer on the run as its gate decision.
+The system SHALL ask "Approve the validation of *run*?" with the run's gate handoff as its body and the choices Approve, Approve + follow-up and Revise when a delivery run's Personal Validation stage first reports a handoff, and SHALL record the answer on the run as its gate decision.
 
 #### Scenario: The handoff is the body
 
 - **Given** a delivery run on Desktop A whose Personal Validation stage is in progress
 - **When** the stage reports its review links, what to check, the acceptance criteria and the evidence paths
 - **Then** Desktop A asks the question with all four as text in its body, and the title and summary carry none of it
+- **And** the body names neither the repository, which the origin shows, nor what each answer does
 
 #### Scenario: A gate that reports no handoff yet
 
@@ -670,9 +671,9 @@ The system SHALL ask "Approve the validation of *run*?" with the run's gate hand
 - **When** the person answers Revise with "The toast overlaps the header"
 - **Then** the run records a rejection with those words, and the flow starts a revise round
 
-#### Scenario: Rejected
+#### Scenario: Rejected from an earlier question
 
-- **Given** a delivery run at Personal Validation
+- **Given** a validation question an earlier build asked, which still offered Reject
 - **When** the person answers Reject
 - **Then** the run records a rejection with none of the person's words, and `execute-plan` blocks the entry instead of starting a revise round
 
@@ -680,7 +681,7 @@ The system SHALL ask "Approve the validation of *run*?" with the run's gate hand
 
 - **Given** a delivery run whose file names neither an entry id nor a plan and item
 - **When** its Personal Validation stage reports a handoff
-- **Then** the question offers Approve, Revise and Reject, and no Approve + follow-up
+- **Then** the question offers Approve and Revise, and no Approve + follow-up
 
 #### Scenario: The desktop decided first
 
