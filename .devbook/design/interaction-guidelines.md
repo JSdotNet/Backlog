@@ -11,7 +11,7 @@ related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-every
 > - responsiveness
 > - feedback and motion
 > - the empty, loading and error states
-> - the desktop shell
+> - the desktop shell, the phone tab bar and the phone Inbox
 > - the combobox, popover button, action density and timelines
 >
 > Motion tokens and interaction patterns were adapted from the JSdotNet design style guide (`04-motion-and-interaction`,
@@ -1054,7 +1054,9 @@ along the bottom, where a thumb already is:
 - **Inbox**
 - **Stand-up**, once a desktop has sent the stand-up
 - **Events**, once the phone holds a knowledge event
-- **Notes**
+
+The phone has no Notes tab. Notes and meetings are listed in the Inbox, per
+`#phone-inbox`.
 
 Notifications is not a tab. It is a bell in the app bar, once the phone holds a
 notification, as the desktop's Notifications option sits in its header
@@ -1086,8 +1088,7 @@ the desktop's views do (`#shell-header`).
 - **Every tab or none:** one tab with a picture beside tabs without reads as the
   one that is different. The glyphs are a sun for Today (the My Day glyph), an
   inbox tray for Inbox and a target (Lucide `target`) for Stand-up. Events takes
-  a calendar (Lucide `calendar`) and Notes a sticky note (Lucide `sticky-note`).
-  Stand-up matches the desktop's Goals option.
+  a calendar (Lucide `calendar`). Stand-up matches the desktop's Goals option.
 - **Glyph above the word:** the lit tab's glyph lights with its word. The word
   stays, because a glyph alone is not a name. See
   `accessibility.md#iconography-accessibility`.
@@ -1107,6 +1108,54 @@ the desktop's views do (`#shell-header`).
 
 Review surface: storybook → *App shell* → **Tab bar with glyphs**, which shows the
 five-tab maximum, and storybook → *Buttons* for the icon button drawn as a link.
+
+## Phone Inbox
+
+```meta
+related: [".devbook/design/interaction-guidelines.md#phone-tab-bar", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#task-rows", ".devbook/design/interaction-guidelines.md#action-density-and-overflow", ".devbook/design/accessibility.md#roving-button-groups", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/inbox/features.md"]
+```
+
+```text
+[ All | Captures | Notes | Meetings ]        [+] -> Note | Meeting
+ (c) Buy filters          <- kind mark leads every row
+ (n) Release plan
+ (m) Weekly sync
+[ quick one-line field ...................... ]   -> a capture
+```
+
+The phone Inbox is one list of every Inbox Item the phone holds. It shows the
+captures this phone made and the synced notes and meetings. Each row's kind is
+its Content Kind, and the screen shows the kind's name. Triage stays on the
+desktop.
+
+| Rule | Requirement |
+|---|---|
+| One filter, fused | The kind filter MUST be one fused group of four chips: All, Captures, Notes, Meetings. |
+| Exactly one on | Exactly one chip is pressed; All is the default. |
+| Every row is marked | Every row MUST lead its metadata line with its kind mark, on every filter. |
+| The `+` menu makes notes and meetings | The `+` button MUST open a menu of two items: **Note** and **Meeting**. |
+| Captures are not in the menu | A capture comes from the quick one-line field or a share from another app, never from `+`. |
+| A meeting starts recording | **Meeting** MUST open a new meeting that is already recording. |
+| `/notes` is the Notes filter | The `/notes` route MUST open the Inbox with the Notes chip pressed. |
+
+- **One filter, fused:** the chips are one set, drawn as the desktop's view
+  switch is, per `#group-shape-says-cardinality`. The group is one
+  `role="group"` named "Kind" and one tab stop, moved by the arrows as
+  `accessibility.md#roving-button-groups` says. Each chip carries
+  `aria-pressed` and keeps the 44px target.
+- **Exactly one on:** a press on the pressed chip leaves it on. The four do not
+  combine, so the Ctrl rule of the header's scope chips does not apply.
+- **Every row is marked:** the mark follows `#task-rows`. The glyph stands
+  alone, and its word is the tooltip and a visually-hidden span. A mark
+  that showed only on All would leave the reader unsure what a filtered list holds.
+- **The `+` menu makes notes and meetings:** the trigger is an icon button named
+  **New**, with its glyph hidden. Two items earn a menu under
+  `#action-density-and-overflow`, which forbids only a menu of one.
+- **A meeting starts recording:** the person meets the recording controls at
+  once and does not press record a second time.
+
+Captures leave the list once the desktop takes them in. Notes and meetings stay
+and sync both ways. Glyphs and the empty states per filter are [TODO: clarify].
 
 ## Group Shape Says Cardinality
 

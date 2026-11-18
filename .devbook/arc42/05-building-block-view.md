@@ -450,7 +450,7 @@ Each group of the page is a card, and its headline says whether this device is p
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/features.md#answering-from-another-device", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/arc42/06-runtime-view.md#talk-note-attach", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/features.md#answering-from-another-device", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/arc42/06-runtime-view.md#talk-note-attach", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md"]
 ```
 
 The mobile app is an Android-first, offline-first capture app serving Capture, Inbox and lightweight Tasks. It owns mobile UI, push plumbing and sync transport, not domain lifecycle rules.
@@ -460,9 +460,9 @@ graph TB
   subgraph "UI (.NET MAUI / Blazor Hybrid, Backlog.Mobile.UI)"
     Shell["Shell\n(sync status, pairing gate)"]
     Version["Version control\n(update bottom sheet)"]
-    InboxTab["Inbox tab\n(quick capture, own captures, sync state)"]
+    InboxTab["Inbox tab\n(own captures, notes, meetings;\nkind chips, + menu, sync state)"]
     CaptureSheet["Capture sheet\n(Inbox, Note or Today)"]
-    NoteTab["Notes tab\n(list, search, editor)"]
+    NoteTab["Note editor\n(note or meeting, /notes/{id})"]
     TasksTab["Today tab\n(My Day grouped, tick, open)"]
     NotificationsScreen["Notifications screen\n(app-bar bell; list, detail, pager, answer)"]
     EventsTab["Events tab\n(upcoming list, detail)"]
@@ -495,10 +495,11 @@ graph TB
   Version -->|"on the person's tap"| Installer
   Installer -->|"download APK"| Releases
   Shell --> InboxTab
-  Shell --> NoteTab
   Shell --> TasksTab
   InboxTab --> Outbox
   InboxTab --> InboxCache
+  InboxTab --> NoteView
+  InboxTab --> NoteTab
   NoteTab --> NoteView
   NoteTab --> Outbox
   NoteTab --> Files
@@ -535,8 +536,8 @@ The sheet talks to `IAppUpdateService`, shared with the desktop in `Backlog.UI.C
 
 The tabs are:
 
-- **Inbox:** a quick-capture field and the phone's own captures the desktop has not taken in, each marked waiting in the outbox or sent. No row triages; triage stays on the desktop.
-- **Notes:** every note in `note_view`, newest first and searched on the phone, with an editor. A note has a title, a dictated Markdown body, and attached pictures and files. It saves a second after typing stops and is sent as outbox kind `note`. While the phone holds a knowledge event, the note's Event section attaches the note to one, sent as outbox kind `event-attachment-request`.
+- **Inbox:** one list of the phone's own captures the desktop has not taken in, each marked waiting in the outbox or sent, and every note and meeting in `note_view`, newest first and searched on the phone. Each row shows its content kind's mark, and chips filter the list to All, Captures, Notes or Meetings. The quick one-line field makes a capture; the **+** menu makes a note, or a meeting already recording. No row triages; triage stays on the desktop.
+- **Note editor** (`/notes/new`, `/notes/{id}`) is no tab; an Inbox row opens it. A note or meeting has a title, a dictated Markdown body, and attached pictures and files. It saves a second after typing stops and is sent as outbox kind `note`. While the phone holds a knowledge event, its Event section attaches it to one, sent as outbox kind `event-attachment-request`. `/notes` has no list of its own: it opens the Inbox filtered to notes.
 - **Events:** shown once the phone holds a knowledge event. It lists the upcoming events in `event_view`, soonest first, and opens a detail that edits nothing. A Talk note the phone holds opens from it, and a Brain note shows its title only (local ADR 0050).
 - **Tasks:** My Day from `task_view`, and the phone's task writes: add a task for today, mark one in today's My Day done or undone, tick a step, or move it to tomorrow.
 
@@ -551,7 +552,7 @@ The local SQLite file holds no canonical task data. It holds:
 - the outbox;
 - `inbox_cache`, the last inbox pulled;
 - `task_view`, a fold of the owner's task feed;
-- `note_view`, a fold of the `note` documents on the same feed, with its own cursor;
+- `note_view`, a fold of the `note` documents on the same feed, notes and meetings both, with its own cursor;
 - `event_view`, a fold of the `knowledgeEvents` feed, with its cursor in `event_cursor`.
 
 Everything the phone sends leaves through the outbox, oldest first, with backoff and a park after five attempts. The entry's kind (`capture`, `note`, `task` or `event-attachment-request`) decides how it is sent; `talk-note` only drains an entry an earlier build left queued.
