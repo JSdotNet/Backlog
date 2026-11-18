@@ -46,7 +46,7 @@ public class DevicePairingTests
     {
         var result = await _sync.Register.Handle(await _sync.Enrolled("Study desktop"), Cancellation);
 
-        Assert.Equal(43, result.Value.Credential.Length);
+        Assert.Equal(43, result.Value.Credential!.Length);
         Assert.DoesNotContain('=', result.Value.Credential);
         Assert.DoesNotContain('+', result.Value.Credential);
         Assert.DoesNotContain('/', result.Value.Credential);
@@ -61,8 +61,8 @@ public class DevicePairingTests
 
         Assert.NotNull(stored);
         Assert.NotEqual(result.Value.Credential, stored.CredentialHash);
-        Assert.Equal(_sync.Hasher.Hash(result.Value.Credential), stored.CredentialHash);
-        Assert.Equal(64, stored.CredentialHash.Length);
+        Assert.Equal(_sync.Hasher.Hash(result.Value.Credential!), stored.CredentialHash);
+        Assert.Equal(64, stored.CredentialHash!.Length);
     }
 
     [Fact]

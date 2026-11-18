@@ -90,6 +90,7 @@ public static class SyncModuleRegistration
         services.TryAddSingleton<ICredentialHasher, Sha256CredentialHasher>();
         services.TryAddSingleton<IPairingCodeGenerator, RandomPairingCodeGenerator>();
         services.TryAddSingleton<IRegistrationCredentialGenerator, RandomRegistrationCredentialGenerator>();
+        services.TryAddSingleton<IDeviceAssertionVerifier, EcdsaDeviceAssertionVerifier>();
         services.TryAddSingleton(TimeProvider.System);
 
         // Who may enrol (local ADR 0052 §1). The host registers the configured owner
@@ -106,6 +107,12 @@ public static class SyncModuleRegistration
         // meant to be one line rather than a fork of this method.
         services.TryAddSingleton<IDeviceRegistry, InMemoryDeviceRegistry>();
         services.TryAddSingleton<IPairingCodeStore, InMemoryPairingCodeStore>();
+
+        // The spent assertion ids (local ADR 0052 §2). In memory while the service
+        // runs one replica; a restart forgets them, bounded by an assertion's five
+        // minutes.
+        services.TryAddSingleton<IAssertionReplayCache, InMemoryAssertionReplayCache>();
+
         services.TryAddSingleton<ITaskReplica, InMemoryTaskReplica>();
         services.TryAddSingleton<ISessionReplica, InMemorySessionReplica>();
         services.TryAddSingleton<IAnnotationReplica, InMemoryAnnotationReplica>();

@@ -33,6 +33,12 @@ public static class SyncErrorCodes
     /// them apart in a list.</summary>
     public const string DeviceNameRequired = "device.name_required";
 
+    /// <summary>A public key offered on registration, pairing or a key migration
+    /// that is not a base64url SubjectPublicKeyInfo of a P-256 key (local ADR 0052
+    /// §2). Mapped to 400: the device has to send its key, not the same body
+    /// again.</summary>
+    public const string DevicePublicKeyInvalid = "device.public_key_invalid";
+
     /// <summary>The calling owner has no device with that id: never theirs, or
     /// already revoked. Somebody else's device reads the same way.</summary>
     public const string DeviceNotFound = "device.not_found";

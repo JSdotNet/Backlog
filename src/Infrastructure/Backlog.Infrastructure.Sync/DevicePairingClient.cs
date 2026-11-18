@@ -140,7 +140,8 @@ public sealed class DevicePairingClient : IDeviceRoster
                 registration.OwnerId,
                 registration.DeviceId,
                 name,
-                registration.Credential),
+                // This client sends no public key, so the service always mints a credential.
+                registration.Credential ?? string.Empty),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -253,7 +254,8 @@ public sealed class DevicePairingClient : IDeviceRoster
                 registration.OwnerId,
                 registration.DeviceId,
                 name,
-                registration.Credential),
+                // This client sends no public key, so the service always mints a credential.
+                registration.Credential ?? string.Empty),
             cancellationToken).ConfigureAwait(false);
     }
 

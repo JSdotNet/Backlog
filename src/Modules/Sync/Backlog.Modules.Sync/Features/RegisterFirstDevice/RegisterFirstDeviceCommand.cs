@@ -15,13 +15,17 @@ namespace Backlog.Modules.Sync.Features.RegisterFirstDevice;
 /// A device enrols as the owner's: the first device, or — when the owner already has
 /// devices — a recovery. What authorizes it is the one-time code an owner sign-in
 /// handed back to its loopback and the PKCE verifier behind it (local ADR 0052 §1).
+/// A device that sends its <paramref name="PublicKey"/> is bound to that key and gets
+/// no credential (§2).
 /// </summary>
-public sealed record RegisterFirstDeviceCommand(string DeviceName, string? EnrolmentCode = null, string? CodeVerifier = null);
+public sealed record RegisterFirstDeviceCommand(string DeviceName, string? EnrolmentCode = null, string? CodeVerifier = null, string? PublicKey = null);
 
 /// <summary>
 /// Redeems the enrolment code, then mints the device and its credential, storing only
 /// the credential's hash. The plaintext goes back in the response and is never
-/// recoverable from here afterwards.
+/// recoverable from here afterwards. A device that brought a public key gets no
+/// credential: the key is stored instead, checked before the code is burned so a
+/// malformed key does not cost the owner a sign-in.
 /// <para>
 /// The verifier is checked before the code is burned, so somebody who saw a code but
 /// not the verifier cannot spend it and lock the owner out of that sign-in.
@@ -55,6 +59,12 @@ public sealed partial class RegisterFirstDeviceCommandHandler(
         if (name.IsFailure)
         {
             return name.Error;
+        }
+
+        var publicKey = command.PublicKey is null ? null : DevicePublicKey.Validate(command.PublicKey);
+        if (publicKey is { IsFailure: true })
+        {
+            return publicKey.Error;
         }
 
         if (string.IsNullOrEmpty(command.EnrolmentCode) || !EnrolmentPkce.IsWellFormedVerifier(command.CodeVerifier))
@@ -96,12 +106,18 @@ public sealed partial class RegisterFirstDeviceCommandHandler(
 
         var ownerId = owner.Owner ?? OwnerId.New();
         var deviceId = DeviceId.New();
-        var credential = credentials.Next();
+        var credential = publicKey is null ? credentials.Next() : null;
 
         // The new device first, so a recovery that fails halfway never leaves the
         // owner with no device at all.
         await devices.Add(
-            new Device(deviceId, ownerId, name.Value, hasher.Hash(credential), clock.GetUtcNow()),
+            new Device(
+                deviceId,
+                ownerId,
+                name.Value,
+                credential is null ? null : hasher.Hash(credential),
+                clock.GetUtcNow(),
+                PublicKey: publicKey?.Value),
             cancellationToken);
 
         var revoked = owner.RequiresSignIn

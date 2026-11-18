@@ -45,7 +45,14 @@ internal sealed class SyncModuleFixture
             Codes, new RandomPairingCodeGenerator(), Hasher, Clock);
         Redeem = new RedeemPairingCodeCommandHandler(
             Codes, Devices, Hasher, new RandomRegistrationCredentialGenerator(), Clock);
-        IssueToken = new IssueDeviceTokenCommandHandler(Devices, Hasher, Tokens);
+        Replays = new InMemoryAssertionReplayCache(Clock);
+        IssueToken = new IssueDeviceTokenCommandHandler(
+            Devices,
+            Hasher,
+            Tokens,
+            new EcdsaDeviceAssertionVerifier(Clock),
+            Replays,
+            NullLogger<IssueDeviceTokenCommandHandler>.Instance);
         Describe = new DescribeOwnerQueryHandler(Devices);
     }
 
@@ -60,6 +67,8 @@ internal sealed class SyncModuleFixture
     internal RecordingDeviceTokenIssuer Tokens { get; }
 
     internal InMemoryEnrolmentTicketStore Tickets { get; }
+
+    internal InMemoryAssertionReplayCache Replays { get; }
 
     internal StartEnrolmentCommandHandler StartEnrolment { get; }
 
@@ -98,7 +107,7 @@ internal sealed class SyncModuleFixture
         Assert.True(result.IsSuccess);
 
         var scope = new OwnerScope(new OwnerId(result.Value.OwnerId), new DeviceId(result.Value.DeviceId));
-        return (scope, result.Value.Credential);
+        return (scope, result.Value.Credential!);
     }
 }
 
