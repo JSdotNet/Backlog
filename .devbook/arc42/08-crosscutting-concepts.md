@@ -469,7 +469,7 @@ These parts are built:
 - **Who may answer.** The sync API accepts a reply only from a device under the
   same owner, and the owner checks again. Any paired viewer may answer, critical
   questions included, unless the question says `answerOn: owner`.
-- **The flag is per device.** Off on a phone means no push and no Notifications bell. Off on a
+- **The flag is per device.** Off on a phone means no push and no Notifications tab. Off on a
   desktop means its sources fall back to toasts, and an MCP `ask` answers that
   notifications are not available.
 - **The sync service still scales to zero.** No connection to the sync service

@@ -13,16 +13,26 @@
     glyph is hidden from assistive technology and the tab's text is its label
     alone. A host gives every tab a glyph or none
     (.devbook/design/interaction-guidelines.md#phone-tab-bar).
+
+    An item marked IconOnly shows its glyph alone, for a word that fits no
+    column of the bar. The word is still the link's name: it stays in the link
+    as visually hidden text, so the tab reads and is found by that word, and it
+    is the tooltip (title). Only that tab carries a title, so every other tab's
+    markup is as it was. A bar holding such a tab starts every tab's content at
+    the top, so the lone glyph sits on the line of its siblings' glyphs even
+    when a word wraps (components.css, .tab-bar:has(.tab-bar__tab--icon)).
 *@
 
 <nav class="@ClassValue" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
     @foreach (var item in Items)
     {
-        <NavLink class="tab-bar__tab"
+        var iconOnly = item.IconOnly && item.Icon is not null;
+        <NavLink class="@(iconOnly ? "tab-bar__tab tab-bar__tab--icon" : "tab-bar__tab")"
                  ActiveClass="tab-bar__tab--active"
                  href="@item.Href"
                  Match="@(item.Match ? NavLinkMatch.All : NavLinkMatch.Prefix)"
-                 data-testid="@TabTestId(item)">@if (item.Icon is not null){<span class="tab-bar__icon">@item.Icon</span><span class="tab-bar__label">@item.Label</span>}else{@item.Label}</NavLink>
+                 title="@(iconOnly ? item.Label : null)"
+                 data-testid="@TabTestId(item)">@if (iconOnly){<span class="tab-bar__icon">@item.Icon</span><span class="sr-only">@item.Label</span>}else if (item.Icon is not null){<span class="tab-bar__icon">@item.Icon</span><span class="tab-bar__label">@item.Label</span>}else{@item.Label}</NavLink>
     }
 </nav>
 
