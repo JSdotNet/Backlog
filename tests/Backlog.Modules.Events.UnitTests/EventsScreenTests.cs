@@ -964,14 +964,14 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     {
         var id = await Add("Techorama");
         var pane = RenderOn(id);
-        pane.WaitForAssertion(() => Assert.Equal("Spotted", Text(pane, "events-editor-state")));
+        pane.WaitForAssertion(() => Assert.Equal("Spotted", State(pane)));
 
         var title = pane.Find("[data-testid='events-field-title'] input");
         title.Input("Techorama Belgium 2027");
 
         Assert.True((await Elsewhere().MoveToAsync(id, KnowledgeEventState.Considering, Token)).IsSuccess);
 
-        pane.WaitForAssertion(() => Assert.Equal("Considering", Text(pane, "events-editor-state")));
+        pane.WaitForAssertion(() => Assert.Equal("Considering", State(pane)));
         Assert.Equal("Techorama Belgium 2027", pane.Find("[data-testid='events-field-title'] input").GetAttribute("value"));
 
         // The typed title is written over the event as it now stands, so the move made
