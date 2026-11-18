@@ -3,9 +3,9 @@ namespace Backlog.Infrastructure.Sync;
 /// <summary>
 /// Where this device's signing key lives (local ADR 0052 §2). The port says nothing
 /// about how it is protected beyond <see cref="Protection"/>: the Windows head keeps
-/// it in CNG, TPM first; a development harness keeps a software one. A host with no
-/// store — the Android head — registers none, and its device stays on a registration
-/// credential.
+/// it in CNG, TPM first; the Android head in Android Keystore, StrongBox first; a
+/// development harness keeps a software one. A host with no store registers none, and
+/// its device stays on a registration credential.
 /// </summary>
 public interface IDeviceKeyStore
 {

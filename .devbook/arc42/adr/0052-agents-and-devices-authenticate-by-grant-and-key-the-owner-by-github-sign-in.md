@@ -126,6 +126,17 @@ A second device still pairs by a single-use code a paired device mints; minting 
 asks for Windows Hello (§6). An answer to an agent's question carries the answering
 device's identity, and the hook delivers only an answer from a paired device.
 
+*Device keys built on the service, then on the Windows desktop by entry 17
+(`windows-device-key`), and on the phone 2026-11-18 by entry 18
+(`android-device-key`).* The phone's key is an EC P-256 key in Android Keystore, made
+in StrongBox where the phone has one and in its trusted execution environment
+otherwise. Keystore signs in DER, and the client turns that into the ES256 signature
+the service checks. A device paired on a stored credential moves onto its key at its
+next token fetch: it sends the credential, the public key and an assertion that key
+signed, and then deletes the credential on the device as the service does. A key that
+exists but will not open is reported as unavailable and never replaced. The phone has
+no screen that shows that state yet.
+
 ### 3. A local agent holds a grant, and a broker mints its tokens
 
 ```meta
@@ -462,6 +473,7 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | Built §2 on the phone: a non-exportable P-256 key in Android Keystore, StrongBox first, signs the same `private_key_jwt` assertion as the desktop. A phone paired on a credential moves onto the key at its next sync and deletes the credential. | Plan `zero-trust-auth` entry 18, Phase 2. |
 | 2026-11-15 | Settled the migration's grants: Backlog delivery gains `devbook:write` and `ui:open`, a Manager grant holds `sessions:dispatch` alone, and an install migrated before gets both once. The Dev PC row registers through the headers helper, and the rewrite of Claude Code's files keeps a concurrent write. | Plan `zero-trust-auth` entry 9b; the person chose a Manager grant over giving the delivery grant `sessions:dispatch`. |
 | 2026-11-13 | Built §5's granter agents: `list_agent_requests`, `grant_agent`, `edit_agent_scopes` and `revoke_agent` under `agents:grant`, held by the access desk to its five rules. Delegated grants expire after 7 days unless renewed, mint only within the granter's scopes, and are revoked in the granter's write. Switching `agents:grant` on asks for Windows Hello, and delegated rows sit under their granter. | Plan `zero-trust-auth` entry 12, Phase 1. |
 | 2026-11-12 | Built §5's self-registration: `--register` makes a pending grant that mints no token, `--request` and `request_access` open or focus the request window, and the waiting request shows on the MCP server page, its badge and an alert. The limits are one per name, five open and a day after a decline. Allow asks for Windows Hello, and no pipe command or tool answers a request. | Plan `zero-trust-auth` entry 11, Phase 1. |
