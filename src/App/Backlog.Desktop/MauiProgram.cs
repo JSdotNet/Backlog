@@ -96,7 +96,7 @@ public static class MauiProgram
             DeviceCredentialStore = _ => new DpapiDeviceCredentialStore(Path.Combine(appData, "device-credential.json")),
             // The device key (local ADR 0052 §2): non-exportable CNG, TPM first, with the
             // software provider as the fallback the Devices page warns about.
-            DeviceKeyStore = _ => new CngDeviceKeyStore(),
+            DeviceKeyStore = sp => new CngDeviceKeyStore(log: sp.GetService<ILogger<CngDeviceKeyStore>>()),
             // Plaintext because neither value is a secret.
             TaskSyncStateStore = _ => new FileTaskSyncStateStore(Path.Combine(appData, "task-sync-state.json")),
             SessionSyncFolder = appData,

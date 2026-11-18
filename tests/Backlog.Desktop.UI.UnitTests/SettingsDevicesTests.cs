@@ -1163,8 +1163,8 @@ public sealed class SettingsDevicesTests
                 StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>A device bound to a key this machine cannot use - a TPM in lockout, a
-    /// key deleted from the store - cannot sync. The card says so, and offers the way
+    /// <summary>A device bound to a key this machine cannot use - a TPM in lockout or
+    /// reset - cannot sync. The card says so, and offers the way
     /// back a refused credential gets: register again, or pair.</summary>
     [Fact]
     public void A_device_whose_key_cannot_be_used_is_told_so_and_offered_a_way_back()
@@ -1191,6 +1191,58 @@ public sealed class SettingsDevicesTests
         Assert.Single(context.Component.FindAll("[data-testid='devices-pair']"));
         Assert.Empty(context.Component.FindAll("[data-testid='devices-generate-code']"));
         Assert.NotNull(context.Credentials.Current);
+    }
+
+    /// <summary>The key is gone and the service has also refused this device: one alert,
+    /// the key's, since that is what has to come back first. Two error alerts saying
+    /// different things about one device would leave nobody sure which to act on.</summary>
+    [Fact]
+    public void A_device_whose_key_cannot_be_used_and_was_refused_shows_only_the_key_alert()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true,
+            paired: true,
+            keyBound: true,
+            withTokenPipeline: true,
+            keys: new BrokenKeyStore(),
+            respond: (request, _) => IsStatusRequest(request)
+                ? Problem(HttpStatusCode.Unauthorized, SyncErrorCodes.DeviceCredentialInvalid, "That device id and credential do not match a registered device.")
+                : new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-key-unavailable']")));
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(context.Service.Paths, path => path.EndsWith("/devices/me", StringComparison.Ordinal)));
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Single(context.Component.FindAll("[data-testid='devices-key-unavailable']"));
+            Assert.Empty(context.Component.FindAll("[data-testid='devices-unregistered']"));
+            Assert.Contains("cannot sign in without its key", context.Component.Find("[data-testid='devices-paired']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>The token provider moves a device on a secret onto its key on a background
+    /// fetch, while the page is open: the warning about a key kept in software appears
+    /// then, without the page being opened again.</summary>
+    [Fact]
+    public async Task A_device_moved_onto_a_software_key_in_the_background_is_warned_without_a_reload()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: false, keys: new FixedKeyStore(DeviceKeyProtection.Software));
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-paired']")));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-key-in-software']"));
+
+        var migrated = context.Credentials.Current! with { Credential = null };
+        await Task.Run(() => context.Credentials.SaveAsync(migrated), TestContext.Current.CancellationToken);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-key-in-software']")));
     }
 
     [Fact]

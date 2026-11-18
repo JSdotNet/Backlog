@@ -88,6 +88,11 @@ public sealed class SyncTokenProvider : IDisposable
     private DateTimeOffset _expiresAt;
     private bool _credentialRejected;
     private bool _keyUnavailable;
+
+    /// <summary>Whether the last attempt to open or sign with the key failed, so a key
+    /// that keeps failing is a warning once and a debug line on every fetch after it,
+    /// rather than a warning per background sync. Read and written under the gate.</summary>
+    private bool _keyFailing;
     private long _tokensRefused;
 
     /// <summary>Bumped every time the cache is dropped. A fetch reads it on the
@@ -240,12 +245,14 @@ public sealed class SyncTokenProvider : IDisposable
         SetKeyUnavailable(false);
     }
 
-    private void SetKeyUnavailable(bool unavailable)
+    /// <returns>Whether the state moved.</returns>
+    private bool SetKeyUnavailable(bool unavailable)
     {
-        if (_keyUnavailable == unavailable) return;
+        if (_keyUnavailable == unavailable) return false;
 
         _keyUnavailable = unavailable;
         KeyUnavailableChanged?.Invoke();
+        return true;
     }
 
     private void SetCredentialRejected(bool rejected)
@@ -268,10 +275,21 @@ public sealed class SyncTokenProvider : IDisposable
         {
             // Bound to a key that cannot be used: nothing to send, and nothing the
             // service could say would help. Said rather than left to look like a
-            // device that has simply gone quiet.
+            // device that has simply gone quiet - but only while the credential that
+            // went looking for the key is still the one this device holds, as with
+            // CredentialRejected below: opening a TPM key takes a moment, and a
+            // device unpaired or paired again meanwhile is not the one that failed.
+            // Read before Invalidate, which moves the generation.
+            var current = Volatile.Read(ref _generation) == generation
+                && _credentials.Current is { } holder
+                && holder.DeviceId == credential.DeviceId;
+
             Invalidate();
-            _log.LogWarning("Device {DeviceId} is bound to a key this machine cannot use, so it cannot sync.", credential.DeviceId);
-            SetKeyUnavailable(true);
+            if (current && SetKeyUnavailable(true))
+            {
+                _log.LogWarning("Device {DeviceId} is bound to a key this machine cannot use, so it cannot sync.", credential.DeviceId);
+            }
+
             return null;
         }
 
@@ -380,6 +398,7 @@ public sealed class SyncTokenProvider : IDisposable
     {
         var key = KeyOrNull();
         var assertion = key is null ? null : AssertionOrNull(credential.DeviceId, key);
+        if (assertion is not null) _keyFailing = false;
 
         if (credential.Credential is not { } secret)
         {
@@ -406,7 +425,7 @@ public sealed class SyncTokenProvider : IDisposable
         }
         catch (CryptographicException ex)
         {
-            _log.LogWarning(ex, "This device's key could not be opened; the token fetch goes without it.");
+            _log.Log(KeyFailureLevel(), ex, "This device's key could not be opened; the token fetch goes without it.");
             return null;
         }
     }
@@ -421,9 +440,17 @@ public sealed class SyncTokenProvider : IDisposable
         }
         catch (CryptographicException ex)
         {
-            _log.LogWarning(ex, "This device's key would not sign; the token fetch goes without it.");
+            _log.Log(KeyFailureLevel(), ex, "This device's key would not sign; the token fetch goes without it.");
             return null;
         }
+    }
+
+    /// <summary>Warning for the failure that starts a run of them, debug for the rest.</summary>
+    private LogLevel KeyFailureLevel()
+    {
+        var level = _keyFailing ? LogLevel.Debug : LogLevel.Warning;
+        _keyFailing = true;
+        return level;
     }
 
     /// <summary>Stores <paramref name="current"/> without its secret. A store that

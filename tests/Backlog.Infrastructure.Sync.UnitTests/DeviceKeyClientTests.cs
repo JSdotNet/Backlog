@@ -8,6 +8,7 @@ using System.Text.Json;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
@@ -171,6 +172,32 @@ public sealed class DeviceKeyClientTests
             Assert.Equal(publicKey, key.PublicKey);
             Assert.True(Jwt.Read(DeviceAssertion.Create(Device, key, new FakeTimeProvider(Now)), publicKey).SignatureValid);
             Assert.DoesNotContain("PRIVATE KEY", File.ReadAllText(path), StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>A key that cannot be written leaves no half-written envelope beside the
+    /// file it was meant to replace.</summary>
+    [Fact]
+    public void The_harness_store_leaves_no_temporary_file_when_its_key_cannot_be_kept()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var root = Path.Combine(Path.GetTempPath(), "backlog-device-key-tests", Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(root, "device-key.json");
+
+        try
+        {
+            // A folder where the file goes: the envelope is written beside it, and the
+            // move over it fails.
+            Directory.CreateDirectory(path);
+            using var store = new DpapiDeviceKeyStore(path);
+
+            Assert.Throws<CryptographicException>(store.GetOrCreate);
+            Assert.False(File.Exists(path + ".tmp"));
         }
         finally
         {
@@ -396,6 +423,92 @@ public sealed class DeviceKeyClientTests
         Assert.False(fixture.Provider.KeyUnavailable);
     }
 
+    /// <summary>The device was unpaired, or paired again as another, while its key was
+    /// being opened: the failure judged a device that no longer exists, so the new one
+    /// is not told its key is gone.</summary>
+    [Fact]
+    public async Task A_key_failure_for_a_credential_replaced_mid_fetch_is_not_reported()
+    {
+        var store = new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", null));
+        var keys = new UnreliableKeyStore
+        {
+            OpenFails = true,
+            Opening = () => store.SaveAsync(new DeviceCredential(Owner, Guid.NewGuid(), "Laptop", null)).GetAwaiter().GetResult(),
+        };
+        using var fixture = TokenService(store, keys, []);
+        var raised = 0;
+        fixture.Provider.KeyUnavailableChanged += () => raised++;
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+
+        Assert.False(fixture.Provider.KeyUnavailable);
+        Assert.Equal(0, raised);
+    }
+
+    [Fact]
+    public async Task A_credential_forgotten_mid_fetch_is_not_reported_as_a_key_failure()
+    {
+        var store = new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", null));
+        var keys = new UnreliableKeyStore { OpenFails = true, Opening = store.Clear };
+        using var fixture = TokenService(store, keys, []);
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+
+        Assert.False(fixture.Provider.KeyUnavailable);
+    }
+
+    /// <summary>A key that keeps failing is a warning when it starts failing and a
+    /// debug line on every fetch after, until it works again - not a warning per
+    /// background sync.</summary>
+    [Fact]
+    public async Task A_key_that_keeps_failing_is_warned_about_once_per_change()
+    {
+        var keys = new UnreliableKeyStore { OpenFails = true };
+        var store = new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", null));
+        var log = new CapturingLogger<SyncTokenProvider>();
+        using var fixture = TokenService(store, keys, [], log: log);
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        }
+
+        var warnings = log.Lines.Count(line => line.Level == LogLevel.Warning);
+        Assert.InRange(warnings, 1, 2);
+        Assert.Contains(log.Lines, line => line.Level == LogLevel.Debug);
+
+        keys.OpenFails = false;
+        Assert.NotNull(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(warnings, log.Lines.Count(line => line.Level == LogLevel.Warning));
+
+        keys.OpenFails = true;
+        fixture.Provider.Invalidate();
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(warnings * 2, log.Lines.Count(line => line.Level == LogLevel.Warning));
+    }
+
+    [Fact]
+    public async Task A_key_that_keeps_failing_on_registration_is_warned_about_once()
+    {
+        var keys = new UnreliableKeyStore { OpenFails = true };
+        var store = new InMemoryDeviceCredentialStore();
+        var log = new CapturingLogger<DevicePairingClient>();
+        using var http = PairingService([], out var client, store, keys, log);
+
+        Assert.True((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.True((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).IsSuccess);
+
+        Assert.Single(log.Lines, line => line.Level == LogLevel.Warning);
+        Assert.Single(log.Lines, line => line.Level == LogLevel.Debug);
+
+        keys.OpenFails = false;
+        Assert.True((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).IsSuccess);
+        keys.OpenFails = true;
+        Assert.True((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).IsSuccess);
+
+        Assert.Equal(2, log.Lines.Count(line => line.Level == LogLevel.Warning));
+    }
+
     [Fact]
     public async Task A_refused_assertion_is_a_rejected_credential()
     {
@@ -459,7 +572,11 @@ public sealed class DeviceKeyClientTests
     }
 
     private static HttpClient PairingService(
-        List<string> bodies, out DevicePairingClient client, IDeviceCredentialStore store, IDeviceKeyStore? keys)
+        List<string> bodies,
+        out DevicePairingClient client,
+        IDeviceCredentialStore store,
+        IDeviceKeyStore? keys,
+        ILogger<DevicePairingClient>? log = null)
     {
         var handler = new StubHttpMessageHandler((request, _) =>
         {
@@ -484,7 +601,7 @@ public sealed class DeviceKeyClientTests
         });
 
         var http = new HttpClient(handler) { BaseAddress = new Uri("https://sync.test") };
-        client = new DevicePairingClient(http, store, browser: new NoBrowser(), keys: keys);
+        client = new DevicePairingClient(http, store, browser: new NoBrowser(), keys: keys, log: log);
         return http;
     }
 
@@ -494,7 +611,8 @@ public sealed class DeviceKeyClientTests
         IDeviceCredentialStore store,
         IDeviceKeyStore? keys,
         List<DeviceTokenRequest> sent,
-        Func<DeviceTokenRequest, HttpStatusCode?>? refuse = null)
+        Func<DeviceTokenRequest, HttpStatusCode?>? refuse = null,
+        ILogger<SyncTokenProvider>? log = null)
     {
         var clock = new FakeTimeProvider(Now);
 
@@ -511,7 +629,8 @@ public sealed class DeviceKeyClientTests
                     : SyncTokenProviderTests.Fixture.TokenResponse(index, clock);
             },
             clock: clock,
-            keys: keys);
+            keys: keys,
+            log: log);
     }
 
     private static CngKey OpenTestKey(string name)
@@ -557,6 +676,10 @@ public sealed class DeviceKeyClientTests
 
         public bool OpenFails { get; set; }
 
+        /// <summary>Run as the key is opened, before it fails or succeeds - what
+        /// happens elsewhere while a TPM takes its time.</summary>
+        public Action? Opening { get; init; }
+
         public bool SignFails
         {
             get => _key.Fails;
@@ -565,8 +688,11 @@ public sealed class DeviceKeyClientTests
 
         public DeviceKeyProtection Protection => DeviceKeyProtection.Hardware;
 
-        public IDeviceKey GetOrCreate() =>
-            OpenFails ? throw new CryptographicException("The TPM is locked out.") : _key;
+        public IDeviceKey GetOrCreate()
+        {
+            Opening?.Invoke();
+            return OpenFails ? throw new CryptographicException("The TPM is locked out.") : _key;
+        }
 
         private sealed class FailingKey : IDeviceKey
         {

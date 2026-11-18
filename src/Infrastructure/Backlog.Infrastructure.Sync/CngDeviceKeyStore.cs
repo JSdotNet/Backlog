@@ -1,5 +1,9 @@
 using System.Runtime.Versioning;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
+
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Backlog.Infrastructure.Sync;
 
@@ -16,7 +20,8 @@ namespace Backlog.Infrastructure.Sync;
 /// </para>
 /// <para>
 /// A failure is not remembered: only an opened key is kept, so a TPM that refused once
-/// is asked again on the next call.
+/// is asked again on the next call. A key kept in software is logged as a warning,
+/// with the reason, when it is opened or made.
 /// </para>
 /// </summary>
 [SupportedOSPlatform("windows")]
@@ -26,24 +31,48 @@ public sealed class CngDeviceKeyStore : IDeviceKeyStore, IDisposable
     public const string DefaultKeyName = "Backlog.Sync.DeviceKey";
 
     private readonly string _keyName;
+    private readonly IDeviceKeyProvider _platform;
+    private readonly IDeviceKeyProvider _software;
+    private readonly ILogger _log;
     private readonly Lock _gate = new();
     private EcdsaDeviceKey? _key;
     private DeviceKeyProtection _protection;
 
     /// <param name="keyName">The CNG key name. A test passes a throwaway one and
     /// deletes it afterwards.</param>
-    public CngDeviceKeyStore(string keyName = DefaultKeyName)
+    /// <param name="log">Where a key kept in software, and why, is written.</param>
+    public CngDeviceKeyStore(string keyName = DefaultKeyName, ILogger<CngDeviceKeyStore>? log = null)
+        : this(keyName, CngKeyProvider.Platform, CngKeyProvider.Software, log)
+    {
+    }
+
+    /// <summary>Over stand-in providers, so the order the key is looked for in can be
+    /// proved without a TPM.</summary>
+    internal CngDeviceKeyStore(
+        string keyName,
+        IDeviceKeyProvider platform,
+        IDeviceKeyProvider software,
+        ILogger<CngDeviceKeyStore>? log = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(keyName);
+        ArgumentNullException.ThrowIfNull(platform);
+        ArgumentNullException.ThrowIfNull(software);
+
         _keyName = keyName;
+        _platform = platform;
+        _software = software;
+        _log = log ?? NullLogger<CngDeviceKeyStore>.Instance;
     }
 
     public DeviceKeyProtection Protection
     {
         get
         {
-            _ = GetOrCreate();
-            return _protection;
+            lock (_gate)
+            {
+                _ = OpenedKey();
+                return _protection;
+            }
         }
     }
 
@@ -51,17 +80,7 @@ public sealed class CngDeviceKeyStore : IDeviceKeyStore, IDisposable
     {
         lock (_gate)
         {
-            if (_key is not null) return _key;
-
-            var (cng, protection) = OpenOrCreate();
-            using (cng)
-            {
-                // ECDsaCng takes its own handle on the key, so the CngKey is let go here.
-                _key = new EcdsaDeviceKey(new ECDsaCng(cng));
-            }
-
-            _protection = protection;
-            return _key;
+            return OpenedKey();
         }
     }
 
@@ -74,23 +93,38 @@ public sealed class CngDeviceKeyStore : IDeviceKeyStore, IDisposable
         }
     }
 
+    /// <summary>The key, opened or made on the first call. Called under the gate.</summary>
+    private EcdsaDeviceKey OpenedKey()
+    {
+        if (_key is not null) return _key;
+
+        var (ecdsa, protection) = OpenOrCreate();
+        _key = new EcdsaDeviceKey(ecdsa);
+        _protection = protection;
+        return _key;
+    }
+
     /// <summary>
     /// The key where it is, else a new one. A key that exists and fails to open is
     /// thrown, never replaced: a TPM key that failed once — lockout, a busy device —
     /// would otherwise be shadowed for good by a software key under its name, and the
     /// device bound to it would be refused. Software is used only when the Platform
     /// Crypto Provider is genuinely not there (<see cref="CngKeyFailures"/>).
+    /// <para>
+    /// A TPM that cannot even be asked whether it holds the key still lets a key already
+    /// in software be found — that key is the device's, and opening it shadows nothing —
+    /// but no key is made then: the key may well be in the TPM, so its failure is thrown.
+    /// </para>
     /// </summary>
-    private (CngKey Key, DeviceKeyProtection Protection) OpenOrCreate()
+    private (ECDsa Key, DeviceKeyProtection Protection) OpenOrCreate()
     {
         var platformAvailable = true;
+        CryptographicException? probeFailure = null;
+        var inPlatform = false;
 
         try
         {
-            if (CngKey.Exists(_keyName, CngProvider.MicrosoftPlatformCryptoProvider))
-            {
-                return (CngKey.Open(_keyName, CngProvider.MicrosoftPlatformCryptoProvider), DeviceKeyProtection.Hardware);
-            }
+            inPlatform = _platform.Exists(_keyName);
         }
         catch (CryptographicException ex) when (CngKeyFailures.Classify(ex.HResult) == CngKeyFailure.PlatformUnavailable)
         {
@@ -98,45 +132,62 @@ public sealed class CngDeviceKeyStore : IDeviceKeyStore, IDisposable
             // such key", so the key, if any, is in software.
             platformAvailable = false;
         }
-
-        if (CngKey.Exists(_keyName, CngProvider.MicrosoftSoftwareKeyStorageProvider))
+        catch (CryptographicException ex)
         {
-            return (CngKey.Open(_keyName, CngProvider.MicrosoftSoftwareKeyStorageProvider), DeviceKeyProtection.Software);
+            probeFailure = ex;
         }
+
+        // Outside the try: a key that is there and will not open is thrown, whatever
+        // the code, rather than read as a TPM that is not there.
+        if (inPlatform) return (_platform.Open(_keyName), DeviceKeyProtection.Hardware);
+
+        if (_software.Exists(_keyName))
+        {
+            _log.LogWarning(
+                probeFailure,
+                "This device's key {KeyName} is kept in software, not a TPM; it was made there because no TPM was available.",
+                _keyName);
+            return (_software.Open(_keyName), DeviceKeyProtection.Software);
+        }
+
+        if (probeFailure is not null) ExceptionDispatchInfo.Throw(probeFailure);
 
         if (platformAvailable)
         {
+            // Not CreateOrOpen: a key another start made here that then will not open
+            // is thrown from the catch below rather than read as a TPM that is not there.
             try
             {
-                return (CreateOrOpen(CngProvider.MicrosoftPlatformCryptoProvider), DeviceKeyProtection.Hardware);
+                return (_platform.Create(_keyName), DeviceKeyProtection.Hardware);
             }
-            catch (CryptographicException ex) when (CngKeyFailures.Classify(ex.HResult) == CngKeyFailure.PlatformUnavailable)
+            catch (CryptographicException ex) when (CngKeyFailures.ClassifyCreate(ex.HResult) == CngKeyFailure.KeyExists)
+            {
+                return (_platform.Open(_keyName), DeviceKeyProtection.Hardware);
+            }
+            catch (CryptographicException ex) when (CngKeyFailures.ClassifyCreate(ex.HResult) == CngKeyFailure.PlatformUnavailable)
             {
                 // The provider is there but the TPM behind it is missing or switched
                 // off: the software provider is the fallback, and Settings says so.
+                _log.LogWarning(ex, "The TPM could not make this device's key {KeyName}, so it is made in software.", _keyName);
+                return (CreateOrOpen(_software), DeviceKeyProtection.Software);
             }
         }
 
-        return (CreateOrOpen(CngProvider.MicrosoftSoftwareKeyStorageProvider), DeviceKeyProtection.Software);
+        _log.LogWarning("This machine has no usable TPM, so this device's key {KeyName} is made in software.", _keyName);
+        return (CreateOrOpen(_software), DeviceKeyProtection.Software);
     }
 
     /// <summary>A new key in <paramref name="provider"/>, or the one another start of
     /// the app made there a moment ago.</summary>
-    private CngKey CreateOrOpen(CngProvider provider)
+    private ECDsa CreateOrOpen(IDeviceKeyProvider provider)
     {
         try
         {
-            return CngKey.Create(CngAlgorithm.ECDsaP256, _keyName, new CngKeyCreationParameters
-            {
-                Provider = provider,
-                ExportPolicy = CngExportPolicies.None,
-                KeyUsage = CngKeyUsages.Signing,
-                KeyCreationOptions = CngKeyCreationOptions.None,
-            });
+            return provider.Create(_keyName);
         }
-        catch (CryptographicException ex) when (CngKeyFailures.Classify(ex.HResult) == CngKeyFailure.KeyExists)
+        catch (CryptographicException ex) when (CngKeyFailures.ClassifyCreate(ex.HResult) == CngKeyFailure.KeyExists)
         {
-            return CngKey.Open(_keyName, provider);
+            return provider.Open(_keyName);
         }
     }
 }

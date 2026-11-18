@@ -81,6 +81,7 @@ public sealed class DpapiDeviceKeyStore : IDeviceKeyStore, IDisposable
     {
         var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var pkcs8 = key.ExportPkcs8PrivateKey();
+        var temporary = _path + ".tmp";
 
         try
         {
@@ -90,7 +91,6 @@ public sealed class DpapiDeviceKeyStore : IDeviceKeyStore, IDisposable
             var envelope = ProtectedData.Protect(pkcs8, optionalEntropy: null, DataProtectionScope.CurrentUser);
             // Written beside the file and moved over it, so a crash mid-write leaves the
             // old key or the new one, never half of either.
-            var temporary = _path + ".tmp";
             File.WriteAllText(temporary, Convert.ToBase64String(envelope));
             File.Move(temporary, _path, overwrite: true);
             return key;
@@ -98,11 +98,26 @@ public sealed class DpapiDeviceKeyStore : IDeviceKeyStore, IDisposable
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
         {
             key.Dispose();
+            DeleteBestEffort(temporary);
             throw new CryptographicException("The device key could not be kept on this machine.", ex);
         }
         finally
         {
             Array.Clear(pkcs8);
+        }
+    }
+
+    /// <summary>Removes a half-written envelope. Best effort: what stopped the write may
+    /// stop this too, and the failure being reported is the write's.</summary>
+    private static void DeleteBestEffort(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Left behind; the next create writes over it.
         }
     }
 }

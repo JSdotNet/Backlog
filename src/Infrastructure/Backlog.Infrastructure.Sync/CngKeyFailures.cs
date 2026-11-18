@@ -25,11 +25,12 @@ internal enum CngKeyFailure
 internal static class CngKeyFailures
 {
     private const int NteExists = unchecked((int)0x8009000F);
+    private const int NteNotSupported = unchecked((int)0x80090029);
 
     private static readonly HashSet<int> PlatformUnavailableCodes =
     [
         unchecked((int)0x8009001E), // NTE_PROV_DLL_NOT_FOUND
-        unchecked((int)0x80090029), // NTE_NOT_SUPPORTED
+        NteNotSupported,
         unchecked((int)0x80090030), // NTE_DEVICE_NOT_READY
         unchecked((int)0x80090035), // NTE_DEVICE_NOT_FOUND
         unchecked((int)0x80284008), // TBS_E_SERVICE_NOT_RUNNING
@@ -40,8 +41,16 @@ internal static class CngKeyFailures
         unchecked((int)0x80290101), // TPM_E_PCP_DEVICE_NOT_READY
     ];
 
+    /// <summary>A failure from asking a provider whether the key is there.</summary>
     public static CngKeyFailure Classify(int hResult) =>
         hResult == NteExists ? CngKeyFailure.KeyExists
         : PlatformUnavailableCodes.Contains(hResult) ? CngKeyFailure.PlatformUnavailable
         : CngKeyFailure.Other;
+
+    /// <summary>A failure from making the key. As <see cref="Classify"/>, except that
+    /// NTE_NOT_SUPPORTED is <see cref="CngKeyFailure.Other"/>: from a provider that has
+    /// just answered the probe it is a working TPM refusing the key it was asked for,
+    /// not a TPM that is not there, and falling back would hide that for good.</summary>
+    public static CngKeyFailure ClassifyCreate(int hResult) =>
+        hResult == NteNotSupported ? CngKeyFailure.Other : Classify(hResult);
 }

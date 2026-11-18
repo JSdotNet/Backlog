@@ -67,6 +67,10 @@ public sealed class DevicePairingClient : IDeviceRoster
     private readonly TimeSpan _signInTimeout;
     private readonly ILogger _log;
 
+    /// <summary>1 while the key has failed since it last opened, so a key that keeps
+    /// failing is a warning once and a debug line after it.</summary>
+    private int _keyFailing;
+
     /// <param name="http">The client <c>AddSyncClient</c> configures.</param>
     /// <param name="credentials">Where a credential the service issues is kept.</param>
     /// <param name="pairings">Where an issued code opens a pairing a notification can be
@@ -301,11 +305,14 @@ public sealed class DevicePairingClient : IDeviceRoster
 
         try
         {
-            return _keys.GetOrCreate().PublicKey;
+            var publicKey = _keys.GetOrCreate().PublicKey;
+            Interlocked.Exchange(ref _keyFailing, 0);
+            return publicKey;
         }
         catch (CryptographicException ex)
         {
-            _log.LogWarning(ex, "This device's key could not be opened or made, so it registers with a credential instead.");
+            var level = Interlocked.Exchange(ref _keyFailing, 1) == 0 ? LogLevel.Warning : LogLevel.Debug;
+            _log.Log(level, ex, "This device's key could not be opened or made, so it registers with a credential instead.");
             return null;
         }
     }

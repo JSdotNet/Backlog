@@ -91,27 +91,28 @@
         }
         else if (StoredDevice is { } stored)
         {
-            @* The service has said, in as many words, that it has no
-               record of this device. Said before the identity rather
-               than after it, because everything below is describing a
-               credential that no longer opens anything. *@
-            @if (DeviceNoLongerRegistered)
+            @* Bound to a key this machine cannot use - a TPM in lockout or
+               reset. Nothing goes to the service, so nothing syncs; the way
+               back is the one a refused credential gets. One alert, never
+               two: a refusal heard before the key went says nothing the key
+               does not, and the key is what to fix first.
+
+               Otherwise the service has said, in as many words, that it has
+               no record of this device. Said before the identity rather than
+               after it, because everything below is describing a credential
+               that no longer opens anything. *@
+            @if (KeyUnavailable)
             {
-                <Alert Message="The sync service no longer recognises this device. Its credential is still on this machine, but nothing will accept it - register this device again, pair it with one that is already in, or forget the credential."
-                       TestId="devices-unregistered"
+                <Alert Message="This device signs in with its own key, and that key cannot be used on this machine right now - the TPM may be locked out or reset. Nothing syncs until it comes back. Register this device again, pair it with one that is already in, or forget it."
+                       TestId="devices-key-unavailable"
                        Role="alert"
                        BaseClass="setting__status"
                        CssClass="setting__status--error" />
             }
-
-            @* Bound to a key this machine cannot use - a TPM in lockout or
-               cleared, a key deleted from the store. Nothing goes to the
-               service, so nothing syncs; the way back is the one a refused
-               credential gets. *@
-            @if (KeyUnavailable)
+            else if (DeviceNoLongerRegistered)
             {
-                <Alert Message="This device signs in with its own key, and that key cannot be used on this machine right now - the TPM may be locked out or reset, or the key may have been removed. Nothing syncs until it comes back. Register this device again, pair it with one that is already in, or forget it."
-                       TestId="devices-key-unavailable"
+                <Alert Message="The sync service no longer recognises this device. Its credential is still on this machine, but nothing will accept it - register this device again, pair it with one that is already in, or forget the credential."
+                       TestId="devices-unregistered"
                        Role="alert"
                        BaseClass="setting__status"
                        CssClass="setting__status--error" />
@@ -146,13 +147,13 @@
             }
 
             <p class="setting__body" data-testid="devices-paired">
-                @if (DeviceNoLongerRegistered)
-                {
-                    <text>This device still holds a credential for <strong>@stored.DeviceName</strong>.</text>
-                }
-                else if (KeyUnavailable)
+                @if (KeyUnavailable)
                 {
                     <text>Registered as <strong>@stored.DeviceName</strong>, but it cannot sign in without its key.</text>
+                }
+                else if (DeviceNoLongerRegistered)
+                {
+                    <text>This device still holds a credential for <strong>@stored.DeviceName</strong>.</text>
                 }
                 else
                 {
@@ -677,8 +678,9 @@
     };
 
     /// <summary>
-    /// Asks the key store how the key is kept - once, off the render thread, because
-    /// opening a TPM key can take a moment. Only for a device bound to a key: asking
+    /// Asks the key store how the key is kept - off the render thread, because opening
+    /// a TPM key can take a moment - when the page opens and whenever the credential
+    /// changes (<see cref="OnCredentialChanged"/>). Only for a device bound to a key: asking
     /// opens the key or creates it, and rendering the page must never make a key for
     /// a device that has none. A key that cannot be opened leaves the answer null;
     /// the token exchange says so through <see cref="KeyUnavailable"/>.
@@ -1201,6 +1203,16 @@
     /// <summary>The key became usable or stopped being, on a background fetch.</summary>
     private void OnKeyUnavailableChanged() => _ = InvokeAsync(StateHasChanged);
 
+    /// <summary>The credential was saved or forgotten - usually by the token provider on
+    /// a background fetch, moving a device on a secret onto its key. What the page says
+    /// about the key follows it without a reload: the protection is asked again off the
+    /// render thread, and the page redrawn on it.</summary>
+    private void OnCredentialChanged() => _ = InvokeAsync(async () =>
+    {
+        await ResolveKeyProtectionAsync();
+        StateHasChanged();
+    });
+
     private void ReportDeviceOutcome(string message, bool failed)
     {
         _devicesMessage = message;
@@ -1235,6 +1247,7 @@
         _compatibility = Services.GetService<SyncCompatibility>();
         _updateWindowRequests = Services.GetService<AppUpdateWindowRequests>();
         if (_compatibility is not null) _compatibility.Changed += OnCompatibilityChanged;
+        if (_deviceCredentials is not null) _deviceCredentials.Changed += OnCredentialChanged;
 
         // The loop outlives this page, so what it did while nobody was here is
         // already on it - and what it does while somebody is here has to reach
@@ -1293,6 +1306,7 @@
             _deviceTokens.KeyUnavailableChanged -= OnKeyUnavailableChanged;
         }
         if (_compatibility is not null) _compatibility.Changed -= OnCompatibilityChanged;
+        if (_deviceCredentials is not null) _deviceCredentials.Changed -= OnCredentialChanged;
     }
 
     // Raised on whichever thread asked the service.
