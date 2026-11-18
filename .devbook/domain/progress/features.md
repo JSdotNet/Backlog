@@ -290,9 +290,9 @@ flowchart LR
     Line -->|writes, reads again| Same["Mark next action, Move to archive"]
 ```
 
-Walk the GTD weekly review over the three homes — the Inbox, the Brain and the backlog — in the app, the checks the `weekly-review` skill of `backlog-tools` reports. **Weekly review** stands in the Home shell's header right after **Inbox**. It is a takeover, like the Inbox: a press gives the review the whole screen in place of the main view, which waits underneath. A second press, a view option, another takeover or Escape returns to that view. It is offered while the [Weekly review](context.md#weekly-review) flag is on.
+Walk the GTD weekly review in the app over the three homes: the Inbox, the Brain and the backlog. Its checks are the ones the `weekly-review` skill of `backlog-tools` reports. **Weekly review** stands in the Home shell's header right after **Inbox**. It is a takeover, like the Inbox: a press gives the review the whole screen in place of the main view, which waits underneath. A second press, a view option, another takeover or Escape returns to that view. It is offered while the [Weekly review](context.md#weekly-review) flag is on.
 
-The review walks three stages, one at a time: **Get clear**, **Get current** and **Get creative**. A switch at the top shows which stage is on screen and how many lines each holds; **Next** and **Back** step through them. Each line names what it is about — an item or an entry by its title, a note by its path, a plan by its tag — what the check found, and the actions that answer it, in place:
+The review walks three stages, one at a time: **Get clear**, **Get current** and **Get creative**. A switch at the top shows which stage is on screen and how many lines each holds; **Next** and **Back** step through them. Each line names what it is about, what the check found, and the actions that answer it, in place. It names an item or an entry by its title, a note by its path and a plan by its tag:
 
 | Stage | A line for | Its action |
 |---|---|---|
