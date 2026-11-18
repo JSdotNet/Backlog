@@ -122,7 +122,7 @@ In-process hosted services that poll external sources on the local machine.
 ```meta
 rating: adopted
 type: package
-version: "10.0.11"
+version: "10.0.12"
 depends-on: [".devbook/tech/desktop.md#windows", ".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/domain/sync/features.md#pairing-a-device", ".devbook/domain/sync/domain.md#registration-credential"]
 ```
