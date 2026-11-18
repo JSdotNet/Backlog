@@ -74,6 +74,41 @@ test("the wait script prints the dispatcher name alone with --name", () => {
     assert.equal(run.stdout.trim(), dispatcherName(os.hostname()));
 });
 
+test("the wait script names the Manager's session on every wait with --session", async () => {
+    const paths = [];
+    const server = createServer((req, res) => {
+        paths.push(req.url);
+        res.statusCode = paths.length < 3 ? 204 : 404;
+        res.end();
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address();
+
+    const child = spawn(process.execPath, [path.join(ASSETS, "wait-requests.mjs"), "--retry", "50", "--session", "sess-42"], {
+        env: { ...process.env, BACKLOG_MCP_PORT: String(port), BACKLOG_MCP_TOKEN: "t0k" },
+    });
+    let out = "";
+    try {
+        await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error(`timed out after ${out}`)), 10_000);
+            child.stdout.on("data", (chunk) => {
+                out += chunk;
+                if (out.includes("flag-off")) {
+                    clearTimeout(timer);
+                    resolve();
+                }
+            });
+        });
+    } finally {
+        child.kill();
+        server.close();
+    }
+
+    assert.ok(paths.length >= 3);
+    assert.ok(paths.every((url) => url === "/session-requests/wait?sessionId=sess-42"), JSON.stringify(paths));
+    assert.match(out, /^ready dispatcher=\S+ url=http:\/\/127\.0\.0\.1:\d+\/session-requests\/wait\?sessionId=sess-42$/m);
+});
+
 test("the wait script says once that the app is unreachable", async () => {
     // A port nothing listens on: bind one, then free it.
     const probe = createServer();

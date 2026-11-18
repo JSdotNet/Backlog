@@ -35,7 +35,8 @@ public static class DashboardSurfaceRegistration
             ShellSurfaceGroup.Takeover,
             Order,
             typeof(DashboardSurface),
-            DashboardFeatures.Dashboard));
+            DashboardFeatures.Dashboard,
+            QueryKeys: [DashboardSurface.TabKey]));
 
         return services;
     }

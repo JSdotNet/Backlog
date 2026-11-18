@@ -55,6 +55,9 @@ public static class NotificationsErrors
     public static Error OriginInvalid(string reason) =>
         Error.Validation("notification.origin_invalid", reason);
 
+    public static Error ActionInvalid(string reason) =>
+        Error.Validation("notification.action_invalid", reason);
+
     public static Error OtherSubject() =>
         Error.Validation("notification.other_subject", "The notification is about another subject.");
 

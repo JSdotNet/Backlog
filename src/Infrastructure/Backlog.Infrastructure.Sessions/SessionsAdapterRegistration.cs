@@ -152,6 +152,20 @@ public static class SessionsAdapterRegistration
                 sp.GetService<QuestionRelay>,
                 sp.GetService<ILogger<WaitingSessionSource>>()));
 
+        // What a loop has room for (local ADR 0051 §4), over the relay-applied sessions
+        // above so Waiting is not counted. Every other port is optional: a figure whose
+        // store a host did not compose reads unavailable, and only the desktop head
+        // registers an IMachineLoad.
+        services.AddSingleton<ICapacityReader>(sp =>
+            new CapacityReader(
+                sp.GetRequiredService<IAgentSessionSource>(),
+                sp.GetService<ISessionRequestStore>(),
+                sp.GetService<IClaudeApiRequestStore>(),
+                sp.GetService<IAgentSessionRecordStore>(),
+                sp.GetService<IMachineLoad>(),
+                sp.GetService<TimeProvider>(),
+                sp.GetService<ILogger<CapacityReader>>()));
+
         // The delivery runs go in with the sessions rather than behind a call of their
         // own, and that is the opposite of the choice AddAgentActivitySource makes.
         // The activity port is a separate call because a host wanting the session
