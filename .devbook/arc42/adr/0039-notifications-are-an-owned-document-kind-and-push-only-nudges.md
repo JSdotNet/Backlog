@@ -37,7 +37,8 @@ by the repository owner at its Personal Validation gate: the owner publishes the
 notification is about, so the phone can filter by it. That amendment is not yet
 built.
 
-§7 was added in place on 2026-11-18 by flow-spec run `run-mwm3z7rt-hmjxyj`: a
+§7 was added in place on 2026-11-18 by flow-spec run `run-mwm3z7rt-hmjxyj`,
+accepted by the repository owner at its Personal Validation gate: a
 notification's images travel as attachments the owner desktop uploads. That
 amendment is not yet built.
 
