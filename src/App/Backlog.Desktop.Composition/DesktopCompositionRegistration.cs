@@ -285,6 +285,10 @@ public static class DesktopCompositionRegistration
         services.AddSingleton<SyncServiceEndpoint>();
         services.AddSyncClient(SyncServiceAddress);
         services.AddTaskSyncClient(SyncServiceAddress);
+        // Where the owner signs in to register this desktop as a first device or to
+        // recover (local ADR 0052 §1): the person's own browser, back to a loopback.
+        // A phone composes none and pairs by code.
+        services.AddSingleton<ISystemBrowser, ShellSystemBrowser>();
         // The version compared with the sync service's: the one the update window
         // shows, the MSIX package's on a packaged desktop. A service newer than it
         // stops every sync client and the footer asks for an update.

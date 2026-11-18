@@ -23,7 +23,7 @@ public class DevicePairingTests
     [Fact]
     public async Task Registering_the_first_device_mints_an_owner_and_a_device()
     {
-        var result = await _sync.Register.Handle(new RegisterFirstDeviceCommand("Study desktop"), Cancellation);
+        var result = await _sync.Register.Handle(await _sync.Enrolled("Study desktop"), Cancellation);
 
         Assert.True(result.IsSuccess);
         Assert.NotEqual(Guid.Empty, result.Value.OwnerId);
@@ -34,8 +34,8 @@ public class DevicePairingTests
     [Fact]
     public async Task Two_registrations_are_two_owners()
     {
-        var first = await _sync.Register.Handle(new RegisterFirstDeviceCommand("One"), Cancellation);
-        var second = await _sync.Register.Handle(new RegisterFirstDeviceCommand("Two"), Cancellation);
+        var first = await _sync.Register.Handle(await _sync.Enrolled("One"), Cancellation);
+        var second = await _sync.Register.Handle(await _sync.Enrolled("Two"), Cancellation);
 
         Assert.NotEqual(first.Value.OwnerId, second.Value.OwnerId);
         Assert.NotEqual(first.Value.Credential, second.Value.Credential);
@@ -44,7 +44,7 @@ public class DevicePairingTests
     [Fact]
     public async Task The_registration_credential_is_256_bits_of_base64url()
     {
-        var result = await _sync.Register.Handle(new RegisterFirstDeviceCommand("Study desktop"), Cancellation);
+        var result = await _sync.Register.Handle(await _sync.Enrolled("Study desktop"), Cancellation);
 
         Assert.Equal(43, result.Value.Credential.Length);
         Assert.DoesNotContain('=', result.Value.Credential);
@@ -55,7 +55,7 @@ public class DevicePairingTests
     [Fact]
     public async Task Only_the_hash_of_the_credential_is_stored()
     {
-        var result = await _sync.Register.Handle(new RegisterFirstDeviceCommand("Study desktop"), Cancellation);
+        var result = await _sync.Register.Handle(await _sync.Enrolled("Study desktop"), Cancellation);
 
         var stored = await _sync.Devices.FindById(new DeviceId(result.Value.DeviceId), Cancellation);
 
@@ -240,7 +240,7 @@ public class DevicePairingTests
     public async Task A_credential_belonging_to_another_device_gets_no_token()
     {
         var (first, _) = await _sync.RegisterFirstDevice("One");
-        var second = await _sync.Register.Handle(new RegisterFirstDeviceCommand("Two"), Cancellation);
+        var second = await _sync.Register.Handle(await _sync.Enrolled("Two"), Cancellation);
 
         var result = await _sync.IssueToken.Handle(
             new IssueDeviceTokenCommand(first.DeviceId.Value, second.Value.Credential), Cancellation);
@@ -269,7 +269,7 @@ public class DevicePairingTests
     public async Task Another_owners_devices_are_not_counted()
     {
         var (mine, _) = await _sync.RegisterFirstDevice("Mine");
-        await _sync.Register.Handle(new RegisterFirstDeviceCommand("Somebody elses laptop"), Cancellation);
+        await _sync.Register.Handle(await _sync.Enrolled("Somebody elses laptop"), Cancellation);
 
         var result = await _sync.Describe.Handle(new DescribeOwnerQuery(mine), Cancellation);
 

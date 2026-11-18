@@ -272,4 +272,33 @@ public static class SyncErrorCodes
     /// leaves the device, so every screen that reads a sync failure reads this one
     /// the same way.</summary>
     public const string ClientOutdated = "sync.client_outdated";
+
+    /// <summary>A first device asked to register without the one-time enrolment
+    /// code and the PKCE verifier its owner sign-in hands back (local ADR 0052 §1).
+    /// Nobody creates an owner without signing in.</summary>
+    public const string EnrolmentCodeRequired = "enrolment.code_required";
+
+    /// <summary>No live enrolment code hashes to what was sent: never issued, or
+    /// already reaped. The service cannot tell the two apart.</summary>
+    public const string EnrolmentCodeNotFound = "enrolment.code_not_found";
+
+    /// <summary>The enrolment code existed and its minutes are up.</summary>
+    public const string EnrolmentCodeExpired = "enrolment.code_expired";
+
+    /// <summary>The enrolment code has already registered a device. It is single-use.</summary>
+    public const string EnrolmentCodeUsed = "enrolment.code_used";
+
+    /// <summary>The PKCE verifier does not hash to the challenge the enrolment
+    /// started with: the code reached somebody who did not start the sign-in.</summary>
+    public const string EnrolmentVerifierMismatch = "enrolment.verifier_mismatch";
+
+    /// <summary>An enrolment start whose redirect is not an <c>http</c> loopback
+    /// address with a port (RFC 8252 §7.3), whose challenge is not an S256
+    /// challenge, or which carries no state.</summary>
+    public const string EnrolmentRequestInvalid = "enrolment.request_invalid";
+
+    /// <summary>A GitHub callback whose state names no sign-in this service started,
+    /// or one that already came back or ran out of time. There is no loopback to
+    /// send the answer to, so it is answered in place.</summary>
+    public const string EnrolmentSignInUnknown = "enrolment.sign_in_unknown";
 }

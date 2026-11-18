@@ -170,6 +170,21 @@ The GitHub OAuth App's client secret goes into the same vault as
 **`github-oauth-client-secret`** once the app is registered; the service reads it as
 `GitHub:ClientSecret` (`GitHub__ClientSecret`) and leaves the setting empty until then.
 
+### 6. The owner and the OAuth App's client id
+
+Only the owner enrols a device (local ADR 0052 §1): a first device, and a recovery that
+re-enrols a new device and revokes every other one, both start with a GitHub sign-in
+through the "Backlog sync" OAuth App, whose callback is `/oauth/github/callback`. The
+template sets the two public halves on the container app from its parameters:
+`Owner__GitHubUserId` (`ownerGitHubUserId`, the numeric id `gh api user --jq .id`
+prints, never the login) and `GitHub__ClientId` (`gitHubOAuthClientId`). Outside
+Development the service refuses to start without both and the vault's client secret.
+
+The owner's devices join the owner id derived from the GitHub user id. An owner minted
+before sign-in existed keeps its data only if its id is passed as the template's
+`ownerId` parameter, which sets `Owner__OwnerId`, before the first enrolment; otherwise the first sign-in starts a new,
+empty owner, while the old devices keep syncing the old one and no recovery reaches them.
+
 ## Current state
 
 Verified 2026-09-09: **none of the first four prerequisites above had been done**. The

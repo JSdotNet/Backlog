@@ -73,6 +73,11 @@ builder.Services.AddOptions<SyncAttachmentOptions>()
 // Its settings (the cap and the audio allowlist) are bound and validated either way.
 builder.AddDictationTranscription();
 
+// Who may enrol a device (local ADR 0052 §1): the configured owner, signed in through
+// GitHub. Before AddSyncModule so the configured owner wins over the module's stand-in;
+// anywhere but Development the service refuses to start without it.
+builder.AddOwnerEnrolment();
+
 builder.Services.AddSyncModule();
 
 // The module declares the port and the host implements it, so the signing key
@@ -103,6 +108,7 @@ app.UseStatusCodePages();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 // Development only. The document names every route and its shape, which is a
 // map of the surface handed to anyone who asks; a deployed sync service has no
@@ -112,9 +118,14 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi().AllowAnonymous();
 }
 
+// The GitHub OAuth App's registered callback, at the root rather than under the
+// sync group: the browser comes back here after the owner signs in.
+app.MapGitHubCallback();
+
 var sync = app.MapGroup(SyncRoutes.Base);
 
 sync.MapDeviceEndpoints();
+sync.MapEnrolmentEndpoints();
 sync.MapInboxEndpoints();
 sync.MapTaskSyncEndpoints();
 sync.MapSessionSyncEndpoints();
