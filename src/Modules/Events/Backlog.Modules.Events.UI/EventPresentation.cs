@@ -1,7 +1,7 @@
 using System.Globalization;
 
 using global::Backlog.Modules.Events.Abstractions;
-using global::Backlog.UI.Components.Feedback;
+using global::Backlog.UI.Components.Selects;
 
 namespace Backlog.Modules.Events.UI;
 
@@ -51,19 +51,17 @@ public static class EventPresentation
         _ => "archived"
     };
 
-    /// <summary>The lifecycle strip: the path in order, each step passed, current or ahead.
-    /// A Skipped event has no place on the path, so it draws none.</summary>
-    public static IReadOnlyList<FlowStep> Lifecycle(KnowledgeEventState state)
-    {
-        var at = KnowledgeEventMoves.Path.ToList().IndexOf(state);
-        if (at < 0) return [];
+    /// <summary>The state choice's value for Skip, which asks for a reason before it moves.</summary>
+    public const string SkipChoice = "skip";
 
-        return [.. KnowledgeEventMoves.Path.Select((step, index) => index < at
-            ? new FlowStep(StateLabel(step), FlowStepTone.Done, "Passed")
-            : index == at
-                ? new FlowStep(StateLabel(step), FlowStepTone.Active, "Now", StateLine(step))
-                : new FlowStep(StateLabel(step), FlowStepTone.Pending, "Ahead"))];
-    }
+    /// <summary>The state choice: where the event stands, then the later states it may move to,
+    /// then Skip… when it may still be skipped. Nothing earlier is offered: there is no way back.</summary>
+    public static IReadOnlyList<SelectorOption> StateChoices(KnowledgeEventState state, KnowledgeEventMoveOffer moves) =>
+    [
+        new SelectorOption(state.ToString(), StateLabel(state)),
+        .. moves.Forward.Select(target => new SelectorOption(target.ToString(), StateLabel(target))),
+        .. moves.CanSkip ? [new SelectorOption(SkipChoice, "Skip…")] : Array.Empty<SelectorOption>()
+    ];
 
     /// <summary>Where the dates came from, as the editor shows it beside them: the capture rules'
     /// "dates show their source", since a listing and the event page may disagree.</summary>

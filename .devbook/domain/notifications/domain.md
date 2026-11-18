@@ -23,7 +23,8 @@ It may be about a [Subject](#subject). It has:
 - a [kind](#notification-kind) and a [severity](#severity);
 - a title and a short summary;
 - a Markdown body;
-- a [lifecycle](#notification-state).
+- a [lifecycle](#notification-state);
+- for an alert, up to three [actions](#alert-action).
 
 The notification is the consistency boundary for its answer. Only the owner
 instance writes it, so only the owner decides which [Reply](#reply) becomes the
@@ -122,12 +123,37 @@ The sources inside Backlog fill it:
 | A session question the relay raises (`QuestionRelay`) | Claude Code | | Agent session |
 | Pairing a device | Backlog | Pairing | |
 | A Devbook remark | Backlog | The chapter, the remark's author as asked by | |
+| A schedule's or a loop session's alert (`SessionAlertPublisher`) | Backlog | The schedule's repository and "Schedules", or "Sessions" for a loop | |
 | MCP `ask` and `notify` | The MCP client's own name; Claude Code for a call that names a Claude session; else "MCP client" | | MCP ask for `ask`, MCP notify for `notify` |
 | A spec-manager question | spec-manager, with the host for an installation other than the one that ships | The product and `#<number> <title>`, or the product and the OpenSpec change | "Agent session", or "typed in spec-manager" |
 | Another spec-manager notification | spec-manager, with the host as above | The product, when the notification is about one | The category in words: "Mention", "Reply", "Change proposal", "Input", "Review work", "Administration" |
 
 For a spec-manager question, "Agent session" adds the session's title when the
 item's linked task names exactly one session, and the asker fills Asked by.
+
+A schedule's alert puts its repository first, so the centre files it under that
+repository. A schedule that reported none reads "Schedules" alone and files
+under the Brain.
+
+### Alert Action
+
+```meta
+type: value-object
+aliases: [NotificationAction]
+related: [.devbook/domain/notifications/domain.invariants.md#invariant-only-an-alert-carries-actions-each-a-backlog-window-link, .devbook/arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md]
+```
+
+A button an alert offers beside Acknowledge, such as Open run or Open
+Schedules. It has a label and a `backlog://window/…` link, which opens a surface
+of the owner's app in the window it was pressed in. Pressing one only changes
+where the person looks: the alert stays Open, and Acknowledge stays its own
+control. A question offers none, because its answers are its controls.
+
+Only the owner keeps an alert's actions, and the replica carries none. A link
+opens a window of the owner's desktop, so it means nothing on another device.
+The phone and another desktop offer only the alert's
+[Acknowledgement](#acknowledgement).
+Equality is by label and link.
 
 ### Subject
 
@@ -262,6 +288,17 @@ stateDiagram-v2
 - **Answered**: a question whose owner accepted a reply as its answer.
 - **Closed**: the publisher closed it, or its subject ended. A closed question
   needs no answer, and a reply sent after it is rejected as closed.
+
+A publisher closes its own notification once what raised it no longer holds.
+Sessions closes a schedule's or a loop session's alert when its cause clears:
+
+- the run's session is archived;
+- a missed schedule's run starts;
+- the loop checks in again;
+- for a Failed alert, a later run of the same schedule finishes Review ready.
+
+Local [ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)
+§5 decides it.
 
 Only the owner makes these transitions. Read marks are per device and not
 part of the state. A source may act on a transition outside Backlog. Acknowledging an alert

@@ -87,26 +87,17 @@
 }
 
 /*
-  The bar's end: the sync line, the Notifications bell while the phone holds a
-  notification, and the settings button, last so it never moves as the bell
-  comes and goes. The group shrinks with the sync line inside it, so the title
-  still never gives way; the bell and the cog keep their 44px targets and never
-  shrink, so the sync line pays for the bell's width. The cog's glyph is centred
-  in that target, so the button bleeds into the gutter by the space beside the
-  glyph and the glyph ends on the page content's right edge. The bell's current
-  mark is the library's (.btn--icon-current); only its place is set here.
+  The bar's end: the sync line and the settings button. The group shrinks with
+  the sync line inside it, so the title still never gives way; the settings
+  cog keeps its 44px target and never shrinks. The cog's glyph is centred in
+  that target, so the button bleeds into the gutter by the space beside the
+  glyph and the glyph ends on the page content's right edge.
 */
 .app-bar__end {
     display: flex;
     align-items: center;
     min-width: 0;
     gap: var(--spacing-2xs);
-}
-
-::deep .app-bar__notifications {
-    flex: none;
-    min-width: var(--app-bar-target);
-    min-height: var(--app-bar-target);
 }
 
 ::deep .app-bar__settings {

@@ -8,39 +8,33 @@ argument-hint: "[weekly] [blocked=2] [failing=1]"
 
 Open the reply with `backlog-tools@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled.
 
-A goal **holds** a plan (and each entry with its `+tag`), a task (and its linked pull requests) or a
-pull request. Backlog's store is the only state: a tick over unchanged work changes nothing. Arguments
-[defaults]: `weekly` (a week, worded for a stakeholder), `blocked` [2] worked days, `failing` [1] day
-of failed checks. **Attended** is a run the person started in chat; a `/loop` tick is not.
+A goal **holds** a plan (and each entry with its `+tag`), a task (and its linked pull requests) or a pull request. Backlog's store is the
+only state: a tick over unchanged work changes nothing. Arguments [defaults]: `weekly` (a week, worded for a stakeholder), `blocked` [2]
+worked days, `failing` [1] day of failed checks. **Attended** is a run the person started in chat; a `/loop` tick is not.
 
 ## Each tick
 
-0. **Mark.** No `backlog` server → say so, stop. Under `/loop`, first turn only: mark this session
-   per `../../resources/standing-session.md`.
-1. **Read** `read_iterations` (`length: week` with `weekly`): windows, standings, impediments; and
-   `list_goals`: what each goal holds, by `id`. Repositories: this remote's and each a held item names.
-2. **Candidates**, per repository: tasks in progress (`list_entries`); pull requests (`gh pr list
-   --repo <owner/name> --state all --search "updated:>=<last.first>" --json
-   number,headRefName,body,state,statusCheckRollup`), each standing for the entry `find_item`
-   (`repoId` its `owner/name`, `externalId` its number) finds; `get_roadmap` tags with an open entry.
-   Held, directly or by its plan's `+tag` → skip: attaching a task past its plan moves its count. A
-   pull request with no entry whose branch or body names a held entry id or `+tag` is that work, never
-   attached: propose `link_change` (`id` the entry, `repository`, `externalId`); a tag alone → *needs you*.
-3. **Attach** a task or plan with `dependsOn` items, one goal holding them all: `attach_to_goal`
-   (`taskId` or `planTag`). Weak: no `dependsOn`; title words; an unlinked pull request naming nothing
-   held (`repository`, `number`). No goal, several, or `progress.item_in_other_goal` refused → *needs you*.
-4. **Propose** each weak one with its evidence; `raise_impediment` (naming what it holds back) for a
-   held task `blockedSince` ≥ `blocked` worked days or a held open pull request with checks failing
-   ≥ `failing` days that no open impediment holds back; `set_impediment_state` `resolved` for one
-   reading `readyToResolve`. Attended → ask in chat. A `/loop` tick → one `ask` (`Yes`, `No`) per
-   proposal not yet asked this session, read by `get_answer` or delivered by the Manager (local
-   ADR 0041); a no is not asked again. Apply each yes.
-5. **Report** per goal: standing, `landsOn` against due; finished in `last` — `doneInWindow` and its
-   `finished` items; next step — held items in progress and not blocked, then each held plan's first
-   `ready` entry in plan order (`get_plan_items`) not in progress, blocked or archived; open
-   impediments, ready to resolve marked. Then what this tick attached, and *needs you*: proposals
-   waiting or with `ask` refused, unplaced candidates, refusals; when it holds any, open with the
-   `show-me` skill's card if it has one. `weekly` → full sentences, else `../../resources/chat-reports.md`.
+0. **Mark.** No `backlog` server → say so, stop. Under `/loop`, first turn only: mark this session per
+   `../../resources/standing-session.md`.
+1. **Read** `read_iterations` (`length: week` with `weekly`): windows, standings, impediments; and `list_goals`: what each goal holds, by
+   `id`. Repositories: this remote's and each a held item names.
+2. **Candidates**, per repository: tasks in progress (`list_entries`); pull requests (`gh pr list --repo <owner/name> --state all --search
+   "updated:>=<last.first>" --json number,headRefName,body,state,statusCheckRollup`), each standing for the entry `find_item` (`repoId` its
+   `owner/name`, `externalId` its number) finds; `get_roadmap` tags with an open entry. Held, directly or by its plan's `+tag` → skip:
+   attaching a task past its plan moves its count. A pull request with no entry whose branch or body names a held entry id or `+tag` is that
+   work, never attached: propose `link_change` (`id` the entry, `repository`, `externalId`); a tag alone → *needs you*.
+3. **Attach** a task or plan with `dependsOn` items, one goal holding them all: `attach_to_goal` (`taskId` or `planTag`). Weak: no
+   `dependsOn`; title words; an unlinked pull request naming nothing held (`repository`, `number`). No goal, several, or
+   `progress.item_in_other_goal` refused → *needs you*.
+4. **Propose** each weak one with its evidence; `raise_impediment` (naming what it holds back) for a held task `blockedSince` ≥ `blocked`
+   worked days or a held open pull request with checks failing ≥ `failing` days that no open impediment holds back; `set_impediment_state`
+   `resolved` for one reading `readyToResolve`. Attended → ask in chat. A `/loop` tick → one `ask` (`Yes`, `No`) per proposal not yet asked
+   this session, read by `get_answer` or delivered by the Manager (local ADR 0041); a no is not asked again. Apply each yes.
+5. **Report** per goal: standing, `landsOn` against due; finished in `last` — `doneInWindow` and its `finished` items; next step — held
+   items in progress and not blocked, then each held plan's first `ready` entry in plan order (`get_plan_items`) not in progress, blocked or
+   archived; open impediments, ready to resolve marked. Then what this tick attached, and *needs you*: proposals waiting or with `ask`
+   refused, unplaced candidates, refusals; when it holds any, open with the `show-me` skill's card if it has one. `weekly` → full sentences,
+   else `../../resources/chat-reports.md`.
 6. **Pace.** Under `/loop`, end the turn: 300 s while an `ask` waits, else 1800 s.
 
 ## Never

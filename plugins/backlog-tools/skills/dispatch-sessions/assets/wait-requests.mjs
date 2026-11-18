@@ -16,6 +16,8 @@
 //
 // `--name` prints the dispatcher name alone and exits, so the Manager has it in the same turn.
 // `--retry <ms>` (default 30000) is the pause after a failure or a request already printed.
+// `--session <id>` is the Manager's own session id: each wait then counts as its loop check-in
+// (local ADR 0051 §3). Without it the wait checks nothing in.
 // The decisions are in wait-logic.mjs, which the plugin's tests drive.
 
 import { readFile } from "node:fs/promises";
@@ -26,20 +28,26 @@ import { decide, dispatcherName, endpointFrom, isNews, settingsPath } from "./wa
 // The route holds a call for 50 seconds; give it room before abandoning the call.
 const CALL_TIMEOUT_MS = 70_000;
 
-async function endpoint() {
+async function endpoint(sessionId) {
     let text = null;
     try {
         text = await readFile(settingsPath(process.env, process.platform, os.homedir()), "utf8");
     } catch {
         // No settings yet: the app has never served MCP on this machine.
     }
-    return endpointFrom(process.env, text);
+    return endpointFrom(process.env, text, sessionId);
 }
 
 function option(args, name, fallback) {
     const at = args.indexOf(name);
     const value = at >= 0 ? Number(args[at + 1]) : NaN;
     return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function text(args, name) {
+    const at = args.indexOf(name);
+    const value = at >= 0 ? args[at + 1] : undefined;
+    return value && !value.startsWith("--") ? value : null;
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -50,9 +58,10 @@ async function main(args) {
         return;
     }
     const retryMs = option(args, "--retry", 30_000);
+    const sessionId = text(args, "--session");
     const printed = new Set();
     let previous = null;
-    let { url, token } = await endpoint();
+    let { url, token } = await endpoint(sessionId);
 
     console.log(`ready dispatcher=${dispatcherName(os.hostname())} url=${url}`);
 
@@ -80,7 +89,7 @@ async function main(args) {
 
         if (outcome.waitMs > 0) {
             await sleep(outcome.waitMs);
-            if (outcome.state !== "seen") ({ url, token } = await endpoint());
+            if (outcome.state !== "seen") ({ url, token } = await endpoint(sessionId));
         }
     }
 }

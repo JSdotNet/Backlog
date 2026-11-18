@@ -1,0 +1,531 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+
+namespace Backlog.Modules.Sessions.Abstractions;
+
+/// <summary>Which of the six causes of local ADR 0051 §5 an alert is raised for.</summary>
+public enum SessionAlertCause
+{
+    /// <summary>A run reported Needs-you lines, and its session is not archived.</summary>
+    NeedsYou,
+
+    /// <summary>A schedule's latest runs skip themselves, because an earlier run is unarchived.</summary>
+    Held,
+
+    /// <summary>A run reported a failure, its session is not archived, and no later run of its
+    /// schedule finished clean.</summary>
+    Failed,
+
+    /// <summary>A schedule passed its due time by the grace with no run started.</summary>
+    Missed,
+
+    /// <summary>A loop's process is alive, and it stopped checking in.</summary>
+    Stalled,
+
+    /// <summary>A loop has no process, or its session is archived, while work waits for it.</summary>
+    NotRunning,
+}
+
+/// <summary>Where an alert's action opens, inside the Sessions takeover.</summary>
+public enum SessionAlertTarget
+{
+    /// <summary>The run's session, picked in the Sessions list.</summary>
+    Run,
+
+    /// <summary>The Schedules page.</summary>
+    Schedules,
+
+    /// <summary>The loop session, picked in the Sessions list.</summary>
+    Sessions,
+}
+
+/// <summary>One action an alert offers beside Acknowledge.</summary>
+/// <param name="Label">What the button reads — "Open run".</param>
+/// <param name="Target">Where it opens.</param>
+/// <param name="SessionId">The session it opens on, for <see cref="SessionAlertTarget.Run"/> and
+/// <see cref="SessionAlertTarget.Sessions"/>; null for the Schedules page.</param>
+/// <param name="ScheduleId">The schedule the Schedules page opens on, for
+/// <see cref="SessionAlertTarget.Schedules"/>; null otherwise.</param>
+public sealed record SessionAlertAction(string Label, SessionAlertTarget Target, string? SessionId = null, string? ScheduleId = null);
+
+/// <summary>
+/// One alert the Sessions context wants open now: its cause, the key that names this one
+/// occurrence of it, and the words and actions the notification carries. A reading, never
+/// stored: the publisher raises it once by <see cref="Key"/> and closes it once a later
+/// reading no longer holds that key.
+/// </summary>
+/// <param name="Key">Names this occurrence of the cause, so one cause is one alert: the same key
+/// on every reading while the cause holds. A run's, a held streak's and a missed due time's key
+/// is new once that run, streak or due time is another; a loop's is new with every check-in, so a
+/// loop that stops again after checking in alerts again, and one whose waiting work drains and
+/// returns before it checks in does not.</param>
+/// <param name="Cause">Which cause.</param>
+/// <param name="Place">The line under Backlog it is raised from: a schedule's
+/// <see cref="SessionAlerts.SchedulePlace"/> — its repository, then "Schedules" — or a loop's
+/// "Sessions".</param>
+/// <param name="Title">One line, under 80 characters.</param>
+/// <param name="Summary">One line, under 180 characters.</param>
+/// <param name="Body">Markdown that says what happened and what clears it.</param>
+/// <param name="Actions">What it offers to open, in order.</param>
+public sealed record SessionAlert(
+    string Key,
+    SessionAlertCause Cause,
+    string Place,
+    string Title,
+    string Summary,
+    string Body,
+    IReadOnlyList<SessionAlertAction> Actions)
+{
+    /// <summary>Whether it is the failure kind of alert rather than a nudge: a failed run, or a
+    /// loop not running while work waits.</summary>
+    public bool IsCritical => Cause is SessionAlertCause.Failed or SessionAlertCause.NotRunning;
+}
+
+/// <summary>The work waiting for a loop of one kind when Backlog looks: what makes a loop that
+/// is not running worth an alert.</summary>
+/// <param name="SessionRequests">Session requests reading Requested.</param>
+/// <param name="Deliveries">Answer deliveries reading Pending.</param>
+public sealed record LoopWaitingWork(int SessionRequests, int Deliveries)
+{
+    public static LoopWaitingWork None { get; } = new(0, 0);
+
+    public bool Any => SessionRequests > 0 || Deliveries > 0;
+}
+
+/// <summary>
+/// The alerts of local ADR 0051 §5, read from the schedule and loop readings, as pure functions:
+/// <list type="bullet">
+/// <item><b>Needs you</b> and <b>Failed</b>: one per run that reads so, keyed on the run, so a
+/// run's alert stays until its session is archived and the next run's is its own. A Failed
+/// alert also clears once a later run of the same schedule finishes clean, which reads the
+/// failed run Handled (<see cref="ScheduleReading"/>); <see cref="Recoveries"/> says why.</item>
+/// <item><b>Held</b>: one per schedule's streak of skipping runs, keyed on the run that held it —
+/// the one a skip named, else the oldest skip in the streak — so the later skips of the same
+/// streak raise nothing more.</item>
+/// <item><b>Missed</b>: one per due time missed, cleared once a run starts.</item>
+/// <item><b>Stalled</b> and <b>Not running</b>: only for the loop of each kind that checked in
+/// last, since an older one was replaced; keyed on its latest check-in, so checking in again
+/// clears it. Not running alerts only while work waits — the Brain tender has no queue, so it
+/// never does.</item>
+/// </list>
+/// Review ready, Handled and No summary yet raise nothing.
+/// </summary>
+public static partial class SessionAlerts
+{
+    /// <summary>The place a schedule's alert is raised from, after its repository.</summary>
+    public const string SchedulesPlace = "Schedules";
+
+    /// <summary>
+    /// The place a schedule's alert names: the schedule's repository, then
+    /// <see cref="SchedulesPlace"/> — "JSdotNet/Backlog · Schedules". The repository leads, as
+    /// a run's does, so the centre files the alert under it rather than under the Brain; a
+    /// schedule that reported no repository is <see cref="SchedulesPlace"/> alone, the Brain's.
+    /// A repository name long enough to cut the place at its 120 characters loses the
+    /// separator, and the alert then reads as the Brain's too.
+    /// </summary>
+    public static string SchedulePlace(string? repository) =>
+        string.IsNullOrWhiteSpace(repository) ? SchedulesPlace : $"{OneLine(repository)} · {SchedulesPlace}";
+
+    /// <summary>The place a loop's alert is raised from.</summary>
+    public const string SessionsPlace = "Sessions";
+
+    private const int MaxTitle = 80;
+    private const int MaxSummary = 180;
+
+    /// <summary>The most Needs-you lines an alert's body lists, and the most characters of
+    /// each, so a run's 50 lines of 4000 characters stay well inside a notification's 32 KB.</summary>
+    private const int MaxBodyLines = 20;
+    private const int MaxBodyLine = 300;
+
+    /// <summary>
+    /// Why the alert <paramref name="key"/> names closes once no reading holds it any more, in
+    /// words its notification closes with. A key opens with its cause, so the cause is read back
+    /// from it after a restart, when nothing in memory remembers it.
+    /// </summary>
+    public static string ClosedReason(string key) =>
+        (key ?? string.Empty).Split(':', 2)[0] switch
+        {
+            "needs-you" or "failed" => "Run archived",
+            "held" => "No longer held",
+            "missed" => "A run started",
+            "stalled" => "Checked in again, or its process ended",
+            "not-running" => "A dispatcher checked in again, or nothing waits any more",
+            _ => "Cleared",
+        };
+
+    /// <summary>
+    /// Why each Failed alert a recovery cleared closes, by its key: every failed run of
+    /// <paramref name="schedules"/> that reads Handled because a later run finished clean,
+    /// rather than because its session is archived, with <see cref="RecoveredReason"/> naming
+    /// that later run. The publisher closes these with this reason in place of
+    /// <see cref="ClosedReason"/>'s "Run archived".
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> Recoveries(IEnumerable<ScheduleReadingResult> schedules, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(schedules);
+        ArgumentNullException.ThrowIfNull(zone);
+
+        var reasons = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var schedule in schedules)
+        {
+            foreach (var reading in schedule.Runs)
+            {
+                if (reading is not { State: ScheduledRunState.Handled, RecoveredBy: { } recoverer }) continue;
+
+                reasons[FailedKey(schedule.Schedule.Id, reading.Run.SessionId)] = RecoveredReason(recoverer, zone);
+            }
+        }
+
+        return reasons;
+    }
+
+    /// <summary>
+    /// The words a Failed alert closes with when <paramref name="recoverer"/>, a later run of its
+    /// schedule, finished clean: "Handled: the Wed 11 Nov 05:40 run finished Review ready" —
+    /// the run named by the day and time it began, so two runs of one day stay apart. It names
+    /// what the run reported (<see cref="ScheduleReading.FinishedClean"/>), which stands once
+    /// that run is archived too.
+    /// </summary>
+    public static string RecoveredReason(ScheduledRun recoverer, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(recoverer);
+        ArgumentNullException.ThrowIfNull(zone);
+
+        var began = TimeZoneInfo.ConvertTime(ScheduleOverview.Began(recoverer), zone);
+
+        return $"Handled: the {began.ToString("ddd d MMM HH:mm", CultureInfo.InvariantCulture)} run finished Review ready";
+    }
+
+    private static string FailedKey(string scheduleId, string sessionId) => $"failed:schedule:{scheduleId}:{sessionId}";
+
+    /// <summary>Every alert that holds now.</summary>
+    /// <param name="schedules">The schedules as <see cref="ScheduleReading"/> reads them.</param>
+    /// <param name="loops">The loop sessions as the Loop State reads them.</param>
+    /// <param name="waiting">The work waiting for a loop of a kind.</param>
+    /// <param name="zone">The zone the times in the words are written in: this machine's.</param>
+    public static IReadOnlyList<SessionAlert> Read(
+        IEnumerable<ScheduleReadingResult> schedules,
+        IEnumerable<LoopSessionReading> loops,
+        Func<LoopKind, LoopWaitingWork> waiting,
+        TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(schedules);
+        ArgumentNullException.ThrowIfNull(loops);
+        ArgumentNullException.ThrowIfNull(waiting);
+        ArgumentNullException.ThrowIfNull(zone);
+
+        var alerts = new List<SessionAlert>();
+
+        foreach (var schedule in schedules) alerts.AddRange(ForSchedule(schedule, zone));
+
+        foreach (var latest in loops
+                     .GroupBy(loop => loop.Loop.CheckIn.Kind)
+                     .Select(kind => kind.OrderByDescending(loop => loop.Loop.CheckIn.At).First()))
+        {
+            if (ForLoop(latest, waiting(latest.Loop.CheckIn.Kind), zone) is { } alert) alerts.Add(alert);
+        }
+
+        return alerts;
+    }
+
+    /// <summary>How far before the oldest session the reading must hold it reaches, for a
+    /// session that began before it first reported.</summary>
+    public static readonly TimeSpan HorizonSlack = TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// How far back the session reading behind <see cref="Read"/> must reach for every alert
+    /// to read as it would over all of history: to the oldest session whose archived flag or
+    /// liveness can still raise or clear an alert, less <see cref="HorizonSlack"/>. Those are
+    /// the latest check-in of each loop kind (only it alerts); each schedule's latest run; every
+    /// run reading Needs you or Failed — a failure a later run recovered reads Handled and is
+    /// left out; and the runs of a latest Held streak with the run that holds it. A session
+    /// outside the reading reads not archived, so <paramref name="archived"/> names the ones
+    /// already known archived: such a run reads Handled and leaves the window, and the caller
+    /// must read it archived from then on. Now, less the slack, when nothing must be read.
+    /// </summary>
+    /// <param name="schedules">The Schedule Register's records.</param>
+    /// <param name="loops">The Loop Register's sessions.</param>
+    /// <param name="archived">Whether a session id is already known archived.</param>
+    /// <param name="now">The time the alerts are read at.</param>
+    /// <param name="zone">The zone the crons are evaluated in.</param>
+    public static DateTimeOffset Horizon(
+        IEnumerable<ScheduleRecord> schedules,
+        IEnumerable<LoopSession> loops,
+        Func<string, bool> archived,
+        DateTimeOffset now,
+        TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(schedules);
+        ArgumentNullException.ThrowIfNull(loops);
+        ArgumentNullException.ThrowIfNull(archived);
+        ArgumentNullException.ThrowIfNull(zone);
+
+        var oldest = now;
+
+        foreach (var latest in loops.GroupBy(loop => loop.CheckIn.Kind).Select(kind => kind.Max(loop => loop.CheckIn.At)))
+        {
+            if (latest < oldest) oldest = latest;
+        }
+
+        foreach (var record in schedules)
+        {
+            foreach (var run in MustRead(record, ScheduleReading.Read(record, archived, now, zone)))
+            {
+                var at = run.StartedAt is { } started && started < run.FirstReportedAt ? started : run.FirstReportedAt;
+
+                if (at < oldest) oldest = at;
+            }
+        }
+
+        return oldest - HorizonSlack;
+    }
+
+    /// <summary>The runs of one schedule whose archiving can still raise or clear an alert.</summary>
+    private static IEnumerable<ScheduledRun> MustRead(ScheduleRecord record, ScheduleReadingResult reading)
+    {
+        if (reading.Runs.Count == 0) yield break;
+
+        yield return reading.Runs[0].Run;
+
+        foreach (var run in reading.Runs)
+        {
+            if (run.State is ScheduledRunState.NeedsYou or ScheduledRunState.Failed) yield return run.Run;
+        }
+
+        if (reading.Runs[0].State != ScheduledRunState.Held) yield break;
+
+        foreach (var run in reading.Runs.TakeWhile(run => run.State == ScheduledRunState.Held)) yield return run.Run;
+
+        if (reading.Runs[0].Run.HeldBy is not { Length: > 0 } holder) yield break;
+
+        // A holder the register does not hold as a run gives no time to bound by, so the
+        // reading reaches back to the schedule's oldest run.
+        var held = record.Runs.FirstOrDefault(run => string.Equals(run.SessionId, holder, StringComparison.Ordinal));
+
+        yield return held ?? record.Runs.MinBy(run => run.FirstReportedAt)!;
+    }
+
+    /// <summary>The alerts one schedule holds now.</summary>
+    public static IReadOnlyList<SessionAlert> ForSchedule(ScheduleReadingResult schedule, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(schedule);
+        ArgumentNullException.ThrowIfNull(zone);
+
+        var name = NameOf(schedule.Schedule);
+        var id = schedule.Schedule.Id;
+        var place = SchedulePlace(schedule.Schedule.Repository);
+        var alerts = new List<SessionAlert>();
+
+        foreach (var reading in schedule.Runs)
+        {
+            var run = reading.Run;
+
+            if (reading.State == ScheduledRunState.NeedsYou)
+            {
+                var lines = run.NeedsYou.Count > 0 ? run.NeedsYou : [run.Verdict ?? "The run asks for you."];
+
+                alerts.Add(new SessionAlert(
+                    $"needs-you:schedule:{id}:{run.SessionId}",
+                    SessionAlertCause.NeedsYou,
+                    place,
+                    Cut($"{name} needs you", MaxTitle),
+                    Cut(string.Join("; ", lines.Select(PlainText)), MaxSummary),
+                    $"""
+                    A run of **{name}** finished and asks for you:
+
+                    {Listed(lines)}
+
+                    The alert closes once the run's session is archived.
+                    """,
+                    RunActions(run.SessionId, id)));
+            }
+            else if (reading.State == ScheduledRunState.Failed)
+            {
+                var error = run.Verdict ?? "It reported no error.";
+
+                alerts.Add(new SessionAlert(
+                    FailedKey(id, run.SessionId),
+                    SessionAlertCause.Failed,
+                    place,
+                    Cut($"{name} failed", MaxTitle),
+                    Cut(error, MaxSummary),
+                    $"""
+                    A run of **{name}** failed:
+
+                    > {Cut(error, 2000)}
+
+                    The alert closes once the run's session is archived, or once a later run of the schedule finishes Review ready.
+                    """,
+                    RunActions(run.SessionId, id)));
+            }
+        }
+
+        if (HeldStreak(schedule) is { } held)
+        {
+            alerts.Add(new SessionAlert(
+                $"held:schedule:{id}:{held}",
+                SessionAlertCause.Held,
+                place,
+                Cut($"{name} is held", MaxTitle),
+                "An earlier run is not archived, so each run skips itself.",
+                $"""
+                Each run of **{name}** skips itself while an earlier run's session is not archived.
+                Archive that run in Claude once it is handled, and the next run goes ahead.
+                """,
+                RunActions(held, id)));
+        }
+
+        if (schedule.State == ScheduledRunState.Missed && schedule.DueAt is { } due)
+        {
+            var at = Clock(due, zone);
+
+            alerts.Add(new SessionAlert(
+                $"missed:schedule:{id}:{due.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}",
+                SessionAlertCause.Missed,
+                place,
+                Cut($"{name} missed its run", MaxTitle),
+                Cut($"It was due at {at} and no run has started.", MaxSummary),
+                $"""
+                **{name}** was due at {at}, and no run reported its start within {(int)ScheduleReading.MissedGrace.TotalMinutes} minutes.
+                The machine may have been asleep, or the schedule turned off. The alert closes once a run starts.
+                """,
+                [new SessionAlertAction("Open Schedules", SessionAlertTarget.Schedules, ScheduleId: id)]));
+        }
+
+        return alerts;
+    }
+
+    /// <summary>The alert one loop holds now, or null when it holds none.</summary>
+    public static SessionAlert? ForLoop(LoopSessionReading loop, LoopWaitingWork waiting, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(loop);
+        ArgumentNullException.ThrowIfNull(waiting);
+        ArgumentNullException.ThrowIfNull(zone);
+
+        var checkIn = loop.Loop.CheckIn;
+        var name = checkIn.Kind == LoopKind.Dispatcher ? "Session dispatcher" : "Brain tender";
+        var last = Clock(checkIn.At, zone);
+        var stamp = checkIn.At.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+        var actions = new[] { new SessionAlertAction("Open Sessions", SessionAlertTarget.Sessions, checkIn.SessionId) };
+
+        switch (loop.State)
+        {
+            // Stalled means the process is seen alive: a session the reading does not hold reads
+            // Stalled by its check-ins alone, and nothing says it is still running.
+            case LoopState.Stalled when loop.Process == LoopProcess.Alive:
+                return new SessionAlert(
+                    $"stalled:loop:{checkIn.SessionId}:{stamp}",
+                    SessionAlertCause.Stalled,
+                    SessionsPlace,
+                    $"{name} stalled",
+                    Cut($"No check-in since {last}, past its {checkIn.HeartbeatMinutes}-minute heartbeat.", MaxSummary),
+                    $"""
+                    The **{name.ToLowerInvariant()}** is still running, but it has not checked in since {last}: its heartbeat is {Count(checkIn.HeartbeatMinutes, "minute")}.
+                    Look at its session. The alert closes once it checks in again.
+                    """,
+                    actions);
+
+            case LoopState.NotRunning when checkIn.Kind == LoopKind.Dispatcher && waiting.Any:
+                var work = Waiting(waiting);
+
+                return new SessionAlert(
+                    $"not-running:loop:{checkIn.SessionId}:{stamp}",
+                    SessionAlertCause.NotRunning,
+                    SessionsPlace,
+                    $"{name} stopped",
+                    Cut($"{Capitalised(work)} {(waiting.SessionRequests + waiting.Deliveries == 1 ? "waits" : "wait")} for it. It last checked in at {last}.", MaxSummary),
+                    $"""
+                    The **{name.ToLowerInvariant()}** is not running, and {work} {(waiting.SessionRequests + waiting.Deliveries == 1 ? "waits" : "wait")} for it.
+                    Start the loop again in a pinned session. The alert closes once a dispatcher checks in again.
+                    """,
+                    actions);
+
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>The session id that names a schedule's current Held streak — what the newest
+    /// skip named as holding it, else the oldest skip in the run of skips the newest one
+    /// ends — or null when its latest run is not held.</summary>
+    private static string? HeldStreak(ScheduleReadingResult schedule)
+    {
+        if (schedule.Runs.Count == 0 || schedule.Runs[0].State != ScheduledRunState.Held) return null;
+
+        if (schedule.Runs[0].Run.HeldBy is { Length: > 0 } holder) return holder;
+
+        var oldest = schedule.Runs[0].Run.SessionId;
+
+        foreach (var reading in schedule.Runs.Skip(1))
+        {
+            if (reading.State != ScheduledRunState.Held) break;
+
+            oldest = reading.Run.SessionId;
+        }
+
+        return oldest;
+    }
+
+    private static string Listed(IReadOnlyList<string> lines)
+    {
+        var listed = string.Join('\n', lines.Take(MaxBodyLines).Select(line => "- " + Cut(line, MaxBodyLine)));
+
+        return lines.Count > MaxBodyLines
+            ? listed + $"\n- …and {lines.Count - MaxBodyLines} more"
+            : listed;
+    }
+
+    private static SessionAlertAction[] RunActions(string sessionId, string scheduleId) =>
+    [
+        new("Open run", SessionAlertTarget.Run, sessionId),
+        new("Open Schedules", SessionAlertTarget.Schedules, ScheduleId: scheduleId),
+    ];
+
+    private static string NameOf(Schedule schedule) =>
+        OneLine(string.IsNullOrWhiteSpace(schedule.Title) ? schedule.Id : schedule.Title);
+
+    private static string Waiting(LoopWaitingWork waiting)
+    {
+        var parts = new List<string>();
+
+        if (waiting.SessionRequests > 0) parts.Add(Count(waiting.SessionRequests, "session request"));
+        if (waiting.Deliveries > 0) parts.Add(Count(waiting.Deliveries, "answer delivery", "answer deliveries"));
+
+        return string.Join(" and ", parts);
+    }
+
+    private static string Count(int count, string one, string? many = null) =>
+        count.ToString(CultureInfo.InvariantCulture) + " " + (count == 1 ? one : many ?? one + "s");
+
+    private static string Capitalised(string text) =>
+        text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
+
+    private static string Clock(DateTimeOffset at, TimeZoneInfo zone) =>
+        TimeZoneInfo.ConvertTime(at, zone).ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A Needs-you line as plain text, for the alert's summary, which is plain text
+    /// wherever it is drawn — a Windows notification, the phone, the centre's card: a link
+    /// keeps its words, and emphasis and code marks go. The body keeps the Markdown, where it
+    /// renders.
+    /// </summary>
+    internal static string PlainText(string line) =>
+        InlineMarks().Replace(MarkdownLink().Replace(line, "${text}"), string.Empty);
+
+    [GeneratedRegex(@"!?\[(?<text>[^\]]*)\]\([^)\s]*(?:\s+""[^""]*"")?\)")]
+    private static partial Regex MarkdownLink();
+
+    [GeneratedRegex(@"\*\*|`+")]
+    private static partial Regex InlineMarks();
+
+    private static string OneLine(string text) =>
+        string.Join(' ', text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Select(part => part.Trim())).Trim();
+
+    private static string Cut(string text, int length)
+    {
+        var line = OneLine(text);
+
+        return line.Length <= length ? line : line[..(length - 1)] + "…";
+    }
+}
