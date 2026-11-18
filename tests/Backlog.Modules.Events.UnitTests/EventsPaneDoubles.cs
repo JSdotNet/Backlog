@@ -111,6 +111,24 @@ internal sealed class FakeEventTaskTarget : IEventTaskTarget
         return Result.Success(Hold(title));
     }
 
+    /// <summary>Ids of tasks it held and the person deleted: not looked up, and never filed again.</summary>
+    public HashSet<string> Deleted { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Files under the caller's id only when no task with it is held, live or deleted —
+    /// the adapter's rule, proved against Tasks in <c>EventsTaskTargetTests</c>.</summary>
+    public async Task<Result<bool>> FileOnceAsync(string taskId, string title, CancellationToken cancellationToken = default)
+    {
+        if (FileGate is { } gate) await gate.Task;
+        if (RefuseWith is { } error) return Result.Failure<bool>(error);
+        if (RefuseTitles.Contains(title)) return Result.Failure<bool>(Error.Validation("entry.needs_title", "Refused."));
+        if (ThrowTitles.Contains(title)) throw new InvalidOperationException("The Tasks store could not be written.");
+        if (Held.ContainsKey(taskId) || Deleted.Contains(taskId)) return Result.Success(false);
+
+        Filed.Add(title);
+        Held[taskId] = new EventTaskFactsDto(taskId, title, "Draft");
+        return Result.Success(true);
+    }
+
     /// <summary>Marks a held task Done, and leaves one already Done or Archived as it is — the
     /// adapter's rule, proved against Tasks in <c>EventsTaskTargetTests</c>.</summary>
     public Task<Result> CompleteAsync(string taskId, CancellationToken cancellationToken = default)

@@ -264,6 +264,18 @@ An event with a start and no end ends on its start day, and an event with no dat
 
 Enforced at: `FileDue()`
 
+### Invariant: An event's harvest task is filed under the id derived from it
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.The_harvest_task_is_filed_under_the_id_derived_from_the_event, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_derived_task_already_held_is_linked_and_not_filed_again, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_derived_task_deleted_here_is_linked_and_not_filed_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.CreateTaskIfAbsentTests.A_task_held_live_is_left_as_it_is, unit:dotnet:Backlog.Modules.Tasks.UnitTests.CreateTaskIfAbsentTests.A_task_held_deleted_stays_deleted]
+```
+
+The policy files an event's harvest task only under the id derived from the event's id, and files none while a task
+with that id is held, live or deleted; it links that id either way.
+
+Enforced at: `FileDue()`
+
 ### Invariant: Harvested completes only the event's own harvest task
 
 ```meta
