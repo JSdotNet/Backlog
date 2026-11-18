@@ -1,6 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Features.CountTasks;
+using Backlog.Modules.Tasks.Features.CreateTaskIfAbsent;
 using Backlog.Modules.Tasks.Features.DeleteTask;
 using Backlog.Modules.Tasks.Features.GetTask;
 using Backlog.Modules.Tasks.Features.ImportPlan;
@@ -40,7 +41,8 @@ internal sealed class TaskItems(
     ICommandHandler<RenameRepositoryCommand, Result<int>> renameRepository,
     ICommandHandler<RefileRepositoryTasksCommand, Result<int>> refileRepositoryTasks,
     IQueryHandler<GetTaskQuery, TaskItemDto?> get,
-    IQueryHandler<CountTasksQuery, int> count) : ITaskItems
+    IQueryHandler<CountTasksQuery, int> count,
+    ICommandHandler<CreateTaskIfAbsentCommand, Result<bool>> createIfAbsent) : ITaskItems
 {
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
         list.Handle(new ListTasksQuery(), cancellationToken);
@@ -58,6 +60,13 @@ internal sealed class TaskItems(
         string? sourceInboxId = null,
         CancellationToken cancellationToken = default) =>
         save.Handle(new SaveTaskFromTextCommand(id, rawText, order, sourceInboxId), cancellationToken);
+
+    public Task<Result<bool>> CreateFromTextIfAbsentAsync(
+        Guid id,
+        string rawText,
+        int order,
+        CancellationToken cancellationToken = default) =>
+        createIfAbsent.Handle(new CreateTaskIfAbsentCommand(id, rawText, order), cancellationToken);
 
     public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
         delete.Handle(new DeleteTaskCommand(id), cancellationToken);

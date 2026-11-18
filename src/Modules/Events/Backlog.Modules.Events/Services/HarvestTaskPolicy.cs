@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
 using Backlog.SharedKernel.Results;
@@ -14,6 +17,13 @@ namespace Backlog.Modules.Events.Services;
 /// <c>domain.invariants.md#harvest-task-policy</c>, enforced at <see cref="FileDueAsync"/> and
 /// <see cref="OnHarvestedAsync"/>.
 /// <para>
+/// <b>Once per event is kept by the task's id.</b> The harvest task is filed under an id derived
+/// from the event (<see cref="HarvestTaskId"/>) and only when Tasks holds no task with it, live
+/// or deleted, so two desktops that both check the morning after file the same task, both their
+/// copies of the event link it, and the replicas fold the two into one. The id is a one-way hash,
+/// so nothing in Tasks names the event (local ADR 0050 §3).
+/// </para>
+/// <para>
 /// A service and not a rule of the event, because it spans the event and a task in Tasks. It
 /// never changes an event's state, and it raises no notification: the task is the reminder.
 /// Scoped, for the task target it holds.
@@ -27,14 +37,36 @@ internal sealed class HarvestTaskPolicy(
 {
     private const string TitlePrefix = "Harvest ";
 
+    /// <summary>Prefixed onto the event's id before it is hashed, so the harvest task's id cannot
+    /// collide with a hash any other rule takes of the same id.</summary>
+    private const string Namespace = "backlog:harvest-task:";
+
     private readonly ILogger _log = log ?? NullLogger<HarvestTaskPolicy>.Instance;
 
     /// <summary>
+    /// The id of the harvest task of <paramref name="eventId"/>. The same event gives the same id
+    /// on every machine: the first sixteen bytes of a SHA-256 over the namespace and the id,
+    /// marked as an RFC 9562 version 8 (custom) UUID — Occurrence Spawning's recipe, under a
+    /// namespace of its own.
+    /// </summary>
+    public static Guid HarvestTaskId(Guid eventId)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(Namespace + eventId.ToString("D")));
+        var bytes = hash.AsSpan(0, 16).ToArray();
+
+        bytes[6] = (byte)((bytes[6] & 0x0F) | 0x80);
+        bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80);
+
+        return new Guid(bytes, bigEndian: true);
+    }
+
+    /// <summary>
     /// Files the harvest task of every event due on <paramref name="today"/>, the desktop's local
-    /// date, and links it to the event as its harvest task; answers how many it filed. An event
-    /// already holding a harvest task gets none, so a second check the same day, or the next,
-    /// files nothing. A filing that is refused, or throws, links nothing, and the other events
-    /// still file.
+    /// date, under the id derived from the event, and links it to the event as its harvest task;
+    /// answers how many it filed. An event already holding a harvest task gets none, so a second
+    /// check the same day, or the next, files nothing. A task already held under the derived id,
+    /// live or deleted, is linked and not filed again. A filing that is refused, or throws, links
+    /// nothing, and the other events still file.
     /// </summary>
     public async Task<int> FileDueAsync(DateOnly today, CancellationToken cancellationToken = default)
     {
@@ -85,28 +117,31 @@ internal sealed class HarvestTaskPolicy(
         Error.Unexpected("harvest_task.completion_failed", "The harvest task could not be completed.");
 
     /// <summary>
-    /// Files the harvest task of <paramref name="due"/>, then links it on the event as it stands
-    /// now rather than the copy the pass listed, so a change the person made in the pane while
-    /// the task filed is kept. File, then link: when the event is gone, already holds a harvest
-    /// task, or is no longer due by then, the filed task is left unlinked, as it is when the save
-    /// after the filing fails — accepted in the first version.
+    /// Files the harvest task of <paramref name="due"/> under its derived id unless that task is
+    /// already held, then links the id on the event as it stands now rather than the copy the
+    /// pass listed, so a change the person made in the pane while the task filed is kept; answers
+    /// whether it filed. File, then link: when the event is gone, already holds a harvest task, or
+    /// is no longer due by then, the task is left unlinked. A link whose save failed heals on the
+    /// next check, which finds the task held and links it.
     /// </summary>
     private async Task<bool> FileOneAsync(KnowledgeEvent due, DateOnly today, CancellationToken cancellationToken)
     {
-        var task = await tasks.FileAsync(TitlePrefix + due.Title, cancellationToken).ConfigureAwait(false);
-        if (task.IsFailure) return false;
+        var taskId = HarvestTaskId(due.Id).ToString("D");
+
+        var filed = await tasks.FileOnceAsync(taskId, TitlePrefix + due.Title, cancellationToken).ConfigureAwait(false);
+        if (filed.IsFailure) return false;
 
         if (await events.GetAsync(due.Id, cancellationToken).ConfigureAwait(false) is not { } current
             || !IsDue(current, today)
-            || current.LinkHarvestTask(task.Value).IsFailure)
+            || current.LinkHarvestTask(taskId).IsFailure)
         {
-            _log.LogWarning("Harvest task {TaskId} was filed but event {EventId} changed meanwhile, so it was not linked.", task.Value, due.Id);
+            _log.LogWarning("Harvest task {TaskId} is held but event {EventId} changed meanwhile, so it was not linked.", taskId, due.Id);
             return false;
         }
 
         await events.SaveAsync(current, cancellationToken).ConfigureAwait(false);
         saved?.Raise();
-        return true;
+        return filed.Value;
     }
 
     /// <summary>Going, and its last day — the end, else the start — is before

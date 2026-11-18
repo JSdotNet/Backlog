@@ -310,13 +310,15 @@ related: [.devbook/domain/capture/requirements.md#event-page-monitor, .devbook/d
 
 ```mermaid
 flowchart TD
-    Page[A watched event page] --> S1{schema.org event on the page?}
+    Page[A watched event page] --> S1{Upcoming schema.org event on the page?}
     S1 -- yes --> Dates[Item with dates and place]
-    S1 -- no --> S2{Registration link with a schema.org event?}
+    S1 -- no --> S2{Upcoming schema.org event one registration link away?}
     S2 -- yes --> Dates
-    S2 -- no --> S3{Date pattern in the page text?}
+    S2 -- no --> S3{Upcoming date pattern in the page text?}
     S3 -- yes --> Dates
-    S3 -- no --> Link[Item with the page link only]
+    S3 -- no --> Any{Did any step read a date?}
+    Any -- yes --> Passed[No item: the run says the edition passed]
+    Any -- no --> Link[Item with the page link only]
 ```
 
 Watches the pages where organisers announce their events, and brings each new
@@ -326,7 +328,7 @@ the Inbox's Sources panel the way YouTube channels are. It shows only while the
 [Events area](../events/context.md#events-area) is on.
 
 The monitor reads each page by fixed rules and asks no AI model. It stops at the first step that
-gives a date:
+gives an edition still to come:
 
 1. A schema.org event in the page's structured data.
 2. One hop to a registration link, and the schema.org event on that page. A
@@ -340,12 +342,20 @@ gives a date:
 
 The dates and place it found ride with the capture as its
 [Event Facts](domain.md#event-facts). A date has a time and a UTC offset only when the
-source gave them. An edition whose end date has passed is skipped, because an
-organiser's page often still shows last year's edition.
+source gave them. An edition whose end date has passed is skipped, and the read goes on
+to the next step. An organiser's page often still carries last edition's event, or
+links its listing, while its text already names the next date. When no step finds an
+edition to come, the run says the latest edition it read has passed.
 
 Each edition is delivered once. Its external id is the listing id when the
 registration page has one. Otherwise it is the page URL, the year and the place, so
-next year's edition on the same page is a new item.
+next year's edition on the same page is a new item. Two upcoming schema.org events
+can share that id. Then the one that starts first keeps it. A later one whose own
+`url` differs from the first's adds that URL to its id.
+
+- **Why:** before the URL counted, the first upcoming edition was delivered under the
+  plain id. When it passes, the next one takes the plain id over. That one already
+  arrived under its URL, so nothing arrives twice.
 
 The monitor runs only when the person presses [Run capture now](#run-capture-now).
 [Scheduled scans](#scheduled-scans) does not cover it.
@@ -354,11 +364,18 @@ The monitor runs only when the person presses [Run capture now](#run-capture-now
   noticed. A run only asks whether an external id is already known.
 - **Known limit:** a page whose layout changes can hide its dates. The item then
   arrives with only the page link, which is the visible symptom.
-- **Known limit:** a page that still carries last edition's schema.org event, or a
-  link to its listing, stops at that step. The run says the edition has passed,
-  even when the page text already names the next one.
-- **Known limit:** two editions on one page in the same year and place, with no
-  listing id, share an external id. Only the first is delivered.
+- **Known limit:** after a passed edition, the text step takes the first date to come
+  in the page text. That may be a date that is not an edition, such as a deadline for
+  talks.
+- **Known limit:** two editions in the same year and place, with no listing id and no
+  `url` of their own, share an external id. Only the first is delivered.
+- **Known limit:** an edition that first appears after the previous one in its year
+  and place has passed takes the plain id. That id is already known, so the edition is
+  not delivered.
+- **Known limit:** an edition added before one already delivered starts first, so it
+  takes the plain id and is not delivered. The later one then arrives a second time.
+  A page that listed its newest edition first when the URL began to count does the
+  same once.
 
 ### News email ingestion
 

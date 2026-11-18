@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.FileSystem.Events;
 
 /// <summary>
 /// Answers Events' <see cref="IEventTaskTarget"/> over Tasks' published <see cref="ITaskItems"/>
-/// and <see cref="ITaskChangeSignal"/>: the one place an event's prep task becomes entry text.
+/// and <see cref="ITaskChangeSignal"/>: the one place an event's prep or harvest task becomes entry text.
 /// <para>
 /// Here and not in either module, for the reason the Inbox's backlog target is: Events may not
 /// see Tasks, and Tasks never learns of the event (local ADR 0050 §3). The text is the title
@@ -42,6 +42,19 @@ internal sealed partial class EventsTaskTarget(ITaskItems tasks, ITaskChangeSign
             ? Result.Failure<string>(saved.Error)
             : Result.Success(saved.Value.Entry.Id.ToString("D"));
     }
+
+    public async Task<Result<bool>> FileOnceAsync(string taskId, string title, CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(taskId, out var id)) return Result.Failure<bool>(TaskIdMalformed);
+
+        // The same text and the same place at the bottom as a prep task; only the id is the caller's.
+        var order = await tasks.CountAsync(cancellationToken).ConfigureAwait(false);
+
+        return await tasks.CreateFromTextIfAbsentAsync(id, Compose(title), order, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static readonly Error TaskIdMalformed =
+        Error.Validation("event_task.id_malformed", "A task id is a GUID.");
 
     public async Task<IReadOnlyDictionary<string, EventTaskFactsDto>> LookupAsync(
         IReadOnlyCollection<string> taskIds,
@@ -85,7 +98,7 @@ internal sealed partial class EventsTaskTarget(ITaskItems tasks, ITaskChangeSign
         return saved.IsFailure ? Result.Failure(saved.Error) : Result.Success();
     }
 
-    /// <summary>A prep task's whole text: its title as one heading line, then the type word.</summary>
+    /// <summary>A prep or harvest task's whole text: its title as one heading line, then the type word.</summary>
     internal static string Compose(string title) =>
         "# " + WhitespaceRun().Replace((title ?? string.Empty).Trim(), " ") + "\n`task`\n";
 

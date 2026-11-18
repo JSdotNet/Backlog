@@ -297,7 +297,7 @@ The system SHALL file a task titled `Harvest <event title>` with no repository o
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_second_check_files_no_second_harvest_task, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.An_event_already_holding_a_harvest_task_gets_none_filed]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_second_check_files_no_second_harvest_task, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.An_event_already_holding_a_harvest_task_gets_none_filed, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Two_desktops_file_one_harvest_task_between_them]
 ```
 
 The system SHALL file at most one harvest task per event, however many of the person's desktops see its end day pass.
