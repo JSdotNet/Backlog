@@ -1,7 +1,9 @@
 using Backlog.Modules.Events.Abstractions;
+using Backlog.Modules.Events.DomainModels;
 using Backlog.Modules.Events.Services;
 using Backlog.Modules.Events.UI;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
 
 using Bunit;
@@ -687,6 +689,159 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         [.. _context.JSInterop.Invocations
             .Where(invocation => invocation.Identifier == "backlogFocus")
             .Select(invocation => invocation.Arguments[0] as string)];
+
+    // --- Round 3: what the plan review found ----------------------------------------------
+
+    [Fact]
+    public async Task A_talk_note_opens_the_inbox_on_that_note()
+    {
+        var noteId = Guid.NewGuid().ToString("D");
+        var id = await Add("Techorama Belgium");
+        await Change(id, e => e.LinkNote(NoteLink.Create(NoteLinkKind.Talk, noteId, "Keynote: Aspire in production")));
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-note']"));
+
+        var chip = pane.Find("[data-testid='events-note']");
+        Assert.Contains("Keynote: Aspire in production", chip.TextContent, StringComparison.Ordinal);
+        chip.QuerySelector(".repo-link-chip__open")!.Click();
+
+        var shown = Assert.Single(_navigator.Shown);
+        Assert.Equal("inbox", shown.SurfaceId);
+        Assert.Equal(noteId, shown.Query["item"]);
+    }
+
+    [Fact]
+    public async Task The_dates_show_where_they_came_from_and_an_undated_event_shows_no_source()
+    {
+        var paged = await Add("dotNET Friday");
+        var start = EventDate.Create(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), Cet).Value;
+        await Change(paged, e => e.SetDates(start, null, DateSource.EventPage));
+        var typed = await Dated("Techorama Belgium", new DateOnly(2027, 5, 18));
+        var undated = await Add("NDC Oslo");
+        var pane = RenderOn(paged);
+
+        pane.WaitForAssertion(() => Assert.Equal("Source: Event page", Text(pane, "events-date-source")));
+
+        pane.Find($"[data-testid='events-row-{typed:N}']").Click();
+        pane.WaitForAssertion(() => Assert.Equal("Source: Typed", Text(pane, "events-date-source")));
+
+        pane.Find($"[data-testid='events-row-{undated:N}']").Click();
+        pane.WaitForAssertion(() => Assert.Equal("NDC Oslo", Text(pane, "events-editor-title")));
+        Assert.Empty(pane.FindAll("[data-testid='events-date-source']"));
+    }
+
+    [Fact]
+    public async Task A_date_typed_over_the_event_pages_reads_typed()
+    {
+        var id = await Add("dotNET Friday");
+        var start = EventDate.Create(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), Cet).Value;
+        await Change(id, e => e.SetDates(start, null, DateSource.EventPage));
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => Assert.Equal("Source: Event page", Text(pane, "events-date-source")));
+
+        pane.Find("[data-testid='events-field-start-time'] input").Change("17:00");
+
+        pane.WaitForAssertion(() => Assert.Equal("Source: Typed", Text(pane, "events-date-source")));
+        Assert.Equal(DateSource.Typed, Saved(id).DateSource);
+    }
+
+    [Fact]
+    public async Task Emptying_the_currency_of_a_saved_cost_keeps_the_cost_and_says_a_currency_is_needed()
+    {
+        var id = await Add("Techorama Belgium");
+        Assert.True((await Pane.SetCostAsync(id, new CostDto(749m, "EUR"), Token)).IsSuccess);
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-currency'] input"));
+
+        pane.Find("[data-testid='events-field-currency'] input").Change(string.Empty);
+
+        pane.WaitForAssertion(() => Assert.Contains(
+            EventEditor.CurrencyNeeded,
+            pane.Find("[data-testid='events-field-currency']").TextContent,
+            StringComparison.Ordinal));
+        Assert.Contains("save-indicator--error", pane.Find("[data-testid='events-editor-save']").ClassName, StringComparison.Ordinal);
+        Assert.Equal(new CostDto(749m, "EUR"), Saved(id).Cost);
+
+        pane.Find("[data-testid='events-field-currency'] input").Change("usd");
+
+        pane.WaitForAssertion(() => Assert.Equal(new CostDto(749m, "USD"), Saved(id).Cost));
+        pane.WaitForAssertion(() => Assert.DoesNotContain(
+            EventEditor.CurrencyNeeded,
+            pane.Find("[data-testid='events-field-currency']").TextContent,
+            StringComparison.Ordinal));
+        Assert.Empty(pane.FindAll("[data-testid='events-editor-save'].save-indicator--error"));
+    }
+
+    [Fact]
+    public async Task A_second_jump_to_the_same_event_after_picking_another_opens_it_again()
+    {
+        var first = await Add("Techorama Belgium");
+        var second = await Add("dotNET Friday");
+        var pane = RenderOn(first);
+        pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium", Text(pane, "events-editor-title")));
+
+        pane.Find($"[data-testid='events-row-{second:N}']").Click();
+        pane.WaitForAssertion(() => Assert.Equal("dotNET Friday", Text(pane, "events-editor-title")));
+
+        // The same query handed back by a re-render is not a jump: the pick stands.
+        pane.Render(p => p.Add(c => c.Query, pane.Instance.Query));
+        Assert.Equal("dotNET Friday", Text(pane, "events-editor-title"));
+
+        pane.Render(p => p.Add(c => c.Query, new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [EventsSurfaceRegistration.EventKey] = first.ToString()
+        }));
+
+        pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium", Text(pane, "events-editor-title")));
+    }
+
+    [Fact]
+    public async Task The_skip_dialog_is_one_dialog()
+    {
+        var id = await Add("Techorama Belgium");
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-skip']"));
+
+        pane.Find("[data-testid='events-skip']").Click();
+
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-skip-dialog']"));
+        var dialog = Assert.Single(pane.FindAll("dialog"));
+        Assert.Equal("true", dialog.GetAttribute("aria-modal"));
+        Assert.Empty(pane.FindAll("[role='dialog']"));
+        Assert.Contains("Skip Techorama Belgium", dialog.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_note_picker_narrows_its_list_to_the_notes_matching_what_is_typed()
+    {
+        Brain.Notes["areas/learning/aspire.md"] = "Aspire takeaways";
+        Brain.Notes["areas/learning/techorama.md"] = "Techorama notes";
+        Brain.Notes["areas/events/ndc.md"] = "NDC Oslo";
+        var id = await Add("Techorama Belgium");
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-note-picker'] input"));
+
+        var picker = pane.Find("[data-testid='events-note-picker'] input");
+        picker.Input("TECHO");
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            ["areas/learning/techorama.md"],
+            pane.FindAll("[data-testid='events-note-picker'] [role='option']").Select(option => option.GetAttribute("data-value"))));
+
+        pane.Find("[data-testid='events-note-picker'] input").Input("areas/learning");
+
+        pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='events-note-picker'] [role='option']").Count));
+    }
+
+    /// <summary>Changes the stored event on the aggregate, as a capture or an applied attachment
+    /// request would, where the pane offers no write of its own for it.</summary>
+    private async Task Change(Guid id, Func<KnowledgeEvent, Result> change)
+    {
+        var stored = await Store.GetAsync(id, Token);
+        Assert.NotNull(stored);
+        Assert.True(change(stored).IsSuccess);
+        await Store.SaveAsync(stored, Token);
+    }
 
     // --- The surface ---------------------------------------------------------------------
 

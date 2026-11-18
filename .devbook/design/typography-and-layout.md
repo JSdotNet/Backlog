@@ -247,6 +247,10 @@ open order. For `Modal`, the top layer therefore takes the place of
 `z-index-modal`. The toast tray follows a modal into that layer while one is
 open, per `interaction-guidelines.md#feedback-and-toasts`.
 
+That `dialog` is the one dialog assistive technology meets: it carries the name and
+`aria-modal`, and the panel inside it, which holds the keys and the focus, has no
+role of its own, so two dialogs never nest.
+
 ## Iconography
 
 ```meta

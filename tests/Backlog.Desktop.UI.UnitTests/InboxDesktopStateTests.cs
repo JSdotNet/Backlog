@@ -206,6 +206,36 @@ public sealed class InboxDesktopStateTests : IDisposable
         Assert.Equal(["Put aside"], state.VisibleItems.Select(item => item.Title));
     }
 
+    /// <summary>A jump by id — an event's Talk note — opens the item in the slice it is
+    /// filed in, so the rows around it are its own; an id the Inbox does not hold leaves
+    /// the Inbox as it stood.</summary>
+    [Fact]
+    public async Task Opening_an_item_by_id_opens_the_slice_it_is_filed_in_and_selects_it()
+    {
+        var inbox = new FakeInboxItems();
+        var talks = inbox.SeedList("Talks");
+        var filed = inbox.Seed("Keynote: Aspire in production", kind: Backlog.Modules.Inbox.Abstractions.ContentKind.Note, listId: talks.Id);
+        var deferred = inbox.Seed("Put aside", status: Backlog.Modules.Inbox.Abstractions.InboxStatus.Deferred);
+        var unfiled = inbox.Seed("In the inbox");
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        await state.ReloadAsync();
+
+        Assert.True(state.OpenItem(filed.Id));
+        Assert.Equal(InboxDesktopState.ListNavId(talks.Id), state.SelectedSliceId);
+        Assert.Equal(filed.Id, state.SelectedItem?.Id);
+
+        Assert.True(state.OpenItem(deferred.Id));
+        Assert.Equal(InboxDesktopState.DeferredSliceId, state.SelectedSliceId);
+        Assert.Equal(deferred.Id, state.SelectedItem?.Id);
+
+        Assert.True(state.OpenItem(unfiled.Id));
+        Assert.Equal(InboxDesktopState.InboxSliceId, state.SelectedSliceId);
+        Assert.Equal(unfiled.Id, state.SelectedItem?.Id);
+
+        Assert.False(state.OpenItem(Guid.NewGuid()));
+        Assert.Equal(unfiled.Id, state.SelectedItem?.Id);
+    }
+
     // --- Tag options ----------------------------------------------------------
 
     /// <summary>The picker offers the words the backlog already uses beside the

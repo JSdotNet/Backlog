@@ -54,14 +54,14 @@ public sealed class ConfirmDialogTests
         // A second press and a cancel both do nothing while the act runs.
         await dialog.Find("[data-testid='confirm']").ClickAsync(new MouseEventArgs());
         Assert.True(dialog.Find("[data-testid='cancel']").HasAttribute("disabled"));
-        await dialog.Find("[role='dialog']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+        await dialog.Find(".modal").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
         Assert.Equal(1, confirmed);
         Assert.Equal(0, cancelled);
-        Assert.NotEmpty(dialog.FindAll("[role='dialog']"));
+        Assert.NotEmpty(dialog.FindAll("dialog"));
 
         await dialog.InvokeAsync(act.SetResult);
 
-        dialog.WaitForAssertion(() => Assert.Empty(dialog.FindAll("[role='dialog']")));
+        dialog.WaitForAssertion(() => Assert.Empty(dialog.FindAll("dialog")));
         Assert.Equal(0, cancelled);
     }
 
@@ -86,7 +86,7 @@ public sealed class ConfirmDialogTests
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             dialog.Find("[data-testid='confirm']").ClickAsync(new MouseEventArgs()));
 
-        Assert.NotEmpty(dialog.FindAll("[role='dialog']"));
+        Assert.NotEmpty(dialog.FindAll("dialog"));
         Assert.False(dialog.Find("[data-testid='confirm']").HasAttribute("aria-busy"));
         Assert.Equal(1, attempts);
     }
@@ -129,7 +129,7 @@ public sealed class ConfirmDialogTests
             // The host's failure goes on past the dialog; that is not under test here.
         }
 
-        Assert.NotEmpty(dialog.FindAll("[role='dialog']"));
+        Assert.NotEmpty(dialog.FindAll("dialog"));
         Assert.False(dialog.Find("[data-testid='confirm']").HasAttribute("aria-busy"));
         Assert.False(dialog.Find("[data-testid='cancel']").HasAttribute("disabled"));
         Assert.False(dialog.Find(".modal__close").HasAttribute("disabled"));
@@ -195,7 +195,7 @@ public sealed class ConfirmDialogTests
             .Add(d => d.OnCancel, () => cancelled++)
             .Add(d => d.OnConfirm, () => confirmed++));
 
-        dialog.Find("[role='dialog']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        dialog.Find(".modal").KeyDown(new KeyboardEventArgs { Key = "Escape" });
 
         Assert.Equal(1, cancelled);
         Assert.Equal(0, confirmed);

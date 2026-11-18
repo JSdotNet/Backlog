@@ -184,13 +184,30 @@ public sealed record NoteLink
         ArgumentException.ThrowIfNullOrWhiteSpace(reference);
         if (!Enum.IsDefined(kind)) throw new ArgumentOutOfRangeException(nameof(kind), kind, "A note link names a Brain note or a Talk note.");
 
-        return new NoteLink(kind, reference.Trim(), title?.Trim() ?? string.Empty);
+        var named = kind == NoteLinkKind.Brain ? BrainPath(reference) ?? reference.Trim() : reference.Trim();
+        return new NoteLink(kind, named, title?.Trim() ?? string.Empty);
     }
 
-    public bool Equals(NoteLink? other) =>
-        other is not null && Kind == other.Kind && string.Equals(Reference, other.Reference, StringComparison.Ordinal);
+    /// <summary>A Brain note's path as a link stores it: forward slashes, from the root, with no
+    /// leading slash, no <c>./</c> and no empty segment, so <c>./areas//talk.md</c> is
+    /// <c>areas/talk.md</c>. Null for one that names nothing. Applied on every link made, read
+    /// back or replicated, so a path stored before the rule names the same note too.</summary>
+    public static string? BrainPath(string? path)
+    {
+        var segments = (path ?? string.Empty).Trim().Replace('\\', '/')
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Where(segment => segment != ".");
+        var normalized = string.Join('/', segments);
+        return normalized.Length == 0 ? null : normalized;
+    }
 
-    public override int GetHashCode() => HashCode.Combine(Kind, StringComparer.Ordinal.GetHashCode(Reference));
+    /// <summary>Equal when they name the same note. References compare without regard to case: the
+    /// Brain's folder is read case-blind, so <c>Areas/Talk.md</c> and <c>areas/talk.md</c> are one
+    /// note, and an Inbox id is a GUID.</summary>
+    public bool Equals(NoteLink? other) =>
+        other is not null && Kind == other.Kind && string.Equals(Reference, other.Reference, StringComparison.OrdinalIgnoreCase);
+
+    public override int GetHashCode() => HashCode.Combine(Kind, StringComparer.OrdinalIgnoreCase.GetHashCode(Reference));
 }
 
 /// <summary>

@@ -192,7 +192,8 @@ or renamed leaves a broken link, which the pane shows as missing. A missing link
 can be pointed at the note's new path, in its place among the links. If the event
 already links that note, the old link just goes. A link can also be removed. A
 task link is not removed in the first version. Two links are equal when they name
-the same note.
+the same note. A Brain path is compared whatever its case, and is stored without
+`./` or empty segments, so `./Areas//Talk.md` and `areas/talk.md` name one note.
 
 ### Event Task Link
 
