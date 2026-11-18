@@ -9,6 +9,25 @@ public sealed record KeyDateDto(DateOnly Date, string Label);
 /// <summary>What going costs, as one amount and its currency code (<c>domain.md#cost</c>).</summary>
 public sealed record CostDto(decimal Amount, string Currency);
 
+/// <summary>
+/// A new event with every field the pane's editor sets, added in one save: what
+/// <see cref="IEventsPane.AddAsync(NewKnowledgeEventDto, CancellationToken)"/> takes. Only the
+/// title is required. <paramref name="SeriesName"/> names a series by its name: one there is,
+/// matched trimmed and without regard to case, is joined; an unknown one is started.
+/// <paramref name="Start"/> and <paramref name="End"/> are the dates the person typed, so their
+/// date source is Typed.
+/// </summary>
+public sealed record NewKnowledgeEventDto(
+    string Title,
+    string? SeriesName = null,
+    EventDateDto? Start = null,
+    EventDateDto? End = null,
+    PlaceDto? Place = null,
+    string? Link = null,
+    string? WhatToLearn = null,
+    TicketState? Ticket = null,
+    CostDto? Cost = null);
+
 /// <summary>An event series: the organiser's recurring run of events (<c>domain.md#event-series</c>).</summary>
 public sealed record EventSeriesDto(Guid Id, string Name, string? Organiser, string? Link);
 

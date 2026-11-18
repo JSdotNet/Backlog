@@ -65,6 +65,10 @@
     <!-- INotifications and INotificationStatuses: what notify and ask publish, and
          what get_answer and close read (local ADR 0039). -->
     <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
+    <!-- IEventsPane and EventsFeatures: add_knowledge_event adds an event through the Events
+         pane's own port, so it meets the aggregate's rules and its one save, and its group
+         answers to the events key (local ADR 0050 §6, §7). -->
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
     <!-- Result and Error, and IAppFeatureSettings for the exposure predicate the
          host's list-tools filter reads. Arrives transitively through every
          abstractions project above; named anyway, because this project uses it

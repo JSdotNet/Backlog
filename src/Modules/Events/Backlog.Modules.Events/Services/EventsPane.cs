@@ -2,6 +2,9 @@ using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
 using Backlog.SharedKernel.Results;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace Backlog.Modules.Events.Services;
 
 /// <summary>
@@ -15,7 +18,8 @@ internal sealed class EventsPane(
     IEventBrainNotes brain,
     HarvestTaskPolicy harvest,
     TimeProvider clock,
-    KnowledgeEventSaved? saved = null) : IEventsPane
+    KnowledgeEventSaved? saved = null,
+    ILogger<EventsPane>? log = null) : IEventsPane
 {
     /// <summary>The order the list draws its groups in: decided, upcoming work first.</summary>
     private static readonly KnowledgeEventState[] GroupOrder =
@@ -28,20 +32,117 @@ internal sealed class EventsPane(
         KnowledgeEventState.Skipped
     ];
 
+    /// <summary>
+    /// The write running on this flow: the self-write mark. Begun at the top of each write method,
+    /// so it reaches <see cref="KnowledgeEventSaved"/>'s raise, and the policy the move into
+    /// Harvested calls, and ended when the method returns. A save this pane made is then not
+    /// heard back as one made elsewhere (<see cref="OnSaved"/>), while every other pane still
+    /// hears it.
+    /// <para>
+    /// Work the save starts carries the flow's execution context, and with it the mark: the sync
+    /// loop's settle timer, a <c>Task.Run</c>. So the mark holds the pane's identity token rather
+    /// than the pane, which keeps no window's pane alive, and it stops counting once its write
+    /// is over, so a save announced from that later work is heard as made elsewhere.
+    /// </para>
+    /// </summary>
+    private static readonly AsyncLocal<WriteMark?> Writing = new();
+
+    private readonly ILogger _log = log ?? NullLogger<EventsPane>.Instance;
+
+    private readonly Lock _gate = new();
+
+    /// <summary>This pane's identity in a <see cref="WriteMark"/>; a pane is one per window scope.</summary>
+    private readonly object _identity = new();
+
+    /// <summary>The <see cref="Changed"/> handlers that hear saves made elsewhere; subscribed to
+    /// the singleton notice only while there is one, so a disposed window's pane is not kept.</summary>
+    private Action? _savedElsewhere;
+
     public string? BrainUnavailableReason => brain.UnavailableReason;
 
+    // A task or the Brain changing underneath, and an event or a series saved anywhere but here:
+    // another window, the MCP server, the To Event route, the Harvest Task Policy's worker.
     public event Action? Changed
     {
         add
         {
             tasks.Changed += value;
             brain.Changed += value;
+            lock (_gate)
+            {
+                if (_savedElsewhere is null && saved is not null) saved.Changed += OnSaved;
+                _savedElsewhere += value;
+            }
         }
         remove
         {
             tasks.Changed -= value;
             brain.Changed -= value;
+            lock (_gate)
+            {
+                _savedElsewhere -= value;
+                if (_savedElsewhere is null && saved is not null) saved.Changed -= OnSaved;
+            }
         }
+    }
+
+    // Runs on the writer's call, inside its save: each window's handler on its own, so one that
+    // throws neither stops the others nor fails a save that already landed.
+    private void OnSaved()
+    {
+        if (Writing.Value is { IsOver: false } mark && ReferenceEquals(mark.Owner, _identity)) return;
+        if (Volatile.Read(ref _savedElsewhere) is not { } handlers) return;
+
+        foreach (var handler in handlers.GetInvocationList().Cast<Action>())
+        {
+            try
+            {
+                handler();
+            }
+#pragma warning disable CA1031 // A window's handler is not the writer's failure; it is logged and the rest still hear.
+            catch (Exception exception)
+#pragma warning restore CA1031
+            {
+                _log.LogWarning(exception, "An Events pane handler failed on an event saved elsewhere.");
+            }
+        }
+    }
+
+    /// <summary>Announces a save on the way out of a failed write. A subscriber that throws here
+    /// is logged, so the store's failure stays the one the caller sees.</summary>
+    private void AnnounceBestEffort()
+    {
+        try
+        {
+            saved?.Raise();
+        }
+#pragma warning disable CA1031 // The write's own failure is rethrown; this one must not replace it.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            _log.LogWarning(exception, "Announcing an event series saved before a failed event save failed.");
+        }
+    }
+
+    /// <summary>Marks the calling write as this pane's own until the returned mark is disposed.
+    /// Called only from async methods, whose end also restores the flow's mark.</summary>
+    private WriteMark BeginWrite()
+    {
+        var mark = new WriteMark(_identity);
+        Writing.Value = mark;
+        return mark;
+    }
+
+    /// <summary>One write's self-write mark: whose it is, and whether the write is over.</summary>
+    private sealed class WriteMark(object owner) : IDisposable
+    {
+        private volatile bool _over;
+
+        public object Owner { get; } = owner;
+
+        public bool IsOver => _over;
+
+        public void Dispose() => _over = true;
     }
 
     public async Task<IReadOnlyList<KnowledgeEventGroupDto>> ListAsync(CancellationToken cancellationToken = default)
@@ -68,6 +169,7 @@ internal sealed class EventsPane(
 
     public async Task<Result<KnowledgeEventDto>> AddAsync(string title, Guid? seriesId = null, CancellationToken cancellationToken = default)
     {
+        using var mark = BeginWrite();
         if (seriesId is { } named && await series.GetAsync(named, cancellationToken).ConfigureAwait(false) is null)
             return EventsErrors.SeriesNotFound(named);
 
@@ -78,6 +180,53 @@ internal sealed class EventsPane(
         await events.SaveAsync(created.Value, cancellationToken).ConfigureAwait(false);
         saved?.Raise();
         return await ReadAsync(created.Value, cancellationToken).ConfigureAwait(false);
+    }
+
+    // Built whole on the aggregate before anything is saved, so a field the rules refuse leaves
+    // no half-filled event behind, and a series its name would start is saved only once the
+    // event holds. One announcement for the lot: the sync loop pushes whatever changed.
+    public async Task<Result<KnowledgeEventDto>> AddAsync(NewKnowledgeEventDto request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        using var mark = BeginWrite();
+
+        var created = KnowledgeEvent.Create(Guid.CreateVersion7(clock.GetUtcNow()), request.Title);
+        if (created.IsFailure) return created.Error;
+
+        var added = created.Value;
+        var filled = Fill(added, request);
+        if (filled.IsFailure) return filled.Error;
+
+        var joined = await SeriesNamedAsync(request.SeriesName, cancellationToken).ConfigureAwait(false);
+        if (joined.IsFailure) return joined.Error;
+
+        // The stores have no transaction and a series no delete, so a series started here stays
+        // if the event's save then fails. It is announced either way, so the sync loop pushes it
+        // within seconds rather than on its next tick.
+        var startedSeries = false;
+        try
+        {
+            if (joined.Value is { } named)
+            {
+                if (named.IsNew)
+                {
+                    await series.SaveAsync(named.Series, cancellationToken).ConfigureAwait(false);
+                    startedSeries = true;
+                }
+
+                added.SetSeries(named.Series.Id);
+            }
+
+            await events.SaveAsync(added, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            if (startedSeries) AnnounceBestEffort();
+            throw;
+        }
+
+        saved?.Raise();
+        return await ReadAsync(added, cancellationToken).ConfigureAwait(false);
     }
 
     public Task<Result<KnowledgeEventDto>> RenameAsync(Guid id, string title, CancellationToken cancellationToken = default) =>
@@ -95,6 +244,7 @@ internal sealed class EventsPane(
 
     public async Task<Result> RemoveAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        using var mark = BeginWrite();
         if (await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } found)
             return Result.Failure(EventsErrors.KnowledgeEventNotFound(id));
 
@@ -107,33 +257,10 @@ internal sealed class EventsPane(
     }
 
     public Task<Result<KnowledgeEventDto>> SetDatesAsync(Guid id, EventDateDto? start, EventDateDto? end, CancellationToken cancellationToken = default) =>
-        ChangeAsync(id, e =>
-        {
-            var from = ToDate(start);
-            if (from.IsFailure) return Result.Failure(from.Error);
-
-            var to = ToDate(end);
-            if (to.IsFailure) return Result.Failure(to.Error);
-
-            // Pane input is always typed; the event page is the capture route's alone.
-            return e.SetDates(from.Value, to.Value, from.Value is null ? null : DateSource.Typed);
-        }, cancellationToken);
+        ChangeAsync(id, e => ApplyTypedDates(e, start, end), cancellationToken);
 
     public Task<Result<KnowledgeEventDto>> SetPlaceAsync(Guid id, PlaceDto? place, CancellationToken cancellationToken = default) =>
-        ChangeAsync(id, e =>
-        {
-            if (place is null)
-            {
-                e.SetPlace(null);
-                return Result.Success();
-            }
-
-            var made = Place.Create(place.Venue, place.IsOnline);
-            if (made.IsFailure) return Result.Failure(made.Error);
-
-            e.SetPlace(made.Value);
-            return Result.Success();
-        }, cancellationToken);
+        ChangeAsync(id, e => ApplyPlace(e, place), cancellationToken);
 
     public Task<Result<KnowledgeEventDto>> SetLinkAsync(Guid id, string? link, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e =>
@@ -176,20 +303,7 @@ internal sealed class EventsPane(
         }, cancellationToken);
 
     public Task<Result<KnowledgeEventDto>> SetCostAsync(Guid id, CostDto? cost, CancellationToken cancellationToken = default) =>
-        ChangeAsync(id, e =>
-        {
-            if (cost is null)
-            {
-                e.SetCost(null);
-                return Result.Success();
-            }
-
-            var made = Cost.Create(cost.Amount, cost.Currency);
-            if (made.IsFailure) return Result.Failure(made.Error);
-
-            e.SetCost(made.Value);
-            return Result.Success();
-        }, cancellationToken);
+        ChangeAsync(id, e => ApplyCost(e, cost), cancellationToken);
 
     public Task<Result<KnowledgeEventDto>> SetVerdictAsync(Guid id, string? verdict, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e => e.SetVerdict(verdict), cancellationToken);
@@ -203,6 +317,7 @@ internal sealed class EventsPane(
 
     public async Task<Result<EventSeriesDto>> StartSeriesAsync(string name, string? organiser = null, string? link = null, CancellationToken cancellationToken = default)
     {
+        using var mark = BeginWrite();
         var created = EventSeries.Create(Guid.CreateVersion7(clock.GetUtcNow()), name, organiser, link);
         if (created.IsFailure) return created.Error;
 
@@ -258,14 +373,15 @@ internal sealed class EventsPane(
         if (trimmed.Length == 0) return EventsErrors.PrepTaskTitleMissing();
 
         // Loaded first, so a task is never filed for an event that is not there.
-        if (await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } found)
+        if (await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is null)
             return EventsErrors.KnowledgeEventNotFound(id);
 
         // The title alone: the task never names the event (ADR 0050 §3).
         var filed = await tasks.FileAsync(trimmed, cancellationToken).ConfigureAwait(false);
         if (filed.IsFailure) return filed.Error;
 
-        return await SaveAsync(found, found.LinkTask(EventTaskLink.Create(filed.Value, TaskPurpose.Prep)), cancellationToken).ConfigureAwait(false);
+        // Loaded again: filing waits on Tasks, and a change saved elsewhere meanwhile is kept.
+        return await ChangeAsync(id, e => e.LinkTask(EventTaskLink.Create(filed.Value, TaskPurpose.Prep)), cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<Result<KnowledgeEventDto>> LinkExistingTaskAsync(Guid id, string taskId, CancellationToken cancellationToken = default)
@@ -293,6 +409,8 @@ internal sealed class EventsPane(
     private async Task<Result<KnowledgeEventDto>> SaveAsync(KnowledgeEvent changed, Result outcome, CancellationToken cancellationToken, Func<KnowledgeEvent, Task>? afterSave = null)
     {
         if (outcome.IsFailure) return outcome.Error;
+
+        using var mark = BeginWrite();
 
         await events.SaveAsync(changed, cancellationToken).ConfigureAwait(false);
         saved?.Raise();
@@ -405,6 +523,93 @@ internal sealed class EventsPane(
 
         var made = EventDate.Create(day.Date, day.Time, day.UtcOffset);
         return made.IsFailure ? Result.Failure<EventDate?>(made.Error) : Result.Success<EventDate?>(made.Value);
+    }
+
+    /// <summary>Sets every field a new event's request carries, in the editor's terms: the dates
+    /// typed, the place, link, what to learn, ticket and cost. The first rule that refuses
+    /// answers.</summary>
+    private static Result Fill(KnowledgeEvent e, NewKnowledgeEventDto request)
+    {
+        var dated = ApplyTypedDates(e, request.Start, request.End);
+        if (dated.IsFailure) return dated;
+
+        var placed = ApplyPlace(e, request.Place);
+        if (placed.IsFailure) return placed;
+
+        var costed = ApplyCost(e, request.Cost);
+        if (costed.IsFailure) return costed;
+
+        e.SetLink(request.Link);
+        e.SetWhatToLearn(request.WhatToLearn);
+        e.SetTicket(request.Ticket);
+        return Result.Success();
+    }
+
+    /// <summary>Sets the dates the person typed, with date source Typed, or clears them with a
+    /// null start and end. Pane input is always typed; the event page is the capture route's alone.</summary>
+    private static Result ApplyTypedDates(KnowledgeEvent e, EventDateDto? start, EventDateDto? end)
+    {
+        var from = ToDate(start);
+        if (from.IsFailure) return Result.Failure(from.Error);
+
+        var to = ToDate(end);
+        if (to.IsFailure) return Result.Failure(to.Error);
+
+        return e.SetDates(from.Value, to.Value, from.Value is null ? null : DateSource.Typed);
+    }
+
+    /// <summary>Sets the place, or clears it with null.</summary>
+    private static Result ApplyPlace(KnowledgeEvent e, PlaceDto? place)
+    {
+        if (place is null)
+        {
+            e.SetPlace(null);
+            return Result.Success();
+        }
+
+        var made = Place.Create(place.Venue, place.IsOnline);
+        if (made.IsFailure) return Result.Failure(made.Error);
+
+        e.SetPlace(made.Value);
+        return Result.Success();
+    }
+
+    /// <summary>Sets the cost, or clears it with null.</summary>
+    private static Result ApplyCost(KnowledgeEvent e, CostDto? cost)
+    {
+        if (cost is null)
+        {
+            e.SetCost(null);
+            return Result.Success();
+        }
+
+        var made = Cost.Create(cost.Amount, cost.Currency);
+        if (made.IsFailure) return Result.Failure(made.Error);
+
+        e.SetCost(made.Value);
+        return Result.Success();
+    }
+
+    /// <summary>The series a new event names by <paramref name="name"/>: the one series with that
+    /// name, trimmed and without regard to case; a new one, not saved yet, when none has it; or
+    /// <c>event_series.ambiguous</c> when two or more have it. Null for no name.</summary>
+    private async Task<Result<(EventSeries Series, bool IsNew)?>> SeriesNamedAsync(string? name, CancellationToken cancellationToken)
+    {
+        var trimmed = name?.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return Result.Success<(EventSeries, bool)?>(null);
+
+        var matches = (await series.ListAsync(cancellationToken).ConfigureAwait(false))
+            .Where(s => string.Equals(s.Name.Trim(), trimmed, StringComparison.OrdinalIgnoreCase))
+            .Take(2)
+            .ToList();
+
+        if (matches.Count > 1) return Result.Failure<(EventSeries, bool)?>(EventsErrors.SeriesNameAmbiguous(trimmed));
+        if (matches.Count == 1) return Result.Success<(EventSeries, bool)?>((matches[0], false));
+
+        var started = EventSeries.Create(Guid.CreateVersion7(clock.GetUtcNow()), trimmed, organiser: null, link: null);
+        return started.IsFailure
+            ? Result.Failure<(EventSeries, bool)?>(started.Error)
+            : Result.Success<(EventSeries, bool)?>((started.Value, true));
     }
 
     /// <summary>A Brain note's path as an event stores it (<see cref="NoteLink.BrainPath"/>).
