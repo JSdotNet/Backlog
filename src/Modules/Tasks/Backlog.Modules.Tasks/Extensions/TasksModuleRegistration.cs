@@ -1,5 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Features.CountTasks;
+using Backlog.Modules.Tasks.Features.CreateTaskIfAbsent;
 using Backlog.Modules.Tasks.Features.DeleteTask;
 using Backlog.Modules.Tasks.Features.FileFollowUp;
 using Backlog.Modules.Tasks.Features.GetTask;
@@ -51,6 +52,7 @@ public static class TasksModuleRegistration
         services.AddScoped<IQueryHandler<GetTaskQuery, TaskItemDto?>, GetTaskQueryHandler>();
         services.AddScoped<IQueryHandler<CountTasksQuery, int>, CountTasksQueryHandler>();
         services.AddScoped<ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>>, SaveTaskFromTextCommandHandler>();
+        services.AddScoped<ICommandHandler<CreateTaskIfAbsentCommand, Result<bool>>, CreateTaskIfAbsentCommandHandler>();
         services.AddScoped<ICommandHandler<LinkTaskToIssueCommand, Result<TaskItemDto>>, LinkTaskToIssueCommandHandler>();
         services.AddScoped<ICommandHandler<UnlinkTaskFromIssueCommand, Result<TaskItemDto>>, UnlinkTaskFromIssueCommandHandler>();
         services.AddScoped<ICommandHandler<SetDevbookReferencesCommand, Result<TaskItemDto>>, SetDevbookReferencesCommandHandler>();

@@ -53,7 +53,12 @@ public enum SessionRequestState
 /// <param name="ClaimedBy">The dispatcher that claimed it, once claimed.</param>
 /// <param name="LeaseEndsAt">When the claim's lease runs out, while Claimed.</param>
 /// <param name="SessionId">The session the dispatcher reported, once Started.</param>
-/// <param name="CreatedAt">When the person asked; the queue hands out the oldest first.</param>
+/// <param name="CreatedAt">When the person asked; among requests the person never
+/// moved, the older is handed out first.</param>
+/// <param name="Rank">The request's place in the order the person set (local ADR 0038
+/// §4, amended): lower is handed out first. Null until the person first moves a request
+/// — a queue nobody ordered reads oldest first — and on a row written before the order
+/// existed. A number, never text.</param>
 public sealed record SessionRequest(
     Guid Id,
     SessionRequestKind Kind,
@@ -65,7 +70,8 @@ public sealed record SessionRequest(
     string? ClaimedBy,
     DateTimeOffset? LeaseEndsAt,
     string? SessionId,
-    DateTimeOffset CreatedAt)
+    DateTimeOffset CreatedAt,
+    int? Rank = null)
 {
     /// <summary>The state the request reads as at <paramref name="now"/>: a claim whose
     /// lease has ended reads as Requested.</summary>
@@ -108,6 +114,14 @@ public sealed record SessionRequestOutcome(SessionRequest? Request, string? Refu
     public static SessionRequestOutcome Refused(SessionRequest? request, string refusal) => new(request, refusal);
 }
 
+/// <summary>What a move in the queue did: the outcome for the request moved, and the
+/// open requests in their new order, each carrying its new rank — empty when the move
+/// was refused, so a store has nothing to write.</summary>
+/// <param name="Outcome">The moved request with its new rank, or the refusal.</param>
+/// <param name="Queue">Every open request (Requested, Claimed, Started) in the new
+/// order, ranked 0, 1, 2 …</param>
+public sealed record SessionQueueMove(SessionRequestOutcome Outcome, IReadOnlyList<SessionRequest> Queue);
+
 /// <summary>
 /// The Session Request's states and transitions (local ADR 0038 §3), as pure
 /// functions of the request and the clock. The store applies them inside one write,
@@ -120,8 +134,14 @@ public sealed record SessionRequestOutcome(SessionRequest? Request, string? Refu
 /// Started   → Linked     that session calls link_session
 /// Requested → Cancelled   the person cancels it
 /// Claimed   → Cancelled   the person cancels it
+/// Started   → Cancelled   the person clears it: its session never linked
 /// </code>
 /// No transition expires a request: it waits until it is answered or cancelled.
+/// <para>
+/// Beside the transitions, the person orders the Requested requests (<see cref="Move"/>):
+/// the queue hands them out by the rank that sets, a request never moved after every
+/// ranked one and oldest first among themselves (<see cref="InQueueOrder"/>).
+/// </para>
 /// </summary>
 public static class SessionRequests
 {
@@ -293,17 +313,20 @@ public static class SessionRequests
         return answers ? request with { State = SessionRequestState.Linked } : null;
     }
 
-    /// <summary>Requested or Claimed → Cancelled, by the person. A Started request
-    /// already has its session, and Linked and Cancelled are final.</summary>
+    /// <summary>Requested, Claimed or Started → Cancelled, by the person. Cancelling a
+    /// Started request clears a row whose session never called <c>link_session</c>: it
+    /// stops no session, and a late <c>link_session</c> links nothing, because
+    /// <see cref="Link"/> answers only a Started request. Linked and Cancelled are
+    /// final.</summary>
     public static SessionRequestOutcome Cancel(SessionRequest request, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         var state = request.StateAt(now);
 
-        if (state is not (SessionRequestState.Requested or SessionRequestState.Claimed))
+        if (state is not (SessionRequestState.Requested or SessionRequestState.Claimed or SessionRequestState.Started))
         {
-            return SessionRequestOutcome.Refused(request, $"The request is {state}, and only a Requested or Claimed request can be cancelled.");
+            return SessionRequestOutcome.Refused(request, $"The request is {state}, and only a Requested, Claimed or Started request can be cancelled.");
         }
 
         return SessionRequestOutcome.Done(Unclaimed(request) with { State = SessionRequestState.Cancelled });
@@ -324,16 +347,27 @@ public static class SessionRequests
     }
 
     /// <summary>The Requested requests among <paramref name="held"/>, a lapsed claim
-    /// included, oldest first: the order a dispatcher is handed them in.</summary>
+    /// included, in queue order: the order a dispatcher is handed them in.</summary>
     public static IReadOnlyList<SessionRequest> Waiting(IEnumerable<SessionRequest> held, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(held);
+
+        return InQueueOrder(held.Where(request => request.StateAt(now) == SessionRequestState.Requested));
+    }
+
+    /// <summary><paramref name="held"/> in queue order: by the rank the person set, a
+    /// request never ranked after every ranked one, then oldest first, then by id so two
+    /// requests made in the same instant keep one order.</summary>
+    public static IReadOnlyList<SessionRequest> InQueueOrder(IEnumerable<SessionRequest> held)
     {
         ArgumentNullException.ThrowIfNull(held);
 
         return
         [
             .. held
-                .Where(request => request.StateAt(now) == SessionRequestState.Requested)
-                .OrderBy(request => request.CreatedAt)
+                .OrderBy(request => request.Rank is null)
+                .ThenBy(request => request.Rank)
+                .ThenBy(request => request.CreatedAt)
                 .ThenBy(request => request.Id)
         ];
     }
@@ -347,6 +381,68 @@ public static class SessionRequests
         ArgumentNullException.ThrowIfNull(held);
 
         return paused ? 0 : Waiting(held, now).Count;
+    }
+
+    /// <summary><paramref name="candidate"/> placed after every request already ranked,
+    /// so a new request joins the end of the queue the person ordered. In a queue nobody
+    /// ordered it stays unranked — the newest, so already last — and is returned as it is.</summary>
+    public static SessionRequest RankedLast(SessionRequest candidate, IEnumerable<SessionRequest> held)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        ArgumentNullException.ThrowIfNull(held);
+
+        var highest = held.Max(request => request.Rank);
+
+        return highest is { } rank ? candidate with { Rank = rank + 1 } : candidate;
+    }
+
+    /// <summary>
+    /// The person's Reorder (local ADR 0038 §4, amended): moves the Requested request
+    /// <paramref name="id"/> to <paramref name="toIndex"/> among the Requested requests —
+    /// a lapsed claim included — and ranks every open request 0, 1, 2 … in the new order.
+    /// A Claimed or Started request keeps its slot, so if it returns to Requested it is
+    /// back where its age put it. A position past either end lands at that end.
+    /// <para>
+    /// Refused for a Claimed, Started, Linked or Cancelled request: a dispatcher already
+    /// has it, or nobody ever will again, so its place in the queue means nothing.
+    /// </para>
+    /// </summary>
+    public static SessionQueueMove Move(IEnumerable<SessionRequest> held, Guid id, int toIndex, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(held);
+
+        var all = held as IReadOnlyCollection<SessionRequest> ?? [.. held];
+
+        if (all.FirstOrDefault(request => request.Id == id) is not { } moving)
+        {
+            return new SessionQueueMove(SessionRequestOutcome.Refused(null, $"No session request has the id '{id}'."), []);
+        }
+
+        var state = moving.StateAt(now);
+
+        if (state != SessionRequestState.Requested)
+        {
+            return new SessionQueueMove(
+                SessionRequestOutcome.Refused(moving, $"The request is {state}, and only a Requested request can be moved."),
+                []);
+        }
+
+        // Every open request is ranked, not only the Requested ones: a Claimed or Started
+        // request keeps the slot it stands in, so one whose claim lapses or is released
+        // comes back at the place its age gave it rather than behind every ranked one.
+        // The move happens among the Requested slots alone.
+        var open = InQueueOrder(all.Where(request => request.IsOpenAt(now))).ToList();
+        var waiting = open.Where(request => request.StateAt(now) == SessionRequestState.Requested && request.Id != id).ToList();
+        waiting.Insert(Math.Clamp(toIndex, 0, waiting.Count), moving);
+
+        var next = 0;
+        var order = open
+            .Select(request => request.StateAt(now) == SessionRequestState.Requested ? waiting[next++] : request)
+            .ToList();
+
+        IReadOnlyList<SessionRequest> queue = [.. order.Select((request, rank) => request.Rank == rank ? request : request with { Rank = rank })];
+
+        return new SessionQueueMove(SessionRequestOutcome.Done(queue.First(request => request.Id == id)), queue);
     }
 
     private static SessionRequest New(SessionRequestKind kind, Guid? entryId, string? tag, string repository, string cloneFolder, DateTimeOffset now) =>
@@ -409,12 +505,19 @@ public interface ISessionRequestStore
     /// <summary>The request with <paramref name="id"/>, or null.</summary>
     Task<SessionRequest?> GetAsync(Guid id, CancellationToken cancellationToken = default);
 
-    /// <summary>Every request, or those reading as <paramref name="state"/> now, oldest first.</summary>
+    /// <summary>Every request, or those reading as <paramref name="state"/> now, in
+    /// queue order (<see cref="SessionRequests.InQueueOrder"/>).</summary>
     Task<IReadOnlyList<SessionRequest>> ListAsync(SessionRequestState? state = null, CancellationToken cancellationToken = default);
 
-    /// <summary>The request the queue hands a dispatcher next: the oldest reading as
-    /// Requested now, or null — none waits, or the queue is paused.</summary>
+    /// <summary>The request the queue hands a dispatcher next: the one at the head of the
+    /// queue among those reading as Requested now, or null — none waits, or the queue is
+    /// paused.</summary>
     Task<SessionRequest?> NextAsync(CancellationToken cancellationToken = default);
+
+    /// <summary><see cref="SessionRequests.Move"/>, in one write: the Requested request
+    /// <paramref name="id"/> to <paramref name="toIndex"/> among the Requested requests.
+    /// Called only by the app's own queue; no MCP tool moves a request.</summary>
+    Task<SessionRequestOutcome> MoveAsync(Guid id, int toIndex, CancellationToken cancellationToken = default);
 
     /// <summary><see cref="SessionRequests.Claim"/> with the queue's paused state, read
     /// in the same write, so a claim racing a pause cannot slip through.</summary>

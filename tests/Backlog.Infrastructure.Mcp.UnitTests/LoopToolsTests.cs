@@ -390,6 +390,8 @@ public class LoopToolsTests
 
         public Task<SessionRequestOutcome> CancelAsync(Guid id, CancellationToken cancellationToken = default) => throw Locked;
 
+        public Task<SessionRequestOutcome> MoveAsync(Guid id, int toIndex, CancellationToken cancellationToken = default) => throw Locked;
+
         public Task<IReadOnlyList<SessionRequest>> LinkAsync(Guid entryId, IReadOnlyCollection<string> planTags, string sessionId, CancellationToken cancellationToken = default) => throw Locked;
 
         public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default) => throw Locked;

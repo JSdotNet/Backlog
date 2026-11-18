@@ -170,16 +170,13 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-document']")));
 
-        // The menu is the list. The panel used to carry a second one beside the
-        // chapter — title, status and diagram count per row — and it was the
-        // standalone page's left column, reachable from no page this product has.
-        // Nothing behind it was unique: the status is in the file view's own
-        // header and the diagrams are in the chapter.
-        Assert.Empty(component.FindAll("nav[aria-label='arc42 chapters']"));
+        // The architecture surface's left navigation is the list, and the pane's own
+        // menu stands down for this section (local ADR 0046). The panel used to carry
+        // a second list beside the chapter — the standalone page's left column — and
+        // nothing behind it was unique.
         Assert.Empty(component.FindAll("[data-testid='arc42-chapter-option']"));
-        // The menu loads on its own, beside the panel, so the chapter can be on
-        // screen a beat before the rows are.
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+        Assert.Single(component.FindAll("[data-testid='arc42-surface-nav']"));
+        Assert.Empty(component.FindAll(".devbook-menu__item"));
     }
 
     /// <summary>Puts the pane on Design. Two sections are enabled so the section

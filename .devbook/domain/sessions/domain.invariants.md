@@ -819,7 +819,7 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#session-request-queue]
 ```
 
-> The rules the queue holds every session request to (local ADR 0038). The record and its queue are built: `SessionRequest` and the pure transitions in `SessionRequests`, in the Sessions abstractions, and `SqliteSessionRequestStore`, which applies each transition inside one immediate transaction. The queue icons are built too, in the Tasks pane (on a prompt entry and beside a selected plan filter chip) and the roadmap item's dialog, through `SessionRequestActions`. So is the dispatcher side: the wait route, `SessionRequestWaitEndpoint`, and the MCP tools that claim, mark and list requests, `SessionRequestTools`. The queue's pause is built: a single-row table beside the requests, read by `SqliteSessionRequestStore.ClaimAsync()` and `NextAsync()`.
+> The rules the queue holds every session request to (local ADR 0038). The record and its queue are built: `SessionRequest` and the pure transitions in `SessionRequests`, in the Sessions abstractions, and `SqliteSessionRequestStore`, which applies each transition inside one immediate transaction. The queue icons are built too, in the Tasks pane (on a prompt entry and beside a selected plan filter chip) and the roadmap item's dialog, through `SessionRequestActions`. So is the dispatcher side: the wait route, `SessionRequestWaitEndpoint`, and the MCP tools that claim, mark and list requests, `SessionRequestTools`. The person orders the Requested requests in the session queue; no tool does. The queue's pause is built: a single-row table beside the requests, read by `SqliteSessionRequestStore.ClaimAsync()` and `NextAsync()`.
 
 ### Invariant: A request carries no entry text
 
@@ -835,7 +835,7 @@ A session request holds these and no field for anything an entry says:
 - a repository and a clone folder;
 - its state, lease and claiming dispatcher;
 - the session id it was answered with;
-- when it was asked.
+- when it was asked, and its place in the queue.
 
 Entry text arrives through sync, imports and capture, so a brief built from it would run whatever anyone who can write an entry wrote.
 
@@ -874,6 +874,18 @@ A claim succeeds only on a request in Requested while the queue runs, and moves 
 So two dispatchers waiting at once never both start one request.
 
 Enforced at: `SessionRequests.Claim()`, applied by `SqliteSessionRequestStore.ClaimAsync()` inside one immediate transaction (ADR 0038 §3)
+
+### Invariant: Only a Requested request moves
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.Only_a_Requested_request_moves_and_a_refused_move_changes_nothing, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_lapsed_claim_reads_as_Requested_and_moves, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_move_of_a_claimed_request_is_refused_and_changes_nothing, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_move_and_a_claim_at_once_never_leave_the_claimed_request_moved]
+```
+
+A move succeeds only on a request that reads Requested, a lapsed claim included, and places it among the Requested requests alone; a move of a Claimed, Started, Linked or Cancelled request is refused and changes no order.
+A dispatcher already acts on a Claimed or Started request, so moving it would change nothing it does, and a move racing a claim must not reorder what the claim took.
+
+Enforced at: `SessionRequests.Move()`, applied by `SqliteSessionRequestStore.MoveAsync()` inside one immediate transaction (ADR 0038 §4)
 
 ### Invariant: A paused queue hands out no request
 
@@ -917,7 +929,7 @@ Enforced at: `SessionRequests` and `SqliteSessionRequestStore`, which have no ex
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Started_Linked_or_Cancelled_request_cannot_be_cancelled, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.Only_a_Started_request_can_be_Linked, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.Cancel_is_written_and_a_Cancelled_request_is_never_handed_out]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Linked_or_Cancelled_request_cannot_be_cancelled, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_late_link_session_on_a_cancelled_Started_request_links_nothing, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.Only_a_Started_request_can_be_Linked, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.Cancel_is_written_and_a_Cancelled_request_is_never_handed_out]
 ```
 
 A Linked or Cancelled request changes no further: it cannot be claimed, reported, linked again or cancelled.

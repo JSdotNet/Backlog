@@ -450,7 +450,7 @@ else
     /// </summary>
     private void RefreshEvents()
     {
-        if (_row is not { } saved || !EventView.HoldsAny)
+        if (_row is not { } saved || !EventView.IsOffered)
         {
             _attachedTo = [];
             _eventChoices = [];
@@ -479,7 +479,7 @@ else
     private void RefreshStanding()
     {
         _standing = null;
-        if (_row is not { } saved || !EventView.HoldsAny) return;
+        if (_row is not { } saved || !EventView.IsOffered) return;
 
         bool Attached(Guid eventId) => _attachedTo.Any(item => item.Id == eventId);
         string TitleOf(Guid eventId) => EventView.Find(eventId)?.Title ?? "the event";

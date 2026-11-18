@@ -280,7 +280,7 @@ public sealed class ShellNavigationStore
     /// one was chosen.</summary>
     public string? ToolsHostFilter { get; private set; }
 
-    /// <summary>Whether the ways-to-move hint of the C4 zoom tab was dismissed on this
+    /// <summary>Whether the ways-to-move hint of the C4 zoom navigation was dismissed on this
     /// device. Read through Devbook's <c>IDevbookViewPreferences</c>.</summary>
     public bool C4ZoomHintDismissed { get; private set; }
 
@@ -529,7 +529,7 @@ public sealed class ShellNavigationStore
         Save();
     }
 
-    /// <summary>Remembers that the C4 zoom tab's hint was dismissed. There is no way to
+    /// <summary>Remembers that the C4 zoom navigation's hint was dismissed. There is no way to
     /// undo it: the hint is a first-run aid, and the zoom bar says the same things.</summary>
     public void DismissC4ZoomHint()
     {

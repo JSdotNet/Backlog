@@ -26,7 +26,7 @@ public static partial class EventsErrors
             : $"The event is {Named(from)} and moves only forward, never to {Named(to)}.");
 
     public static Error CannotSkip(KnowledgeEventState state) =>
-        Error.Conflict("knowledge_event.cannot_skip", $"Only a Spotted or Considering event is skipped, and this one is {Named(state)}.");
+        Error.Conflict("knowledge_event.cannot_skip", $"Only a Spotted, Considering or Going event is skipped, and this one is {Named(state)}.");
 
     public static Error SkipReasonMissing() =>
         Error.Validation("knowledge_event.skip_reason_missing", "A skipped event needs a reason.");
@@ -39,6 +39,9 @@ public static partial class EventsErrors
 
     public static Error HarvestTaskExists() =>
         Error.Conflict("knowledge_event.harvest_task_exists", "The event already holds its harvest task.");
+
+    public static Error HasHarvestTask() =>
+        Error.Conflict("knowledge_event.has_harvest_task", "The event holds its harvest task, so it is kept.");
 
     // --- The value objects a knowledge event owns ---------------------------------------
 

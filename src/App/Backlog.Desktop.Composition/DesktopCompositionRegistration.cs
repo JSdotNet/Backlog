@@ -585,7 +585,7 @@ public static class DesktopCompositionRegistration
         // navigation file beside the surface it reopens on.
         services.AddSingleton<Backlog.Modules.DevPc.Abstractions.IToolsViewPreferences>(sp =>
             new ToolsViewPreferences(sp.GetService<ShellNavigationStore>()));
-        // The Devbook pane's view choices that outlive it — the C4 zoom tab's dismissed
+        // The Devbook pane's view choices that outlive it — the C4 zoom navigation's dismissed
         // hint — kept in the same per-device navigation file.
         services.AddSingleton<Backlog.Modules.Devbook.Abstractions.IDevbookViewPreferences>(sp =>
             new DevbookViewPreferences(sp.GetService<ShellNavigationStore>()));

@@ -17,7 +17,8 @@
     changing underneath reads the open event again, so its chips follow.
 
     The editor is keyed by the event it shows, so nothing typed into one event's fields or
-    sections is carried to the next; leaving writes what was still waiting. Every write of
+    sections is carried to the next; leaving writes what was still waiting. An event removed
+    from it leaves the list and the detail, and the focus goes to Add event. Every write of
     the pane goes through one queue (EventWriteQueue), so two never overlap.
 
     Opening the add row puts the focus in its title; closing it puts it back on Add event.
@@ -128,6 +129,7 @@
                                          Writes="_writes"
                                          OnSaved="SavedAsync"
                                          OnOpenEvent="SelectAsync"
+                                         OnRemoved="RemovedAsync"
                                          Revision="_revision" />
                         }
                         else
@@ -162,9 +164,10 @@
     private string _newSeries = string.Empty;
     private string? _addError;
 
-    /// <summary>The query last handed in, so a newer jump is noticed.</summary>
-    private IReadOnlyDictionary<string, string>? _query;
-    private Guid? _focusApplied;
+    /// <summary>The jump last applied. Every jump is a new query instance, so the same id asked
+    /// again, after the person picked another event, opens it again, while a re-render handing
+    /// the same query back opens nothing.</summary>
+    private IReadOnlyDictionary<string, string>? _appliedQuery;
 
     /// <summary>The query the surface was shown with: <c>event</c>, or nothing.</summary>
     [Parameter]
@@ -203,9 +206,6 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (ReferenceEquals(Query, _query)) return;
-
-        _query = Query;
         if (_loaded) await ApplyFocusAsync();
     }
 
@@ -253,9 +253,9 @@
     /// <summary>Opens on the event a jump asked for, once per jump.</summary>
     private async Task ApplyFocusAsync()
     {
-        if (FocusEventId is not { } focus || focus == _focusApplied) return;
+        if (FocusEventId is not { } focus || ReferenceEquals(Query, _appliedQuery)) return;
 
-        _focusApplied = focus;
+        _appliedQuery = Query;
         await SelectAsync(focus);
     }
 
@@ -294,6 +294,28 @@
     {
         if (saved.Id == _selectedId) _selected = saved;
 
+        await ReloadListAsync();
+    }
+
+    /// <summary>An event removed from the editor: it no longer opens, so the detail goes back
+    /// to Pick an event and the list is read without it. The focus was on Remove, which goes
+    /// with the editor, so it lands on Add event: the one control there whether events are
+    /// left or not. The query's event, if it named this one, was applied once already, so it
+    /// does not open it again.</summary>
+    private async Task RemovedAsync(Guid id)
+    {
+        if (_selectedId == id)
+        {
+            _selected = null;
+            _selectedId = null;
+        }
+
+        await ReloadListAsync();
+        _focusAfterRender = _adding ? _addTitleId : _addOpenId;
+    }
+
+    private async Task ReloadListAsync()
+    {
         try
         {
             _groups = await Pane.ListAsync();

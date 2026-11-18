@@ -715,6 +715,27 @@ public sealed class InboxDesktopState : IDisposable
         Changed?.Invoke();
     }
 
+    /// <summary>Opens one item by its id, from wherever it is filed — the Deferred slice, its
+    /// list, or the inbox — so the detail shows it with the rows it sits among: how a jump
+    /// such as an event's Talk note opens it. An archived item opens over the slice it was
+    /// filed in. The queue comes back from the Sources tab and out of triage, and a kind
+    /// filter goes, so the item opened is one on screen among its rows. Answers false and
+    /// changes nothing for an id the module does not hold.</summary>
+    public bool OpenItem(Guid id)
+    {
+        if (Items.FirstOrDefault(item => item.Id == id) is not { } item) return false;
+
+        ShowSources(false);
+        SetTriageMode(false);
+        ClearKindFilter();
+        SelectSlice(
+            item.Status == InboxStatus.Deferred ? DeferredSliceId
+            : item.ListId is { } listId && FindList(listId) is not null ? ListNavId(listId)
+            : InboxSliceId);
+        SelectItem(id);
+        return true;
+    }
+
     /// <summary>Presses or releases a kind chip. Several may be pressed at once;
     /// the rows are the union.</summary>
     public void ToggleKind(string slug)

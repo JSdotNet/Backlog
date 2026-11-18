@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>
-/// What the Code level of the C4 zoom tab draws for one component: the types its code
+/// What the Code level of the C4 zoom navigation draws for one component: the types its code
 /// folders declare, the uses between them, and the decision and debt records linked to
 /// the component.
 /// <para>
@@ -81,7 +81,7 @@ public sealed record C4CodeUse(string From, string To, bool Inherits);
 public sealed record C4CodeRecord(string Number, string Title, string Path);
 
 /// <summary>
-/// What the C4 zoom tab is handed to offer the Code level: which components have code
+/// What the C4 zoom navigation is handed to offer the Code level: which components have code
 /// to read, and how to read it. A host with none passes nothing and step 4 stays grey
 /// everywhere.
 /// </summary>

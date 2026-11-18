@@ -240,6 +240,11 @@
     font-size: var(--font-size-sm);
 }
 
+/* Remove event… keeps its own width at the editor's end rather than spanning it. */
+.events-editor__remove {
+    align-items: flex-start;
+}
+
 .events-editor__moves {
     display: flex;
     flex-wrap: wrap;

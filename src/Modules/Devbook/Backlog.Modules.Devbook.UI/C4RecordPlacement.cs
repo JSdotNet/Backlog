@@ -34,7 +34,7 @@ public sealed record C4RecordTile(string ElementId, string Name, C4RecordRole Ro
 /// <param name="Beyond">What the record names that is no container of the view — a
 /// person, an external system, or the system itself — so a link is never lost for
 /// having no tile.</param>
-/// <param name="FocusId">The tile "Open in C4 zoom" leaves selected: the first the
+/// <param name="FocusId">The tile "Open in the C4 model" leaves selected: the first the
 /// record decides, else the first it touches, else none.</param>
 public sealed record C4RecordMap(
     C4WorkspaceEntry Workspace,
@@ -60,7 +60,7 @@ public sealed record C4RecordCitation(string Path, string? Anchor, string Number
 
 /// <summary>
 /// Where an ADR or a TDR lands on the model, and where it sits among the other records
-/// — the right-hand panel of the design's ADR screen (plan c4-zoom-navigation).
+/// — the right-hand panel of the design's ADR screen (local ADR 0046).
 /// <para>
 /// Every part is read from what the chapters already say, never from a file kept
 /// beside the model (local ADR 0046): the map from the record's <c>c4</c> and

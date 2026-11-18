@@ -170,7 +170,7 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   through `list_sessions` — a session the `backlog` server's `list_sessions` reads `Waiting` on a
   question does not count — plan usage through `get_usage`, and CPU over 30 seconds and free
   memory through the PowerShell probe `assets/capacity.ps1`. A request that does not fit stays
-  Requested. Oldest first, it claims the
+  Requested. In the order the person set in the session queue, it claims the
   request (`claim_session_request`), starts a local session in the request's clone folder in
   its own worktree with the app's fixed brief as its whole prompt and `wake_when_done` on, and
   reports it (`mark_session_request` `started`), or gives the claim back (`released`) when

@@ -18,7 +18,7 @@ public interface IFolderEditorLauncher
     Task OpenFolderAsync(string folderPath, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Opens one file in the same editor — the C4 zoom tab's "Open in editor" on a
+    /// Opens one file in the same editor — the C4 zoom navigation's "Open in editor" on a
     /// type of the Code level. Fails the way <see cref="OpenFolderAsync"/> does.
     /// </summary>
     Task OpenFileAsync(string filePath, CancellationToken cancellationToken = default);

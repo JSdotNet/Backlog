@@ -51,6 +51,26 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
         Assert.Equal(TechoramaNote, Assert.Single(again.Value.Notes).Reference);
     }
 
+    [Theory]
+    [InlineData("Areas/Learning/Techorama.md")]
+    [InlineData("./areas/learning/techorama.md")]
+    [InlineData("areas//learning/./techorama.md")]
+    public async Task A_note_named_in_another_case_or_with_dot_segments_is_the_note_already_linked(string spelling)
+    {
+        Brain.Notes[TechoramaNote] = "Techorama takeaways";
+        var id = await Add("Techorama Belgium");
+        await Pane.LinkBrainNoteAsync(id, TechoramaNote, cancellationToken: Token);
+
+        var again = await Pane.LinkBrainNoteAsync(id, spelling, cancellationToken: Token);
+
+        Assert.True(again.IsSuccess);
+        Assert.Equal(TechoramaNote, Assert.Single(again.Value.Notes).Reference);
+
+        var unlinked = await Pane.UnlinkNoteAsync(id, NoteLinkKind.Brain, spelling, Token);
+
+        Assert.Empty(unlinked.Value.Notes);
+    }
+
     [Fact]
     public async Task A_blank_note_path_is_refused()
     {

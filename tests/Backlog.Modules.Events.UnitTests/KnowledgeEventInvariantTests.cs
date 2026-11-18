@@ -207,29 +207,29 @@ public sealed class KnowledgeEventInvariantTests
         Assert.Equal(from, knowledgeEvent.State);
     }
 
-    // --- Only a Spotted or Considering event is skipped ---------------------------------
+    // --- Only a Spotted, Considering or Going event is skipped --------------------------
 
     [Theory]
     [InlineData(KnowledgeEventState.Spotted)]
     [InlineData(KnowledgeEventState.Considering)]
-    public void A_spotted_or_considering_event_is_skipped(KnowledgeEventState from)
+    [InlineData(KnowledgeEventState.Going)]
+    public void A_spotted_considering_or_going_event_is_skipped(KnowledgeEventState from)
     {
         var knowledgeEvent = At(from);
 
-        Assert.True(knowledgeEvent.Skip("Clashes with the sprint review").IsSuccess);
+        Assert.True(knowledgeEvent.Skip("Cancelled by the organiser").IsSuccess);
         Assert.Equal(KnowledgeEventState.Skipped, knowledgeEvent.State);
+        Assert.Equal("Cancelled by the organiser", knowledgeEvent.SkipReason?.Text);
     }
 
-    [Theory]
-    [InlineData(KnowledgeEventState.Going)]
-    [InlineData(KnowledgeEventState.Attended)]
-    public void A_going_or_attended_event_cannot_be_skipped(KnowledgeEventState from)
+    [Fact]
+    public void An_attended_event_cannot_be_skipped()
     {
-        var knowledgeEvent = At(from);
+        var attended = At(KnowledgeEventState.Attended);
 
-        Assert.Equal("knowledge_event.cannot_skip", knowledgeEvent.Skip("Changed my mind").Error.Code);
-        Assert.Equal(from, knowledgeEvent.State);
-        Assert.Null(knowledgeEvent.SkipReason);
+        Assert.Equal("knowledge_event.cannot_skip", attended.Skip("Changed my mind").Error.Code);
+        Assert.Equal(KnowledgeEventState.Attended, attended.State);
+        Assert.Null(attended.SkipReason);
     }
 
     // --- A skipped event has a reason ---------------------------------------------------
@@ -292,6 +292,47 @@ public sealed class KnowledgeEventInvariantTests
 
         Assert.Equal("knowledge_event.state_final", knowledgeEvent.Skip("Once more").Error.Code);
         Assert.Equal(final, knowledgeEvent.State);
+    }
+
+    // --- Only an event with no harvest task is removed ----------------------------------
+
+    [Theory]
+    [InlineData(KnowledgeEventState.Spotted)]
+    [InlineData(KnowledgeEventState.Considering)]
+    [InlineData(KnowledgeEventState.Going)]
+    [InlineData(KnowledgeEventState.Attended)]
+    [InlineData(KnowledgeEventState.Harvested)]
+    [InlineData(KnowledgeEventState.Skipped)]
+    public void An_event_without_a_harvest_task_is_removed_from_any_state(KnowledgeEventState state)
+    {
+        var knowledgeEvent = At(state);
+        knowledgeEvent.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Prep));
+
+        Assert.True(knowledgeEvent.Remove().IsSuccess);
+        Assert.True(knowledgeEvent.IsRemoved);
+        Assert.Equal(state, knowledgeEvent.State);
+    }
+
+    [Fact]
+    public void An_event_with_a_harvest_task_cannot_be_removed()
+    {
+        var going = At(KnowledgeEventState.Going);
+        going.LinkHarvestTask("task-harvest");
+
+        Assert.Equal("knowledge_event.has_harvest_task", going.Remove().Error.Code);
+        Assert.False(going.IsRemoved);
+        Assert.Equal("task-harvest", Assert.Single(going.Tasks).TaskId);
+    }
+
+    [Fact]
+    public void Removing_a_removed_event_changes_nothing()
+    {
+        var spotted = Spotted();
+        spotted.Remove();
+
+        Assert.True(spotted.Remove().IsSuccess);
+        Assert.True(spotted.IsRemoved);
+        Assert.Equal(KnowledgeEventState.Spotted, spotted.State);
     }
 
     // --- A verdict waits for the event --------------------------------------------------
@@ -434,6 +475,31 @@ public sealed class KnowledgeEventInvariantTests
         going.LinkNote(NoteLink.Create(NoteLinkKind.Talk, "inbox-7", "Keynote"));
 
         Assert.Equal(2, going.Notes.Count);
+    }
+
+    [Theory]
+    [InlineData("./events//techorama.md")]
+    [InlineData(@"\events\.\techorama.md")]
+    public void A_brain_link_stores_its_path_without_dot_segments_or_empty_ones(string spelling) =>
+        Assert.Equal("events/techorama.md", NoteLink.Create(NoteLinkKind.Brain, spelling, null).Reference);
+
+    [Fact]
+    public void An_event_restored_with_one_brain_note_linked_under_two_spellings_holds_it_once()
+    {
+        var going = At(KnowledgeEventState.Going);
+        var stored = KnowledgeEvent.Restore(
+            going.Id, going.Title, null, null, null, null, null, null, going.State, null, null, [], null, null,
+            [
+                NoteLink.Create(NoteLinkKind.Brain, "Events/Techorama.md", "Techorama"),
+                NoteLink.Create(NoteLinkKind.Brain, "events/techorama.md", "Techorama again"),
+            ],
+            [], null);
+
+        Assert.Equal("Techorama", Assert.Single(stored.Notes).Title);
+
+        stored.UnlinkNote(NoteLink.Create(NoteLinkKind.Brain, "./events/techorama.md", null));
+
+        Assert.Empty(stored.Notes);
     }
 
     [Fact]

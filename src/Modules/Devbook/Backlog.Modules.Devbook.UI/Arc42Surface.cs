@@ -70,7 +70,7 @@ public sealed record Arc42FindHit(Arc42FindKind Kind, string Key, string Label, 
 }
 
 /// <summary>
-/// What the architecture surface (plan c4-zoom-navigation, the design's every screen)
+/// What the architecture surface (local ADR 0046, the design's every screen)
 /// reads from the arc42 folder and the C4 model, besides the model itself: the chapter
 /// list with its badges, the decision log and the debt list, the chapters that document
 /// the open view, an open chapter's right-hand panel, and the find field's hits.

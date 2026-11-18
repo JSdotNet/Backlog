@@ -20,7 +20,8 @@ public sealed record StoredKnowledgeEvent(KnowledgeEvent Event, DateTimeOffset U
 public interface IKnowledgeEventReplicaStore
 {
     /// <summary>Every event whose stamp is later than <paramref name="since"/>, oldest stamp
-    /// first, each with its stamp. A row this build cannot read is left out.</summary>
+    /// first, each with its stamp, removed ones included so the removal travels. A row this
+    /// build cannot read is left out.</summary>
     Task<IReadOnlyList<StoredKnowledgeEvent>> ListChangedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken = default);
 
     /// <summary>

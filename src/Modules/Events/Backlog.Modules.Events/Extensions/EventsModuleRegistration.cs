@@ -31,6 +31,11 @@ public static class EventsModuleRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton(TimeProvider.System);
+
+        // What every local save of an event or a series raises, forwarded to the sync loop
+        // through IKnowledgeEventReplication.Changed. A singleton: the pane and the policy are
+        // Scoped, the loop is not, and they must meet on one notice.
+        services.TryAddSingleton<KnowledgeEventSaved>();
         services.TryAddSingleton<IKnowledgeEvents, KnowledgeEvents>();
         services.TryAddScoped<IEventsPane, EventsPane>();
 
