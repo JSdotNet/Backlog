@@ -144,6 +144,8 @@ public sealed class HomeDevbookPaneTests
 
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, true);
         _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
+        // These read the old Domain view, which stays reachable with the switch off until a later plan retires it.
+        _ = featureSettings.SetEnabled(DevbookFeatures.DomainView, false);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
         _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);

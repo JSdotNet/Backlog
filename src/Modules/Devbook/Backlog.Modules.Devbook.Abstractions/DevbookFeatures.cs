@@ -111,8 +111,9 @@ public static class DevbookFeatures
     /// <para>
     /// A devbook key by the same rule as its neighbours. Only the Domain area reads
     /// it: the other areas, and <see cref="RepositoryDevbook"/> that offers the pane
-    /// at all, do not. It ships off while the plan <c>+devbook-domain-view</c> builds
-    /// the view, and is retired when the old Domain view is removed.
+    /// at all, do not. It ships on since the view was accepted; switching it off
+    /// still reaches the old Domain view, and the key is retired when a later plan
+    /// removes that view.
     /// </para></summary>
     public const string DomainView = "devbook-domain-view";
 

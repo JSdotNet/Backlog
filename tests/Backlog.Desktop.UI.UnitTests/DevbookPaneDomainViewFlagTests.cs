@@ -13,24 +13,36 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// The New domain view switch (<c>devbook-domain-view</c>), read by the pane's
 /// Domain area and nowhere else.
 ///
-/// <para>Off — its default — the Domain area is the panel it has always been: the
-/// same component, handed the same parameters, opening on the same chapter. That
-/// is the requirement "The flag off keeps today's Domain view", and the first test
-/// here is its proof. On, the area is the <see cref="DomainView"/> frame, which
-/// names the page the selected menu row opens (local ADR 0047).</para>
+/// <para>On — its default since the view was accepted — the area is the
+/// <see cref="DomainView"/> frame, which names the page the selected menu row opens
+/// (local ADR 0047). Switched off, the Domain area is the panel it has always been:
+/// the same component, handed the same parameters, opening on the same chapter.
+/// That is the requirement "The flag off keeps today's Domain view", and it holds
+/// until a later plan removes the old view and retires the flag.</para>
 /// </summary>
 public sealed class DevbookPaneDomainViewFlagTests : IDisposable
 {
     private readonly List<string> _roots = [];
 
     [Fact]
-    public void The_switch_ships_off()
+    public void The_switch_ships_on_and_released()
     {
         var definition = Assert.Single(AppFeatures.All, feature => feature.Key == DevbookFeatures.DomainView);
 
         Assert.Equal("devbook-domain-view", definition.Key);
-        Assert.False(definition.EnabledByDefault);
-        Assert.Equal(AppFeatureStatus.Dev, definition.Status);
+        Assert.True(definition.EnabledByDefault);
+        Assert.Equal(AppFeatureStatus.Released, definition.Status);
+    }
+
+    [Fact]
+    public void A_fresh_install_reads_the_Domain_area_through_the_new_view()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-domain-view-flag", Guid.NewGuid().ToString("N"));
+        _roots.Add(root);
+
+        var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
+
+        Assert.True(features.IsEnabled(DevbookFeatures.DomainView));
     }
 
     [Fact]
@@ -214,7 +226,7 @@ public sealed class DevbookPaneDomainViewFlagTests : IDisposable
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
-        if (domainView) _ = features.SetEnabled(DevbookFeatures.DomainView, true);
+        _ = features.SetEnabled(DevbookFeatures.DomainView, domainView);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);

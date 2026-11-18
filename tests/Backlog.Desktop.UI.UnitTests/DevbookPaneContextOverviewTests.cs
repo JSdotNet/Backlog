@@ -138,6 +138,8 @@ public sealed class DevbookPaneContextOverviewTests : IDisposable
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
+        // These read the old Domain view, which stays reachable with the switch off until a later plan retires it.
+        _ = features.SetEnabled(DevbookFeatures.DomainView, false);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
