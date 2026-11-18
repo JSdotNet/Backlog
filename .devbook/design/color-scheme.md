@@ -589,12 +589,7 @@ related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/a
 ```
 
 The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
-marks a model element by its kind on the Model page's diagram and beside its
-name, a relation between two core contexts on the Context map, a context's
-hand-in-hand neighbours on its Neighbours board, the requirement
-kind on the Requirements page, a domain service in the Domain page's chapter
-bar, an enumeration's name on Model's Fields tab, and a domain event's name on
-Model's Events tab. These are the seven values this file adds outside the
+marks each element the table below names with a tone of its own. These are the seven values this file adds outside the
 palette. The kind's glyph and word
 always say what the element is, and the tone only helps the eye group the same
 kind across a diagram.
