@@ -79,6 +79,23 @@ param logDailyQuotaGb int = 1
 @description('Name of the Key Vault holding the secrets of the sync service: the device-token signing key and the GitHub OAuth client secret.')
 param keyVaultName string = 'kv-backlog-sync-we'
 
+// The owner's sign-in (local ADR 0052 §1). The sync service enrols a first device, and
+// recovers a lost owner, only for the GitHub user whose numeric id this is, signed in
+// through the "Backlog sync" OAuth App whose client id follows. Neither is a secret: a
+// GitHub user id is public, and an OAuth client id is sent to every browser that signs
+// in. The client secret is the vault's github-oauth-client-secret. Outside Development
+// the service refuses to start without all three.
+@description('Numeric GitHub user id of the owner; the only account that can enrol a device. `gh api user --jq .id`.')
+param ownerGitHubUserId string = '7655166'
+
+@description('Client id of the "Backlog sync" GitHub OAuth App the owner signs in through.')
+param gitHubOAuthClientId string = 'Ov23liBu5KgGALI2x3F2'
+
+// The owner id the owner's devices join. Empty derives it from ownerGitHubUserId; set it
+// to an owner minted before sign-in existed, before the first enrolment, to keep its data.
+@description('Existing owner id (GUID) the devices of the owner join; empty derives one from the GitHub user id.')
+param ownerId string = ''
+
 // The Foundry account the dictation relay calls (local ADR 0045). It is provisioned by
 // infra/foundry/, not here: this template only grants the sync identity Cognitive Services
 // OpenAI User on it and points the container at its endpoint. The group defaults to this
@@ -834,6 +851,16 @@ module foundryTranscriptionRole 'foundry-transcription-role.bicep' = if (transcr
 
 // The container's transcription settings, only where there is an account to call: with
 // none, the endpoint stays unset and the route answers 503.
+// The pinned owner id, only when one is given (see the ownerId parameter).
+var ownerEnv = empty(ownerId)
+  ? []
+  : [
+      {
+        name: 'Owner__OwnerId'
+        value: ownerId
+      }
+    ]
+
 var transcriptionEnv = transcriptionEnabled
   ? [
       {
@@ -1184,11 +1211,21 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'Modules__Sync__Tokens__KeyVaultUri'
               value: keyVault.properties.vaultUri
             }
+            // The owner sign-in's two public halves (above). The client secret comes
+            // from the vault, as GitHub:ClientSecret.
+            {
+              name: 'Owner__GitHubUserId'
+              value: ownerGitHubUserId
+            }
+            {
+              name: 'GitHub__ClientId'
+              value: gitHubOAuthClientId
+            }
             {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
               secretRef: 'applicationinsights-connection-string'
             }
-          ], transcriptionEnv)
+          ], transcriptionEnv, ownerEnv)
         }
       ]
       scale: {

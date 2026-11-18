@@ -1,11 +1,14 @@
+using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Adapters;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Features.DescribeOwner;
+using Backlog.Modules.Sync.Features.Enrolment;
 using Backlog.Modules.Sync.Features.IssueDeviceToken;
 using Backlog.Modules.Sync.Features.IssuePairingCode;
 using Backlog.Modules.Sync.Features.RedeemPairingCode;
 using Backlog.Modules.Sync.Features.RegisterFirstDevice;
 using Backlog.Modules.Sync.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Sync.UnitTests;
@@ -26,8 +29,18 @@ internal sealed class SyncModuleFixture
         Hasher = new Sha256CredentialHasher();
         Tokens = new RecordingDeviceTokenIssuer(Clock);
 
+        Tickets = new InMemoryEnrolmentTicketStore(Clock);
+        StartEnrolment = new StartEnrolmentCommandHandler(
+            Tickets, new NoGitHubOwnerSignIn(), OwnerEnrolment.Open, Hasher, Clock);
         Register = new RegisterFirstDeviceCommandHandler(
-            Devices, Hasher, new RandomRegistrationCredentialGenerator(), Clock);
+            Devices,
+            Tickets,
+            OwnerEnrolment.Open,
+            Hasher,
+            new RandomRegistrationCredentialGenerator(),
+            new NoNotificationPushChannel(),
+            Clock,
+            NullLogger<RegisterFirstDeviceCommandHandler>.Instance);
         IssueCode = new IssuePairingCodeCommandHandler(
             Codes, new RandomPairingCodeGenerator(), Hasher, Clock);
         Redeem = new RedeemPairingCodeCommandHandler(
@@ -46,7 +59,28 @@ internal sealed class SyncModuleFixture
 
     internal RecordingDeviceTokenIssuer Tokens { get; }
 
+    internal InMemoryEnrolmentTicketStore Tickets { get; }
+
+    internal StartEnrolmentCommandHandler StartEnrolment { get; }
+
     internal RegisterFirstDeviceCommandHandler Register { get; }
+
+    /// <summary>A registration carrying a one-time code from an enrolment that, with no
+    /// owner configured, signs nobody in (local ADR 0052 §1).</summary>
+    internal async Task<RegisterFirstDeviceCommand> Enrolled(string name)
+    {
+        var verifier = EnrolmentPkce.CreateVerifier();
+        var started = await StartEnrolment.Handle(
+            new StartEnrolmentCommand(new Uri("http://127.0.0.1:49152/"), EnrolmentPkce.Challenge(verifier), EnrolmentPkce.Method, "state"),
+            TestContext.Current.CancellationToken);
+        Assert.True(started.IsSuccess);
+
+        var code = started.Value.SignInAddress.Query.TrimStart('?').Split('&')
+            .Select(pair => pair.Split('=', 2))
+            .Single(pair => pair[0] == "code")[1];
+
+        return new RegisterFirstDeviceCommand(name, Uri.UnescapeDataString(code), verifier);
+    }
 
     internal IssuePairingCodeCommandHandler IssueCode { get; }
 
@@ -60,7 +94,7 @@ internal sealed class SyncModuleFixture
     /// token would carry.</summary>
     internal async Task<(OwnerScope Scope, string Credential)> RegisterFirstDevice(string name = "Study desktop")
     {
-        var result = await Register.Handle(new RegisterFirstDeviceCommand(name), TestContext.Current.CancellationToken);
+        var result = await Register.Handle(await Enrolled(name), TestContext.Current.CancellationToken);
         Assert.True(result.IsSuccess);
 
         var scope = new OwnerScope(new OwnerId(result.Value.OwnerId), new DeviceId(result.Value.DeviceId));

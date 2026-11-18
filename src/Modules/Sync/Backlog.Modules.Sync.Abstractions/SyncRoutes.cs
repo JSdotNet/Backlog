@@ -15,9 +15,21 @@ public static class SyncRoutes
     /// <summary>The group every sync endpoint hangs off.</summary>
     public const string Base = "/api/sync";
 
-    /// <summary>First device in: mints a new owner. Anonymous, because there is
-    /// nothing yet to authenticate as.</summary>
+    /// <summary>First device in, or a lost owner's recovery: trades the one-time
+    /// enrolment code an owner sign-in handed back, and its PKCE verifier, for a
+    /// registration credential. Anonymous, because there is nothing yet to
+    /// authenticate as — the code is what authorizes it (local ADR 0052 §1).</summary>
     public const string RegisterDevice = "/devices/register";
+
+    /// <summary>A device with no owner starts the owner sign-in: it sends its
+    /// loopback redirect, a PKCE challenge and its state, and is told the address
+    /// to open in the system browser. Anonymous.</summary>
+    public const string EnrolmentStart = "/enrolment/start";
+
+    /// <summary>Where GitHub sends the browser back after the owner signs in. Not
+    /// under <see cref="Base"/>: it is the callback URL the GitHub OAuth App is
+    /// registered with, so it is an absolute path of its own. Anonymous.</summary>
+    public const string GitHubCallback = "/oauth/github/callback";
 
     /// <summary>A paired device asks for a short code to read out. Bearer.</summary>
     public const string PairingCodes = "/devices/codes";

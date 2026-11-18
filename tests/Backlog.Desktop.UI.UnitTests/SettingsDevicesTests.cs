@@ -1179,7 +1179,7 @@ public sealed class SettingsDevicesTests
         testContext.Services.AddTransient(_ =>
         {
             pairingClientsResolved.Value++;
-            return new DevicePairingClient(http, credentials);
+            return new DevicePairingClient(http, credentials, browser: new NoBrowser());
         });
         if (tokens is not null) testContext.Services.AddSingleton(tokens);
 
@@ -1303,6 +1303,14 @@ public sealed class SettingsDevicesTests
         }
     }
 
+    /// <summary>A browser the Development enrolment never opens: the start answers the
+    /// loopback itself.</summary>
+    private sealed class NoBrowser : ISystemBrowser
+    {
+        public Task OpenAsync(Uri address, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException($"No browser should open, but {address} was.");
+    }
+
     /// <summary>The sync service the panel talks to: registration and pairing
     /// hand back a credential, codes hand back a code, and everything else is the
     /// device's own status.</summary>
@@ -1322,6 +1330,16 @@ public sealed class SettingsDevicesTests
             if (request.Content is not null)
             {
                 LastBody = await request.Content.ReadAsStringAsync(cancellationToken);
+            }
+
+            // The enrolment start a Development service answers (local ADR 0052 §1): no
+            // owner configured, so straight back to the device's loopback with a code.
+            if (path.EndsWith("/enrolment/start", StringComparison.Ordinal))
+            {
+                using var start = System.Text.Json.JsonDocument.Parse(LastBody);
+                var redirect = start.RootElement.GetProperty("redirectUri").GetString();
+                var state = Uri.EscapeDataString(start.RootElement.GetProperty("state").GetString()!);
+                return Json(HttpStatusCode.OK, $$"""{"signInAddress":"{{redirect}}?code=one-time-code&state={{state}}"}""");
             }
 
             if (respond is not null) return respond(request, _count++);

@@ -39,15 +39,39 @@ public sealed class DevicePairingClient : IDeviceRoster
     /// the service did its part, and the failure is local.</summary>
     public const string CredentialStoreFailedCode = "sync.credential_store_failed";
 
+    /// <summary>Where a first registration that cannot sign in here is filed: no
+    /// browser on this host. A phone pairs by code instead.</summary>
+    public const string SignInUnavailableCode = "sync.sign_in_unavailable";
+
+    /// <summary>Where an owner sign-in that came back without a code is filed — the
+    /// service refused the GitHub account, or the person cancelled at GitHub.</summary>
+    public const string SignInRefusedCode = "sync.sign_in_refused";
+
+    /// <summary>Where an owner sign-in nobody finished in time is filed.</summary>
+    public const string SignInTimedOutCode = "sync.sign_in_timed_out";
+
+    /// <summary>How long the browser has to come back by default.</summary>
+    public static readonly TimeSpan DefaultSignInTimeout = TimeSpan.FromMinutes(5);
+
     private readonly HttpClient _http;
     private readonly IDeviceCredentialStore _credentials;
     private readonly PairingSubjects? _pairings;
+    private readonly ISystemBrowser? _browser;
+    private readonly TimeSpan _signInTimeout;
 
     /// <param name="http">The client <c>AddSyncClient</c> configures.</param>
     /// <param name="credentials">Where a credential the service issues is kept.</param>
     /// <param name="pairings">Where an issued code opens a pairing a notification can be
     /// about; none on a host that composed no notifications.</param>
-    public DevicePairingClient(HttpClient http, IDeviceCredentialStore credentials, PairingSubjects? pairings = null)
+    /// <param name="browser">Where the owner signs in to register a first device; none on a
+    /// host that only pairs by code.</param>
+    /// <param name="signInTimeout">How long to wait for the browser to come back.</param>
+    public DevicePairingClient(
+        HttpClient http,
+        IDeviceCredentialStore credentials,
+        PairingSubjects? pairings = null,
+        ISystemBrowser? browser = null,
+        TimeSpan? signInTimeout = null)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(credentials);
@@ -55,10 +79,21 @@ public sealed class DevicePairingClient : IDeviceRoster
         _http = http;
         _credentials = credentials;
         _pairings = pairings;
+        _browser = browser;
+        _signInTimeout = signInTimeout ?? DefaultSignInTimeout;
     }
 
-    /// <summary>First device in: claims an owner of its own and stores the
-    /// credential it is handed.</summary>
+    /// <summary>
+    /// First device in, or recovery of a lost owner (local ADR 0052 §1): signs the owner
+    /// in through the system browser, then registers with the one-time code the sign-in
+    /// handed back to this machine's loopback, and stores the credential it is handed.
+    /// <para>
+    /// PKCE keeps the code useless to anything that sees it on the way: only this call
+    /// holds the verifier. The browser goes to the address the service answers — GitHub,
+    /// or on a Development service with no owner configured, straight back to the
+    /// loopback, which is read here without opening a browser at all.
+    /// </para>
+    /// </summary>
     public async Task<Result<DeviceCredential>> RegisterAsync(
         string deviceName,
         CancellationToken cancellationToken = default)
@@ -70,10 +105,36 @@ public sealed class DevicePairingClient : IDeviceRoster
                 Error.Validation(SyncErrorCodes.DeviceNameRequired, "Give this device a name first."));
         }
 
+        if (_browser is null)
+        {
+            return Result.Failure<DeviceCredential>(Error.Validation(
+                SignInUnavailableCode,
+                "This device cannot open a browser to sign in. Pair it with a code from a device that is already in."));
+        }
+
+        var verifier = EnrolmentPkce.CreateVerifier();
+        var state = EnrolmentPkce.CreateVerifier();
+        using var loopback = LoopbackRedirectListener.Start();
+
+        var started = await SyncHttp.SendAsync<EnrolmentStartResponse>(
+            () => _http.PostAsJsonAsync(
+                SyncRoutes.Absolute(SyncRoutes.EnrolmentStart),
+                new StartEnrolmentRequest(loopback.RedirectUri, EnrolmentPkce.Challenge(verifier), EnrolmentPkce.Method, state),
+                cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+
+        if (started.IsFailure) return Result.Failure<DeviceCredential>(started.Error);
+
+        var answer = await SignInAsync(loopback, started.Value.SignInAddress, cancellationToken).ConfigureAwait(false);
+        if (answer.IsFailure) return Result.Failure<DeviceCredential>(answer.Error);
+
+        var code = ReadAnswer(answer.Value, state);
+        if (code.IsFailure) return Result.Failure<DeviceCredential>(code.Error);
+
         return await StoreAsync(
             () => _http.PostAsJsonAsync(
                 SyncRoutes.Absolute(SyncRoutes.RegisterDevice),
-                new RegisterDeviceRequest(name),
+                new RegisterDeviceRequest(name, code.Value, verifier),
                 cancellationToken),
             registration => new DeviceCredential(
                 registration.OwnerId,
@@ -81,6 +142,65 @@ public sealed class DevicePairingClient : IDeviceRoster
                 name,
                 registration.Credential),
             cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<Uri>> SignInAsync(LoopbackRedirectListener loopback, Uri signInAddress, CancellationToken cancellationToken)
+    {
+        if (signInAddress.AbsoluteUri.StartsWith(loopback.RedirectUri.AbsoluteUri, StringComparison.Ordinal))
+        {
+            return signInAddress;
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(_signInTimeout);
+
+        try
+        {
+            await _browser!.OpenAsync(signInAddress, cancellationToken).ConfigureAwait(false);
+            return await loopback.WaitAsync(timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return Result.Failure<Uri>(Error.Validation(
+                SignInTimedOutCode,
+                "The sign-in did not come back in time. Register again to start a new one."));
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // No browser registered for web addresses on this machine.
+            return Result.Failure<Uri>(Error.Validation(
+                SignInUnavailableCode,
+                "No browser could be opened to sign in. Pair this device with a code from a device that is already in."));
+        }
+    }
+
+    /// <summary>The code on the loopback answer, once its state is this sign-in's.</summary>
+    private static Result<string> ReadAnswer(Uri answer, string state)
+    {
+        var query = answer.Query.TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair => pair.Split('=', 2))
+            .GroupBy(pair => pair[0], StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => Uri.UnescapeDataString(group.First().ElementAtOrDefault(1) ?? string.Empty),
+                StringComparer.Ordinal);
+
+        if (!query.TryGetValue("state", out var returned) || !string.Equals(returned, state, StringComparison.Ordinal))
+        {
+            return Result.Failure<string>(Error.Validation(SignInRefusedCode, "The sign-in answer was not for this request. Register again."));
+        }
+
+        if (query.ContainsKey("error"))
+        {
+            return Result.Failure<string>(Error.Validation(
+                SignInRefusedCode,
+                query.TryGetValue("error_description", out var why) && why.Length > 0 ? why : "The sign-in was refused."));
+        }
+
+        return query.TryGetValue("code", out var code) && code.Length > 0
+            ? Result.Success(code)
+            : Result.Failure<string>(Error.Validation(SignInRefusedCode, "The sign-in came back without a code. Register again."));
     }
 
     /// <summary>A paired device asks for a short code to read out loud. Bearer:

@@ -36,7 +36,7 @@ internal static class DeviceEndpoints
 
         devices.MapPost(SyncRoutes.RegisterDevice, RegisterDevice)
             .AllowAnonymous()
-            .WithSummary("Registers the first device and mints an owner for it.");
+            .WithSummary("Enrols a device as the owner's with the one-time code its owner sign-in handed back; recovery revokes the rest.");
 
         devices.MapPost(SyncRoutes.RedeemPairingCode, RedeemPairingCode)
             .AllowAnonymous()
@@ -71,7 +71,7 @@ internal static class DeviceEndpoints
         ICommandHandler<RegisterFirstDeviceCommand, Result<DeviceRegistrationResponse>> handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.Handle(new RegisterFirstDeviceCommand(request.DeviceName), cancellationToken);
+        var result = await handler.Handle(new RegisterFirstDeviceCommand(request.DeviceName, request.EnrolmentCode, request.CodeVerifier), cancellationToken);
 
         return SyncResults.From(
             context,

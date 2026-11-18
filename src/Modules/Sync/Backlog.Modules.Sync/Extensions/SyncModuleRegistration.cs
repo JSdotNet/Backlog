@@ -6,6 +6,7 @@ using Backlog.Modules.Sync.Features.DeleteNotificationReply;
 using Backlog.Modules.Sync.Features.DescribeOwner;
 using Backlog.Modules.Sync.Features.Devices;
 using Backlog.Modules.Sync.Features.IssueDeviceToken;
+using Backlog.Modules.Sync.Features.Enrolment;
 using Backlog.Modules.Sync.Features.IssuePairingCode;
 using Backlog.Modules.Sync.Features.ListInbox;
 using Backlog.Modules.Sync.Features.ListNotificationReplies;
@@ -54,6 +55,8 @@ public static class SyncModuleRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddScoped<ICommandHandler<RegisterFirstDeviceCommand, Result<DeviceRegistrationResponse>>, RegisterFirstDeviceCommandHandler>();
+        services.AddScoped<ICommandHandler<StartEnrolmentCommand, Result<EnrolmentStartResponse>>, StartEnrolmentCommandHandler>();
+        services.AddScoped<ICommandHandler<CompleteOwnerSignInCommand, Result<Uri>>, CompleteOwnerSignInCommandHandler>();
         services.AddScoped<ICommandHandler<IssuePairingCodeCommand, Result<PairingCodeResponse>>, IssuePairingCodeCommandHandler>();
         services.AddScoped<ICommandHandler<RedeemPairingCodeCommand, Result<DeviceRegistrationResponse>>, RedeemPairingCodeCommandHandler>();
         services.AddScoped<ICommandHandler<IssueDeviceTokenCommand, Result<DeviceTokenResponse>>, IssueDeviceTokenCommandHandler>();
@@ -88,6 +91,13 @@ public static class SyncModuleRegistration
         services.TryAddSingleton<IPairingCodeGenerator, RandomPairingCodeGenerator>();
         services.TryAddSingleton<IRegistrationCredentialGenerator, RandomRegistrationCredentialGenerator>();
         services.TryAddSingleton(TimeProvider.System);
+
+        // Who may enrol (local ADR 0052 §1). The host registers the configured owner
+        // and its GitHub sign-in first; without them enrolment signs nobody in, which
+        // the host allows in Development only.
+        services.TryAddSingleton(OwnerEnrolment.Open);
+        services.TryAddSingleton<IGitHubOwnerSignIn, NoGitHubOwnerSignIn>();
+        services.TryAddSingleton<IEnrolmentTicketStore, InMemoryEnrolmentTicketStore>();
 
         // Singletons because the in-memory adapters are the store: a scoped
         // registration would give every request an empty one. TryAdd rather
