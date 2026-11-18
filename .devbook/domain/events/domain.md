@@ -253,7 +253,8 @@ it with a tombstone. A request for a note the event already links changes nothin
 so a second desktop applying it does no harm.
 
 A desktop that does not hold the event yet keeps the request and tries again after
-its next pull. A desktop without Events, or with the `events` flag off, leaves the
+its next pull. A request for an event the person removed is retired unapplied, since
+the note has no event to join. A desktop without Events, or with the `events` flag off, leaves the
 request untouched until the flag is on.
 
 ## Harvest Task Policy
