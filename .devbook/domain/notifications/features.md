@@ -85,12 +85,13 @@ replies there. Every viewer shows which desktop owns the notification
 and whether it is online, because an answer counts only once that desktop accepts
 it.
 
-On the phone this is the Notifications tab in `Backlog.Mobile.UI`. It pulls the
+On the phone this is the Notifications screen in `Backlog.Mobile.UI`, opened from
+the app bar's bell. It pulls the
 feed when it opens and when the app comes back to the front. It also pulls every 30 seconds
 while a reply made there waits for its owner. Those pulls are its refresh, so the
-tab has no refresh button.
+screen has no refresh button.
 
-The tab is a pager: one item waiting on the person per screen, oldest first, with
+The screen is a pager: one item waiting on the person per screen, oldest first, with
 "n / total" and a dot per item. A card's title opens its detail, which shows any
 notification, a settled one included. Each card shows:
 
@@ -153,7 +154,7 @@ shows an empty state with **Clear filters**, not "No notifications".
 
 What waits is the kind of item the pager's stack holds: every open question
 without a reply on its way, and every open alert. The filters change only what the
-tab shows. While one narrows the tab, the filter button shows and says that filters
+screen shows. While one narrows the screen, the filter button shows and says that filters
 are on, and wears the number of waiting items they leave out. So a filter never
 hides what waits unseen. The Android push is sent whatever the filters hold.
 

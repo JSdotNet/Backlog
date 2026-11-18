@@ -84,7 +84,7 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
     </Story>
 
     <Story Name="Tab bar with glyphs"
-           Description="The phone's own bar, as a paired phone that holds a stand-up draws it: Today, Inbox, Stand-up and Notes, each with its glyph above its word — a sun, an inbox tray, a target and a sticky note. Every tab carries one or none does, so no tab reads as the odd one out. The glyph is decorative and hidden from assistive technology, so each tab's name is still its word, and it takes the word's ink, so the lit tab's glyph lights with it. The tab is still at least 48px tall.
+           Description="The phone's own bar at its five-tab maximum, as a paired phone that holds a stand-up and a knowledge event draws it: Today, Inbox, Stand-up, Events and Notes, each with its glyph above its word — a sun, an inbox tray, a target, a calendar and a sticky note. Notifications is not among them: it is the bell in the phone's app bar. Every tab carries a glyph or none does, so no tab reads as the odd one out. The glyph is decorative and hidden from assistive technology, so each tab's name is still its word, and it takes the word's ink, so the lit tab's glyph lights with it. The tab is still at least 48px tall.
 
 These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it."
            Code="@GlyphTabBarCode">
@@ -139,6 +139,7 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
         new("app-shell", "Today", Match: true, Icon: @<SunIcon Size="20" />),
         new("app-shell/inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
         new("app-shell/standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
+        new("app-shell/events", "Events", Icon: @<CalendarIcon Size="20" />),
         new("app-shell/notes", "Notes", Icon: @<StickyNoteIcon Size="20" />)
     ];
 
@@ -254,6 +255,7 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
                 new("", "Today", Match: true, Icon: @<SunIcon Size="20" />),
                 new("inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
                 new("standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
+                new("events", "Events", Icon: @<CalendarIcon Size="20" />),
                 new("notes", "Notes", Icon: @<StickyNoteIcon Size="20" />)
             ];
         }

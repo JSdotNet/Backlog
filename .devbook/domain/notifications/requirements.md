@@ -501,7 +501,7 @@ type: requirement
 related: [.devbook/domain/notifications/domain.md#origin, .devbook/domain/notifications/context.md#owner-screens]
 ```
 
-The system SHALL let the person narrow the pager on the phone's Notifications tab by From, the system a notification came from, and by Repository, the repository its owner published or the Brain, and SHALL keep a notification whose repository is not known under every Repository choice.
+The system SHALL let the person narrow the pager on the phone's Notifications screen by From, the system a notification came from, and by Repository, the repository its owner published or the Brain, and SHALL keep a notification whose repository is not known under every Repository choice.
 
 #### Scenario: Picking a system
 
@@ -545,7 +545,7 @@ The system SHALL show beside each option of a phone filter how many waiting noti
 #### Scenario: One system only
 
 - **Given** every notification on the phone came from Claude Code
-- **When** the person opens the Notifications tab
+- **When** the person opens the Notifications screen
 - **Then** no From filter is shown
 
 ### Requirement: The phone remembers its filters until the person clears them
@@ -559,13 +559,13 @@ The system SHALL keep the phone's From and Repository choices on the device acro
 #### Scenario: Filters survive a restart
 
 - **Given** the person picked Claude Code under From
-- **When** they close the app and open it again on the Notifications tab
+- **When** they close the app and open it again on the Notifications screen
 - **Then** From still reads Claude Code, and the pager holds only Claude Code's waiting questions
 
 #### Scenario: A filter that leaves nothing
 
 - **Given** the person picked a system no notification on the phone comes from any longer
-- **When** the tab has nothing left to show
+- **When** the screen has nothing left to show
 - **Then** it shows an empty state with Clear filters instead of "No notifications", and pressing Clear filters brings the pager back with everything that waits
 
 ### Requirement: Phone filters never hide what waits
@@ -574,7 +574,7 @@ The system SHALL keep the phone's From and Repository choices on the device acro
 type: requirement
 ```
 
-The system SHALL mark the phone's filter button, to the eye and in its accessible name, while a filter narrows the tab, SHALL show on it how many items waiting on the person the filters leave out, and SHALL push every notification to the phone, whatever the phone's filters hold.
+The system SHALL mark the phone's filter button, to the eye and in its accessible name, while a filter narrows the screen, SHALL show on it how many items waiting on the person the filters leave out, and SHALL push every notification to the phone, whatever the phone's filters hold.
 
 #### Scenario: A question outside the filter
 

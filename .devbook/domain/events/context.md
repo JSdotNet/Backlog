@@ -67,7 +67,8 @@ adapter in Infrastructure.
 Events owns its documents the way Notifications does
 ([ADR 0039 §3](../../arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md#3-notifications-get-their-own-replica-containers)).
 A knowledge event is a document of kind `knowledge-event` on a replica container of
-its own, `knowledgeEvents`. An event series rides the same container as kind `event-series`.
+its own, `knowledgeEvents`. An event series rides the same container as kind `event-series`,
+and the `events` switch a desktop last moved as kind `events-area` ([Events area](#events-area)).
 Sync stores and carries the documents and reads none of their fields. Each desktop keeps the person's events in its own store and pushes
 its changes.
 
@@ -107,9 +108,16 @@ It ships off and marked `DEV`, the settings screen's mark for a feature still un
 construction
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
 The key joins the feature catalog in `AppFeatures.cs`, and a person's choice is kept
-in `features.json` beside the app's other per-device choices. The phone keeps no flag
-of its own: it shows the Events screen while it holds an event, and a desktop pushes
-events only while its `events` flag is on. The flag is retired when the Events area leaves `DEV`.
+in `features.json` beside the app's other per-device choices. The flag is retired when
+the Events area leaves `DEV`.
+
+The phone keeps no flag of its own. It honours the latest switch any desktop made:
+a desktop that turns the flag off or on sends that switch as one document on the
+events feed, and a later switch replaces an earlier one. The phone shows the Events
+screen while it holds an event and the latest switch it holds is not off. Holding no
+switch counts as on. A desktop pushes events only while its own flag is on, and it
+never takes another desktop's switch as its own
+([ADR 0050 §6](../../arc42/adr/0050-events-is-its-own-bounded-context.md#6-the-events-switch-withdraws-the-whole-area)).
 
 ## Desktop clock
 
@@ -134,7 +142,7 @@ Events layer. Its one Tasks edge runs out of Events, so it forms no cycle of mod
 |---|---|---|---|---|
 | [Inbox](../inbox/context.md) | OHS + Published Language (Events = conformist) | The To Event route hands the triaged item to Events' intake, through an adapter | [ItemTriaged](../inbox/domain.md#itemtriaged), route `events` | An Inbox item becomes a Spotted knowledge event. |
 | [Capture](../capture/context.md) | OHS + Published Language, through the Inbox | None direct: the facts ride on the Inbox item | [ItemCaptured](../capture/domain.md#itemcaptured), its `event` field | The dates, place and their source reach the event. |
-| [Tasks](../tasks/domain.md#task) | Customer/Supplier (Events = customer) | `IEventTaskTarget` in Events' abstractions, answered by `EventsTaskTarget` in `Backlog.Infrastructure.FileSystem` over `ITaskItems` and `ITaskChangeSignal` | `Backlog.Modules.Tasks.Abstractions` | Files a prep or harvest task under the Brain scope, reads a linked task's title and status by id, and completes one by id. |
+| [Tasks](../tasks/domain.md#task) | Customer/Supplier (Events = customer) | `IEventTaskTarget` in Events' abstractions, answered by `EventsTaskTarget` in `Backlog.Infrastructure.FileSystem` over `ITaskItems` and `ITaskChangeSignal` | `Backlog.Modules.Tasks.Abstractions` | Files a prep task, or a harvest task under an id derived from its event and only if no task holds it, under the Brain scope, reads a linked task's title and status by id, and completes one by id. |
 | [Brain](../brain/context.md) | One-way reference | A Brain note's path from the Brain's root, held on the event. The pane reads whether the note is there, its title and the notes to pick through `IEventBrainNotes`, answered by `EventsBrainNotes` in `Backlog.Infrastructure.Brain` | The path `ItemTriaged.note_path` uses | The takeaways stay Brain notes. Brain knows no event. |
 | [Inbox](../inbox/domain.md#note), notes | One-way reference | An Inbox note id, held on the event | [Note](../inbox/domain.md#note) | A Talk note is attached to its event. |
 | [Sync](../sync/context.md) | Conformist (Events = conformist) | `KnowledgeEventSyncWorker` over `/api/sync/knowledge-events`; attachment requests on the task feed | `KnowledgeEventChange` in `Backlog.Modules.Sync.Abstractions`; local ADR 0050 | Events and attachment requests reach every paired device. |

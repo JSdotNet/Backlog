@@ -104,7 +104,7 @@ public sealed class OpenWorkSummaryTests
         await pane.Find(Summary).ClickAsync(new());
 
         var dialog = pane.Find(Report);
-        Assert.Equal("dialog", dialog.GetAttribute("role"));
+        Assert.NotNull(dialog.Closest("dialog[aria-modal='true']"));
         Assert.Contains("Open work", pane.Find($"{Report} .modal__title").TextContent, StringComparison.Ordinal);
         Assert.Equal("3", pane.Find("[data-testid='open-work-tile-open'] .metric-tile__value").TextContent.Trim());
 

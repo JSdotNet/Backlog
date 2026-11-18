@@ -38,7 +38,7 @@ Optional cloud sync carries this state between a person's devices. Every kind ri
 | Session records | a record in the `sessions` container | not reconciled: one machine writes each ([Session Record Sync](#session-record-sync)) | local ADR 0005 |
 | Remarks on devbook chapters | a remark in the `annotations` container | the task container's last-write-wins and tombstone terms | local ADR 0011 |
 | Devbook subject state | one document per subject in the `devbookSubjects` container, under an id every device derives alike | the later `updatedAt` wins whole, a tie changes nothing, and nothing is deleted | local ADR 0044 |
-| Knowledge event and event series | a document in the `knowledgeEvents` container, kind `knowledge-event` or `event-series` | the later `updatedAt` wins whole, a tie changes nothing, and nothing is deleted | local ADR 0050 |
+| Knowledge event, event series and the `events` switch | a document in the `knowledgeEvents` container, kind `knowledge-event`, `event-series` or `events-area` (one per owner) | the later `updatedAt` wins whole, a tie changes nothing, and nothing is deleted | local ADR 0050 |
 | Event attachment request | kind `event-attachment-request` in `tasks`, written by the phone | a desktop with Events on applies it, then tombstones it; others hold it | local ADR 0050, on ADR 0035 §8's terms |
 | Notifications and replies | a notification in the `notifications` container, a reply in `notificationReplies` | not reconciled; see [Notifications](#notifications) | local ADR 0039 |
 
@@ -469,7 +469,7 @@ These parts are built:
 - **Who may answer.** The sync API accepts a reply only from a device under the
   same owner, and the owner checks again. Any paired viewer may answer, critical
   questions included, unless the question says `answerOn: owner`.
-- **The flag is per device.** Off on a phone means no push and no Notifications tab. Off on a
+- **The flag is per device.** Off on a phone means no push and no Notifications bell. Off on a
   desktop means its sources fall back to toasts, and an MCP `ask` answers that
   notifications are not available.
 - **The sync service still scales to zero.** No connection to the sync service

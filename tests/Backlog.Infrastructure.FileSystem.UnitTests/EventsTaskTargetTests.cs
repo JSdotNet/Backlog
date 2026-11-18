@@ -72,6 +72,62 @@ public sealed class EventsTaskTargetTests
         Assert.Equal("entry.needs_title", filed.Error.Code);
     }
 
+    /// <summary>The Harvest Task Policy's filing (<c>.devbook/domain/events/domain.md#harvest-task-policy</c>):
+    /// under the id it derived, with the same text and the same place at the end of the backlog as
+    /// a prep task, and only when Tasks holds no task with that id.</summary>
+    [Fact]
+    public async Task Filing_once_passes_the_id_the_text_and_the_end_of_the_backlog_and_answers_filed()
+    {
+        var tasks = new RecordingTasks(existing: 3);
+        var target = new EventsTaskTarget(tasks, new Signal());
+        var id = new Guid("0b6f4c1e-2d3a-8b5c-9e7f-1a2b3c4d5e6f");
+
+        var filed = await target.FileOnceAsync(id.ToString("D"), "Harvest Techorama\nBelgium", TestContext.Current.CancellationToken);
+
+        Assert.True(filed.Value);
+        var create = Assert.Single(tasks.Creates);
+        Assert.Equal(id, create.Id);
+        Assert.Equal("# Harvest Techorama Belgium\n`task`\n", create.RawText);
+        Assert.Equal(3, create.Order);
+        Assert.Empty(tasks.Saves);
+    }
+
+    [Fact]
+    public async Task Filing_once_a_task_tasks_already_holds_answers_not_filed()
+    {
+        var id = Guid.NewGuid();
+        var tasks = new RecordingTasks(existing: 0) { HeldIds = { id } };
+        var target = new EventsTaskTarget(tasks, new Signal());
+
+        var filed = await target.FileOnceAsync(id.ToString("D"), "Harvest Techorama Belgium", TestContext.Current.CancellationToken);
+
+        Assert.True(filed.IsSuccess);
+        Assert.False(filed.Value);
+    }
+
+    [Fact]
+    public async Task A_refused_filing_once_is_answered_as_it_came()
+    {
+        var tasks = new RecordingTasks(existing: 0) { Refuse = true };
+        var target = new EventsTaskTarget(tasks, new Signal());
+
+        var filed = await target.FileOnceAsync(Guid.NewGuid().ToString("D"), "Harvest Techorama Belgium", TestContext.Current.CancellationToken);
+
+        Assert.Equal("entry.needs_title", filed.Error.Code);
+    }
+
+    [Fact]
+    public async Task Filing_once_under_an_id_that_is_no_guid_is_refused_and_writes_nothing()
+    {
+        var tasks = new RecordingTasks(existing: 0);
+        var target = new EventsTaskTarget(tasks, new Signal());
+
+        var filed = await target.FileOnceAsync("not-a-task", "Harvest Techorama Belgium", TestContext.Current.CancellationToken);
+
+        Assert.True(filed.IsFailure);
+        Assert.Empty(tasks.Creates);
+    }
+
     [Fact]
     public async Task A_lookup_answers_the_held_tasks_with_their_status_in_words()
     {
@@ -192,6 +248,12 @@ public sealed class EventsTaskTargetTests
 
         public bool Refuse { get; init; }
 
+        /// <summary>What it was asked to create under a caller's id, created or not.</summary>
+        public List<(Guid Id, string RawText, int Order)> Creates { get; } = [];
+
+        /// <summary>Ids it holds a task under, live or deleted, beyond the listed entries.</summary>
+        public HashSet<Guid> HeldIds { get; } = [];
+
         public Guid Hold(string title, EntryStatus status, string body = "")
         {
             var id = Guid.NewGuid();
@@ -221,6 +283,15 @@ public sealed class EventsTaskTargetTests
             var created = Guid.NewGuid();
             Saves.Add((created, id, rawText, order, sourceInboxId));
             return Task.FromResult(Result.Success(new SavedTaskDto(Entry(created, EntryTextParser.Parse(rawText).Title, EntryStatus.Draft))));
+        }
+
+        public Task<Result<bool>> CreateFromTextIfAbsentAsync(Guid id, string rawText, int order, CancellationToken cancellationToken = default)
+        {
+            if (Refuse) return Task.FromResult(Result.Failure<bool>(Error.Validation("entry.needs_title", "An entry needs a title line before it can be saved.")));
+            if (HeldIds.Contains(id) || _held.Exists(entry => entry.Id == id)) return Task.FromResult(Result.Success(false));
+
+            Creates.Add((id, rawText, order));
+            return Task.FromResult(Result.Success(true));
         }
 
         public Task<Result<ImportPlanResultDto>> ImportPlanAsync(string rawText, string? defaultRepo = null, IReadOnlyDictionary<string, string>? repoMatches = null, string? sourceInboxId = null, IReadOnlyDictionary<string, string>? sourceInboxIds = null, bool layOutOnRoadmap = false, CancellationToken cancellationToken = default) =>

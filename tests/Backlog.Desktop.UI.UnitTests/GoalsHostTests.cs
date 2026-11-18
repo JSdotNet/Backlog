@@ -790,7 +790,7 @@ public sealed class GoalsHostTests : IDisposable
 
         host.WaitForAssertion(() =>
             Assert.Equal([(PaidId, GoalItemDto.ForTask(Vat)), (PaidId, GoalItemDto.ForPlan("bank-integration"))], _goals.Detached));
-        Assert.Empty(host.FindAll("[role='dialog']"));
+        Assert.Empty(host.FindAll("dialog"));
     }
 
     [Fact]

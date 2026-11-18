@@ -241,14 +241,14 @@ related: [.devbook/domain/capture/features.md#event-page-monitor, .devbook/domai
 > in this order and records its known limits. The examples are the first pages it
 > watches: dotNET Friday and Techorama.
 
-### Requirement: The monitor takes the first step that gives a date
+### Requirement: The monitor takes the first step that gives an edition to come
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.An_eventbrite_listing_watched_directly_is_read_from_its_own_structured_data, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Dotnet_friday_is_read_one_hop_away_on_its_eventbrite_listing, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Techorama_nl_is_read_from_the_dates_in_its_image_text]
+tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.An_eventbrite_listing_watched_directly_is_read_from_its_own_structured_data, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Dotnet_friday_is_read_one_hop_away_on_its_eventbrite_listing, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Techorama_nl_is_read_from_the_dates_in_its_image_text, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Dotnet_friday_still_linking_its_passed_listing_is_read_on_to_the_next_date_in_its_text, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.A_passed_structured_event_on_the_page_is_read_past_to_its_registration_link]
 ```
 
-The event page monitor SHALL take an edition's dates and place from the first of these steps that gives a date: a schema.org event on the watched page, a schema.org event one registration link away, a date pattern in the page text.
+The event page monitor SHALL take an edition's dates and place from the first of these steps that gives an edition whose end date is not before today: a schema.org event on the watched page, a schema.org event one registration link away, a date pattern in the page text.
 
 #### Scenario: Structured data on the page
 
@@ -267,6 +267,12 @@ The event page monitor SHALL take an edition's dates and place from the first of
 - **Given** techorama.nl has no schema.org event and its text reads `26 - 28 OCT 2026`
 - **When** the person presses Run capture now
 - **Then** the item starts on 26 October 2026 and ends on 28 October 2026, with no time
+
+#### Scenario: A passed listing and the next date in the text
+
+- **Given** today is 28 November 2026, dotnetfriday.nl still links its 27 November 2026 listing, and its text reads `Join us on February 12, 2027`
+- **When** the person presses Run capture now
+- **Then** the Inbox gets one item starting on 12 February 2027
 
 ### Requirement: Dutch and English month names are read alike
 
@@ -302,7 +308,7 @@ The event page monitor SHALL deliver an item with the page's title and link and 
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Techorama_be_still_showing_last_springs_edition_gives_no_entry, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Techorama_nl_after_its_edition_gives_no_entry_and_says_why]
+tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Techorama_be_still_showing_last_springs_edition_gives_no_entry, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Techorama_nl_after_its_edition_gives_no_entry_and_says_why, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Dotnet_friday_after_its_listed_edition_with_no_new_date_says_it_has_passed, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.A_failed_hop_after_a_passed_event_is_named_beside_it]
 ```
 
 The event page monitor SHALL deliver no item for an edition whose end date is before today.
@@ -313,14 +319,20 @@ The event page monitor SHALL deliver no item for an edition whose end date is be
 - **When** the person presses Run capture now
 - **Then** no item is delivered for techorama.be
 
+#### Scenario: A passed listing and no next date
+
+- **Given** today is 28 November 2026 and dotnetfriday.nl still links its 27 November 2026 listing, with no dated text
+- **When** the person presses Run capture now
+- **Then** no item is delivered, and the run says the edition ended on 27 November 2026
+
 ### Requirement: An edition is delivered once
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.An_edition_keeps_its_id_across_runs_and_next_years_gets_its_own, unit:dotnet:Backlog.Modules.Capture.UnitTests.RunCaptureCommandHandlerTests.Entries_the_receiving_side_already_holds_are_not_counted_as_new]
+tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.An_edition_keeps_its_id_across_runs_and_next_years_gets_its_own, unit:dotnet:Backlog.Modules.Capture.UnitTests.RunCaptureCommandHandlerTests.Entries_the_receiving_side_already_holds_are_not_counted_as_new, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.Two_editions_in_the_same_year_and_place_are_told_apart_by_their_own_url, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.A_passed_edition_still_on_the_page_does_not_move_the_next_ones_id, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.The_edition_that_starts_first_keeps_the_plain_id_wherever_the_page_lists_it, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.A_later_edition_with_a_url_is_told_apart_from_a_first_one_without, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.An_event_carried_twice_is_one_edition]
 ```
 
-The event page monitor SHALL deliver each edition once, knowing it by its listing id when the registration page has one and otherwise by the page URL, the year and the place.
+The event page monitor SHALL deliver each edition once, knowing it by its listing id or else by its page URL, year and place, plus its own URL when an earlier upcoming edition shares those.
 
 #### Scenario: A second run
 
@@ -333,6 +345,12 @@ The event page monitor SHALL deliver each edition once, knowing it by its listin
 - **Given** the 2026 edition on techorama.nl was delivered, and the page now shows the 2027 edition
 - **When** the person presses Run capture now
 - **Then** the Inbox gets one new item, for the 2027 edition
+
+#### Scenario: Two editions in one year and place
+
+- **Given** a watched page whose schema.org events are a spring and an autumn 2027 meetup in Utrecht, each with its own `url`, and the spring one was delivered on an earlier run
+- **When** the person presses Run capture now
+- **Then** the Inbox gets one new item, for the autumn meetup
 
 #### Scenario: A moved date
 

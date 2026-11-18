@@ -1,4 +1,5 @@
 ﻿@page "/buttons"
+@page "/buttons/{Sample}"
 
 <PageTitle>Buttons — Backlog UI Storybook</PageTitle>
 
@@ -114,6 +115,26 @@ Lead is placement, not styling. A footer is a flex row that pushes its children 
             <IconButton AriaLabel="Unavailable action" Disabled="true">⨯</IconButton>
         </div>
         <p class="sb-state">Clicks: @_clicks</p>
+    </Story>
+
+    <Story Name="IconButton as a link"
+           Description="Given an Href the icon button renders a link to a page of the app, with the same classes and the same hidden glyph. The phone's app bar draws its Notifications bell this way.
+
+NavLink decides whether its page is on screen, matching by prefix by default, as it does for the tab bar. While current the link carries `aria-current` set to page and the `btn--icon-current` class, a primary bar on its bottom edge. The third sample is disabled: it has no href and carries `aria-disabled`.
+
+These links are live: tapping one opens /buttons/{name} and lights it."
+           Code="@IconLinkCode">
+        <div class="sb-row" data-testid="buttons-icon-links">
+            <IconButton Href="buttons/notifications" AriaLabel="Notifications" TestId="buttons-icon-link-notifications">
+                <BellIcon Size="20" />
+            </IconButton>
+            <IconButton Href="buttons/inbox" AriaLabel="Inbox" TestId="buttons-icon-link-inbox">
+                <InboxIcon Size="20" />
+            </IconButton>
+            <IconButton Href="buttons/notifications" AriaLabel="Notifications, unavailable" Disabled="true">
+                <BellIcon Size="20" />
+            </IconButton>
+        </div>
     </Story>
 
     <Story Name="IconButton with real tool icons"
@@ -255,6 +276,11 @@ The fourth hands over HTML beside the text: Html puts text/html on the clipboard
 </StoryPage>
 
 @code {
+    /// <summary>The link sample this page was opened on, from /buttons/{Sample}. Unused
+    /// beyond making the route resolve: NavLink reads the address itself.</summary>
+    [Parameter]
+    public string? Sample { get; set; }
+
     private static readonly DesignGuideline[] Rules =
     [
         new("color-scheme.md#semantic-soft-surface-tokens", "Which variant may carry which tone."),
@@ -264,6 +290,7 @@ The fourth hands over HTML beside the text: Html puts text/html on the clipboard
         new("design-principles.md#keyboard-first", "Why every act needs a key as well as a click."),
         new("interaction-guidelines.md#motion-and-reduced-motion", "How long a confirmation flash lasts, what it may animate, and what it does instead when motion is unwelcome."),
         new("interaction-guidelines.md#press-feedback", "Why every button shows a pressed state, before any work behind it."),
+        new("interaction-guidelines.md#phone-tab-bar", "Why the phone's Notifications bell is an icon link, and how it is lit while its page is on screen."),
         new("interaction-guidelines.md#busy-actions", "When a button goes busy, and why it keeps its focus and its label while it is.")
     ];
 
@@ -444,6 +471,13 @@ The fourth hands over HTML beside the text: Html puts text/html on the clipboard
 
     private const string IconButtonCode = """
         <IconButton AriaLabel="Delete entry" Title="Delete entry" OnClick="Delete">🗑</IconButton>
+        """;
+
+    private const string IconLinkCode = """
+        <IconButton Href="notifications" AriaLabel="Notifications" Title="Notifications"
+                    CssClass="app-bar__notifications" TestId="app-notifications">
+            <BellIcon Size="20" />
+        </IconButton>
         """;
 
     private const string DeleteButtonCode = """

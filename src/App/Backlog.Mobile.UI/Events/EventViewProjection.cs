@@ -16,9 +16,11 @@ namespace Backlog.Mobile.UI.Events;
 /// thing it asks about one — attaching a Talk note — goes through
 /// <see cref="EventNoteAttachments"/>.
 /// <para>
-/// The phone keeps no feature switch. A desktop pushes events only while its <c>events</c> area
-/// is on, so a phone paired to desktops without it holds none, and <see cref="HoldsAny"/> is
-/// what shows the Events tab.
+/// The phone keeps no feature switch of its own: it honours the latest <c>events</c> switch any
+/// desktop moved, which rides the same feed as an <see cref="EventsAreaReplicaDto"/> (local ADR
+/// 0050 §6). A desktop pushes events only while its area is on, so a phone paired to desktops
+/// without it holds none; <see cref="IsOffered"/> — events held, and no switch held that says
+/// off — is what shows the Events tab.
 /// </para>
 /// <para>
 /// One per device, a singleton, for the reason the notification projection is one.
@@ -57,6 +59,24 @@ public sealed class EventViewProjection : IDisposable
     /// <summary>Whether the phone holds any event to show — what puts the Events tab in the bar.
     /// A series alone is not one.</summary>
     public bool HoldsAny => Events().Count > 0;
+
+    /// <summary>Whether the latest switch a desktop moved says the Events area is off — the
+    /// withdrawal (<c>.devbook/domain/events/requirements.md#requirement-no-events-screen-while-the-area-is-off</c>).
+    /// False while the phone holds no switch, as before any desktop sent one.</summary>
+    public bool IsWithdrawn
+    {
+        get
+        {
+            KnowledgeEventChangeRecord? held;
+            lock (_rowsLock) held = _rows.GetValueOrDefault(EventsAreaReplicaDto.WellKnownId);
+
+            return held is not null && KnowledgeEventDocuments.ReadArea(held.Change) is { On: false };
+        }
+    }
+
+    /// <summary>Whether the phone offers its Events screen — the tab, and the Notes tab's attach
+    /// control: it holds an event and the area is not withdrawn.</summary>
+    public bool IsOffered => !IsWithdrawn && HoldsAny;
 
     /// <summary>
     /// The upcoming events: every event not Skipped whose last day — its end, else its start —
@@ -191,7 +211,8 @@ public sealed class EventViewProjection : IDisposable
     }
 
     /// <summary>Every event the phone can read, each with its series' name. A record this build
-    /// cannot read is passed over.</summary>
+    /// cannot read is passed over, and so is a removed event's tombstone: the record stays held
+    /// so an older copy arriving late cannot bring the event back.</summary>
     private List<PhoneEvent> Events()
     {
         List<KnowledgeEventChangeRecord> rows;
@@ -205,6 +226,7 @@ public sealed class EventViewProjection : IDisposable
         return rows
             .Select(row => KnowledgeEventDocuments.ReadEvent(row.Change))
             .OfType<KnowledgeEventReplicaDto>()
+            .Where(item => !item.Removed)
             .Select(item => new PhoneEvent(item, item.SeriesId is { } id ? series.GetValueOrDefault(id) : null))
             .ToList();
     }

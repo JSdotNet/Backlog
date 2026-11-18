@@ -65,6 +65,14 @@ public static class EventPresentation
                 : new FlowStep(StateLabel(step), FlowStepTone.Pending, "Ahead"))];
     }
 
+    /// <summary>Where the dates came from, as the editor shows it beside them: the capture rules'
+    /// "dates show their source", since a listing and the event page may disagree.</summary>
+    public static string DateSourceLabel(DateSource source) => source switch
+    {
+        DateSource.EventPage => "Event page",
+        _ => "Typed"
+    };
+
     /// <summary>A ticket state as the pane names it.</summary>
     public static string TicketLabel(TicketState ticket) => ticket switch
     {

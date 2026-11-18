@@ -1,0 +1,36 @@
+Harvest task id comparison (read-only query of the shared workspace task database)
+Database: D:/Repos/Backlog/.claude/worktrees/generated-knowledge-database-1509ba/.qa-workspace/backlog.db
+Recipe: SHA-256("backlog:harvest-task:" + eventId:D)[0..16], byte6=(b&0x0F)|0x80, byte8=(b&0x3F)|0x80, read big-endian
+
+event       01a1ca95-d44a-7999-bdb4-1b74b9024755  [Going]  QA NotDue 1328
+expected    0c597d6f-7de5-8b85-9d5f-4f57b5c8500b
+linked      0c597d6f-7de5-8b85-9d5f-4f57b5c8500b
+tasks titled 'Harvest QA NotDue 1328': 1 -> [('0c597d6f-7de5-8b85-9d5f-4f57b5c8500b', 'draft', '2026-11-18T01:58:09.2862263+00:00', None)]
+MATCH       True
+
+event       01a1cacd-e496-71cb-b024-fee6d2627747  [Going]  QA Phone Talk
+expected    7c6edfcf-b5b0-8dba-b8a3-d3120f599925
+linked      7c6edfcf-b5b0-8dba-b8a3-d3120f599925
+tasks titled 'Harvest QA Phone Talk': 1 -> [('7c6edfcf-b5b0-8dba-b8a3-d3120f599925', 'draft', '2026-11-18T01:58:09.3536278+00:00', None)]
+MATCH       True
+
+event       01a1ec5e-21a5-7d68-b4d9-f396f0ce5c54  [Going]  QA9bd Harvest 0255
+expected    fe1b991f-33e7-8d11-bf54-bd5b6450f896
+linked      fe1b991f-33e7-8d11-bf54-bd5b6450f896
+tasks titled 'Harvest QA9bd Harvest 0255': 1 -> [('fe1b991f-33e7-8d11-bf54-bd5b6450f896', 'draft', '2026-11-18T01:58:09.4010157+00:00', None)]
+MATCH       True
+
+event       01a1ec64-d477-7002-a664-35d8fa9c379f  [Going]  QA9bd Control 0303
+expected    ee56deae-30a8-8d02-b3c6-4743eedaf2ec
+linked      ee56deae-30a8-8d02-b3c6-4743eedaf2ec
+tasks titled 'Harvest QA9bd Control 0303': 1 -> [('ee56deae-30a8-8d02-b3c6-4743eedaf2ec', 'draft', '2026-11-18T02:04:11.4661755+00:00', None)]
+MATCH       True
+
+ALL MATCH True
+
+Pass timeline (desktop-web-harness, UTC):
+  01:57:04 restart #1 -> 01:58:09 start pass: "Filed 3 harvest task(s) for events that ended before 11/18/2026."
+  01:59:32 restart #2 -> dotnet run build died with MSB4166 (MSBuild child node exited; environment), resource Finished
+  02:01:03 start      -> start pass ran; no harvest task added (DB checked 02:02:54)
+  02:03:2x restart #3 (after adding the due control event QA9bd Control 0303) -> 02:04:11 start pass:
+           "Filed 1 harvest task(s) ..." = the control only; QA9bd Harvest 0255 still has exactly one task.

@@ -21,7 +21,9 @@ public sealed record KnowledgeEventMergeOutcome(int Applied);
 /// <para>
 /// A record this device cannot file is skipped and named rather than thrown on: one whose
 /// document does not read as the event or series its envelope names, or that Events finds
-/// unreadable. A kind this build does not know is skipped the same way.
+/// unreadable. A kind this build does not know is skipped the same way. The
+/// <see cref="KnowledgeEventKinds.EventsArea"/> switch is passed over without a word: it is the
+/// phone's to read, and a desktop's own <c>events</c> flag never follows another's.
 /// </para>
 /// </summary>
 public sealed class KnowledgeEventReplicaMerge
@@ -72,6 +74,9 @@ public sealed class KnowledgeEventReplicaMerge
 
         foreach (var record in Winners(page))
         {
+            // The phone's switch, not this desktop's: a desktop keeps its own flag (local ADR 0050 §6).
+            if (string.Equals(record.Change.Kind, KnowledgeEventKinds.EventsArea, StringComparison.Ordinal)) continue;
+
             var outcome = await ApplyAsync(record.Change, cancellationToken).ConfigureAwait(false);
 
             if (outcome == KnowledgeEventReplicaOutcome.Taken)
