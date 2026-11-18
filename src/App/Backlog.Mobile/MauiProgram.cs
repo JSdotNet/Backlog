@@ -49,6 +49,12 @@ public static class MauiProgram
 		builder.Services.AddSingleton<ISecureStorage>(SecureStorage.Default);
 		builder.Services.AddSingleton<IDeviceCredentialStore, SecureStorageDeviceCredentialStore>();
 
+		// The phone's device key (local ADR 0052 §2): a non-exportable P-256 key in
+		// Android Keystore, StrongBox first. With it registered, pairing sends the key
+		// rather than keeping a secret, and a phone already paired on a secret moves onto
+		// the key on its next token fetch and deletes the secret above.
+		builder.Services.AddSingleton<IDeviceKeyStore, AndroidKeystoreDeviceKeyStore>();
+
 		// Pairing and tokens only. Task replication is AddTaskSyncClient, and it is
 		// not called here on purpose: it needs an ITaskRepository, and this head has
 		// none - the phone carries the Inbox, not a local task database. Registering

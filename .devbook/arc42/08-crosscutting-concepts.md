@@ -548,7 +548,7 @@ each item below says where the code stands.
 | Principal | Proven by | Today |
 | --- | --- | --- |
 | The owner | GitHub sign-in, matched by numeric user id, at first-device enrolment and recovery only | Registration is anonymous |
-| A device | A non-exportable key (TPM through CNG, Android Keystore), exchanged by `private_key_jwt` | A stored registration credential |
+| A device | A non-exportable key (TPM through CNG, Android Keystore), exchanged by `private_key_jwt` | Built on Windows and Android; a device paired on a stored credential moves onto its key at its next sync |
 | A local agent | A grant; a named-pipe token broker mints 15-minute JWTs with scopes | Built |
 | A remote agent | OAuth 2.1 on the sync service, one static client for the claude.ai connector | Built, not yet deployed: the authorization server and `/mcp`, serving `inbox:capture` |
 

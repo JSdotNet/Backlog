@@ -81,7 +81,7 @@ public sealed class DevicePairingClient : IDeviceRoster
     /// <param name="signInTimeout">How long to wait for the browser to come back.</param>
     /// <param name="keys">This device's key (local ADR 0052 §2): with one, registering and
     /// pairing send its public key and the service hands back no credential to keep. None
-    /// on a host that keeps no key — the Android head — which goes on with a credential.</param>
+    /// on a host that keeps no key, which goes on with a credential.</param>
     /// <param name="stepUp">Windows Hello before minting a pairing code or revoking a device
     /// (local ADR 0052 §6). None on a host that keeps no step-up — the web harness and the
     /// phone — which mints and revokes without asking.</param>

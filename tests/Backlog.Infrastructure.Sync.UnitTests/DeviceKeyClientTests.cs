@@ -607,7 +607,7 @@ public sealed class DeviceKeyClientTests
 
     /// <summary>The token endpoint, recording each request it is sent; <paramref name="refuse"/>
     /// names the status to answer a request with instead of a token, or null to mint one.</summary>
-    private static SyncTokenProviderTests.Fixture TokenService(
+    internal static SyncTokenProviderTests.Fixture TokenService(
         IDeviceCredentialStore store,
         IDeviceKeyStore? keys,
         List<DeviceTokenRequest> sent,
@@ -748,7 +748,7 @@ public sealed class DeviceKeyClientTests
         public void Clear() => _inner.Clear();
     }
 
-    private sealed class DictionarySecureValues : ISecureValueStore
+    internal sealed class DictionarySecureValues : ISecureValueStore
     {
         private readonly Dictionary<string, string> _values = new(StringComparer.Ordinal);
 
@@ -764,7 +764,7 @@ public sealed class DeviceKeyClientTests
     }
 
     /// <summary>A compact JWT read back the way the service reads it.</summary>
-    private sealed record Jwt(JsonElement Header, JsonElement Claims, bool SignatureValid)
+    internal sealed record Jwt(JsonElement Header, JsonElement Claims, bool SignatureValid)
     {
         public static Jwt Read(string compact, string publicKey)
         {
