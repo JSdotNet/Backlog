@@ -10624,6 +10624,12 @@ select.field__input {
     box-shadow: var(--shadow-lg);
 }
 
+/* AlignEnd: the x the host passed is the menu's end edge, the opening button's
+   right, so a menu from a button at the window's end opens inward. */
+.context-menu--end {
+    transform: translateX(-100%);
+}
+
 /* PopoverButton: a trigger with a small panel of the host's controls under it
    (over it with OpenUpward), lined up with the trigger's start edge, or with its
    end edge (AlignEnd) so it opens inward from the end of a row. The

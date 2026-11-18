@@ -76,7 +76,7 @@ public sealed class PhoneInboxScreenTests
         var (host, app) = Open();
         using var disposing = host;
 
-        var button = app.Find("[data-testid='inbox-new']");
+        var button = app.Find("[data-testid='capture-submit']");
         Assert.Equal("New", button.GetAttribute("aria-label"));
         Assert.Equal("menu", button.GetAttribute("aria-haspopup"));
 
@@ -99,7 +99,7 @@ public sealed class PhoneInboxScreenTests
         var (host, app) = Open();
         using var disposing = host;
 
-        app.Find("[data-testid='inbox-new']").Click();
+        app.Find("[data-testid='capture-submit']").Click();
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-new-menu-item-meeting']")));
         app.Find("[data-testid='inbox-new-menu-item-meeting']").Click();
 
@@ -112,6 +112,28 @@ public sealed class PhoneInboxScreenTests
         app.WaitForAssertion(() => Assert.Contains(
             "Meeting",
             app.FindAll("[data-testid='note-row-kind'] .sr-only").Select(word => word.TextContent)));
+    }
+
+    /// <summary>The New menu hangs under the + with its end on the button's right edge,
+    /// for a tap and a key alike — never at the pointer, where it ran off a 375px screen,
+    /// nor in the corner where a key's pointer-less click would put it.</summary>
+    [Theory]
+    [InlineData(40.0, 500.0)]
+    [InlineData(0.0, 0.0)]
+    public void The_new_menu_hangs_under_the_plus_end_aligned_wherever_it_was_pressed(double pointerX, double pointerY)
+    {
+        var (host, app) = Open();
+        using var disposing = host;
+        host.JSInterop.Setup<double[]?>("backlogAnchorBelow", "inbox-plus", true).SetResult([359.5, 612]);
+
+        app.Find("[data-testid='capture-submit']").Click(new Microsoft.AspNetCore.Components.Web.MouseEventArgs { ClientX = pointerX, ClientY = pointerY });
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-new-menu']")));
+        var menu = app.Find("[data-testid='inbox-new-menu']");
+        Assert.Contains("context-menu--end", menu.ClassList);
+        Assert.Contains("--context-menu-x: 359.5px", menu.GetAttribute("style"), StringComparison.Ordinal);
+        Assert.Contains("--context-menu-y: 612px", menu.GetAttribute("style"), StringComparison.Ordinal);
+        Assert.Equal("inbox-plus", app.Find("[data-testid='capture-submit']").GetAttribute("id"));
     }
 
     /// <summary>The meeting address is replaced by the meeting's own once it exists, so
@@ -204,6 +226,55 @@ public sealed class PhoneInboxScreenTests
             StringComparison.Ordinal));
         Assert.Equal(running.Id, Assert.Single(host.MeetingRecorder.Started));
         Assert.Single(Meetings(host));
+    }
+
+    /// <summary>The page has one +: New, a menu, while the field is empty, and
+    /// "Add to inbox" once it holds words, with no menu to announce.</summary>
+    [Fact]
+    public void The_one_plus_is_new_with_the_field_empty_and_add_to_inbox_with_words_in_it()
+    {
+        var (host, app) = Open();
+        using var disposing = host;
+        app.WaitForAssertion(() => Assert.Equal(3, app.FindAll("[data-testid='inbox-list'] > li").Count));
+
+        Assert.Single(app.FindAll("[data-testid='capture-submit']"));
+        // No second + beside the kind chips.
+        Assert.Empty(app.FindAll(".inbox-kinds button:not([aria-pressed])"));
+        var plus = app.Find("[data-testid='capture-submit']");
+        Assert.Equal("New", plus.GetAttribute("aria-label"));
+        Assert.Equal("menu", plus.GetAttribute("aria-haspopup"));
+        Assert.Equal("false", plus.GetAttribute("aria-expanded"));
+
+        app.Find("[data-testid='capture-field'] input").Input("Book the venue");
+
+        plus = app.Find("[data-testid='capture-submit']");
+        Assert.Equal("Add to inbox", plus.GetAttribute("aria-label"));
+        Assert.Null(plus.GetAttribute("aria-haspopup"));
+        Assert.Null(plus.GetAttribute("aria-expanded"));
+
+        plus.Click();
+
+        app.WaitForAssertion(() => Assert.Equal(2, app.FindAll("[data-testid='inbox-row']").Count));
+        Assert.Empty(app.FindAll("[data-testid='inbox-new-menu'] [role='menuitem']"));
+    }
+
+    /// <summary>Enter adds the words once: the field binds on input, so the change event
+    /// a real Enter also raises commits nothing, and a second Enter finds the field empty.</summary>
+    [Fact]
+    public void Enter_in_the_quick_field_adds_the_capture_once()
+    {
+        var (host, app) = Open();
+        using var disposing = host;
+        app.WaitForAssertion(() => Assert.Equal(3, app.FindAll("[data-testid='inbox-list'] > li").Count));
+
+        var input = app.Find("[data-testid='capture-field'] input");
+        input.Input("Book the venue");
+        input.KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" });
+        app.Find("[data-testid='capture-field'] input").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" });
+
+        app.WaitForAssertion(() => Assert.Equal(2, app.FindAll("[data-testid='inbox-row']").Count));
+        Assert.Single(app.FindAll("[data-testid='inbox-row']"), row => row.TextContent.Contains("Book the venue", StringComparison.Ordinal));
+        Assert.Equal(string.Empty, app.Find("[data-testid='capture-field'] input").GetAttribute("value"));
     }
 
     [Fact]

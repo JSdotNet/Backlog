@@ -2793,12 +2793,15 @@
     // [x, y] in viewport pixels for ContextMenu's fixed position. Enter or Space on
     // a button is a click with no pointer, clientX/clientY 0, so the click's own
     // position would put the menu in the window's corner. Null for an element
-    // that is gone, and the caller keeps the pointer's position.
-    window.backlogAnchorBelow = (element) => {
+    // that is gone, and the caller keeps the pointer's position. With `end`, under
+    // the button's right edge instead, for ContextMenu's AlignEnd. The element may
+    // be passed by its id, for a host whose button component hands out no reference.
+    window.backlogAnchorBelow = (element, end) => {
+        if (typeof element === 'string') element = document.getElementById(element);
         if (!(element instanceof Element) || !element.isConnected) return null;
 
         const box = element.getBoundingClientRect();
-        return [box.left, box.bottom];
+        return [end ? box.right : box.left, box.bottom];
     };
 
     // Space on a focused TaskCard. The card opens on Space from its keydown

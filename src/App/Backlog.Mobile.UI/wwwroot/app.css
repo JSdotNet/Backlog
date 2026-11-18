@@ -142,14 +142,13 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .inbox-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 
 /*
-  The kind chips, one fused group with exactly one pressed, and the + button
-  that opens Note and Meeting (interaction-guidelines.md#phone-inbox). Every
+  The kind chips, one fused group with exactly one pressed
+  (interaction-guidelines.md#phone-inbox). Every
   chip keeps the 44px target (accessibility.md#target-sizes-and-text).
 */
-.inbox-kinds { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .75rem; }
+.inbox-kinds { display: flex; align-items: center; margin-bottom: .75rem; }
 .inbox-kinds__chips { flex: 1; min-width: 0; }
 .inbox-kinds__chip { flex: 1; min-height: 44px; padding-inline: .5rem; }
-.inbox-kinds__new { flex: none; min-width: 44px; min-height: 44px; }
 
 .inbox { transition: transform .15s ease-out; }
 .inbox--pulling { transform: translateY(.75rem); }

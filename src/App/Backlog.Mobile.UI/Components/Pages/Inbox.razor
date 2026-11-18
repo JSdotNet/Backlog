@@ -25,10 +25,11 @@
     A note or meeting row opens it in the note editor.
 
     The kind chips — All, Captures, Notes, Meetings — are one fused group with exactly
-    one pressed, and one tab stop the arrows move (data-roving-buttons). The + button,
-    named New, opens a menu of Note and Meeting: Note opens an empty editor, Meeting a
-    new meeting already recording. A capture comes from the quick one-line field or a
-    share, never from +. /notes opens this page on the Notes chip (?kind=notes).
+    one pressed, and one tab stop the arrows move (data-roving-buttons). The page has
+    one +, beside the quick field: with words in the field it adds them as a capture,
+    as Enter does; with the field empty it is New, a menu of Note and Meeting. Note
+    opens an empty editor, Meeting a new meeting already recording. /notes opens this
+    page on the Notes chip (?kind=notes).
 *@
 
 @{
@@ -65,28 +66,26 @@
                           TestId="@($"inbox-kind-{chip.Slug}")">@chip.Label</ToggleButton>
         }
     </ButtonGroup>
-    <IconButton AriaLabel="New" Title="New" OnClick="OpenNewMenu" CssClass="inbox-kinds__new"
-                TestId="inbox-new" aria-haspopup="menu" aria-expanded="@(_newMenuOpen ? "true" : "false")">
+</div>
+
+@* The one + on the page. With words in the field it adds them as a capture, as
+   Enter does; with the field empty it is New, a menu of Note and Meeting. Its
+   name follows what it will do, and only the menu mode says it opens a menu. *@
+<div class="capture">
+    <TextField @bind-Value="Draft.Text" AriaLabel="Add to inbox" Placeholder="Add to inbox…"
+               CssClass="capture__field" TestId="capture-field" @onkeydown="OnFieldKeyDownAsync" />
+    <IconButton AriaLabel="@PlusLabel" Title="@PlusLabel" OnClick="OnPlusAsync"
+                CssClass="capture__add" TestId="capture-submit" id="@PlusId"
+                aria-haspopup="@(HasDraft ? null : "menu")"
+                aria-expanded="@(HasDraft ? null : _newMenuOpen ? "true" : "false")">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4"
              stroke-linecap="round" aria-hidden="true" focusable="false">
             <path d="M12 5v14M5 12h14" />
         </svg>
     </IconButton>
     <ContextMenu Open="_newMenuOpen" OpenChanged="open => _newMenuOpen = open"
-                 X="@_newMenuX" Y="@_newMenuY" Items="@NewItems" AriaLabel="New"
+                 X="@_newMenuX" Y="@_newMenuY" AlignEnd="true" Items="@NewItems" AriaLabel="New"
                  TestId="inbox-new-menu" OnItemSelected="OnNewChosen" />
-</div>
-
-<div class="capture">
-    <TextField @bind-Value="Draft.Text" AriaLabel="Add to inbox" Placeholder="Add to inbox…"
-               CssClass="capture__field" TestId="capture-field" />
-    <IconButton AriaLabel="Add to inbox" Title="Add to inbox" Disabled="@string.IsNullOrWhiteSpace(Draft.Text)"
-                OnClick="CaptureAsync" CssClass="capture__add" TestId="capture-submit">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4"
-             stroke-linecap="round" aria-hidden="true" focusable="false">
-            <path d="M12 5v14M5 12h14" />
-        </svg>
-    </IconButton>
 </div>
 
 @if (SharedCapture.Status is { } shareStatus)
@@ -429,12 +428,55 @@ else if (_notesNotice is not null)
 
     private void OnSearch(string query) => _query = query ?? string.Empty;
 
-    private void OpenNewMenu(MouseEventArgs e)
+    /// <summary>Whether the quick field holds words: the + then adds them.</summary>
+    private bool HasDraft => !string.IsNullOrWhiteSpace(Draft.Text);
+
+    private string PlusLabel => HasDraft ? "Add to inbox" : "New";
+
+    /// <summary>The + button's id, which the menu is anchored to.</summary>
+    private const string PlusId = "inbox-plus";
+
+    /// <summary>
+    /// Adds the words as a capture, or with none opens New under the +, its end edge
+    /// on the button's (ContextMenu.AlignEnd), so the menu opens inward from the
+    /// window's right edge. Anchored to the button for a tap and a key alike: a key's
+    /// click has no pointer, and a tap's point would put the menu's corner under the
+    /// finger. The pointer stands in only when the page cannot say where the + is.
+    /// </summary>
+    private async Task OnPlusAsync(MouseEventArgs e)
     {
-        _newMenuX = e.ClientX;
-        _newMenuY = e.ClientY;
+        if (HasDraft)
+        {
+            await CaptureAsync();
+            return;
+        }
+
+        (_newMenuX, _newMenuY) = (e.ClientX, e.ClientY);
+
+        try
+        {
+            if (await Js.InvokeAsync<double[]?>("backlogAnchorBelow", PlusId, true) is [var x, var y])
+            {
+                (_newMenuX, _newMenuY) = (x, y);
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // No browser to ask: the pointer's position stands.
+        }
+
         _newMenuOpen = true;
     }
+
+    /// <summary>
+    /// Enter adds the words, once. The field binds on input, not on change, so the
+    /// change event Enter also raises commits nothing; and the capture clears the
+    /// draft, so a second Enter on the same words finds nothing to add.
+    /// </summary>
+    private Task OnFieldKeyDownAsync(KeyboardEventArgs e) =>
+        e is { Key: "Enter", ShiftKey: false, AltKey: false, CtrlKey: false, MetaKey: false, Repeat: false }
+            ? CaptureAsync()
+            : Task.CompletedTask;
 
     /// <summary>Note opens an empty editor; Meeting opens a new meeting already recording.</summary>
     private void OnNewChosen(MenuItem item)

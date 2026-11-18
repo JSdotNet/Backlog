@@ -96,7 +96,7 @@ public sealed class ShellNavigationTests
         app.WaitForAssertion(() => Assert.Equal(
             "Call the plumber about the boiler",
             app.Find("[data-testid='capture-field'] input").GetAttribute("value")));
-        Assert.False(app.Find("[data-testid='capture-submit']").HasAttribute("disabled"));
+        Assert.Equal("Add to inbox", app.Find("[data-testid='capture-submit']").GetAttribute("aria-label"));
     }
 
     [Fact]

@@ -101,7 +101,7 @@ public sealed class NotesScreenTests
         Assert.Contains("Note in the + menu", empty.TextContent, StringComparison.Ordinal);
         Assert.Empty(app.FindAll("[data-testid='inbox-search']"));
         Assert.Equal("Nothing to sort", app.Find("[data-testid='inbox-count']").TextContent);
-        Assert.NotNull(app.Find("[data-testid='inbox-new']"));
+        Assert.NotNull(app.Find("[data-testid='capture-submit']"));
     }
 
     [Fact]

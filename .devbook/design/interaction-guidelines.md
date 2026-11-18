@@ -1116,11 +1116,13 @@ related: [".devbook/design/interaction-guidelines.md#phone-tab-bar", ".devbook/d
 ```
 
 ```text
-[ All | Captures | Notes | Meetings ]        [+] -> Note | Meeting
+[ All | Captures | Notes | Meetings ]
  (c) Buy filters          <- kind mark leads every row
  (n) Release plan
  (m) Weekly sync
-[ quick one-line field ...................... ]   -> a capture
+[ quick one-line field ...................... ] [+]
+   words in the field: + or Enter -> a capture
+   field empty:        +          -> Note | Meeting
 ```
 
 The phone Inbox is one list of every Inbox Item the phone holds. It shows the
@@ -1133,8 +1135,9 @@ desktop.
 | One filter, fused | The kind filter MUST be one fused group of four chips: All, Captures, Notes, Meetings. |
 | Exactly one on | Exactly one chip is pressed; All is the default. |
 | Every row is marked | Every row MUST lead its metadata line with its kind mark, on every filter. |
-| The `+` menu makes notes and meetings | The `+` button MUST open a menu of two items: **Note** and **Meeting**. |
-| Captures are not in the menu | A capture comes from the quick one-line field or a share from another app, never from `+`. |
+| One `+` | The page MUST have one `+` button, beside the quick one-line field. |
+| `+` follows the field | With words in the field, `+` and Enter MUST add them as a capture. With the field empty, `+` MUST open a menu of two items: **Note** and **Meeting**. |
+| Captures are not in the menu | A capture comes from the quick one-line field or a share from another app, never from the menu. |
 | A meeting starts recording | **Meeting** MUST open a new meeting that is already recording. |
 | `/notes` is the Notes filter | The `/notes` route MUST open the Inbox with the Notes chip pressed. |
 
@@ -1148,9 +1151,14 @@ desktop.
 - **Every row is marked:** the mark follows `#task-rows`. The glyph stands
   alone, and its word is the tooltip and a visually-hidden span. A mark
   that showed only on All would leave the reader unsure what a filtered list holds.
-- **The `+` menu makes notes and meetings:** the trigger is an icon button named
-  **New**, with its glyph hidden. Two items earn a menu under
-  `#action-density-and-overflow`, which forbids only a menu of one.
+- **One `+`:** two `+` buttons on one screen would leave the reader guessing
+  which adds what, so the field's own button carries both jobs.
+- **`+` follows the field:** the button's name says what a press does now:
+  **Add to inbox** with words in the field, **New** with it empty. Only the
+  empty field's button announces a menu (`aria-haspopup="menu"`). Its glyph is
+  hidden. Enter adds the words once, never a second time on the same keypress.
+  Two items earn a menu under `#action-density-and-overflow`, which forbids
+  only a menu of one.
 - **A meeting starts recording:** the person meets the recording controls at
   once and does not press record a second time.
 

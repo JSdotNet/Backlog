@@ -66,7 +66,21 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "context-menu" : $"context-menu {CssClass}";
+    /// <summary>Lines the menu's end edge up with <see cref="X"/> rather than its start
+    /// edge, so a menu opened from a button at the end of a row (the window's right
+    /// edge on a phone) opens inward and stays on screen. The host passes the
+    /// button's end edge as <see cref="X"/> (<c>backlogAnchorBelow(element, true)</c>).</summary>
+    [Parameter]
+    public bool AlignEnd { get; set; }
+
+    private string ClassValue
+    {
+        get
+        {
+            var value = AlignEnd ? "context-menu context-menu--end" : "context-menu";
+            return string.IsNullOrWhiteSpace(CssClass) ? value : $"{value} {CssClass}";
+        }
+    }
 
     protected override void OnParametersSet()
     {
