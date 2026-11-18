@@ -1804,6 +1804,7 @@ related: [.devbook/domain/capture/features.md#meeting-recording, .devbook/domain
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.AttachmentRulesTests.Recorded_audio_is_not_refused, unit:dotnet:Backlog.Mobile.UI.UnitTests.AttachmentRulesTests.Recorded_audio_reads_as_AAC_audio_and_is_no_picture, unit:dotnet:Backlog.Mobile.UI.UnitTests.AttachmentRulesTests.An_audio_file_with_no_declared_type_is_typed_by_its_extension, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.Stop_attaches_the_recording_to_the_note_it_was_started_on, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingScreenTests.Recording_shows_the_bar_pause_turns_to_resume_and_stop_attaches_the_recording, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_downloaded_recording_on_a_note_plays_in_its_row]
 ```
 
 The system SHALL accept an AAC audio file on a note, as `audio/aac`, `audio/mp4` or `audio/x-m4a`, within the per-file limit every note file has.
@@ -1825,6 +1826,7 @@ The system SHALL accept an AAC audio file on a note, as `audio/aac`, `audio/mp4`
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.AdtsPartWriterTests, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.A_recording_that_rolled_over_attaches_every_part_in_order]
 ```
 
 The phone SHALL close a recording file at 24 MB and go on recording into the next part, "Recording · part 2 · <duration>", then part 3 and on by the same rule, with no audio lost between two parts.
@@ -1840,6 +1842,7 @@ The phone SHALL close a recording file at 24 MB and go on recording into the nex
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.RecordingRecoveryTests, unit:dotnet:Backlog.Mobile.UI.UnitTests.AdtsPartWriterTests.A_frame_cut_short_by_a_killed_write_stays_in_the_file_but_not_in_the_duration]
 ```
 
 The phone SHALL attach a recording file left behind by an app that was ended while recording to its note as "Recording (interrupted)" the next time the app starts.
@@ -1855,6 +1858,7 @@ The phone SHALL attach a recording file left behind by an app that was ended whi
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.A_phone_call_pauses_the_recording_and_says_so, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.The_end_of_a_call_leaves_the_recording_paused_until_it_is_resumed, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.Resume_after_a_call_takes_the_call_notice_away, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingScreenTests.A_phone_call_pauses_the_bar_and_says_why]
 ```
 
 The phone SHALL pause a recording when a phone call takes the microphone, say why on the recording bar, and resume only when the reader presses Resume.
@@ -1890,6 +1894,7 @@ The phone SHALL upload a recording over whatever connection it has, Wi-Fi or mob
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.A_note_deleted_elsewhere_while_recording_leaves_the_recording_running, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.A_recording_whose_note_was_deleted_elsewhere_gets_a_note_of_its_own_on_stop, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingScreenTests.A_note_deleted_elsewhere_says_where_its_recording_went]
 ```
 
 The phone SHALL save a recording whose note was deleted on the desktop while it ran to a new note named "Recording · <date>".
