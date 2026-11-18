@@ -283,7 +283,7 @@ change is a new attachment that only the item swaps in.
 
 ```meta
 type: enum
-related: [.devbook/domain/inbox/domain.md#note]
+related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/domain.md#meeting]
 aliases: [ContentKind, CaptureKinds, kind, KindSlug]
 ```
 
@@ -292,11 +292,14 @@ It is distinct from `Capture Source`, which says how it arrived:
 
 - `text` — a plain thought waiting to be sorted; the kind every source can
   produce and the kind an item is until somebody says otherwise.
-- `note` — a [Note](#note) the person keeps and edits. Created on the phone's
-  Notes tab or as a note from any device, it syncs both ways with the phone.
-  An item is a note because it was created as one. Classification never infers
-  it from the text, and a note document never turns an item of another kind
-  into one.
+- `note` — a [Note](#note) the person keeps and edits. Created with **Note**
+  in the phone Inbox's **+** menu or as a note from any device, it syncs both
+  ways with the phone. An item is a note because it was created as one.
+  Classification never infers it from the text, and a note document never
+  turns an item of another kind into one.
+- `meeting` — a [Meeting](#meeting): a note started by recording a meeting on
+  the phone. It syncs both ways like a note, and is a meeting because it was
+  created as one.
 - `article` — a web page worth reading, clipped or linked.
 - `link` — a bare URL not yet known to be an article.
 - `youtube` — a video, from the YouTube monitor or a shared link.
@@ -308,8 +311,8 @@ It is distinct from `Capture Source`, which says how it arrived:
 - `claude-artifact` — an artifact a Claude session produced and shared.
 
 The set will grow. A kind nobody has drawn yet is shown as its plain word.
-Seven of the kinds are [collected material](#collected-material). `note` is the
-only kind that changes after it is captured.
+Seven of the kinds are [collected material](#collected-material). `note` and
+`meeting` are the kinds that change after they are captured.
 
 ### Inbox Status
 
@@ -629,12 +632,12 @@ the Capture context, which arrives from a device through sync.
 
 ```meta
 type: term
-aliases: [note, NoteItem, Notes tab]
-related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/features.md#notes, .devbook/domain/capture/features.md#talk-note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
+aliases: [note, NoteItem]
+related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/domain.md#meeting, .devbook/domain/inbox/features.md#notes, .devbook/domain/capture/features.md#talk-note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
 ```
 
 An Inbox Item of `Content Kind` `note`: text the person keeps and returns to,
-such as what was said in a meeting or a list they add to. A note syncs both
+such as what was said in a talk or a list they add to. A note syncs both
 ways between the desktop and the phone, and either side may edit it. A `text`
 item is different: it is a thought waiting to be sorted, and the phone forgets
 it once the desktop takes it in.
@@ -646,7 +649,23 @@ it between machines, never the task feed, so the phone does not see it
 (local ADRs 0025 and 0026). Triaging a note
 [To Brain](features.md#route-to-brain) writes a Brain note from it. The
 Capture context's [talk note](../capture/features.md#talk-note) is a note
-written in the Notes tab.
+written on the phone.
+
+A recording added to a note later leaves it a note. Only an item started as a
+meeting is a [Meeting](#meeting).
+
+### Meeting
+
+```meta
+type: term
+aliases: [meeting]
+related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/domain.md#note, .devbook/domain/capture/features.md#meeting-recording, .devbook/domain/inbox/features.md#meetings]
+```
+
+An Inbox Item of `Content Kind` `meeting`: a note the phone starts with a
+[meeting recording](../capture/features.md#meeting-recording) already running.
+It syncs, edits and is triaged exactly as a [Note](#note) does. Its body is the
+reader's notes, and the desktop appends the transcript and summary to it.
 
 ### Plan tag
 
