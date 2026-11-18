@@ -1,6 +1,7 @@
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Api.Security;
+using Backlog.Modules.Sync.Features.Connector;
 using Backlog.Modules.Sync.Features.Enrolment;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -33,7 +34,7 @@ internal static class EnrolmentEndpoints
             .AllowAnonymous()
             .RequireRateLimiting(OwnerEnrolmentRegistration.RateLimitPolicy)
             .WithTags("Devices")
-            .WithSummary("Ends the owner's GitHub sign-in and sends the browser back to the device.");
+            .WithSummary("Ends the owner's GitHub sign-in and sends the browser back to the device, or on to the connector's consent page.");
 
         return app;
     }
@@ -51,13 +52,37 @@ internal static class EnrolmentEndpoints
         return SyncResults.From(context, result, Results.Ok);
     }
 
+    /// <summary>
+    /// The one callback the GitHub OAuth App has, shared by two sign-ins: the remote
+    /// connector's authorization (local ADR 0052 §8) is asked first whether the state is one
+    /// of its own, and anything it does not recognise goes to the enrolment sign-in unchanged.
+    /// </summary>
     private static async Task<IResult> CompleteSignIn(
         HttpContext context,
         string? code,
         string? state,
+        ConnectorSettings connectorSettings,
+        ICommandHandler<CompleteConnectorSignInCommand, Result<ConnectorSignInOutcome>> connector,
         ICommandHandler<CompleteOwnerSignInCommand, Result<Uri>> handler,
         CancellationToken cancellationToken)
     {
+        var connectorResult = await connector.Handle(new CompleteConnectorSignInCommand(state, code), cancellationToken);
+
+        if (connectorResult.IsSuccess)
+        {
+            return connectorResult.Value switch
+            {
+                { ConsentTicket: { } ticket } => Results.Redirect($"{SyncRoutes.ConnectorConsent}?ticket={Uri.EscapeDataString(ticket)}"),
+                { Redirect: { } back } => Results.Redirect(back.AbsoluteUri),
+                _ => throw new InvalidOperationException("A connector sign-in answered neither a consent ticket nor a redirect."),
+            };
+        }
+
+        if (connectorResult.Error.Code != SyncErrorCodes.ConnectorSignInUnknown)
+        {
+            return ConnectorPages.Refusal(context, connectorSettings, connectorResult.Error.Message);
+        }
+
         var result = await handler.Handle(new CompleteOwnerSignInCommand(state, code), cancellationToken);
 
         return SyncResults.From(context, result, loopback => Results.Redirect(loopback.AbsoluteUri));

@@ -44,6 +44,11 @@ cosmosDatabase.AddContainer("notifications", "/ownerId");
 cosmosDatabase.AddContainer("notificationReplies", "/ownerId");
 cosmosDatabase.AddContainer("devices", "/id");
 cosmosDatabase.AddContainer("pairingCodes", "/id");
+// The remote connector's credentials (local ADR 0052 §8): its client's secret hash, its
+// refresh tokens and a marker per revoked token family, partitioned on /id for the reason
+// `pairingCodes` is. The tokens' and markers' TTLs are stamped per document and the
+// indexing policy lives only in the bicep.
+cosmosDatabase.AddContainer("connectorCredentials", "/id");
 
 // Azure Storage — the attachment store beside the replica (local ADR 0014). Deployed
 // it is a storage account provisioned by infra/sync/main.bicep; here it is Azurite,
@@ -88,6 +93,12 @@ var sync = builder.AddProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sy
     .WithEnvironment("Modules__Sync__Transcription__Endpoint", azureFoundryTest.GetEndpoint("http"))
     .WithEnvironment("Modules__Sync__Transcription__Credential", "None")
     .WaitFor(azureFoundryTest);
+
+// The connector's authorization server says who it is and which resource its tokens are for
+// (local ADR 0052 §8). Ports are dynamic, so both come from the service's own endpoint rather
+// than the Development default of http://localhost, which nothing would answer on.
+sync.WithEnvironment("Modules__Sync__Connector__Issuer", sync.GetEndpoint("http"))
+    .WithEnvironment("Modules__Sync__Connector__Resource", ReferenceExpression.Create($"{sync.GetEndpoint("http")}/mcp"));
 
 // --- Test harnesses (src/Harness/) ---------------------------------------
 // The projects below are NOT shipped channels. They are development-only hosts

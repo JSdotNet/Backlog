@@ -103,6 +103,12 @@ public static class SyncClientRegistration
         services.AddHttpClient<DevicePairingClient>((sp, client) => client.BaseAddress = baseAddress(sp))
             .AddSyncPipeline();
 
+        // The claude.ai connector's owner calls (local ADR 0052 §8), all bearer: the
+        // Remote connector card resolves the port, and a host with no sync client none.
+        services.AddHttpClient<RemoteConnectorClient>((sp, client) => client.BaseAddress = baseAddress(sp))
+            .AddSyncPipeline();
+        services.TryAddTransient<IRemoteConnector>(sp => sp.GetRequiredService<RemoteConnectorClient>());
+
         // The pairings the codes this device issues open. While a code waits, the device
         // list is read through the pairing client to see the device that redeemed it, and
         // the person is asked on this desktop whether to keep it; a notification about the

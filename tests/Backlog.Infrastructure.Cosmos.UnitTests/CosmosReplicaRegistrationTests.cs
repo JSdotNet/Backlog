@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.Cosmos.ConnectorCredentials;
 using Backlog.Infrastructure.Cosmos.Devices;
 using Backlog.Infrastructure.Cosmos.Extensions;
 using Backlog.Infrastructure.Cosmos.PairingCodes;
@@ -131,6 +132,39 @@ public class CosmosReplicaRegistrationTests
         Assert.IsType<CosmosPairingCodeStore>(provider.GetRequiredService<IPairingCodeStore>());
         Assert.IsType<CosmosTaskReplica>(provider.GetRequiredService<ITaskReplica>());
         Assert.IsType<CosmosSessionReplica>(provider.GetRequiredService<ISessionReplica>());
+    }
+
+    /// <summary>The connector's secret hash and refresh tokens must survive a restart of a
+    /// service that scales to zero, so with Cosmos configured the module's in-memory
+    /// stand-ins yield. The authorization steps live minutes and stay in memory.</summary>
+    [Fact]
+    public void With_cosmos_configured_the_module_yields_its_connector_credential_stores()
+    {
+        var builder = Builder(Environments.Production);
+        builder.Configuration["Sync:Cosmos:AccountEndpoint"] = UnreachableAccount;
+
+        builder.AddCosmosReplicas();
+        builder.Services.AddSyncModule();
+
+        using var provider = builder.Services.BuildServiceProvider();
+
+        Assert.IsType<CosmosConnectorClientStore>(provider.GetRequiredService<IConnectorClientStore>());
+        Assert.IsType<CosmosConnectorRefreshTokenStore>(provider.GetRequiredService<IConnectorRefreshTokenStore>());
+        Assert.IsType<InMemoryConnectorAuthorizationStore>(provider.GetRequiredService<IConnectorAuthorizationStore>());
+    }
+
+    [Fact]
+    public void A_development_run_with_no_cosmos_leaves_the_module_its_in_memory_connector_stores()
+    {
+        var builder = Builder(Environments.Development);
+
+        builder.AddCosmosReplicas();
+        builder.Services.AddSyncModule();
+
+        using var provider = builder.Services.BuildServiceProvider();
+
+        Assert.IsType<InMemoryConnectorClientStore>(provider.GetRequiredService<IConnectorClientStore>());
+        Assert.IsType<InMemoryConnectorRefreshTokenStore>(provider.GetRequiredService<IConnectorRefreshTokenStore>());
     }
 
     /// <summary>

@@ -31,6 +31,31 @@ public static class SyncRoutes
     /// registered with, so it is an absolute path of its own. Anonymous.</summary>
     public const string GitHubCallback = "/oauth/github/callback";
 
+    /// <summary>The authorization server's RFC 8414 metadata for the remote connector
+    /// (local ADR 0052 §8). At the root, derived from the configured issuer. Anonymous.</summary>
+    public const string AuthorizationServerMetadata = "/.well-known/oauth-authorization-server";
+
+    /// <summary>The connector's authorization endpoint: claude.ai sends the owner's browser
+    /// here with an S256 challenge. At the root. Anonymous.</summary>
+    public const string ConnectorAuthorize = "/oauth/authorize";
+
+    /// <summary>The consent page the owner reaches after the GitHub sign-in: GET shows it,
+    /// POST carries the one-time consent ticket and the decision. At the root. Anonymous.</summary>
+    public const string ConnectorConsent = "/oauth/consent";
+
+    /// <summary>The connector's token endpoint, form-encoded: an authorization code or a
+    /// refresh token in, an access token and a rotated refresh token out. The client
+    /// secret authenticates it. At the root.</summary>
+    public const string ConnectorToken = "/oauth/token";
+
+    /// <summary>The remote connector as the desktop's settings card sees it: GET describes
+    /// it. Bearer, owner only.</summary>
+    public const string Connector = "/connector";
+
+    /// <summary>The connector's client secret: POST mints a new one and answers it once,
+    /// DELETE revokes it. Bearer, owner only.</summary>
+    public const string ConnectorSecret = "/connector/secret";
+
     /// <summary>A paired device asks for a short code to read out. Bearer.</summary>
     public const string PairingCodes = "/devices/codes";
 

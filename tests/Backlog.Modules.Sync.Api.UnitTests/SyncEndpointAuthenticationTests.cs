@@ -186,6 +186,7 @@ public class SyncEndpointAuthenticationTests : IDisposable
             [
                 ("ConnectionStrings:attachments", "Endpoint=https://localhost:10000/devstoreaccount1;ContainerName=attachments"),
                 .. SyncServiceFactory.ConfiguredOwner,
+                .. SyncServiceFactory.ConfiguredConnector,
             ],
         };
 
@@ -210,6 +211,7 @@ public class SyncEndpointAuthenticationTests : IDisposable
             [
                 ("ConnectionStrings:attachments", "Endpoint=https://localhost:10000/devstoreaccount1;ContainerName=attachments"),
                 .. SyncServiceFactory.ConfiguredOwner,
+                .. SyncServiceFactory.ConfiguredConnector,
             ],
         };
 

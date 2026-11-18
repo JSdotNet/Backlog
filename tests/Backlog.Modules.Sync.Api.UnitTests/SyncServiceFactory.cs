@@ -78,6 +78,14 @@ internal sealed class SyncServiceFactory : WebApplicationFactory<Program>
         ("GitHub:ClientSecret", "test-client-secret"),
     ];
 
+    /// <summary>The remote connector's issuer and resource a deployed service needs before it
+    /// starts (local ADR 0052 §8). Test values.</summary>
+    internal static IReadOnlyList<(string Key, string? Value)> ConfiguredConnector { get; } =
+    [
+        ("Modules:Sync:Connector:Issuer", "https://sync.test"),
+        ("Modules:Sync:Connector:Resource", "https://sync.test/mcp"),
+    ];
+
     /// <summary>The gate registered for the most recent build, which is the one
     /// <see cref="CreateHost"/> is in the middle of: it is set while that build
     /// runs and opened before <see cref="CreateHost"/> returns or throws. One

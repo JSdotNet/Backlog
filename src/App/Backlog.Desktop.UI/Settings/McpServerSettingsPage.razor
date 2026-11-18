@@ -278,6 +278,137 @@
         }
     </SettingsCard>
 
+    @* The claude.ai connector (local ADR 0052 §8): what to enter in claude.ai, where the
+       secret stands, and Create, Replace and Revoke over the sync service. A host with no
+       sync client, or a device not paired, says so and offers nothing. A secret just made
+       is shown once, under the state line, until Done; the desktop keeps no copy. *@
+    <SettingsCard Title="@RemoteConnectorCardTitle"
+                  Id="mcp-server-connector-title"
+                  Description="@McpRemoteConnector.Description"
+                  TestId="mcp-server-connector-card">
+        @if (_connectorUnavailable is { } unavailable)
+        {
+            <p class="setting__note" data-testid="mcp-server-connector-note">@unavailable</p>
+        }
+        else
+        {
+            @if (_connectorError is not null)
+            {
+                <Alert BaseClass="setting__status"
+                       CssClass="setting__status--error"
+                       Role="status"
+                       TestId="mcp-server-connector-error"
+                       Message="@_connectorError" />
+
+                @if (_connectorStatus is null)
+                {
+                    <div class="setting__actions">
+                        <AppButton Busy="@_connectorBusy"
+                                   TestId="mcp-server-connector-retry"
+                                   OnClick="RetryConnectorAsync">
+                            Try again
+                        </AppButton>
+                    </div>
+                }
+            }
+
+            @if (_connectorStatus is { } connector)
+            {
+                <p class="setting__label" id="mcp-server-connector-client-label">Client id</p>
+                <div class="setting__body">
+                    <code data-testid="mcp-server-connector-client-id" aria-labelledby="mcp-server-connector-client-label">@connector.ClientId</code>
+                    <CopyButton Text="@connector.ClientId"
+                                Label="Copy the client id"
+                                TestId="mcp-server-connector-client-id-copy" />
+                </div>
+
+                <p class="setting__label" id="mcp-server-connector-redirect-label">Redirect URI</p>
+                <div class="setting__body">
+                    <code data-testid="mcp-server-connector-redirect" aria-labelledby="mcp-server-connector-redirect-label">@connector.RedirectUri</code>
+                </div>
+
+                <Alert BaseClass="setting__status"
+                       CssClass="@(connector.HasSecret ? "setting__status--ok" : null)"
+                       Role="status"
+                       TestId="mcp-server-connector-state"
+                       Message="@ConnectorState(connector)" />
+
+                @if (_connectorSecret is { } secret)
+                {
+                    <div data-testid="mcp-server-connector-secret">
+                        <Alert BaseClass="setting__note"
+                               Role="alert"
+                               TestId="mcp-server-connector-secret-note"
+                               Message="@McpRemoteConnector.SecretShownOnce" />
+                        <p class="setting__label" id="mcp-server-connector-secret-label">Client secret</p>
+                        <div class="setting__body">
+                            <code data-testid="mcp-server-connector-secret-value" aria-labelledby="mcp-server-connector-secret-label">@secret</code>
+                            <CopyButton Text="@secret"
+                                        Label="Copy the client secret"
+                                        TestId="mcp-server-connector-secret-copy" />
+                        </div>
+                        <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.Primary" TestId="mcp-server-connector-secret-done" OnClick="CloseConnectorSecret">
+                                Done
+                            </AppButton>
+                        </div>
+                    </div>
+                }
+
+                <div class="setting__actions">
+                    @if (_connectorConfirm != ConnectorConfirm.None)
+                    {
+                        var confirmKey = _connectorConfirm == ConnectorConfirm.Revoke ? "revoke" : "replace";
+                        <Alert BaseClass="setting__status"
+                               TestId="@($"mcp-server-connector-{confirmKey}-question")"
+                               Message="@ConnectorQuestion" />
+                        @* Revoke is the destructive act and wears the delete button; Replace mints a
+                           secret to show and stays the primary one. *@
+                        @if (_connectorConfirm == ConnectorConfirm.Revoke)
+                        {
+                            <DeleteButton Label="Revoke"
+                                          ShowIcon="false"
+                                          AriaLabel="Revoke the connector's secret now"
+                                          Busy="@_connectorBusy"
+                                          TestId="mcp-server-connector-revoke-confirm"
+                                          OnClick="ConfirmConnectorAsync" />
+                        }
+                        else
+                        {
+                            <AppButton Variant="ButtonVariant.Primary"
+                                       Busy="@_connectorBusy"
+                                       TestId="mcp-server-connector-replace-confirm"
+                                       OnClick="ConfirmConnectorAsync">
+                                Replace secret
+                            </AppButton>
+                        }
+                        <AppButton TestId="mcp-server-connector-keep" Disabled="@_connectorBusy" OnClick="KeepConnector">
+                            Keep
+                        </AppButton>
+                    }
+                    else
+                    {
+                        <AppButton Variant="ButtonVariant.Primary"
+                                   Busy="@_connectorBusy"
+                                   TestId="mcp-server-connector-create"
+                                   OnClick="CreateConnectorSecretAsync">
+                            @(connector.HasSecret ? "Replace secret" : "Create secret")
+                        </AppButton>
+                        @if (connector.HasSecret)
+                        {
+                            <DeleteButton Label="Revoke"
+                                          ShowIcon="false"
+                                          AriaLabel="Revoke the connector's secret"
+                                          Disabled="@_connectorBusy"
+                                          TestId="mcp-server-connector-revoke"
+                                          OnClick="AskRevokeConnector" />
+                        }
+                    }
+                </div>
+            }
+        }
+    </SettingsCard>
+
     @* The audit log, newest first. Drawn in every host: the harness writes the same
        records the app does. The table scrolls sideways inside its own frame, so six
        columns never take the page with them. *@
@@ -447,6 +578,9 @@
         StartSource();
         StartGrants();
 
+        // The connector's status is a network call; the activity is a local read and
+        // never waits on it.
+        StartConnector();
         await LoadActivityAsync();
     }
 
@@ -946,7 +1080,10 @@
 
     public void Dispose()
     {
+        if (_disposed) return;
+
         _disposed = true;
+        DisposeConnector();
         if (_source is not null) _source.Changed -= OnSourceChanged;
         if (_audit is not null) _audit.Changed -= OnAuditChanged;
         if (_grants is not null) _grants.Changed -= OnGrantsChanged;
