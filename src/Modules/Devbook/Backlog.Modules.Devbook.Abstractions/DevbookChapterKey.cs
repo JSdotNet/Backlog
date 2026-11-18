@@ -105,7 +105,7 @@ public static class DevbookChapterKey
     /// <summary>One spelling for a path: forward slashes, no anchor, no leading
     /// <c>./</c> or <c>/</c>, no surrounding whitespace. The anchor is dropped
     /// rather than honoured because a chapter is a file — a heading inside it is
-    /// the same file, and the domain panel names sections as
+    /// the same file, and the Domain view names sections as
     /// <c>path#anchor</c>.</summary>
     public static string Normalize(string? path)
     {

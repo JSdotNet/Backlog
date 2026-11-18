@@ -437,13 +437,12 @@ public sealed class MarkdownViewMetaFenceTests
     }
 
     /// <summary>
-    /// The three Devbook panes get this from the one rule, because none of them
-    /// has a rule of its own.
+    /// The Devbook panes get this from the one rule, because none of them has a
+    /// rule of its own.
     ///
-    /// <para><c>Arc42DevbookPanel</c>, <c>DomainDevbookPanel</c> and
-    /// <c>DesignDevbookView</c> all read a file through the same
-    /// <c>FileView</c> into the same <c>.md-view</c>. A host reserving the column
-    /// itself would be a fourth width to find, and the library would no longer own
+    /// <para><c>Arc42DevbookPanel</c> and <c>DesignDevbookView</c> both read a
+    /// file through the same <c>FileView</c> into the same <c>.md-view</c>. A host
+    /// reserving the column itself would be a third width to find, and the library would no longer own
     /// the one the component draws
     /// (<c>.devbook/arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md</c>).</para>
     /// </summary>

@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-20
-related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/domain/devbook/requirements.md#domain-view-by-unit", ".devbook/domain/devbook/context.md#new-domain-view", ".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/design/color-scheme.md#domain-view-element-tones", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
+related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/domain/devbook/requirements.md#domain-view-by-unit", ".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/design/color-scheme.md#domain-view-element-tones", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
 ```
 
 The Domain area of the Devbook lists a bounded context's files as units. Each
@@ -14,10 +14,12 @@ the file names alone. No chapter gains a metadata field for the view.
 ```meta
 ```
 
-Proposed, 2026-10-20. Built behind the
-[New domain view](../../domain/devbook/context.md#new-domain-view) switch by the
-plan `+devbook-domain-view`. Checked in the running app on 2026-10-20, and the
-Demo button on 2026-11-09. It awaits acceptance at the
+Proposed, 2026-10-20. Built behind the New domain view switch by the plan
+`+devbook-domain-view`. Checked in the running app on 2026-10-20, and the Demo
+button on 2026-11-09. The switch made the view the default on 2026-11-18, and the
+same plan then removed the old Domain view and retired the switch: the view is
+the only Domain area, and a stored choice under the switch's key is ignored. It
+awaits acceptance at the
 Personal Validation gate of the flow-spec run that drafted it. Renumbered from 0040 to 0044 on 2026-10-30, when the plan
 merged `main`, which had taken 0040 for the Brain record and 0041–0043 since. Renumbered again from 0044 to 0045 on 2026-11-02, when the plan merged `main`, which had taken 0044 for the devbook subject state record. Renumbered a third time from 0045 to 0047 on 2026-11-06, when the plan merged `main`, which had taken 0045 for the dictation relay record; 0046 was skipped because the open `plan/c4-zoom-navigation` branch claims it. Amended in the same merge by §7 and §8, for devbook contracts 37 and 38; the History records each change.
 
@@ -130,8 +132,8 @@ Negative:
 
 - **A chapter with a weak first sentence gets a weak summary.** The view shows
   what the chapter says. The fix is the chapter's, not the view's.
-- **Two Domain views live side by side** until a later plan removes the old one
-  and retires the switch.
+- **Nothing reads the Domain area the old way.** The old view and its switch are
+  gone; a reader who preferred it has no way back.
 - **A diagram outside the domain files is not drawn by the view.** Contract 37
   also opens feature and skill chapters with their flows; the Features page
   shows a feature's summary, not its prose, so those diagrams stay in the
@@ -163,7 +165,8 @@ Negative:
 
 Look for tests that show these behaviours:
 
-1. **Switch off.** With `devbook-domain-view` off, the Domain area reads as before.
+1. **No switch.** A stored `devbook-domain-view` choice is ignored, and the
+   Domain area reads by unit.
 2. **Order.** The menu lists a context's files in the reading order.
 3. **Nesting.** `domain.<name>.md` is a child of Domain, titled by its heading,
    and a further dot nests one level deeper.
@@ -187,6 +190,7 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | Status and Consequences: the old Domain view is removed and the New domain view switch retired; the view is the only Domain area. A scenarios file's journey runs show above it on its file page. | The plan's last entry: the view had become the default and the two no longer needed to live side by side. |
 | 2026-11-12 | §7 and the file table: the Flow row and page are gone; a legacy `flow.md` opens as any other file. | A page kept for a retired file showed stale lifecycles beside the ones now drawn in place; a devbook before contract 37 is updated, not given a page of its own. |
 | 2026-11-10 | The file table and §3: `assets/` is hidden, its images shown where the chapters embed them. §8: Model's Diagram draws no proposed state, and a dashed line there is a reference by id. | The table named no row for the `assets` folder the view already hid (PR #1453), and PR #1440 left open whether Diagram draws proposed parts dashed. |
 | 2026-11-09 | §3 and the file table: any other file opens as written instead of a placeholder. | A file of no known kind, such as Fincent's `actors.md` or `import.md`, had a row and opened nothing. |

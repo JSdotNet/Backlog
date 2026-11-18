@@ -11,7 +11,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Domain view's Context map page, reached the way a reader reaches it: the
-/// New domain view switch on, the Context map row picked (local ADR 0047). Map
+/// Context map row picked (local ADR 0047). Map
 /// draws the contexts with a line per pair worded from each context's dependency
 /// tables; List names them in reading order; a card opens its context's page.
 /// </summary>
@@ -186,7 +186,6 @@ public sealed class DomainViewContextMapPageTests : IDisposable
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
-        _ = features.SetEnabled(DevbookFeatures.DomainView, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);

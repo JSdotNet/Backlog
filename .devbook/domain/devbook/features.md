@@ -837,7 +837,6 @@ loses nothing but the picture.
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/devbook/context.md#new-domain-view
 depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 related: [.devbook/domain/devbook/requirements.md#domain-view-by-unit, .devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md, .devbook/design/color-scheme.md#domain-view-element-tones]
 ```
@@ -857,7 +856,7 @@ field types reads Model.
 | Requirements | `requirements.md` | Each requirement and its scenarios |
 | Model | `model.md` | **Diagram**, **Fields** and **Events** |
 | Flow | A legacy `flow.md` | Its lifecycles, for a devbook from before devbook contract 37 |
-| Its heading | Any other file — `actors.md`, `skills.md`, a page a context adds | The file as written: title, lead, chapters, related |
+| Its heading | Any other file — `actors.md`, `skills.md`, a scenarios file, a page a context adds | The file as written: title, lead, chapters, related. A scenarios file shows each journey's run above it |
 
 The menu lists files in the devbook reading order, and a split file nests under
 its kind's row. A rules file, a click demo and `dependencies.md` get no row of
@@ -1078,8 +1077,10 @@ chapter as task chips: gold when this backlog holds the task, which pressing
 opens, and dashed, reading *not in this backlog*, when it does not. The box and
 the badge are the only teal on the view.
 
-The view is built behind the [New domain view](context.md#new-domain-view)
-switch. Until the switch is on, the Domain area reads as it always has.
+It is the only Domain view. The view it replaced, and the New domain view
+switch that chose between the two, are gone (local ADR 0047). A domain chapter
+an arc42 C4 view documents offers no way across to that view yet; only the old
+view did.
 
 ## Instruction optimization
 

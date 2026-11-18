@@ -105,18 +105,6 @@ public static class DevbookFeatures
     /// </para></summary>
     public const string Status = "devbook-status";
 
-    /// <summary>Read the Domain area one unit at a time — the context map, each
-    /// bounded context, each file inside it — on a page drawn for the kind of file
-    /// the unit is (local ADR 0047), instead of the Domain area as it reads today.
-    /// <para>
-    /// A devbook key by the same rule as its neighbours. Only the Domain area reads
-    /// it: the other areas, and <see cref="RepositoryDevbook"/> that offers the pane
-    /// at all, do not. It ships on since the view was accepted; switching it off
-    /// still reaches the old Domain view, and the key is retired when a later plan
-    /// removes that view.
-    /// </para></summary>
-    public const string DomainView = "devbook-domain-view";
-
     /// <summary>Map the Brain and every registered devbook as brains in one
     /// full-window atlas (<c>.devbook/domain/brain/context.md#lobes-atlas</c>).
     /// <para>

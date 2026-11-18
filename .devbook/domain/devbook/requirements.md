@@ -83,7 +83,7 @@ related: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.The_nine_state_fields_are_never_rows_in_the_strip, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.Approval_and_acceptance_are_drawn_beside_the_status_as_who_and_when, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsViewerSwitchesTests.Status_is_not_shown_while_devbook_status_is_off, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataStatusHiddenTests.Findings_about_the_status_and_its_sign_off_go_with_it]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsViewerSwitchesTests.Status_is_not_shown_while_devbook_status_is_off, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataStatusHiddenTests.Findings_about_the_status_and_its_sign_off_go_with_it]
 ```
 
 While [Devbook status](context.md#devbook-status) is on, the system SHALL show a domain chapter's decision and review state as one line beside its status, saying who decided and when, and never as fields among the chapter's metadata.
@@ -154,7 +154,7 @@ The system SHALL withdraw a proposal's approval and acceptance when it is set ba
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MetadataReaderContractTests.An_extension_keeps_its_authors_casing_and_its_value_verbatim, unit:dotnet:Backlog.UI.Components.UnitTests.DevbookMetadataFindingsTests.Extension_keys_are_never_validated, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.An_extension_key_stays_a_row_and_is_marked_as_one]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MetadataReaderContractTests.An_extension_keeps_its_authors_casing_and_its_value_verbatim, unit:dotnet:Backlog.UI.Components.UnitTests.DevbookMetadataFindingsTests.Extension_keys_are_never_validated]
 ```
 
 The system SHALL show every `ext.` key of a chapter's metadata with its key and value exactly as written, and report no finding about it.
@@ -204,7 +204,7 @@ The system SHALL import once the state each decision record, debt record and pro
 ```meta
 type: requirement
 related: [.devbook/domain/devbook/domain.md#effort, .devbook/domain/devbook/domain.md#roadmap-contribution]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MetadataViewTests.Issue_effort_roadmap_and_change_draw_no_row, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataViewTests.A_block_stating_only_planning_fields_has_no_rows_to_draw, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookPanelTests.A_chapter_naming_an_issue_draws_no_issue_badge_and_no_planning_rows, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataReaderContractTests.Effort_roadmap_and_issue_are_still_parsed_for_the_readers_that_need_them]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MetadataViewTests.Issue_effort_roadmap_and_change_draw_no_row, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataViewTests.A_block_stating_only_planning_fields_has_no_rows_to_draw, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataReaderContractTests.Effort_roadmap_and_issue_are_still_parsed_for_the_readers_that_need_them]
 ```
 
 The chapter view SHALL draw nothing for a chapter's `issue`, `effort`, `roadmap` or `change` field, while the app still reads the first three.
@@ -287,7 +287,7 @@ The system SHALL import each open review note on a registered repository's defau
 ```meta
 type: requirement
 related: [.devbook/domain/devbook/domain.md#remark]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsReadOnlyBranchTests.The_domain_panel_keeps_a_named_branchs_remarks_under_that_branch, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.List_answers_only_the_remarks_for_the_branch_asked, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_remark_keeps_its_kind_and_branch_across_a_new_store, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionDevbookAnnotationStoreTests.A_remark_keeps_its_kind_and_is_listed_only_on_its_own_branch]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.List_answers_only_the_remarks_for_the_branch_asked, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.DevbookAnnotationStoreTests.A_remark_keeps_its_kind_and_branch_across_a_new_store, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionDevbookAnnotationStoreTests.A_remark_keeps_its_kind_and_is_listed_only_on_its_own_branch]
 ```
 
 The read view SHALL show a remark left on a named branch only while that branch is read, and one left on the default branch only while that branch or the clone is read.
@@ -1505,26 +1505,25 @@ type: requirements
 related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md]
 ```
 
-> The requirements of the Domain area read by unit, behind the
-> [New domain view](context.md#new-domain-view) switch (local ADR 0047). The plan
-> `+devbook-domain-view` builds them page by page; the Context map, a context's
-> page with its neighbours and its Overview, Domain, Features, Requirements, Model, Flow, the
-> Glossary and the Brain and task links are built.
+> The requirements of the Domain area read by unit (local ADR 0047), the only
+> Domain view: the Context map, a context's page with its neighbours and its
+> Overview, Domain, Features, Requirements, Model, any other file as written, the
+> Glossary and the Brain and task links.
 
-### Requirement: The flag off keeps today's Domain view
+### Requirement: The Domain area always reads by unit
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneDomainViewFlagTests.With_the_switch_off_the_Domain_area_is_todays_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.With_the_switch_off_a_split_context_is_todays_flat_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.With_the_switch_off_an_unsplit_context_is_todays_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneDomainViewFlagTests.Flipping_the_switch_relists_the_open_Domain_menu]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlagRetirementTests.The_Domain_area_is_the_domain_view_frame, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlagRetirementTests.The_retired_switch_is_not_in_the_catalog, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlagRetirementTests.A_stored_choice_for_the_retired_switch_is_dropped_on_read_and_save, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlagRetirementTests.With_the_retired_switch_stored_off_the_Domain_area_is_still_the_domain_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlagRetirementTests.With_no_feature_settings_composed_the_domain_view_still_draws]
 ```
 
-The system SHALL show the Domain area exactly as it reads today while the `devbook-domain-view` switch is off.
+The system SHALL show the Domain area by unit, offer no switch back to another Domain view, and ignore a choice stored under the retired `devbook-domain-view` key.
 
-#### Scenario: A fresh install
+#### Scenario: A choice made before the switch was retired
 
-- **Given** the `devbook-domain-view` switch has never been changed
+- **Given** a `features.json` that turns `devbook-domain-view` off
 - **When** the reader opens the Domain area of a repository's Devbook
-- **Then** the Domain area reads as it did before the switch existed
+- **Then** the Domain area reads by unit, Settings lists no New domain view switch, and the next saved choice no longer names the key
 
 ### Requirement: The menu lists the files in reading order
 

@@ -7,10 +7,23 @@
     index.md (domain/devbook requirement "Any other file opens as written"). It reads the file through the domain store and
     hands it to the library's DomainFilePage, which draws it as written: title,
     lead, chapters and the links its `related` names.
+
+    A scenarios file's runs sit above the file they prove: for each journey, the
+    setup it ran under, how each part went and the screenshots each part took
+    (domain/devbook features "Repository devbook areas"). The body below stays the
+    file as written.
 *@
 
 @if (_page is { } opened)
 {
+    @foreach (var scenario in _scenarios.ForPath(SelectedPath))
+    {
+        <DevbookScenarioPage @key="scenario.Journey.Address"
+                             Scenario="@scenario"
+                             Images="@_scenarioImages"
+                             Store="@_scenarioStore"
+                             Focus="@Focus" />
+    }
     <DomainFilePage File="@opened"
                     OnNavigate="NavigateAsync"
                     AriaLabel="@(opened.Title.Length > 0 ? opened.Title : "Page")" />
@@ -38,7 +51,15 @@ else if (_problem is not null)
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
+    /// <summary>The journey part a followed reference's <c>#anchor</c> names, which
+    /// its journey marks and reveals.</summary>
+    [Parameter]
+    public DevbookFocus? Focus { get; set; }
+
     private DomainDevbookStore? _store;
+    private DevbookScenarioStore? _scenarioStore;
+    private DevbookScenarioImages _scenarioImages = null!;
+    private DevbookScenarioCatalog _scenarios = DevbookScenarioCatalog.Empty;
     private DomainChapterFile? _page;
     private string? _problem;
     private (string? Alias, string? Path)? _loaded;
@@ -51,6 +72,12 @@ else if (_problem is not null)
         // composing no domain store gets a sentence, not a render failure.
         _store = Services.GetService<DomainDevbookStore>();
         if (_store is not null) _store.Changed += OnStoreChanged;
+
+        // Optional for the same reason: a host that composed no scenario store
+        // draws a scenarios file as the file it otherwise is.
+        _scenarioStore = Services.GetService<DevbookScenarioStore>();
+        if (_scenarioStore is not null) _scenarioStore.Changed += OnStoreChanged;
+        _scenarioImages = new DevbookScenarioImages(_scenarioStore);
     }
 
     protected override async Task OnParametersSetAsync()
@@ -80,6 +107,12 @@ else if (_problem is not null)
         {
             var view = await _store.LoadAsync(alias);
             if (_disposed || version != _version) return;
+
+            // Read with the file, so an open scenarios file and its runs are one answer.
+            var scenarios = _scenarioStore is null ? DevbookScenarioCatalog.Empty : await _scenarioStore.LoadAsync(alias);
+            if (_disposed || version != _version) return;
+            _scenarios = scenarios;
+            _scenarioImages.Catalog = scenarios;
 
             // On the pool: the desktop host's dispatcher is the UI thread.
             read = await Task.Run(() => Read(view, path));
@@ -134,5 +167,6 @@ else if (_problem is not null)
     {
         _disposed = true;
         if (_store is not null) _store.Changed -= OnStoreChanged;
+        if (_scenarioStore is not null) _scenarioStore.Changed -= OnStoreChanged;
     }
 }

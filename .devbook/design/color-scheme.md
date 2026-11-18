@@ -680,9 +680,8 @@ Rules:
 
 - **Never the sole carrier.** An element's tone always sits beside its type
   marker and its kind in words.
-- **The Domain view only.** These tones are for the Domain view behind the
-  [New domain view](../domain/devbook/context.md#new-domain-view) switch. The
-  type marker stays monochrome everywhere else.
+- **The Domain view only.** These tones are for the Domain area read by unit
+  (local ADR 0047). The type marker stays monochrome everywhere else.
 - **A new tone is argued here.** A kind that needs a tone gains a row in the
   table above, with its contrast, and never borrows a band or a semantic token.
   It may share a row's value only where the two never show at once, and then

@@ -3522,7 +3522,7 @@ button.brain-note-chip__label:focus-visible {
     color: var(--color-text-secondary);
 }
 
-/* What a row shows after its label — a kind row's count in the New domain view —
+/* What a row shows after its label — a kind row's count in the Domain view —
    pushed to the row's far edge so a column of them lines up. */
 .devbook-menu__trail,
 .folder-tree__trail {
@@ -11556,7 +11556,7 @@ select.field__input {
        scrolls, the prose and its margin move together because they are one grid,
        and the gutter never has a bar of its own. That is already how every
        surface in this product that draws remarks behaves — Arc42DevbookPanel
-       and DomainDevbookPanel both pass no MaxHeight and say in as many words
+       passes no MaxHeight and say in as many words
        that the pane around them is what decides — so this makes the rule true
        wherever a margin is drawn, rather than true wherever the caller
        remembered.

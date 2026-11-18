@@ -21,7 +21,7 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
 
     private readonly List<string> _tempDirs = [];
 
-    public static TheoryData<string> Panels => ["domain", "design", "instructions", "arc42"];
+    public static TheoryData<string> Panels => ["design", "instructions", "arc42"];
 
     // --- Edit ------------------------------------------------------------------
 
@@ -56,23 +56,22 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
     {
         using var harness = Harness(editing: true, status: true);
 
-        var component = RenderPanel(harness, "domain");
-        component.WaitForAssertion(() => Assert.Single(component.FindAll(EditSelector("domain"))));
-        component.Find(EditSelector("domain")).Click();
+        var component = RenderPanel(harness, "design");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(EditSelector("design"))));
+        component.Find(EditSelector("design")).Click();
         component.WaitForAssertion(() => Assert.Single(component.FindAll("textarea")));
-        component.Find("textarea").Input("# Context Map\n\nTyped before the switch.\n");
+        component.Find("textarea").Input("# Colors\n\nTyped before the switch.\n");
 
         harness.Features.SetEnabled(DevbookFeatures.Editing, false);
 
         component.WaitForAssertion(() => Assert.Empty(component.FindAll("textarea")));
-        Assert.Empty(component.FindAll(EditSelector("domain")));
-        Assert.Contains("Typed before the switch.", File.ReadAllText(Path.Combine(harness.Root, ".domain", "context-map.md")), StringComparison.Ordinal);
+        Assert.Empty(component.FindAll(EditSelector("design")));
+        Assert.Contains("Typed before the switch.", File.ReadAllText(Path.Combine(harness.Root, ".design", "colors.md")), StringComparison.Ordinal);
     }
 
     // --- Status ----------------------------------------------------------------
 
     [Theory]
-    [InlineData("domain")]
     [InlineData("design")]
     [InlineData("arc42")]
     public void Status_is_shown_while_devbook_status_is_on(string panel)
@@ -85,7 +84,6 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
     }
 
     [Theory]
-    [InlineData("domain")]
     [InlineData("design")]
     [InlineData("arc42")]
     public void Status_is_not_shown_while_devbook_status_is_off(string panel)
@@ -107,8 +105,8 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
     {
         using var harness = Harness(editing: false, status: false);
 
-        var component = RenderPanel(harness, "domain");
-        component.WaitForAssertion(() => Assert.Contains(Prose("domain"), component.Markup, StringComparison.Ordinal));
+        var component = RenderPanel(harness, "design");
+        component.WaitForAssertion(() => Assert.Contains(Prose("design"), component.Markup, StringComparison.Ordinal));
         Assert.Empty(component.FindAll(StatusSelector));
 
         harness.Features.SetEnabled(DevbookFeatures.Status, true);
@@ -119,7 +117,7 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
     // --- Fixtures --------------------------------------------------------------
 
     /// <summary>Every way a status is drawn in these panels: the select, the
-    /// badge, and the Domain panel's own action-strip forms of both.</summary>
+    /// badge, and the action-strip forms of both.</summary>
     private const string StatusSelector =
         ".status-editor, .badge--status, [data-testid='devbook-state-select'], [data-testid='devbook-state-badge']";
 
@@ -131,7 +129,6 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
 
     private static string Prose(string panel) => panel switch
     {
-        "domain" => "Original prose.",
         "design" => "Palette prose.",
         "instructions" => "Project instructions.",
         _ => "Introduction prose."
@@ -139,20 +136,18 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
 
     private static string Heading(string panel) => panel switch
     {
-        "domain" => "Boundaries",
         "design" => "Primary",
         _ => "Goals"
     };
 
     private static IRenderedComponent<ContainerFragment> RenderPanel(TestHarness harness, string panel) => panel switch
     {
-        "domain" => Render<DomainDevbookPanel>(harness, ".domain/context-map.md"),
         "design" => Render<DesignDevbookView>(harness, "colors.md"),
         "instructions" => Render<InstructionsDevbookPanel>(harness, "CLAUDE.md"),
         _ => Render<Arc42DevbookPanel>(harness, ".arc42/01-introduction.md")
     };
 
-    /// <summary>Rendered as a fragment so the four panels come back as one type:
+    /// <summary>Rendered as a fragment so the panels come back as one type:
     /// each takes the same two parameters under the same names.</summary>
     private static IRenderedComponent<ContainerFragment> Render<TPanel>(TestHarness harness, string selectedPath)
         where TPanel : IComponent =>
