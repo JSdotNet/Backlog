@@ -1912,7 +1912,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_pulled_note_with_a_recording_is_handed_to_the_queue, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.The_audio_sent_is_the_file_as_it_lies_with_its_type, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_sha256_already_transcribed_is_never_sent_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_recording_not_yet_downloaded_and_a_photo_are_not_sent, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.An_archived_note_is_not_written]
 ```
 
-The desktop SHALL send each downloaded recording on a note that is not archived to transcription, with no press, and never send a file whose sha256 it has already transcribed.
+The desktop SHALL send each downloaded recording the app made, on a note that is not archived, to transcription with no press, and never send a file whose sha256 it has already transcribed.
 
 #### Scenario: A note arrives with a recording
 
@@ -1932,11 +1932,31 @@ The desktop SHALL send each downloaded recording on a note that is not archived 
 - **When** the desktop takes up the note
 - **Then** it sends neither
 
+#### Scenario: A picked audio file
+
+- **Given** a note holding "standup.m4a", an audio file the reader picked onto it
+- **When** the desktop takes up the note
+- **Then** it sends nothing, and the file stays on the note
+
 #### Scenario: An archived note
 
 - **Given** an archived note with a downloaded recording
 - **When** the desktop takes up the note
 - **Then** it sends nothing and writes nothing
+
+### Requirement: A long M4A recording is transcribed in five-minute parts
+
+```meta
+type: requirement
+```
+
+The desktop SHALL transcribe an M4A recording of any length in parts of at most 5 minutes, as it does an AAC one.
+
+#### Scenario: A 40-minute recording from the browser
+
+- **Given** a note holding a 40-minute "Recording · <duration>" as one downloaded M4A file
+- **When** the transcription answers
+- **Then** `## Transcript` holds the text from start to end, headed by an offset about every five minutes
 
 ### Requirement: The transcript and summary are appended to the note as it stands
 
@@ -2010,25 +2030,48 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_transcription_leaves_the_body_and_the_file_and_records_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_write_records_nothing_so_the_next_start_tries_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Nothing_is_sent_while_foundry_is_not_configured]
 ```
 
-When a recording cannot be transcribed or its sections cannot be saved, the desktop SHALL leave the note's body and the file as they were, keep no record of the sha256, and try the recording again on its next start.
+When a recording cannot be transcribed or its sections cannot be saved, the desktop SHALL leave the note's body and the file as they were, count a failed attempt for its sha256, and try it again on the note's next pull or the next start until three attempts have failed.
 
 #### Scenario: The transcription fails
 
 - **Given** a note whose body reads "Agenda." and a downloaded recording on it
 - **When** the transcription fails
 - **Then** the body still reads "Agenda.", the recording stays on the note, and nothing waits to push
+- **And** one failed attempt is counted for the recording
 
 #### Scenario: The save fails
 
 - **Given** a recording the transcription answered
 - **When** saving the note fails
-- **Then** no record of its sha256 is kept, so the next start sends it again
+- **Then** its sha256 is not marked transcribed and a failed attempt is counted, so the next start sends it again
 
 #### Scenario: Foundry is not configured
 
 - **Given** a desktop without Foundry configured
 - **When** a note with a downloaded recording arrives
-- **Then** nothing is sent, and the recording stays on the note
+- **Then** nothing is sent, the recording stays on the note, and no attempt is counted
+
+### Requirement: A recording that failed three times waits for Retry
+
+```meta
+type: requirement
+```
+
+After a recording's third failed attempt, the desktop SHALL stop sending it, show on the note's recording row that transcription failed with the last reason, and send it again only after the reader presses Retry.
+
+#### Scenario: The third failure
+
+- **Given** a recording that has failed twice
+- **When** its transcription fails a third time
+- **Then** the note's recording row reads that transcription failed, with the reason, and offers Retry
+- **And** the next pull and the next start send nothing
+
+#### Scenario: Retry
+
+- **Given** a recording whose row shows that transcription failed
+- **When** the reader presses Retry
+- **Then** the desktop sends the recording again on its next take-up of the note
+- **And** a success appends the sections and removes the file as for any recording
 
 ### Requirement: A note that lost its transcript is repaired
 
