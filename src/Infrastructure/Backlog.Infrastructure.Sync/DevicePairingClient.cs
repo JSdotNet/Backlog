@@ -5,6 +5,9 @@ using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
@@ -62,6 +65,7 @@ public sealed class DevicePairingClient : IDeviceRoster
     private readonly ISystemBrowser? _browser;
     private readonly IDeviceKeyStore? _keys;
     private readonly TimeSpan _signInTimeout;
+    private readonly ILogger _log;
 
     /// <param name="http">The client <c>AddSyncClient</c> configures.</param>
     /// <param name="credentials">Where a credential the service issues is kept.</param>
@@ -79,7 +83,8 @@ public sealed class DevicePairingClient : IDeviceRoster
         PairingSubjects? pairings = null,
         ISystemBrowser? browser = null,
         TimeSpan? signInTimeout = null,
-        IDeviceKeyStore? keys = null)
+        IDeviceKeyStore? keys = null,
+        ILogger<DevicePairingClient>? log = null)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(credentials);
@@ -90,6 +95,7 @@ public sealed class DevicePairingClient : IDeviceRoster
         _browser = browser;
         _keys = keys;
         _signInTimeout = signInTimeout ?? DefaultSignInTimeout;
+        _log = log ?? NullLogger<DevicePairingClient>.Instance;
     }
 
     /// <summary>
@@ -297,8 +303,9 @@ public sealed class DevicePairingClient : IDeviceRoster
         {
             return _keys.GetOrCreate().PublicKey;
         }
-        catch (CryptographicException)
+        catch (CryptographicException ex)
         {
+            _log.LogWarning(ex, "This device's key could not be opened or made, so it registers with a credential instead.");
             return null;
         }
     }

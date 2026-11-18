@@ -14,6 +14,10 @@ namespace Backlog.Infrastructure.Sync;
 /// <see cref="DeviceKeyProtection.Software"/> so Settings can say so. Opening looks in
 /// the same order, so a key created once is the key found on every later start.
 /// </para>
+/// <para>
+/// A failure is not remembered: only an opened key is kept, so a TPM that refused once
+/// is asked again on the next call.
+/// </para>
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class CngDeviceKeyStore : IDeviceKeyStore, IDisposable
@@ -70,43 +74,69 @@ public sealed class CngDeviceKeyStore : IDeviceKeyStore, IDisposable
         }
     }
 
+    /// <summary>
+    /// The key where it is, else a new one. A key that exists and fails to open is
+    /// thrown, never replaced: a TPM key that failed once — lockout, a busy device —
+    /// would otherwise be shadowed for good by a software key under its name, and the
+    /// device bound to it would be refused. Software is used only when the Platform
+    /// Crypto Provider is genuinely not there (<see cref="CngKeyFailures"/>).
+    /// </summary>
     private (CngKey Key, DeviceKeyProtection Protection) OpenOrCreate()
     {
-        if (TryOpen(CngProvider.MicrosoftPlatformCryptoProvider) is { } hardware) return (hardware, DeviceKeyProtection.Hardware);
-        if (TryOpen(CngProvider.MicrosoftSoftwareKeyStorageProvider) is { } software) return (software, DeviceKeyProtection.Software);
+        var platformAvailable = true;
 
         try
         {
-            return (Create(CngProvider.MicrosoftPlatformCryptoProvider), DeviceKeyProtection.Hardware);
+            if (CngKey.Exists(_keyName, CngProvider.MicrosoftPlatformCryptoProvider))
+            {
+                return (CngKey.Open(_keyName, CngProvider.MicrosoftPlatformCryptoProvider), DeviceKeyProtection.Hardware);
+            }
         }
-        catch (CryptographicException)
+        catch (CryptographicException ex) when (CngKeyFailures.Classify(ex.HResult) == CngKeyFailure.PlatformUnavailable)
         {
-            // No TPM, a TPM the provider cannot use, or one locked out: the software
-            // provider is the fallback, and the Settings page warns about it.
-            return (Create(CngProvider.MicrosoftSoftwareKeyStorageProvider), DeviceKeyProtection.Software);
+            // No TPM here: the Platform Crypto Provider answers that rather than "no
+            // such key", so the key, if any, is in software.
+            platformAvailable = false;
         }
+
+        if (CngKey.Exists(_keyName, CngProvider.MicrosoftSoftwareKeyStorageProvider))
+        {
+            return (CngKey.Open(_keyName, CngProvider.MicrosoftSoftwareKeyStorageProvider), DeviceKeyProtection.Software);
+        }
+
+        if (platformAvailable)
+        {
+            try
+            {
+                return (CreateOrOpen(CngProvider.MicrosoftPlatformCryptoProvider), DeviceKeyProtection.Hardware);
+            }
+            catch (CryptographicException ex) when (CngKeyFailures.Classify(ex.HResult) == CngKeyFailure.PlatformUnavailable)
+            {
+                // The provider is there but the TPM behind it is missing or switched
+                // off: the software provider is the fallback, and Settings says so.
+            }
+        }
+
+        return (CreateOrOpen(CngProvider.MicrosoftSoftwareKeyStorageProvider), DeviceKeyProtection.Software);
     }
 
-    private CngKey? TryOpen(CngProvider provider)
+    /// <summary>A new key in <paramref name="provider"/>, or the one another start of
+    /// the app made there a moment ago.</summary>
+    private CngKey CreateOrOpen(CngProvider provider)
     {
         try
         {
-            return CngKey.Exists(_keyName, provider) ? CngKey.Open(_keyName, provider) : null;
+            return CngKey.Create(CngAlgorithm.ECDsaP256, _keyName, new CngKeyCreationParameters
+            {
+                Provider = provider,
+                ExportPolicy = CngExportPolicies.None,
+                KeyUsage = CngKeyUsages.Signing,
+                KeyCreationOptions = CngKeyCreationOptions.None,
+            });
         }
-        catch (CryptographicException)
+        catch (CryptographicException ex) when (CngKeyFailures.Classify(ex.HResult) == CngKeyFailure.KeyExists)
         {
-            // The provider itself is unavailable — the Platform Crypto Provider on a
-            // machine with no TPM answers this way rather than "no such key".
-            return null;
+            return CngKey.Open(_keyName, provider);
         }
     }
-
-    private CngKey Create(CngProvider provider) =>
-        CngKey.Create(CngAlgorithm.ECDsaP256, _keyName, new CngKeyCreationParameters
-        {
-            Provider = provider,
-            ExportPolicy = CngExportPolicies.None,
-            KeyUsage = CngKeyUsages.Signing,
-            KeyCreationOptions = CngKeyCreationOptions.None,
-        });
 }

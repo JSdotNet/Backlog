@@ -1093,9 +1093,10 @@ public sealed class SettingsDevicesTests
         Assert.Null(context.SyncSettings.Current.ServiceUrl);
     }
 
-    /// <summary>A PC with no TPM keeps its device key in software (local ADR 0052 §2),
-    /// and the person is told what that costs: a copy of the profile signs in as this
-    /// device.</summary>
+    /// <summary>A device whose key is kept in software rather than a TPM (local ADR 0052
+    /// §2) is told what that costs: a copy of the profile signs in as this device. The
+    /// heading says where the key is, not why - a TPM may be missing, or merely
+    /// unavailable, and the harness keeps its key in software on purpose.</summary>
     [Fact]
     public void A_device_whose_key_is_in_software_is_warned_that_a_copy_of_the_profile_could_sign_in()
     {
@@ -1107,9 +1108,89 @@ public sealed class SettingsDevicesTests
         context.Component.WaitForAssertion(() =>
         {
             var warning = context.Component.Find("[data-testid='devices-key-in-software']");
-            Assert.Contains("no TPM", warning.TextContent, StringComparison.Ordinal);
+            Assert.Contains("This device's key is kept in software", warning.TextContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("no TPM", warning.TextContent, StringComparison.Ordinal);
             Assert.Contains("copy of your Windows profile", warning.TextContent, StringComparison.Ordinal);
         });
+    }
+
+    /// <summary>The note under the card says what protects the key, and does not claim
+    /// a software key cannot be copied out.</summary>
+    [Fact]
+    public void A_key_in_software_is_not_described_as_impossible_to_copy()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: true, keys: new FixedKeyStore(DeviceKeyProtection.Software));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var note = context.Component.Find("[data-testid='devices-credential-note']").TextContent;
+            Assert.Contains("kept in software", note, StringComparison.Ordinal);
+            Assert.DoesNotContain("cannot be copied", note, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_key_in_the_TPM_is_described_as_one_that_cannot_be_copied_out()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: true, keys: new FixedKeyStore(DeviceKeyProtection.Hardware));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(
+                "cannot be copied out",
+                context.Component.Find("[data-testid='devices-credential-note']").TextContent,
+                StringComparison.Ordinal));
+    }
+
+    /// <summary>Before pairing there is no key to describe, so the note says nothing
+    /// about one.</summary>
+    [Fact]
+    public void An_unpaired_device_with_a_key_store_is_told_nothing_about_a_key()
+    {
+        using var context = RenderSettings(syncEnabled: true, keys: new FixedKeyStore(DeviceKeyProtection.Hardware));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.DoesNotContain(
+                "key",
+                context.Component.Find("[data-testid='devices-credential-note']").TextContent,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>A device bound to a key this machine cannot use - a TPM in lockout, a
+    /// key deleted from the store - cannot sync. The card says so, and offers the way
+    /// back a refused credential gets: register again, or pair.</summary>
+    [Fact]
+    public void A_device_whose_key_cannot_be_used_is_told_so_and_offered_a_way_back()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true,
+            paired: true,
+            keyBound: true,
+            withTokenPipeline: true,
+            keys: new BrokenKeyStore(),
+            respond: (_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var notice = context.Component.Find("[data-testid='devices-key-unavailable']");
+            Assert.Contains("key", notice.TextContent, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("alert", notice.GetAttribute("role"));
+        });
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-unregistered']"));
+        Assert.Single(context.Component.FindAll("[data-testid='devices-register']"));
+        Assert.Single(context.Component.FindAll("[data-testid='devices-pair']"));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-generate-code']"));
+        Assert.NotNull(context.Credentials.Current);
     }
 
     [Fact]
@@ -1200,6 +1281,16 @@ public sealed class SettingsDevicesTests
         public void Dispose() => _inner.Dispose();
     }
 
+    /// <summary>A key store whose key cannot be opened, as with a TPM in lockout.</summary>
+    private sealed class BrokenKeyStore : IDeviceKeyStore
+    {
+        public DeviceKeyProtection Protection =>
+            throw new System.Security.Cryptography.CryptographicException("The TPM is locked out.");
+
+        public IDeviceKey GetOrCreate() =>
+            throw new System.Security.Cryptography.CryptographicException("The TPM is locked out.");
+    }
+
     private static SettingsRenderContext RenderSettings(
         bool syncEnabled,
         bool paired = false,
@@ -1252,7 +1343,8 @@ public sealed class SettingsDevicesTests
             tokens = new SyncTokenProvider(
                 tokenServices.GetRequiredService<IHttpClientFactory>(),
                 credentials,
-                TimeProvider.System);
+                TimeProvider.System,
+                keys);
 
             pipeline = new SyncAuthenticationHandler(tokens) { InnerHandler = service };
         }

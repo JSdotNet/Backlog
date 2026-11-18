@@ -54,8 +54,10 @@ public sealed record RedeemPairingCodeRequest(string Code, string DeviceName, st
 /// <para>
 /// A device bound to a key sends <paramref name="ClientAssertion"/>, a
 /// <c>private_key_jwt</c> signed with that key, and <paramref name="ClientAssertionType"/>
-/// set to <see cref="SyncAssertion.ClientAssertionType"/> (local ADR 0052 §2); its
-/// credential is refused. A device still on a credential sends
+/// set to <see cref="SyncAssertion.ClientAssertionType"/> (local ADR 0052 §2). Its
+/// credential sent alone is refused; sent beside a valid assertion it is ignored, so a
+/// migration request re-sent after the key was bound is answered by the assertion. A
+/// device still on a credential sends
 /// <paramref name="Credential"/>, and may add <paramref name="PublicKey"/> once to
 /// bind a key in its place, with an assertion signed by that key to prove it holds
 /// it: the service then forgets the credential.

@@ -88,7 +88,11 @@ public sealed class DpapiDeviceKeyStore : IDeviceKeyStore, IDisposable
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
 
             var envelope = ProtectedData.Protect(pkcs8, optionalEntropy: null, DataProtectionScope.CurrentUser);
-            File.WriteAllText(_path, Convert.ToBase64String(envelope));
+            // Written beside the file and moved over it, so a crash mid-write leaves the
+            // old key or the new one, never half of either.
+            var temporary = _path + ".tmp";
+            File.WriteAllText(temporary, Convert.ToBase64String(envelope));
+            File.Move(temporary, _path, overwrite: true);
             return key;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)

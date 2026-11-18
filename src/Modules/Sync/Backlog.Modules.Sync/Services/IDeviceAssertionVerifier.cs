@@ -37,8 +37,12 @@ public interface IDeviceAssertionVerifier
 /// </summary>
 public sealed class EcdsaDeviceAssertionVerifier(TimeProvider clock) : IDeviceAssertionVerifier
 {
-    /// <summary>How far a device's clock may be off the service's either way.</summary>
-    public static readonly TimeSpan ClockSkew = TimeSpan.FromSeconds(30);
+    /// <summary>How far a device's clock may be off the service's either way. Two
+    /// minutes, so a laptop whose clock has drifted since it last synced its time still
+    /// signs in; an assertion's own lifetime stays capped at
+    /// <see cref="SyncAssertion.MaxLifetime"/>, and its id is held as spent until
+    /// <c>exp</c> plus this skew, the last moment it could be taken.</summary>
+    public static readonly TimeSpan ClockSkew = TimeSpan.FromMinutes(2);
 
     /// <summary>Far above what an ES256 assertion with these claims takes, and low
     /// enough that an anonymous caller cannot make the service decode much.</summary>

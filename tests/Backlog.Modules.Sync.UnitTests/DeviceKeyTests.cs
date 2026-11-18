@@ -138,7 +138,7 @@ public sealed class DeviceKeyTests : IDisposable
         var issuedAt = _sync.Clock.GetUtcNow();
         var assertion = _key.Assertion(device.Value, issuedAt, TimeSpan.FromMinutes(1));
 
-        _sync.Clock.Advance(TimeSpan.FromMinutes(1) + TimeSpan.FromSeconds(31));
+        _sync.Clock.Advance(TimeSpan.FromMinutes(1) + TimeSpan.FromMinutes(2) + TimeSpan.FromSeconds(1));
 
         AssertInvalid(await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation));
     }
@@ -149,7 +149,7 @@ public sealed class DeviceKeyTests : IDisposable
         var device = await RegisterKeyBound();
         var assertion = _key.Assertion(device.Value, _sync.Clock.GetUtcNow(), TimeSpan.FromMinutes(1));
 
-        _sync.Clock.Advance(TimeSpan.FromMinutes(1) + TimeSpan.FromSeconds(10));
+        _sync.Clock.Advance(TimeSpan.FromMinutes(1) + TimeSpan.FromSeconds(110));
 
         Assert.True((await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation)).IsSuccess);
     }
@@ -160,7 +160,28 @@ public sealed class DeviceKeyTests : IDisposable
         var device = await RegisterKeyBound();
 
         AssertInvalid(await _sync.IssueToken.Handle(
-            Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow().AddMinutes(2))), Cancellation));
+            Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow().AddMinutes(2).AddSeconds(1))), Cancellation));
+    }
+
+    [Fact]
+    public async Task An_assertion_from_a_clock_ahead_within_the_skew_is_taken()
+    {
+        var device = await RegisterKeyBound();
+
+        Assert.True((await _sync.IssueToken.Handle(
+            Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow().AddSeconds(90))), Cancellation)).IsSuccess);
+    }
+
+    [Fact]
+    public async Task A_replay_inside_the_clock_skew_after_expiry_is_still_refused()
+    {
+        var device = await RegisterKeyBound();
+        var assertion = _key.Assertion(device.Value, _sync.Clock.GetUtcNow(), TimeSpan.FromMinutes(1));
+
+        Assert.True((await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation)).IsSuccess);
+        _sync.Clock.Advance(TimeSpan.FromMinutes(1) + TimeSpan.FromSeconds(110));
+
+        AssertInvalid(await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation));
     }
 
     [Fact]

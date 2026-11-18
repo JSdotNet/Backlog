@@ -109,6 +109,45 @@ public sealed class DeviceKeyClientTests
         }
     }
 
+    /// <summary>Only a provider that is not there, or a TPM that is absent or switched
+    /// off, sends the key to software; a transient failure — a TPM in lockout, a denied
+    /// access — is thrown, so a TPM key that exists is never shadowed by a software one
+    /// under the same name.</summary>
+    [Theory]
+    [InlineData(0x8009001EU)] // NTE_PROV_DLL_NOT_FOUND
+    [InlineData(0x80090029U)] // NTE_NOT_SUPPORTED
+    [InlineData(0x80090030U)] // NTE_DEVICE_NOT_READY
+    [InlineData(0x80090035U)] // NTE_DEVICE_NOT_FOUND
+    [InlineData(0x80284008U)] // TBS_E_SERVICE_NOT_RUNNING
+    [InlineData(0x8028400FU)] // TBS_E_TPM_NOT_FOUND
+    [InlineData(0x80284010U)] // TBS_E_SERVICE_DISABLED
+    [InlineData(0x80280006U)] // TPM_E_DISABLED
+    [InlineData(0x80280007U)] // TPM_E_DEACTIVATED
+    [InlineData(0x80290101U)] // TPM_E_PCP_DEVICE_NOT_READY
+    public void A_missing_or_switched_off_TPM_is_the_one_reason_to_fall_back_to_software(uint hResult)
+    {
+        Assert.Equal(CngKeyFailure.PlatformUnavailable, CngKeyFailures.Classify(unchecked((int)hResult)));
+    }
+
+    [Theory]
+    [InlineData(0x80280921U)] // TPM_20_E_LOCKOUT
+    [InlineData(0x80280803U)] // TPM_E_DEFEND_LOCK_RUNNING
+    [InlineData(0x80070005U)] // E_ACCESSDENIED
+    [InlineData(0x80090016U)] // NTE_BAD_KEYSET
+    [InlineData(0x80284001U)] // TBS_E_INTERNAL_ERROR
+    [InlineData(0x8009000DU)] // NTE_NO_KEY
+    [InlineData(0x00000000U)]
+    public void A_transient_or_unknown_failure_is_never_a_reason_to_fall_back(uint hResult)
+    {
+        Assert.Equal(CngKeyFailure.Other, CngKeyFailures.Classify(unchecked((int)hResult)));
+    }
+
+    [Fact]
+    public void A_key_that_already_exists_is_opened_rather_than_made_again()
+    {
+        Assert.Equal(CngKeyFailure.KeyExists, CngKeyFailures.Classify(unchecked((int)0x8009000FU))); // NTE_EXISTS
+    }
+
     [Fact]
     public void The_harness_store_keeps_its_key_across_a_restart_and_never_in_the_clear()
     {
@@ -212,6 +251,7 @@ public sealed class DeviceKeyClientTests
 
         Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
         Assert.Empty(sent);
+        Assert.True(fixture.Provider.KeyUnavailable);
     }
 
     /// <summary>The migration: the first fetch sends the secret, the key and an
@@ -248,25 +288,112 @@ public sealed class DeviceKeyClientTests
         Assert.True(Jwt.Read(next.ClientAssertion!, keys.GetOrCreate().PublicKey).SignatureValid);
     }
 
-    /// <summary>A migration the service already took on an earlier run, whose secret this
-    /// machine failed to forget: the refusal is settled by one assertion, and the secret
-    /// is forgotten then.</summary>
+    /// <summary>The service took the migration but this machine could not write the
+    /// record without its secret: the token is still good and is used, and the next
+    /// fetch's re-sent migration — which the service answers on its assertion, ignoring
+    /// the secret beside it — forgets the secret then.</summary>
     [Fact]
-    public async Task A_refused_migration_is_retried_once_with_the_key_alone()
+    public async Task A_secret_that_cannot_be_forgotten_keeps_the_token_and_is_forgotten_on_the_next_fetch()
     {
         using var keys = new InMemoryDeviceKeyStore();
-        var store = new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", "a-registration-credential"));
+        var store = new UnwritableCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", "a-registration-credential"));
         var sent = new List<DeviceTokenRequest>();
-        using var fixture = TokenService(
-            store, keys, sent, request => request.Credential is null ? null : HttpStatusCode.Unauthorized);
+        using var fixture = TokenService(store, keys, sent);
+
+        Assert.Equal("token-0", await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("a-registration-credential", store.Current!.Credential);
+        Assert.Equal("token-0", await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.Single(sent);
+
+        store.Writable = true;
+        fixture.Provider.Invalidate();
 
         Assert.Equal("token-1", await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
-
-        Assert.Equal(2, sent.Count);
-        Assert.Null(sent[1].Credential);
-        Assert.True(Jwt.Read(sent[1].ClientAssertion!, keys.GetOrCreate().PublicKey).SignatureValid);
+        Assert.Equal("a-registration-credential", sent[^1].Credential);
+        Assert.NotNull(sent[^1].ClientAssertion);
         Assert.Null(store.Current!.Credential);
+    }
+
+    /// <summary>A device bound to its key whose key cannot be opened cannot prove itself
+    /// at all: that is said, rather than the device going quiet.</summary>
+    [Fact]
+    public async Task A_key_bound_device_whose_key_cannot_be_opened_reports_its_key_unavailable()
+    {
+        var keys = new UnreliableKeyStore { OpenFails = true };
+        var store = new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", null));
+        var sent = new List<DeviceTokenRequest>();
+        using var fixture = TokenService(store, keys, sent);
+        var raised = 0;
+        fixture.Provider.KeyUnavailableChanged += () => raised++;
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+
+        Assert.Empty(sent);
+        Assert.True(fixture.Provider.KeyUnavailable);
         Assert.False(fixture.Provider.CredentialRejected);
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public async Task A_key_bound_device_whose_key_will_not_sign_reports_its_key_unavailable()
+    {
+        var keys = new UnreliableKeyStore { SignFails = true };
+        var store = new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", null));
+        var sent = new List<DeviceTokenRequest>();
+        using var fixture = TokenService(store, keys, sent);
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+
+        Assert.Empty(sent);
+        Assert.True(fixture.Provider.KeyUnavailable);
+    }
+
+    /// <summary>A key that comes back — a TPM out of lockout — is not remembered as gone:
+    /// the next fetch asks the store again and the state clears with the token.</summary>
+    [Fact]
+    public async Task A_key_that_comes_back_clears_the_unavailable_state()
+    {
+        var keys = new UnreliableKeyStore { OpenFails = true };
+        var store = new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", null));
+        var sent = new List<DeviceTokenRequest>();
+        using var fixture = TokenService(store, keys, sent);
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        keys.OpenFails = false;
+
+        Assert.Equal("token-0", await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.False(fixture.Provider.KeyUnavailable);
+    }
+
+    [Fact]
+    public async Task Forgetting_the_device_clears_the_unavailable_state()
+    {
+        var keys = new UnreliableKeyStore { OpenFails = true };
+        var store = new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", null));
+        using var fixture = TokenService(store, keys, []);
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        store.Clear();
+
+        Assert.False(fixture.Provider.KeyUnavailable);
+    }
+
+    /// <summary>A device still on a credential whose key cannot be opened goes on with its
+    /// secret: it syncs, so nothing is unavailable.</summary>
+    [Fact]
+    public async Task A_device_on_a_credential_whose_key_cannot_be_opened_goes_on_with_the_secret()
+    {
+        var keys = new UnreliableKeyStore { OpenFails = true };
+        var store = new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", "a-registration-credential"));
+        var sent = new List<DeviceTokenRequest>();
+        using var fixture = TokenService(store, keys, sent);
+
+        Assert.Equal("token-0", await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+
+        var request = Assert.Single(sent);
+        Assert.Equal("a-registration-credential", request.Credential);
+        Assert.Null(request.PublicKey);
+        Assert.False(fixture.Provider.KeyUnavailable);
     }
 
     [Fact]
@@ -421,6 +548,61 @@ public sealed class DeviceKeyClientTests
     {
         public Task OpenAsync(Uri address, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("The Development service answers straight to the loopback.");
+    }
+
+    /// <summary>A key store that fails on demand, the way a TPM in lockout does.</summary>
+    private sealed class UnreliableKeyStore : IDeviceKeyStore
+    {
+        private readonly FailingKey _key = new();
+
+        public bool OpenFails { get; set; }
+
+        public bool SignFails
+        {
+            get => _key.Fails;
+            set => _key.Fails = value;
+        }
+
+        public DeviceKeyProtection Protection => DeviceKeyProtection.Hardware;
+
+        public IDeviceKey GetOrCreate() =>
+            OpenFails ? throw new CryptographicException("The TPM is locked out.") : _key;
+
+        private sealed class FailingKey : IDeviceKey
+        {
+            private readonly ECDsa _ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+
+            public bool Fails { get; set; }
+
+            public string PublicKey => Base64Url.EncodeToString(_ecdsa.ExportSubjectPublicKeyInfo());
+
+            public byte[] Sign(ReadOnlySpan<byte> data) => Fails
+                ? throw new CryptographicException("The TPM would not sign.")
+                : _ecdsa.SignData(data, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        }
+    }
+
+    /// <summary>A credential store whose writes fail until <see cref="Writable"/> is set.</summary>
+    private sealed class UnwritableCredentialStore(DeviceCredential credential) : IDeviceCredentialStore
+    {
+        private readonly InMemoryDeviceCredentialStore _inner = new(credential);
+
+        public bool Writable { get; set; }
+
+        public event Action? Changed
+        {
+            add => _inner.Changed += value;
+            remove => _inner.Changed -= value;
+        }
+
+        public DeviceCredential? Current => _inner.Current;
+
+        public string StorePath => _inner.StorePath;
+
+        public Task SaveAsync(DeviceCredential credential, CancellationToken cancellationToken = default) =>
+            Writable ? _inner.SaveAsync(credential, cancellationToken) : throw new IOException("The disk is full.");
+
+        public void Clear() => _inner.Clear();
     }
 
     private sealed class DictionarySecureValues : ISecureValueStore
