@@ -616,7 +616,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
                 sp.GetRequiredService<WorkingHoursSettingsStore>()),
             MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(appData, MyDayPreferencesStore.FileName)),
             IterationSettings = sp => new IterationSettingsStore(
-                Path.Combine(appData, IterationSettingsStore.FileName), sp.GetRequiredService<ShellNavigationStore>()),
+                Path.Combine(appData, IterationSettingsStore.FileName)),
             ShellNavigation = _ => new ShellNavigationStore(Path.Combine(appData, ShellNavigationStore.FileName)),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(appData, "capture-sources.json")),
             CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(appData, "capture-runs.json")),

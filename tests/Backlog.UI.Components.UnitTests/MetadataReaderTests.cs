@@ -328,15 +328,13 @@ public sealed class MetadataReaderTests
     }
 
     [Fact]
-    public void Kind_and_version_are_read_and_a_quoted_version_loses_its_quotes()
+    public void A_quoted_version_loses_its_quotes()
     {
         var meta = MetadataReader.Parse("""
             status: adopted
-            kind: framework
             version: "10.0"
             """);
 
-        Assert.Equal("framework", meta.Kind);
         Assert.Equal("10.0", meta.Version);
     }
 
@@ -346,12 +344,12 @@ public sealed class MetadataReaderTests
         var meta = MetadataReader.Parse("""
 
               Status:   active
-              Kind:  library
+              Type:  library
 
             """);
 
         Assert.Equal("active", meta.Status);
-        Assert.Equal("library", meta.Kind);
+        Assert.Equal("library", meta.Type);
     }
 
     [Fact]

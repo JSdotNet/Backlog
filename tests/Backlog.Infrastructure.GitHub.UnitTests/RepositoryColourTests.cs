@@ -200,7 +200,7 @@ public class RepositoryColourTests : IDisposable
             path,
             """
             {
-              "repositories": [ { "alias": "backlog", "owner": "JSdotNet", "name": "Backlog" } ],
+              "repositories": [ { "id": "JSdotNet/Backlog", "cloneDirectory": "/tmp/backlog-clone" } ],
               "apiEndpoint": "https://api.github.com"
             }
             """);
@@ -208,10 +208,6 @@ public class RepositoryColourTests : IDisposable
         var store = new GitHubSettingsStore(path);
 
         Assert.False(store.Current.ShowRepositoryColours);
-
-        // And the colour the repository would wear is still there to be read, because
-        // the visualization being off is not the same as the choice being gone.
-        Assert.Equal(1, store.Current.ColourFor("backlog"));
     }
 
     [Fact]

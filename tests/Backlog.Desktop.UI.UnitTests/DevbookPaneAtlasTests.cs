@@ -211,7 +211,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
 
         ```meta
         status: accepted
-        kind: layer
+        type: layer
         ```
 
         Shared platform choices.
@@ -220,7 +220,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
 
         ```meta
         status: accepted
-        kind: runtime
+        type: runtime
         ```
 
         The runtime everything is built on.

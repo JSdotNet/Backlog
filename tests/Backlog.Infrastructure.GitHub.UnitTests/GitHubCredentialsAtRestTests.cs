@@ -123,29 +123,6 @@ public sealed class GitHubCredentialsAtRestTests : IDisposable
         Assert.Equal("ghp_legacy_account", Assert.Single(reopened.Current.Accounts).Token);
     }
 
-    /// <summary>The oldest shape of all: one global token, which every repository
-    /// inherits. It still reaches the repositories, and it is not left in the
-    /// clear.</summary>
-    [Fact]
-    public void The_legacy_global_token_still_reaches_the_repositories_and_is_not_left_in_the_clear()
-    {
-        if (!OperatingSystem.IsWindows()) return;
-
-        WriteLocalFile("""
-            {
-              "repositories": [ { "alias": "backlog", "owner": "JSdotNet", "name": "Backlog" } ],
-              "token": "ghp_legacy_global",
-              "apiEndpoint": "https://api.github.com"
-            }
-            """);
-
-        var store = Store();
-
-        Assert.Equal("ghp_legacy_global", store.Current.Find("backlog")!.Token);
-        Assert.DoesNotContain("ghp_legacy_global", File.ReadAllText(LocalPath), StringComparison.Ordinal);
-        Assert.Equal("ghp_legacy_global", Store().Current.Find("backlog")!.Token);
-    }
-
     /// <summary>
     /// An envelope this Windows user cannot open — corrupt, or sealed under another
     /// profile or on another machine — reads as no token, and nothing else in the

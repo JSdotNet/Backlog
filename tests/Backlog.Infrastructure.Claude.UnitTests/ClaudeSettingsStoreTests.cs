@@ -36,47 +36,6 @@ public class ClaudeSettingsStoreTests
         Assert.True(account.LooksLikeAdminKey);
     }
 
-    /// <summary>
-    /// The file this store wrote before accounts existed was one flat object. It has
-    /// to read as one account with nothing lost — a key somebody pasted months ago
-    /// must not vanish because the file grew a list — and the first save moves it to
-    /// the new shape for good.
-    /// </summary>
-    [Fact]
-    public void A_flat_settings_file_from_before_accounts_reads_as_one_account_and_is_rewritten_as_a_list()
-    {
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
-        File.WriteAllText(path, """
-            {
-              "adminApiKey": "sk-ant-admin01-legacy",
-              "workspaceId": "wrkspc_legacy",
-              "actor": "person@example.com",
-              "apiVersion": "2023-06-01",
-              "apiEndpoint": "https://claude.example.internal"
-            }
-            """);
-
-        var store = new ClaudeSettingsStore(path);
-
-        var account = Assert.Single(store.Current.Accounts);
-        Assert.Equal("sk-ant-admin01-legacy", account.AdminApiKey);
-        Assert.Equal("wrkspc_legacy", account.WorkspaceId);
-        Assert.Equal("person@example.com", account.Actor);
-        Assert.Equal("https://claude.example.internal", account.ApiEndpoint);
-
-        store.SetDisplayName(account.Id, "work");
-
-        using var written = JsonDocument.Parse(File.ReadAllText(path));
-        Assert.True(written.RootElement.TryGetProperty("accounts", out var accounts));
-        Assert.Equal(1, accounts.GetArrayLength());
-        Assert.False(written.RootElement.TryGetProperty("adminApiKey", out _));
-
-        var reopened = Assert.Single(new ClaudeSettingsStore(path).Current.Accounts);
-        Assert.Equal("sk-ant-admin01-legacy", reopened.AdminApiKey);
-        Assert.Equal("work", reopened.DisplayName);
-    }
-
     // --- The key at rest (local ADR 0030) ----------------------------------------
 
     /// <summary>
@@ -138,27 +97,6 @@ public class ClaudeSettingsStoreTests
         var reopened = Assert.Single(new ClaudeSettingsStore(path).Current.Accounts);
         Assert.Equal("personal", reopened.Id);
         Assert.Equal("sk-ant-admin01-plaintext", reopened.AdminApiKey);
-    }
-
-    /// <summary>The oldest shape: the flat file from before accounts. Its key is
-    /// sealed on first read as well, which also moves the file to the list
-    /// shape.</summary>
-    [Fact]
-    public void A_flat_settings_files_plaintext_key_is_sealed_on_first_read()
-    {
-        if (!OperatingSystem.IsWindows()) return;
-
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
-        File.WriteAllText(path, """
-            { "adminApiKey": "sk-ant-admin01-flat", "actor": "person@example.com" }
-            """);
-
-        var store = new ClaudeSettingsStore(path);
-
-        Assert.Equal("sk-ant-admin01-flat", Assert.Single(store.Current.Accounts).AdminApiKey);
-        Assert.DoesNotContain("sk-ant-admin01-flat", File.ReadAllText(path), StringComparison.Ordinal);
-        Assert.Equal("sk-ant-admin01-flat", Assert.Single(new ClaudeSettingsStore(path).Current.Accounts).AdminApiKey);
     }
 
     /// <summary>An envelope this Windows user cannot open (corrupt, or sealed

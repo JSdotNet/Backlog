@@ -200,39 +200,6 @@ public class UsageResetSettingsStoreTests : IDisposable
         Assert.Empty(store.Resets);
     }
 
-    /// <summary>The file a single-reset version wrote: one reset, selected, under a
-    /// name the person can change — and the file left as it was until they do.</summary>
-    [Fact]
-    public void A_file_from_before_named_resets_reads_as_one_chosen_reset_and_is_not_rewritten()
-    {
-        const string legacy = """{ "day": "Monday", "time": "14:00" }""";
-        File.WriteAllText(SettingsFile, legacy);
-
-        var store = Store();
-
-        Assert.Equal(
-            new NamedUsageReset("default", "Weekly reset", new UsageWeekReset(DayOfWeek.Monday, TwoPm)),
-            Assert.Single(store.Resets));
-        Assert.Equal("default", store.Selected?.Id);
-        Assert.Equal(new UsageWeekReset(DayOfWeek.Monday, TwoPm), store.Current);
-        Assert.Equal(legacy, File.ReadAllText(SettingsFile));
-    }
-
-    [Fact]
-    public void The_first_change_to_a_file_from_before_named_resets_writes_the_new_shape()
-    {
-        File.WriteAllText(SettingsFile, """{ "day": "Monday", "time": "14:00" }""");
-
-        var (work, _) = Store().Add("Work", DayOfWeek.Thursday, TwoPm);
-
-        Assert.Contains("\"resets\"", File.ReadAllText(SettingsFile), StringComparison.Ordinal);
-
-        var reopened = Store();
-
-        Assert.Equal(["default", work], reopened.Resets.Select(reset => reset.Id));
-        Assert.Equal("default", reopened.Selected?.Id);
-    }
-
     [Fact]
     public void A_hand_edited_file_that_does_not_parse_reads_as_unset()
     {

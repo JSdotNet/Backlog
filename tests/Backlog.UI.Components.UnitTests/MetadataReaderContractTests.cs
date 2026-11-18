@@ -48,38 +48,8 @@ public sealed class MetadataReaderContractTests
         var meta = MetadataReader.Parse("type: aggregate");
 
         Assert.Equal("aggregate", meta.Type);
-        Assert.False(meta.TypeReadFromKind);
-        Assert.Null(meta.Kind);
         Assert.Empty(meta.Extra);
         Assert.False(meta.IsEmpty);
-    }
-
-    [Fact]
-    public void The_legacy_kind_spelling_fills_type_and_says_so()
-    {
-        var meta = MetadataReader.Parse("""
-            status: adopted
-            kind: library
-            """);
-
-        Assert.Equal("library", meta.Type);
-        Assert.True(meta.TypeReadFromKind);
-
-        // Still readable under the old name, for the callers that always read it.
-        Assert.Equal("library", meta.Kind);
-    }
-
-    [Fact]
-    public void Type_wins_over_kind_when_a_block_writes_both()
-    {
-        var meta = MetadataReader.Parse("""
-            type: tool
-            kind: runtime
-            """);
-
-        Assert.Equal("tool", meta.Type);
-        Assert.False(meta.TypeReadFromKind);
-        Assert.Equal("runtime", meta.Kind);
     }
 
     [Fact]
@@ -93,19 +63,6 @@ public sealed class MetadataReaderContractTests
 
         var untyped = MetadataReader.Parse("status: draft");
         Assert.Same(untyped, untyped.WithoutType());
-    }
-
-    [Fact]
-    public void Without_type_takes_a_legacy_kind_with_it_and_leaves_a_second_kind_alone()
-    {
-        var legacy = MetadataReader.Parse("kind: aggregate").WithoutType();
-        Assert.Null(legacy.Type);
-        Assert.Null(legacy.Kind);
-        Assert.True(legacy.IsEmpty);
-
-        var both = MetadataReader.Parse("type: aggregate\nkind: runtime").WithoutType();
-        Assert.Null(both.Type);
-        Assert.Equal("runtime", both.Kind);
     }
 
     [Fact]

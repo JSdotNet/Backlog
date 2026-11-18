@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text.Json.Nodes;
+
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Progress.Abstractions;
@@ -14,8 +17,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// through the task feed (local ADR 0036, Verification 1, 3, 4 and 5, end to end).
 /// <para>
 /// Each device is composed the way a host composes itself — its own per-user
-/// <c>iteration-settings.json</c>, seeded where a test says from its own shell navigation
-/// file, the <see cref="IterationSettings"/> the Goals view and the stand-up read, its own
+/// <c>iteration-settings.json</c>, seeded at the floor stamp where a test says, as an
+/// earlier build seeded it, the <see cref="IterationSettings"/> the Goals view and the stand-up read, its own
 /// backlog, and the real merge and session — and the devices exchange through one replica
 /// that keeps what the deployed one keeps. The store's and the merge's own tests pin each
 /// rule; these say desktops built on them end reading the same iteration.
@@ -182,7 +185,7 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
         new(Path.Combine(_root, name), _replica, _deviceIds.GetOrAdd(name, _ => Guid.NewGuid()), legacy);
 
     /// <summary>
-    /// One desktop: its own iteration settings — seeded from its own shell navigation file
+    /// One desktop: its own iteration settings — seeded at the floor stamp
     /// where the test gave it a legacy choice — and its own backlog and sync state, with a
     /// session over the shared replica.
     /// </summary>
@@ -201,17 +204,21 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
             var workspace = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
             Assert.Null(workspace.TryUseRoot(Path.Combine(root, "workspace")));
 
-            var shellPath = Path.Combine(root, "local", "shell-navigation.json");
+            SettingsPath = Path.Combine(root, "local", IterationSettingsStore.FileName);
             if (legacy is { } chosen)
             {
-                var earlier = new ShellNavigationStore(shellPath);
-                earlier.SetGoalsIteration(chosen.Length, chosen.Start);
-                earlier.Flush();
-                ShellNavigationStore.WaitForPendingWrites(shellPath);
+                // The file as an earlier build seeded it: the choice, at the floor stamp.
+                Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
+                var seeded = new JsonObject
+                {
+                    ["updatedAt"] = IterationSettingsStore.FloorStamp.ToString("O", CultureInfo.InvariantCulture),
+                    ["length"] = chosen.Length
+                };
+                if (chosen.Start is { } start) seeded["twoWeekStart"] = start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                File.WriteAllText(SettingsPath, seeded.ToJsonString());
             }
 
-            SettingsPath = Path.Combine(root, "local", IterationSettingsStore.FileName);
-            Store = new IterationSettingsStore(SettingsPath, new ShellNavigationStore(shellPath), Clock);
+            Store = new IterationSettingsStore(SettingsPath, Clock);
             Settings = new IterationSettings(Store);
 
             var tasks = TasksTestHost.RepositoryFor(workspace);

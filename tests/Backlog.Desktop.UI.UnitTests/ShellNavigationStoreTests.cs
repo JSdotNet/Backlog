@@ -51,20 +51,18 @@ public sealed class ShellNavigationStoreTests
             File.WriteAllText(path, """
                 {
                   "lastSurface": "Workspace",
-                  "lastEnabledPanes": ["Backlog", "Devbook"],
                   "lastPinnedPanes": ["Backlog"]
                 }
                 """);
 
             var store = new ShellNavigationStore(path);
 
-            Assert.Equal("devbook", store.LastSurface);
+            Assert.Null(store.LastSurface);
 
             store.SetLastView("Board");
 
             using var document = JsonDocument.Parse(Written(path));
             Assert.False(document.RootElement.TryGetProperty("lastPinnedPanes", out _));
-            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
         }
         finally
         {
@@ -258,7 +256,7 @@ public sealed class ShellNavigationStoreTests
     }
 
     [Fact]
-    public void The_file_holds_the_surface_under_its_own_key_and_no_pane_list()
+    public void The_file_holds_the_surface_under_its_own_key()
     {
         var path = NewSettingsPath();
 
@@ -270,7 +268,6 @@ public sealed class ShellNavigationStoreTests
             using var document = JsonDocument.Parse(Written(path));
 
             Assert.Equal("tools", document.RootElement.GetProperty("lastSurface").GetString());
-            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
         }
         finally
         {
@@ -699,60 +696,6 @@ public sealed class ShellNavigationStoreTests
     }
 
     /// <summary>
-    /// The retired "No repo" chip's state, under the name it went by, reopens as the
-    /// Brain alone, whatever scope sat beside it — and the next save writes the old key
-    /// no more.
-    /// </summary>
-    [Fact]
-    public void A_remembered_no_repository_only_state_migrates_to_the_brain()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                {
-                  "lastView": "Tasks",
-                  "repositoryScope": ["backlog"],
-                  "noRepositoryOnly": true
-                }
-                """);
-
-            var store = new ShellNavigationStore(path);
-            Assert.Equal([BrainScope.Value], store.RepositoryScope);
-
-            store.SetLastView("Board");
-
-            Assert.DoesNotContain("noRepositoryOnly", Written(path), StringComparison.Ordinal);
-            Assert.Equal([BrainScope.Value], new ShellNavigationStore(path).RepositoryScope);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>The old flag turned off is no scope at all: the scope beside it stands.</summary>
-    [Fact]
-    public void A_remembered_no_repository_state_that_was_off_leaves_the_scope_alone()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """{ "repositoryScope": ["backlog"], "noRepositoryOnly": false }""");
-
-            Assert.Equal(["backlog"], new ShellNavigationStore(path).RepositoryScope);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>
     /// A file written before any of this release's keys reads as their defaults —
     /// Month, Needs you first on, finished today off, every repository — and the next
     /// save adds none of them.
@@ -769,7 +712,6 @@ public sealed class ShellNavigationStoreTests
                 {
                   "lastSurface": "Workspace",
                   "lastView": "Board",
-                  "lastEnabledPanes": ["Devbook"],
                   "boardColumns": "Plan"
                 }
                 """);
@@ -884,8 +826,7 @@ public sealed class ShellNavigationStoreTests
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, """
                 {
-                  "lastSurface": "Dashboard",
-                  "lastEnabledPanes": ["Tasks", "Devbook"]
+                  "lastSurface": "Dashboard"
                 }
                 """);
 
@@ -915,8 +856,7 @@ public sealed class ShellNavigationStoreTests
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, """
                 {
-                  "lastSurface": "Roadmap",
-                  "lastEnabledPanes": ["Inbox"]
+                  "lastSurface": "Roadmap"
                 }
                 """);
 
@@ -925,14 +865,11 @@ public sealed class ShellNavigationStoreTests
             Assert.Equal("roadmap", store.LastView);
             Assert.Null(store.LastSurface);
 
-            // The roadmap takeover covered the Inbox pane, so the Inbox was not on
-            // screen: it does not become the surface, and leaves the pane list.
             store.SetBoardColumns("Plan");
 
             using var document = JsonDocument.Parse(Written(path));
             Assert.False(document.RootElement.TryGetProperty("lastSurface", out var lastSurface) && lastSurface.ValueKind != JsonValueKind.Null);
             Assert.Equal("roadmap", document.RootElement.GetProperty("lastView").GetString());
-            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
         }
         finally
         {
@@ -964,96 +901,6 @@ public sealed class ShellNavigationStoreTests
         }
     }
 
-    /// <summary>
-    /// The Inbox was a side pane beside the main view before it took the whole
-    /// screen. A file from then with it open over the workspace reopens on the Inbox
-    /// surface, with the view underneath kept, and the pane list loses the name. A
-    /// Devbook open beside it does not win the screen: from when the Inbox took the
-    /// screen until the Devbook did, the Inbox surface covered the Devbook pane.
-    /// </summary>
-    [Theory]
-    [InlineData("\"lastSurface\": \"Workspace\",")]
-    [InlineData("")]
-    public void An_inbox_pane_open_over_the_workspace_reads_as_the_inbox_surface(string surfaceLine)
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, $$"""
-                {
-                  {{surfaceLine}}
-                  "lastView": "Board",
-                  "lastEnabledPanes": ["Inbox", "Devbook"]
-                }
-                """);
-
-            var store = new ShellNavigationStore(path);
-
-            Assert.Equal("inbox", store.LastSurface);
-            Assert.Equal("board", store.LastView);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>A takeover stored over the Inbox pane was what the reader saw, so it
-    /// stays the surface; the Inbox name is dropped and nothing else changes.</summary>
-    [Fact]
-    public void An_inbox_pane_under_another_surface_is_dropped_and_the_surface_kept()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                {
-                  "lastSurface": "Dashboard",
-                  "lastEnabledPanes": ["Inbox"]
-                }
-                """);
-
-            var store = new ShellNavigationStore(path);
-
-            Assert.Equal("dashboard", store.LastSurface);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>The migration is what the next save writes: the Inbox as the surface,
-    /// and never again among the panes.</summary>
-    [Fact]
-    public void A_migrated_inbox_pane_is_written_back_as_the_surface()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                { "lastSurface": "Workspace", "lastEnabledPanes": ["Inbox", "Devbook"] }
-                """);
-
-            var store = new ShellNavigationStore(path);
-            store.SetLastView("Calendar");
-
-            using var document = JsonDocument.Parse(Written(path));
-            Assert.Equal("inbox", document.RootElement.GetProperty("lastSurface").GetString());
-            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
     [Fact]
     public void The_inbox_surface_survives_a_restart()
     {
@@ -1066,112 +913,6 @@ public sealed class ShellNavigationStoreTests
             store.SetLastSurface("Inbox");
 
             Assert.Equal("inbox", new ShellNavigationStore(path).LastSurface);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>
-    /// The Devbook was a side pane beside the main view before it took the whole
-    /// screen (local ADR 0022, amendment of 2026-10-15), stored as <c>Devbook</c> or,
-    /// before the context was renamed, <c>Knowledge</c>. A file from then with it
-    /// open over the workspace reopens on the Devbook surface, the view underneath
-    /// kept.
-    /// </summary>
-    [Theory]
-    [InlineData("Devbook", "\"lastSurface\": \"Workspace\",")]
-    [InlineData("Devbook", "")]
-    [InlineData("Knowledge", "\"lastSurface\": \"Workspace\",")]
-    [InlineData("Knowledge", "")]
-    public void A_devbook_pane_open_over_the_workspace_reads_as_the_devbook_surface(string pane, string surfaceLine)
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, $$"""
-                {
-                  {{surfaceLine}}
-                  "lastView": "Board",
-                  "lastEnabledPanes": ["{{pane}}"]
-                }
-                """);
-
-            var store = new ShellNavigationStore(path);
-
-            Assert.Equal("devbook", store.LastSurface);
-            Assert.Equal("board", store.LastView);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>A takeover stored over the Devbook pane was what the reader saw, so it
-    /// stays the surface — the roadmap takeover as the Roadmap view, as ever.</summary>
-    [Theory]
-    [InlineData("Devbook", "Dashboard", "dashboard", "calendar")]
-    [InlineData("Knowledge", "Sessions", "sessions", "calendar")]
-    [InlineData("Devbook", "Tools", "tools", "calendar")]
-    [InlineData("Knowledge", "Roadmap", null, "roadmap")]
-    public void A_devbook_pane_under_another_surface_leaves_that_surface(
-        string pane, string storedSurface, string? surface, string view)
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, $$"""
-                {
-                  "lastSurface": "{{storedSurface}}",
-                  "lastView": "Calendar",
-                  "lastEnabledPanes": ["{{pane}}"]
-                }
-                """);
-
-            var store = new ShellNavigationStore(path);
-
-            Assert.Equal(surface, store.LastSurface);
-            Assert.Equal(view, store.LastView);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>The migration is what the next save writes: the Devbook as the
-    /// surface, and no pane list at all — that key is never written again.</summary>
-    [Fact]
-    public void A_migrated_devbook_pane_is_written_back_as_the_surface_and_the_pane_list_never_again()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                { "lastSurface": "Workspace", "lastEnabledPanes": ["Tasks", "Knowledge"] }
-                """);
-
-            var store = new ShellNavigationStore(path);
-            store.SetLastView("Calendar");
-
-            using var document = JsonDocument.Parse(Written(path));
-            Assert.Equal("devbook", document.RootElement.GetProperty("lastSurface").GetString());
-            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
-
-            store.SetLastSurface("Workspace");
-
-            using var after = JsonDocument.Parse(Written(path));
-            Assert.False(after.RootElement.TryGetProperty("lastSurface", out var written) && written.ValueKind != JsonValueKind.Null);
-            Assert.False(after.RootElement.TryGetProperty("lastEnabledPanes", out _));
-            Assert.Null(new ShellNavigationStore(path).LastSurface);
         }
         finally
         {

@@ -23,7 +23,7 @@ The status is a control here because this sample is read as `.tech`, and a folde
     </Story>
 
     <Story Name="One block, every field, drawn"
-           Description="Every shape the record draws, on one screen — and the Fields subpage takes them one at a time, with the component that draws each. `related`, `depends-on` and `implements` hold addresses, so they are parsed into references a host can follow; `alternatives` holds plain strings and never becomes a link, whatever a host wires up. `aliases` sits above the baseline of what it qualifies and may be followed where a host can place the term. `kind` and `version` draw no visible label, because a classification chip and a `v10.0` each say which field they came from — the name stays in the markup for a screen reader. `issue`, `effort` and `roadmap` are parsed and not drawn: the plan lives in Backlog's own entries, not in a chapter. `feature-flag` holds application keys drawn in the feature-badge family: keys, not addresses, so they never become links either.
+           Description="Every shape the record draws, on one screen — and the Fields subpage takes them one at a time, with the component that draws each. `related`, `depends-on` and `implements` hold addresses, so they are parsed into references a host can follow; `alternatives` holds plain strings and never becomes a link, whatever a host wires up. `aliases` sits above the baseline of what it qualifies and may be followed where a host can place the term. `version` draws no visible label, because a `v10.0` says which field it came from — the name stays in the markup for a screen reader. `issue`, `effort` and `roadmap` are parsed and not drawn: the plan lives in Backlog's own entries, not in a chapter. `feature-flag` holds application keys drawn in the feature-badge family: keys, not addresses, so they never become links either.
 
 A field the schema has never heard of — `owner` here — is kept under Extra and drawn under its own name rather than dropped, and the same collection catches a `related` entry that will not parse. A typo is only useful once it is visible.
 
@@ -76,7 +76,7 @@ The bottom pair is the same two rows pointed at names that are not the library&#
                 <MetadataField Label="depends-on">
                     <DevbookReferenceLink Reference="@FieldReference" />
                 </MetadataField>
-                <MetadataField Label="kind">
+                <MetadataField Label="type">
                     <code class="devbook-value">framework</code>
                 </MetadataField>
                 <MetadataField Label="alternatives">
@@ -91,7 +91,7 @@ The bottom pair is the same two rows pointed at names that are not the library&#
             </dl>
             <p class="sb-label">The same rows under a host&#39;s own names</p>
             <dl class="sb-stack">
-                <MetadataField Label="kind"
+                <MetadataField Label="type"
                                     BaseClass="sb-stack"
                                     LabelCssClass="sb-label"
                                     ValueCssClass="sb-state">framework</MetadataField>
@@ -104,7 +104,7 @@ The bottom pair is the same two rows pointed at names that are not the library&#
     </Story>
 
     <Story Name="Every field, and which folder writes it"
-           Description="The schema is small, closed and mostly folder-specific: `kind` and `version` describe a technology (`kind` is the old spelling of `type`, still read and reported), `implements` is how a legacy `.backlog` item says what it delivers — still read, no longer drawn as an atlas edge, because that folder is retiring — `aliases` belongs to the one file per context that names terms.
+           Description="The schema is small, closed and mostly folder-specific: `version` describes a technology,`implements` is how a legacy `.backlog` item says what it delivers — still read, no longer drawn as an atlas edge, because that folder is retiring — `aliases` belongs to the one file per context that names terms.
 
 The middle column is the one that catches people. Three fields hold references — addresses that parse into a path and an optional chapter — and three hold plain strings that are never parsed. Every row carries the line as a file actually writes it: a scalar takes its value bare, and both list kinds take a list.">
         <dl class="sb-grid" data-testid="devbook-fields">
@@ -284,7 +284,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
 
         ```meta
         status: adopted
-        kind: format
+        type: format
         related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
         ```
 
@@ -298,7 +298,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
 
         ```meta
         status: candidate
-        kind: runtime
+        type: runtime
         version: "10.0"
         alternatives: ["Node.js only", "Rust + Tauri"]
         ```
@@ -316,7 +316,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     /// a line this repository contains somewhere.</summary>
     private const string EveryFieldBlock = """
         status: adopted
-        kind: framework
+        type: framework
         version: "10.0"
         depends-on: [".devbook/tech/shared.md#net-runtime", ".devbook/tech/shared.md#c-language"]
         related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
@@ -342,7 +342,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     /// <summary>The ASP.NET Core Minimal APIs chapter of this repository's .devbook/tech/cloud.md.</summary>
     private const string TechBlock = """
         status: candidate
-        kind: framework
+        type: framework
         depends-on: [".devbook/tech/shared.md#net-runtime", ".devbook/tech/shared.md#c-language"]
         related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
         alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
@@ -453,11 +453,6 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
             "What was weighed against this technology and not adopted. Plain strings because something "
             + "that was rejected has no chapter to point at."),
 
-        new("kind", "classification", ".tech",
-            "kind: framework",
-            "What kind of thing the entry is — format, runtime, framework, library. A closed vocabulary, "
-            + "which is why it reads as a chip rather than as a value and why its row needs no label."),
-
         new("version", "scalar", ".tech",
             "version: \"10.0\"",
             "The pinned version, as authored. A string rather than a number, because 10.0 is not ten. "
@@ -473,7 +468,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
 
         ```meta
         status: adopted
-        kind: format
+        type: format
         related: [".devbook/arc42/02-constraints.md#technical-constraints"]
         ```
         """;
@@ -650,7 +645,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
 
     private const string FieldCode = """
         <dl class="devbook-fields">
-            <MetadataField Label="kind">
+            <MetadataField Label="type">
                 <code class="devbook-value">framework</code>
             </MetadataField>
             <MetadataField Label="feature-flag" TestId="devbook-feature-flag-tags">

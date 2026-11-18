@@ -34,7 +34,6 @@
                 @RenderReferences("implements", Metadata.Implements)
                 @RenderAliases()
                 @RenderStrings("alternatives", Metadata.Alternatives)
-                @RenderKind()
                 @RenderVersion()
                 @RenderKeys("feature-flag", Metadata.FeatureFlag, "devbook-feature-flag-tags")
 
@@ -153,18 +152,6 @@
             }
         </text>;
 
-    // A closed vocabulary drawn as the classification it is, and the first of the
-    // two rows that state their own field. The label is hidden rather than
-    // dropped: a chip reading `framework` says what it is to somebody looking at it,
-    // and says nothing at all to somebody listening.
-    private RenderFragment RenderKind() =>
-        @<text>
-            @if (!string.IsNullOrWhiteSpace(Metadata.Kind))
-            {
-                <MetadataField Label="kind" ShowLabel="false"><MetadataKindBadge Kind="@Metadata.Kind" /></MetadataField>
-            }
-        </text>;
-
     // The same authored-scalar shape it has always been, with the `v` that makes it
     // legible without a label. Still a code element: `10.0` is a version string and
     // not the number ten, and the monospace face is what stops a reader rounding it.
@@ -225,7 +212,6 @@
         || metadata.Implements.Count > 0
         || metadata.Aliases.Count > 0
         || metadata.Alternatives.Count > 0
-        || !string.IsNullOrWhiteSpace(metadata.Kind)
         || !string.IsNullOrWhiteSpace(metadata.Version)
         || metadata.FeatureFlag.Count > 0
         || ShowsTypeRow(metadata)
@@ -237,9 +223,7 @@
         || metadata.Ext.Count > 0
         || metadata.Extra.Count > 0;
 
-    /// <summary>Whether the record draws a <c>type</c> row: a value written as
-    /// <c>type</c>. One read from the legacy <c>kind</c> is already the kind chip,
-    /// and drawing it twice would be the same fact under two names.</summary>
+    /// <summary>Whether the record draws a <c>type</c> row.</summary>
     private static bool ShowsTypeRow(MetadataRecord metadata) =>
-        !string.IsNullOrWhiteSpace(metadata.Type) && !metadata.TypeReadFromKind;
+        !string.IsNullOrWhiteSpace(metadata.Type);
 }

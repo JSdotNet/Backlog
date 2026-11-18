@@ -13,8 +13,8 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// The iteration settings file (local ADR 0036, §1–§3, §5): the length and the two-week
 /// start as one document, every change stamped past the one held; the same file as the
 /// document that travels, replaced whole by a later copy and left alone by an echo, an
-/// older copy or one it cannot read; and the legacy per-device value seeding it once, at
-/// the floor stamp.
+/// older copy or one it cannot read; and a copy an earlier build seeded at the floor
+/// stamp.
 /// </summary>
 public sealed class IterationSettingsStoreTests : IDisposable
 {
@@ -30,16 +30,11 @@ public sealed class IterationSettingsStoreTests : IDisposable
 
     private string FileOf(string device) => Path.Combine(_root, device, IterationSettingsStore.FileName);
 
-    private string ShellOf(string device) => Path.Combine(_root, device, "shell-navigation.json");
-
-    private IterationSettingsStore Store(string device = "a", ShellNavigationStore? legacy = null, TimeProvider? time = null) =>
-        new(FileOf(device), legacy, time ?? new FakeTimeProvider(Morning));
+    private IterationSettingsStore Store(string device = "a", TimeProvider? time = null) =>
+        new(FileOf(device), time ?? new FakeTimeProvider(Morning));
 
     public void Dispose()
     {
-        ShellNavigationStore.WaitForPendingWrites(ShellOf("a"));
-        ShellNavigationStore.WaitForPendingWrites(ShellOf("b"));
-
         try
         {
             if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
@@ -306,65 +301,14 @@ public sealed class IterationSettingsStoreTests : IDisposable
         Assert.True((await Replica(store).ReadAsync(Cancellation))!.UpdatedAt > ahead);
     }
 
-    // --- The legacy per-device value (ADR 0036 §5) -----------------------------------
+    // --- A copy an earlier build seeded at the floor (ADR 0036 §5) -----------------
 
-    private ShellNavigationStore LegacyChose(string device, string length, DateOnly? start)
+    /// <summary>The file as an earlier build seeded it: the choice, at the floor stamp.</summary>
+    private IterationSettingsStore Seeded(string device, string length, DateOnly? start)
     {
-        var shell = new ShellNavigationStore(ShellOf(device));
-        shell.SetGoalsIteration(length, start);
-        shell.Flush();
-        return new ShellNavigationStore(ShellOf(device));
-    }
-
-    /// <summary>ADR 0036 Verification 5: the legacy value seeds the file at the floor
-    /// stamp, length and anchor, and that is the document to send.</summary>
-    [Fact]
-    public async Task The_legacy_value_seeds_the_file_at_the_floor_stamp()
-    {
-        var store = Store(legacy: LegacyChose("a", "two-weeks", Monday19));
-
-        Assert.Equal(new IterationChoice("two-weeks", Monday19), store.Choice);
-
-        var copy = (await Replica(store).ReadAsync(Cancellation))!;
-        Assert.Equal(DateTimeOffset.UnixEpoch, copy.UpdatedAt);
-        Assert.Equal(IterationSettingsStore.FloorStamp, copy.UpdatedAt);
-
-        var written = JsonNode.Parse(File.ReadAllText(FileOf("a")))!;
-        Assert.Equal("two-weeks", (string)written["length"]!);
-        Assert.Equal("2026-10-19", (string)written["twoWeekStart"]!);
-    }
-
-    /// <summary>A legacy value written under a member name seeds as the setting's own
-    /// value, so every desktop reads the document the same way.</summary>
-    [Fact]
-    public void A_legacy_member_name_seeds_as_the_settings_value()
-    {
-        var store = Store(legacy: LegacyChose("a", "TwoWeeks", Monday19));
-
-        Assert.Equal("two-weeks", store.Choice!.Length);
-    }
-
-    /// <summary>Nothing chosen on the old build seeds nothing, so there is nothing to send.</summary>
-    [Fact]
-    public async Task No_legacy_value_seeds_nothing()
-    {
-        var store = Store(legacy: new ShellNavigationStore(ShellOf("a")));
-
-        Assert.Null(store.Choice);
-        Assert.Null(await Replica(store).ReadAsync(Cancellation));
-        Assert.False(File.Exists(FileOf("a")));
-    }
-
-    /// <summary>Seeding happens once: a file already there is never replaced by the legacy
-    /// value.</summary>
-    [Fact]
-    public void A_file_already_there_is_not_seeded_over()
-    {
-        Store().Set("month", null);
-
-        var store = Store(legacy: LegacyChose("a", "two-weeks", Monday19));
-
-        Assert.Equal(new IterationChoice("month", null), store.Choice);
+        Directory.CreateDirectory(Path.GetDirectoryName(FileOf(device))!);
+        File.WriteAllText(FileOf(device), Copy(length, start, IterationSettingsStore.FloorStamp).Content);
+        return Store(device);
     }
 
     /// <summary>ADR 0036 Verification 5: a document already on the feed — any real stamp —
@@ -372,7 +316,7 @@ public sealed class IterationSettingsStoreTests : IDisposable
     [Fact]
     public async Task A_document_from_the_feed_wins_over_the_seeded_copy()
     {
-        var store = Store(legacy: LegacyChose("a", "two-weeks", Monday19));
+        var store = Seeded("a", "two-weeks", Monday19);
 
         var outcome = await Replica(store).ApplyAsync(Copy("month", null, Morning), Cancellation);
 
@@ -385,7 +329,7 @@ public sealed class IterationSettingsStoreTests : IDisposable
     [Fact]
     public async Task At_the_floor_an_equal_stamp_with_another_choice_is_taken()
     {
-        var store = Store(legacy: LegacyChose("a", "two-weeks", Monday19));
+        var store = Seeded("a", "two-weeks", Monday19);
         var taken = 0;
         store.Replaced += () => taken++;
 
@@ -402,7 +346,7 @@ public sealed class IterationSettingsStoreTests : IDisposable
     [Fact]
     public async Task At_the_floor_its_own_seeded_copy_coming_back_is_an_echo()
     {
-        var store = Store(legacy: LegacyChose("a", "two-weeks", Monday19));
+        var store = Seeded("a", "two-weeks", Monday19);
         var before = File.ReadAllText(FileOf("a"));
 
         var outcome = await Replica(store).ApplyAsync(Copy("two-weeks", Monday19, IterationSettingsStore.FloorStamp), Cancellation);
@@ -416,29 +360,12 @@ public sealed class IterationSettingsStoreTests : IDisposable
     [Fact]
     public async Task A_change_after_seeding_is_stamped_past_the_floor_and_beats_a_seeded_copy()
     {
-        var store = Store(legacy: LegacyChose("a", "two-weeks", Monday19));
+        var store = Seeded("a", "two-weeks", Monday19);
         store.Set("month", Monday19);
 
         Assert.Equal(Morning, (await Replica(store).ReadAsync(Cancellation))!.UpdatedAt);
         Assert.Equal(
             IterationSettingsReplicaOutcome.Refused,
             await Replica(store).ApplyAsync(Copy("day", null, IterationSettingsStore.FloorStamp), Cancellation));
-    }
-
-    /// <summary>ADR 0036 §5: after seeding, the shell navigation file's two fields are no
-    /// longer written — a change goes to the new file only.</summary>
-    [Fact]
-    public void A_change_after_seeding_leaves_the_legacy_fields_alone()
-    {
-        var legacy = LegacyChose("a", "two-weeks", Monday19);
-        var settings = new IterationSettings(Store(legacy: legacy));
-
-        settings.SetLength(IterationLength.Month, Wednesday21);
-        legacy.Flush();
-
-        var shell = new ShellNavigationStore(ShellOf("a"));
-        Assert.Equal("two-weeks", shell.GoalsIterationLength);
-        Assert.Equal(Monday19, shell.GoalsTwoWeekStart);
-        Assert.Equal("month", Store().Choice!.Length);
     }
 }

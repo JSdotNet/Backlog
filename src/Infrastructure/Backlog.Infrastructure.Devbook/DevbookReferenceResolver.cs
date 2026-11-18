@@ -419,10 +419,7 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
 
         var root = read.Location.RootPath!;
         var tree = _folders.FileTree(read.Location);
-        var scenarioFolder = tree.DirectoryExists(Path.Combine(root, ScenarioPageParser.ScenarioFolder))
-            || !tree.DirectoryExists(Path.Combine(root, ScenarioPageParser.LegacyScenarioFolder))
-                ? ScenarioPageParser.ScenarioFolder
-                : ScenarioPageParser.LegacyScenarioFolder;
+        const string scenarioFolder = ScenarioPageParser.ScenarioFolder;
         var runFolder = Path.Combine(root, journey.RunFolder.Replace('/', Path.DirectorySeparatorChar));
 
         if (read.Location.Source is DevbookSourceKind.Branch)

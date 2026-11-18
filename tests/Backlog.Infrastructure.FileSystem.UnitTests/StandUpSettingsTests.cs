@@ -22,7 +22,7 @@ public sealed class StandUpSettingsTests : IDisposable
 
     private string SettingsPath => Path.Combine(_root, IterationSettingsStore.FileName);
 
-    private IterationSettingsStore Store(ShellNavigationStore? legacy = null) => new(SettingsPath, legacy);
+    private IterationSettingsStore Store() => new(SettingsPath);
 
     private void WriteSettings(string content)
     {
@@ -209,20 +209,6 @@ public sealed class StandUpSettingsTests : IDisposable
         settings.SetTwoWeekStart(new DateOnly(2026, 10, 5));
 
         Assert.Equal(new IterationChoice("quarter", new DateOnly(2026, 10, 5)), store.Choice);
-    }
-
-    /// <summary>ADR 0036 §5: on the first start of this build, a length the person chose on
-    /// the old one is what the setting reads.</summary>
-    [Fact]
-    public void A_length_chosen_on_the_old_build_still_reads_after_the_upgrade()
-    {
-        var shell = new ShellNavigationStore(ShellPath);
-        shell.SetGoalsIteration("two-weeks", new DateOnly(2026, 10, 5));
-        shell.Flush();
-
-        var settings = new IterationSettings(Store(new ShellNavigationStore(ShellPath)));
-
-        Assert.Equal((IterationLength.TwoWeeks, (DateOnly?)new DateOnly(2026, 10, 5)), (settings.Length, settings.TwoWeekStart));
     }
 
     [Fact]
