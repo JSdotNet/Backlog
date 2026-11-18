@@ -104,4 +104,23 @@ public sealed class NoteComponentTests
         Assert.Equal("Wed 7 Oct · 09:50", editor.Find("[data-testid='editor-when']").TextContent);
         Assert.Empty(editor.FindAll("[role='toolbar']"));
     }
+
+    [Fact]
+    public void The_tools_are_the_editors_last_part_after_what_they_produce()
+    {
+        using var context = new BunitContext();
+
+        var editor = context.Render<NoteEditor>(parameters => parameters
+            .Add(p => p.TestId, "editor")
+            .Add(p => p.Tools, builder => builder.AddMarkupContent(0, "<button data-testid=\"tool\">Record</button>"))
+            .Add(p => p.ChildContent, builder => builder.AddMarkupContent(0, "<p data-testid=\"produced\">Attached</p>")));
+
+        var root = editor.Find("[data-testid='editor']");
+        var tools = root.LastElementChild!;
+        Assert.Equal("editor-tools", tools.GetAttribute("data-testid"));
+        Assert.Equal("group", tools.GetAttribute("role"));
+        Assert.Equal("Add to the note", tools.GetAttribute("aria-label"));
+        Assert.NotNull(tools.QuerySelector("[data-testid='tool']"));
+        Assert.Equal("produced", tools.PreviousElementSibling!.GetAttribute("data-testid"));
+    }
 }
