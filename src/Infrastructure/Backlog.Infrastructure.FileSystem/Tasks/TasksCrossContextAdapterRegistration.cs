@@ -16,8 +16,8 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// of the pull requests a task links to and the row's merge acts
 /// (<see cref="ILinkedPullRequestStates"/>), through Repository Management's contract
 /// (local ADR 0042 §4); and the queue icons that queue an entry session or a plan session
-/// (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>), over its
-/// request queue.
+/// (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>) and the
+/// queue's order (<see cref="ISessionQueueOrder"/>), over its request queue.
 /// </summary>
 public static class TasksCrossContextAdapterRegistration
 {
@@ -57,6 +57,10 @@ public static class TasksCrossContextAdapterRegistration
                 : SessionRequestActions.NotOffered);
         services.AddSingleton<IEntrySessionRequests>(sp => sp.GetRequiredService<SessionRequestActions>());
         services.AddSingleton<IPlanSessionRequests>(sp => sp.GetRequiredService<SessionRequestActions>());
+
+        // The queue's order is one across both kinds, so the session queue's Move
+        // controls ask the same instance (local ADR 0038 §4, amended).
+        services.AddSingleton<ISessionQueueOrder>(sp => sp.GetRequiredService<SessionRequestActions>());
 
         return services;
     }

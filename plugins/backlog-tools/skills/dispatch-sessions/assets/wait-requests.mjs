@@ -10,7 +10,7 @@
 // Lines, each one event for the Manager:
 //   ready dispatcher=<name> url=<url>   once, at start
 //   delivery <id> <desktop-session-id>  an answer for a session, before any request, once per offer
-//   request <id> <kind> <repository>    a Requested request, oldest first, once per Monitor
+//   request <id> <kind> <repository>    the Requested request at the head of the queue, once per Monitor
 //   flag-off | unauthorized | unreachable | unavailable[ status=<n>]   once per change of state
 //   stopped <reason>                    the script ended; the Monitor needs re-arming
 //

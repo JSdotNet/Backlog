@@ -220,6 +220,38 @@ public class SessionRequestToolsTests
     }
 
     [Fact]
+    public async Task The_requested_list_follows_the_order_the_person_set()
+    {
+        var older = Entry();
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        var plan = Plan("+session-dispatch");
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        var newer = Entry();
+        await _queue.MoveAsync(plan.Id, 0, TestContext.Current.CancellationToken);
+        await _queue.MoveAsync(newer.Id, 1, TestContext.Current.CancellationToken);
+
+        var answer = await _tools.ListSessionRequestsAsync("requested", TestContext.Current.CancellationToken);
+
+        Assert.Equal([plan.Id, newer.Id, older.Id], answer.Requests.Select(request => request.Id));
+    }
+
+    [Fact]
+    public void No_tool_moves_a_request_in_the_queue()
+    {
+        var names = typeof(SessionRequestTools).GetMethods()
+            .SelectMany(method => method.GetCustomAttributes(typeof(ModelContextProtocol.Server.McpServerToolAttribute), inherit: false))
+            .Cast<ModelContextProtocol.Server.McpServerToolAttribute>()
+            .Select(tool => tool.Name ?? string.Empty)
+            .ToList();
+
+        Assert.NotEmpty(names);
+        Assert.DoesNotContain(names, name =>
+            name.Contains("move", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("order", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("rank", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task The_list_narrows_to_one_state()
     {
         var waiting = Entry();

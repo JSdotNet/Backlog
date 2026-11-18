@@ -1070,6 +1070,30 @@ h1, h2, h3 {
     grid-row: 1 / span 2;
 }
 
+/* A Requested row that can move carries its Move controls between the words and
+   Cancel, so Cancel keeps the right-hand edge on every row. */
+.session-queue__row--movable {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.session-queue__row--movable .session-queue__cancel {
+    grid-column: 3;
+}
+
+.session-queue__order {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* One chevron for both directions (the library's ChevronUpIcon leaves the turn to
+   the host): Move down wears it half a turn round. */
+.session-queue__glyph--down {
+    transform: rotate(180deg);
+}
+
 /* Pause or Resume, at the panel's top: it acts on the whole queue, above any row. */
 .session-queue__controls {
     display: flex;
