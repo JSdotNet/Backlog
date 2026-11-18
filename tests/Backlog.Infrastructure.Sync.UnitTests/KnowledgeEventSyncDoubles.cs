@@ -42,6 +42,11 @@ internal sealed class InMemoryKnowledgeEventReplication : IKnowledgeEventReplica
 
     public List<Guid> Taken { get; } = [];
 
+    public event Action? Changed;
+
+    /// <summary>What Events raises after a local save.</summary>
+    public void RaiseLocalChange() => Changed?.Invoke();
+
     public KnowledgeEventReplicaDto? Event(Guid id) => _events.GetValueOrDefault(id);
 
     public EventSeriesReplicaDto? Series(Guid id) => _series.GetValueOrDefault(id);

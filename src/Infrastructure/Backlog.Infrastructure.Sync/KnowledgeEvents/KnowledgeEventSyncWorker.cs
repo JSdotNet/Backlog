@@ -1,4 +1,5 @@
 using Backlog.Modules.Events.Abstractions;
+using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.SharedKernel;
 
@@ -25,6 +26,13 @@ namespace Backlog.Infrastructure.Sync.KnowledgeEvents;
 /// <see cref="KnowledgeEventSyncSummary.NotYetServed"/>, so <see cref="LastError"/> stays empty
 /// while the deployed service catches up.
 /// </para>
+/// <para>
+/// A local write runs a cycle <see cref="ChangeSettleDelay"/> after the last one, as a task
+/// write does (<see cref="TaskSyncWorker"/>): Events announces every save through
+/// <see cref="IKnowledgeEventReplication.Changed"/>, a desktop's answer to a phone's attachment
+/// request included, so neither waits for the tick. The footer's Sync asks through
+/// <see cref="RequestSync"/>.
+/// </para>
 /// </summary>
 public sealed class KnowledgeEventSyncWorker : IDisposable
 {
@@ -36,6 +44,10 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
     /// minutes.</summary>
     internal static readonly TimeSpan CyclePeriod = TimeSpan.FromMinutes(5);
 
+    /// <summary>How long after the last local write a cycle runs — the task loop's settle
+    /// delay, so a burst of edits is one exchange.</summary>
+    internal static readonly TimeSpan ChangeSettleDelay = TaskSyncWorker.ChangeSettleDelay;
+
     public const string UnexpectedFailure = TaskSyncWorker.UnexpectedFailure;
 
     private readonly Lock _gate = new();
@@ -46,21 +58,34 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
     private readonly IKnowledgeEventSyncStateStore _state;
     private readonly TimeProvider _time;
     private readonly ILogger _log;
+    private readonly IKnowledgeEventReplication? _changes;
 
     private readonly CancellationTokenSource _lifetime = new();
 
     private int _cycleInFlight;
 
+    /// <summary>Set when the settle timer fired, cleared by the cycle that answers it, so a
+    /// write met while a cycle holds the guard runs one more cycle rather than waiting for the
+    /// tick — <see cref="TaskSyncWorker"/>'s arrangement.</summary>
+    private int _changeSettled;
+
     private ITimer? _timer;
+
+    /// <summary>The one-shot timer a local write arms, and re-arms while writes keep coming.</summary>
+    private ITimer? _settle;
+
     private bool _disposed;
 
+    /// <param name="changes">Events' replication port, for its local-change notice only, or
+    /// null on a head that composed none — then the loop is the schedule and the button.</param>
     public KnowledgeEventSyncWorker(
         IServiceProvider services,
         IAppFeatureSettings features,
         IDeviceCredentialStore credentials,
         IKnowledgeEventSyncStateStore state,
         TimeProvider time,
-        ILogger<KnowledgeEventSyncWorker>? log = null)
+        ILogger<KnowledgeEventSyncWorker>? log = null,
+        IKnowledgeEventReplication? changes = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(features);
@@ -74,9 +99,11 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         _state = state;
         _time = time;
         _log = log ?? NullLogger<KnowledgeEventSyncWorker>.Instance;
+        _changes = changes;
 
         _features.Changed += OnGateChanged;
         _credentials.Changed += OnGateChanged;
+        if (_changes is not null) _changes.Changed += OnLocalChange;
 
         ApplyGates();
     }
@@ -108,10 +135,13 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
             _disposed = true;
             _timer?.Dispose();
             _timer = null;
+            _settle?.Dispose();
+            _settle = null;
         }
 
         _features.Changed -= OnGateChanged;
         _credentials.Changed -= OnGateChanged;
+        if (_changes is not null) _changes.Changed -= OnLocalChange;
 
         _lifetime.Cancel();
         _lifetime.Dispose();
@@ -137,6 +167,33 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         && _credentials.Current is not null;
 
     private void OnGateChanged() => ApplyGates();
+
+    /// <summary>An event or a series was saved here: arm the settle timer, or push it back if
+    /// it is already armed. Gated as a tick is, so a write with a gate shut arms nothing.</summary>
+    private void OnLocalChange()
+    {
+        lock (_gate)
+        {
+            if (_disposed || !ShouldRun) return;
+
+            if (_settle is null)
+            {
+                _settle = _time.CreateTimer(_ => OnSettled(), state: null, ChangeSettleDelay, Timeout.InfiniteTimeSpan);
+            }
+            else
+            {
+                _settle.Change(ChangeSettleDelay, Timeout.InfiniteTimeSpan);
+            }
+        }
+    }
+
+    /// <summary>The writes have stopped: run a cycle now, recorded first so a cycle already
+    /// holding the guard runs one more on its way out.</summary>
+    private void OnSettled()
+    {
+        Volatile.Write(ref _changeSettled, 1);
+        RequestSync();
+    }
 
     private void ApplyGates()
     {
@@ -189,6 +246,10 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
 
         try
         {
+            // Inside the guard and before anything is read, so this cycle's push carries every
+            // write that fired the settle timer.
+            Interlocked.Exchange(ref _changeSettled, 0);
+
             var session = ResolveSession();
 
             if (session is null) return;
@@ -221,6 +282,10 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         {
             Volatile.Write(ref _cycleInFlight, 0);
             Changed?.Invoke();
+
+            // A write that settled while this cycle held the guard: its request was turned
+            // away, so it runs now rather than on the next tick.
+            if (Volatile.Read(ref _changeSettled) == 1) RequestSync();
         }
     }
 

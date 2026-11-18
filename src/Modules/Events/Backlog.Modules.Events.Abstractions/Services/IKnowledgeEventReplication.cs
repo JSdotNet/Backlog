@@ -27,6 +27,12 @@ public enum KnowledgeEventReplicaOutcome
 /// </summary>
 public interface IKnowledgeEventReplication
 {
+    /// <summary>Raised after an event or a series was saved on this machine — by a person, the
+    /// To Event route, the Harvest Task Policy or an applied attachment request — so the sync
+    /// loop can push it within seconds. Never for a copy <see cref="ApplyEventAsync"/> or
+    /// <see cref="ApplySeriesAsync"/> took. It may arrive on any thread.</summary>
+    event Action? Changed;
+
     /// <summary>Every event changed on this device or taken from another after
     /// <paramref name="watermark"/>, oldest stamp first.</summary>
     Task<IReadOnlyList<KnowledgeEventReplicaDto>> ListEventsChangedSinceAsync(

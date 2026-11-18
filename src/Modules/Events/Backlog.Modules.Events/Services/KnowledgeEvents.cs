@@ -14,7 +14,10 @@ namespace Backlog.Modules.Events.Services;
 /// person can still see, which costs less than an event pointing nowhere.
 /// </para>
 /// </summary>
-internal sealed class KnowledgeEvents(IKnowledgeEventRepository events, IEventSeriesRepository series) : IKnowledgeEvents
+internal sealed class KnowledgeEvents(
+    IKnowledgeEventRepository events,
+    IEventSeriesRepository series,
+    KnowledgeEventSaved? saved = null) : IKnowledgeEvents
 {
     public async Task<Result<SpottedKnowledgeEventDto>> SpotAsync(SpotKnowledgeEventDto request, CancellationToken cancellationToken = default)
     {
@@ -32,6 +35,7 @@ internal sealed class KnowledgeEvents(IKnowledgeEventRepository events, IEventSe
         knowledgeEvent.SetSeries(seriesId);
 
         await events.SaveAsync(knowledgeEvent, cancellationToken).ConfigureAwait(false);
+        saved?.Raise();
 
         return new SpottedKnowledgeEventDto(knowledgeEvent.Id, seriesId, started);
     }

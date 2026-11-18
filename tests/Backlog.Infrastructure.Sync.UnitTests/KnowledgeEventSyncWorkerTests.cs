@@ -129,6 +129,84 @@ public sealed class KnowledgeEventSyncWorkerTests
         Assert.Empty(fixture.Handler.Requests);
     }
 
+    /// <summary>An event edited here, or a phone's attachment request answered here, reaches
+    /// the phone seconds later rather than on the five-minute tick.</summary>
+    [Fact]
+    public async Task A_local_write_runs_a_cycle_once_the_writes_settle_without_waiting_for_the_tick()
+    {
+        using var fixture = Fixture.Create(syncOn: true, eventsOn: true, paired: true);
+
+        var cycle = fixture.NextCycle();
+        fixture.Changes.RaiseLocalChange();
+        fixture.Clock.Advance(KnowledgeEventSyncWorker.ChangeSettleDelay - TimeSpan.FromSeconds(1));
+        fixture.Changes.RaiseLocalChange();
+        fixture.Clock.Advance(KnowledgeEventSyncWorker.ChangeSettleDelay - TimeSpan.FromSeconds(1));
+        Assert.Equal(0, fixture.SessionsResolved);
+
+        fixture.Clock.Advance(TimeSpan.FromSeconds(1));
+        await cycle.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.True(KnowledgeEventSyncWorker.ChangeSettleDelay * 2 < KnowledgeEventSyncWorker.FirstCycleDelay);
+        Assert.Equal(1, fixture.SessionsResolved);
+    }
+
+    [Fact]
+    public void A_local_write_while_the_events_area_is_off_runs_nothing()
+    {
+        using var fixture = Fixture.Create(syncOn: true, eventsOn: false, paired: true);
+
+        fixture.Changes.RaiseLocalChange();
+        fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
+
+        Assert.Equal(0, fixture.SessionsResolved);
+    }
+
+    [Fact]
+    public async Task Asking_for_a_sync_runs_a_cycle_at_once()
+    {
+        using var fixture = Fixture.Create(syncOn: true, eventsOn: true, paired: true);
+
+        var cycle = fixture.NextCycle();
+        await fixture.Worker.RequestSyncAsync();
+        await cycle.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, fixture.SessionsResolved);
+    }
+
+    [Fact]
+    public async Task A_write_that_settles_during_a_cycle_runs_one_more_cycle_after_it()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var fixture = Fixture.Create(
+            syncOn: true,
+            eventsOn: true,
+            paired: true,
+            respond: (request, index) =>
+            {
+                if (index == 0)
+                {
+                    entered.TrySetResult();
+                    release.Task.Wait(Fixture.Patience);
+                }
+
+                return Fixture.Ordinary(request);
+            });
+
+        var first = fixture.Worker.RequestSyncAsync();
+        await entered.Task.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        fixture.Changes.RaiseLocalChange();
+        fixture.Clock.Advance(KnowledgeEventSyncWorker.ChangeSettleDelay);
+
+        var second = fixture.NextCycleAfter(1);
+        release.SetResult();
+        await first;
+        await second.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, fixture.SessionsResolved);
+    }
+
     /// <summary>Six loops start when the app does; none fires its first cycle into the same
     /// moment as another.</summary>
     [Fact]
@@ -177,10 +255,14 @@ public sealed class KnowledgeEventSyncWorkerTests
                 features,
                 credentials,
                 State,
-                clock);
+                clock,
+                changes: Changes);
         }
 
         public KnowledgeEventSyncWorker Worker { get; }
+
+        /// <summary>Events' port as the loop hears it: its local-change notice.</summary>
+        public InMemoryKnowledgeEventReplication Changes { get; } = new();
 
         public StubHttpMessageHandler Handler { get; }
 
@@ -224,6 +306,25 @@ public sealed class KnowledgeEventSyncWorkerTests
             void OnChanged()
             {
                 if (Worker.IsSyncing) return;
+
+                Worker.Changed -= OnChanged;
+                finished.TrySetResult();
+            }
+
+            Worker.Changed += OnChanged;
+
+            return finished.Task;
+        }
+
+        /// <summary>The end of the first cycle that resolved a session after
+        /// <paramref name="resolved"/> had been.</summary>
+        public Task NextCycleAfter(int resolved)
+        {
+            var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            void OnChanged()
+            {
+                if (Worker.IsSyncing || SessionsResolved <= resolved) return;
 
                 Worker.Changed -= OnChanged;
                 finished.TrySetResult();

@@ -14,7 +14,8 @@ internal sealed class EventsPane(
     IEventTaskTarget tasks,
     IEventBrainNotes brain,
     HarvestTaskPolicy harvest,
-    TimeProvider clock) : IEventsPane
+    TimeProvider clock,
+    KnowledgeEventSaved? saved = null) : IEventsPane
 {
     /// <summary>The order the list draws its groups in: decided, upcoming work first.</summary>
     private static readonly KnowledgeEventState[] GroupOrder =
@@ -75,6 +76,7 @@ internal sealed class EventsPane(
 
         created.Value.SetSeries(seriesId);
         await events.SaveAsync(created.Value, cancellationToken).ConfigureAwait(false);
+        saved?.Raise();
         return await ReadAsync(created.Value, cancellationToken).ConfigureAwait(false);
     }
 
@@ -192,6 +194,7 @@ internal sealed class EventsPane(
         if (created.IsFailure) return created.Error;
 
         await series.SaveAsync(created.Value, cancellationToken).ConfigureAwait(false);
+        saved?.Raise();
         return SeriesDto(created.Value);
     }
 
@@ -279,6 +282,7 @@ internal sealed class EventsPane(
         if (outcome.IsFailure) return outcome.Error;
 
         await events.SaveAsync(changed, cancellationToken).ConfigureAwait(false);
+        saved?.Raise();
         if (afterSave is not null) await afterSave(changed).ConfigureAwait(false);
         return await ReadAsync(changed, cancellationToken).ConfigureAwait(false);
     }
