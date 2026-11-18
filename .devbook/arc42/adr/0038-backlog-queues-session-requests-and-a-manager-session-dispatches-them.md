@@ -138,6 +138,7 @@ stateDiagram-v2
   Started --> Linked: the session calls link_session
   Requested --> Cancelled: the person cancels it
   Claimed --> Cancelled: the person cancels it
+  Started --> Cancelled: the person clears it, its session never linked
   Linked --> [*]
   Cancelled --> [*]
 ```
@@ -151,7 +152,7 @@ stateDiagram-v2
   session id.
 - **Linked.** That session called `link_session` on the entry. A plan request is
   Linked when its session links any entry of the plan.
-- **Cancelled.** The person cancelled it.
+- **Cancelled.** The person cancelled it, or cleared it once Started.
 
 **Requests never expire.** A request made while no dispatcher runs waits until one
 does, or until the person cancels it. Linked and Cancelled are final.
@@ -178,6 +179,14 @@ racing a pause cannot slip through. A pause is a property of the queue, not a si
 state: no request changes state when the queue is paused or resumed, and none expires.
 A claim already held is not revoked: its holder's `started` report, the late one
 included, and its `released` are still accepted.
+
+**Amended 2026-11-18: a Started request can be cancelled.** A dispatcher can report a
+session that then never calls `link_session`: it failed to start its brief, or the
+person closed it. Such a request read Started with nothing to end it. The person can now
+cancel a Started request from the session queue, and it is Cancelled like any other.
+Cancelling stops no session. A `link_session` that comes later links nothing, because
+only a Started request is linked. A Claimed request still offers no Cancel in the app,
+because a dispatcher is starting its session right then. Requests still never expire.
 
 ### 4. Dispatchers wait on a long poll and act through MCP tools
 
@@ -296,6 +305,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | §3 amended: the person can cancel a Started request, so a request whose session never called `link_session` leaves the queue. It stops no session, and a later `link_session` links nothing. Requests still never expire. Built in the same pull request. | Started rows whose session never linked sat in the session queue for days with nothing to clear them. |
 | 2026-11-18 | §3 and §4 amended: the person can pause and resume the queue in the app. While it is paused, every claim is refused inside its transaction and the wait route hands out no request, while answer deliveries keep flowing, held claims still report and release, and requests can still be queued and cancelled. `list_session_requests` carries `paused`, and no MCP tool pauses or resumes. The state is a machine-local single-row table in the app's database. Built in the same pull request. | A person wants to stop new sessions from starting without cancelling every request or stopping the Manager. |
 | 2026-11-11 | §4 amended: the app records dispatcher contact from the wait route, in memory, and the Tasks filter bar's session queue warns when none has come for two minutes while a request waits Requested. Built in PR #1799. | Requests waited unseen with no Manager running, and nothing said so. |
 | 2026-11-02 | §3 amended: a lapsed lease returns the request to Requested for every other dispatcher, while the holder's late `started` report still counts until another dispatcher claims it. | `start_session` can outlast the lease, and the refused report let one Manager dispatch its own request twice. |

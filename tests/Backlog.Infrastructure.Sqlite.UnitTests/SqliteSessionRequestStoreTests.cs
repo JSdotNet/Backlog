@@ -281,6 +281,20 @@ public sealed class SqliteSessionRequestStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task A_Started_request_is_cancelled_and_leaves_the_open_ones()
+    {
+        var store = Store();
+        var request = await store.RequestAsync(Entry(), Ct);
+        Assert.True((await store.ClaimAsync(request.Id, "manager-1", Ct)).Succeeded);
+        Assert.True((await store.ReportStartedAsync(request.Id, "manager-1", "session-a", Ct)).Succeeded);
+
+        Assert.True((await store.CancelAsync(request.Id, Ct)).Succeeded);
+
+        Assert.Equal(SessionRequestState.Cancelled, (await store.GetAsync(request.Id, Ct))!.State);
+        Assert.Empty(await store.ListAsync(SessionRequestState.Started, Ct));
+    }
+
+    [Fact]
     public async Task An_operation_on_an_unknown_id_is_refused_without_a_request()
     {
         var outcome = await Store().ClaimAsync(Guid.NewGuid(), "manager-1", Ct);

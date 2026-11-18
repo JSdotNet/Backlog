@@ -917,7 +917,7 @@ Enforced at: `SessionRequests` and `SqliteSessionRequestStore`, which have no ex
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Started_Linked_or_Cancelled_request_cannot_be_cancelled, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.Only_a_Started_request_can_be_Linked, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.Cancel_is_written_and_a_Cancelled_request_is_never_handed_out]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Linked_or_Cancelled_request_cannot_be_cancelled, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_late_link_session_on_a_cancelled_Started_request_links_nothing, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.Only_a_Started_request_can_be_Linked, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.Cancel_is_written_and_a_Cancelled_request_is_never_handed_out]
 ```
 
 A Linked or Cancelled request changes no further: it cannot be claimed, reported, linked again or cancelled.

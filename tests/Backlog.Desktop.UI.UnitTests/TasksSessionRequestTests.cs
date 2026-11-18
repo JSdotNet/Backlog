@@ -694,6 +694,30 @@ public sealed class TasksSessionRequestTests
     }
 
     [Fact]
+    public async Task Cancel_in_the_panel_clears_a_Started_request_whose_session_never_linked()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog));
+        var id = Guid.NewGuid();
+        queue.Open[row.Id!.Value] = new EntrySessionRequest(id, EntrySessionRequestState.Started, Backlog, clock.GetUtcNow().AddDays(-6));
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 1 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        Assert.Equal($"{Backlog} · Started · 6 d ago", Normalise(pane.Find("[data-testid='session-queue-meta']").TextContent));
+        pane.Find("[data-testid='session-queue-cancel']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(id, Assert.Single(queue.Cancelled));
+            Assert.Empty(pane.FindAll("[data-testid='session-queue-row']"));
+            Assert.Equal("Session queue, empty", QueueTrigger(pane).GetAttribute("aria-label"));
+        });
+    }
+
+    [Fact]
     public async Task Cancel_in_the_panel_moves_the_focus_to_the_row_that_takes_its_place()
     {
         var (host, queue, clock) = await HostAsync();
@@ -1085,7 +1109,7 @@ public sealed class TasksSessionRequestTests
         public Task<bool> CancelAsync(Guid requestId, CancellationToken cancellationToken = default)
         {
             var held = Open.FirstOrDefault(pair => pair.Value.Id == requestId);
-            if (held.Value is not { State: EntrySessionRequestState.Requested }) return Task.FromResult(false);
+            if (held.Value is not { State: EntrySessionRequestState.Requested or EntrySessionRequestState.Started }) return Task.FromResult(false);
 
             Cancelled.Add(requestId);
             Open.Remove(held.Key);

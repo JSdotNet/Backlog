@@ -1628,7 +1628,8 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   "paused" while the queue is paused, as in "Session queue, paused, 3 waiting". Its popover
   lists each request oldest first: the entry's title or the plan's `+tag`, the
   repository, Requested, Claimed or Started, and how long ago it was asked. Cancel is
-  offered while Requested. Following a row opens the entry or presses the plan's chip
+  offered while Requested, and while Started, so a request whose session never called
+  `link_session` can be cleared. Claimed offers none. Following a row opens the entry or presses the plan's chip
   and closes the popover. An entry outside the loaded rows reads "Entry not in this
   view" and cannot be followed.
 - When a request waits Requested and no dispatcher has reached the app for more than
