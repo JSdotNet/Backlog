@@ -93,6 +93,65 @@ public sealed class AgentPurposeTests
             LoopSessionView.HeldLine(LoopSessions.Command(loop, LoopCommand.Pause, Noon), 1, CapacityLimits.Default));
     }
 
+    /// <summary>A paused queue hands out nothing, so the row says it is paused and how many
+    /// it holds rather than that they wait; a loop's own Pause still leads the line.</summary>
+    [Fact]
+    public void The_held_line_says_the_queue_is_paused_and_what_it_holds()
+    {
+        var loop = Loop(LoopKind.Dispatcher, new LoopHeldWork(Requests: 0, Deliveries: 1, Sessions: 2, Notes: 0));
+
+        Assert.Equal(
+            "Queue paused · 2 requests · 2 of 3 sessions working · 1 answer to deliver",
+            LoopSessionView.HeldLine(loop, 2, CapacityLimits.Default, queuePaused: true));
+        Assert.Equal(
+            "Queue paused · 1 request · 2 of 3 sessions working · 1 answer to deliver",
+            LoopSessionView.HeldLine(loop, 1, CapacityLimits.Default, queuePaused: true));
+        Assert.Equal(
+            "Queue paused · 0 requests · 2 of 3 sessions working · 1 answer to deliver",
+            LoopSessionView.HeldLine(loop, 0, CapacityLimits.Default, queuePaused: true));
+        Assert.Equal(
+            "Paused · Queue paused · 2 requests · 2 of 3 sessions working · 1 answer to deliver",
+            LoopSessionView.HeldLine(LoopSessions.Command(loop, LoopCommand.Pause, Noon), 2, CapacityLimits.Default, queuePaused: true));
+
+        // Unpaused, the line reads as it did; with no queue composed, there is no count to pause.
+        Assert.Equal(
+            "2 requests waiting · 2 of 3 sessions working · 1 answer to deliver",
+            LoopSessionView.HeldLine(loop, 2, CapacityLimits.Default, queuePaused: false));
+        Assert.Equal(
+            "2 of 3 sessions working · 1 answer to deliver",
+            LoopSessionView.HeldLine(loop, null, CapacityLimits.Default, queuePaused: true));
+    }
+
+    /// <summary>The work list reads in the order the Sessions queue shows and the dispatcher
+    /// takes (local ADR 0038 §4, amended): Claimed and Started first, oldest first, then the
+    /// Requested ones by the person's rank — an unranked one last — and the deliveries after.</summary>
+    [Fact]
+    public void The_work_list_follows_the_queue_order_not_the_age()
+    {
+        const string repo = "JSdotNet/Backlog";
+        const string clone = @"D:\Repos\Backlog";
+        SessionRequest Plan(string tag, int minutesAgo, int? rank) =>
+            SessionRequests.ForPlan(tag, repo, clone, Noon.AddMinutes(-minutesAgo)) with { Rank = rank };
+
+        IReadOnlyList<SessionRequest> requests =
+        [
+            Plan("unranked", 40, null),
+            Plan("third", 30, 2),
+            Plan("second", 20, 1),
+            Plan("first", 5, 0),
+            Plan("claimed", 10, 3) with { State = SessionRequestState.Claimed, ClaimedBy = "manager-1", LeaseEndsAt = Noon.AddMinutes(5) },
+            Plan("started", 50, 4) with { State = SessionRequestState.Started, SessionId = "child-1" },
+            Plan("done", 60, null) with { State = SessionRequestState.Linked, SessionId = "child-0" }
+        ];
+
+        var work = LoopSessionView.Work(requests, [Delivery("waiting-1", "Which landing branch?")], Noon);
+
+        Assert.Equal(
+            ["+started", "+claimed", "+first", "+second", "+third", "+unranked", "Which landing branch?"],
+            work.Select(item => item.What));
+        Assert.Equal(["Started", "Claimed", "Requested", "Requested", "Requested", "Requested", "To deliver"], work.Select(item => item.State));
+    }
+
     [Fact]
     public void The_held_line_counts_the_brain_tenders_notes()
     {
@@ -195,6 +254,14 @@ public sealed class AgentPurposeTests
 
         Assert.Equal(2, LoopSessionView.WorkingShown(new LoopSessionReading(loop, LoopState.Holding, LoopProcess.Alive), new CapacityReading(2, 84, 30, 12, CapacityLimits.Default)));
         Assert.Null(LoopSessionView.WorkingShown(new LoopSessionReading(loop, LoopState.Listening, LoopProcess.Alive), null));
+    }
+
+    private static WaitingQuestion Delivery(string session, string question)
+    {
+        var asked = WaitingQuestions.Ask(session, null, [RelayQuestion.Prose(question)], isAway: true, TimeSpan.Zero, Noon.AddMinutes(-30));
+        var notified = WaitingQuestions.Notify(asked, [Guid.NewGuid()]).Question!;
+
+        return WaitingQuestions.Answer(notified, notified.NotificationIds[0], RelayAnswer.Open("main"), Noon.AddMinutes(-2)).Question!;
     }
 
     private static LoopSession Loop(LoopKind kind, LoopHeldWork held) =>

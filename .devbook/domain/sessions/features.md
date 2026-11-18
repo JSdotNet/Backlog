@@ -1795,7 +1795,7 @@ has room against the limits it sends.
 | Not running | it has no process, or its session is archived | Once, while work waits |
 
 The Brain tender has no queue, so it never reads Holding. A paused queue's requests hold no
-Manager in Holding and raise no alert, though the Manager's row still counts them. The goal tracker also runs under `/loop` but never checks in, so the list never shows
+Manager in Holding and raise no alert, and the Manager's row reads them as paused. The goal tracker also runs under `/loop` but never checks in, so the list never shows
 it as a loop.
 
 ### An Agents section leads the list
@@ -1811,8 +1811,10 @@ titles `📡 SESSION DISPATCHER` and `🧠 BRAIN TENDER`. The Purpose filter off
 
 Each loop's row shows its state, its repository and machine, when it last checked in, how long it
 has run, and one line on its work. For the Manager the line counts the requests waiting, the
-sessions working against the limit it checked in with, and the answers to deliver. While it
-holds, a second line names the limit that holds it: "Plan usage is 84%, over the 80% limit."
+sessions working against the limit it checked in with, and the answers to deliver. While the
+person has paused the queue, the line reads "Queue paused · 2 requests" in place of "2 requests
+waiting". While it holds, a second line names the limit that holds it: "Plan usage is 84%, over
+the 80% limit."
 
 ### The detail of a loop session
 
@@ -1832,8 +1834,12 @@ machine has, each against the limit the loop checked in with. Backlog measures t
 Beside the tiles, the detail's facts say when the loop last checked in, how long it has run,
 and for the Manager how many session requests it dispatched today.
 
-Under the tiles, the Manager's detail lists its queue: each session request and each answer
-delivery, with its state. A Holding loop names the limit that holds it, as Backlog read it at
+Under the tiles, the Manager's detail lists its queue, each item with its state, in the order
+the session queue shows it:
+
+1. the Claimed and Started requests, oldest first;
+2. the Requested ones in the person's order, which is the order the Manager takes them;
+3. each answer delivery. A Holding loop names the limit that holds it, as Backlog read it at
 the loop's check-in, or by the latest tiles when that reading reached none. With neither, it says
 it holds the waiting requests until a limit leaves room. It offers **See usage**, which opens the Dashboard's Sessions tab where the app shows plan usage. A Not running loop
 offers its `/loop` command to copy. A Not running Manager also offers **Cancel requests**, which

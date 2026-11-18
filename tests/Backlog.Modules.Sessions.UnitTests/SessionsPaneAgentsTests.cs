@@ -95,6 +95,26 @@ public sealed class SessionsPaneAgentsTests
         });
     }
 
+    /// <summary>A paused queue hands its requests to no dispatcher, so the Listening row says
+    /// the queue is paused and how many it holds, not that they wait.</summary>
+    [Fact]
+    public async Task A_dispatchers_row_over_a_paused_queue_says_the_queue_is_paused()
+    {
+        using var context = new Harness(Session(DispatcherId, "📡 SESSION DISPATCHER"));
+        context.CheckIn(DispatcherId, LoopKind.Dispatcher, held: new LoopHeldWork(Requests: 0, Deliveries: 1, Sessions: 1, Notes: 0), at: Noon.AddSeconds(-40));
+        context.Requests.Add(SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon.AddMinutes(-5)));
+        await context.Requests.SetPausedAsync(true, TestContext.Current.CancellationToken);
+
+        var pane = context.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = pane.Find("[data-testid='sessions-row']");
+            Assert.Equal("Listening", row.QuerySelector("[data-testid='sessions-loop-row-state']")!.TextContent.Trim());
+            Assert.Equal("Queue paused · 1 request · 1 of 3 sessions working · 1 answer to deliver", row.QuerySelector("[data-testid='sessions-loop-holds']")!.TextContent.Trim());
+        });
+    }
+
     [Fact]
     public void A_loop_that_never_checked_in_says_so_on_its_row_and_in_its_card()
     {
@@ -379,6 +399,24 @@ public sealed class SessionsPaneAgentsTests
             Assert.Equal("Which landing branch?", items[2].QuerySelector(".sessions-loop__what")!.TextContent.Trim());
             Assert.Equal("To deliver", items[2].QuerySelector(".sessions-loop__item-state")!.TextContent.Trim());
         });
+    }
+
+    /// <summary>The card lists the queue in the order the person ranked it, which the
+    /// dispatcher takes it in (local ADR 0038 §4, amended), not by age.</summary>
+    [Fact]
+    public void A_dispatchers_card_lists_a_reordered_queue_in_its_new_order()
+    {
+        using var context = new Harness(Session(DispatcherId, "📡 SESSION DISPATCHER"));
+        context.CheckIn(DispatcherId, LoopKind.Dispatcher);
+        context.Requests.Add(SessionRequests.ForPlan("older", "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon.AddMinutes(-10)) with { Rank = 1 });
+        context.Requests.Add(SessionRequests.ForPlan("newer", "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon.AddMinutes(-5)) with { Rank = 0 });
+
+        var pane = context.Render();
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal(
+                ["+newer", "+older"],
+                pane.FindAll("[data-testid='sessions-loop-item'] .sessions-loop__what").Select(what => what.TextContent.Trim())));
     }
 
     // --- Pause, Resume and Stop ----------------------------------------------------
