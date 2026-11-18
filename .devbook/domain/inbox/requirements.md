@@ -1793,12 +1793,12 @@ The system SHALL bring a note made on the phone into the desktop Inbox as an ite
 
 ```meta
 type: requirements
-related: [.devbook/domain/capture/features.md#meeting-recording, .devbook/domain/inbox/features.md#notes-on-the-phone, .devbook/arc42/06-runtime-view.md#meeting-recording, .devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md]
+related: [.devbook/domain/capture/features.md#meeting-recording, .devbook/domain/inbox/features.md#notes-on-the-phone, .devbook/arc42/06-runtime-view.md#meeting-recording, .devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md, .devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md]
 ```
 
-> What a meeting recording on a phone note promises
-> ([Meeting recording](../capture/features.md#meeting-recording)). Nothing proves
-> these yet: they are written ahead of the code.
+> What a meeting recording on a phone note promises, on the phone and on the
+> desktop that transcribes it
+> ([Meeting recording](../capture/features.md#meeting-recording)).
 
 ### Requirement: A note takes AAC audio files
 
@@ -1899,6 +1899,153 @@ The phone SHALL save a recording whose note was deleted on the desktop while it 
 - **Given** a recording running on a note
 - **When** the desktop deletes the note, the phone pulls, and the reader presses Stop
 - **Then** the Notes tab holds a new note "Recording · <date>" with the recording on it
+
+### Requirement: A downloaded recording is transcribed once per file
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_pulled_note_with_a_recording_is_handed_to_the_queue, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.The_audio_sent_is_the_file_as_it_lies_with_its_type, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_sha256_already_transcribed_is_never_sent_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_recording_not_yet_downloaded_and_a_photo_are_not_sent, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.An_archived_note_is_not_written]
+```
+
+The desktop SHALL send each downloaded recording on a note that is not archived to transcription, with no press, and never send a file whose sha256 it has already transcribed.
+
+#### Scenario: A note arrives with a recording
+
+- **Given** a desktop with Foundry configured
+- **When** it pulls a note whose recording then downloads
+- **Then** the desktop sends that file, as it lies and with its type, to transcription
+
+#### Scenario: The same file comes back
+
+- **Given** a recording whose sha256 the desktop has already transcribed
+- **When** a note names that file again, after a re-sync or a restart
+- **Then** the desktop sends nothing
+
+#### Scenario: A file that is not ready or not audio
+
+- **Given** a note holding a recording that has not finished downloading, and a photo
+- **When** the desktop takes up the note
+- **Then** it sends neither
+
+#### Scenario: An archived note
+
+- **Given** an archived note with a downloaded recording
+- **When** the desktop takes up the note
+- **Then** it sends nothing and writes nothing
+
+### Requirement: The transcript and summary are appended to the note as it stands
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_downloaded_recording_is_appended_as_transcript_and_summary_and_removed_from_the_note, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.An_edit_made_while_the_recording_was_out_is_kept_under_the_transcript, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Appending_a_transcript_never_replaces_the_body_and_a_second_call_changes_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Sections_already_in_a_body_saved_with_crlf_are_not_appended_again]
+```
+
+The desktop SHALL append a recording's transcript under `## Transcript` and its summary, with the action items as `- [ ]` lines, under `## Summary` to the note body as it stands when the transcription answers, never replacing that body.
+
+#### Scenario: A recording is transcribed
+
+- **Given** a note whose body reads "Agenda: budget." and a downloaded recording on it
+- **When** the transcription answers
+- **Then** the body reads "Agenda: budget." followed by `## Transcript` with the timestamped text and `## Summary` with the summary and its `- [ ]` action items
+
+#### Scenario: The note was edited while the recording was out
+
+- **Given** a recording sent to transcription
+- **When** a phone edit to the note's body arrives before the transcription answers
+- **Then** the sections are appended under the edited body, and the edit is kept
+
+#### Scenario: The sections are already there
+
+- **Given** a note body that already holds a recording's sections, saved with either line ending
+- **When** the desktop writes those sections again
+- **Then** the body is unchanged
+
+### Requirement: A rolled-over recording is written in part order
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_rolled_over_recordings_second_file_appends_as_part_2, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_first_file_that_fails_holds_back_the_second_so_the_parts_keep_their_order]
+```
+
+The desktop SHALL write a note's recordings in the note's order, the second under `## Transcript (part 2)` and `## Summary (part 2)` and so on, and write no recording before an earlier one is written.
+
+#### Scenario: Two files of one meeting
+
+- **Given** a note holding "Recording" and "Recording · part 2", both downloaded
+- **When** the desktop transcribes them
+- **Then** the body holds `## Transcript` and `## Summary`, then `## Transcript (part 2)` and `## Summary (part 2)`
+- **And** neither file is left on the note
+
+#### Scenario: The first file fails
+
+- **Given** a note holding two recordings, and a transcription that fails on the first
+- **When** the desktop takes up the note
+- **Then** the second is not sent, and both files stay on the note
+
+### Requirement: The recording leaves the note once its transcript is written
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_downloaded_recording_is_appended_as_transcript_and_summary_and_removed_from_the_note, unit:dotnet:Backlog.Modules.Sync.UnitTests.AttachmentStoreHandlerTests.A_note_edit_that_drops_a_file_releases_that_file_once_it_lands]
+```
+
+The desktop SHALL remove a recording from its note in the same save that appends its sections, and push the note without it.
+
+#### Scenario: The transcript is written
+
+- **Given** a recording whose sections the desktop has just appended
+- **When** the note is saved
+- **Then** the note no longer names the recording and waits to push
+- **And** once the push lands, the sync service releases the file from the attachment store
+
+### Requirement: A failed transcription changes nothing
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_transcription_leaves_the_body_and_the_file_and_records_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_write_records_nothing_so_the_next_start_tries_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Nothing_is_sent_while_foundry_is_not_configured]
+```
+
+When a recording cannot be transcribed or its sections cannot be saved, the desktop SHALL leave the note's body and the file as they were, keep no record of the sha256, and try the recording again on its next start.
+
+#### Scenario: The transcription fails
+
+- **Given** a note whose body reads "Agenda." and a downloaded recording on it
+- **When** the transcription fails
+- **Then** the body still reads "Agenda.", the recording stays on the note, and nothing waits to push
+
+#### Scenario: The save fails
+
+- **Given** a recording the transcription answered
+- **When** saving the note fails
+- **Then** no record of its sha256 is kept, so the next start sends it again
+
+#### Scenario: Foundry is not configured
+
+- **Given** a desktop without Foundry configured
+- **When** a note with a downloaded recording arrives
+- **Then** nothing is sent, and the recording stays on the note
+
+### Requirement: A note that lost its transcript is repaired
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_phone_edit_that_dropped_the_sections_and_named_the_file_again_is_repaired, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_repaired_note_that_is_already_whole_is_left_alone, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_sha256_already_transcribed_is_never_sent_again]
+```
+
+When a note names a recording whose sha256 the desktop has already transcribed, the desktop SHALL append the sections it kept for that sha256 where the body lacks them and remove the file again, without sending it.
+
+#### Scenario: A phone edit undoes the transcript
+
+- **Given** a recording the desktop transcribed and removed
+- **When** a phone edit made on the body before the transcript arrives, without the sections and naming the file again
+- **Then** the body is the edited text followed by the kept sections, and the file is gone from the note
+- **And** the recording is not sent again
+
+#### Scenario: The note is already whole
+
+- **Given** a note holding its sections and no longer naming the recording
+- **When** the desktop takes up the note again
+- **Then** the note is left as it is
 
 ## Notes on the desktop
 

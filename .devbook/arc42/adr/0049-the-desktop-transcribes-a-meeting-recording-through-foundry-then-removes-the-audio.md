@@ -1,7 +1,7 @@
 # ADR 0049: The desktop transcribes a meeting recording through Foundry, appends the transcript to the note, then removes the audio
 
 ```meta
-date: 2026-11-10
+date: 2026-11-17
 related: [".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".devbook/tech/cloud.md#azure-ai-foundry", ".devbook/tech/cloud.md#gpt-4o-transcribe"]
 ```
 
@@ -17,8 +17,13 @@ trigger.
 ```meta
 ```
 
-Proposed, 2026-11-10, by the flow-spec run `run-mw9zhfom-66t7cx`, unattended. It
-waits at that run's Personal Validation gate on a draft pull request.
+Accepted, 2026-11-17, when the plan `+meeting-recording` merged into `main`
+(PR #1715). Built in PR #1806: `TranscribeRecordingsCommand` and
+`InboxRecordingTranscriptionWorker` in the Inbox module, `FileInboxTranscriptionRecords`
+for the kept sha256s, `AdtsRemuxer`, `AzureFoundryInboxRecordingTranscriber` and the
+desktop registration of `AzureFoundryTranscriptionClient`, the release in the sync
+service's `PushTasksCommand`, and a transcription stand-in in
+`Backlog.AzureFoundry.TestService`.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one; an inherited one is named "guideline". It amends ADR 0023 and
@@ -31,8 +36,8 @@ ADR 0014, as **Consequences** says.
 
 **A meeting recording will be a file on a note.** The phone records a meeting and
 adds it to a note as one more file, as AAC in ADTS (`audio/aac`, `.aac`), 16 kHz
-mono at 32 kbps, in parts of 24 MB (ADR 0048, proposed, not yet built). ADR 0048
-leaves the transcription service, and the remux it may need, to this record. The file travels the way a photo does: uploaded to the blob store before
+mono at 32 kbps, in parts of 24 MB (ADR 0048). ADR 0048 leaves the transcription
+service, and the remux it may need, to this record. The file travels the way a photo does: uploaded to the blob store before
 the note that names it (ADR 0014), pulled by the desktop with the note (ADR 0025,
 `06-runtime-view.md#mobile-note-sync`). The person wants a transcript and a
 summary, not an hour of audio to listen back to.
@@ -80,12 +85,12 @@ stateDiagram-v2
     [*] --> Downloaded: file pulled, sha256 matches
     Downloaded --> [*]: sha256 already transcribed
     Downloaded --> Waiting: Foundry not configured
-    Waiting --> Downloaded: Foundry configured
+    Waiting --> Downloaded: next pull of the note or next start
     Downloaded --> Transcribing: new sha256
     Transcribing --> Transcribing: next part of at most 5 minutes
     Transcribing --> Summarizing: every part answered
-    Transcribing --> Downloaded: a part failed, retried on next start
-    Summarizing --> Downloaded: summary failed, retried on next start
+    Transcribing --> Downloaded: a part failed, retried on next pull or start
+    Summarizing --> Downloaded: summary failed, retried on next pull or start
     Summarizing --> Written: note re-read, sections appended, sha256 and text kept
     Written --> [*]: file removed from the note, note pushed
 ```
@@ -102,11 +107,15 @@ stateDiagram-v2
   transcribed, with the sections it wrote, in its local store. A file whose sha256
   is there is never sent again, whether it comes back through a re-sync, a second
   note or a restored backup.
-- **One file at a time**, in the background. A rolled-over recording's files are
-  transcribed as separate files, each appending its own sections in order.
+- **One file at a time**, in the background. A note pull that brings a recording
+  down queues its note, and on start every open note with a recording is queued
+  once, which is the retry. A rolled-over recording's files are transcribed as
+  separate files, in the note's order, each appending its own sections; a file
+  that cannot be written yet holds back the files after it.
 - **Only audio.** Only a file of a recording type ADR 0048 lets a note carry
   (`audio/aac`, `audio/mp4`, `audio/x-m4a`) is transcribed; an M4A file is sent
-  as it is, with no remux. A photo or a document on the same note is not sent.
+  whole, as it is, with no remux and no cut. A photo or a document on the same
+  note is not sent.
 - **Only with Foundry configured**, meaning `AzureFoundrySettings.IsConfigured`:
   endpoint, chat deployment and key all set, since the summary needs the chat
   deployment. Otherwise nothing is sent and the recording stays on the note.
@@ -123,10 +132,11 @@ endpoint with the desktop's existing key:
   `ManagedIdentity` and `None`, filled from the DPAPI-sealed key in
   `AzureFoundrySettings` (ADR 0030).
 - **Options from the desktop's settings.** On the desktop the client's options
-  are bound from `AzureFoundrySettings`. ADR 0045's rule that the sync service
+  are read from `AzureFoundrySettings` on every call, so a change in Settings
+  needs no restart. ADR 0045's rule that the sync service
   never reads `AzureFoundrySettingsStore` still holds: the sync host keeps binding
   from its own `Modules:Sync:Transcription` settings.
-- **Its own budget.** Each part gets a budget of its own, minutes rather than
+- **Its own budget.** Each part gets a budget of its own, 5 minutes rather than
   ADR 0045's 50 seconds, because nobody is waiting on a phone. Per guideline
   0015, each call keeps one retry on a `429` or a `5xx`.
 
@@ -138,7 +148,9 @@ It names a deployment of its own, because the chat deployment cannot transcribe:
 | `TranscriptionApiVersion` | `2025-03-01-preview`, as ADR 0045 |
 
 The deployment is the one `infra/foundry/main.bicep` already declares on the
-`backlog-foundry` account. No Azure resource is added.
+`backlog-foundry` account. No Azure resource is added. Settings › AI providers
+shows `TranscriptionDeployment` as the *Transcription deployment* field; the
+api-version has no field.
 
 ### 3. The format
 
@@ -157,8 +169,8 @@ as `audio/mp4` with a `.m4a` file name.
   reaches. The desktop cuts the stream on an ADTS frame boundary at or before each
   5-minute mark and remuxes each part on its own. ADTS frames stand alone, so a
   cut needs no decoding.
-- **Each part carries the last words of the one before** as its `prompt`, so a
-  sentence cut at a boundary reads on.
+- **Each part carries the last words of the one before** as its `prompt`, up to
+  200 characters cut on a word boundary, so a sentence cut at a boundary reads on.
 - **The remuxed parts are temporary files** in the desktop's own storage, deleted
   when the call returns, whatever it answers.
 
@@ -186,11 +198,13 @@ The desktop appends, and never replaces:
 1. It **re-reads the note** from its store after the transcription returns, not
    the copy it read before sending.
 2. It **appends** `## Transcript`, with the parts in order, and `## Summary` to the
-   end of that body. A rolled-over recording's later files append under
+   end of that body. The sections are numbered after the transcripts the body
+   already holds, so a rolled-over recording's second file appends under
    `## Transcript (part 2)` and `## Summary (part 2)`.
 3. The **summary** comes from the desktop's existing chat deployment, given the
-   transcript text alone. It lists the decisions and, as `- [ ]` lines, the action
-   items, which the person can turn into tasks.
+   transcript text alone. In the meeting's language, it says in two to four
+   sentences what the meeting was about, then lists the decisions and, as
+   `- [ ]` lines, the action items, which the person can turn into tasks.
 4. The edit is stamped after the copy it replaces, as every local note edit is
    (`06-runtime-view.md#mobile-note-sync`), and pushes as a note document.
 
@@ -204,18 +218,17 @@ re-read body when it arrived first, and is kept.
 
 - **After the transcript is written.** In the same local change that appends the
   sections, the desktop removes the recording from the note's files. The pushed
-  note no longer names it. The sync service releases its blob, and the phone drops
-  its copy on its next pull.
+  note no longer names it, and the sync service releases its blob. The phone holds
+  no copy by then: it deleted its own once the upload was delivered.
 - **Never on failure.** A failed or partial transcription leaves the body and the
   file as they were, and the sha256 is not marked done. The desktop tries again on
   its next start, and the person can still play the recording.
 - **A phone edit that undoes it is repaired.** A phone edit made on the body before
   the transcript arrives later, replaces the whole note, and drops the sections
-  and names the file again (ADR 0025). On every pulled note, the desktop checks
-  each file it has a sha256 record for: when the note names that file, or lacks a
-  section it wrote for it, the desktop appends the kept sections again and removes
-  the file again. The audio is gone by then; the kept text is what makes the
-  transcript survive.
+  and names the file again (ADR 0025). A pulled note that names a recording is
+  queued; for each named file the desktop has a sha256 record for, it appends the
+  kept sections again where the body lacks them, and removes the file again. The
+  audio is gone by then; the kept text is what makes the transcript survive.
 - **The transcript is the record.** Once the audio is gone there is nothing to
   transcribe again or listen back to.
 
@@ -272,20 +285,25 @@ Negative, and accepted:
   names a file whose blob is gone. A second desktop that never wrote the sections
   holds no record and cannot repair them.
 
-**What the implementation has to build**, as later flow-code changes:
+**What the implementation built**, in PR #1806:
 
-- on `AzureFoundryTranscriptionClient`, the API-key credential, options bound from
-  `AzureFoundrySettings` with the two new settings, and the desktop's budget and
-  part prompt;
-- the ADTS-to-M4A remuxer and the 5-minute cutter, with no codec;
-- the local record of transcribed sha256s with the sections written, and the
-  background step that runs on a recording's download;
-- the re-read-and-append write-back with the summary call, the removal of the file
-  in the same change, and the repair on pull;
-- in the sync service, releasing the blob of a file a note edit drops;
-- on the phone, deleting the local copy of a file the pulled note no longer names;
+- on `AzureFoundryTranscriptionClient`, the API-key credential and
+  `AddAzureFoundryDesktopTranscriptionClient`, reading the two new settings from
+  `AzureFoundrySettings` with the 5-minute part budget;
+- `AdtsRemuxer`, the ADTS-to-M4A remuxer and 5-minute cutter, with no codec, and
+  `AzureFoundryInboxRecordingTranscriber`, which sends the parts with their prompts
+  and asks the chat deployment for the summary;
+- `FileInboxTranscriptionRecords`, the kept sha256s with the sections written, as
+  `transcriptions.json` in the workspace's inbox folder, and
+  `InboxRecordingTranscriptionWorker`, the background step;
+- `TranscribeRecordingsCommand`, the re-read-and-append write-back with the file
+  removed in the same save, and the repair;
+- in the sync service's `PushTasksCommand`, releasing the blob of a file a note
+  edit drops;
 - a transcription stand-in for the desktop harness in
   `Backlog.AzureFoundry.TestService`.
+
+The phone needed no change: it keeps no copy of a delivered file.
 
 ## Rejected
 
@@ -323,4 +341,5 @@ Negative, and accepted:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-17 | Accepted and built in PR #1806. Details corrected to the build: a failed or unconfigured run is retried on the note's next pull or the next start, not on configuring Foundry; an M4A file is sent whole; the part budget is 5 minutes and the prompt is the last 200 characters; the summary opens with two to four sentences; the repair runs when a pulled note names a transcribed file; the phone holds no copy to drop. | Plan `+meeting-recording` merged into `main` in PR #1715. |
 | 2026-11-10 | Proposed: the desktop transcribes a downloaded meeting recording through `gpt-4o-transcribe` once per sha256, in remuxed M4A parts of at most 5 minutes, appends `## Transcript` and `## Summary`, then removes the audio and repairs a phone edit that drops the sections. | Plan entry `spec-transcription` of plan `meeting-recording`. |
