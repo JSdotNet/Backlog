@@ -1,5 +1,5 @@
 using Backlog.Desktop.Services;
-using Backlog.Infrastructure.Mcp;
+using Backlog.SharedKernel;
 
 #if WINDOWS
 using Microsoft.Maui.ApplicationModel;
