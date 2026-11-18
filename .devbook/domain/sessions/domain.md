@@ -1488,6 +1488,8 @@ One question a session asked the person and is waiting on. It carries:
 - when it was **asked**, and when it **escalates**: the moment it becomes a
   notification if still open, the notify delay after it was asked;
 - its **delivery state**, once an answer must reach the session through the Manager;
+- the **device** each answer came from, as the sync service authenticated it, or this
+  desktop for an answer given here;
 - its **state**.
 
 **States.**
@@ -1521,6 +1523,13 @@ stateDiagram-v2
 that holds it, which reads the answer through `get_answer`. A Dialog that escalated
 from InSession, and every Prose question, are answered through a **delivery**. The
 relay records the answer as one for the Manager to send to the session.
+
+**Only a paired device answers.** An answer steers the agent, so the relay takes it
+only from a device that is one of the owner's paired devices now, or this desktop. An
+answer from a revoked or unknown device is dropped, and the audit log on the MCP
+server page records it as a `dropped answer` naming the device. [The question stays
+open](domain.invariants.md#invariant-only-a-paired-devices-answer-reaches-the-session),
+for an answer in the session or from a paired device.
 
 **Delivery state.** A delivery is Pending until the Manager claims it, then Claimed
 under a two-minute lease. It becomes Delivered once the Manager sent the message, or

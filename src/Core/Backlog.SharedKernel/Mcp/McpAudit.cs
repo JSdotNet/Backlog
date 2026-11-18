@@ -34,4 +34,9 @@ public static class McpAudit
 
     /// <summary>The tool column when a granter revokes a grant it made.</summary>
     public const string DelegatedRevoke = "delegated revoke";
+
+    /// <summary>The tool column of the record the question relay writes when it drops an
+    /// answer from a device that is not paired now (local ADR 0041, ADR 0052 Phase 2): the
+    /// caller is that device, revoked or unknown, the target the waiting question.</summary>
+    public const string DroppedAnswer = "dropped answer";
 }
