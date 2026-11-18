@@ -53,7 +53,8 @@ public sealed class ListPendingNotesQueryHandler(IInboxItemRepository items)
         Attachments: item.Attachments.Count == 0
             ? null
             : [.. item.Attachments.Select(file => new InboxCaptureAttachmentDto(
-                file.Id, file.Name, file.ContentType, file.SizeBytes, file.Sha256))]);
+                file.Id, file.Name, file.ContentType, file.SizeBytes, file.Sha256))],
+        Kind: item.KindSlug);
 }
 
 /// <summary>The replica took these notes, each as it was at its

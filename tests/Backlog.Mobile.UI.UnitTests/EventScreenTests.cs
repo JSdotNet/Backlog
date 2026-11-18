@@ -16,7 +16,7 @@ namespace Backlog.Mobile.UI.UnitTests;
 /// The phone's Events screens as a person meets them
 /// (<c>.devbook/domain/events/requirements.md#events-on-the-phone</c>): the tab that appears once
 /// a desktop has sent an event, the upcoming list soonest first, the read-only detail with every
-/// field the phone shows, and attaching a Talk note to an event from the Notes tab.
+/// field the phone shows, and attaching a Talk note to an event from the note editor.
 /// </summary>
 public sealed class EventScreenTests
 {
@@ -41,7 +41,7 @@ public sealed class EventScreenTests
         [.. app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent.Trim())];
 
     [Fact]
-    public void The_tab_shows_before_notes_once_the_phone_holds_an_event()
+    public void The_tab_shows_last_once_the_phone_holds_an_event()
     {
         var (host, _) = Phone(events: [TestEvents.Event("Techorama 2026", Pushed, new DateOnly(2026, 10, 26))]);
         using var disposing = host;
@@ -49,12 +49,12 @@ public sealed class EventScreenTests
         var app = host.Open("");
 
         app.WaitForAssertion(() => Assert.Contains("Events", Tabs(app)));
-        Assert.Equal(["Today", "Inbox", "Events", "Notes"], Tabs(app));
+        Assert.Equal(["Today", "Inbox", "Events"], Tabs(app));
         Assert.NotNull(app.Find("[data-testid='tab-bar'] a[href='events'] .calendar-icon"));
     }
 
     [Fact]
-    public void The_tab_sits_before_notes_beside_the_bell_when_both_are_held()
+    public void The_tab_sits_last_beside_the_bell_when_both_are_held()
     {
         var notifications = new ScriptedNotificationService();
         notifications.Publish(TestNotifications.Question("Run the migration?", Now.AddMinutes(-2)), Now.AddMinutes(-1));
@@ -67,16 +67,16 @@ public sealed class EventScreenTests
 
         app.WaitForAssertion(() =>
         {
-            Assert.Equal(["Today", "Inbox", "Events", "Notes"], Tabs(app));
+            Assert.Equal(["Today", "Inbox", "Events"], Tabs(app));
             Assert.NotNull(app.Find(".app-bar__end [data-testid='app-notifications'] .bell-icon"));
         });
     }
 
     /// <summary>The bar's maximum (<c>.devbook/design/interaction-guidelines.md#phone-tab-bar</c>):
-    /// a phone holding a stand-up, a notification and an event draws five tabs, because
-    /// Notifications is the app bar's bell rather than a sixth.</summary>
+    /// a phone holding a stand-up, a notification and an event draws four tabs, because
+    /// Notifications is the app bar's bell rather than a fifth.</summary>
     [Fact]
-    public void The_bar_holds_five_tabs_when_stand_up_notifications_and_events_are_all_held()
+    public void The_bar_holds_four_tabs_when_stand_up_notifications_and_events_are_all_held()
     {
         var notifications = new ScriptedNotificationService();
         notifications.Publish(TestNotifications.Question("Run the migration?", Now.AddMinutes(-2)), Now.AddMinutes(-1));
@@ -90,7 +90,7 @@ public sealed class EventScreenTests
 
         app.WaitForAssertion(() =>
         {
-            Assert.Equal(["Today", "Inbox", "Stand-up", "Events", "Notes"], Tabs(app));
+            Assert.Equal(["Today", "Inbox", "Stand-up", "Events"], Tabs(app));
             Assert.NotNull(app.Find("[data-testid='app-notifications']"));
         });
         Assert.Empty(app.FindAll("[data-testid='tab-bar'] a[href='notifications']"));
@@ -361,7 +361,7 @@ public sealed class EventScreenTests
         var app = host.Open("");
 
         app.WaitForAssertion(() => Assert.True(events.Pulls > 0));
-        Assert.Equal(["Today", "Inbox", "Notes"], Tabs(app));
+        Assert.Equal(["Today", "Inbox"], Tabs(app));
     }
 
     [Fact]

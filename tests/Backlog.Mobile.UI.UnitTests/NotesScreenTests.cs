@@ -10,7 +10,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// The Notes tab and its editor as a person meets them: every note newest first,
+/// The notes in the phone Inbox and their editor as a person meets them: every note newest first,
 /// a search that narrows the list on the phone, an empty list that says how to
 /// start one, and an editor that saves on its own a second after typing stops —
 /// saying "Saved", or "Waiting to sync" while the outbox still holds the note.
@@ -33,8 +33,9 @@ public sealed class NotesScreenTests
         var app = host.Open("notes");
 
         app.WaitForAssertion(() => Assert.Equal(3, app.FindAll("[data-testid='note-row']").Count));
-        Assert.Equal("Notes", app.Find("h1").TextContent);
-        Assert.Equal("3 notes", app.Find("[data-testid='notes-count']").TextContent);
+        Assert.Equal("Inbox", app.Find("h1").TextContent);
+        Assert.Equal("true", app.Find("[data-testid='inbox-kind-notes']").GetAttribute("aria-pressed"));
+        Assert.Equal("3 items to sort", app.Find("[data-testid='inbox-count']").TextContent);
 
         var rows = app.FindAll("[data-testid='note-row']");
         Assert.Equal(
@@ -46,9 +47,10 @@ public sealed class NotesScreenTests
         Assert.Equal("Last write wins for the title.", rows[0].QuerySelector("[data-testid='note-row-snippet']")!.TextContent);
         Assert.Equal($"notes/{call.Id}", rows[0].GetAttribute("href"));
 
-        Assert.Equal("notes/new", app.Find("[data-testid='notes-new']").GetAttribute("href"));
-        Assert.Contains("New note", app.Find("[data-testid='notes-new']").TextContent, StringComparison.Ordinal);
-        Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-notes']").ClassList);
+        // Every row leads its metadata line with the note's mark, its word hidden but spoken.
+        Assert.All(rows, row => Assert.NotNull(row.QuerySelector("[data-testid='note-row-kind'] .capture-kind-marker--note")));
+        Assert.Equal("Note", rows[0].QuerySelector("[data-testid='note-row-kind'] .sr-only")!.TextContent);
+        Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-inbox']").ClassList);
     }
 
     [Fact]
@@ -63,21 +65,21 @@ public sealed class NotesScreenTests
         app.WaitForAssertion(() => Assert.Equal(3, app.FindAll("[data-testid='note-row']").Count));
 
         // A word in one note's body, and a title word in another's, in any case.
-        app.Find("[data-testid='notes-search'] input").Input("TRAIN");
+        app.Find("[data-testid='inbox-search'] input").Input("TRAIN");
         app.WaitForAssertion(() => Assert.Equal(
             ["Offsite ideas"],
             app.FindAll("[data-testid='note-row-title']").Select(title => title.TextContent)));
-        Assert.Equal("1 note", app.Find("[data-testid='notes-count']").TextContent);
+        Assert.Equal("1 item to sort", app.Find("[data-testid='inbox-count']").TextContent);
 
-        app.Find("[data-testid='notes-search'] input").Input("books design");
+        app.Find("[data-testid='inbox-search'] input").Input("books design");
         app.WaitForAssertion(() => Assert.Equal(
             ["Books to read"],
             app.FindAll("[data-testid='note-row-title']").Select(title => title.TextContent)));
 
-        app.Find("[data-testid='notes-search'] input").Input("roadmap");
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notes-no-match']")));
+        app.Find("[data-testid='inbox-search'] input").Input("roadmap");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-no-match']")));
         Assert.Empty(app.FindAll("[data-testid='note-row']"));
-        Assert.Contains("“roadmap”", app.Find("[data-testid='notes-no-match']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("“roadmap”", app.Find("[data-testid='inbox-no-match']").TextContent, StringComparison.Ordinal);
 
         // Searching asks nothing of the service: the two pulls were the page's own and the
         // one the shell makes for Progress.
@@ -96,10 +98,10 @@ public sealed class NotesScreenTests
         app.WaitForAssertion(() => Assert.Equal(2, tasks.Pulls));
         var empty = app.Find("[data-testid='notes-empty']");
         Assert.Contains("No notes yet", empty.TextContent, StringComparison.Ordinal);
-        Assert.Contains("New note", empty.TextContent, StringComparison.Ordinal);
-        Assert.Empty(app.FindAll("[data-testid='notes-search']"));
-        Assert.Equal("0 notes", app.Find("[data-testid='notes-count']").TextContent);
-        Assert.NotNull(app.Find("[data-testid='notes-new']"));
+        Assert.Contains("Note in the + menu", empty.TextContent, StringComparison.Ordinal);
+        Assert.Empty(app.FindAll("[data-testid='inbox-search']"));
+        Assert.Equal("Nothing to sort", app.Find("[data-testid='inbox-count']").TextContent);
+        Assert.NotNull(app.Find("[data-testid='inbox-new']"));
     }
 
     [Fact]
@@ -182,7 +184,7 @@ public sealed class NotesScreenTests
         Assert.Equal("Last write wins for the title.", app.Find("[data-testid='note-editor-body'] textarea").GetAttribute("value"));
         Assert.Equal("Wed 7 Oct · 09:50", app.Find("[data-testid='note-editor-when']").TextContent);
         Assert.Equal("Saved", app.Find("[data-testid='note-editor-save']").TextContent.Trim());
-        Assert.Equal("notes", app.Find("[data-testid='note-editor-back']").GetAttribute("href"));
+        Assert.Equal("inbox", app.Find("[data-testid='note-editor-back']").GetAttribute("href"));
 
         app.Find("[data-testid='note-editor-body'] textarea").Input("Last write wins for the title.\nSub-items merge by id.");
         clock.Advance(NotePage.SaveDelay);
@@ -236,7 +238,7 @@ public sealed class NotesScreenTests
         app.WaitForAssertion(() => Assert.Equal(
             "Offsite: somewhere reachable by train.",
             app.Find("[data-testid='note-row-title']").TextContent));
-        Assert.EndsWith("/notes", host.Navigation.Uri, StringComparison.Ordinal);
+        Assert.EndsWith("/inbox?kind=notes", host.Navigation.Uri, StringComparison.Ordinal);
         Assert.Single(tasks.Pushed);
     }
 
@@ -346,7 +348,7 @@ public sealed class NotesScreenTests
         var app = host.Open($"notes/{Guid.CreateVersion7()}");
 
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='note-missing']")));
-        Assert.Equal("notes", app.Find("[data-testid='note-missing-back']").GetAttribute("href"));
+        Assert.Equal("inbox", app.Find("[data-testid='note-missing-back']").GetAttribute("href"));
         Assert.Empty(app.FindAll("[data-testid='note-editor']"));
     }
 

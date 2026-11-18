@@ -164,11 +164,11 @@ public sealed class ReceiveCaptureCommandHandler(
             // A channel that says what it captured is believed; the slug is kept
             // as written so a kind this build does not know survives, the way a
             // stored row's does.
-            // Never a note, though: a note is made as one and syncs as a note
-            // document (.devbook/arc42/06-runtime-view.md#mobile-note-sync). A
-            // capture claiming the kind stays the plain thought it arrived as.
+            // Never a note or a meeting, though: each is made as one and syncs as
+            // a note document (.devbook/arc42/06-runtime-view.md#mobile-note-sync).
+            // A capture claiming either kind stays the plain thought it arrived as.
             if (!string.IsNullOrWhiteSpace(capture.Kind)
-                && InboxEnumMap.ParseKind(capture.Kind) is var claimed and not ContentKind.Note)
+                && InboxEnumMap.ParseKind(capture.Kind) is var claimed and not (ContentKind.Note or ContentKind.Meeting))
             {
                 item.SetKind(claimed, capture.Kind);
             }

@@ -7,13 +7,14 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// A paired phone: three tabs that open on Today, a status line, and a draft
-/// that is still in the Inbox's field when the person comes back to it.
+/// A paired phone: two tabs that open on Today — no Notes tab, since notes are in
+/// the Inbox — a status line, and a draft that is still in the Inbox's field when
+/// the person comes back to it.
 /// </summary>
 public sealed class ShellNavigationTests
 {
     [Fact]
-    public void A_paired_phone_opens_on_today_with_three_tabs_and_today_lit()
+    public void A_paired_phone_opens_on_today_with_two_tabs_and_today_lit()
     {
         using var host = ShellHost.Paired();
 
@@ -22,18 +23,20 @@ public sealed class ShellNavigationTests
         app.WaitForAssertion(() => Assert.Equal("Today", app.Find("h1").TextContent));
 
         var tabs = app.FindAll("[data-testid='tab-bar'] a");
-        Assert.Equal(["Today", "Inbox", "Notes"], tabs.Select(tab => tab.TextContent.Trim()));
-        Assert.Equal(["", "inbox", "notes"], tabs.Select(tab => tab.GetAttribute("href")));
+        Assert.Equal(["Today", "Inbox"], tabs.Select(tab => tab.TextContent.Trim()));
+        Assert.Equal(["", "inbox"], tabs.Select(tab => tab.GetAttribute("href")));
         Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-today']").ClassList);
         Assert.DoesNotContain("tab-bar__tab--active", app.Find("[data-testid='tab-bar-inbox']").ClassList);
 
         Assert.Empty(app.FindAll("[data-testid='pairing-code-field']"));
     }
 
+    /// <summary>The Inbox route, and the old Notes route, which opens the Inbox with
+    /// the Notes chip pressed and lights the Inbox tab.</summary>
     [Theory]
-    [InlineData("inbox", "Inbox", "capture-field")]
-    [InlineData("notes", "Notes", "notes-new")]
-    public void Each_tab_resolves_to_its_own_page(string route, string heading, string placeholder)
+    [InlineData("inbox", "inbox-kind-all")]
+    [InlineData("notes", "inbox-kind-notes")]
+    public void Each_route_resolves_to_the_inbox_on_its_chip(string route, string pressed)
     {
         using var host = ShellHost.Paired();
         var app = host.Open("");
@@ -42,9 +45,10 @@ public sealed class ShellNavigationTests
 
         host.Navigation.NavigateTo(route);
 
-        app.WaitForAssertion(() => Assert.Equal(heading, app.Find("h1").TextContent));
-        Assert.NotNull(app.Find($"[data-testid='{placeholder}']"));
-        Assert.Contains("tab-bar__tab--active", app.Find($"[data-testid='tab-bar-{route}']").ClassList);
+        app.WaitForAssertion(() => Assert.Equal("Inbox", app.Find("h1").TextContent));
+        Assert.NotNull(app.Find("[data-testid='capture-field']"));
+        Assert.Equal("true", app.Find($"[data-testid='{pressed}']").GetAttribute("aria-pressed"));
+        Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-inbox']").ClassList);
         Assert.DoesNotContain("tab-bar__tab--active", app.Find("[data-testid='tab-bar-today']").ClassList);
     }
 
