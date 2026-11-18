@@ -1300,8 +1300,8 @@ never starts a session itself (local
 The queue is this machine's: a request names a clone folder on this machine, and is
 kept in the app's local database. It does not replicate.
 
-Invocation semantics: command-oriented. A click creates a request and the person
-cancels it. A dispatcher reads the next request on the listener's long poll, claims it and reports its session through the MCP listener.
+Invocation semantics: command-oriented. A click creates a request, and the person
+moves it in the queue or cancels it. A dispatcher reads the next request on the listener's long poll, claims it and reports its session through the MCP listener.
 `link_session` from the started session links it.
 
 | Dispatcher call | What it does |
@@ -1309,15 +1309,23 @@ cancels it. A dispatcher reads the next request on the listener's long poll, cla
 | `GET /session-requests/wait` | Answers one item at once, or holds the call up to 50 seconds and answers `204`. |
 | `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. |
 | `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. |
-| `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts, and says whether the queue is paused. |
+| `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts, and says whether the queue is paused. Requested ones come in queue order. |
 
-- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it. Every call it lets in is also [Dispatcher Contact](#dispatcher-contact): held while the call is held, heard again when it is answered. A `404` while the flag is off records nothing.
+- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the Requested request at the head of the queue (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it. Every call it lets in is also [Dispatcher Contact](#dispatcher-contact): held while the call is held, heard again when it is answered. A `404` while the flag is off records nothing.
 - **`claim_session_request`:** The holder asking again is told it holds it; the lease is not renewed. While the queue is paused, every other claim is refused with "The session queue is paused."
 - **`mark_session_request`:** Only the dispatcher holding the claim may mark it. Its `started` still counts after its lease ran out while nobody else claimed the request.
 
 Every answer carries the request's brief, built by the server from its kind and id, which a
 dispatcher passes on and never writes. All four sit behind the
 `session-requests` flag: off, the route answers `404` and the tools leave the endpoint.
+
+**Queue order.** The person sets the order of the Requested requests in the Tasks
+filter bar's session queue. Entry and plan requests share one order across every
+repository on this machine. A new request joins at the end, and one the person never
+moved keeps its place by when it was asked. [Only a Requested request
+moves](domain.invariants.md#invariant-only-a-requested-request-moves): a Claimed or
+Started one is already being acted on. Only the app reorders: no dispatcher call moves a
+request (local ADR 0038 §4).
 
 **Paused.** The person can pause the queue as a whole and resume it, in the app only;
 no dispatcher call pauses or resumes it. [A paused queue hands out no
@@ -1329,7 +1337,7 @@ nothing new. Everything else goes on as before:
 - a claim already held still reports `started` and still releases;
 - the person can still queue a request and cancel one.
 
-Resumed, the route hands out the oldest Requested request again. The paused state is
+Resumed, the route hands out the Requested request at the head of the queue again. The paused state is
 this machine's, kept in the app's local database beside the requests: it survives a
 restart and does not replicate, and a queue never paused reads as running.
 
@@ -1348,7 +1356,9 @@ A person's ask for a session that runs one entry or one plan. It carries:
 - the **repository**, as `owner/name`, and its **clone folder** on this machine;
 - its **state**, and while Claimed, the dispatcher that claimed it and the lease's end;
 - once Started, the **session id** the dispatcher reported;
-- when the person asked, which orders the queue.
+- when the person asked;
+- its **place in the queue**, once the person moved a request. A request with none is
+  ordered by when it was asked.
 
 [It carries nothing of the entry's text](domain.invariants.md#invariant-a-request-carries-no-entry-text):
 the brief a dispatcher hands the new session is fixed by its kind.
@@ -1374,7 +1384,8 @@ stateDiagram-v2
   Cancelled --> [*]
 ```
 
-- **Requested.** Waiting for a dispatcher. The long poll hands out the oldest first.
+- **Requested.** Waiting for a dispatcher. The long poll hands out the one at the head
+  of the queue, and the person may move it.
 - **Claimed.** One dispatcher holds it. The dispatcher may release it back to
   Requested before the lease ends. [Only a Requested request can be
   claimed](domain.invariants.md#invariant-only-a-requested-request-can-be-claimed),

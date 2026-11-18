@@ -23,7 +23,15 @@ public enum PlanSessionRequestState
 /// <param name="State">Where it stands now.</param>
 /// <param name="Repository">The repository it asks for, as <c>owner/name</c>.</param>
 /// <param name="RequestedAt">When the person asked.</param>
-public sealed record PlanSessionRequest(Guid Id, PlanSessionRequestState State, string Repository, DateTimeOffset RequestedAt);
+/// <param name="QueuePosition">Where a Requested request stands in the one queue of
+/// entry and plan requests, 0 for the next one handed out; null while Claimed or Started.
+/// The roadmap draws nothing from it; it travels on to the filter bar's queue.</param>
+public sealed record PlanSessionRequest(
+    Guid Id,
+    PlanSessionRequestState State,
+    string Repository,
+    DateTimeOffset RequestedAt,
+    int? QueuePosition = null);
 
 /// <summary>
 /// The plan queue icon's port (local ADR 0038 §2): queue a plan session — a request

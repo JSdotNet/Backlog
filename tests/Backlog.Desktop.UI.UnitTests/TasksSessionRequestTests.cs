@@ -6,6 +6,7 @@ using Backlog.UI.Components.Overlays;
 using Bunit;
 
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -39,6 +40,7 @@ public sealed class TasksSessionRequestTests
         var queue = new FakeEntrySessionRequests();
         var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
         host.Context.Services.AddSingleton<IEntrySessionRequests>(queue);
+        host.Context.Services.AddSingleton<ISessionQueueOrder>(queue.Order);
         host.Context.Services.AddSingleton<TimeProvider>(clock);
 
         return (host, queue, clock);
@@ -616,7 +618,7 @@ public sealed class TasksSessionRequestTests
     }
 
     [Fact]
-    public async Task The_panel_lists_every_open_request_oldest_first_with_its_repository_state_and_age()
+    public async Task The_panel_lists_the_claimed_and_started_requests_first_then_the_requested_with_repository_state_and_age()
     {
         var (host, queue, clock) = await HostAsync();
         using var _host = host;
@@ -635,16 +637,165 @@ public sealed class TasksSessionRequestTests
         var rows = pane.FindAll("[data-testid='session-queue-row']");
         Assert.Equal(2, rows.Count);
 
-        // The older one first: an entry the loaded rows do not hold, named neutrally and not followable.
-        Assert.Equal(SessionQueue.NotInView, rows[0].QuerySelector("[data-testid='session-queue-name']")!.TextContent);
-        Assert.Null(rows[0].QuerySelector("[data-testid='session-queue-jump']"));
-        Assert.Equal($"{Tools} · Requested · 2 h ago", Normalise(rows[0].QuerySelector("[data-testid='session-queue-meta']")!.TextContent));
-        Assert.NotNull(rows[0].QuerySelector("[data-testid='session-queue-cancel']"));
+        // The Claimed one first, though younger — a dispatcher already has it: the entry
+        // in view, by its title; Claimed offers no Cancel.
+        Assert.Equal("Add the Start session action", rows[0].QuerySelector("[data-testid='session-queue-jump']")!.TextContent.Trim());
+        Assert.Equal($"{Backlog} · Claimed · 4 min ago", Normalise(rows[0].QuerySelector("[data-testid='session-queue-meta']")!.TextContent));
+        Assert.Null(rows[0].QuerySelector("[data-testid='session-queue-cancel']"));
 
-        // Then the entry in view, by its title; Claimed offers no Cancel.
-        Assert.Equal("Add the Start session action", rows[1].QuerySelector("[data-testid='session-queue-jump']")!.TextContent.Trim());
-        Assert.Equal($"{Backlog} · Claimed · 4 min ago", Normalise(rows[1].QuerySelector("[data-testid='session-queue-meta']")!.TextContent));
-        Assert.Null(rows[1].QuerySelector("[data-testid='session-queue-cancel']"));
+        // Then the Requested one: an entry the loaded rows do not hold, named neutrally and not followable.
+        Assert.Equal(SessionQueue.NotInView, rows[1].QuerySelector("[data-testid='session-queue-name']")!.TextContent);
+        Assert.Null(rows[1].QuerySelector("[data-testid='session-queue-jump']"));
+        Assert.Equal($"{Tools} · Requested · 2 h ago", Normalise(rows[1].QuerySelector("[data-testid='session-queue-meta']")!.TextContent));
+        Assert.NotNull(rows[1].QuerySelector("[data-testid='session-queue-cancel']"));
+    }
+
+    // --- Reordering the queue (local ADR 0038 §4, amended) -----------------------
+
+    /// <summary>Three Requested requests in queue order — first, second, third — none of
+    /// whose entries the loaded rows hold, so each row is named neutrally.</summary>
+    private static (Guid First, Guid Second, Guid Third) ThreeWaiting(FakeEntrySessionRequests queue, DateTimeOffset now)
+    {
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var third = Guid.NewGuid();
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(first, EntrySessionRequestState.Requested, Backlog, now.AddMinutes(-30), 0);
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(second, EntrySessionRequestState.Requested, Backlog, now.AddMinutes(-20), 1);
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(third, EntrySessionRequestState.Requested, Tools, now.AddMinutes(-10), 2);
+
+        return (first, second, third);
+    }
+
+    private static IReadOnlyList<string?> Order(IRenderedComponent<TasksPane> pane) =>
+        [.. pane.FindAll("[data-testid='session-queue-row']").Select(row => row.GetAttribute("data-key"))];
+
+    private static string Key(FakeEntrySessionRequests queue, Guid requestId) =>
+        $"entry-{queue.Open.Single(pair => pair.Value.Id == requestId).Key:n}";
+
+    [Fact]
+    public async Task Requested_rows_carry_move_controls_and_claimed_and_started_rows_list_first_without_them()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        var now = clock.GetUtcNow();
+        var (first, _, third) = ThreeWaiting(queue, now);
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Started, Backlog, now.AddDays(-6));
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Claimed, Backlog, now.AddMinutes(-1));
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 5 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        var rows = pane.FindAll("[data-testid='session-queue-row']");
+        Assert.Equal(5, rows.Count);
+        Assert.Null(rows[0].QuerySelector("[data-testid='session-queue-order']"));
+        Assert.Null(rows[1].QuerySelector("[data-testid='session-queue-order']"));
+        Assert.Contains("Started", rows[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Claimed", rows[1].TextContent, StringComparison.Ordinal);
+
+        // The head of the queue cannot go up or to the top; its tail cannot go down.
+        Assert.Equal(Key(queue, first), rows[2].GetAttribute("data-key"));
+        Assert.True(rows[2].QuerySelector("[data-testid='session-queue-move-up']")!.HasAttribute("disabled"));
+        Assert.True(rows[2].QuerySelector("[data-testid='session-queue-move-top']")!.HasAttribute("disabled"));
+        Assert.False(rows[2].QuerySelector("[data-testid='session-queue-move-down']")!.HasAttribute("disabled"));
+        Assert.Equal(Key(queue, third), rows[4].GetAttribute("data-key"));
+        Assert.True(rows[4].QuerySelector("[data-testid='session-queue-move-down']")!.HasAttribute("disabled"));
+        Assert.Equal($"Move {SessionQueue.NotInView} up", rows[4].QuerySelector("[data-testid='session-queue-move-up']")!.GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public async Task Move_up_reorders_the_queue_announces_the_new_place_and_keeps_the_focus_on_the_row()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        var (first, second, third) = ThreeWaiting(queue, clock.GetUtcNow());
+        host.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 3 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        pane.FindAll("[data-testid='session-queue-row']")[2].QuerySelector("[data-testid='session-queue-move-up']")!.Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal((third, 1), Assert.Single(queue.Order.Moved));
+            Assert.Equal([Key(queue, first), Key(queue, third), Key(queue, second)], Order(pane));
+            Assert.Equal("Moved to position 2 of 3.", pane.Find("[data-testid='session-queue-announcement']").TextContent);
+            var focus = host.Context.JSInterop.Invocations["backlogFocus"];
+            Assert.Equal($"session-queue-move-up-{Key(queue, third)}", focus[^1].Arguments[0]);
+        });
+    }
+
+    [Fact]
+    public async Task Alt_arrow_keys_move_the_focused_row()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        var (first, second, third) = ThreeWaiting(queue, clock.GetUtcNow());
+        host.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 3 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        pane.FindAll("[data-testid='session-queue-row']")[0].KeyDown(new KeyboardEventArgs { Key = "ArrowDown", AltKey = true });
+        pane.WaitForAssertion(() => Assert.Equal([Key(queue, second), Key(queue, first), Key(queue, third)], Order(pane)));
+
+        pane.FindAll("[data-testid='session-queue-row']")[2].KeyDown(new KeyboardEventArgs { Key = "ArrowUp", AltKey = true, ShiftKey = true });
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal([Key(queue, third), Key(queue, second), Key(queue, first)], Order(pane));
+            Assert.Equal("Moved to position 1 of 3.", pane.Find("[data-testid='session-queue-announcement']").TextContent);
+        });
+
+        // An arrow without Alt is no move.
+        pane.FindAll("[data-testid='session-queue-row']")[2].KeyDown(new KeyboardEventArgs { Key = "ArrowUp" });
+        Assert.Equal(2, queue.Order.Moved.Count);
+    }
+
+    [Fact]
+    public async Task A_move_is_drawn_at_once_and_a_refused_one_reverts_with_a_toast()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        var (first, second, third) = ThreeWaiting(queue, clock.GetUtcNow());
+        host.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        queue.Order.Refuse = true;
+        queue.Order.Gate = new TaskCompletionSource();
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 3 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        pane.FindAll("[data-testid='session-queue-row']")[2].QuerySelector("[data-testid='session-queue-move-top']")!.Click();
+
+        pane.WaitForAssertion(() => Assert.Equal([Key(queue, third), Key(queue, first), Key(queue, second)], Order(pane)));
+
+        queue.Order.Gate.SetResult();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal([Key(queue, first), Key(queue, second), Key(queue, third)], Order(pane));
+            Assert.Contains(host.Toasts.Visible, toast => toast.TestId == "session-queue-move-failed");
+            Assert.Equal(string.Empty, pane.Find("[data-testid='session-queue-announcement']").TextContent);
+        });
+    }
+
+    [Fact]
+    public async Task Without_a_reorder_composed_no_row_offers_a_move()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        ThreeWaiting(queue, clock.GetUtcNow());
+        queue.Order.IsOffered = false;
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 3 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        Assert.Equal(3, pane.FindAll("[data-testid='session-queue-row']").Count);
+        Assert.Empty(pane.FindAll("[data-testid='session-queue-order']"));
     }
 
     [Fact]
@@ -1027,6 +1178,12 @@ public sealed class TasksSessionRequestTests
 
         public Dictionary<Guid, EntrySessionRequest> Open { get; } = [];
 
+        /// <summary>The queue's Reorder over these requests — and a plan port's, once a
+        /// test hands it one — registered beside this port.</summary>
+        public FakeSessionQueueOrder Order { get; }
+
+        public FakeEntrySessionRequests() => Order = new FakeSessionQueueOrder(this);
+
         public List<(Guid EntryId, string Repository, string CloneFolder)> Asked { get; } = [];
 
         public List<Guid> Cancelled { get; } = [];
@@ -1090,6 +1247,56 @@ public sealed class TasksSessionRequestTests
             Cancelled.Add(requestId);
             Open.Remove(held.Key);
             return Task.FromResult(true);
+        }
+    }
+
+    /// <summary>The queue's Reorder in memory, over the entry port's open requests and,
+    /// when a test hands it one, a plan port's: the Requested ones of both are one queue,
+    /// and a move rewrites each one's <see cref="EntrySessionRequest.QueuePosition"/>.</summary>
+    internal sealed class FakeSessionQueueOrder(FakeEntrySessionRequests entries) : ISessionQueueOrder
+    {
+        public bool IsOffered { get; set; } = true;
+
+        /// <summary>The plan port whose requests share the queue, or null.</summary>
+        public TasksPlanSessionRequestTests.FakePlanTagSessionRequests? Plans { get; set; }
+
+        /// <summary>Set, every move is refused, as one a dispatcher claimed first is.</summary>
+        public bool Refuse { get; set; }
+
+        /// <summary>Set, a move waits on it after it is recorded in <see cref="Moved"/>, so
+        /// a test can look at the pane mid-move.</summary>
+        public TaskCompletionSource? Gate { get; set; }
+
+        public List<(Guid RequestId, int ToIndex)> Moved { get; } = [];
+
+        public async Task<bool> MoveAsync(Guid requestId, int toIndex, CancellationToken cancellationToken = default)
+        {
+            Moved.Add((requestId, toIndex));
+            if (Gate is { } gate) await gate.Task;
+            if (Refuse) return false;
+
+            var waiting = entries.Open
+                .Select(pair => (Request: pair.Value, Put: (Action<EntrySessionRequest>)(value => entries.Open[pair.Key] = value)))
+                .Concat((Plans?.Open ?? []).Select(pair => (Request: pair.Value, Put: (Action<EntrySessionRequest>)(value => Plans!.Open[pair.Key] = value))))
+                .Where(held => held.Request.State == EntrySessionRequestState.Requested)
+                .OrderBy(held => held.Request.QueuePosition is null)
+                .ThenBy(held => held.Request.QueuePosition)
+                .ThenBy(held => held.Request.RequestedAt)
+                .ToList();
+
+            var moving = waiting.FindIndex(held => held.Request.Id == requestId);
+            if (moving < 0) return false;
+
+            var item = waiting[moving];
+            waiting.RemoveAt(moving);
+            waiting.Insert(Math.Clamp(toIndex, 0, waiting.Count), item);
+
+            for (var index = 0; index < waiting.Count; index++)
+            {
+                waiting[index].Put(waiting[index].Request with { QueuePosition = index });
+            }
+
+            return true;
         }
     }
 }

@@ -502,6 +502,44 @@ public sealed class TasksPlanSessionRequestTests
         Assert.Equal(["+alpha", row.PreviewTitle], names);
     }
 
+    [Fact]
+    public async Task Entry_and_plan_requests_interleave_by_queue_position_and_a_plan_moves_above_an_entry()
+    {
+        var (host, plans) = await HostAsync(pressPlan: false);
+        using var _host = host;
+        var entries = new TasksSessionRequestTests.FakeEntrySessionRequests();
+        entries.Order.Plans = plans;
+        host.Context.Services.AddSingleton<IEntrySessionRequests>(entries);
+        host.Context.Services.AddSingleton<ISessionQueueOrder>(entries.Order);
+        host.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        var row = host.State.Rows.First(candidate => candidate.RawText.StartsWith("# Tidy it", StringComparison.Ordinal));
+        var planId = Guid.NewGuid();
+
+        // The plan was asked for first, but the entry stands ahead of it in the queue.
+        entries.Open[row.Id!.Value] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch.AddMinutes(1), 0);
+        plans.Open["alpha"] = new EntrySessionRequest(planId, EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch, 1);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal(
+            "Session queue, 2 waiting",
+            pane.Find("[data-testid='session-queue-button']").GetAttribute("aria-label")));
+        pane.Find("[data-testid='session-queue-button']").Click();
+
+        Assert.Equal([row.PreviewTitle, "+alpha"], Names(pane));
+
+        pane.FindAll("[data-testid='session-queue-row']")[1].QuerySelector("[data-testid='session-queue-move-top']")!.Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal((planId, 0), Assert.Single(entries.Order.Moved));
+            Assert.Equal(["+alpha", row.PreviewTitle], Names(pane));
+            Assert.Equal("Moved to position 1 of 2.", pane.Find("[data-testid='session-queue-announcement']").TextContent);
+        });
+    }
+
+    private static List<string?> Names(IRenderedComponent<TasksPane> pane) =>
+        [.. pane.FindAll("[data-testid='session-queue-jump']").Select(jump => jump.TextContent.Trim())];
+
     // --- The offer on its own -------------------------------------------------
 
     [Fact]

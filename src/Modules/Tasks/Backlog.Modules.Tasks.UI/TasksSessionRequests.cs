@@ -28,6 +28,7 @@ public sealed class TasksSessionRequests : IDisposable
     public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
     private readonly IEntrySessionRequests? _port;
+    private readonly ISessionQueueOrder? _order;
     private readonly PolledSnapshot<Guid, EntrySessionRequest> _open;
     private readonly HashSet<Guid> _busy = [];
 
@@ -49,9 +50,12 @@ public sealed class TasksSessionRequests : IDisposable
 
     /// <param name="port">The queue's port, or null when the host composed none.</param>
     /// <param name="clock">What the poll waits on; the system clock when null.</param>
-    public TasksSessionRequests(IEntrySessionRequests? port, TimeProvider? clock = null)
+    /// <param name="order">The queue's Reorder, or null when the host composed none and
+    /// no row offers a move.</param>
+    public TasksSessionRequests(IEntrySessionRequests? port, TimeProvider? clock = null, ISessionQueueOrder? order = null)
     {
         _port = port;
+        _order = order;
         _open = new PolledSnapshot<Guid, EntrySessionRequest>(
             () => _port!.OpenAsync(),
             _port is null ? null : RefreshAsync,
@@ -134,6 +138,82 @@ public sealed class TasksSessionRequests : IDisposable
 
     /// <summary>Whether a press for <paramref name="entryId"/> is still on its way.</summary>
     public bool IsBusy(Guid? entryId) => entryId is { } id && _busy.Contains(id);
+
+    /// <summary>Whether the queue's Requested rows offer a move: the action is offered
+    /// and the host composed a Reorder that is too.</summary>
+    public bool CanReorder => IsOffered && (_order?.IsOffered ?? false);
+
+    /// <summary>The Requested requests' ids in the order a move on its way will leave
+    /// them — what the queue draws until the move's answer is read back — or null.</summary>
+    public IReadOnlyList<Guid>? PendingOrder { get; private set; }
+
+    /// <summary>
+    /// Moves <paramref name="requestId"/> to <paramref name="toIndex"/> among
+    /// <paramref name="waiting"/> — the Requested requests in the order the queue lists
+    /// them, entries and plans alike — and answers whether it moved.
+    /// <para>
+    /// Optimistic (<c>.devbook/design/interaction-guidelines.md#drag-and-drop-reordering</c>):
+    /// the new order is drawn at once through <see cref="PendingOrder"/>, then the queue is
+    /// read back — this pane's half and, through <paramref name="readBackPlans"/>, the plan
+    /// half — and the order drawn is the one the queue holds. A refused or failed move
+    /// therefore reverts by itself, and <see cref="Error"/> says why.
+    /// </para>
+    /// </summary>
+    public async Task<bool> MoveAsync(IReadOnlyList<Guid> waiting, Guid requestId, int toIndex, Func<Task>? readBackPlans = null)
+    {
+        ArgumentNullException.ThrowIfNull(waiting);
+
+        if (!CanReorder || PendingOrder is not null) return false;
+
+        var from = IndexOf(waiting, requestId);
+        if (from < 0) return false;
+
+        var to = Math.Clamp(toIndex, 0, waiting.Count - 1);
+        var optimistic = waiting.Where(id => id != requestId).ToList();
+        optimistic.Insert(to, requestId);
+
+        PendingOrder = optimistic;
+        _open.Supersede();
+        Error = null;
+        Changed?.Invoke();
+
+        var moved = false;
+        try
+        {
+            moved = await _order!.MoveAsync(requestId, to);
+            if (!moved) Error = "A dispatcher has already claimed the request, so it can no longer be moved.";
+            return moved;
+        }
+        catch (Exception)
+        {
+            Error = "Couldn't move the session request.";
+            return false;
+        }
+        finally
+        {
+            // Read back rather than assumed, both halves, before the drawn order lets go:
+            // what the queue holds is the order, and a refused move shows where it went.
+            await _open.ReadBackAsync();
+            if (readBackPlans is not null)
+            {
+                try { await readBackPlans(); } catch (Exception) { /* the plan poll reads it again */ }
+            }
+
+            PendingOrder = null;
+
+            if (!_open.IsDisposed) Changed?.Invoke();
+        }
+    }
+
+    private static int IndexOf(IReadOnlyList<Guid> ids, Guid id)
+    {
+        for (var index = 0; index < ids.Count; index++)
+        {
+            if (ids[index] == id) return index;
+        }
+
+        return -1;
+    }
 
     /// <summary>Reads the open requests again, and redraws when they changed.</summary>
     public async Task RefreshAsync()
