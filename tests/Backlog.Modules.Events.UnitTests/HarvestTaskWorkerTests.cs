@@ -36,7 +36,7 @@ public sealed class HarvestTaskWorkerTests : IDisposable
     public async Task A_due_event_is_harvested_shortly_after_the_app_starts()
     {
         await Going("Techorama Belgium", lastDay: new(2026, 11, 9));
-        var worker = Start(new FakeEventsFeature(on: true));
+        var worker = Start(FakeFeatureSwitches.Events(on: true));
 
         await Advance(worker, HarvestTaskWorker.StartDelay + TimeSpan.FromSeconds(1));
 
@@ -47,7 +47,7 @@ public sealed class HarvestTaskWorkerTests : IDisposable
     public async Task An_event_ending_today_is_harvested_once_the_local_day_turns()
     {
         await Going("Techorama Belgium", lastDay: new(2026, 11, 10));
-        var worker = Start(new FakeEventsFeature(on: true));
+        var worker = Start(FakeFeatureSwitches.Events(on: true));
         await Advance(worker, HarvestTaskWorker.StartDelay + TimeSpan.FromSeconds(1));
         Assert.Empty(_tasks.Filed);
 
@@ -61,7 +61,7 @@ public sealed class HarvestTaskWorkerTests : IDisposable
     public async Task With_the_events_area_off_nothing_is_filed()
     {
         await Going("Techorama Belgium", lastDay: new(2026, 11, 9));
-        var worker = Start(new FakeEventsFeature(on: false));
+        var worker = Start(FakeFeatureSwitches.Events(on: false));
 
         await Advance(worker, TimeSpan.FromDays(2));
 
@@ -84,7 +84,7 @@ public sealed class HarvestTaskWorkerTests : IDisposable
     {
         await Going("Techorama Belgium", lastDay: new(2026, 11, 9));
         _store.FailNextList = true;
-        var worker = Start(new FakeEventsFeature(on: true));
+        var worker = Start(FakeFeatureSwitches.Events(on: true));
         await Advance(worker, HarvestTaskWorker.StartDelay + TimeSpan.FromSeconds(1));
         Assert.Empty(_tasks.Filed);
 
@@ -97,7 +97,7 @@ public sealed class HarvestTaskWorkerTests : IDisposable
     public async Task A_disposed_worker_files_nothing()
     {
         await Going("Techorama Belgium", lastDay: new(2026, 11, 9));
-        var worker = Start(new FakeEventsFeature(on: true));
+        var worker = Start(FakeFeatureSwitches.Events(on: true));
 
         worker.Dispose();
         await Advance(worker, TimeSpan.FromDays(1));

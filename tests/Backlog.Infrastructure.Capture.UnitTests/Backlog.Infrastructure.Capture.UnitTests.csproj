@@ -4,6 +4,12 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Capture\Backlog.Infrastructure.Capture.csproj" />
   </ItemGroup>
 
+  <!-- A clock that can be moved a day, and fires any timer set on it when it is, so a test
+       can show that nothing reads a page until a run is asked for. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
   <!-- Import manifests read from disk, as the adapter reads them. -->
   <ItemGroup>
     <None Update="Fixtures\*.md" CopyToOutputDirectory="PreserveNewest" />

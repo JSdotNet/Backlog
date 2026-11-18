@@ -25,6 +25,13 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     private readonly BunitContext _context = new();
     private readonly RecordingNavigator _navigator = new();
 
+    /// <summary>The Inbox's flag, <c>InboxFeatures.Pane</c>, as a string: the Events tests
+    /// reference no Inbox project, as the Events module references none.</summary>
+    private const string InboxPane = "inbox-pane";
+
+    /// <summary>The device's flags, the Inbox on unless a test switches it off.</summary>
+    private readonly FakeFeatureSwitches _features = new(new Dictionary<string, bool>(StringComparer.Ordinal) { [InboxPane] = true });
+
     public EventsScreenTests()
     {
         var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 10, 9, 0, 0, Cet));
@@ -34,6 +41,12 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         _context.Services.AddSingleton(Pane);
         _context.Services.AddSingleton<ISurfaceNavigator>(_navigator);
         _context.Services.AddSingleton<TimeProvider>(clock);
+
+        // The shell's catalog over the Inbox's surface as InboxSurfaceRegistration registers it:
+        // offered only while the Inbox's flag is on.
+        _context.Services.AddSingleton<ISurfaceCatalog>(new SurfaceCatalog(
+            [new ShellSurface("inbox", "Inbox", ShellSurfaceGroup.Takeover, 10, typeof(InboxStandIn), InboxPane, QueryKeys: ["item"], EscapeCloses: false)],
+            _features));
     }
 
     public void Dispose() => _context.Dispose();
@@ -710,6 +723,23 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         Assert.Equal(noteId, shown.Query["item"]);
     }
 
+    /// <summary>With the Inbox switched off there is no surface to jump to, so the chip reads as
+    /// plain text: its title, and nothing to click.</summary>
+    [Fact]
+    public async Task A_talk_note_offers_no_jump_while_the_inbox_is_off()
+    {
+        _features.SetEnabled(InboxPane, false);
+        var id = await Add("Techorama Belgium");
+        await Change(id, e => e.LinkNote(NoteLink.Create(NoteLinkKind.Talk, Guid.NewGuid().ToString("D"), "Keynote: Aspire in production")));
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-note']"));
+
+        var chip = pane.Find("[data-testid='events-note']");
+        Assert.Contains("Keynote: Aspire in production", chip.TextContent, StringComparison.Ordinal);
+        Assert.Null(chip.QuerySelector(".repo-link-chip__open"));
+        Assert.Empty(_navigator.Shown);
+    }
+
     [Fact]
     public async Task The_dates_show_where_they_came_from_and_an_undated_event_shows_no_source()
     {
@@ -861,6 +891,9 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         Assert.Equal(["event"], surface.QueryKeys);
         Assert.Equal(typeof(EventsSurface), surface.Component);
     }
+
+    /// <summary>Stands in for the Inbox's screen in the catalog; never rendered here.</summary>
+    private sealed class InboxStandIn : Microsoft.AspNetCore.Components.ComponentBase;
 
     /// <summary>The window's navigator, recording each jump.</summary>
     private sealed class RecordingNavigator : ISurfaceNavigator

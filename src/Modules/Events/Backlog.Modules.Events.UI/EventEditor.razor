@@ -91,7 +91,7 @@
                    TestId="events-field-title"
                    @onchange="@((ChangeEventArgs e) => CommitTextAsync(TitleInput, e))" />
 
-        <div class="events-editor__row">
+        <div class="events-editor__row events-editor__row--fields">
             <TextField Label="Starts"
                        Type="date"
                        Value="@_startDate"
@@ -191,7 +191,7 @@
                        OnClick="AddKeyDate">Add key date</AppButton>
         </div>
 
-        <div class="events-editor__row">
+        <div class="events-editor__row events-editor__row--fields">
             <SelectField Form="true"
                          Label="Ticket"
                          CurrentValue="@Event.Ticket?.ToString()"
