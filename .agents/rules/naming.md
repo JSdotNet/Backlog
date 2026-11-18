@@ -19,7 +19,7 @@ expects.
 
 ## No redundant suffixes
 
-A name should not repeat what its location already says.
+A name leaves out what its location already says.
 
 - Rule files are named after the area they govern: `.agents/rules/naming.md`,
   not `naming-conventions.md`. The host wrappers in `.claude/rules/` and
