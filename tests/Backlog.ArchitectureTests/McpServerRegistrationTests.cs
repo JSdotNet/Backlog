@@ -120,14 +120,20 @@ public class McpServerRegistrationTests
     /// reference and are deliberately not covered: they are what let the tool
     /// library and the shared registration live outside the two hosts.
     /// </para>
+    /// <para>
+    /// The sync service is the third listener (local ADR 0052 §8: the remote
+    /// <c>/mcp</c> endpoint). It is a Web SDK project, so it already carries the
+    /// framework, and it is an executable nothing on the mobile path references.
+    /// </para>
     /// </summary>
     [Fact]
-    public void The_aspnetcore_half_of_the_mcp_sdk_is_referenced_only_by_the_two_hosts()
+    public void The_aspnetcore_half_of_the_mcp_sdk_is_referenced_only_by_the_listening_hosts()
     {
         string[] allowed =
         [
             "src/App/Backlog.Desktop/Backlog.Desktop.csproj",
-            "src/Harness/Backlog.Desktop.WebHarness/Backlog.Desktop.WebHarness.csproj"
+            "src/Harness/Backlog.Desktop.WebHarness/Backlog.Desktop.WebHarness.csproj",
+            "src/Modules/Sync/Backlog.Modules.Sync.Api/Backlog.Modules.Sync.Api.csproj"
         ];
 
         var offenders = ProjectFiles()
@@ -140,7 +146,7 @@ public class McpServerRegistrationTests
             offenders.Count == 0,
             "These projects reference ModelContextProtocol.AspNetCore, which carries the "
             + "Microsoft.AspNetCore.App framework reference in its nuspec. Only the two hosts that "
-            + "actually listen may take it. For tools use ModelContextProtocol.Core, and for the shared "
+            + "actually listen may take it - the desktop, its web harness and the sync service. For tools use ModelContextProtocol.Core, and for the shared "
             + "registration ModelContextProtocol - neither declares a framework reference:\n"
             + string.Join('\n', offenders));
     }

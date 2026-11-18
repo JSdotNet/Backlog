@@ -108,7 +108,7 @@ internal static class InboxEndpoints
     /// ahead and a year behind, and past either it is a clock set wrong.
     /// </para>
     /// </summary>
-    private static Error? OutOfBounds(CaptureRequest request, DateTimeOffset now) =>
+    internal static Error? OutOfBounds(CaptureRequest request, DateTimeOffset now) =>
         FieldsOutOfBounds(request)
         ?? CapturedAtOutOfBounds(request.CapturedAt, now)
         ?? (request.Tags is { } tags ? TagsOutOfBounds(tags) : null)

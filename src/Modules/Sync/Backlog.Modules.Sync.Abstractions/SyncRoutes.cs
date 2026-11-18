@@ -48,6 +48,19 @@ public static class SyncRoutes
     /// secret authenticates it. At the root.</summary>
     public const string ConnectorToken = "/oauth/token";
 
+    /// <summary>The remote MCP endpoint the connector's access tokens are for (local ADR 0052
+    /// §8): an OAuth 2.1 resource server serving the <c>inbox:capture</c> tools. At the root,
+    /// because its URL is the token audience (RFC 8707). Bearer, connector tokens only.</summary>
+    public const string RemoteMcp = "/mcp";
+
+    /// <summary>The protected-resource metadata of <see cref="RemoteMcp"/> (RFC 9728 §3.1): the
+    /// well-known segment inserted between the origin and the resource's path. Anonymous.</summary>
+    public const string RemoteMcpResourceMetadata = "/.well-known/oauth-protected-resource" + RemoteMcp;
+
+    /// <summary>The well-known segment RFC 9728 §3.1 inserts before a resource's path. Not
+    /// served on its own: a document there would describe the origin, not <c>/mcp</c>.</summary>
+    public const string ProtectedResourceMetadata = "/.well-known/oauth-protected-resource";
+
     /// <summary>The remote connector as the desktop's settings card sees it: GET describes
     /// it. Bearer, owner only.</summary>
     public const string Connector = "/connector";

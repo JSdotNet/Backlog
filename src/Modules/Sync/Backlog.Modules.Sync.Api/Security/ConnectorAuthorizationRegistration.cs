@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Api.Options;
 using Backlog.Modules.Sync.Features.Connector;
 using Backlog.Modules.Sync.Services;
@@ -42,6 +43,9 @@ internal static class ConnectorAuthorizationRegistration
         options
             .Validate(o => ConnectorOptions.IsOrigin(o.Issuer), $"{IssuerPath} must be the service's public origin, with no path; only a Development run defaults it.")
             .Validate(o => ConnectorOptions.IsAbsoluteHttp(o.Resource), $"{ResourcePath} must be the absolute /mcp resource URL; only a Development run defaults it.")
+            // The audience, the challenge's metadata address and the mapped route must name
+            // one URL, so a resource anywhere but <issuer>/mcp is refused at start.
+            .Validate(o => string.Equals(o.Resource, o.Issuer + SyncRoutes.RemoteMcp, StringComparison.Ordinal), $"{ResourcePath} must be {IssuerPath} followed by {SyncRoutes.RemoteMcp}, the route the resource server is served at.")
             .Validate(o => Uri.TryCreate(o.RedirectUri, UriKind.Absolute, out var redirect) && redirect.Scheme == Uri.UriSchemeHttps, $"{ConnectorOptions.SectionName}:RedirectUri must be an absolute https URL.")
             .ValidateOnStart();
 

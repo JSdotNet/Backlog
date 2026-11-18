@@ -130,4 +130,17 @@ public static class SyncTelemetry
         "backlog.sync.connector.refused",
         unit: "{request}",
         description: "Remote connector authorize and token requests refused, tagged by the OAuth error.");
+
+    /// <summary>Calls to the remote <c>/mcp</c> endpoint refused (local ADR 0052 §8), by
+    /// reason: <c>no_token</c>, <c>invalid_token</c> or <c>insufficient_scope</c>.</summary>
+    public static readonly Counter<long> RemoteMcpRefused = Meter.CreateCounter<long>(
+        "backlog.sync.mcp.refused",
+        unit: "{request}",
+        description: "Remote MCP requests refused, tagged by the Bearer error.");
+
+    /// <summary>Captures written to the replica through the remote <c>/mcp</c> endpoint.</summary>
+    public static readonly Counter<long> RemoteMcpCaptures = Meter.CreateCounter<long>(
+        "backlog.sync.mcp.captures",
+        unit: "{capture}",
+        description: "Captures written to the replica through the remote MCP endpoint, tagged by whether the call created one.");
 }

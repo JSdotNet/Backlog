@@ -163,6 +163,15 @@ public static class SyncAuthenticationExtensions
         {
             OnAuthenticationFailed = context =>
             {
+                // UseAuthentication runs this default scheme on every request, /mcp
+                // included, where a connector token always fails it. That endpoint's
+                // own scheme audits its refusals; a device-scheme warning there would
+                // be one false alarm per legitimate connector call.
+                if (context.Request.Path.StartsWithSegments(SyncRoutes.RemoteMcp))
+                {
+                    return Task.CompletedTask;
+                }
+
                 Logger(context.HttpContext).LogWarning(
                     "Device token rejected on {Method} {Path}: {Reason}.",
                     context.Request.Method,
