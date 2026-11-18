@@ -10,9 +10,13 @@
     same place and the same quiet colour, because both mean the words are safe
     here.
 
-    Tools holds the host's ways of adding to the note — dictation, a photo, a
-    file — under the body where a thumb reaches them; ChildContent holds what
-    those produce, such as the files attached, and any message about them.
+    Tools holds the host's ways of adding to the note — dictation, a recording,
+    a photo, pictures, files — as one row of tiles pinned along the bottom, where
+    a thumb reaches them whatever the body's length: each tile a glyph above a
+    short word, the tab bar's idiom, so five fit across a phone. A host whose
+    own bar is pinned below the page sets the row's bottom to clear it.
+    ChildContent holds what those produce, such as the files attached, and any
+    message about them, between the body and the row.
 *@
 
 <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -41,14 +45,16 @@
     <TextArea Value="@Body" ValueChanged="BodyChanged" AriaLabel="Note" Placeholder="@BodyPlaceholder" Rows="8"
               CssClass="note-editor__body" Disabled="Disabled" @onblur="BlurAsync" TestId="@PartTestId("body")" />
 
+    @ChildContent
+
+    @* Last, so its sticky bottom holds at every scroll position: a pinned row with
+       siblings after it rides up to its place in the flow at the end of the page. *@
     @if (Tools is not null)
     {
         <div class="note-editor__tools" role="group" aria-label="Add to the note" data-testid="@PartTestId("tools")">
             @Tools
         </div>
     }
-
-    @ChildContent
 </div>
 
 @code {

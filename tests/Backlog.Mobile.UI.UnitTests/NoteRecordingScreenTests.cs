@@ -51,6 +51,39 @@ public sealed class NoteRecordingScreenTests
     }
 
     [Fact]
+    public void The_tools_are_one_row_of_full_size_tiles_that_keep_their_names_on_a_page_pinned_above_the_tab_bar()
+    {
+        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now));
+
+        var app = OpenEditor(host, "notes/new");
+
+        app.WaitForAssertion(() => Assert.False(app.Find("[data-testid='note-record']").HasAttribute("disabled")));
+        Assert.Contains("note-page", app.Find("[data-testid='note-editor']").ClassList);
+
+        var tools = app.Find("[data-testid='note-editor-tools']");
+        var tiles = tools.QuerySelectorAll("button");
+        Assert.NotEmpty(tiles);
+        Assert.All(tiles, tile =>
+        {
+            Assert.DoesNotContain("btn--small", tile.ClassList);
+
+            // The glyph leads the tile, as an svg of its own or in AppButton's icon slot,
+            // which is the shape the tile's CSS stacks over the word.
+            var glyph = tile.FirstElementChild!;
+            Assert.True(
+                glyph.LocalName == "svg" || (glyph.ClassList.Contains("btn__icon") && glyph.QuerySelector("svg") is not null),
+                $"{tile.GetAttribute("data-testid")} does not lead with its glyph.");
+        });
+
+        Assert.Equal("Dictate into the note", tools.QuerySelector("[data-testid='note-speech-toggle']")!.GetAttribute("aria-label"));
+        Assert.Equal("Dictate", tools.QuerySelector("[data-testid='note-speech-toggle']")!.TextContent.Trim());
+        Assert.Equal("Choose pictures", tools.QuerySelector("[data-testid='note-choose-pictures']")!.GetAttribute("aria-label"));
+        Assert.Equal("Pictures", tools.QuerySelector("[data-testid='note-choose-pictures']")!.TextContent.Trim());
+        Assert.Equal("Choose files", tools.QuerySelector("[data-testid='note-choose-files']")!.GetAttribute("aria-label"));
+        Assert.Equal("Files", tools.QuerySelector("[data-testid='note-choose-files']")!.TextContent.Trim());
+    }
+
+    [Fact]
     public void Recording_shows_the_bar_pause_turns_to_resume_and_stop_attaches_the_recording()
     {
         var clock = new FakeTimeProvider(Now);

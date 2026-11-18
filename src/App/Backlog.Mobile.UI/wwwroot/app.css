@@ -33,8 +33,8 @@ a, .btn-link {
   .tab-bar__tab) stacks its top border, its padding, the glyph MainLayout draws at
   20px, the gap, and its word's line; the bar adds its own top border and pads the
   safe-area inset. The word's line is pinned to --line-height-normal here, so the
-  sum is exact rather than the font's "normal". The task page, the focus page and
-  the notifications pager read it.
+  sum is exact rather than the font's "normal". The task page, the focus page,
+  the note page's tools and the notifications pager read it.
 */
 :root {
     --app-tab-bar-dock: calc(
@@ -253,6 +253,17 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .focus-page { padding-top: .25rem; }
 /* Pinned above the tab bar, as the task page's footer is. */
 .focus-page .focus__footer { bottom: var(--app-tab-bar-dock); }
+/*
+  The note's tools sit on the tab bar whatever the note's length. A long note pins
+  them above the bar as the task page's footer is pinned. A short one would leave
+  them right under its last line, so the page's main column stretches to the bar,
+  as it does under the notifications pager, the editor fills it, and the row takes
+  the space left above it. The main column's bottom padding goes: it would sit
+  under the row at the end of a long note and lift it off the bar.
+*/
+.content:has(> .note-page) { display: flex; flex-direction: column; padding-bottom: 0; }
+.note-editor.note-page { display: flex; flex: 1; flex-direction: column; }
+.note-page .note-editor__tools { bottom: var(--app-tab-bar-dock); margin-top: auto; }
 .task-page__waiting {
     margin: .5rem 0 0;
     color: var(--color-text-secondary);
@@ -322,7 +333,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .notes__new:hover { background: var(--color-primary-light); color: var(--color-text-inverse); }
 .notes__new:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 3px; }
 
-/* The editor's dictation and attach buttons, and what they leave under the body. */
+/* What the editor's tools leave under the body. */
 .note-page__attached { display: grid; gap: .5rem; }
 
 /* The note's event: what it is attached to, where a request stands, and the picker. */
