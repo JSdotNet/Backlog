@@ -540,6 +540,117 @@ public class ModuleBoundaryTests
     }
 
     /// <summary>
+    /// Events is one module trio (local ADR 0050 §7): <c>Backlog.Modules.Events</c>, its
+    /// <c>.Abstractions</c> and its <c>.UI</c>. The implementation references nothing under
+    /// <c>src/Modules</c> but its own Abstractions — another context's <c>.Abstractions</c> is the
+    /// most ADR 0050 Verification 6 would allow it, and it needs none yet — and no other project
+    /// under <c>src/Modules</c> references the implementation. The generic rules above hold the
+    /// rest; this pins the trio, and its place in the solution and the filter CI builds.
+    /// </summary>
+    [Fact]
+    public void Backlog_Modules_Events_is_one_trio_that_no_other_module_references()
+    {
+        const string module = "Backlog.Modules.Events";
+        const string abstractions = "Backlog.Modules.Events.Abstractions";
+        const string ui = "Backlog.Modules.Events.UI";
+        const string tests = "Backlog.Modules.Events.UnitTests";
+
+        var modules = Repository.ProjectsUnder("src", "Modules")
+            .ToDictionary(project => Path.GetFileNameWithoutExtension(project.Name), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var name in new[] { module, abstractions, ui })
+        {
+            Assert.True(modules.ContainsKey(name), $"{name} is not under src/Modules/Events.");
+            Assert.Equal("Events", modules[name].Directory!.Parent!.Name);
+        }
+
+        var reachedFromTheModule = Repository.ReferencedProjectNames(modules[module])
+            .Where(modules.ContainsKey)
+            .ToList();
+
+        Assert.Equal([abstractions], reachedFromTheModule, StringComparer.OrdinalIgnoreCase);
+
+        var referencingTheModule = modules.Values
+            .Where(project => Repository.ReferencedProjectNames(project).Contains(module, StringComparer.OrdinalIgnoreCase))
+            .Select(project => project.Name)
+            .ToList();
+
+        Assert.True(
+            referencingTheModule.Count == 0,
+            $"{module} is referenced from inside src/Modules; another context reads Events through its .Abstractions: "
+            + string.Join(", ", referencingTheModule));
+
+        var solution = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.sln"));
+        var filter = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.WithoutAppHeads.slnf"));
+
+        foreach (var name in new[] { module, abstractions, ui, tests })
+        {
+            Assert.Contains($"\\{name}.csproj\"", solution, StringComparison.Ordinal);
+            Assert.Contains($"\\\\{name}.csproj\"", filter, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// Calendar is one module trio (local ADR 0055 §6): <c>Backlog.Modules.Calendar</c>, its
+    /// <c>.Abstractions</c> and its <c>.UI</c>, on the Events precedent above. It reads every
+    /// layer through a port it owns, so the core and the UI reach nothing under
+    /// <c>src/Modules</c> but the Calendar's own Abstractions, and the Abstractions reach
+    /// nothing there at all — no Tasks, Roadmap or Events project. And no project under
+    /// <c>src/Modules</c> outside the Calendar's folder references any of the three: the
+    /// sources do not know the Calendar draws them; Tasks offers its part through the shared
+    /// library and Roadmap is read by an infrastructure adapter.
+    /// </summary>
+    [Fact]
+    public void Backlog_Modules_Calendar_is_one_trio_that_no_other_module_references()
+    {
+        const string module = "Backlog.Modules.Calendar";
+        const string abstractions = "Backlog.Modules.Calendar.Abstractions";
+        const string ui = "Backlog.Modules.Calendar.UI";
+        const string tests = "Backlog.Modules.Calendar.UnitTests";
+        string[] trio = [module, abstractions, ui];
+
+        var modules = Repository.ProjectsUnder("src", "Modules")
+            .ToDictionary(project => Path.GetFileNameWithoutExtension(project.Name), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var name in trio)
+        {
+            Assert.True(modules.ContainsKey(name), $"{name} is not under src/Modules/Calendar.");
+            Assert.Equal("Calendar", modules[name].Directory!.Parent!.Name);
+        }
+
+        foreach (var name in new[] { module, ui })
+        {
+            var reached = Repository.ReferencedProjectNames(modules[name])
+                .Where(modules.ContainsKey)
+                .ToList();
+
+            Assert.Equal([abstractions], reached, StringComparer.OrdinalIgnoreCase);
+        }
+
+        Assert.DoesNotContain(Repository.ReferencedProjectNames(modules[abstractions]), modules.ContainsKey);
+
+        var referencingTheTrio = modules.Values
+            .Where(project => project.Directory!.Parent!.Name != "Calendar")
+            .Where(project => Repository.ReferencedProjectNames(project).Any(name => trio.Contains(name, StringComparer.OrdinalIgnoreCase)))
+            .Select(project => project.Name)
+            .ToList();
+
+        Assert.True(
+            referencingTheTrio.Count == 0,
+            "A project under src/Modules references the Calendar; no source context knows the Calendar draws it: "
+            + string.Join(", ", referencingTheTrio));
+
+        var solution = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.sln"));
+        var filter = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.WithoutAppHeads.slnf"));
+
+        foreach (var name in new[] { module, abstractions, ui, tests })
+        {
+            Assert.Contains($"\\{name}.csproj\"", solution, StringComparison.Ordinal);
+            Assert.Contains($"\\\\{name}.csproj\"", filter, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
     /// The join between Capture and the Inbox runs through
     /// <c>Backlog.Infrastructure.Capture</c> and nowhere else: it answers
     /// Capture's ports — declared in the module implementation, next to the
@@ -572,6 +683,283 @@ public class ModuleBoundaryTests
         Assert.Contains(captureModule, references, StringComparer.OrdinalIgnoreCase);
         Assert.Contains(inboxAbstractions, references, StringComparer.OrdinalIgnoreCase);
         Assert.DoesNotContain(inboxModule, references, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Events' cross-context joins are answered in <c>Backlog.Infrastructure.FileSystem</c>,
+    /// under <c>Events/</c>, through Events' <em>published</em> surface and never its
+    /// implementation (local ADR 0050 §3). The Calendar's Events layer moved under
+    /// <c>Calendar/</c> with its port (local ADR 0055 §2); the Calendar scan below holds it
+    /// there.
+    ///
+    /// <para>A project-reference rule cannot draw this line. FileSystem references
+    /// <c>Backlog.Modules.Events.Abstractions</c> and nothing more of Events, but it also
+    /// references <c>Backlog.Infrastructure.Sqlite</c>, which references the Events
+    /// implementation, so <c>KnowledgeEvent</c> and <c>IKnowledgeEventRepository</c> compile
+    /// inside <c>Events/</c>. So this reads the compiled FileSystem assembly: no type in
+    /// that namespace names a type of the <c>Backlog.Modules.Events</c> assembly in its
+    /// base type, interfaces, fields, properties, or method and constructor signatures.
+    /// The assembly is read from where its own build put it, as
+    /// <see cref="ModuleAssemblyReferenceTests"/> reads the modules; a missing one fails and
+    /// says to build first.</para>
+    /// </summary>
+    [Fact]
+    public void Backlog_Infrastructure_FileSystem_answers_events_joins_through_the_events_published_surface()
+    {
+        var reached = TypesNamedFrom(
+            "Backlog.Infrastructure.FileSystem",
+            "Backlog.Infrastructure.FileSystem.Events",
+            out var scanned);
+
+        Assert.Contains("EventsTaskTarget", scanned);
+        Assert.Contains("EventsCrossContextAdapterRegistration", scanned);
+        Assert.DoesNotContain("EventsCalendarEvents", scanned);
+
+        // The adapters do answer Events: through its published task target port.
+        Assert.Contains(reached, entry =>
+            entry.Assembly.Equals(EventsAbstractions, StringComparison.OrdinalIgnoreCase)
+            && entry.Type.EndsWith(".IEventTaskTarget", StringComparison.Ordinal));
+
+        var offenders = reached
+            .Where(entry => entry.Assembly.Equals(EventsImplementation, StringComparison.OrdinalIgnoreCase))
+            .Select(entry => $"{entry.Member} names {entry.Type}")
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            $"Backlog.Infrastructure.FileSystem.Events reads the Events implementation; it reads {EventsAbstractions} only:\n"
+            + string.Join('\n', offenders));
+    }
+
+    /// <summary>
+    /// The scan above is only as good as its reach: one that read no signature would pass on
+    /// any adapter. The Sqlite repository behind Events is the one place that must name the
+    /// Events implementation, so the same scan over it has to find it.
+    /// </summary>
+    [Fact]
+    public void The_events_surface_scan_finds_the_implementation_where_it_is_named()
+    {
+        var reached = TypesNamedFrom(
+            "Backlog.Infrastructure.Sqlite",
+            "Backlog.Infrastructure.Sqlite.Events",
+            out var scanned);
+
+        Assert.Contains("SqliteKnowledgeEventRepository", scanned);
+        Assert.Contains(reached, entry =>
+            entry.Assembly.Equals(EventsImplementation, StringComparison.OrdinalIgnoreCase)
+            && entry.Type.EndsWith(".IKnowledgeEventRepository", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The Calendar's Plans layer, working week and Events layer are answered in
+    /// <c>Backlog.Infrastructure.FileSystem</c>, under <c>Calendar/</c>, through the
+    /// Calendar's own ports and the <em>published</em> surfaces of Roadmap and Events (local
+    /// ADR 0055 §2) — never either's implementation, and nothing of Tasks: the ports moved out
+    /// of Tasks with this module. The same compiled-assembly scan as the events joins above,
+    /// for the same reason: FileSystem reaches Roadmap's and Events' implementations for other
+    /// joins, so a project-reference rule cannot draw the line.
+    /// </summary>
+    [Fact]
+    public void Backlog_Infrastructure_FileSystem_answers_the_calendars_plans_through_roadmaps_published_surface()
+    {
+        var reached = TypesNamedFrom(
+            "Backlog.Infrastructure.FileSystem",
+            "Backlog.Infrastructure.FileSystem.Calendar",
+            out var scanned);
+
+        Assert.Contains("RoadmapCalendarPlans", scanned);
+        Assert.Contains("RoadmapCalendarCapacity", scanned);
+        Assert.Contains("EventsCalendarEvents", scanned);
+        Assert.Contains("CalendarCrossContextAdapterRegistration", scanned);
+
+        // The adapters do answer the Calendar: through its own ports.
+        Assert.Contains(reached, entry =>
+            entry.Assembly.Equals("Backlog.Modules.Calendar.Abstractions", StringComparison.OrdinalIgnoreCase)
+            && entry.Type.EndsWith(".ICalendarPlans", StringComparison.Ordinal));
+        Assert.Contains(reached, entry =>
+            entry.Assembly.Equals("Backlog.Modules.Calendar.Abstractions", StringComparison.OrdinalIgnoreCase)
+            && entry.Type.EndsWith(".ICalendarEvents", StringComparison.Ordinal));
+
+        // The events adapter reads Events through its published reader.
+        Assert.Contains(reached, entry =>
+            entry.Assembly.Equals(EventsAbstractions, StringComparison.OrdinalIgnoreCase)
+            && entry.Type.EndsWith(".IKnowledgeEventReader", StringComparison.Ordinal));
+
+        string[] forbidden = ["Backlog.Modules.Roadmap", EventsImplementation, "Backlog.Modules.Tasks", "Backlog.Modules.Tasks.Abstractions"];
+        var offenders = reached
+            .Where(entry => forbidden.Contains(entry.Assembly, StringComparer.OrdinalIgnoreCase))
+            .Select(entry => $"{entry.Member} names {entry.Type}")
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "Backlog.Infrastructure.FileSystem.Calendar reads Roadmap's or Events' implementation, or Tasks; it reads the "
+            + "Calendar's ports and the published surfaces of Roadmap and Events only:\n"
+            + string.Join('\n', offenders));
+    }
+
+    private const string EventsImplementation = "Backlog.Modules.Events";
+
+    private const string EventsAbstractions = "Backlog.Modules.Events.Abstractions";
+
+    /// <summary>
+    /// Every type the types of <paramref name="ns"/> (and the types nested in them) name in
+    /// their base type, interfaces, fields, properties and method signatures, each with the
+    /// assembly it comes from, read off the compiled <paramref name="assembly"/> without
+    /// loading it. <paramref name="scanned"/> is the names of the top-level types read.
+    /// </summary>
+    private static List<(string Member, string Assembly, string Type)> TypesNamedFrom(
+        string assembly,
+        string ns,
+        out List<string> scanned)
+    {
+        var project = Repository.ProjectsUnder("src", "Infrastructure")
+            .Single(candidate => Path.GetFileNameWithoutExtension(candidate.Name).Equals(assembly, StringComparison.OrdinalIgnoreCase));
+        var testOutput = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var path = Path.Combine(project.DirectoryName!, "bin", testOutput.Parent!.Name, testOutput.Name, assembly + ".dll");
+
+        Assert.True(
+            File.Exists(path),
+            $"{assembly} is not built, so its signatures cannot be read. Build the solution "
+            + $"({testOutput.Parent.Name}, {testOutput.Name}) before running this test: {path}");
+
+        using var stream = File.OpenRead(path);
+        using var image = new System.Reflection.PortableExecutable.PEReader(stream);
+        var metadata = System.Reflection.Metadata.PEReaderExtensions.GetMetadataReader(image);
+        var names = new SignatureNames(metadata);
+
+        var reached = new List<(string Member, string Assembly, string Type)>();
+        scanned = [];
+
+        foreach (var handle in metadata.TypeDefinitions)
+        {
+            var type = metadata.GetTypeDefinition(handle);
+            if (!string.Equals(OuterNamespace(metadata, type), ns, StringComparison.Ordinal)) continue;
+
+            var typeName = metadata.GetString(type.Name);
+            if (type.GetDeclaringType().IsNil) scanned.Add(typeName);
+
+            void Add(string member, string signature)
+            {
+                foreach (var (from, name) in SignatureNames.Parse(signature)) reached.Add(($"{typeName}.{member}", from, name));
+            }
+
+            if (!type.BaseType.IsNil) Add("(base)", names.Of(type.BaseType));
+
+            foreach (var implemented in type.GetInterfaceImplementations())
+            {
+                Add("(interface)", names.Of(metadata.GetInterfaceImplementation(implemented).Interface));
+            }
+
+            foreach (var fieldHandle in type.GetFields())
+            {
+                var field = metadata.GetFieldDefinition(fieldHandle);
+                Add(metadata.GetString(field.Name), field.DecodeSignature(names, null));
+            }
+
+            foreach (var propertyHandle in type.GetProperties())
+            {
+                var property = metadata.GetPropertyDefinition(propertyHandle);
+                var signature = property.DecodeSignature(names, null);
+                Add(metadata.GetString(property.Name), string.Join(' ', [signature.ReturnType, .. signature.ParameterTypes]));
+            }
+
+            foreach (var methodHandle in type.GetMethods())
+            {
+                var method = metadata.GetMethodDefinition(methodHandle);
+                var signature = method.DecodeSignature(names, null);
+                Add(metadata.GetString(method.Name), string.Join(' ', [signature.ReturnType, .. signature.ParameterTypes]));
+            }
+        }
+
+        return reached;
+    }
+
+    /// <summary>The namespace of <paramref name="type"/>, or of the type it is nested in —
+    /// a nested type, such as a closure the compiler wrote, carries none of its own.</summary>
+    private static string OuterNamespace(System.Reflection.Metadata.MetadataReader metadata, System.Reflection.Metadata.TypeDefinition type)
+    {
+        while (!type.GetDeclaringType().IsNil) type = metadata.GetTypeDefinition(type.GetDeclaringType());
+        return metadata.GetString(type.Namespace);
+    }
+
+    /// <summary>
+    /// Writes each type a signature names as <c>[assembly]Namespace.Name</c>, generic
+    /// arguments and element types included, so <see cref="Parse"/> can list every type
+    /// and the assembly it comes from. A type defined in the assembly being read is
+    /// written with an empty assembly.
+    /// </summary>
+    private sealed class SignatureNames(System.Reflection.Metadata.MetadataReader metadata)
+        : System.Reflection.Metadata.ISignatureTypeProvider<string, object?>
+    {
+        private static readonly System.Text.RegularExpressions.Regex Named =
+            new(@"\[(?<assembly>[^\]]*)\](?<type>[A-Za-z0-9_.`+<>]+?)(?=[\[\]<>,&* ]|$)", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        public static IEnumerable<(string Assembly, string Type)> Parse(string signature) =>
+            Named.Matches(signature).Select(match => (match.Groups["assembly"].Value, match.Groups["type"].Value));
+
+        public string Of(System.Reflection.Metadata.EntityHandle handle) => handle.Kind switch
+        {
+            System.Reflection.Metadata.HandleKind.TypeDefinition => GetTypeFromDefinition(metadata, (System.Reflection.Metadata.TypeDefinitionHandle)handle, 0),
+            System.Reflection.Metadata.HandleKind.TypeReference => GetTypeFromReference(metadata, (System.Reflection.Metadata.TypeReferenceHandle)handle, 0),
+            System.Reflection.Metadata.HandleKind.TypeSpecification => GetTypeFromSpecification(metadata, null, (System.Reflection.Metadata.TypeSpecificationHandle)handle, 0),
+            _ => string.Empty
+        };
+
+        public string GetTypeFromDefinition(System.Reflection.Metadata.MetadataReader reader, System.Reflection.Metadata.TypeDefinitionHandle handle, byte rawTypeKind)
+        {
+            var type = reader.GetTypeDefinition(handle);
+            return $"[]{reader.GetString(type.Namespace)}.{reader.GetString(type.Name)}";
+        }
+
+        public string GetTypeFromReference(System.Reflection.Metadata.MetadataReader reader, System.Reflection.Metadata.TypeReferenceHandle handle, byte rawTypeKind)
+        {
+            var type = reader.GetTypeReference(handle);
+            var scope = type.ResolutionScope;
+
+            // A nested type is scoped by the type it is nested in: its assembly is that one's.
+            var outer = type;
+            while (scope.Kind == System.Reflection.Metadata.HandleKind.TypeReference)
+            {
+                outer = reader.GetTypeReference((System.Reflection.Metadata.TypeReferenceHandle)scope);
+                scope = outer.ResolutionScope;
+            }
+
+            var assembly = scope.Kind == System.Reflection.Metadata.HandleKind.AssemblyReference
+                ? reader.GetString(reader.GetAssemblyReference((System.Reflection.Metadata.AssemblyReferenceHandle)scope).Name)
+                : string.Empty;
+
+            return $"[{assembly}]{reader.GetString(outer.Namespace)}.{reader.GetString(type.Name)}";
+        }
+
+        public string GetTypeFromSpecification(System.Reflection.Metadata.MetadataReader reader, object? genericContext, System.Reflection.Metadata.TypeSpecificationHandle handle, byte rawTypeKind) =>
+            reader.GetTypeSpecification(handle).DecodeSignature(this, genericContext);
+
+        public string GetPrimitiveType(System.Reflection.Metadata.PrimitiveTypeCode typeCode) => typeCode.ToString();
+
+        public string GetSZArrayType(string elementType) => elementType + "[]";
+
+        public string GetArrayType(string elementType, System.Reflection.Metadata.ArrayShape shape) => elementType + "[,]";
+
+        public string GetByReferenceType(string elementType) => elementType + "&";
+
+        public string GetPointerType(string elementType) => elementType + "*";
+
+        public string GetPinnedType(string elementType) => elementType;
+
+        public string GetGenericInstantiation(string genericType, System.Collections.Immutable.ImmutableArray<string> typeArguments) =>
+            $"{genericType}<{string.Join(',', typeArguments)}>";
+
+        public string GetGenericMethodParameter(object? genericContext, int index) => "!!" + index;
+
+        public string GetGenericTypeParameter(object? genericContext, int index) => "!" + index;
+
+        public string GetFunctionPointerType(System.Reflection.Metadata.MethodSignature<string> signature) =>
+            string.Join(' ', [signature.ReturnType, .. signature.ParameterTypes]);
+
+        public string GetModifiedType(string modifier, string unmodifiedType, bool isRequired) => $"{unmodifiedType} {modifier}";
     }
 
     /// <summary>

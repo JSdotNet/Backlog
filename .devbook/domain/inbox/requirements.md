@@ -1376,6 +1376,76 @@ The system SHALL make one task per repository for an item assigned to several, g
 - **When** it is moved to the backlog
 - **Then** one task is made, with no "Same capture in:" line and no `#from-inbox-` tag
 
+## Route to Event
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#route-to-event, .devbook/domain/events/requirements.md#to-event-route]
+```
+
+> What the To Event route promises the Inbox item. What the event is made of is in
+> [Events' requirements](../events/requirements.md#to-event-route).
+
+### Requirement: No To Event route while the area is off
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests.While_the_Events_area_is_off_To_Event_is_not_offered_anywhere, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests.The_shortcuts_dialog_lists_e_only_while_the_area_is_on, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.While_the_Events_area_is_off_nothing_is_made_and_the_item_stays, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests.The_route_is_withdrawn_while_the_flag_is_off_or_nothing_is_composed]
+```
+
+The system SHALL offer no To Event route in triage, in the item's detail or on the **e** key while the `events` flag is off.
+
+#### Scenario: Route withdrawn
+
+- **Given** the `events` flag is off
+- **When** the person triages an Inbox item and presses **e**
+- **Then** To Event is not offered and the item stays in the queue
+
+### Requirement: The event joins the Series of its watched page
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.The_event_joins_the_series_whose_page_is_the_watched_page, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.A_routed_item_hands_its_title_link_and_facts_to_Events_and_leaves_the_queue, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests.The_items_title_link_and_facts_reach_Events_part_for_part]
+```
+
+The system SHALL put the event made from an item in the Event Series whose page is the page the item was watched from.
+
+#### Scenario: Techorama again
+
+- **Given** an Event Series "Techorama Netherlands" whose page is techorama.nl, and an item the event page monitor read from techorama.nl
+- **When** the person routes the item To Event
+- **Then** the Spotted event is an edition of "Techorama Netherlands", and no new Series is made
+
+### Requirement: An unknown page starts a Series named after it
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.An_unknown_page_starts_a_series_named_after_it_and_linked_to_it, unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.A_page_with_no_title_names_its_series_after_the_host, unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.An_item_from_no_watched_page_starts_no_series]
+```
+
+The system SHALL start a new Event Series, named after the watched page's title and linked to that page, when no Series has the page the item was watched from.
+
+#### Scenario: The first dotNET Friday
+
+- **Given** no Event Series has the page dotnetfriday.nl, whose title is "dotNET Friday"
+- **When** the person routes an item read from dotnetfriday.nl To Event
+- **Then** a Series "dotNET Friday" linked to dotnetfriday.nl exists, and the Spotted event is its edition
+
+### Requirement: To Event routes once, after the event exists
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.An_Events_store_that_fails_leaves_the_item_open_and_unrouted, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.An_item_already_routed_makes_no_second_event, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests.A_store_that_throws_is_the_event_not_made, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests.An_event_Events_did_not_make_is_said_and_the_item_stays]
+```
+
+The system SHALL mark an item routed To Event, with the event's id, only once Events has made the event.
+
+#### Scenario: Events cannot take it
+
+- **Given** an unprocessed item and an Events store that fails to write
+- **When** the person routes it To Event
+- **Then** the item stays in the queue, unrouted, and the person is told the event was not made
+
 ## Route a batch to Tasks
 
 ```meta

@@ -53,6 +53,12 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// fetches the bytes afterwards. Null or empty for a capture with none, which is
 /// every channel but the phone today.
 /// </para>
+/// <para>
+/// <paramref name="Event"/> is what an event page capture found — dates, place
+/// and the watched page (<c>.devbook/domain/inbox/domain.md#event-facts</c>) — kept
+/// on a new item unchanged and handed over when it is routed To Event. Null for
+/// every other channel. Like the import's facts, it never touches an item already here.
+/// </para>
 /// </summary>
 public sealed record InboxCaptureDto(
     Guid Id,
@@ -68,4 +74,5 @@ public sealed record InboxCaptureDto(
     string? Person = null,
     string? Kind = null,
     Guid? ListId = null,
-    IReadOnlyList<InboxCaptureAttachmentDto>? Attachments = null);
+    IReadOnlyList<InboxCaptureAttachmentDto>? Attachments = null,
+    InboxEventFactsDto? Event = null);

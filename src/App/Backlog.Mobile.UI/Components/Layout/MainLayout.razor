@@ -1,11 +1,13 @@
 @inherits LayoutComponentBase
 @using Backlog.Infrastructure.Sync
+@using Backlog.Mobile.UI.Events
 @using Backlog.Mobile.UI.Notifications
 @using Backlog.Mobile.UI.Progress
 @inject IDeviceCredentialStore Credentials
 @inject SharedContentCapture SharedCapture
 @inject ProgressViewProjection Progress
 @inject NotificationViewProjection Notifications
+@inject EventViewProjection EventView
 @inject AppLifecycle Lifecycle
 @inject SyncCompatibility Compatibility
 @inject NotificationOpenRequests OpenRequests
@@ -56,6 +58,12 @@
     that launched the app before anything was drawn. A tap on the Capture shortcut of the
     launcher icon (CaptureOpenRequests) is followed the same way, to the capture sheet over
     the Inbox.
+
+    The Events tab sits after Stand-up and before Notes once the phone holds a knowledge
+    event (EventViewProjection.HoldsAny): a desktop pushes events only with its events
+    feature on, so a phone whose desktops have it off never shows the tab (local ADR 0050
+    §6). The layout pulls the event feed with the others - once drawn, on every return to
+    the front and on a new pairing - so the tab appears on whichever tab the app is on.
 *@
 
 <div class="page">
@@ -107,7 +115,10 @@
     private static readonly RenderFragment NotesGlyph = @<StickyNoteIcon Size="20" />;
     private static readonly RenderFragment NotificationsGlyph = @<BellIcon Size="20" />;
 
+    private static readonly RenderFragment EventsGlyph = @<CalendarIcon Size="20" />;
+
     private static readonly NavItem NotificationsTab = new("notifications", "Notifications", Icon: NotificationsGlyph);
+    private static readonly NavItem EventsTab = new("events", "Events", Icon: EventsGlyph);
 
     private static readonly IReadOnlyList<NavItem> TabsWithoutStandUp =
     [
@@ -126,6 +137,7 @@
 
     private bool _pullingProgress;
     private bool _pullingNotifications;
+    private bool _pullingEvents;
     private AppUpdateControl? _updates;
     private IDisposable? _openRequests;
     private IDisposable? _captureRequests;
@@ -135,6 +147,10 @@
         get
         {
             var tabs = Progress.HoldsStandUp ? TabsWithStandUp : TabsWithoutStandUp;
+
+            // Last before Notes, which keeps the bar's end: after the stand-up, events are
+            // what a person looks ahead to, and a note taken at one is a tap away.
+            if (EventView.HoldsAny) tabs = [.. tabs.SkipLast(1), EventsTab, tabs[^1]];
 
             // After Inbox: both are what reached the phone, and a question waiting is the
             // tab a person comes back for.
@@ -149,6 +165,7 @@
         Credentials.Changed += OnCredentialsChanged;
         Progress.Changed += OnProgressChanged;
         Notifications.Changed += OnNotificationsChanged;
+        EventView.Changed += OnEventsChanged;
         Lifecycle.Resumed += OnResumed;
         Compatibility.Changed += OnCompatibilityChanged;
     }
@@ -169,6 +186,8 @@
     private void OnProgressChanged() => _ = InvokeAsync(StateHasChanged);
 
     private void OnNotificationsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnEventsChanged() => _ = InvokeAsync(StateHasChanged);
 
     private void OnResumed() => _ = InvokeAsync(PullAllAsync);
 
@@ -193,7 +212,31 @@
         await PullAllAsync();
     }
 
-    private Task PullAllAsync() => Task.WhenAll(PullProgressAsync(), PullNotificationsAsync());
+    private Task PullAllAsync() => Task.WhenAll(PullProgressAsync(), PullNotificationsAsync(), PullEventsAsync());
+
+    /// <summary>
+    /// Pulls the knowledge event feed while a paired phone is on screen, so the Events tab
+    /// appears without the person having to find it. One pull at a time; a failure leaves the
+    /// bar as the phone last knew it, and the Events page is where it is put in words.
+    /// </summary>
+    private async Task PullEventsAsync()
+    {
+        if (_pullingEvents || !Paired) return;
+        _pullingEvents = true;
+
+        try
+        {
+            await EventView.PullAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Said on the Events page; tried again on the next resume.
+        }
+        finally
+        {
+            _pullingEvents = false;
+        }
+    }
 
     /// <summary>
     /// Pulls the notification feed while a paired phone is on screen — on open and on every
@@ -250,6 +293,7 @@
         Credentials.Changed -= OnCredentialsChanged;
         Progress.Changed -= OnProgressChanged;
         Notifications.Changed -= OnNotificationsChanged;
+        EventView.Changed -= OnEventsChanged;
         Lifecycle.Resumed -= OnResumed;
         Compatibility.Changed -= OnCompatibilityChanged;
         _openRequests?.Dispose();

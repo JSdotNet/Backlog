@@ -1,0 +1,231 @@
+@page "/events/{Id:guid}"
+@using System.Globalization
+@using Backlog.Mobile.UI.Components.Events
+@using Backlog.Mobile.UI.Events
+@using Backlog.Mobile.UI.Notes
+@using Backlog.Modules.Events.Abstractions
+@inject EventViewProjection EventView
+@inject NoteViewProjection Notes
+@inject AppLifecycle Lifecycle
+@implements IDisposable
+
+@*
+    One knowledge event, opened from the Events tab
+    (.devbook/domain/events/requirements.md#events-on-the-phone): its state and
+    series, when it runs (the start and end, with the time the desktop gave),
+    where (a venue, online, or both), its link, the key dates, what the person
+    wants to learn there and the notes linked to it.
+
+    Read only, with no input and no button that changes anything: the phone
+    never edits an event (local ADR 0050 §2). The link leaves for the browser.
+    A Talk note opens on the phone when the phone holds it; a Brain note is
+    named by its title only, because the Brain lives on the desktop.
+
+    Pulled on open and on every return to the front, as the list is, so a note
+    attached from the phone appears here once a desktop has applied it.
+*@
+
+<PageTitle>@(Item?.Title ?? "Event")</PageTitle>
+
+<nav class="standup-back" aria-label="Event">
+    <a class="standup-back__link" href="@EventText.ListHref" aria-label="Back to events" data-testid="event-back">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" /></svg>
+    </a>
+    <span class="standup-back__title">Event</span>
+</nav>
+
+@if (Item is { } item)
+{
+    var dto = item.Event;
+    var where = EventText.Where(dto);
+    var link = EventText.ExternalLink(dto.Link);
+
+    <article class="event-page" data-testid="event-page">
+        <div class="standup-detail__head">
+            <h1 data-testid="event-title">@item.Title</h1>
+            <span class="standup-detail__line">
+                <StatusBadge Status="@EventText.StateTone(item.State)" Text="@EventText.StateLabel(item.State)"
+                             Title="@($"State: {EventText.StateLabel(item.State)}")" TestId="event-state" />
+                @if (!string.IsNullOrWhiteSpace(item.SeriesName))
+                {
+                    <span data-testid="event-series">@item.SeriesName</span>
+                }
+            </span>
+        </div>
+
+        @if (item.State == KnowledgeEventState.Skipped && !string.IsNullOrWhiteSpace(dto.SkipReason))
+        {
+            <Alert Message="@($"Skipped: {dto.SkipReason}")" Role="status" BaseClass="capture__notice" TestId="event-skip-reason" />
+        }
+
+        <dl class="event-page__facts" data-testid="event-facts">
+            @if (dto.Start is { } start)
+            {
+                <dt>@(dto.End is null ? "On" : "Starts")</dt>
+                <dd data-testid="event-start">@EventText.Day(start)</dd>
+            }
+            else
+            {
+                <dt>When</dt>
+                <dd data-testid="event-start">Date not known</dd>
+            }
+            @if (dto.End is { } end)
+            {
+                <dt>Ends</dt>
+                <dd data-testid="event-end">@EventText.Day(end)</dd>
+            }
+            @if (where is not null)
+            {
+                <dt>Where</dt>
+                <dd data-testid="event-where">@where</dd>
+            }
+            @if (!string.IsNullOrWhiteSpace(dto.Link))
+            {
+                <dt>Link</dt>
+                <dd>
+                    @if (link is not null)
+                    {
+                        @* Another site: the browser, not this app, opens it. *@
+                        <a href="@link.AbsoluteUri" target="_blank" rel="noopener noreferrer" class="event-page__link"
+                           data-testid="event-link">@dto.Link.Trim()</a>
+                    }
+                    else
+                    {
+                        <span data-testid="event-link-text">@dto.Link.Trim()</span>
+                    }
+                </dd>
+            }
+        </dl>
+
+        @if (dto.KeyDates.Count > 0)
+        {
+            <section class="standup__block" aria-labelledby="event-key-dates-title" data-testid="event-key-dates">
+                <h2 class="standup__block-title" id="event-key-dates-title">Key dates</h2>
+                <ul class="event-page__list">
+                    @foreach (var keyDate in dto.KeyDates.OrderBy(keyDate => keyDate.Date))
+                    {
+                        <li class="event-page__key-date" data-testid="event-key-date">
+                            <span class="event-page__key-day">@keyDate.Date.ToString("ddd d MMM yyyy", CultureInfo.InvariantCulture)</span>
+                            <span>@keyDate.Label</span>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(dto.WhatToLearn))
+        {
+            <section class="standup__block" aria-labelledby="event-learn-title" data-testid="event-what-to-learn">
+                <h2 class="standup__block-title" id="event-learn-title">What to learn</h2>
+                <p class="event-page__prose">@dto.WhatToLearn</p>
+            </section>
+        }
+
+        <section class="standup__block" aria-labelledby="event-notes-title" data-testid="event-notes">
+            <h2 class="standup__block-title" id="event-notes-title">Notes</h2>
+            @if (dto.Notes.Count == 0)
+            {
+                <EmptyState Title="No notes yet"
+                            Description="Open a note in the Notes tab to attach it to this event."
+                            TestId="event-notes-none" />
+            }
+            else
+            {
+                <ul class="event-page__list">
+                    @foreach (var note in dto.Notes)
+                    {
+                        <li class="event-page__note" data-testid="event-note" data-kind="@note.Kind.ToString().ToLowerInvariant()">
+                            @if (HeldTalkNote(note.Kind, note.Reference) is { } noteId)
+                            {
+                                <a href="@($"notes/{noteId:D}")" data-testid="event-note-open">@NoteTitle(note.Title)</a>
+                            }
+                            else
+                            {
+                                <span data-testid="event-note-title">@NoteTitle(note.Title)</span>
+                            }
+                            <span class="event-page__note-kind">@(note.Kind == NoteLinkKind.Brain ? "Brain" : "Talk note")</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    </article>
+}
+else if (_pulled)
+{
+    <EmptyState Title="This event isn't on this phone"
+                Description="It may not have reached this phone yet."
+                TestId="event-missing">
+        <Action>
+            <a href="@EventText.ListHref">Back to events</a>
+        </Action>
+    </EmptyState>
+}
+else
+{
+    <Spinner Label="Loading the event" />
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private bool _pulled;
+    private bool _pulling;
+
+    private PhoneEvent? Item => EventView.Find(Id);
+
+    /// <summary>The Inbox note a Talk link names when this phone holds it, else null: only then
+    /// is there a page to open.</summary>
+    private Guid? HeldTalkNote(NoteLinkKind kind, string reference) =>
+        kind == NoteLinkKind.Talk && Guid.TryParse(reference, out var noteId) && Notes.Find(noteId) is not null
+            ? noteId
+            : null;
+
+    private static string NoteTitle(string title) => string.IsNullOrWhiteSpace(title) ? "Untitled note" : title;
+
+    protected override void OnInitialized()
+    {
+        EventView.Changed += OnChanged;
+        Notes.Changed += OnChanged;
+        Lifecycle.Resumed += OnResumed;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await PullAsync();
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnResumed() => _ = InvokeAsync(PullAsync);
+
+    private async Task PullAsync()
+    {
+        if (_pulling) return;
+        _pulling = true;
+
+        try
+        {
+            await EventView.PullAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Drawn as the phone last saw it; the list says why it is stale.
+        }
+        finally
+        {
+            _pulling = false;
+            _pulled = true;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        EventView.Changed -= OnChanged;
+        Notes.Changed -= OnChanged;
+        Lifecycle.Resumed -= OnResumed;
+    }
+}

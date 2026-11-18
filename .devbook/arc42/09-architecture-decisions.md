@@ -128,6 +128,8 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0044 — A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container](adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md) (proposed)
 - [ADR 0046 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md) (proposed)
 - [ADR 0047 — The Domain view reads by unit](adr/0047-the-domain-view-reads-by-unit.md)
+- [ADR 0050 — Events is its own bounded context](adr/0050-events-is-its-own-bounded-context.md) (proposed)
 - [ADR 0052 — The app may write links into a Brain note and move a finished project note to the archive](adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md) (proposed; amends ADR 0026 §3 and ADR 0040 §3 and §4)
 - [ADR 0053 — A plan or a task may reference a Brain note](adr/0053-a-plan-or-a-task-may-reference-a-brain-note.md) (proposed; amends ADR 0027 §6)
 - [ADR 0054 — Clarify outcomes follow GTD, and each item has one home](adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md) (proposed; amends ADR 0026 §2 and §3)
+- [ADR 0055 — Calendar is a surface of its own that reads layers](adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md) (proposed, Tasks, Plans and Events layers built)

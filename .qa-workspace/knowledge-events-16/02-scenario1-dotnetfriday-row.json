@@ -1,0 +1,14 @@
+{
+  "scenario": "1 reproduction",
+  "capturedAt": "2026-11-17T21:04:09.372Z",
+  "harness": "http://127.0.0.1:52974/",
+  "row": {
+    "group": "Going",
+    "testId": "events-row-01a1ccb0fa32753481fd4984b52cd5ed",
+    "title": "DotnetFriday Meetup - 27 november 2026",
+    "line": "27 Nov 2026 16:30 · DotnetFriday · Nieuwegein"
+  },
+  "expected": "27 Nov 2026 16:30 · DotnetFriday · Nieuwegein",
+  "before": "27 Nov 2026 16:30 – 27 Nov 2026 · DotnetFriday · Nieuwegein",
+  "pass": true
+}

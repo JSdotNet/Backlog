@@ -130,6 +130,34 @@ public sealed class CloudSyncClient(HttpClient http)
             ?? new PullNotificationsResponse([], since ?? string.Empty, HasMore: false);
     }
 
+    /// <summary>
+    /// One page of the owner's knowledge event feed from <paramref name="since"/>, or from the
+    /// beginning when it is null (local ADR 0050 §2) — the same paging and the same
+    /// <see cref="SyncUnavailableException"/> as <see cref="PullTasksAsync"/>. Null when the
+    /// service answers a bare 404: one deployed before the feed, which has nothing yet rather
+    /// than a failure to report.
+    /// </summary>
+    public async Task<PullKnowledgeEventsResponse?> PullKnowledgeEventsAsync(string? since, CancellationToken ct = default)
+    {
+        var route = SyncRoutes.Absolute(SyncRoutes.KnowledgeEvents);
+        route = string.IsNullOrWhiteSpace(since)
+            ? $"{route}?maxItems={PullPageSize}"
+            : $"{route}?maxItems={PullPageSize}&since={Uri.EscapeDataString(since)}";
+
+        using var response = await http.GetAsync(route, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var problem = await SyncProblem.ReadAsync(response, ct);
+            if (response.StatusCode == HttpStatusCode.NotFound && problem.Code is null) return null;
+
+            throw new SyncUnavailableException(response.StatusCode, problem.Code, problem.Detail);
+        }
+
+        return await response.Content.ReadFromJsonAsync<PullKnowledgeEventsResponse>(ct)
+            ?? new PullKnowledgeEventsResponse([], since ?? string.Empty, HasMore: false);
+    }
+
     /// <summary>One attempt at one reply to a question: the status, and the problem's
     /// detail when it failed. Throws only when there was no answer at all. Posting the
     /// same reply id twice stores it once, so a retry is safe.</summary>

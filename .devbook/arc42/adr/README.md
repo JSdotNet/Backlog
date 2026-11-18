@@ -48,7 +48,7 @@ between inherited ADRs 0005 and 0009.
 - **[0019 — The roadmap counts the person's working week in hours, and the week travels with the pace](0019-roadmap-counts-the-working-week.md)** *(proposed; amends 0013 and 0018)*
 - **[0020 — Items from GitHub and spec-manager arrive as linked tasks, through one connector contract](0020-external-items-arrive-as-linked-tasks.md)**
 - **[0021 — The GitHub accounts and the repository registry ride the task feed as two whole documents](0021-github-accounts-and-repository-registry-ride-the-task-feed.md)** *(accepted, built; amends 0005)*
-- **[0022 — The desktop shell shows one main view, picked by a view switch, and takeovers replace it](0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md)** *(accepted, built; §2's In progress view superseded by 0035)*
+- **[0022 — The desktop shell shows one main view, picked by a view switch, and takeovers replace it](0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md)** *(accepted, built; §2's In progress view superseded by 0035; §1's Calendar as a Tasks layout superseded by 0055)*
 - **[0023 — Inbox items may be read by the Foundry model](0023-inbox-items-may-be-read-by-the-foundry-model.md)** *(accepted, built but for Ask again; reverses the "no model reads the item" line of the Inbox features)*
 - **[0024 — Claude Code's telemetry arrives as OTLP/HTTP logs on the in-app MCP listener](0024-claude-code-telemetry-arrives-on-the-mcp-listener.md)** *(accepted; extends 0012)*
 - **[0025 — Notes ride the task feed as a second Inbox document kind, synced both ways](0025-notes-ride-the-task-feed.md)** *(proposed, built; extends 0009)*
@@ -76,9 +76,11 @@ between inherited ADRs 0005 and 0009.
 - **[0047 — The Domain view reads by unit](0047-the-domain-view-reads-by-unit.md)** *(proposed, built behind the `devbook-domain-view` switch)*
 - **[0048 — Meeting audio is recorded as AAC in an ADTS stream](0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md)** *(proposed, not yet built; beside 0014 and 0045)*
 - **[0049 — The desktop transcribes a meeting recording through Foundry, appends the transcript to the note, then removes the audio](0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md)** *(proposed, not yet built; amends 0023 and 0014, beside 0045)*
+- **[0050 — Events is its own bounded context](0050-events-is-its-own-bounded-context.md)** *(proposed, specification only; §7's events layer moves to the Calendar by 0055)*
 - **[0052 — The app may write links into a Brain note and move a finished project note to the archive](0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md)** *(proposed, built; amends 0026 §3 and 0040 §3 and §4, leaves 0027 §6)*
 - **[0053 — A plan or a task may reference a Brain note](0053-a-plan-or-a-task-may-reference-a-brain-note.md)** *(proposed, built; amends 0027 §6, builds on 0052)*
 - **[0054 — Clarify outcomes follow GTD, and each item has one home](0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md)** *(proposed, built; amends 0026 §2 and §3, adds a tool to 0012's Inbox group)*
+- **[0055 — Calendar is a surface of its own that reads layers](0055-calendar-is-a-surface-of-its-own-that-reads-layers.md)** *(proposed, Tasks and Plans layers built; supersedes 0022 §1 for the Calendar)*
 
 ## Inherited decisions
 

@@ -6,7 +6,7 @@
 ## Storage and Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/arc42/06-runtime-view.md#talk-note-attach"]
 ```
 
 - **Local-first, one canonical local store.** The desktop's own store is the single
@@ -38,6 +38,8 @@ Optional cloud sync carries this state between a person's devices. Every kind ri
 | Session records | a record in the `sessions` container | not reconciled: one machine writes each ([Session Record Sync](#session-record-sync)) | local ADR 0005 |
 | Remarks on devbook chapters | a remark in the `annotations` container | the task container's last-write-wins and tombstone terms | local ADR 0011 |
 | Devbook subject state | one document per subject in the `devbookSubjects` container, under an id every device derives alike | the later `updatedAt` wins whole, a tie changes nothing, and nothing is deleted | local ADR 0044 |
+| Knowledge event and event series | a document in the `knowledgeEvents` container, kind `knowledge-event` or `event-series` | the later `updatedAt` wins whole, a tie changes nothing, and nothing is deleted | local ADR 0050 |
+| Event attachment request | kind `event-attachment-request` in `tasks`, written by the phone | a desktop with Events on applies it, then tombstones it; others hold it | local ADR 0050, on ADR 0035 §8's terms |
 | Notifications and replies | a notification in the `notifications` container, a reply in `notificationReplies` | not reconciled; see [Notifications](#notifications) | local ADR 0039 |
 
 - **The phone's impediment edits go through the device outbox.**
@@ -95,11 +97,12 @@ found. `spend-cache` holds Claude Code days and Copilot months that are over.
 established. Each is keyed per author, login, actor or file, so a second identity
 never reads the first's. None may sit under the workspace root: a per-machine cache carried by a file-sync product is the hazard `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` removes.
 
-- **Eight containers in the cloud.** Six are replicas, all partitioned on `/ownerId`:
+- **Nine containers in the cloud.** Seven are replicas, all partitioned on `/ownerId`:
   - `tasks`
   - `sessions`
   - `annotations`
   - `devbookSubjects`
+  - `knowledgeEvents`
   - `notifications`
   - `notificationReplies`
 
@@ -109,7 +112,8 @@ never reads the first's. None may sit under the workspace root: a per-machine ca
   whole session records after 12 months, set on the `sessions` container. It
   expires a notification 30 days after it settled, and an unprocessed reply after
   30 days, both stamped per document. The `devbookSubjects` container has no TTL,
-  because a subject's state is never deleted. Nothing reaps, so no scheduled job can fail silently.
+  because a subject's state is never deleted. Nor has `knowledgeEvents`, because
+  an event is never deleted on the feed. Nothing reaps, so no scheduled job can fail silently.
 - **The sync service, not the store, keeps a device inside its own data.** The
   service holds an account-scoped managed identity and can see every partition of
   every container. Service code confines a device: it reads the `ownerId` out of

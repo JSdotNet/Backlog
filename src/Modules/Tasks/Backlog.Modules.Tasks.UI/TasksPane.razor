@@ -589,6 +589,17 @@
                             }
                         </div>
                     }
+                    else if (Body is { } body)
+                    {
+                        @* A body the hosting view draws in place of the list: the same
+                           filtered rows under the same filter bar and beside the same
+                           detail panel, laid out its own way — the Calendar's Tasks
+                           layer, which places them by due date. It takes the empty
+                           filter result too: an empty month and an empty tray, rather
+                           than the list's empty state, when the month bar is still the
+                           thing to use. *@
+                        @body(_body)
+                    }
                     else if (Layout == TasksLayout.Board)
                     {
                         @* The Board view: the same filtered rows, in columns, under the
@@ -638,38 +649,6 @@
                                 }
                             </Badges>
                         </TaskBoard>
-                    }
-                    else if (Layout == TasksLayout.Calendar)
-                    {
-                        @* The Calendar view: the same filtered rows, placed by due date,
-                           under the same filter bar and beside the same detail panel. A
-                           chip opens its entry the way a row does; a drop writes the
-                           due date the way the detail panel's Due row does. An empty
-                           filter result is an empty month and an empty tray rather
-                           than the list's empty state — the month bar is still the
-                           thing to use. *@
-                        <TaskCalendar @ref="_calendar"
-                                      Tasks="@CalendarTasks()"
-                                      Today="@Today"
-                                      Range="@CalendarRange"
-                                      RangeChanged="OnCalendarRangeChangedAsync"
-                                      MyDayCount="@MyDayCount"
-                                      SelectedId="@SelectedTaskId"
-                                      OnOpen="OnEntrySelectedAsync"
-                                      OnDueChanged="OnCalendarDueChangedAsync"
-                                      PlansAvailable="@CalendarPlansAvailable"
-                                      ShowPlans="@(_calendarPlans?.Shown ?? false)"
-                                      ShowPlansChanged="OnShowPlansChangedAsync"
-                                      Plans="@CalendarPlanWindows()"
-                                      Milestones="@CalendarMilestones()"
-                                      ShelfPlans="@CalendarShelf()"
-                                      OnPlanStarted="OnCalendarPlanStartedAsync"
-                                      HoursAvailable="true"
-                                      HoursBlocks="@CalendarHoursBlocks()"
-                                      CapacityOn="@CalendarCapacityOn"
-                                      OnHoursChanged="OnCalendarHoursChangedAsync"
-                                      AriaLabel="Tasks by due date"
-                                      TestId="task-calendar" />
                     }
                     else if (State.FilteredRows.Count == 0)
                     {
@@ -943,26 +922,18 @@
     /// only honest way to reach one.</summary>
     private TaskListView? _list;
 
-    /// <summary>The month calendar while the pane is in its Calendar layout; the
-    /// focus goes back to its selected chip where it would go back to a row.</summary>
-    private TaskCalendar? _calendar;
-
-    /// <summary>How much of the calendar shows — its Month | Week control. The shell
-    /// holds the choice, as it holds the Board's columns, and hands it back here.</summary>
+    /// <summary>
+    /// What a hosting view draws under the filter bar in place of the list, the Board and
+    /// the empty state — the Calendar's Tasks layer (local ADR 0055 §3) — or null for the
+    /// pane's own <see cref="Layout"/>. It is handed <see cref="TasksPaneBody"/>, the little
+    /// of the pane a body needs; everything else is the window's
+    /// <see cref="TasksDesktopState"/>, which the body injects as the pane does.
+    /// </summary>
     [Parameter]
-    public CalendarRange CalendarRange { get; set; } = CalendarRange.Month;
+    public RenderFragment<TasksPaneBody>? Body { get; set; }
 
-    /// <summary>Raised when the reader picks the other range in the calendar's bar.</summary>
-    [Parameter]
-    public EventCallback<CalendarRange> CalendarRangeChanged { get; set; }
-
-    private async Task OnCalendarRangeChangedAsync(CalendarRange range)
-    {
-        // Taken at once, as the Board's columns are, so a host that does not hand
-        // the choice back still sees the calendar keep it.
-        CalendarRange = range;
-        await CalendarRangeChanged.InvokeAsync(range);
-    }
+    /// <summary>The pane as a <see cref="Body"/> sees it, built once.</summary>
+    private TasksPaneBody _body = null!;
 
     /// <summary>The open entry's panel, held for the same reason and in the other
     /// direction: it is where the focus goes when the reader tabs off the selected
@@ -1004,9 +975,10 @@
         "#backlog-pane .task-item__copy",
         // The open entry's own card on the Board, pressed again: it is the entry.
         "#backlog-pane .task-card[aria-current='true']",
-        // The calendar's month bar and a day's "+N more" move around the month and
-        // say nothing about the open entry; the open entry's own chip or tray item
-        // is the entry, pressed or picked up to move it.
+        // The Calendar body's month bar and a day's "+N more" move around the month
+        // and say nothing about the open entry; the open entry's own chip or tray
+        // item is the entry, pressed or picked up to move it. Named here rather than
+        // handed in by the body: they match nothing while no calendar is drawn.
         "#backlog-pane .task-calendar__bar",
         "#backlog-pane .task-calendar__more",
         "#backlog-pane [data-calendar-task][aria-current='true']",
@@ -1080,15 +1052,11 @@
     protected override void OnInitialized()
     {
         _pickerEntry = State.SelectedRow;
+        _body = new TasksPaneBody(EntryDisplayTitle, OnEntrySelectedAsync);
         State.Changed += HandleStateChanged;
         Features.Changed += HandleFeaturesChanged;
 
-        _calendarPlans = Services.GetService(typeof(ICalendarPlans)) as ICalendarPlans;
-        if (_calendarPlans is not null) _calendarPlans.Changed += HandleCalendarPlansChanged;
         _brainAreaNames = Services.GetService(typeof(IBrainAreaNames)) as IBrainAreaNames;
-
-        _calendarCapacity = Services.GetService(typeof(ICalendarCapacity)) as ICalendarCapacity;
-        if (_calendarCapacity is not null) _calendarCapacity.Changed += HandleCalendarCapacityChanged;
 
         _sessionRequests = new TasksSessionRequests(
             Services.GetService(typeof(IEntrySessionRequests)) as IEntrySessionRequests,
@@ -1228,15 +1196,19 @@
 
     private async Task FocusSelectedRowAsync()
     {
-        if (Layout switch { TasksLayout.Board => _board is null, TasksLayout.Calendar => _calendar is null, _ => _list is null }) return;
+        // A body draws in place of the list and the Board, so its own hook is the one asked.
+        Func<Task>? focus = Body is not null
+            ? _body.FocusSelected
+            : Layout == TasksLayout.Board
+                ? (_board is { } board ? board.FocusSelectedAsync : null)
+                : (_list is { } list ? list.FocusSelectedAsync : null);
+        if (focus is null) return;
 
         _focusingSelectedRow = true;
 
         try
         {
-            if (Layout == TasksLayout.Board) await _board!.FocusSelectedAsync();
-            else if (Layout == TasksLayout.Calendar) await _calendar!.FocusSelectedAsync();
-            else await _list!.FocusSelectedAsync();
+            await focus();
         }
         finally
         {
@@ -1316,16 +1288,11 @@
             _ => false
         };
 
-    /// <summary>A feature switched — the roadmap among them — so the Calendar's plans are
-    /// read again before it next draws them.</summary>
+    /// <summary>A feature switched: the pane draws again. The Calendar's plans and events
+    /// are the Calendar's own to read again.</summary>
     private void HandleFeaturesChanged()
     {
-        _calendarPlansStale = true;
-        _ = InvokeAsync(async () =>
-        {
-            if (Layout == TasksLayout.Calendar) await ReadCalendarPlansAsync();
-            StateHasChanged();
-        });
+        _ = InvokeAsync(StateHasChanged);
 
         // The session-requests switch turned on reads the queue now rather than at
         // the next poll, so a request made before it was turned off shows at once.
@@ -1348,96 +1315,11 @@
     [Parameter]
     public EventCallback<string> OnOpenSession { get; set; }
 
-    /// <summary>How the entries under the filter bar are laid out — the list, the board
-    /// or the month calendar. The shell's view switch picks it.</summary>
+    /// <summary>How the entries under the filter bar are laid out — the list or the
+    /// board — when no <see cref="Body"/> is handed in. The shell's view switch picks
+    /// it.</summary>
     [Parameter]
     public TasksLayout Layout { get; set; } = TasksLayout.List;
-
-    /// <summary>
-    /// The filtered entries, as the month calendar needs them: by due date, with the
-    /// lifecycle behind the status dot and the repository mark — which
-    /// <c>RepositoryMarkClass</c> already withholds while the colours are hidden.
-    /// A recurring entry is placed on its due date alone; the next occurrence is
-    /// written when this one is ticked off, so there is no series to draw.
-    /// </summary>
-    private IReadOnlyList<CalendarTask> CalendarTasks() =>
-        [.. State.FilteredRows.Select(row => new CalendarTask(
-            EntryTaskId(row),
-            EntryDisplayTitle(row),
-            row.PreviewDueOn,
-            CalendarStateOf(row),
-            Repeats: row.PreviewRecurrence is not null,
-            CssClass: State.RepositoryMarkClass(row),
-            Effort: FormatEffort(row.PreviewEffort)))];
-
-    /// <summary>The tick wins over the lifecycle, as it does on the list: an entry
-    /// ticked off is done whatever status its text still names.</summary>
-    private static CalendarTaskState CalendarStateOf(EntryRow row) =>
-        row.IsPreviewCompleted
-            ? CalendarTaskState.Done
-            : row.PreviewStatus switch
-            {
-                EntryStatus.Ready => CalendarTaskState.Ready,
-                EntryStatus.InProgress => CalendarTaskState.InProgress,
-                EntryStatus.Done => CalendarTaskState.Done,
-                EntryStatus.Archived => CalendarTaskState.Archived,
-                _ => CalendarTaskState.Draft
-            };
-
-    /// <summary>A task dropped on a day: that day becomes its due date, through the
-    /// same write the detail panel's Due row makes.</summary>
-    private async Task OnCalendarDueChangedAsync(CalendarDueChange change)
-    {
-        if (EntryFor(change.TaskId) is { } row) await State.ChangeDueAsync(row, change.DueOn);
-    }
-
-    // --- Planned hours on the Calendar -------------------------------------------
-
-    /// <summary>
-    /// The hours a Calendar day is set against — the roadmap's working week and days
-    /// off, through Tasks' own port, read-only — or null in a host that composed none,
-    /// when a day total stands alone and is never over.
-    /// </summary>
-    private ICalendarCapacity? _calendarCapacity;
-
-    /// <summary>Every block of planned hours in the filtered rows, each on its day: the
-    /// filter bar narrows them as it narrows the chips, and the repository mark follows
-    /// the colours switch through <c>RepositoryMarkClass</c>, as a chip's does.</summary>
-    private IReadOnlyList<CalendarHoursBlock> CalendarHoursBlocks() =>
-        [
-            .. State.FilteredPlannedHours().Select(held => new CalendarHoursBlock(
-                EntryTaskId(held.Row),
-                EntryDisplayTitle(held.Row),
-                held.Block.On,
-                held.Block.Hours,
-                State.RepositoryMarkClass(held.Row)))
-        ];
-
-    private Func<DateOnly, decimal?>? CalendarCapacityOn =>
-        _calendarCapacity is { } capacity ? day => capacity.HoursOn(day) : null;
-
-    /// <summary>Hours set, changed or removed on a Calendar day: written to the entry
-    /// through the module, as the detail panel's Planned hours writes them. The
-    /// roadmap is not told — the blocks are the person's own plan.</summary>
-    private async Task OnCalendarHoursChangedAsync(CalendarHoursChange change)
-    {
-        if (EntryFor(change.TaskId) is not { } row) return;
-
-        // A task not saved yet has nowhere to keep hours; say so rather than drop them.
-        if (!row.IsPersisted)
-        {
-            Toasts.Publish(ToastMessage.Warning("Save the task before planning hours on it.", "calendar-hours-unsaved"));
-            return;
-        }
-
-        await State.SetPlannedHoursAsync(row, change.On, change.Hours);
-    }
-
-    private void HandleCalendarCapacityChanged()
-    {
-        if (Layout != TasksLayout.Calendar) return;
-        _ = InvokeAsync(StateHasChanged);
-    }
 
     // --- Session requests (local ADR 0038) ---------------------------------
 
@@ -1999,128 +1881,6 @@
         }
 
         return -1;
-    }
-
-    /// <summary>
-    /// The roadmap's plans for the Calendar, through Tasks' own port — null in a host
-    /// that composed no roadmap, when the Calendar offers no plans at all. The port's
-    /// adapter reads Roadmap's abstractions; nothing here sizes or places a window.
-    /// </summary>
-    private ICalendarPlans? _calendarPlans;
-
-    /// <summary>The plans as last read, and whether a read is owed before the Calendar
-    /// next draws them.</summary>
-    private Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto _calendarPlansRead =
-        Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto.Empty;
-    private bool _calendarPlansStale = true;
-    private DateOnly? _calendarPlansReadOn;
-    private TasksLayout? _calendarPlansLayout;
-
-    private bool CalendarPlansAvailable => _calendarPlans is not null && _calendarPlansRead.Available;
-
-    /// <summary>
-    /// Reads the plans while the Calendar shows them: on arriving at the Calendar, when
-    /// the plan, its work or the pace changed, and when the day did — not on every
-    /// render, because reading gathers the backlog per plan.
-    /// </summary>
-    protected override async Task OnParametersSetAsync()
-    {
-        var arrived = _calendarPlansLayout != Layout && Layout == TasksLayout.Calendar;
-        _calendarPlansLayout = Layout;
-
-        if (Layout == TasksLayout.Calendar && (arrived || _calendarPlansStale || _calendarPlansReadOn != Today))
-        {
-            await ReadCalendarPlansAsync();
-        }
-    }
-
-    private async Task ReadCalendarPlansAsync()
-    {
-        if (_calendarPlans is null) return;
-
-        _calendarPlansStale = false;
-        _calendarPlansReadOn = Today;
-        try
-        {
-            _calendarPlansRead = await _calendarPlans.ReadAsync(Today);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // A plan that cannot be read — a file gone, a document that does not parse —
-            // leaves the tasks on the Calendar; the bars are what goes missing, not the
-            // month or the pane.
-            _calendarPlansRead = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto.Empty;
-        }
-    }
-
-    private void HandleCalendarPlansChanged()
-    {
-        _calendarPlansStale = true;
-        if (Layout != TasksLayout.Calendar) return;
-
-        _ = InvokeAsync(async () =>
-        {
-            await ReadCalendarPlansAsync();
-            StateHasChanged();
-        });
-    }
-
-    private async Task OnShowPlansChangedAsync(bool shown)
-    {
-        if (_calendarPlans is null) return;
-
-        _calendarPlans.SetShown(shown);
-        if (shown) await ReadCalendarPlansAsync();
-    }
-
-    /// <summary>Each window as a bar, wearing the band colour of the first of its
-    /// repositories that has one — <c>RepositoryColours</c> is empty while the colours
-    /// are hidden, so the bar is then neutral grey.</summary>
-    private IReadOnlyList<CalendarPlan> CalendarPlanWindows()
-    {
-        var colours = State.RepositoryColours;
-        return
-        [
-            .. _calendarPlansRead.Windows.Select(window => new CalendarPlan(
-                window.Id.ToString("N"),
-                window.Title,
-                window.Tag,
-                window.Start,
-                window.End,
-                window.DonePoints,
-                window.TotalPoints,
-                window.RepositoryAliases
-                    .Select(alias => colours.TryGetValue(alias, out var band) ? band : (int?)null)
-                    .FirstOrDefault(band => band is not null)))
-        ];
-    }
-
-    private IReadOnlyList<CalendarMilestone> CalendarMilestones() =>
-        [.. _calendarPlansRead.Milestones.Select(milestone => new CalendarMilestone(milestone.Id.ToString("N"), milestone.Title, milestone.On))];
-
-    private IReadOnlyList<CalendarShelfPlan> CalendarShelf() =>
-        [
-            .. _calendarPlansRead.Shelf.Select(plan => new CalendarShelfPlan(
-                plan.Tag,
-                plan.Title,
-                plan.TaskCount,
-                plan.TotalEffort,
-                plan.UnestimatedCount))
-        ];
-
-    /// <summary>A shelf plan dropped on a day: the roadmap places its window from there,
-    /// by its own placement. A refusal is said in a toast; the plan stays on the shelf.
-    /// The redraw comes from the plan's own change signal, which a stored window raises
-    /// and a refusal does not, so the plan is read once.</summary>
-    private async Task OnCalendarPlanStartedAsync(CalendarPlanStart start)
-    {
-        if (_calendarPlans is null) return;
-
-        var refusal = await _calendarPlans.StartAsync(start.Tag, start.Start);
-        if (refusal is not null)
-        {
-            Toasts.Publish(ToastMessage.Warning($"+{start.Tag} could not be planned: {refusal}", "calendar-plan-refused"));
-        }
     }
 
     private Task OpenSessionAsync(IntegrationLinkRef link) => OnOpenSession.InvokeAsync(link.Id);
@@ -5482,15 +5242,15 @@
     /// The same move Escape makes, minus the closing.</summary>
     private async Task MoveFocusToListAsync()
     {
-        if (Layout == TasksLayout.Board)
+        if (Body is not null)
         {
-            if (_board is not null) await _board.FocusSelectedAsync();
+            if (_body.FocusSelected is { } focus) await focus();
             return;
         }
 
-        if (Layout == TasksLayout.Calendar)
+        if (Layout == TasksLayout.Board)
         {
-            if (_calendar is not null) await _calendar.FocusSelectedAsync();
+            if (_board is not null) await _board.FocusSelectedAsync();
             return;
         }
 
@@ -6183,8 +5943,9 @@
     /// "1 point" rather than "1 points". Null when nothing is estimated, which is
     /// what leaves the badge off and the action reading "Effort" rather than a
     /// number. What the count is called is the host's the same way a date's
-    /// wording is; only the token form stays invariant.</summary>
-    private static string? FormatEffort(int? effort) => effort is { } points
+    /// wording is; only the token form stays invariant. Shared with the Calendar's Tasks
+    /// body, whose chips say a size in the same words.</summary>
+    internal static string? FormatEffort(int? effort) => effort is { } points
         ? $"{points.ToString(CultureInfo.CurrentCulture)} {(points == 1 ? "point" : "points")}"
         : null;
 
@@ -6536,9 +6297,10 @@
 
     /// <summary>Whether the open-work summary sits beside New entry rather than at
     /// the end of the bar: in the list on a narrow column, where the add row is.
-    /// The Board and the Calendar have no add row, so it stays on their bar.</summary>
+    /// The Board and a hosting view's <see cref="Body"/> — the Calendar's Tasks part —
+    /// have no add row, so it stays on their bar.</summary>
     private bool SummaryBesideNewEntry =>
-        ListNarrow && Layout == TasksLayout.List && !(State.IsLoading && State.Rows.Count == 0);
+        ListNarrow && Layout == TasksLayout.List && Body is null && !(State.IsLoading && State.Rows.Count == 0);
 
     /// <summary>"never checked" is a real, distinct answer from "open" — the
     /// badge says so rather than implying a state nobody has verified.</summary>
@@ -6608,8 +6370,6 @@
         // the list, Ask AI's Tasks area — reads them with it applied again.
         State.SetStatusFilterSuspended(false);
         Features.Changed -= HandleFeaturesChanged;
-        if (_calendarPlans is not null) _calendarPlans.Changed -= HandleCalendarPlansChanged;
-        if (_calendarCapacity is not null) _calendarCapacity.Changed -= HandleCalendarCapacityChanged;
         _sessionRequests.Changed -= HandleSessionRequestsChanged;
         _sessionRequests.Refreshed -= HandleSessionRequestsRefreshed;
         _sessionRequests.Dispose();

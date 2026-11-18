@@ -123,6 +123,10 @@ internal sealed class FakeInboxItems : IInboxItems
     /// take a note.</summary>
     public string? BrainUnavailableReason { get; set; }
 
+    /// <summary>Whether To Event is offered; off by default, the Events area's
+    /// own default.</summary>
+    public bool ToEventOffered { get; set; }
+
     /// <summary>What the Brain's inbox area holds; null by default, no Brain set.</summary>
     public InboxBrainUnfiledDto? BrainUnfiled { get; set; }
 
@@ -832,6 +836,33 @@ internal sealed class FakeInboxItems : IInboxItems
         var destination = BrainDestinations.FirstOrDefault(candidate => candidate.Folder == folder);
         var area = folder is null ? "Inbox" : (destination?.Label.Split(" › ")[0] ?? folder);
         return new InboxBrainRoutedDto(id, (folder ?? "_inbox") + "/" + id.ToString("N") + ".md", area);
+    }
+
+    /// <summary>Every item To Event was asked for, in order.</summary>
+    public List<Guid> EventRoutes { get; } = [];
+
+    /// <summary>The module's To Event, restated: refused through
+    /// <see cref="FailAct"/> under <c>"event"</c>, else the item is routed to
+    /// Events with a fresh event id and no task.</summary>
+    public async Task<Result<InboxEventRoutedDto>> RouteToEventAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        EventRoutes.Add(id);
+        if (BeforeRoute is { } gate) await gate();
+
+        if (!ToEventOffered) return Result.Failure<InboxEventRoutedDto>(InboxErrors.EventsUnavailable);
+        if (Fails("event", id, out var refused)) return Result.Failure<InboxEventRoutedDto>(refused);
+
+        if (Find(id) is not { } item) return Result.Failure<InboxEventRoutedDto>(InboxErrors.ItemNotFound);
+        if (item.Routing is not null) return Result.Failure<InboxEventRoutedDto>(InboxErrors.InvalidTransition("Already routed."));
+
+        var eventId = Guid.CreateVersion7();
+        await Update(id, current => current with
+        {
+            Status = InboxStatus.Triaged,
+            Routing = new InboxRoutingDto(RoutingDomain.Events, [], [], Now) { EventId = eventId }
+        });
+
+        return new InboxEventRoutedDto(id, eventId);
     }
 
     /// <summary>What Tasks refuses the next batch's document with, if anything:

@@ -36,6 +36,7 @@ using Backlog.Modules.Inbox.Features.ReturnToInbox;
 using Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBrain;
+using Backlog.Modules.Inbox.Features.RouteToEvent;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Features.Suggest;
 using Backlog.Modules.Inbox.Features.UngroupLists;
@@ -93,10 +94,18 @@ internal sealed class InboxItems(
     IQueryHandler<AdviseTriageQuery, Result<InboxTriageAdviceDto>> adviseTriage,
     IQueryHandler<ProposeTriagePassQuery, Result<InboxTriagePassDto>> proposeTriagePass,
     ICommandHandler<EditNoteCommand, Result> editNote,
+    ICommandHandler<RouteToEventCommand, Result<InboxEventRoutedDto>> routeToEvent,
     IInboxPlanDrafter? drafter = null,
     IInboxTriageAdvisor? triageAdvisor = null,
-    IInboxBrainTarget? brainTarget = null) : IInboxItems
+    IInboxBrainTarget? brainTarget = null,
+    IInboxEventTarget? eventTarget = null) : IInboxItems
 {
+    /// <summary>The Events target's own answer; with none, To Event is not offered.</summary>
+    public bool ToEventOffered => eventTarget is { IsOffered: true };
+
+    public Task<Result<InboxEventRoutedDto>> RouteToEventAsync(Guid id, CancellationToken cancellationToken = default) =>
+        routeToEvent.Handle(new RouteToEventCommand(id), cancellationToken);
+
     /// <summary>The Brain target's own answer; with none, as the route itself
     /// answers, there is no Brain here.</summary>
     public string? BrainUnavailableReason =>

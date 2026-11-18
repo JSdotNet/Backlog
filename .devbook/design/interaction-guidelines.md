@@ -782,7 +782,7 @@ question. Below it the workspace shows exactly one **main view**, unless a
 | Region | Answers | Holds |
 |---|---|---|
 | Identity | Over which repositories? | The repository scope, a fused group of chips led by the **Brain** chip, and nothing else. |
-| Navigation | What am I looking at? | Left to right: **Inbox**, the view switch, **Devbook**, the Goals group, the remaining takeovers. |
+| Navigation | What am I looking at? | Left to right: **Inbox**, the view switch, **Devbook**, **Events** (while its flag is on), the Goals group, the remaining takeovers. |
 | Status | How is the workspace doing? | The GitHub check, only while a task view is on screen. |
 | Utilities | What cuts across all of it? | **Ask AI**, while an area has something to ask about. |
 
@@ -803,6 +803,7 @@ as its kind:
 | View switch | `Tasks`, `Board`, `Calendar`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows; a view is never closed. |
 | Inbox toggle | `Inbox`, before the view switch | An on-or-off giving the Inbox the whole screen; pressed again, it returns to the view. |
 | Devbook toggle | `Devbook`, after the view switch; `Brain` while the Devbook shows the Brain | An on-or-off giving the Devbook the whole screen; a second press or Escape returns. |
+| Events toggle | `Events`, after the Devbook, under `events` | An on-or-off giving the Events pane the whole screen; a second press, its close button or Escape returns. |
 | Goals group | `Goals` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the work in flight; it always renders. |
 | Remaining takeovers | `Dashboard`, `Notifications`, `Tools`, `Atlas` | A loose group, each under its own flag, rendered while one of them is offered. |
 
@@ -823,11 +824,13 @@ as its kind:
 - **Remaining takeovers:** **Atlas** is under `atlas-lobes` ([Lobes
   atlas](../domain/brain/features.md#lobes-atlas)). **Notifications** opens the
   notification centre and wears the count of questions waiting, in the
-  question's gold, and no count while none wait.
+  question's gold, and no count while none wait. Each takeover a module
+  registers that the header does not place itself draws after the Devbook, in
+  its registered order. Today that is Events.
 
 | Rule | Requirement |
 |---|---|
-| The workspace cluster sits close | The Inbox toggle, view switch and Devbook toggle MUST sit at the tighter `spacing-xs` gap. |
+| The workspace cluster sits close | The Inbox toggle, view switch, Devbook toggle and Events toggle MUST sit at the tighter `spacing-xs` gap. |
 | A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view underneath. |
 | Every way back works | A takeover MUST close on Escape and on a second press of its option. |
 | A surface draws no close of its own | A surface MUST NOT draw a close (✕) button that leaves the surface itself, in the main window or a popped-out one. A close for something inside it — an entry panel, a dialog, a sheet — stays. |
@@ -847,7 +850,8 @@ as its kind:
 | Views and work lead with a glyph | Each view-switch option and Goals group member MUST lead with a decorative glyph before its word. |
 
 - **The workspace cluster sits close:** the groups after it sit at the wider
-  navigation gap, so the Inbox and the Devbook read as belonging to the views.
+  navigation gap, so the Inbox, the Devbook and Events read as belonging to the
+  views.
 - **A takeover hides, it does not close:** closing it shows the view as it was.
   The Devbook is a takeover.
 - **Every way back works:** pressing a view option during a takeover MUST close
@@ -1039,8 +1043,8 @@ neither shares the window with the view. See local ADR 0022, amendments of
 ## Phone Tab Bar
 
 ```meta
-related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/progress/features.md#the-goals-view"]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_shows_once_the_phone_holds_a_notification]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/events/features.md#events-on-the-phone"]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_shows_once_the_phone_holds_a_notification, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_shows_before_notes_once_the_phone_holds_an_event, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_follows_notifications_when_both_are_held]
 ```
 
 The phone's shell has no header navigation. Its destinations are a row of tabs
@@ -1050,6 +1054,7 @@ along the bottom, where a thumb already is:
 - **Inbox**
 - **Notifications**, once the phone holds a notification
 - **Stand-up**, once a desktop has sent the stand-up
+- **Events**, once the phone holds a knowledge event
 - **Notes**
 
 Each is a route of its own, so the bar is a nav of links, not a tablist. The tabs are the phone's views, so
@@ -1066,7 +1071,8 @@ they lead with a glyph as the desktop's views do (`#shell-header`).
 - **Every tab or none:** one tab with a picture beside tabs without reads as the
   one that is different. The glyphs are a sun for Today (the My Day glyph), an
   inbox tray for Inbox and a target (Lucide `target`) for Stand-up. Notifications
-  takes a bell (Lucide `bell`) and Notes a sticky note (Lucide `sticky-note`).
+  takes a bell (Lucide `bell`), Events a calendar (Lucide `calendar`) and Notes
+  a sticky note (Lucide `sticky-note`).
   Stand-up and Notifications match the desktop's Goals and Notifications options.
 - **Glyph above the word:** the lit tab's glyph lights with its word. The word
   stays, because a glyph alone is not a name. See
@@ -1109,7 +1115,7 @@ is the pressed state's to say, not the shape's.
 ## Combobox
 
 ```meta
-related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/domain/tasks/features.md#planned-hours"]
+related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/domain/calendar/features.md#planned-hours"]
 ```
 
 A combobox is a text field with a list of suggestions under it. The reader may

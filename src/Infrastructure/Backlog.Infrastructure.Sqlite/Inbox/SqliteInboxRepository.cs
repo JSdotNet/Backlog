@@ -1,5 +1,6 @@
 using System.Data;
 using System.Globalization;
+using System.Text.Json;
 
 using Backlog.Modules.Inbox;
 using Backlog.Modules.Inbox.Abstractions;
@@ -48,7 +49,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         "id, title, body_md, source_url, captured_at, received_at, status, deferred_until, kind, " +
         "channel, person, tags, repo_ids, list_id, routing_domain, routing_repo_ids, routing_task_ids, " +
         "routed_at, replica_backed, replica_ack_pending, updated_at, dismissed_suggestions, duplicate_of, duplicate_of_task, " +
-        "edited_at, note_push_pending, restored_at";
+        "edited_at, note_push_pending, restored_at, event_facts, routing_event_id";
 
     private const string AttachmentColumns =
         "item_id, attachment_id, name, content_type, size_bytes, sha256, local_path, downloaded_at, last_error, sort_order";
@@ -100,7 +101,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 $id, $title, $body_md, $source_url, $captured_at, $received_at, $status, $deferred_until, $kind,
                 $channel, $person, $tags, $repo_ids, $list_id, $routing_domain, $routing_repo_ids, $routing_task_ids,
                 $routed_at, $replica_backed, $replica_ack_pending, $updated_at, $dismissed_suggestions, $duplicate_of,
-                $duplicate_of_task, $edited_at, $note_push_pending, $restored_at)
+                $duplicate_of_task, $edited_at, $note_push_pending, $restored_at, $event_facts, $routing_event_id)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 body_md = excluded.body_md,
@@ -127,7 +128,9 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 duplicate_of_task = excluded.duplicate_of_task,
                 edited_at = excluded.edited_at,
                 note_push_pending = excluded.note_push_pending,
-                restored_at = excluded.restored_at;
+                restored_at = excluded.restored_at,
+                event_facts = excluded.event_facts,
+                routing_event_id = excluded.routing_event_id;
             """;
 
         command.Parameters.AddWithValue("$id", item.Id.ToString());
@@ -161,6 +164,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         command.Parameters.AddWithValue("$edited_at", WriteInstant(item.EditedAt));
         command.Parameters.AddWithValue("$note_push_pending", item.NotePushPending ? 1 : 0);
         command.Parameters.AddWithValue("$restored_at", Nullable(item.RestoredAt is { } restored ? WriteInstant(restored) : null));
+        command.Parameters.AddWithValue("$event_facts", Nullable(WriteEventFacts(item.EventFacts)));
+        command.Parameters.AddWithValue("$routing_event_id", Nullable(item.Routing?.EventId?.ToString()));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
@@ -739,6 +744,14 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             // on a row written before it, which reads as never reopened.
             new("inbox_items", "restored_at", "TEXT NULL"),
 
+            // What an event page capture found (InboxItem.EventFacts), one JSON object.
+            // Null on a row written before it, which reads as an item with none.
+            new("inbox_items", "event_facts", "TEXT NULL"),
+
+            // The knowledge event a route To Event made (RoutingTarget.EventId). Null on
+            // every other route and on a row written before it.
+            new("inbox_items", "routing_event_id", "TEXT NULL"),
+
             // Which kind of item a deleted capture was, so its tombstone goes out as
             // the document the phone holds it as. Null on a row written before it:
             // every such row was a plain capture.
@@ -758,6 +771,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         public const int RoutingDomain = 14, RoutingRepoIds = 15, RoutingTaskIds = 16, RoutedAt = 17;
         public const int ReplicaBacked = 18, ReplicaAckPending = 19, UpdatedAt = 20, DismissedSuggestions = 21;
         public const int DuplicateOf = 22, DuplicateOfTask = 23, EditedAt = 24, NotePushPending = 25, RestoredAt = 26;
+        public const int EventFacts = 27, RoutingEventId = 28;
 
         public const int ListName = 1, ListGroupId = 2, ListOrder = 3, ListCreatedAt = 4, ListUpdatedAt = 5;
         public const int GroupName = 1, GroupOrder = 2, GroupCreatedAt = 3, GroupUpdatedAt = 4;
@@ -804,8 +818,11 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 InboxEnumMap.ParseRoutingDomain(domain),
                 TaskPayloads.Read<string>(Text(row, Col.RoutingRepoIds)),
                 [.. TaskPayloads.Read<string>(Text(row, Col.RoutingTaskIds)).Select(Guid.Parse)],
-                ParseInstant(routedAt));
+                ParseInstant(routedAt),
+                ParseGuid(Text(row, Col.RoutingEventId)));
         }
+
+        item.LoadEventFacts(ReadEventFacts(Text(row, Col.EventFacts)));
 
         // LAST, and it has to be last: every setter above restamps UpdatedAt to
         // now, and the lifecycle fields go through here because the guarded
@@ -824,6 +841,37 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
 
         return item;
     }
+
+    /// <summary>The <c>event_facts</c> column, or null for an item with none.</summary>
+    private static string? WriteEventFacts(InboxEventFacts? facts) => facts is null
+        ? null
+        : JsonSerializer.Serialize(
+            new InboxEventFactsPayload(DateOf(facts.Start), DateOf(facts.End), facts.Place, facts.PageUrl, facts.PageTitle),
+            TaskPayloads.Options);
+
+    private static InboxEventDatePayload? DateOf(InboxEventDate? date) =>
+        date is null ? null : new InboxEventDatePayload(date.Date, date.Time, date.Offset);
+
+    /// <summary>Reads the <c>event_facts</c> column. A value that does not parse reads
+    /// as no facts: one hand-edited row must cost its facts, not every read of the inbox.</summary>
+    private static InboxEventFacts? ReadEventFacts(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<InboxEventFactsPayload>(json, TaskPayloads.Options) is { } payload
+                ? new InboxEventFacts(DateOf(payload.Start), DateOf(payload.End), payload.Place, payload.Page, payload.PageTitle)
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static InboxEventDate? DateOf(InboxEventDatePayload? date) =>
+        date is null ? null : new InboxEventDate(date.Date, date.Time, date.Offset);
 
     private static InboxList ReadList(IDataRecord row)
     {

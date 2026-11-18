@@ -205,6 +205,19 @@ public static class SyncErrorCodes
     /// Mapped to 413 for the reason <see cref="TaskTooLarge"/> is.</summary>
     public const string DevbookSubjectTooLarge = "sync.devbook_subject_too_large";
 
+    /// <summary>More knowledge event changes in one push than the service will take.</summary>
+    public const string KnowledgeEventBatchTooLarge = "sync.knowledge_event_batch_too_large";
+
+    /// <summary>A knowledge event change the service will not store — no id, a kind the feed
+    /// does not carry, a document that is not a JSON object or is past its bound. Refused at
+    /// the edge and for the whole batch, so the device's watermark never moves past an event
+    /// nobody stored.</summary>
+    public const string KnowledgeEventInvalid = "sync.knowledge_event_invalid";
+
+    /// <summary>One knowledge event document is larger than the store will take. Mapped to
+    /// 413 for the reason <see cref="TaskTooLarge"/> is.</summary>
+    public const string KnowledgeEventTooLarge = "sync.knowledge_event_too_large";
+
     /// <summary>More notifications in one push than the service will take.</summary>
     public const string NotificationBatchTooLarge = "sync.notification_batch_too_large";
 
