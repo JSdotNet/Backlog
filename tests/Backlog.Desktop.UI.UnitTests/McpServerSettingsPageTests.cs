@@ -219,7 +219,7 @@ public sealed class McpServerSettingsPageTests
 
         var page = context.Render<McpServerSettingsPage>();
 
-        Assert.Equal(["MCP endpoint", "Agents", "Activity"], section.CardTitles!);
+        Assert.Equal(["MCP endpoint", "Agents", "Remote connector", "Activity"], section.CardTitles!);
         Assert.Equal(section.CardTitles!, page.FindAll(".settings-card__title").Select(title => title.TextContent.Trim()));
         Assert.Equal(SettingsGroup.Workspace, section.Group);
         Assert.Equal("MCP server", section.Title);

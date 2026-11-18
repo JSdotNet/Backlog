@@ -13,6 +13,7 @@
     <!-- The registration extension branches on the host environment, so the
          cases that pin it need a real host builder to hand it. -->
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 
 </Project>

@@ -301,4 +301,12 @@ public static class SyncErrorCodes
     /// or one that already came back or ran out of time. There is no loopback to
     /// send the answer to, so it is answered in place.</summary>
     public const string EnrolmentSignInUnknown = "enrolment.sign_in_unknown";
+
+    /// <summary>A device of some owner other than the configured one asked about the
+    /// remote connector, or no owner is configured at all. Only the owner manages it.</summary>
+    public const string ConnectorNotOwner = "connector.not_owner";
+
+    /// <summary>A GitHub callback whose state names no connector sign-in. Not an answer a
+    /// client sees: the callback then tries the state as an enrolment sign-in.</summary>
+    public const string ConnectorSignInUnknown = "connector.sign_in_unknown";
 }

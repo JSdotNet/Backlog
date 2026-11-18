@@ -1,6 +1,7 @@
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Adapters;
 using Backlog.Modules.Sync.Features.AcknowledgeInboxItem;
+using Backlog.Modules.Sync.Features.Connector;
 using Backlog.Modules.Sync.Features.CaptureInboxItem;
 using Backlog.Modules.Sync.Features.DeleteNotificationReply;
 using Backlog.Modules.Sync.Features.DescribeOwner;
@@ -87,6 +88,17 @@ public static class SyncModuleRegistration
         services.AddScoped<ICommandHandler<TranscribeDictationCommand, Result<TranscriptionResponse>>, TranscribeDictationCommandHandler>();
         services.AddScoped<CaptureAttachmentRelease>();
 
+        // The remote connector's authorization server (local ADR 0052 §8).
+        services.AddScoped<ICommandHandler<StartConnectorAuthorizationCommand, Result<Uri>>, StartConnectorAuthorizationCommandHandler>();
+        services.AddScoped<ICommandHandler<CompleteConnectorSignInCommand, Result<ConnectorSignInOutcome>>, CompleteConnectorSignInCommandHandler>();
+        services.AddScoped<IQueryHandler<DescribeConnectorConsentQuery, Result<ConnectorConsentPrompt>>, DescribeConnectorConsentQueryHandler>();
+        services.AddScoped<ICommandHandler<DecideConnectorConsentCommand, Result<Uri>>, DecideConnectorConsentCommandHandler>();
+        services.AddScoped<ICommandHandler<ExchangeAuthorizationCodeCommand, Result<ConnectorTokenResponse>>, ExchangeAuthorizationCodeCommandHandler>();
+        services.AddScoped<ICommandHandler<RefreshConnectorTokenCommand, Result<ConnectorTokenResponse>>, RefreshConnectorTokenCommandHandler>();
+        services.AddScoped<IQueryHandler<DescribeConnectorQuery, Result<ConnectorStatusResponse>>, DescribeConnectorQueryHandler>();
+        services.AddScoped<ICommandHandler<CreateConnectorSecretCommand, Result<ConnectorSecretResponse>>, CreateConnectorSecretCommandHandler>();
+        services.AddScoped<ICommandHandler<RevokeConnectorSecretCommand, Result>, RevokeConnectorSecretCommandHandler>();
+
         services.TryAddSingleton<ICredentialHasher, Sha256CredentialHasher>();
         services.TryAddSingleton<IPairingCodeGenerator, RandomPairingCodeGenerator>();
         services.TryAddSingleton<IRegistrationCredentialGenerator, RandomRegistrationCredentialGenerator>();
@@ -98,6 +110,16 @@ public static class SyncModuleRegistration
         services.TryAddSingleton(OwnerEnrolment.Open);
         services.TryAddSingleton<IGitHubOwnerSignIn, NoGitHubOwnerSignIn>();
         services.TryAddSingleton<IEnrolmentTicketStore, InMemoryEnrolmentTicketStore>();
+
+        // The remote connector (local ADR 0052 §8). The host registers its configured
+        // settings and token issuer first; without them nothing is authorized. The
+        // short-lived steps stay in memory in a deployment too, as enrolment tickets do; the
+        // client and its refresh tokens must outlive a restart, so a deployed host registers
+        // durable stores before this call.
+        services.TryAddSingleton(ConnectorSettings.Unconfigured);
+        services.TryAddSingleton<IConnectorAuthorizationStore, InMemoryConnectorAuthorizationStore>();
+        services.TryAddSingleton<IConnectorClientStore, InMemoryConnectorClientStore>();
+        services.TryAddSingleton<IConnectorRefreshTokenStore, InMemoryConnectorRefreshTokenStore>();
 
         // Singletons because the in-memory adapters are the store: a scoped
         // registration would give every request an empty one. TryAdd rather

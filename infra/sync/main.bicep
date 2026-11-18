@@ -665,6 +665,43 @@ resource pairingCodesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabas
   }
 }
 
+// `connectorCredentials` — the remote connector's client, its refresh tokens and their
+// family revocation markers (local ADR 0052 §8), partitioned on `/id`: `client:<client id>`,
+// `refresh:<token hash>` (the only handle a refresh has) and `family:<family id>`. Every
+// operation is a point read or a conditional write of one document; revoking a family is one
+// marker that every token read checks, so no query ever runs and nothing is indexed but the key.
+//
+// defaultTtl is -1, as on `pairingCodes`: a refresh token carries its own ttl, its remaining
+// days plus a grace, and a family marker one that outlives any token of the family; the
+// client document carries none, because losing the secret hash disconnects the connector.
+resource connectorCredentialsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'connectorCredentials'
+  properties: {
+    resource: {
+      id: 'connectorCredentials'
+      partitionKey: {
+        paths: [
+          '/id'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      defaultTtl: -1
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: []
+        excludedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+      }
+    }
+  }
+}
+
 // The data-plane role the sync service reaches Cosmos with. Scoped to the account,
 // which is as narrow as it goes: ADR 0005 Identity records that this grants sight
 // of every partition, and that keeping a device inside its own partition is a check
@@ -1026,6 +1063,11 @@ resource containerAppsEnvironmentDiagnostics 'Microsoft.Insights/diagnosticSetti
   }
 }
 
+// The service's public origin. An external container app's ingress fqdn is its name under
+// the environment's default domain; it is spelled out here because the app's own
+// `ingress.fqdn` cannot be read inside the resource that sets its environment.
+var syncOrigin = 'https://${containerAppName}.${containerAppsEnvironment.properties.defaultDomain}'
+
 // Consumption, scaling to zero. A personal tool costs nothing while nobody syncs.
 resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: containerAppName
@@ -1150,6 +1192,10 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: pairingCodesContainer.name
             }
             {
+              name: 'Sync__Cosmos__ConnectorCredentialsContainerName'
+              value: connectorCredentialsContainer.name
+            }
+            {
               name: 'Sync__Cosmos__TaskTombstoneTtlSeconds'
               value: string(taskTombstoneTtlSeconds)
             }
@@ -1220,6 +1266,17 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'GitHub__ClientId'
               value: gitHubOAuthClientId
+            }
+            // The connector's authorization server (local ADR 0052 §8): its issuer is the
+            // public origin and its tokens are for the /mcp resource there. Outside
+            // Development the service refuses to start without both.
+            {
+              name: 'Modules__Sync__Connector__Issuer'
+              value: syncOrigin
+            }
+            {
+              name: 'Modules__Sync__Connector__Resource'
+              value: '${syncOrigin}/mcp'
             }
             {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'

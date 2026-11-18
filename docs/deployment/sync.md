@@ -185,6 +185,42 @@ before sign-in existed keeps its data only if its id is passed as the template's
 `ownerId` parameter, which sets `Owner__OwnerId`, before the first enrolment; otherwise the first sign-in starts a new,
 empty owner, while the old devices keep syncing the old one and no recovery reaches them.
 
+### 7. The claude.ai remote connector
+
+The sync service is also the authorization server of the claude.ai custom connector
+(local ADR 0052 §8). The template sets its two settings on the container app from the
+ingress fqdn, so there is nothing to enter at deploy time:
+
+| Setting | Value |
+| --- | --- |
+| `Modules__Sync__Connector__Issuer` | `https://<ingress fqdn>` — the service's public origin, with no path |
+| `Modules__Sync__Connector__Resource` | `https://<ingress fqdn>/mcp` — the resource every access token is for |
+
+Outside Development the service refuses to start without both. The fqdn is the
+`SYNC_SERVICE_URI` output. The client id (`claude-connector`), the redirect URI
+(`https://claude.ai/api/mcp/auth_callback`) and the token lifetimes (15 minutes, 30 days)
+have defaults in `appsettings.json` under `Modules:Sync:Connector` and need no setting.
+
+The client secret is not a deployment secret. The service mints it and keeps only its
+hash, in the `connectorCredentials` container. To connect claude.ai:
+
+1. In the desktop app, open **Settings > MCP server**, find the **Remote connector** card,
+   and choose **Create secret**. The secret is shown once; copy it.
+2. In claude.ai, open **Settings > Connectors**, choose **Add custom connector**, and enter:
+   - **URL**: `<SYNC_SERVICE_URI>/mcp`;
+   - under **Advanced settings**, **OAuth Client ID** `claude-connector` and
+     **OAuth Client Secret** the secret from step 1.
+3. Connect. claude.ai sends you through the owner's GitHub sign-in and a consent page on
+   the sync service; only the owner's GitHub account can allow it.
+
+Revoking the secret on the same card disconnects claude.ai at once: every code and refresh
+token issued under it stops working. **Replace secret** on the card swaps in a new one with the same effect on the old.
+
+The authorization server is in place, but the `/mcp` resource it issues tokens for is not
+served yet. The connector works end to end once the Backlog plan entry 22 ("Serve remote
+MCP from the sync service for Inbox capture") adds `/mcp`; until then claude.ai completes
+the sign-in and consent and then finds no MCP server at the URL.
+
 ## Current state
 
 Verified 2026-09-09: **none of the first four prerequisites above had been done**. The
@@ -224,11 +260,12 @@ closes; the first revision provisioned with a key is the first one that can come
 | Resource | Notes |
 | --- | --- |
 | Cosmos DB account | Serverless, session consistency, `disableLocalAuth: true` |
-| Cosmos database `backlog` | One database, four containers |
+| Cosmos database `backlog` | One database; the containers below |
 | Container `tasks` | Partition `/ownerId`, default indexing policy |
 | Container `sessions` | Partition `/ownerId`, lean custom index |
 | Container `devices` | Partition `/id` (the device id), default indexing policy |
 | Container `pairingCodes` | Partition `/id` (the code hash), nothing indexed |
+| Container `connectorCredentials` | Partition `/id` (`client:<client id>`, `refresh:<token hash>`, `family:<family id>`), nothing indexed |
 | User-assigned managed identity | The only principal the service runs as |
 | Container Apps environment | Consumption workload profile, logs via Azure Monitor |
 | Container app | Scale-to-zero (`minReplicas: 0`), external ingress on 8080 |
@@ -252,6 +289,7 @@ identity it uses for everything else.
 | `sessions` | `defaultTtl: 31536000` | Every record expires at 12 months |
 | `devices` | none | A registration lasts until the device is forgotten |
 | `pairingCodes` | `defaultTtl: -1` | TTL enabled; every code carries its own |
+| `connectorCredentials` | `defaultTtl: -1` | TTL enabled; refresh tokens and family markers carry their own, the client none |
 
 `sessions` is straightforward: the whole record is history, and the retention is a
 container setting exactly as ADR 0005 describes.
@@ -275,6 +313,16 @@ lets the service keep answering "that code has expired" rather than "not one thi
 service issued" for a while after the window closes. Reaping is lazy and the
 emulator does not do it at all, so the service's own expiry check — not the TTL —
 is what turns a stale code away.
+
+`connectorCredentials` holds the remote connector's credentials (local ADR 0052 §8).
+The client document — the secret hash, its generation and when it was last used — carries
+no `ttl`: losing it disconnects claude.ai. A refresh token is written with its remaining
+life plus a day, recomputed on every write. Revoking a family after a replayed refresh
+token writes one marker, `family:<family id>`, which every read, rotation and add checks;
+it lives 92 days, past the longest a token of the family can (the `RefreshTokenDays`
+range tops out at 90). The service's own expiry checks decide; the TTLs only tidy up. The
+connector's short-lived authorization steps (sign-in state, consent ticket, code) are kept
+in memory, like the enrolment tickets: a restart mid-authorization costs one more attempt.
 
 ### The `sessions` index
 
@@ -488,7 +536,10 @@ exceptions" and is telling the truth about the table, not about the service.
 
 No Azure account is needed to build or run the sync path. The Aspire AppHost starts
 the **Cosmos DB preview (vNext) emulator** as a container, declares the `backlog`
-database and all four containers, and hands `sync` a reference to it.
+database and all of its containers, and hands `sync` a reference to it. It also sets
+`Modules__Sync__Connector__Issuer` and `__Resource` on `sync` from the service's own
+`http` endpoint (`<endpoint>` and `<endpoint>/mcp`), so the connector's metadata names the
+dynamic port the service actually answers on.
 
 ```powershell
 aspire start --isolated --non-interactive --apphost src\Aspire\Backlog.Aspire.AppHost\Backlog.Aspire.AppHost.csproj

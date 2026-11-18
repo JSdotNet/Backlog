@@ -78,6 +78,10 @@ builder.AddDictationTranscription();
 // anywhere but Development the service refuses to start without it.
 builder.AddOwnerEnrolment();
 
+// The remote connector's authorization server (local ADR 0052 §8): its settings and token
+// issuer, on the same terms — before AddSyncModule, so the configured settings win.
+builder.AddConnectorAuthorization();
+
 builder.Services.AddSyncModule();
 
 // The module declares the port and the host implements it, so the signing key
@@ -122,6 +126,10 @@ if (app.Environment.IsDevelopment())
 // sync group: the browser comes back here after the owner signs in.
 app.MapGitHubCallback();
 
+// The remote connector's authorization server, at the root for the same reason: claude.ai
+// finds it from the issuer, and RFC 8414 puts the metadata at the origin.
+app.MapAuthorizationServer();
+
 var sync = app.MapGroup(SyncRoutes.Base);
 
 sync.MapDeviceEndpoints();
@@ -134,6 +142,7 @@ sync.MapDevbookSubjectSyncEndpoints();
 sync.MapNotificationSyncEndpoints();
 sync.MapAttachmentSyncEndpoints();
 sync.MapTranscriptionEndpoints();
+sync.MapConnectorEndpoints();
 
 // The service saying what it is, and which build it is. No owner, no data,
 // nothing to protect — the commit is public history, and it is what lets a
