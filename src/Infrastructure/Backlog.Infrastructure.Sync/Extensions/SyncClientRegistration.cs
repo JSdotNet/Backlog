@@ -8,6 +8,7 @@ using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -121,6 +122,10 @@ public static class SyncClientRegistration
             sp.GetService<TimeProvider>(),
             sp.GetService<ILogger<PairingSubjects>>(),
             sp.GetService<DevicePairingClient>));
+
+        // Whether a device is one of the owner's paired devices now, read from the device
+        // list: the question relay asks it before an answer reaches a waiting agent.
+        services.TryAddSingleton<IPairedDevices>(sp => new RosterPairedDevices(sp));
 
         return services;
     }

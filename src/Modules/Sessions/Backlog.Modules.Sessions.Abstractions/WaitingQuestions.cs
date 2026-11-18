@@ -116,6 +116,11 @@ public sealed record RelayQuestion(
 /// <param name="Text">The open answer, or null.</param>
 public sealed record RelayAnswer(IReadOnlyList<string> Choices, string? Text = null)
 {
+    /// <summary>The device the person answered on, as the sync service authenticated it —
+    /// this desktop's installation identity for an answer given here — or null for an answer
+    /// given in the session. Not part of what the answer says, so not compared.</summary>
+    public Guid? FromDeviceId { get; init; }
+
     /// <summary>An open answer.</summary>
     public static RelayAnswer Open(string text) => new([], text);
 

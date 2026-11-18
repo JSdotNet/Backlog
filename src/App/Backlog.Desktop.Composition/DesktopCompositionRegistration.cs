@@ -476,7 +476,11 @@ public static class DesktopCompositionRegistration
                 () => sp.GetService<IAppFeatureSettings>()?.IsEnabled(NotificationsFeatures.Notifications) ?? true,
                 // The keyed local reader: a reading of the plain port's decorators can close
                 // questions, which must not happen in the middle of this publish.
-                () => sp.GetKeyedService<IAgentSessionSource>(SessionsAdapterRegistration.LocalSourceKey));
+                () => sp.GetKeyedService<IAgentSessionSource>(SessionsAdapterRegistration.LocalSourceKey),
+                // Only an answer from a device paired now reaches the hook or the Manager; one
+                // from a revoked or unknown device is dropped and audited (ADR 0052, Phase 2).
+                sp.GetService<IPairedDevices>,
+                sp.GetService<IMcpAuditLog>);
         });
         // The same relay as the port the MCP ask, get_answer and close tools reach it through.
         services.AddSingleton<IQuestionRelay>(sp => sp.GetRequiredService<QuestionRelay>());

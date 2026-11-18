@@ -273,6 +273,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | An answer records the device it came from, and reaches the hook or a delivery only from a device paired now. An answer from a revoked or unknown device is dropped and recorded in the audit log. | Plan `zero-trust-auth` entry 20, ADR 0052 Phase 2: an answer steers an agent, so a revoked pairing must not give one. |
 | 2026-11-12 | The question-hook token is retired: the hook asks the token broker for a token for the Question hook grant, which holds `notify:ask` alone. | Plan `zero-trust-auth`, ADR 0052 Phase 1: no long-lived MCP secret sits in a file. |
 | 2026-11-11 | The hook presents a question-hook token that reaches only `notify`, `ask`, `get_answer` and `close`, never the MCP server's token. | ADR 0052 phase 0: whoever holds the hook's credential must not be able to call write tools. |
 | 2026-10-27 | Proposed: a session's question is registered through MCP `ask`, routed by presence, and answered through the hook or a Manager delivery. Amends ADR 0039's MCP tools and ADR 0038's wait route and capacity rule. | A session that asks while the person is away stops until they come back, and Notifications and the Manager already carry the rest. |
