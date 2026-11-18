@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using Backlog.Infrastructure.Sync.KnowledgeEvents;
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Events.Abstractions.Services;
@@ -46,7 +47,7 @@ public sealed class EventAttachmentRequestSyncTests
     private static TaskReplicaMerge Merge(
         InMemoryTaskStore tasks,
         IEventAttachmentRequests? attachments,
-        ImpedimentEditRetirements retirements,
+        PhoneRequestRetirements retirements,
         bool eventsOn = true,
         SyncActivityLog? activity = null,
         TimeProvider? time = null,
@@ -63,7 +64,7 @@ public sealed class EventAttachmentRequestSyncTests
     {
         var tasks = new InMemoryTaskStore();
         var attachments = new RecordingEventAttachments();
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var activity = new SyncActivityLog();
         var request = Request();
         var change = EventAttachmentReplicaDocuments.ToChange(request, Morning);
@@ -88,7 +89,7 @@ public sealed class EventAttachmentRequestSyncTests
     [InlineData(EventAttachmentOutcome.Incomplete)]
     public async Task A_request_events_answered_without_attaching_is_retired_all_the_same(EventAttachmentOutcome answer)
     {
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
 
         var merged = await Merge(new InMemoryTaskStore(), new RecordingEventAttachments { Answer = answer }, retirements)
             .ApplyAsync([TaskChanges.Record(EventAttachmentReplicaDocuments.ToChange(Request(), Morning), Phone, 100)], Cancellation);
@@ -97,11 +98,32 @@ public sealed class EventAttachmentRequestSyncTests
         Assert.Single(retirements.Waiting());
     }
 
+    /// <summary>A request for an event this desktop holds removed is never applied, so it is
+    /// retired rather than deferred and offered again after every pull.</summary>
+    [Fact]
+    public async Task A_request_for_a_removed_event_is_retired_unapplied()
+    {
+        var retirements = new PhoneRequestRetirements();
+        var attachments = new RecordingEventAttachments { Answer = EventAttachmentOutcome.RemovedEvent };
+        var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
+
+        var merge = Merge(new InMemoryTaskStore(), attachments, retirements, time: new FakeTimeProvider(Morning.AddMinutes(10)));
+
+        var merged = await merge.ApplyAsync([TaskChanges.Record(change, Phone, 100)], Cancellation);
+
+        Assert.Equal(new TaskMergeOutcome(0, 0), merged);
+        var tombstone = Assert.Single(retirements.Waiting());
+        Assert.Equal(change.Id, tombstone.Id);
+        Assert.Equal(Morning.AddMinutes(10), tombstone.DeletedAt);
+        Assert.Equal(0, await merge.RetryDeferredRequestsAsync(Cancellation));
+        Assert.Single(attachments.Offered);
+    }
+
     [Fact]
     public async Task A_desktop_without_events_or_with_the_events_area_off_holds_the_request_on_the_replica()
     {
         var tasks = new InMemoryTaskStore();
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var attachments = new RecordingEventAttachments();
         var page = new[] { TaskChanges.Record(EventAttachmentReplicaDocuments.ToChange(Request(), Morning), Phone, 100) };
 
@@ -118,7 +140,7 @@ public sealed class EventAttachmentRequestSyncTests
     [Fact]
     public async Task A_retired_request_is_never_offered_again()
     {
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var attachments = new RecordingEventAttachments();
         var change = EventAttachmentReplicaDocuments.Retire(EventAttachmentReplicaDocuments.ToChange(Request(), Morning), Morning.AddHours(1));
 
@@ -133,7 +155,7 @@ public sealed class EventAttachmentRequestSyncTests
     [Fact]
     public async Task A_request_met_before_its_event_is_offered_again_once_the_pull_is_done()
     {
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var attachments = new RecordingEventAttachments { Answer = EventAttachmentOutcome.UnknownEvent };
         var merge = Merge(new InMemoryTaskStore(), attachments, retirements);
         var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
@@ -154,7 +176,7 @@ public sealed class EventAttachmentRequestSyncTests
     [Fact]
     public async Task A_request_met_while_the_events_area_is_off_is_applied_once_the_area_is_on_again()
     {
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var attachments = new RecordingEventAttachments();
         var features = new KeyedFeatureSettings(syncOn: true, eventsOn: false);
         var merge = Merge(new InMemoryTaskStore(), attachments, retirements, features: features);
@@ -175,7 +197,7 @@ public sealed class EventAttachmentRequestSyncTests
     [Fact]
     public async Task A_request_deferred_for_an_unknown_event_stays_deferred_while_the_events_area_is_off()
     {
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var attachments = new RecordingEventAttachments { Answer = EventAttachmentOutcome.UnknownEvent };
         var features = new KeyedFeatureSettings(syncOn: true, eventsOn: true);
         var merge = Merge(new InMemoryTaskStore(), attachments, retirements, features: features);
@@ -193,10 +215,114 @@ public sealed class EventAttachmentRequestSyncTests
         Assert.Equal(change.Id, Assert.Single(retirements.Waiting()).Id);
     }
 
+    /// <summary>"Held while the area is off" across a restart: the task cursor has moved past
+    /// the request, so only the held-request file brings it back.</summary>
+    [Fact]
+    public async Task A_request_held_while_the_events_area_is_off_survives_a_restart_and_is_applied_once_the_area_is_on()
+    {
+        using var folder = new TemporaryFolder();
+        var attachments = new RecordingEventAttachments();
+        var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
+
+        var before = Merge(new InMemoryTaskStore(), attachments, new PhoneRequestRetirements(folder.Store()), eventsOn: false);
+        await before.ApplyAsync([TaskChanges.Record(change, Phone, 100)], Cancellation);
+        Assert.Equal(0, await before.RetryDeferredRequestsAsync(Cancellation));
+        Assert.Empty(attachments.Offered);
+
+        // The desktop is closed and opened again, with the area on.
+        var retirements = new PhoneRequestRetirements(folder.Store());
+        var after = Merge(new InMemoryTaskStore(), attachments, retirements, eventsOn: true);
+
+        Assert.Equal(1, await after.RetryDeferredRequestsAsync(Cancellation));
+        Assert.Equal(change.Id, Assert.Single(attachments.Offered).RequestId);
+        Assert.Equal(change.Id, Assert.Single(retirements.Waiting()).Id);
+        Assert.Empty(folder.Store().ReadAll());
+        Assert.Equal(0, await after.RetryDeferredRequestsAsync(Cancellation));
+    }
+
+    [Fact]
+    public async Task A_request_held_for_an_unknown_event_survives_a_restart()
+    {
+        using var folder = new TemporaryFolder();
+        var attachments = new RecordingEventAttachments { Answer = EventAttachmentOutcome.UnknownEvent };
+        var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
+
+        await Merge(new InMemoryTaskStore(), attachments, new PhoneRequestRetirements(folder.Store()))
+            .ApplyAsync([TaskChanges.Record(change, Phone, 100)], Cancellation);
+
+        var held = Assert.Single(folder.Store().ReadAll());
+        Assert.Equal(change, held with { Task = change.Task });
+        Assert.Equal(change.Task.ContentMd, held.Task.ContentMd);
+    }
+
+    [Fact]
+    public async Task A_held_request_another_desktop_retired_is_let_go()
+    {
+        using var folder = new TemporaryFolder();
+        var attachments = new RecordingEventAttachments();
+        var retirements = new PhoneRequestRetirements(folder.Store());
+        var merge = Merge(new InMemoryTaskStore(), attachments, retirements, eventsOn: false);
+        var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
+
+        await merge.ApplyAsync([TaskChanges.Record(change, Phone, 100)], Cancellation);
+        Assert.Single(folder.Store().ReadAll());
+
+        await merge.ApplyAsync([TaskChanges.Record(EventAttachmentReplicaDocuments.Retire(change, Morning.AddHours(1)), Guid.NewGuid(), 101)], Cancellation);
+
+        Assert.Empty(folder.Store().ReadAll());
+        Assert.Equal(0, await merge.RetryDeferredRequestsAsync(Cancellation));
+        Assert.Empty(attachments.Offered);
+    }
+
+    [Fact]
+    public async Task A_held_request_that_does_not_read_is_let_go_once_the_area_is_on()
+    {
+        using var folder = new TemporaryFolder();
+        var attachments = new RecordingEventAttachments();
+        var features = new KeyedFeatureSettings(syncOn: true, eventsOn: false);
+        var merge = Merge(new InMemoryTaskStore(), attachments, new PhoneRequestRetirements(folder.Store()), features: features);
+        var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
+        var garbled = change with { Task = change.Task with { ContentMd = "not json" } };
+
+        await merge.ApplyAsync([TaskChanges.Record(garbled, Phone, 100)], Cancellation);
+        Assert.Single(folder.Store().ReadAll());
+
+        features.SetEnabled(EventsFeatures.Events, true);
+
+        Assert.Equal(0, await merge.RetryDeferredRequestsAsync(Cancellation));
+        Assert.Empty(folder.Store().ReadAll());
+        Assert.Empty(attachments.Offered);
+    }
+
+    [Fact]
+    public void A_held_request_file_that_cannot_be_read_holds_nothing()
+    {
+        using var folder = new TemporaryFolder();
+        _ = folder.Store();
+        File.WriteAllText(folder.HeldPath, "{ not a list");
+
+        Assert.Empty(folder.Store().ReadAll());
+    }
+
+    [Fact]
+    public void An_impediment_edit_is_not_written_to_the_held_request_file()
+    {
+        using var folder = new TemporaryFolder();
+        var retirements = new PhoneRequestRetirements(folder.Store());
+        var attachment = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
+        var edit = attachment with { Id = Guid.NewGuid(), Task = attachment.Task with { Type = "impediment-edit" } };
+
+        retirements.Defer(edit);
+
+        Assert.Empty(folder.Store().ReadAll());
+        Assert.Equal(edit.Id, Assert.Single(retirements.TakeDeferred()).Id);
+        Assert.Empty(retirements.TakeDeferred());
+    }
+
     [Fact]
     public async Task A_document_whose_text_is_no_request_is_counted_unreadable_and_left_on_the_replica()
     {
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var attachments = new RecordingEventAttachments();
         var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
         var garbled = change with { Task = change.Task with { ContentMd = "not json" } };
@@ -251,5 +377,21 @@ public sealed class EventAttachmentRequestSyncTests
         Assert.NotNull(read);
         Assert.Equal(Guid.Empty, read.EventId);
         Assert.Null(read.NoteTitle);
+    }
+
+    /// <summary>A folder of this test's own for the held-request file; each <see cref="Store"/>
+    /// is a fresh read of it, as a restarted desktop's would be.</summary>
+    private sealed class TemporaryFolder : IDisposable
+    {
+        private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-held-requests-" + Guid.NewGuid().ToString("N"));
+
+        public string HeldPath => Path.Combine(_root, "held-attachment-requests.json");
+
+        public FileHeldAttachmentRequestStore Store() => new(HeldPath);
+
+        public void Dispose()
+        {
+            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        }
     }
 }

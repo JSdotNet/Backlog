@@ -26,11 +26,57 @@ public sealed class ModalTests
             .Add(m => m.Title, "Delete entry")
             .AddChildContent("<p>Body</p>"));
 
-        var dialog = modal.Find("[role='dialog']");
+        var dialog = modal.Find("dialog.modal-layer");
 
         Assert.Equal("true", dialog.GetAttribute("aria-modal"));
         Assert.Equal(modal.Find(".modal__title").Id, dialog.GetAttribute("aria-labelledby"));
         Assert.False(dialog.HasAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void An_open_dialog_is_one_dialog_with_no_second_dialog_nested_in_it()
+    {
+        // The native layer is a dialog to assistive technology already; a role=dialog
+        // panel inside it was announced as a second dialog within the first.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var modal = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .Add(m => m.Title, "Skip Techorama")
+            .AddChildContent("<p>Body</p>"));
+
+        Assert.Single(modal.FindAll("dialog"));
+        Assert.Empty(modal.FindAll("[role='dialog']"));
+        Assert.Empty(modal.FindAll("[aria-modal]:not(dialog)"));
+    }
+
+    [Fact]
+    public void A_dialog_a_host_names_by_its_own_reference_carries_that_name_and_description_on_the_layer()
+    {
+        // The update window and the sync activity pass no Title: they splat
+        // aria-labelledby and aria-describedby. Those name the one dialog, the layer,
+        // and a named panel inside it would read as a region landmark.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var modal = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .Add(m => m.Element, "section")
+            .AddUnmatched("aria-labelledby", "update-title")
+            .AddUnmatched("aria-describedby", "update-body")
+            .AddUnmatched("data-kind", "update")
+            .AddChildContent("<h2 id=\"update-title\">Update ready</h2><p id=\"update-body\">Restart to finish.</p>"));
+
+        var layer = modal.Find("dialog.modal-layer");
+        Assert.Equal("update-title", layer.GetAttribute("aria-labelledby"));
+        Assert.Equal("update-body", layer.GetAttribute("aria-describedby"));
+        Assert.False(layer.HasAttribute("aria-label"));
+
+        var panel = modal.Find("section");
+        Assert.False(panel.HasAttribute("aria-labelledby"));
+        Assert.False(panel.HasAttribute("aria-describedby"));
+        Assert.Equal("update", panel.GetAttribute("data-kind"));
     }
 
     [Fact]
@@ -55,7 +101,7 @@ public sealed class ModalTests
 
         var backdrop = Assert.Single(root.Children);
         Assert.Contains("modal-backdrop", backdrop.ClassList);
-        Assert.NotNull(backdrop.QuerySelector("[role='dialog']"));
+        Assert.NotNull(backdrop.QuerySelector(".modal"));
     }
 
     [Fact]
@@ -75,10 +121,10 @@ public sealed class ModalTests
     }
 
     [Fact]
-    public void The_layer_carries_the_same_name_as_the_dialog_inside_it()
+    public void The_layer_carries_the_dialogs_name_and_the_panel_inside_it_carries_no_role()
     {
-        // The native <dialog> is a dialog to assistive technology too, so it is
-        // named the way the inner one is rather than announced as a bare "dialog".
+        // The native <dialog> is the one dialog assistive technology meets, so it
+        // carries the name rather than being announced as a bare "dialog".
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
@@ -94,7 +140,7 @@ public sealed class ModalTests
         var titledLayer = titled.Find("dialog.modal-layer");
         Assert.Equal(titled.Find(".modal__title").Id, titledLayer.GetAttribute("aria-labelledby"));
         Assert.False(titledLayer.HasAttribute("aria-label"));
-        Assert.Equal("dialog", titled.Find(".modal").GetAttribute("role"));
+        Assert.False(titled.Find(".modal").HasAttribute("role"));
 
         var labelledLayer = labelled.Find("dialog.modal-layer");
         Assert.Equal("Entry actions", labelledLayer.GetAttribute("aria-label"));
@@ -177,7 +223,7 @@ public sealed class ModalTests
             .Add(m => m.AriaLabel, "Entry actions")
             .AddChildContent("<p>Body</p>"));
 
-        Assert.Equal("Entry actions", modal.Find("[role='dialog']").GetAttribute("aria-label"));
+        Assert.Equal("Entry actions", modal.Find("dialog.modal-layer").GetAttribute("aria-label"));
     }
 
     [Fact]
@@ -220,8 +266,8 @@ public sealed class ModalTests
             .Add(m => m.OnClosed, () => ignored++)
             .AddChildContent("<p>Body</p>"));
 
-        closes.Find("[role='dialog']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
-        stays.Find("[role='dialog']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        closes.Find(".modal").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        stays.Find(".modal").KeyDown(new KeyboardEventArgs { Key = "Escape" });
 
         Assert.Equal(1, closed);
         Assert.Equal(0, ignored);
@@ -252,7 +298,7 @@ public sealed class ModalTests
             builder.CloseElement();
         });
 
-        host.Find("[role='dialog']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        host.Find(".modal").KeyDown(new KeyboardEventArgs { Key = "Escape" });
 
         Assert.Equal(1, closed);
         Assert.Equal(0, hostHeard);
@@ -300,7 +346,7 @@ public sealed class ModalTests
             .Add(m => m.Header, "<header class=\"entry-dialog__head\">Head</header>")
             .AddChildContent("<p class=\"entry-dialog__body\">Body</p>"));
 
-        var dialog = modal.Find("[role='dialog']");
+        var dialog = modal.Find("section.entry-dialog");
 
         Assert.Equal("section", dialog.NodeName.ToLowerInvariant());
         Assert.Equal("entry-dialog", dialog.GetAttribute("class"));
@@ -362,7 +408,7 @@ public sealed class ModalTests
             .Add(m => m.Open, true)
             .AddChildContent("<p>Body</p>"));
 
-        modal.Find("[role='dialog']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        modal.Find(".modal").KeyDown(new KeyboardEventArgs { Key = "Escape" });
 
         Assert.Single(context.JSInterop.Invocations["backlogRestoreFocus"]);
     }
@@ -500,7 +546,7 @@ public sealed class ModalTests
 
         var invocation = Assert.Single(context.JSInterop.Invocations["backlogContainFocus"]);
 
-        Assert.Equal(modal.Find("[role='dialog']").Id, invocation.Arguments[0]);
+        Assert.Equal(modal.Find(".modal").Id, invocation.Arguments[0]);
     }
 
     [Fact]
@@ -568,7 +614,7 @@ public sealed class ModalTests
             .AddUnmatched("id", "host-named-dialog")
             .AddChildContent("<p>Body</p>"));
 
-        Assert.Equal("host-named-dialog", modal.Find("[role='dialog']").Id);
+        Assert.Equal("host-named-dialog", modal.Find(".modal").Id);
 
         var contain = Assert.Single(context.JSInterop.Invocations["backlogContainFocus"]);
         Assert.Equal("host-named-dialog", contain.Arguments[0]);

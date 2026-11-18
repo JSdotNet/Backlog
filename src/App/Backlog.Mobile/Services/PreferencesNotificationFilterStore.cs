@@ -4,7 +4,7 @@ namespace Backlog.Mobile.Services;
 
 /// <summary>
 /// <see cref="INotificationFilterStore"/> in the app's preferences, so the From and Repository
-/// choices a person made on the Notifications tab are still in force after the app is closed.
+/// choices a person made on the Notifications screen are still in force after the app is closed.
 /// </summary>
 /// <remarks>
 /// Each choice is kept by its own key as the text the filter compares, an empty one meaning

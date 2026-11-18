@@ -5,8 +5,8 @@ namespace Backlog.Modules.Events.UnitTests;
 
 /// <summary>
 /// What the pane's state choice offers (<c>.devbook/domain/events/requirements.md#events-pane</c>,
-/// "No way back" and "A Going event cannot be skipped"): only the states after the current one,
-/// and Skip only from Spotted or Considering.
+/// "No way back" and "An attended event cannot be skipped"): only the states after the current
+/// one, and Skip only from Spotted, Considering or Going.
 /// </summary>
 public sealed class KnowledgeEventMovesTests
 {
@@ -22,11 +22,20 @@ public sealed class KnowledgeEventMovesTests
     }
 
     [Fact]
-    public void A_going_event_offers_neither_an_earlier_state_nor_skip()
+    public void A_going_event_offers_no_earlier_state_but_offers_skip()
     {
         var offer = KnowledgeEventMoves.Offered(KnowledgeEventState.Going);
 
         Assert.Equal([KnowledgeEventState.Attended, KnowledgeEventState.Harvested], offer.Forward);
+        Assert.True(offer.CanSkip);
+    }
+
+    [Fact]
+    public void An_attended_event_offers_harvested_and_no_skip()
+    {
+        var offer = KnowledgeEventMoves.Offered(KnowledgeEventState.Attended);
+
+        Assert.Equal([KnowledgeEventState.Harvested], offer.Forward);
         Assert.False(offer.CanSkip);
     }
 

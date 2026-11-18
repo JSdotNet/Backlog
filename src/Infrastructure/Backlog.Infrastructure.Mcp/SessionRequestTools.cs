@@ -131,9 +131,10 @@ public sealed class SessionRequestTools(
 
     [McpServerTool(Name = ListSessionRequests, Title = "List session requests", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
-        "This machine's session requests, oldest first, each with its state, clone folder and brief - every one, or "
-        + "only those in one state - and paused: true while the person has paused the queue, when every claim is "
-        + "refused and nothing should be started. For a dispatcher that restarts: what it claimed or started before. Read-only.")]
+        "This machine's session requests in queue order - the order the person set in the app, requests never "
+        + "moved oldest first - each with its state, clone folder and brief - every one, or only those in one state - "
+        + "and paused: true while the person has paused the queue, when every claim is refused and nothing should be "
+        + "started. For a dispatcher that restarts: what it claimed or started before. Read-only.")]
     public async Task<SessionRequestsPayload> ListSessionRequestsAsync(
         [Description("Optional. Only requests reading as this state now: requested, claimed, started, linked or cancelled. A claim whose lease ran out reads as requested.")]
         string? state = null,

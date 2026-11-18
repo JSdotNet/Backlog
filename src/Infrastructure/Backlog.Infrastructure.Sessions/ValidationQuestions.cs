@@ -10,8 +10,8 @@ namespace Backlog.Infrastructure.Sessions;
 
 /// <summary>
 /// The question Sessions asks when a delivery run reaches Personal Validation, titled
-/// "&lt;repository&gt; · &lt;run&gt; · Approve or revise", with the gate's handoff as its body and
-/// the choices Approve, Approve + follow-up, Revise and Reject
+/// "&lt;run&gt; · Approve or revise", with the gate's handoff as its body and the choices
+/// Approve, Approve + follow-up and Revise
 /// (<c>.devbook/domain/notifications/requirements.md#requirement-a-run-at-personal-validation-asks-to-be-approved</c>).
 /// It is about the run, so the run's end closes it, and its answer is recorded on the run
 /// file as the gate decision — the desktop session then opens the pull request, or marks
@@ -277,19 +277,21 @@ internal static class ValidationQuestions
             new NotificationSubject(SessionNotificationSubjects.Context, SessionNotificationSubjects.Run, runId),
             NotificationKind.Question,
             NotificationSeverity.Info,
-            NotificationText.Glance(repository, title, TitleAsk, MaxTitleLength),
+            // The origin names the repository, so the title does not repeat it.
+            NotificationText.Glance(null, title, TitleAsk, MaxTitleLength),
             pulls.Count > 0
                 ? "The run reached Personal Validation. Your answer is recorded on the run; approving lets the desktop session mark the pull request ready for review."
                 : "The run reached Personal Validation. Your answer is recorded on the run; the pull request is still opened at the desktop.",
-            Body(title, repository, followUp, handoff, pulls, review),
+            Body(handoff, pulls, review),
             new AnswerSpec(
                 [
                     new AnswerChoice(SessionNotificationSubjects.ApproveChoice, "Approve", AnswerChoiceStyle.Primary),
                     .. followUp
                         ? [new AnswerChoice(SessionNotificationSubjects.ApproveFollowUpChoice, "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?")]
                         : Array.Empty<AnswerChoice>(),
-                    new AnswerChoice(SessionNotificationSubjects.ReviseChoice, "Revise", TakesText: true, Placeholder: "What should change?"),
-                    new AnswerChoice(SessionNotificationSubjects.RejectChoice, "Reject", AnswerChoiceStyle.Destructive)
+                    // No Reject: that is decided at the desktop. A Reject an earlier build's
+                    // question offered still records (Decision).
+                    new AnswerChoice(SessionNotificationSubjects.ReviseChoice, "Revise", TakesText: true, Placeholder: "What should change?")
                 ]),
             // The title names the run, so the place is the repository alone and the card does
             // not print the run twice.
@@ -298,45 +300,29 @@ internal static class ValidationQuestions
 
     /// <summary>
     /// The handoff as Markdown: the pull request first, where there is one, so it is what a
-    /// phone shows before anything else; what the answers do; then the review links any
-    /// device can open (label, address, description), under a heading only when there is
-    /// one; and the handoff text — cut to <see cref="MaxBodyBytes"/>, ending with a line that
-    /// says so, when it is longer.
+    /// phone shows before anything else; then the review links any device can open (label,
+    /// address, description), under a heading only when there is one; and the handoff text —
+    /// cut to <see cref="MaxBodyBytes"/>, ending with a line that says so, when it is longer.
+    /// The title, the summary and the origin already say which run, where, and what an answer
+    /// does, and the buttons name the answers, so the body repeats none of it.
     /// </summary>
     private static string Body(
-        string title,
-        string? repository,
-        bool followUp,
         string? handoff,
         IReadOnlyList<DeliveryStageLink> pulls,
         IReadOnlyList<DeliveryStageLink> links)
     {
         var body = new StringBuilder();
 
-        body.Append(CultureInfo.InvariantCulture, $"**{title}** reached Personal Validation{(string.IsNullOrWhiteSpace(repository) ? string.Empty : $" in `{repository}`")}.\n\n");
-
         if (pulls.Count > 0)
         {
             body.Append("## Pull request\n\n");
             foreach (var pull in pulls) AppendLink(body, pull, PullRequestLabel(pull));
-
-            // Its own heading, so the answers do not read as part of the pull request's list.
-            body.Append("\n## Your answer\n\n");
         }
-
-        body.Append("- **Approve** records the approval on the run.\n");
-        if (followUp) body.Append("- **Approve + follow-up** approves and files your words as a follow-up entry after this one.\n");
-        body.Append("- **Revise** sends it back with your words for another round.\n");
-        body.Append(followUp
-            ? "- **Reject** records a rejection, and the entry is blocked.\n\n"
-            : "- **Reject** records a rejection and ends the run without a revise round.\n\n");
-        body.Append(pulls.Count > 0
-            ? "Approving lets the desktop session mark the pull request ready for review.\n"
-            : "Opening the pull request still happens at the desktop, in the session that runs it.\n");
 
         if (links.Count > 0)
         {
-            body.Append("\n## Review links\n\n");
+            if (body.Length > 0) body.Append('\n');
+            body.Append("## Review links\n\n");
 
             foreach (var link in links)
             {
@@ -346,7 +332,8 @@ internal static class ValidationQuestions
 
         if (handoff is not null)
         {
-            body.Append("\n## Handoff\n\n").Append(handoff).Append('\n');
+            if (body.Length > 0) body.Append('\n');
+            body.Append("## Handoff\n\n").Append(handoff).Append('\n');
         }
 
         return Fit(body.ToString());

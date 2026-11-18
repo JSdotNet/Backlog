@@ -21,7 +21,7 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// </para>
 /// </summary>
 /// <param name="Id">The event's or the series' own id.</param>
-/// <param name="Kind">Which of the two documents this is — one of
+/// <param name="Kind">Which document this is — one of
 /// <see cref="KnowledgeEventKinds"/>.</param>
 /// <param name="UpdatedAt">When a desktop last changed it, on that desktop's clock, and what
 /// the replica compares.</param>
@@ -39,8 +39,12 @@ public static class KnowledgeEventKinds
     /// <summary>One event series.</summary>
     public const string EventSeries = "event-series";
 
+    /// <summary>The <c>events</c> switch a desktop last moved, one per owner (local ADR 0050 §6):
+    /// what tells the phone to withdraw its Events screen.</summary>
+    public const string EventsArea = "events-area";
+
     /// <summary>Every kind a push may carry.</summary>
-    public static IReadOnlyList<string> All { get; } = [KnowledgeEvent, EventSeries];
+    public static IReadOnlyList<string> All { get; } = [KnowledgeEvent, EventSeries, EventsArea];
 
     /// <summary>Whether <paramref name="kind"/> is one of <see cref="All"/>, compared
     /// ordinally.</summary>

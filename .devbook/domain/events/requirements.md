@@ -38,7 +38,7 @@ The system SHALL let the person add a knowledge event with a title alone, in the
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_spotted_event_offers_every_later_state_and_skip_and_marked_going_offers_neither_back_nor_skip, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_spotted_event_marked_going_is_going, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_going_event_offers_no_way_back_and_refuses_one, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_harvested_event_moves_nowhere]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_spotted_event_offers_every_later_state_and_skip_and_marked_going_offers_skip_but_no_way_back, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_spotted_event_marked_going_is_going, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_going_event_offers_no_way_back_and_refuses_one, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_harvested_event_moves_nowhere]
 ```
 
 The system SHALL offer only the states after an event's current one, including states further on than the next.
@@ -59,10 +59,10 @@ The system SHALL offer only the states after an event's current one, including s
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Skip_asks_why_refuses_a_blank_reason_and_shows_the_reason_once_skipped, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_considering_event_skipped_with_a_reason_shows_the_reason, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_blank_skip_reason_is_refused, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_going_event_cannot_be_skipped]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Skip_asks_why_refuses_a_blank_reason_and_shows_the_reason_once_skipped, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_considering_event_skipped_with_a_reason_shows_the_reason, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_blank_skip_reason_is_refused, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.A_going_event_called_off_is_skipped_with_its_reason, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneDecideTests.An_attended_event_cannot_be_skipped]
 ```
 
-The system SHALL skip a Spotted or Considering event only with the reason the person gives, and show that reason on the event.
+The system SHALL skip a Spotted, Considering or Going event only with the reason the person gives, and show that reason on the event.
 
 #### Scenario: Skipped with a reason
 
@@ -70,11 +70,50 @@ The system SHALL skip a Spotted or Considering event only with the reason the pe
 - **When** the person skips it with the reason "Clashes with the release"
 - **Then** the event is Skipped and shows "Clashes with the release"
 
-#### Scenario: A Going event cannot be skipped
+#### Scenario: A conference called off
 
 - **Given** a Going event
+- **When** the person skips it with the reason "Cancelled by the organiser"
+- **Then** the event is Skipped, shows the reason, and no harvest task is filed after its end day
+
+#### Scenario: An attended event cannot be skipped
+
+- **Given** an Attended event
 - **When** the person opens its state choice
 - **Then** Skipped is not offered
+
+### Requirement: An event added by mistake can be removed
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneRemoveTests.A_removed_event_leaves_the_list_and_no_longer_opens, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneRemoveTests.Removing_leaves_the_prep_task_in_tasks, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneRemoveTests.An_event_with_a_harvest_task_is_refused_and_kept, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Remove_asks_to_confirm_and_takes_the_event_off_the_list, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.An_event_with_a_harvest_task_offers_no_remove, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteKnowledgeEventRepositoryTests.A_removed_event_is_neither_listed_nor_got, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteKnowledgeEventReplicaStoreTests.A_removed_event_is_still_offered_and_taken_as_removed, integration:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventReplicationTests.A_removed_event_travels_marked_removed, integration:dotnet:Backlog.Mobile.UI.UnitTests.EventViewProjectionTests.A_removed_event_leaves_the_phone, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_remove_refused_because_the_harvest_task_was_filed_meanwhile_says_why_and_keeps_the_event, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Text_still_waiting_is_written_before_a_remove, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.An_event_removed_elsewhere_meanwhile_counts_as_removed, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteKnowledgeEventRepositoryTests.An_old_row_without_removed_reads_as_not_removed, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteKnowledgeEventRepositoryTests.Only_a_removed_event_is_known_as_removed, integration:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventChangedTests.A_removal_is_announced_and_a_refused_one_is_not]
+```
+
+The system SHALL remove an event the person confirms removing, unless it holds a harvest task, from the pane, the Calendar and the phone on every device. Its tasks and notes stay where they are.
+
+#### Scenario: A duplicate removed
+
+- **Given** an Inbox item routed To Event twice
+- **When** the person removes one of the two events and confirms
+- **Then** the pane lists one
+
+#### Scenario: Its tasks stay
+
+- **Given** a Spotted event with the prep task "Book the hotel"
+- **When** the person removes it
+- **Then** the task is still in Tasks
+
+#### Scenario: An event with a harvest task stays
+
+- **Given** a Going event whose harvest task was filed
+- **When** the person opens it
+- **Then** Remove is not offered
+
+#### Scenario: Gone on every device
+
+- **Given** an event a second desktop and the phone hold
+- **When** the person removes it on one desktop
+- **Then** after the next sync neither shows it
 
 ### Requirement: A moved Brain note shows as missing
 
@@ -297,7 +336,7 @@ The system SHALL file a task titled `Harvest <event title>` with no repository o
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_second_check_files_no_second_harvest_task, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.An_event_already_holding_a_harvest_task_gets_none_filed]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_second_check_files_no_second_harvest_task, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.An_event_already_holding_a_harvest_task_gets_none_filed, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Two_desktops_file_one_harvest_task_between_them]
 ```
 
 The system SHALL file at most one harvest task per event, however many of the person's desktops see its end day pass.
@@ -476,7 +515,7 @@ The system SHALL show a Brain note linked to an event on the phone by its title 
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.Attaching_a_note_queues_one_request_waits_then_reads_attached_once_the_desktop_links_it, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.EventAttachmentRequestSyncTests.A_request_from_the_phone_goes_to_events_and_its_tombstone_waits_for_the_push, integration:dotnet:Backlog.HostComposition.UnitTests.MauiDesktopCompositionTests.The_maui_head_attaches_a_talk_note_the_phone_asked_for_while_the_events_area_is_on, integration:dotnet:Backlog.Modules.Events.UnitTests.EventAttachmentRequestsTests.Attached_twice_the_event_holds_one_link_and_is_not_saved_again, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.EventAttachmentRequestSyncTests.A_request_met_while_the_events_area_is_off_is_applied_once_the_area_is_on_again]
+tests: [integration:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.Attaching_a_note_queues_one_request_waits_then_reads_attached_once_the_desktop_links_it, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.EventAttachmentRequestSyncTests.A_request_from_the_phone_goes_to_events_and_its_tombstone_waits_for_the_push, integration:dotnet:Backlog.HostComposition.UnitTests.MauiDesktopCompositionTests.The_maui_head_attaches_a_talk_note_the_phone_asked_for_while_the_events_area_is_on, integration:dotnet:Backlog.Modules.Events.UnitTests.EventAttachmentRequestsTests.Attached_twice_the_event_holds_one_link_and_is_not_saved_again, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.EventAttachmentRequestSyncTests.A_request_met_while_the_events_area_is_off_is_applied_once_the_area_is_on_again, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.EventAttachmentRequestSyncTests.A_request_held_while_the_events_area_is_off_survives_a_restart_and_is_applied_once_the_area_is_on, integration:dotnet:Backlog.Modules.Events.UnitTests.EventAttachmentRequestsTests.A_request_for_a_removed_event_is_retired_unapplied, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.EventAttachmentRequestSyncTests.A_request_for_a_removed_event_is_retired_unapplied]
 ```
 
 The system SHALL attach a Talk note chosen on the phone to the event once one of the person's desktops applies the request.
@@ -503,12 +542,26 @@ The system SHALL attach a Talk note chosen on the phone to the event once one of
 
 ```meta
 type: requirement
+related: [.devbook/domain/events/context.md#events-area]
+tests: [integration:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.A_switch_turned_off_withdraws_the_screen_and_a_later_one_on_brings_it_back, integration:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.A_phone_that_already_holds_the_switch_off_never_offers_the_screen, integration:dotnet:Backlog.Mobile.UI.UnitTests.EventViewProjectionTests.The_latest_switch_decides_whether_the_screen_is_offered, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.KnowledgeEventSyncWorkerTests.Turning_the_area_off_sends_the_withdrawal_alone_and_then_stops, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.KnowledgeEventSyncWorkerTests.An_area_turned_off_while_sync_is_off_is_withdrawn_once_sync_comes_on, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.KnowledgeEventSyncWorkerTests.The_first_sight_of_the_switch_sends_nothing, integration:dotnet:Backlog.Infrastructure.Sync.UnitTests.KnowledgeEventSyncWorkerTests.Turning_the_area_on_sends_the_switch_with_the_first_exchange]
 ```
 
-The system SHALL show no Events screen on the phone while the `events` flag is off.
+The system SHALL show no Events screen on the phone while the `events` flag a desktop last switched is off.
 
 #### Scenario: Phone area off
 
 - **Given** the `events` flag is off
 - **When** the person opens the phone app
 - **Then** no Events screen is offered
+
+#### Scenario: A desktop turns the area off
+
+- **Given** a phone that holds events and shows the Events tab
+- **When** the person turns the `events` flag off on a desktop, and the phone syncs
+- **Then** the Events tab and the Talk note's event section leave the phone, and the events stay stored
+
+#### Scenario: The latest switch wins
+
+- **Given** two desktops with the `events` flag on, and a phone that shows the Events tab
+- **When** the person turns the flag off on one desktop, then on again on the other
+- **Then** the phone shows the Events tab again

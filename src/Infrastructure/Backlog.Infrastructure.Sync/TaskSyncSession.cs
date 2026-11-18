@@ -68,7 +68,7 @@ public sealed class TaskSyncSession
     private readonly IGoalReplication? _goals;
     private readonly IImpedimentReplication? _impediments;
     private readonly IStandUpContextSource? _standUpContext;
-    private readonly ImpedimentEditRetirements? _retirements;
+    private readonly PhoneRequestRetirements? _retirements;
     private readonly IIterationSettingsReplication? _iteration;
 
     /// <param name="credentials">Whose device this is. Read before every push
@@ -117,7 +117,7 @@ public sealed class TaskSyncSession
         IGoalReplication? goals = null,
         IImpedimentReplication? impediments = null,
         IStandUpContextSource? standUpContext = null,
-        ImpedimentEditRetirements? retirements = null,
+        PhoneRequestRetirements? retirements = null,
         IIterationSettingsReplication? iteration = null)
     {
         ArgumentNullException.ThrowIfNull(client);

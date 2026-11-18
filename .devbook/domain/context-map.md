@@ -27,6 +27,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 | Sessions | Supporting | It records what the AI coding agents do on each environment, and owns nothing those sessions touch. |
 | Notifications | Supporting | It lets any context tell the person something or ask a question, and hands the answer back. |
 | Events | Supporting | It keeps the knowledge events a person attends to learn something, from spotting one to its harvest. |
+| Calendar | Supporting | It lays what Tasks, Roadmap Planning and Events own out on a month or a week, owning no data of its own. |
 | Sync | Supporting | It keeps one person's data the same across their devices by carrying other contexts' documents. |
 
 - **Roadmap Planning:** The plan says what is intended, when, and in what order. Sequencing intent across repositories is a judgement the product exists to support, not a report over work someone else owns.
@@ -60,6 +61,7 @@ flowchart LR
     Sync[Sync]
     Notify[Notifications]
     Events[Events]
+    Calendar[Calendar]
 
     Capture -->|OHS + Published Language<br/>ItemCaptured| Inbox
     %% Inbox -> Tasks is built as an in-process port (IInboxBacklogTarget in
@@ -148,28 +150,30 @@ flowchart LR
     Notify -->|OHS + Published Language<br/>INotifications| Devbook
     Notify -->|OHS + Published Language<br/>Close by subject| Tasks
 
-    %% Events. Local ADR 0050. Tasks -> Events is built
-    %% for filing and reading tasks by id (IEventTaskTarget, answered by
-    %% EventsTaskTarget over ITaskItems), and stays dashed until completing the
-    %% harvest task is built. Sync -> Events is built: the knowledge event
-    %% replica, and the phone's attachment requests on the task feed, reach
-    %% Events through IKnowledgeEventReplication and IEventAttachmentRequests.
-    %% The read contract is built and supplies the Calendar's Events layer,
-    %% which has no line here because the Calendar is not drawn (below).
+    %% Events. Local ADR 0050. Every edge but the Brain reference is built.
+    %% Inbox -> Events is the To Event route; Capture -> Events the event facts
+    %% a capture carries, through the Inbox. Tasks -> Events files, reads and
+    %% completes the prep and harvest tasks by id (IEventTaskTarget, answered by
+    %% EventsTaskTarget over ITaskItems). Sync -> Events carries the knowledge
+    %% event replica, and the phone's attachment requests on the task feed,
+    %% through IKnowledgeEventReplication and IEventAttachmentRequests. The read
+    %% contract supplies the Calendar's Events layer (below).
     %% See .devbook/domain/events/context.md.
-    Inbox -.->|"OHS + Published Language<br/>ItemTriaged: To Event"| Events
-    Capture -.->|"OHS + Published Language<br/>Event facts on the capture, through the Inbox. Watched pages stay Capture's targets"| Events
-    Tasks -.->|"Customer/Supplier<br/>File and complete tasks under the Brain scope, task by id. Tasks never shows the event"| Events
+    Inbox -->|"OHS + Published Language<br/>ItemTriaged: To Event"| Events
+    Capture -->|"OHS + Published Language<br/>Event facts on the capture, through the Inbox. Watched pages stay Capture's targets"| Events
+    Tasks -->|"Customer/Supplier<br/>File and complete tasks under the Brain scope, task by id. Tasks never shows the event"| Events
     Events -.->|"One-way reference<br/>Note links by id. Brain knows no event"| Brain
     Sync -->|"Conformist<br/>Knowledge event replica, and attachment requests on the task feed"| Events
 
-    %% Calendar. Local ADR 0055. Its Tasks, Plans and Events layers are built:
-    %% Tasks offers the Tasks layer as a part the Calendar hosts, and adapters
-    %% under Infrastructure.FileSystem/Calendar/ answer its own ports over
-    %% Roadmap's abstractions and Events' read contract. It is not drawn: ContextMapLayout cannot place it
-    %% between Tasks and Roadmap without running the Tasks-Roadmap line under
-    %% its card, a layout follow-up. Its relationships are the dependency
+    %% Calendar. Local ADR 0055. It reads layers and owns no data; its Tasks,
+    %% Plans and Events layers are built. Tasks offers the Tasks layer as a part
+    %% the Calendar hosts; adapters under Infrastructure.FileSystem/Calendar/
+    %% answer the Calendar's own ports over Roadmap's abstractions and Events'
+    %% read contract. A write goes back through its source. See the dependency
     %% table in .devbook/domain/calendar/context.md.
+    Tasks -->|"Customer/Supplier<br/>Tasks layer, a part the Calendar hosts"| Calendar
+    Roadmap -->|"Customer/Supplier<br/>Plans layer, shelf and working week, ICalendarPlans"| Calendar
+    Events -->|"Customer/Supplier<br/>Events layer over the read contract, ICalendarEvents"| Calendar
 ```
 
 ## Published languages and contracts
@@ -351,7 +355,6 @@ flowchart LR
   - `Tasks` offers the Tasks layer as a part the Calendar hosts.
 
   Its writes go back through the source. The Calendar references no source and no
-  source references it, so the edges make no cycle. It is not drawn on the map:
-  the layout cannot place it between Tasks and Roadmap Planning without hiding the
-  line between those two, so its relationships are its own
+  source references it, so the edges make no cycle. The map draws one line from
+  each source to the Calendar; the ports and adapters behind each are its
   [dependency table](calendar/context.md#dependencies).

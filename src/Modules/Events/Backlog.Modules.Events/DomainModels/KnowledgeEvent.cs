@@ -66,8 +66,16 @@ public sealed class KnowledgeEvent
 
     public IReadOnlyList<EventTaskLink> Tasks => _tasks;
 
+    /// <summary>Whether one of its task links has the purpose Harvest: what keeps a second harvest
+    /// task from being linked, keeps the event from being removed, and tells the policy it filed.</summary>
+    public bool HoldsHarvestTask => _tasks.Exists(task => task.Purpose == TaskPurpose.Harvest);
+
     /// <summary>Whether it was worth it; only once it is Attended or Harvested.</summary>
     public Verdict? Verdict { get; private set; }
+
+    /// <summary>Whether the person removed it. A removed event is kept as a tombstone so the
+    /// removal replicates; every reader but replication leaves it out.</summary>
+    public bool IsRemoved { get; private set; }
 
     /// <summary>A new Spotted event with only a title, trimmed. Refused for a blank title
     /// (<c>knowledge_event.title_missing</c>).</summary>
@@ -81,7 +89,8 @@ public sealed class KnowledgeEvent
 
     /// <summary>
     /// Rehydration from storage. Trusted, as every stored aggregate is: the rules held when it
-    /// was written, so none is checked again. Blank texts read as absent.
+    /// was written, so none is checked again. Blank texts read as absent; <paramref name="removed"/>
+    /// restores a tombstone.
     /// </summary>
     public static KnowledgeEvent Restore(
         Guid id,
@@ -100,13 +109,16 @@ public sealed class KnowledgeEvent
         Cost? cost,
         IEnumerable<NoteLink> notes,
         IEnumerable<EventTaskLink> tasks,
-        string? verdict)
+        string? verdict,
+        bool removed = false)
     {
         ArgumentNullException.ThrowIfNull(keyDates);
         ArgumentNullException.ThrowIfNull(notes);
         ArgumentNullException.ThrowIfNull(tasks);
 
-        return new KnowledgeEvent(id, title, [.. keyDates], [.. notes], [.. tasks])
+        // Distinct: links stored before a Brain path compared case-blind may name one note
+        // twice; the first stands, so each chip removes the link it shows.
+        return new KnowledgeEvent(id, title, [.. keyDates], [.. notes.Distinct()], [.. tasks])
         {
             Series = series,
             Start = start,
@@ -119,7 +131,8 @@ public sealed class KnowledgeEvent
             WhatToLearn = Blank(whatToLearn),
             Ticket = ticket,
             Cost = cost,
-            Verdict = Blank(verdict) is { } text ? new Verdict(text) : null
+            Verdict = Blank(verdict) is { } text ? new Verdict(text) : null,
+            IsRemoved = removed
         };
     }
 
@@ -216,8 +229,9 @@ public sealed class KnowledgeEvent
     }
 
     /// <summary>
-    /// Decides against the event, for <paramref name="reason"/>, trimmed. Refused from Harvested
-    /// or Skipped (<c>knowledge_event.state_final</c>), from Going or Attended
+    /// Decides against the event, or records that it was called off, for
+    /// <paramref name="reason"/>, trimmed: from Spotted, Considering or Going. Refused from
+    /// Harvested or Skipped (<c>knowledge_event.state_final</c>), from Attended
     /// (<c>knowledge_event.cannot_skip</c>), and for a blank reason
     /// (<c>knowledge_event.skip_reason_missing</c>). A refusal leaves the event as it was.
     /// </summary>
@@ -225,7 +239,7 @@ public sealed class KnowledgeEvent
     {
         if (IsFinal(State)) return Result.Failure(EventsErrors.StateFinal(State));
 
-        if (State is not (KnowledgeEventState.Spotted or KnowledgeEventState.Considering))
+        if (State is not (KnowledgeEventState.Spotted or KnowledgeEventState.Considering or KnowledgeEventState.Going))
             return Result.Failure(EventsErrors.CannotSkip(State));
 
         var trimmed = reason?.Trim() ?? string.Empty;
@@ -233,6 +247,20 @@ public sealed class KnowledgeEvent
 
         State = KnowledgeEventState.Skipped;
         SkipReason = new SkipReason(trimmed);
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Removes an event added by mistake, from any state. Refused while one of its task links
+    /// has the purpose Harvest (<c>knowledge_event.has_harvest_task</c>), leaving the event as
+    /// it was; removing a removed event changes nothing. The event stays stored, marked
+    /// removed, so the removal reaches the other devices like any other write.
+    /// </summary>
+    public Result Remove()
+    {
+        if (HoldsHarvestTask) return Result.Failure(EventsErrors.HasHarvestTask());
+
+        IsRemoved = true;
         return Result.Success();
     }
 
@@ -270,7 +298,7 @@ public sealed class KnowledgeEvent
         if (held >= 0 && (link.Purpose != TaskPurpose.Harvest || _tasks[held].Purpose == TaskPurpose.Harvest))
             return Result.Success();
 
-        if (link.Purpose == TaskPurpose.Harvest && _tasks.Exists(task => task.Purpose == TaskPurpose.Harvest))
+        if (link.Purpose == TaskPurpose.Harvest && HoldsHarvestTask)
             return Result.Failure(EventsErrors.HarvestTaskExists());
 
         if (held >= 0) _tasks[held] = link;

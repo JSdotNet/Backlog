@@ -12,11 +12,13 @@ public sealed record ContextMapStroke(ContextMapLine Line, double X1, double Y1,
 /// every context on one ellipse, in the order that crosses the fewest lines. On a
 /// convex ring two lines cross exactly when their ends interleave round it, so the
 /// order alone decides the crossings; no line is routed. A card a line would run
-/// beneath steps away from that line until the line clears it.
+/// beneath steps away from that line until the line clears it, and a line no step
+/// clears grows the ring until it does.
 /// </summary>
 /// <param name="Width">The map's width in its own units, its SVG viewBox's. It
 /// grows past <see cref="DefaultWidth"/>, the cards keeping their size, when that
-/// many cards would touch on the default ring.</param>
+/// many cards would touch on the default ring, or a line would run beneath a card
+/// it does not join.</param>
 /// <param name="Height">The map's height in the same units.</param>
 /// <param name="CardWidth">A card's width.</param>
 /// <param name="CardHeight">A card's height.</param>
@@ -61,12 +63,33 @@ public sealed record ContextMapLayout(
         // Turning or mirroring an order round the ellipse keeps its crossings but
         // not its geometry, so each is tried, and the smallest map wins a tie.
         var (w, h) = (Math.Round(width), Math.Round(height));
-        return orders
-            .SelectMany(Turns)
-            .Select(order => Place(map, ids, order, w, h, cardWidth, cardHeight, pairs))
-            .OrderBy(candidate => Hidden(candidate).Count)
-            .ThenBy(candidate => candidate.Width * candidate.Height)
-            .First();
+        var ranked = Rank(orders.SelectMany(Turns), w, h);
+
+        // A line still beneath a card on every candidate grows the ring, never the
+        // cards: on a wider ring a chord runs farther from the slots between its
+        // ends, so a card it hid comes clear. Only the candidates that hid fewest
+        // lines on the first ring grow, and the growth stops once one hides none.
+        var (best, hidden) = ranked[0];
+        var growing = ranked.Take(GrowCandidates).Select(c => RingOrder(c.Layout)).ToList();
+        for (var grow = 0; grow < GrowSteps && hidden > 0; grow++)
+        {
+            (w, h) = (Math.Round(w * GrowFactor), Math.Round(h * GrowFactor));
+            var (grown, grownHidden) = Rank(growing, w, h)[0];
+            if (grownHidden < hidden) (best, hidden) = (grown, grownHidden);
+        }
+        return best;
+
+        List<(ContextMapLayout Layout, int Hidden)> Rank(IEnumerable<int[]> candidates, double w, double h) =>
+        [
+            .. candidates
+                .Select(order => Place(map, ids, order, w, h, cardWidth, cardHeight, pairs))
+                .Select(layout => (layout, Hidden(layout).Count))
+                .OrderBy(candidate => candidate.Count)
+                .ThenBy(candidate => candidate.layout.Width * candidate.layout.Height)
+        ];
+
+        // Cards are placed in ring order, so the cards give the order back.
+        int[] RingOrder(ContextMapLayout layout) => [.. layout.Cards.Select(card => ids.IndexOf(card.Context.Id))];
 
         static IEnumerable<int[]> Turns(int[] order)
         {
@@ -82,6 +105,16 @@ public sealed record ContextMapLayout(
     private const double NudgeStep = 8;
 
     private const int NudgeSteps = 10;
+
+    /// <summary>How much the ring grows at a time, and how often, while a line
+    /// still runs beneath a card no nudge clears it from.</summary>
+    private const double GrowFactor = 1.05;
+
+    private const int GrowSteps = 8;
+
+    /// <summary>How many of the candidates that hid fewest lines on the first
+    /// ring are tried again on each grown one.</summary>
+    private const int GrowCandidates = 32;
 
     /// <summary>How far a line may run beneath a card it does not join before it
     /// reads as hidden there rather than as clipping the card's corner.</summary>

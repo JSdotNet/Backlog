@@ -589,6 +589,18 @@
     justify-content: center;
 }
 
+/*
+  An IconButton with an Href whose page is on screen (the phone's Notifications
+  bell). Lit by more than colour: a primary bar on the edge that faces the page,
+  as a lit tab carries one on its top edge, and the ink goes full strength. An
+  inset shadow rather than a border, so the mark adds no height and the target
+  keeps its size.
+*/
+.btn--icon-current {
+    color: var(--color-text-primary);
+    box-shadow: inset 0 calc(-1 * var(--border-width-2)) 0 var(--color-primary);
+}
+
 /* AppButton with an Href: an anchor wearing the button's classes. It loses the
    underline and the link colour a bare anchor would bring, and sits in a line the
    way a button does. A disabled one has no href, so the pointer goes with it. */

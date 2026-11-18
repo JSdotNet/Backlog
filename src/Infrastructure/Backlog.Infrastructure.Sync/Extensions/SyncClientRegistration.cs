@@ -237,10 +237,12 @@ public static class SyncClientRegistration
         // above and IHttpClientFactory owns its lifetime — a singleton here would
         // pin one handler chain for the life of the process. The state they share
         // is the host's ITaskSyncStateStore, which is where the singleton belongs.
-        // The impediment edits a pull dealt with, waiting for the push that retires them
-        // (local ADR 0035 §8). A singleton: the merge that adds and the session that sends
-        // are transient, and must meet in one queue.
-        services.TryAddSingleton<ImpedimentEditRetirements>();
+        // The phone's requests a pull dealt with — impediment edits and attachment requests —
+        // waiting for the push that retires them (local ADR 0035 §8, ADR 0050 §3). A
+        // singleton: the merge that adds and the session that sends are transient, and must
+        // meet in one queue. It takes the held-request store AddKnowledgeEventSyncStore
+        // registers, where a head registered one.
+        services.TryAddSingleton<PhoneRequestRetirements>();
         services.TryAddTransient<TaskReplicaMerge>();
         services.TryAddTransient<TaskSyncSession>();
 
@@ -582,11 +584,16 @@ public static class SyncClientRegistration
     /// event replication progress inside the folder it is given.</summary>
     private const string KnowledgeEventSyncStateFileName = "knowledge-event-sync-state.json";
 
+    /// <summary>Where <see cref="AddKnowledgeEventSyncStore"/> keeps the phone's attachment
+    /// requests this desktop could not answer yet.</summary>
+    private const string HeldAttachmentRequestsFileName = "held-attachment-requests.json";
+
     /// <summary>
-    /// The one file knowledge event replication keeps, inside <paramref name="folderPath"/> —
-    /// the per-installation folder the other feeds' progress sits in. One file, because the
-    /// events themselves live in the Events tables the host composes. <c>TryAdd</c>, so a host
-    /// or a test that chose its store keeps it.
+    /// The two files knowledge event replication keeps, inside <paramref name="folderPath"/> —
+    /// the per-installation folder the other feeds' progress sits in: the feed's progress, and
+    /// the phone's attachment requests held until this desktop can answer them. The events
+    /// themselves live in the Events tables the host composes. <c>TryAdd</c>, so a host or a
+    /// test that chose its store keeps it.
     /// </summary>
     public static IServiceCollection AddKnowledgeEventSyncStore(this IServiceCollection services, string folderPath)
     {
@@ -595,6 +602,9 @@ public static class SyncClientRegistration
 
         services.TryAddSingleton<IKnowledgeEventSyncStateStore>(
             _ => new FileKnowledgeEventSyncStateStore(Path.Combine(folderPath, KnowledgeEventSyncStateFileName)));
+        services.TryAddSingleton<IHeldAttachmentRequestStore>(sp => new FileHeldAttachmentRequestStore(
+            Path.Combine(folderPath, HeldAttachmentRequestsFileName),
+            sp.GetService<ILogger<FileHeldAttachmentRequestStore>>()));
 
         return services;
     }

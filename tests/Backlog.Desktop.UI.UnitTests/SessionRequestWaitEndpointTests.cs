@@ -12,7 +12,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The long poll a dispatcher waits on (local ADR 0038 §4): it answers <c>200</c> with
-/// the oldest Requested request the moment there is one, <c>204</c> once the hold has
+/// the Requested request at the head of the queue the moment there is one, <c>204</c> once the hold has
 /// passed without one, and <c>404</c> while <c>session-requests</c> is off. A call that
 /// is held runs on a <see cref="FakeTimeProvider"/>, so the route's own
 /// <see cref="SessionRequestWaitEndpoint.Hold"/> and poll pass as advanced time, not wall-clock time.
@@ -56,6 +56,21 @@ public class SessionRequestWaitEndpointTests
         Assert.Equal(@"D:\Repos\Backlog", root.GetProperty("cloneFolder").GetString());
         Assert.Equal("requested", root.GetProperty("state").GetString());
         Assert.Equal("/backlog-tools:run-plan-item entry `cec5cf9f-a7c2-4d55-b487-eb1a2f9ded45`:", root.GetProperty("brief").GetString());
+    }
+
+    [Fact]
+    public async Task The_request_the_person_moved_to_the_top_is_handed_out_before_an_older_one()
+    {
+        var queue = new InMemorySessionRequestStore();
+        var now = DateTimeOffset.UtcNow;
+        queue.Add(Entry(Guid.NewGuid(), now - TimeSpan.FromMinutes(5)));
+        var later = queue.Add(SessionRequests.ForPlan("+session-dispatch", "JSdotNet/Backlog", @"D:\Repos\Backlog", now));
+        await queue.MoveAsync(later.Id, 0, TestContext.Current.CancellationToken);
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken);
+
+        using var json = JsonDocument.Parse(reply.Body);
+        Assert.Equal(later.Id, json.RootElement.GetProperty("id").GetGuid());
     }
 
     [Fact]
@@ -536,6 +551,8 @@ public class SessionRequestWaitEndpointTests
         public Task<IReadOnlyList<SessionRequest>> ListAsync(SessionRequestState? state = null, CancellationToken cancellationToken = default) => Fail<IReadOnlyList<SessionRequest>>();
 
         public Task<SessionRequest?> NextAsync(CancellationToken cancellationToken = default) => Fail<SessionRequest?>();
+
+        public Task<SessionRequestOutcome> MoveAsync(Guid id, int toIndex, CancellationToken cancellationToken = default) => Fail<SessionRequestOutcome>();
 
         public Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) => Fail<SessionRequestOutcome>();
 

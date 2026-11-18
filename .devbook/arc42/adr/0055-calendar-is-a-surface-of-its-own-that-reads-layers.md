@@ -3,7 +3,8 @@
 ```meta
 date: 2026-11-17
 related: [".devbook/domain/calendar/context.md", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/calendar/features.md#planned-hours", ".devbook/domain/tasks/features.md#tasks-on-the-calendar", ".devbook/domain/events/features.md#events-on-the-calendar", ".devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#1-one-main-view-always", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md#7-the-code-is-one-module-trio", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md"]
-c4-touches: [backlog.desktop.shell]
+c4: [backlog.desktop.calendar]
+c4-touches: [backlog.desktop.shell, backlog.desktop.tasks, backlog.desktop.roadmap, backlog.desktop.events]
 ```
 
 The Calendar is a surface of its own, and the Calendar context owns it. It owns no

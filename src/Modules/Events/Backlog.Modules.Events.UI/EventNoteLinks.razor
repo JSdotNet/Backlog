@@ -7,11 +7,12 @@
     link is a chip. A Brain note that is at its path is followable, in the live tone, and opens
     the note in the Devbook on the Brain side. One that moved reads "missing" inside a dashed
     edge, never as an error, and can be linked again to the note it moved to. A Talk note shows
-    by its stored title and opens nothing yet.
+    by its stored title and opens the Inbox on that note.
 
     Link note is a combobox of the Brain's notes that also takes a typed path, from the Brain's
-    root. With no Brain to read it is disabled, and the reason says why. Whether a note is
-    there is the Brain adapter's answer; this component reads no file.
+    root; what is typed narrows the list to the notes whose title or path holds it. With no
+    Brain to read it is disabled, and the reason says why. Whether a note is there is the Brain
+    adapter's answer; this component reads no file.
 *@
 
 <div class="events-notes" data-testid="events-notes">
@@ -27,7 +28,9 @@
                                   Reference="@note.Reference"
                                   Resolved="@(!note.Missing)"
                                   Problem="@Missing"
-                                  OnOpen="@(brain && !note.Missing ? EventCallback.Factory.Create<string?>(this, OpenNote) : default)"
+                                  OnOpen="@(!brain ? EventCallback.Factory.Create<string?>(this, OpenTalkNote)
+                                            : !note.Missing ? EventCallback.Factory.Create<string?>(this, OpenNote)
+                                            : default)"
                                   TestId="events-note-chip" />
                     @if (brain && note.Missing)
                     {
@@ -50,7 +53,8 @@
     <div class="events-notes__link">
         <Combobox Label="@(_relinking is null ? "Link a Brain note" : $"Link {TitleOf(_relinking)} again")"
                   Placeholder="A note, or its path from the Brain"
-                  Options="_options"
+                  Options="Narrowed"
+                  OpenOnInput="true"
                   @bind-Value="_text"
                   Disabled="@(Unavailable is not null || _busy)"
                   OnCommit="CommitAsync"
@@ -80,6 +84,12 @@
     /// <summary>What a moved Brain note's chip says.</summary>
     public const string Missing = "missing";
 
+    /// <summary>The Inbox surface's id and the key it opens one item by — strings, since the
+    /// Events module references no Inbox project: <c>InboxSurfaceRegistration</c>'s
+    /// <c>SurfaceId</c> and <c>ItemKey</c>.</summary>
+    private const string InboxSurfaceId = "inbox";
+    private const string InboxItemKey = "item";
+
     private IReadOnlyList<SelectorOption> _options = [];
     private IReadOnlyList<EventBrainNoteDto> _candidates = [];
     private string _text = string.Empty;
@@ -106,6 +116,21 @@
     public EventWriteQueue Writes { get; set; } = new();
 
     private string? Unavailable => Pane.BrainUnavailableReason;
+
+    /// <summary>The picker's options narrowed to what is typed: every note whose title or path
+    /// holds the text, whatever its case. Nothing typed offers them all.</summary>
+    private IReadOnlyList<SelectorOption> Narrowed
+    {
+        get
+        {
+            var typed = _text.Trim();
+            if (typed.Length == 0) return _options;
+
+            return [.. _options.Where(option =>
+                option.Label.Contains(typed, StringComparison.CurrentCultureIgnoreCase)
+                || option.Value.Contains(typed, StringComparison.OrdinalIgnoreCase))];
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -143,6 +168,17 @@
         {
             ["scope"] = "brain",
             ["chapter"] = path,
+        });
+    }
+
+    /// <summary>A Talk note is an Inbox note, named by its id: the Inbox opens on it.</summary>
+    private void OpenTalkNote(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return;
+
+        Navigator.Show(InboxSurfaceId, new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [InboxItemKey] = id,
         });
     }
 

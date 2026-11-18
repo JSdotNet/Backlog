@@ -6,7 +6,8 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Events.UnitTests;
 
 /// <summary>The knowledge event store, in memory. It keeps a copy of what was saved, so an event
-/// changed and not saved reads back as it was.</summary>
+/// changed and not saved reads back as it was, and hides a removed event the way the port
+/// says.</summary>
 internal sealed class InMemoryKnowledgeEvents : IKnowledgeEventRepository
 {
     private readonly List<KnowledgeEvent> _saved = [];
@@ -16,8 +17,15 @@ internal sealed class InMemoryKnowledgeEvents : IKnowledgeEventRepository
     /// <summary>When set, the next list throws, as a store that could not be read would.</summary>
     public bool FailNextList { get; set; }
 
+    /// <summary>When set, the list and the load answer removed events too, as a store fed
+    /// straight from replication might, so a reader's own rule is what leaves them out.</summary>
+    public bool AnswersTombstones { get; set; }
+
     public Task<KnowledgeEvent?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_saved.Find(saved => saved.Id == id) is { } found ? Copy(found) : null);
+        Task.FromResult(_saved.Find(saved => saved.Id == id && (AnswersTombstones || !saved.IsRemoved)) is { } found ? Copy(found) : null);
+
+    public Task<bool> IsRemovedAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_saved.Exists(saved => saved.Id == id && saved.IsRemoved));
 
     public Task<IReadOnlyList<KnowledgeEvent>> ListAsync(CancellationToken cancellationToken = default)
     {
@@ -27,7 +35,7 @@ internal sealed class InMemoryKnowledgeEvents : IKnowledgeEventRepository
             throw new InvalidOperationException("The events store could not be read.");
         }
 
-        return Task.FromResult<IReadOnlyList<KnowledgeEvent>>([.. _saved.Select(Copy)]);
+        return Task.FromResult<IReadOnlyList<KnowledgeEvent>>([.. _saved.Where(saved => AnswersTombstones || !saved.IsRemoved).Select(Copy)]);
     }
 
     public Task SaveAsync(KnowledgeEvent knowledgeEvent, CancellationToken cancellationToken = default)
@@ -41,7 +49,7 @@ internal sealed class InMemoryKnowledgeEvents : IKnowledgeEventRepository
 
     private static KnowledgeEvent Copy(KnowledgeEvent e) => KnowledgeEvent.Restore(
         e.Id, e.Title, e.Series, e.Start, e.End, e.DateSource, e.Place, e.Link, e.State, e.SkipReason?.Text,
-        e.WhatToLearn, e.KeyDates, e.Ticket, e.Cost, e.Notes, e.Tasks, e.Verdict?.Text);
+        e.WhatToLearn, e.KeyDates, e.Ticket, e.Cost, e.Notes, e.Tasks, e.Verdict?.Text, e.IsRemoved);
 }
 
 /// <summary>The event series store, in memory.</summary>
@@ -109,6 +117,24 @@ internal sealed class FakeEventTaskTarget : IEventTaskTarget
 
         Filed.Add(title);
         return Result.Success(Hold(title));
+    }
+
+    /// <summary>Ids of tasks it held and the person deleted: not looked up, and never filed again.</summary>
+    public HashSet<string> Deleted { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Files under the caller's id only when no task with it is held, live or deleted —
+    /// the adapter's rule, proved against Tasks in <c>EventsTaskTargetTests</c>.</summary>
+    public async Task<Result<bool>> FileOnceAsync(string taskId, string title, CancellationToken cancellationToken = default)
+    {
+        if (FileGate is { } gate) await gate.Task;
+        if (RefuseWith is { } error) return Result.Failure<bool>(error);
+        if (RefuseTitles.Contains(title)) return Result.Failure<bool>(Error.Validation("entry.needs_title", "Refused."));
+        if (ThrowTitles.Contains(title)) throw new InvalidOperationException("The Tasks store could not be written.");
+        if (Held.ContainsKey(taskId) || Deleted.Contains(taskId)) return Result.Success(false);
+
+        Filed.Add(title);
+        Held[taskId] = new EventTaskFactsDto(taskId, title, "Draft");
+        return Result.Success(true);
     }
 
     /// <summary>Marks a held task Done, and leaves one already Done or Archived as it is — the

@@ -88,10 +88,10 @@ answer handler for their source:
 | Devbook | An info alert "Remark left on *chapter*", when a remark left on another device syncs in | the remark | none |
 
 - **Sessions.** The question carries the gate's handoff as its body and offers
-  Approve, Approve + follow-up (with text), Revise (with text) or Reject.
+  Approve, Approve + follow-up (with text) or Revise (with text).
   `SessionValidationAnswers` records the decision on the run file. Approve and
   Approve + follow-up count as an approval, Revise as a rejection in the person's
-  words, and Reject as a rejection with none. For Approve + follow-up it asks Tasks
+  words, and a Reject an earlier build's question offered as a rejection with none. For Approve + follow-up it asks Tasks
   to file the follow-up entry first.
 - **Devbook.** The alert carries a `backlog://devbook/<alias>/<chapter>` deep link.
 

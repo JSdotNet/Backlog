@@ -46,6 +46,8 @@ public sealed record KnowledgeEventGroupDto(KnowledgeEventState State, IReadOnly
 /// One event as the pane's editor reads it, with its series, its note and task links resolved,
 /// the other editions of its series, and the moves its state choice offers.
 /// </summary>
+/// <param name="RemoveOffered">Whether Remove is offered: while the event holds no harvest
+/// task. Read off the aggregate, the same rule its <c>Remove()</c> refuses by.</param>
 public sealed record KnowledgeEventDto(
     Guid Id,
     string Title,
@@ -64,7 +66,8 @@ public sealed record KnowledgeEventDto(
     IReadOnlyList<EventNoteLinkDto> Notes,
     IReadOnlyList<EventTaskDto> Tasks,
     string? Verdict,
-    IReadOnlyList<EventEditionDto> OtherEditions)
+    IReadOnlyList<EventEditionDto> OtherEditions,
+    bool RemoveOffered)
 {
     /// <summary>What the state choice offers from <see cref="State"/>.</summary>
     public KnowledgeEventMoveOffer Moves => KnowledgeEventMoves.Offered(State);
