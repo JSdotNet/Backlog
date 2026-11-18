@@ -466,7 +466,7 @@ public sealed class ValidationQuestionTests : IDisposable
     [Theory]
     [InlineData($"/backlog-tools:run-plan-item entry `{GatedEntry}`:\n# Raise notifications")]
     [InlineData("Backlog plan item `11` of plan `notifications`: raise them.")]
-    public async Task A_run_that_names_its_entry_is_offered_approve_approve_with_a_follow_up_and_revise(string prompt)
+    public async Task A_run_that_names_its_entry_is_offered_approve_approve_with_a_follow_up_revise_and_a_quiet_dismiss(string prompt)
     {
         var surface = Surface();
         var run = await Start(surface, prompt: prompt);
@@ -474,15 +474,17 @@ public sealed class ValidationQuestionTests : IDisposable
         await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
 
         var spec = Assert.IsType<AnswerSpec>(Assert.Single(_notifications.Published).Draft.Answer);
-        Assert.Equal(["approve", "approve-follow-up", "revise"], spec.Choices.Select(choice => choice.Id));
-        Assert.Equal([false, true, true], spec.Choices.Select(choice => choice.TakesText));
+        Assert.Equal(["approve", "approve-follow-up", "revise", "dismiss"], spec.Choices.Select(choice => choice.Id));
+        Assert.Equal([false, true, true, false], spec.Choices.Select(choice => choice.TakesText));
+        Assert.Equal([false, false, false, true], spec.Choices.Select(choice => choice.Quiet));
+        Assert.Equal("Dismiss", spec.Choices[^1].Label);
         Assert.False(spec.AllowMultiple);
         Assert.Null(spec.Open);
         Assert.Equal(AnswerOn.AnyInstance, spec.AnswerOn);
     }
 
     [Fact]
-    public async Task A_run_that_names_no_entry_is_offered_approve_and_revise_with_no_follow_up()
+    public async Task A_run_that_names_no_entry_is_offered_approve_revise_and_a_quiet_dismiss_with_no_follow_up()
     {
         var surface = Surface();
         var run = await Start(surface, prompt: "Fix the flaky toast test.");
@@ -490,8 +492,9 @@ public sealed class ValidationQuestionTests : IDisposable
         await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
 
         var spec = Assert.IsType<AnswerSpec>(Assert.Single(_notifications.Published).Draft.Answer);
-        Assert.Equal(["approve", "revise"], spec.Choices.Select(choice => choice.Id));
-        Assert.Equal([false, true], spec.Choices.Select(choice => choice.TakesText));
+        Assert.Equal(["approve", "revise", "dismiss"], spec.Choices.Select(choice => choice.Id));
+        Assert.Equal([false, true, false], spec.Choices.Select(choice => choice.TakesText));
+        Assert.Equal([false, false, true], spec.Choices.Select(choice => choice.Quiet));
         Assert.Equal("What should change?", spec.Choices[1].Placeholder);
     }
 
@@ -508,12 +511,109 @@ public sealed class ValidationQuestionTests : IDisposable
             cancellationToken: Cancellation);
 
         var draft = Assert.Single(_notifications.Published).Draft;
-        foreach (var gone in new[] { "JSdotNet/Backlog", "**Approve**", "**Revise**", "**Reject**", "reached Personal Validation", "still happens at the desktop" })
+        foreach (var gone in new[] { "JSdotNet/Backlog", "**Approve**", "**Revise**", "**Reject**", "**Dismiss**", "reached Personal Validation", "still happens at the desktop" })
         {
             Assert.DoesNotContain(gone, draft.BodyMarkdown, StringComparison.Ordinal);
         }
 
         Assert.StartsWith("## Review links\n", draft.BodyMarkdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Dismiss_records_nothing_on_the_runs_approval_and_marks_the_question_dismissed()
+    {
+        var surface = Surface();
+        var run = await Start(surface, prompt: $"/backlog-tools:run-plan-item entry `{GatedEntry}`:\n# Raise notifications");
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        var before = (await File(run))["approval"]?.ToJsonString();
+
+        await Answers(surface).HandleAnswerAsync(Answer(run, "dismiss", null), Cancellation);
+
+        var file = await File(run);
+        Assert.Equal(before, file["approval"]?.ToJsonString());
+        var asked = file["validationQuestion"]!.AsObject();
+        Assert.True(asked["dismissed"]!.GetValue<bool>());
+        Assert.False(asked["answered"]!.GetValue<bool>());
+        Assert.Empty(_followUps.Requests);
+    }
+
+    [Fact]
+    public async Task A_replayed_dismiss_leaves_the_run_unchanged()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        var answers = Answers(surface);
+        var dismiss = Answer(run, "dismiss", null);
+
+        await answers.HandleAnswerAsync(dismiss, Cancellation);
+        var once = (await File(run)).ToJsonString();
+        await answers.HandleAnswerAsync(dismiss, Cancellation);
+
+        Assert.Equal(once, (await File(run)).ToJsonString());
+    }
+
+    [Fact]
+    public async Task A_dismiss_after_a_desktop_decision_leaves_that_decision_standing()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        await Task.Delay(5, Cancellation);
+        await surface.SetRunContextAsync(Worktree, run, approval: "approved", approvalNote: "Looks right.", cancellationToken: Cancellation);
+
+        await Answers(surface).HandleAnswerAsync(Answer(run, "dismiss", null), Cancellation);
+
+        var approval = (await File(run))["approval"]!.AsObject();
+        Assert.Equal("approved", approval["personalValidation"]!.GetValue<string>());
+        Assert.Equal("Looks right.", approval["note"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task A_dismissed_question_is_not_asked_again_or_closed_for_the_same_attempt()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        await Answers(surface).HandleAnswerAsync(Answer(run, "dismiss", null), Cancellation);
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", output: "Still here.", links: AppLink, cancellationToken: Cancellation);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "done", cancellationToken: Cancellation);
+
+        Assert.Single(_notifications.Published);
+        Assert.Empty(_notifications.ClosedById);
+    }
+
+    [Fact]
+    public async Task A_revise_round_decided_at_the_desktop_after_a_dismiss_asks_again()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", output: "First attempt.", links: AppLink, cancellationToken: Cancellation);
+        await Answers(surface).HandleAnswerAsync(Answer(run, "dismiss", null), Cancellation);
+        await Task.Delay(5, Cancellation);
+        await surface.SetRunContextAsync(Worktree, run, approval: "rejected", approvalNote: "Split the migration.", cancellationToken: Cancellation);
+        await surface.SetRunContextAsync(Worktree, run, approval: "pending", cancellationToken: Cancellation);
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", output: "Second attempt.", cancellationToken: Cancellation);
+
+        Assert.Equal(2, _notifications.Published.Count);
+        Assert.Contains("Second attempt.", _notifications.Published[^1].Draft.BodyMarkdown!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_new_attempt_after_a_dismiss_asks_again()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        await Answers(surface).HandleAnswerAsync(Answer(run, "dismiss", null), Cancellation);
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "blocked", cancellationToken: Cancellation);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", output: "Second attempt.", cancellationToken: Cancellation);
+
+        Assert.Equal(2, _notifications.Published.Count);
+        Assert.Contains("Second attempt.", _notifications.Published[^1].Draft.BodyMarkdown!, StringComparison.Ordinal);
     }
 
     [Fact]

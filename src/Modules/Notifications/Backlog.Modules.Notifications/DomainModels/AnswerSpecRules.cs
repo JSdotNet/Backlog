@@ -7,7 +7,8 @@ namespace Backlog.Modules.Notifications.DomainModels;
 /// Whether an <see cref="AnswerSpec"/> is one of the four shapes
 /// <c>.devbook/domain/notifications/domain.md#answer-spec</c> allows — single choice, multiple
 /// choice, open, or choices with open — and nothing else. A choice that
-/// <see cref="AnswerChoice.TakesText"/> belongs to a single-choice question only.
+/// <see cref="AnswerChoice.TakesText"/> belongs to a single-choice question only, and so does
+/// a <see cref="AnswerChoice.Quiet"/> one, which takes no text.
 /// </summary>
 internal static class AnswerSpecRules
 {
@@ -48,6 +49,10 @@ internal static class AnswerSpecRules
         if (choices.Any(choice => !Enum.IsDefined(choice.Style)))
             return Invalid("A choice is drawn as default, primary or destructive.");
 
+        // A quiet choice is a small text action with no room for a text box.
+        if (choices.Any(choice => choice.Quiet && choice.TakesText))
+            return Invalid("A quiet choice takes no text.");
+
         if (!spec.AllowMultiple)
         {
             return spec.MinChoices is null && spec.MaxChoices is null
@@ -56,6 +61,10 @@ internal static class AnswerSpecRules
         }
 
         if (spec.Open is not null) return Invalid("A multiple-choice question takes no open answer.");
+
+        // A quiet choice is a small action pressed to answer; a checkbox list has none.
+        if (choices.Any(choice => choice.Quiet))
+            return Invalid("Only a single-choice question has a quiet choice.");
 
         // A reply carries one text, so two picked choices could not each bring their words.
         if (choices.Any(choice => choice.TakesText))
