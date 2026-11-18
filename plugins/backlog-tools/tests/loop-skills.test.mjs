@@ -19,7 +19,7 @@ const loopStarted = fs
   .filter(({ name, text }) => text.includes(`/loop /backlog-tools:${name}`));
 
 // standing-session.md's table: one row per loop skill, `| skill | title | kind |`, the kind `—`
-// for a loop `check_in` accepts no kind for yet.
+// for a loop that holds nothing back and so never checks in (local ADR 0051 §3).
 const rowOf = (name) =>
   standing.match(new RegExp("^\\| `" + name + "` \\| `([^`]+)` \\| (?:`([^`]+)`|—) \\|$", "m"));
 
@@ -70,11 +70,12 @@ for (const { name, text } of loopStarted) {
   });
 
   // Every tick opens with a check-in, so the person's pause, resume or stop reaches the loop.
-  test(`${name} checks in first on every tick, as the kind check_in accepts`, (t) => {
+  test(`${name} checks in first on every tick, as the kind check_in accepts, or never without one`, () => {
     if (rowOf(name) && rowOf(name)[2] === undefined) {
-      // No kind yet: standing-session.md says such a loop does not check in, so it must not try.
+      // No kind: standing-session.md says such a loop never checks in, so it must not try.
+      assert.match(standing, /A row with no kind never checks in/);
       assert.doesNotMatch(body, /`check_in`|#check-in/);
-      return t.skip(`${name} has no check_in kind yet`);
+      return;
     }
     const kind = rowOf(name)?.[2];
     assert.ok(["dispatcher", "brain-tender"].includes(kind), `${name}'s kind is ${kind}`);

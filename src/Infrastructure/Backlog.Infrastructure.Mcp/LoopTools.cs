@@ -128,15 +128,19 @@ public sealed class LoopTools(
         return LoopCheckInPayload.From(loop, waiting);
     }
 
-    /// <summary>The session requests reading Requested, or null where no queue is composed
-    /// or it cannot be read.</summary>
+    /// <summary>The session requests waiting for a dispatcher — those reading Requested, none
+    /// while the queue is paused (<see cref="SessionRequests.WaitingWork"/>) — or null where no
+    /// queue is composed or it cannot be read.</summary>
     private async Task<int?> WaitingRequestsAsync(DateTimeOffset now, CancellationToken cancellationToken)
     {
         if (requests is null) return null;
 
         try
         {
-            return SessionRequests.Waiting(await requests.ListAsync(null, cancellationToken).ConfigureAwait(false), now).Count;
+            var held = await requests.ListAsync(null, cancellationToken).ConfigureAwait(false);
+            var paused = await requests.IsPausedAsync(cancellationToken).ConfigureAwait(false);
+
+            return SessionRequests.WaitingWork(held, paused, now);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

@@ -775,7 +775,7 @@ related: [.devbook/domain/sessions/features.md#loop-sessions, .devbook/domain/se
 type: requirement
 ```
 
-The system SHALL read a loop session as Listening when it checked in within 2 minutes, Holding when it checks in while work waits and a capacity limit is reached, as Backlog's reading at the check-in finds it or, where that reading cannot decide, as the loop says it, Stalled when its process is alive with no check-in past its heartbeat plus 10 minutes, and Not running when it has no process or its session is archived.
+The system SHALL read a loop session as Listening when it checks in and nothing holds it, Holding when it checks in while work waits and a capacity limit is reached, as Backlog's reading at the check-in finds it or, where that reading cannot decide, as the loop says it, until that check-in's own heartbeat has passed, Stalled when its process is alive with no check-in past its heartbeat plus 10 minutes, and Not running when it has no process or its session is archived.
 
 #### Scenario: A Manager waits for requests
 
@@ -799,6 +799,12 @@ The system SHALL read a loop session as Listening when it checked in within 2 mi
 
 - **Given** a Manager whose four figures all read within its limits
 - **When** it checks in saying it holds, with requests waiting
+- **Then** it reads Listening
+
+#### Scenario: A Manager that only waits after a hold
+
+- **Given** a Manager with a 5-minute heartbeat that checked in Holding at noon
+- **When** its wait call reaches Backlog at 12:06 and it sends no `check_in`
 - **Then** it reads Listening
 
 #### Scenario: A hung loop
@@ -826,6 +832,12 @@ The system SHALL answer every `check_in` with the `pause`, `resume` or `stop` th
 - **Given** a Manager that checks in with a usage limit of 50%
 - **When** plan usage reads 60%
 - **Then** the answer says there is no room and names the usage limit
+
+#### Scenario: The person pauses the queue
+
+- **Given** a Manager at its usage limit, and two session requests in a paused queue
+- **When** it checks in
+- **Then** the answer carries no session request waiting, and the Manager reads Listening
 
 ### Requirement: The app measures capacity for a loop
 

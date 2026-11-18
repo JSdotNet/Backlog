@@ -1695,7 +1695,8 @@ aliases: [LoopRegister, loop session, check_in]
 The loop sessions this machine runs and their latest check-ins. A **loop session** is a session
 whose Session Purpose is Agent: the Manager of local
 [ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
-and the Brain tender, both under `/loop`.
+and the Brain tender, both under `/loop`. The goal tracker also runs under `/loop` but never
+checks in, so the register never holds it.
 
 A loop checks in two ways:
 
@@ -1722,11 +1723,14 @@ aliases: [LoopCheckIn, check-in, heartbeat]
 One check-in: the session id, when it arrived, the loop's own state as it says it, its heartbeat
 and its limits. A limit the loop leaves out is Backlog's default. A dispatcher's check-in also
 keeps the [Capacity Reading](#capacity-reading) Backlog took when it arrived, and the number of
-session requests then waiting, which is unknown when the queue could not be read.
+session requests then waiting. None wait while the queue is paused, and the number is unknown
+when the queue could not be read.
 
 A dispatch wait is a check-in with only the session and the time. It moves the time of the
-session's last `check_in` and keeps the rest, its limits and reading included. A wait for a
-session that never called `check_in` records nothing. Equality is by all its parts.
+session's last `check_in` and keeps the rest, its limits and reading included. It also keeps
+when that `check_in` arrived, because what the check-in said about holding stands only until
+its own heartbeat has passed. A wait for a session that never called `check_in` records
+nothing. Equality is by all its parts.
 
 ### Capacity Reading
 
@@ -1739,7 +1743,7 @@ How much room the machine has, measured by Backlog itself at a check-in:
 
 - the dispatched sessions working, with Waiting sessions not counted;
 - plan usage, the [Weekly Usage](#weekly-usage) estimate's share of the calibrated weekly limit;
-- CPU;
+- CPU, its busy share over the last 30 seconds;
 - free memory.
 
 Plan usage reads unavailable until a weekly refusal sizes the limit. Against the limits the loop
@@ -1755,17 +1759,18 @@ aliases: [LoopState]
 
 How a loop session is doing: `listening`, `holding`, `stalled`, `not-running`.
 
-- **Listening:** it checked in within 2 minutes.
+- **Listening:** it checks in, and nothing holds it.
 - **Holding:** it checks in, work waits, and its [Capacity Reading](#capacity-reading) has no
   room. Where that reading cannot decide, the loop's own word that it holds decides. A reading
   cannot decide when there is none, when a figure reads unavailable and no limit is reached, or
-  when a limit is reached and the work waiting is unknown.
+  when a limit is reached and the work waiting is unknown. Either holds only until the last
+  `check_in`'s own heartbeat has passed.
 - **Stalled:** the [Liveness Assessment](#liveness-assessment) finds its process alive, and
   nothing checked in past its heartbeat plus 10 minutes.
 - **Not running:** it has no process, or its session is archived.
 
-Between 2 minutes and its heartbeat plus 10 minutes, a loop keeps the state it last read. The
-Brain tender has no queue, so it never reads Holding. Like a session's state, a loop's state is a
+A dispatch wait keeps a loop off Stalled, but not Holding. The Brain tender has no queue, so it
+never reads Holding. Like a session's state, a loop's state is a
 reading, never stored.
 
 ## Session Activity Publishing

@@ -21,6 +21,7 @@ public sealed class SessionAlertPublisherTests
     private readonly InMemoryLoopRegister _loops;
     private readonly InMemorySessionRequestStore _requests;
     private readonly HeldSessions _sessions = new();
+    private readonly HeldWaitingQuestions _questions = new();
     private readonly Ledger _ledger = new();
     private bool _enabled = true;
 
@@ -33,7 +34,7 @@ public sealed class SessionAlertPublisherTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private SessionAlertPublisher Publisher() =>
-        new(_schedules, _loops, _sessions, () => _ledger, () => _ledger, () => _enabled, _requests, clock: _time, store: () => _ledger) { Zone = TimeZoneInfo.Utc };
+        new(_schedules, _loops, _sessions, () => _ledger, () => _ledger, () => _enabled, _requests, _questions, clock: _time, store: () => _ledger) { Zone = TimeZoneInfo.Utc };
 
     private Task ReportAsync(ScheduledRunEvent @event, string session, string? verdict = null, IReadOnlyList<string>? needsYou = null, string schedule = "weekly-update") =>
         _schedules.RecordAsync(
@@ -259,6 +260,118 @@ public sealed class SessionAlertPublisherTests
         Assert.Empty(_ledger.Views);
     }
 
+    /// <summary>A paused queue hands out no request, so what it holds waits for the person,
+    /// not for a dispatcher: no Not-running alert counts it.</summary>
+    [Fact]
+    public async Task A_dispatcher_archived_while_the_queue_is_paused_raises_nothing()
+    {
+        _sessions.Add("manager-1");
+        await CheckInAsync();
+        _requests.Add(new SessionRequest(Guid.NewGuid(), SessionRequestKind.Entry, Guid.NewGuid(), null, "JSdotNet/Backlog", @"D:\Repos\Backlog", SessionRequestState.Requested, null, null, null, Due));
+        await _requests.SetPausedAsync(true, Ct);
+        _sessions.Archive("manager-1");
+
+        Assert.Equal((0, 0), await Publisher().SweepAsync(Ct));
+        Assert.Empty(_ledger.Views);
+    }
+
+    /// <summary>Deliveries flow while the queue is paused, so a pending one still waits for
+    /// the dispatcher — and it alone is counted.</summary>
+    [Fact]
+    public async Task A_dispatcher_archived_while_the_queue_is_paused_with_a_pending_delivery_counts_only_the_delivery()
+    {
+        _sessions.Add("manager-1");
+        await CheckInAsync();
+        _requests.Add(new SessionRequest(Guid.NewGuid(), SessionRequestKind.Entry, Guid.NewGuid(), null, "JSdotNet/Backlog", @"D:\Repos\Backlog", SessionRequestState.Requested, null, null, null, Due));
+        await _requests.SetPausedAsync(true, Ct);
+        _questions.AddPendingDelivery("asking-session", "Which branch?", "main", Due);
+        _sessions.Archive("manager-1");
+
+        Assert.Equal((1, 0), await Publisher().SweepAsync(Ct));
+        Assert.StartsWith("1 answer delivery waits for it.", Assert.Single(_ledger.Views).Summary, StringComparison.Ordinal);
+    }
+
+    // --- the session reading's window (local ADR 0051 §5) ----------------------------------
+
+    private Task FinishCleanAsync(string session, string schedule = "weekly-update") =>
+        ReportAsync(ScheduledRunEvent.Finished, session, "review-ready", schedule: schedule);
+
+    private IEnumerable<NotificationView> RunAlerts() =>
+        _ledger.Views.Where(view => view.Subject!.Id.StartsWith("needs-you:", StringComparison.Ordinal));
+
+    /// <summary>A run that finished Review ready 90 days ago can raise nothing, whatever its
+    /// archiving: the reading reaches back only to the latest run, less a day.</summary>
+    [Fact]
+    public async Task The_session_reading_reaches_back_only_as_far_as_an_alert_can_still_change()
+    {
+        await FinishCleanAsync("run-old");
+        _time.Advance(TimeSpan.FromDays(89));
+        await FinishCleanAsync("run-new");
+        _time.Advance(TimeSpan.FromDays(1));
+
+        await Publisher().SweepAsync(Ct);
+
+        Assert.Equal(_time.GetUtcNow() - TimeSpan.FromDays(2), Assert.Single(_sessions.Horizons));
+    }
+
+    /// <summary>A Needs-you run seen archived once leaves the window: the next sweep reads only
+    /// as far back as the latest run, and the run is not raised again though the reading no
+    /// longer holds its session.</summary>
+    [Fact]
+    public async Task An_archived_needs_you_run_drops_out_of_the_reading_once_seen()
+    {
+        _sessions.HonoursHorizon = true;
+        await NeedsYouAsync("run-1");
+        _sessions.Add("run-1", lastActive: Due);
+        _sessions.Archive("run-1");
+        _time.Advance(TimeSpan.FromDays(30));
+        await FinishCleanAsync("run-2");
+        var publisher = Publisher();
+
+        await publisher.SweepAsync(Ct);
+        await publisher.SweepAsync(Ct);
+
+        Assert.Equal(2, _sessions.Horizons.Count);
+        Assert.True(_sessions.Horizons[0] < Due, "The first sweep must read as far back as the unseen archived run.");
+        Assert.True(_sessions.Horizons[1] > _time.GetUtcNow() - TimeSpan.FromDays(2), $"The second sweep reached back to {_sessions.Horizons[1]}.");
+        Assert.Empty(RunAlerts());
+    }
+
+    /// <summary>Only the loop of each kind that checked in last can raise an alert, so an
+    /// older dispatcher's row does not widen the reading.</summary>
+    [Fact]
+    public async Task A_superseded_loop_does_not_widen_the_reading()
+    {
+        await CheckInAsync("manager-old");
+        _time.Advance(TimeSpan.FromDays(60));
+        await CheckInAsync("manager-new");
+
+        await Publisher().SweepAsync(Ct);
+
+        var horizon = Assert.Single(_sessions.Horizons);
+        Assert.True(horizon > _time.GetUtcNow() - TimeSpan.FromDays(2), $"The reading reached back to {horizon}.");
+    }
+
+    /// <summary>A Needs-you run nobody archived keeps its alert open however old it is: the
+    /// reading reaches back to it for as long as it is not seen archived.</summary>
+    [Fact]
+    public async Task An_unarchived_needs_you_run_keeps_its_alert_open_however_old()
+    {
+        _sessions.HonoursHorizon = true;
+        await NeedsYouAsync("run-1");
+        _sessions.Add("run-1", lastActive: Due);
+        var publisher = Publisher();
+        await publisher.SweepAsync(Ct);
+        _time.Advance(TimeSpan.FromDays(200));
+        await FinishCleanAsync("run-2");
+
+        await publisher.SweepAsync(Ct);
+        await Publisher().SweepAsync(Ct);
+
+        Assert.True(Assert.Single(RunAlerts()).IsOpen);
+        Assert.All(_sessions.Horizons, horizon => Assert.True(horizon < Due));
+    }
+
     [Fact]
     public async Task Nothing_is_raised_while_the_sessions_flag_is_off()
     {
@@ -404,12 +517,19 @@ public sealed class SessionAlertPublisherTests
     }
 
     /// <summary>The sessions the reading answers: added live, and archived on demand.</summary>
+    /// <summary>The session list. It records every horizon it is asked for; with
+    /// <see cref="HonoursHorizon"/> it also answers only the sessions active since it, as the
+    /// readers over the transcripts do.</summary>
     private sealed class HeldSessions : IAgentSessionSource
     {
         private readonly List<AgentSession> _held = [];
 
-        public void Add(string id, string? desktopId = null) =>
-            _held.Add(new AgentSession(id, AgentSessionKind.Claude, "env", "This PC", "📡 SESSION DISPATCHER", @"D:\repo", "owner/repo", "main", Due, Due, AgentSessionState.Running, null, AgentSessionOrigin.Local)
+        public List<DateTimeOffset?> Horizons { get; } = [];
+
+        public bool HonoursHorizon { get; set; }
+
+        public void Add(string id, string? desktopId = null, DateTimeOffset? lastActive = null) =>
+            _held.Add(new AgentSession(id, AgentSessionKind.Claude, "env", "This PC", "📡 SESSION DISPATCHER", @"D:\repo", "owner/repo", "main", Due, lastActive ?? Due, AgentSessionState.Running, null, AgentSessionOrigin.Local)
             {
                 DesktopSessionId = desktopId
             });
@@ -430,8 +550,16 @@ public sealed class SessionAlertPublisherTests
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new AgentSessionCatalog([.. _held], [], _held.Count));
 
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
+        {
+            Horizons.Add(query.Horizon);
+
+            if (!HonoursHorizon || query.Horizon is not { } horizon) return GetSessionsAsync(cancellationToken);
+
+            List<AgentSession> since = [.. _held.Where(session => session.LastActivityAt >= horizon)];
+
+            return Task.FromResult(new AgentSessionCatalog(since, [], since.Count));
+        }
     }
 
     /// <summary>

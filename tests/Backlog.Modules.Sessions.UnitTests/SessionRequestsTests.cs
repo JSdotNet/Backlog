@@ -149,6 +149,18 @@ public sealed class SessionRequestsTests
         Assert.Equal(SessionRequestState.Requested, outcome.Request!.StateAt(Noon.AddMinutes(3)));
     }
 
+    /// <summary>The work a dispatcher has waiting: the Requested requests, a lapsed claim
+    /// included — none while the queue is paused, since it hands none out.</summary>
+    [Fact]
+    public void A_paused_queue_has_no_request_work_waiting()
+    {
+        IReadOnlyList<SessionRequest> held = [Requested(), Claimed("manager-1"), Started(), Requested(Noon.AddMinutes(1))];
+
+        Assert.Equal(2, SessionRequests.WaitingWork(held, paused: false, Noon));
+        Assert.Equal(3, SessionRequests.WaitingWork(held, paused: false, Noon.AddMinutes(3)));
+        Assert.Equal(0, SessionRequests.WaitingWork(held, paused: true, Noon.AddMinutes(3)));
+    }
+
     [Fact]
     public void A_Requested_request_can_be_claimed_once_the_queue_runs_again()
     {

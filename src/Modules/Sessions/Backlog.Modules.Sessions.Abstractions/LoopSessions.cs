@@ -93,7 +93,7 @@ public sealed record LoopHeldWork(int Requests, int Deliveries, int Sessions, in
 /// <param name="Activity">What it says it is doing.</param>
 /// <param name="HeartbeatMinutes">How often it says it checks in, in minutes.</param>
 /// <param name="Held">The work it says it holds.</param>
-/// <param name="At">When the check-in arrived.</param>
+/// <param name="At">When the check-in arrived, or the dispatch wait that last moved it.</param>
 public sealed record LoopCheckIn(
     string SessionId,
     LoopKind Kind,
@@ -115,6 +115,11 @@ public sealed record LoopCheckIn(
     /// a reached limit holds back. Null when unknown — no queue composed, or it could not
     /// be read — and then the loop's own word decides Holding.</summary>
     public int? WorkWaiting { get; init; }
+
+    /// <summary>When the full check-in that said all of this arrived, once a dispatch wait has
+    /// moved <see cref="At"/> past it; null while <see cref="At"/> is that time. What the
+    /// check-in said about holding stands only until its heartbeat from here (local ADR 0051 §3).</summary>
+    public DateTimeOffset? ReportedAt { get; init; }
 }
 
 /// <summary>
@@ -141,15 +146,12 @@ public sealed record LoopSessionReading(LoopSession Loop, LoopState State, LoopP
 /// checked in within heartbeat + 10  → Listening, or Holding while work waits and a limit is reached
 /// past heartbeat + 10               → Stalled
 /// </code>
-/// Within <see cref="ListeningWithin"/> a loop reads Listening (or Holding); between that and
-/// its heartbeat plus <see cref="StalledGrace"/> it keeps the state it last read, which is
-/// the same reading of the same check-in. The Brain tender has no queue, so it never holds.
+/// A check-in or a dispatch wait keeps a loop off Stalled; what the last full check-in said
+/// about holding stands only until its own heartbeat has passed, and a loop past it reads
+/// Listening. The Brain tender has no queue, so it never holds.
 /// </summary>
 public static class LoopSessions
 {
-    /// <summary>A loop that checked in this recently reads Listening, or Holding.</summary>
-    public static readonly TimeSpan ListeningWithin = TimeSpan.FromMinutes(2);
-
     /// <summary>How far past its own heartbeat a loop may go quiet before it reads Stalled.</summary>
     public static readonly TimeSpan StalledGrace = TimeSpan.FromMinutes(10);
 
@@ -217,20 +219,25 @@ public static class LoopSessions
 
         if (now > StalledAfter(checkIn)) return LoopState.Stalled;
 
-        return Holds(checkIn) ? LoopState.Holding : LoopState.Listening;
+        return Holds(checkIn, now) ? LoopState.Holding : LoopState.Listening;
     }
 
     /// <summary>
-    /// Whether a checked-in loop is holding work back (local ADR 0051 §4). The app's own
-    /// reading decides when it can: a limit reached, or all four figures measured — then the
-    /// loop holds only while a limit is reached and work waits. A reading that cannot decide
-    /// (a figure unavailable and none of the others reached, or no reading at all), or a
-    /// reached limit with the work waiting unknown, leaves the loop's own
+    /// Whether a checked-in loop is holding work back at <paramref name="now"/> (local ADR
+    /// 0051 §3, §4). Nothing holds once the last full check-in's own heartbeat has passed:
+    /// a dispatch wait moves the check-in time but says nothing new about capacity or work,
+    /// so the reading and the loop's word lapse at the next tick they promised. Within it, the
+    /// app's own reading decides when it can: a limit reached, or all four figures measured —
+    /// then the loop holds only while a limit is reached and work waits. A reading that cannot
+    /// decide (a figure unavailable and none of the others reached, or no reading at all), or
+    /// a reached limit with the work waiting unknown, leaves the loop's own
     /// <see cref="LoopActivity.Holding"/> to decide. The Brain tender never holds.
     /// </summary>
-    private static bool Holds(LoopCheckIn checkIn)
+    private static bool Holds(LoopCheckIn checkIn, DateTimeOffset now)
     {
         if (checkIn.Kind == LoopKind.BrainTender) return false;
+
+        if (now > (checkIn.ReportedAt ?? checkIn.At) + TimeSpan.FromMinutes(checkIn.HeartbeatMinutes)) return false;
 
         if (checkIn.Reading is { } reading && Decides(reading))
         {
@@ -325,13 +332,16 @@ public static class LoopSessions
 
     /// <summary>A dispatch wait at <paramref name="at"/> recorded over <paramref name="loop"/>
     /// (local ADR 0051 §3): a check-in with only the session and the time, so only the
-    /// check-in time moves — and never backwards, so a wait that arrives late changes nothing.</summary>
+    /// check-in time moves — and never backwards, so a wait that arrives late changes nothing.
+    /// The last full check-in's own time is kept in <see cref="LoopCheckIn.ReportedAt"/>.</summary>
     public static LoopSession RecordWait(LoopSession loop, DateTimeOffset at)
     {
         ArgumentNullException.ThrowIfNull(loop);
 
-        return at > loop.CheckIn.At
-            ? loop with { CheckIn = loop.CheckIn with { At = at } }
+        var checkIn = loop.CheckIn;
+
+        return at > checkIn.At
+            ? loop with { CheckIn = checkIn with { At = at, ReportedAt = checkIn.ReportedAt ?? checkIn.At } }
             : loop;
     }
 
@@ -362,7 +372,7 @@ public interface ILoopRegister
     /// <c>GET /session-requests/wait</c>, which local ADR 0051 §3 counts as a check-in with
     /// only the session and the time — and answers the session as it now stands.</summary>
     /// <remarks>Only the check-in time moves, and never backwards (<see cref="LoopSessions.RecordWait"/>):
-    /// what the last full check-in said and the person's command are kept. Null, and nothing
+    /// what the last full check-in said, its own time, and the person's command are kept. Null, and nothing
     /// written, when <paramref name="sessionId"/> is blank or no loop session has it.</remarks>
     Task<LoopSession?> RecordWaitAsync(string sessionId, DateTimeOffset at, CancellationToken cancellationToken = default);
 

@@ -453,7 +453,7 @@ public class McpEndpointGateTests
         var stored = await loops.GetAsync("manager-session", TestContext.Current.CancellationToken);
         Assert.NotNull(stored);
         Assert.True(stored.CheckIn.At > checkedIn, $"The check-in stayed at {stored.CheckIn.At}.");
-        Assert.Equal(checkIn with { At = stored.CheckIn.At }, stored.CheckIn);
+        Assert.Equal(checkIn with { At = stored.CheckIn.At, ReportedAt = checkedIn }, stored.CheckIn);
     }
 
     /// <summary>404 while <c>session-requests</c> is off, without asking the queue.</summary>

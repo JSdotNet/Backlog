@@ -229,6 +229,83 @@ public static partial class SessionAlerts
         return alerts;
     }
 
+    /// <summary>How far before the oldest session the reading must hold it reaches, for a
+    /// session that began before it first reported.</summary>
+    public static readonly TimeSpan HorizonSlack = TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// How far back the session reading behind <see cref="Read"/> must reach for every alert
+    /// to read as it would over all of history: to the oldest session whose archived flag or
+    /// liveness can still raise or clear an alert, less <see cref="HorizonSlack"/>. Those are
+    /// the latest check-in of each loop kind (only it alerts); each schedule's latest run; every
+    /// run reading Needs you or Failed — a failure a later run recovered reads Handled and is
+    /// left out; and the runs of a latest Held streak with the run that holds it. A session
+    /// outside the reading reads not archived, so <paramref name="archived"/> names the ones
+    /// already known archived: such a run reads Handled and leaves the window, and the caller
+    /// must read it archived from then on. Now, less the slack, when nothing must be read.
+    /// </summary>
+    /// <param name="schedules">The Schedule Register's records.</param>
+    /// <param name="loops">The Loop Register's sessions.</param>
+    /// <param name="archived">Whether a session id is already known archived.</param>
+    /// <param name="now">The time the alerts are read at.</param>
+    /// <param name="zone">The zone the crons are evaluated in.</param>
+    public static DateTimeOffset Horizon(
+        IEnumerable<ScheduleRecord> schedules,
+        IEnumerable<LoopSession> loops,
+        Func<string, bool> archived,
+        DateTimeOffset now,
+        TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(schedules);
+        ArgumentNullException.ThrowIfNull(loops);
+        ArgumentNullException.ThrowIfNull(archived);
+        ArgumentNullException.ThrowIfNull(zone);
+
+        var oldest = now;
+
+        foreach (var latest in loops.GroupBy(loop => loop.CheckIn.Kind).Select(kind => kind.Max(loop => loop.CheckIn.At)))
+        {
+            if (latest < oldest) oldest = latest;
+        }
+
+        foreach (var record in schedules)
+        {
+            foreach (var run in MustRead(record, ScheduleReading.Read(record, archived, now, zone)))
+            {
+                var at = run.StartedAt is { } started && started < run.FirstReportedAt ? started : run.FirstReportedAt;
+
+                if (at < oldest) oldest = at;
+            }
+        }
+
+        return oldest - HorizonSlack;
+    }
+
+    /// <summary>The runs of one schedule whose archiving can still raise or clear an alert.</summary>
+    private static IEnumerable<ScheduledRun> MustRead(ScheduleRecord record, ScheduleReadingResult reading)
+    {
+        if (reading.Runs.Count == 0) yield break;
+
+        yield return reading.Runs[0].Run;
+
+        foreach (var run in reading.Runs)
+        {
+            if (run.State is ScheduledRunState.NeedsYou or ScheduledRunState.Failed) yield return run.Run;
+        }
+
+        if (reading.Runs[0].State != ScheduledRunState.Held) yield break;
+
+        foreach (var run in reading.Runs.TakeWhile(run => run.State == ScheduledRunState.Held)) yield return run.Run;
+
+        if (reading.Runs[0].Run.HeldBy is not { Length: > 0 } holder) yield break;
+
+        // A holder the register does not hold as a run gives no time to bound by, so the
+        // reading reaches back to the schedule's oldest run.
+        var held = record.Runs.FirstOrDefault(run => string.Equals(run.SessionId, holder, StringComparison.Ordinal));
+
+        yield return held ?? record.Runs.MinBy(run => run.FirstReportedAt)!;
+    }
+
     /// <summary>The alerts one schedule holds now.</summary>
     public static IReadOnlyList<SessionAlert> ForSchedule(ScheduleReadingResult schedule, TimeZoneInfo zone)
     {

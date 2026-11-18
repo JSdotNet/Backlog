@@ -15,7 +15,8 @@ namespace Backlog.Infrastructure.Sqlite.Sessions;
 /// The table is this context's, created by idempotent <c>IF NOT EXISTS</c> DDL on any open
 /// the file is not yet stamped for (local ADR 0003). A check-in, a dispatch wait and a
 /// command each write in one immediate transaction, so a check-in arriving while the person
-/// sets a command keeps the command. A dispatch wait writes the check-in time and nothing else.
+/// sets a command keeps the command. A dispatch wait writes the check-in time and, the first
+/// time it moves it, the time of the full check-in it moved it from — nothing else.
 /// </para>
 /// </summary>
 public sealed class SqliteLoopRegister : ILoopRegister
@@ -25,7 +26,7 @@ public sealed class SqliteLoopRegister : ILoopRegister
         + "checked_in_at, command, command_set_at, "
         + "limit_sessions, limit_usage_percent, limit_cpu_percent, limit_min_free_gb, "
         + "reading_taken, reading_working_sessions, reading_plan_usage_percent, reading_cpu_percent, reading_free_memory_gb, "
-        + "work_waiting";
+        + "work_waiting, reported_at";
 
     private readonly string _databasePath;
     private readonly TimeProvider _clock;
@@ -78,13 +79,16 @@ public sealed class SqliteLoopRegister : ILoopRegister
 
         var waited = LoopSessions.RecordWait(loop, at);
 
-        // The check-in time alone: a column a later build added keeps what that build wrote.
+        // The check-in time and the full check-in's own alone: a column a later build added
+        // keeps what that build wrote.
         if (waited != loop)
         {
             await using var update = connection.CreateCommand();
             update.Transaction = transaction;
-            update.CommandText = "UPDATE loop_check_ins SET checked_in_at = $checked_in_at WHERE session_id = $session_id;";
+            update.CommandText =
+                "UPDATE loop_check_ins SET checked_in_at = $checked_in_at, reported_at = $reported_at WHERE session_id = $session_id;";
             update.Parameters.AddWithValue("$checked_in_at", Text(waited.CheckIn.At)!);
+            update.Parameters.AddWithValue("$reported_at", (object?)Text(waited.CheckIn.ReportedAt) ?? DBNull.Value);
             update.Parameters.AddWithValue("$session_id", waited.SessionId);
 
             await update.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -189,7 +193,9 @@ public sealed class SqliteLoopRegister : ILoopRegister
         {
             Limits = limits,
             Reading = reading,
-            WorkWaiting = IntOrNull(reader, 20)
+            WorkWaiting = IntOrNull(reader, 20),
+            // A row from before the column, or one no wait has moved since its check-in, holds none.
+            ReportedAt = Instant(reader.IsDBNull(21) ? null : reader.GetString(21))
         };
 
         return new LoopSession(checkIn, command, Instant(reader.IsDBNull(10) ? null : reader.GetString(10)));
@@ -224,7 +230,7 @@ public sealed class SqliteLoopRegister : ILoopRegister
                     $held_sessions, $held_notes, $checked_in_at, $command, $command_set_at,
                     $limit_sessions, $limit_usage_percent, $limit_cpu_percent, $limit_min_free_gb,
                     $reading_taken, $reading_working_sessions, $reading_plan_usage_percent, $reading_cpu_percent,
-                    $reading_free_memory_gb, $work_waiting)
+                    $reading_free_memory_gb, $work_waiting, $reported_at)
             ON CONFLICT (session_id) DO UPDATE SET
                 kind = excluded.kind, activity = excluded.activity, heartbeat_minutes = excluded.heartbeat_minutes,
                 held_requests = excluded.held_requests, held_deliveries = excluded.held_deliveries,
@@ -235,7 +241,7 @@ public sealed class SqliteLoopRegister : ILoopRegister
                 reading_taken = excluded.reading_taken, reading_working_sessions = excluded.reading_working_sessions,
                 reading_plan_usage_percent = excluded.reading_plan_usage_percent,
                 reading_cpu_percent = excluded.reading_cpu_percent, reading_free_memory_gb = excluded.reading_free_memory_gb,
-                work_waiting = excluded.work_waiting{commandColumns};
+                work_waiting = excluded.work_waiting, reported_at = excluded.reported_at{commandColumns};
             """;
 
         var checkIn = loop.CheckIn;
@@ -262,6 +268,7 @@ public sealed class SqliteLoopRegister : ILoopRegister
         command.Parameters.AddWithValue("$reading_cpu_percent", Value(reading?.CpuPercent));
         command.Parameters.AddWithValue("$reading_free_memory_gb", Value(reading?.FreeMemoryGb));
         command.Parameters.AddWithValue("$work_waiting", Value(checkIn.WorkWaiting));
+        command.Parameters.AddWithValue("$reported_at", (object?)Text(checkIn.ReportedAt) ?? DBNull.Value);
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -307,7 +314,10 @@ public sealed class SqliteLoopRegister : ILoopRegister
             new("loop_check_ins", "reading_plan_usage_percent", "REAL NULL"),
             new("loop_check_ins", "reading_cpu_percent", "REAL NULL"),
             new("loop_check_ins", "reading_free_memory_gb", "REAL NULL"),
-            new("loop_check_ins", "work_waiting", "INTEGER NULL")
+            new("loop_check_ins", "work_waiting", "INTEGER NULL"),
+            // The full check-in's own time once a dispatch wait moved checked_in_at past it
+            // (local ADR 0051 §3); null reads as checked_in_at, which a row from before it is.
+            new("loop_check_ins", "reported_at", "TEXT NULL")
         ]);
 }
 

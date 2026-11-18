@@ -188,6 +188,40 @@ public sealed class CapacityReaderTests
         Assert.Equal(2, reading.WorkingSessions);
     }
 
+    // --- the date bound is pushed into the reads -------------------------------------------
+
+    /// <summary>Plan usage reads only the requests from the limit horizon and the week before
+    /// it — 28 days and 7 — through the bounded read; the store is never read whole.</summary>
+    [Fact]
+    public async Task Plan_usage_reads_only_the_requests_inside_the_horizon()
+    {
+        var apiRequests = new BoundedApiRequests(
+        [
+            ApiRequest("calibration", Now.AddDays(-20), 10_000_000),
+            ApiRequest("this-week", Now.AddHours(-1), 4_000_000)
+        ]);
+        var reader = new CapacityReader(_sessions, _requests, apiRequests, _records, _load, _clock);
+
+        var reading = await reader.ReadAsync(CapacityLimits.Default, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(Now.AddDays(-35), apiRequests.AskedFrom);
+        Assert.Equal(40, reading.PlanUsagePercent!.Value, 6);
+    }
+
+    /// <summary>The limit refusals come from the records amended inside the 28-day horizon,
+    /// through the bounded read; the records are never read whole.</summary>
+    [Fact]
+    public async Task Limit_refusals_are_read_from_the_records_amended_inside_the_horizon()
+    {
+        var records = new BoundedRecords([Record(new AgentLimitHit(Now.AddDays(-19), AgentLimitKind.Weekly, null) { ResetsAt = Now.AddDays(-18) })]);
+        var reader = new CapacityReader(_sessions, _requests, _apiRequests, records, _load, _clock);
+
+        var reading = await reader.ReadAsync(CapacityLimits.Default, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(Now.AddDays(-28), records.AskedFrom);
+        Assert.Equal(40, reading.PlanUsagePercent!.Value, 6);
+    }
+
     [Fact]
     public async Task A_cancelled_read_throws_rather_than_answering_unavailable()
     {
@@ -286,6 +320,41 @@ public sealed class CapacityReaderTests
         public bool Fails { get; set; }
 
         public IReadOnlyList<AgentSessionRecord> All() => Fails ? throw new IOException("The records could not be read.") : held;
+
+        public SessionRecordUpdate Save(IReadOnlyList<AgentSessionRecord> readings) => throw new NotSupportedException();
+    }
+
+    /// <summary>A request store that answers only a read bounded by a date.</summary>
+    private sealed class BoundedApiRequests(IReadOnlyList<ClaudeApiRequest> held) : IClaudeApiRequestStore
+    {
+        public DateTimeOffset? AskedFrom { get; private set; }
+
+        public Task<int> AddAsync(IReadOnlyList<ClaudeApiRequest> requests, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<ClaudeApiRequest>> ListAsync(string? sessionId = null, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("The whole store was read.");
+
+        public Task<IReadOnlyList<ClaudeApiRequest>> ListSinceAsync(DateTimeOffset from, CancellationToken cancellationToken = default)
+        {
+            AskedFrom = from;
+
+            return Task.FromResult<IReadOnlyList<ClaudeApiRequest>>([.. held.Where(request => request.Timestamp >= from)]);
+        }
+    }
+
+    /// <summary>A record store that answers only a read bounded by a date.</summary>
+    private sealed class BoundedRecords(IReadOnlyList<AgentSessionRecord> held) : IAgentSessionRecordStore
+    {
+        public DateTimeOffset? AskedFrom { get; private set; }
+
+        public IReadOnlyList<AgentSessionRecord> All() => throw new InvalidOperationException("Every record was read.");
+
+        public IReadOnlyList<AgentSessionRecord> AmendedSince(DateTimeOffset from)
+        {
+            AskedFrom = from;
+
+            return held;
+        }
 
         public SessionRecordUpdate Save(IReadOnlyList<AgentSessionRecord> readings) => throw new NotSupportedException();
     }

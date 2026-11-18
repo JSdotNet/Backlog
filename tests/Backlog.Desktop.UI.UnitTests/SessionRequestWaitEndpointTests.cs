@@ -374,7 +374,7 @@ public class SessionRequestWaitEndpointTests
         using var json = JsonDocument.Parse(reply.Body);
         Assert.Equal(request.Id, json.RootElement.GetProperty("id").GetGuid());
         Assert.Equal(
-            new LoopSession(checkIn with { At = clock.GetUtcNow() }, LoopCommand.Pause, pausedAt),
+            new LoopSession(checkIn with { At = clock.GetUtcNow(), ReportedAt = checkIn.At }, LoopCommand.Pause, pausedAt),
             await loops.GetAsync("manager-session", TestContext.Current.CancellationToken));
     }
 
