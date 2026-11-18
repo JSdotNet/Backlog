@@ -260,7 +260,9 @@ related: [.devbook/domain/events/domain.invariants.md#harvest-task-policy, .devb
 flowchart TD
     Day["A new local day on a desktop"] --> Due{"Going, and its end day has passed?"}
     Due -->|no| Nothing["Nothing"]
-    Due -->|yes, no harvest task yet| File["File 'Harvest &lt;title&gt;' under the Brain, link it"]
+    Due -->|yes, no harvest task yet| Held{"A task under the event's harvest id held here?"}
+    Held -->|no| File["File 'Harvest &lt;title&gt;' under that id, under the Brain, link it"]
+    Held -->|"yes, live or deleted"| Link["File nothing, link that id"]
     Mark["The person marks it Harvested"] --> Open{"Harvest task still open?"}
     Open -->|yes| Complete["Complete the task"]
     Open -->|no| Nothing
@@ -271,6 +273,20 @@ person forgets. It files one task `Harvest <event title>` with no repository, so
 lands under the [Brain scope](../brain/features.md#brain-scope). It links that task
 to the event as its Harvest [Event Task Link](#event-task-link). Marking the event Harvested
 completes that task. The policy raises no notification.
+
+Once per event holds across desktops because the task's id is derived from the
+event's id, as [Occurrence Spawning](../tasks/domain.md#occurrence-spawning) derives a
+successor's; the rule is the
+[derived id invariant](domain.invariants.md#invariant-an-events-harvest-task-is-filed-under-the-id-derived-from-it).
+Two desktops that both see the end day pass before they sync file the same task.
+The task replica's latest write folds the two copies into one, and whichever copy
+of the event wins links it. A deleted task is not filed again, because deleting it
+is how the person drops the harvest. The id is a one-way hash, so nothing in Tasks
+names the event.
+
+Two windows are accepted. A desktop that files after the person deleted the task on
+another, before the deletion reached it, brings the task back. A harvest task filed
+before its id was derived carries a random id, and a duplicate made then stays.
 
 It spans the event and a task in Tasks, which is why it is a service and not a rule
 of the event. Tasks knows no event, so completing the task there leaves the event
