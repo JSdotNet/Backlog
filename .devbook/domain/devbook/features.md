@@ -500,7 +500,6 @@ storage.
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/devbook/context.md#c4-zoom
 depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 related: [.devbook/domain/devbook/requirements.md#c4-zoom-navigation, .devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
@@ -519,13 +518,13 @@ flowchart LR
 ```
 
 Walk the architecture one C4 level at a time, and see beside every element the
-chapters, decisions and debt about it. The **C4** tab lists views one by one; the
-architecture surface is one model a reader zooms through.
+chapters, decisions and debt about it. The architecture surface is one model a
+reader zooms through.
 
-**Where it sits.** While the `c4-zoom` and `c4-diagrams` switches are both on, the
-architecture panel is one surface in place of its **Chapters** and **C4** tabs, and
-the pane's own architecture menu stands down. With `c4-zoom` off, the tabs are as
-they were. The surface opens on the System context view. The first time it opens it
+**Where it sits.** The architecture panel is always one surface, and the pane's own
+architecture menu stands down. A repository with no C4 model shows its chapters on
+the surface with no picture. No switch turns the surface off, and a `c4-zoom` or
+`c4-diagrams` value still stored in `features.json` is ignored. The surface opens on the System context view. The first time it opens it
 shows a hint, which the reader can dismiss, naming the ways to move.
 
 **The surface.** It has four parts:
@@ -638,8 +637,8 @@ runs, each a way into the containers view.
 The groups the DSL declares are drawn as bands. A band holding no person stacks in
 one column to the right of the element most related to it. Several relationships
 between one element and a band share one line. That line carries their wording when
-they all say the same thing, and reads "n relationships" when they differ. The
-surface also leaves wider gaps between cards than the C4 tab, which draws as it did.
+they all say the same thing, and reads "n relationships" when they differ. A
+chapter's embedded views and the Code level draw with the same bands and gaps.
 
 **From the chapters.** An ADR opens on the surface beside the decision log, and a
 TDR beside the debt list, each with a panel. An All / Accepted / Proposed filter

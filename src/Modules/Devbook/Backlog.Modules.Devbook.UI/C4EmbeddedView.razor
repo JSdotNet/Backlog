@@ -1,8 +1,8 @@
 @*
     A C4 view a chapter embeds as `![alt](c4:<view key>)`, drawn where the image was.
 
-    The picture is the C4 tab's own C4DiagramView, without the explorer's pan, zoom
-    and facets: a chapter shows the view to be read beside its prose, and the C4 tab
+    The picture is the C4 model's own C4DiagramView, without the zoom navigation: a
+    chapter shows the view to be read beside its prose, and the architecture surface
     is one click away for exploring it.
 
     Spans throughout with role="figure", and the diagram's inline host, for the
@@ -22,7 +22,7 @@
             <AppButton Variant="ButtonVariant.Ghost"
                        Size="ButtonSize.Small"
                        TestId="devbook-c4-embed-open"
-                       OnClick="() => OnOpen.InvokeAsync(View)">@OpenLabel</AppButton>
+                       OnClick="() => OnOpen.InvokeAsync(View)">@C4ViewImages.OpenLabel</AppButton>
         }
     </span>
 </span>
@@ -48,15 +48,10 @@
     [Parameter]
     public string? Caption { get; set; }
 
-    /// <summary>Opens the view in the C4 tab. Without one the figure offers no way
-    /// across.</summary>
+    /// <summary>Opens the view on the architecture surface. Without one the figure
+    /// offers no way across.</summary>
     [Parameter]
     public EventCallback<C4View> OnOpen { get; set; }
-
-    /// <summary>What the way across says: the C4 tab on the tabs, the C4 model on the
-    /// architecture surface, where there is no C4 tab to name.</summary>
-    [Parameter]
-    public string OpenLabel { get; set; } = C4ViewImages.TabLabel;
 
     /// <summary>Laid out again only when the workspace or the view changed; the
     /// diagram view writes the SVG again only when the layout did, as it does for the

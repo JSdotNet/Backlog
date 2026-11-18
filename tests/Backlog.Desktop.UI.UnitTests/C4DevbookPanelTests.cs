@@ -9,21 +9,16 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The C4 model beside the architecture chapters, as the panel offers it.
 /// <para>
-/// Three things are worth pinning here and nothing else is. That the feature stays
-/// invisible when its key is off, or when there is no workspace, because a tab that
-/// opens onto nothing is worse than no tab. That the chapters are untouched on the
-/// first tab and the model is a second reading on its own — the shape the Technology
-/// panel already keeps, and the reason the flat view list beside the chapters went
-/// away. And that the reference works in both directions off the single authored
-/// statement in <c>_c4/references.json</c>, because the reverse direction is derived
-/// and a derivation that silently produces an empty list looks exactly like a
-/// chapter that never referenced anything.
+/// Two things are worth pinning here and nothing else is. That the pane is the
+/// architecture surface, and the only reading of the model (local ADR 0046). And that the reference works in both directions off the single
+/// authored statement in <c>_c4/references.json</c> and the chapters' embeds, because
+/// the reverse direction is derived and a derivation that silently produces an empty
+/// list looks exactly like a chapter that never referenced anything.
 /// </para>
 /// <para>
-/// The exploration affordances themselves — drilling, the breadcrumb, search, the
-/// Highlighter — are the explorer's own and are pinned in
-/// <c>C4ExplorationTests</c> against the logic they are built on. Re-asserting them
-/// through this panel would be testing the same thing twice, through more machinery.
+/// The zoom navigation's own moves are pinned in the component library's
+/// <c>C4Zoom*Tests</c>. Re-asserting them through this panel would be testing the
+/// same thing twice, through more machinery.
 /// </para>
 /// </summary>
 public sealed class C4DevbookPanelTests : IDisposable
@@ -77,126 +72,58 @@ public sealed class C4DevbookPanelTests : IDisposable
         """;
 
     /// <summary>A chapter carrying a C4 fence of its own — what a repository that
-    /// never wrote a <c>.dsl</c> has, and what the C4 tab falls back to.</summary>
+    /// never wrote a <c>.dsl</c> has, and what the model falls back to.</summary>
     private const string FencedChapter =
         "# 05. Building Block View\n\n```meta\nstatus: active\n```\n\n" +
         "```mermaid\nC4Context\n    title Finance context\n    Person(me, \"ME\")\n    System(finance, \"Finance\")\n    Rel(me, finance, \"Uses\")\n```\n";
 
     private readonly List<string> _roots = [];
 
-    // ---- the feature key -----------------------------------------------------
-
-    [Fact]
-    public async Task With_the_key_off_there_is_no_C4_tab()
-    {
-        await using var harness = CreateHarness(c4Enabled: false);
-
-        var component = harness.Render(null);
-        harness.Settle(component);
-
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-explorer']"));
-    }
+    // ---- with no model -------------------------------------------------------
 
     /// <summary>
     /// A host that never registered the store — the storybook page, and every panel
-    /// test written before this feature existed. It has to render as it did rather
-    /// than fail on a service it does not know about.
+    /// test written before this feature existed. It draws the chapters-only surface
+    /// rather than fail on a service it does not know about.
     /// </summary>
     [Fact]
     public async Task Without_the_store_registered_the_panel_still_renders_its_chapters()
     {
-        await using var harness = CreateHarness(c4Enabled: true, registerStore: false);
+        await using var harness = CreateHarness(registerStore: false);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
+        Assert.Single(component.FindAll("[data-testid='arc42-surface-chapters-only']"));
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
     }
 
     /// <summary>
-    /// A tab that opens onto nothing is worse than no tab, so it is absent rather
-    /// than empty when there is no workspace to show.
+    /// With no model to zoom, the surface is the chapters alone: no zoom bar and no way
+    /// back to a model that is not there.
     /// </summary>
     [Fact]
-    public async Task With_no_workspace_on_disk_there_is_no_C4_tab()
+    public async Task With_no_workspace_on_disk_the_surface_is_the_chapters_alone()
     {
-        await using var harness = CreateHarness(c4Enabled: true, workspace: string.Empty, writeWorkspace: false);
+        await using var harness = CreateHarness(workspace: string.Empty, writeWorkspace: false);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapters-tab']"));
-    }
-
-    // ---- the two tabs --------------------------------------------------------
-
-    /// <summary>
-    /// The shape the Technology panel already keeps, and the reason the flat list
-    /// beside the chapters went away: a C4 view is not a chapter and is in no
-    /// chapter, so it never sat comfortably in the chapter list.
-    /// </summary>
-    [Fact]
-    public async Task The_panel_offers_a_chapters_tab_and_a_C4_tab()
-    {
-        await using var harness = CreateHarness(c4Enabled: true);
-
-        var component = harness.Render(null);
-        harness.Settle(component);
-
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapters-tab']"));
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-tab']"));
-    }
-
-    /// <summary>Chapters as they were. The first tab is the panel this feature found,
-    /// not a rearrangement of it.</summary>
-    [Fact]
-    public async Task The_chapters_tab_opens_first_and_shows_the_chapters()
-    {
-        await using var harness = CreateHarness(c4Enabled: true);
-
-        var component = harness.Render(null);
-        harness.Settle(component);
-
+        Assert.Single(component.FindAll("[data-testid='arc42-surface-chapters-only']"));
+        Assert.Empty(component.FindAll("[data-testid='c4-zoom-bar']"));
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-explorer']"));
     }
 
+    // ---- the architecture surface ----------------------------------------------
+
+    /// <summary>The C4 key on: the pane is the architecture surface — no Chapters or C4
+    /// tab — opening on the model, with the zoom bar and the left navigation (local ADR
+    /// 0046). No second switch is asked for.</summary>
     [Fact]
-    public async Task The_C4_tab_shows_the_explorer_with_every_view_listed()
+    public async Task The_pane_is_one_surface_rather_than_tabs()
     {
-        await using var harness = CreateHarness(c4Enabled: true);
-
-        var component = harness.Render(null);
-        harness.Settle(component);
-
-        // Awaited rather than fired and forgotten, here and at every other click in
-        // this class. bUnit's synchronous `Click()` hands the event to the renderer's
-        // dispatcher and returns without waiting for the handler or the render it
-        // causes, and this panel reaches its chapter through three awaited reads — so
-        // under the parallel load of the whole suite the dispatch queues behind those
-        // continuations and the assertions below read the pre-click render. The tab is
-        // the sharper case: `TabPanel` renders its `ChildContent` only while active, so
-        // this click is what first instantiates `C4Explorer`, and nothing asserted here
-        // exists until its render batch has run.
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
-        Assert.Equal(2, component.FindAll("[data-testid='c4-view-option']").Count);
-        Assert.NotEmpty(component.FindAll("[data-testid='c4-breadcrumb']"));
-    }
-
-    // ---- the architecture surface (c4-zoom on) --------------------------------
-
-    /// <summary>Both switches on: the pane is the architecture surface — no Chapters,
-    /// C4 or C4 zoom tab — opening on the model, with the zoom bar and the left
-    /// navigation (plan c4-zoom-navigation, entry 15b).</summary>
-    [Fact]
-    public async Task With_both_keys_on_the_pane_is_one_surface_rather_than_tabs()
-    {
-        await using var harness = CreateHarness(c4Enabled: true, c4ZoomEnabled: true);
+        await using var harness = CreateHarness();
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -207,38 +134,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Single(component.FindAll("[data-testid='arc42-surface-explorer']"));
         Assert.Single(component.FindAll("[data-testid='c4-zoom-bar']"));
         Assert.Single(component.FindAll("[data-testid='arc42-surface-nav']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-explorer']"));
         Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
-    }
-
-    /// <summary>The zoom key alone offers nothing: it is another reading of the model
-    /// the C4 key turns on.</summary>
-    [Fact]
-    public async Task With_only_the_zoom_key_on_neither_C4_tab_is_offered()
-    {
-        await using var harness = CreateHarness(c4Enabled: false, c4ZoomEnabled: true);
-
-        var component = harness.Render(null);
-        harness.Settle(component);
-
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-zoom-tab']"));
-    }
-
-    [Fact]
-    public async Task With_the_zoom_key_off_there_is_no_C4_zoom_tab()
-    {
-        await using var harness = CreateHarness(c4Enabled: true);
-
-        var component = harness.Render(null);
-        harness.Settle(component);
-
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-tab']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-zoom-tab']"));
-
-        // And no surface: the pane is the tabs it always was.
-        Assert.Equal(["Chapters", "C4"], component.FindAll("[role='tab']").Select(tab => tab.TextContent.Trim()));
-        Assert.Empty(component.FindAll("[data-testid='arc42-surface']"));
     }
 
     /// <summary>
@@ -250,7 +146,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     public async Task The_surface_opens_on_the_context_view_and_its_hint_is_dismissed_per_user()
     {
         var preferences = new RememberedViewPreferences();
-        await using var harness = CreateHarness(c4Enabled: true, c4ZoomEnabled: true, preferences: preferences);
+        await using var harness = CreateHarness(preferences: preferences);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -263,7 +159,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='c4-zoom-hint']"));
         Assert.True(preferences.C4ZoomHintDismissed);
 
-        await using var again = CreateHarness(c4Enabled: true, c4ZoomEnabled: true, preferences: preferences);
+        await using var again = CreateHarness(preferences: preferences);
         var reopened = again.Render(null);
         again.Settle(reopened);
 
@@ -284,8 +180,6 @@ public sealed class C4DevbookPanelTests : IDisposable
             "# ADR 0030: Stored credentials go through the OS envelope\n\n```meta\nstatus: proposed\nc4: [backlog.desktop]\n```\n\nText.\n";
 
         await using var harness = CreateHarness(
-            c4Enabled: true,
-            c4ZoomEnabled: true,
             references: Documented,
             extraFiles: new Dictionary<string, string> { ["adr/0030-stored-credentials.md"] = Decision });
 
@@ -324,39 +218,34 @@ public sealed class C4DevbookPanelTests : IDisposable
     // ---- the references ------------------------------------------------------
 
     /// <summary>
-    /// The reverse half of the one authored statement in `_c4/references.json`,
-    /// drawn under the diagram through the explorer's footer slot — because the
-    /// component library has no idea what a devbook chapter is.
+    /// The reverse half of the one authored statement in `_c4/references.json`, drawn
+    /// in the surface's left navigation beside the open view — because the component
+    /// library has no idea what a devbook chapter is.
     /// </summary>
     [Fact]
     public async Task A_view_names_the_chapters_that_reference_it()
     {
-        await using var harness = CreateHarness(c4Enabled: true, references: Documented);
+        await using var harness = CreateHarness(references: Documented);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-        // `C4Explorer.Open` is the one handler here that genuinely awaits — it awaits
-        // `ViewKeyChanged.InvokeAsync`, and the footer asserted on below is drawn for
-        // the `_view` set inside it.
-        await component.FindAll("[data-testid='c4-view-option']")[1].ClickAsync(new());
+        await Harness.OpenViewAsync(component, "containers-backlog");
 
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-view-references']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-view-unreferenced']"));
+        Assert.Equal("containers-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-surface-document']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface-documents-none']"));
     }
 
     [Fact]
     public async Task A_view_nothing_references_says_so_rather_than_showing_an_empty_list()
     {
-        await using var harness = CreateHarness(c4Enabled: true, references: Undocumented);
+        await using var harness = CreateHarness(references: Undocumented);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-view-unreferenced']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-surface-documents-none']"));
     }
 
     /// <summary>
@@ -367,62 +256,53 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_chapter_lists_the_views_that_document_it()
     {
-        await using var harness = CreateHarness(c4Enabled: true, references: Documented);
+        await using var harness = CreateHarness(references: Documented);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
 
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapter-c4-view']"));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapter-links-view']")));
     }
 
     /// <summary>
-    /// Following it switches tab. Every way in asks for a picture, and leaving the
-    /// reader on the chapters tab with the selection changed underneath them answers
-    /// a question nobody asked.
+    /// Following it opens the view in the surface's picture, in place of the chapter.
+    /// Handled here rather than handed up: the host selects chapters by path and a view
+    /// is not a file in the Devbook menu.
     /// </summary>
     [Fact]
-    public async Task Following_a_chapters_view_link_opens_the_C4_tab_on_that_view()
+    public async Task Following_a_chapters_view_link_opens_that_view()
     {
-        await using var harness = CreateHarness(c4Enabled: true, references: Documented);
+        await using var harness = CreateHarness(references: Documented);
 
         var asked = new List<DevbookChapterLink>();
         var component = harness.Render(ChapterPath, asked);
         harness.Settle(component);
 
-        // `SelectView` is synchronous, so it is the dispatch and the render it causes
-        // that are at stake — and they are what keeps `Assert.Empty(asked)` below behind
-        // the two positive assertions rather than passing on a handler that never ran.
-        await component.Find("[data-testid='arc42-chapter-c4-view'] [title='.arc42/workspace.dsl#containers-backlog']").ClickAsync(new());
+        await component.WaitForElement("[data-testid='arc42-chapter-links-view']").ClickAsync(new());
 
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
-        Assert.Contains("Container Diagram", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
-
-        // Handled here rather than handed up: the host selects chapters by path and a
-        // view is not a file in the Devbook menu.
+        Assert.Equal("containers-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
+        Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
         Assert.Empty(asked);
     }
 
     /// <summary>How a reference from another section arrives. A `.domain` chapter
     /// naming an arc42 view has nowhere else to send the reader.</summary>
     [Fact]
-    public async Task A_view_named_by_the_host_opens_the_C4_tab_without_anybody_clicking()
+    public async Task A_view_named_by_the_host_opens_without_anybody_clicking()
     {
-        await using var harness = CreateHarness(c4Enabled: true);
+        await using var harness = CreateHarness();
 
-        var component = harness.Context.Render<Arc42DevbookPanel>(parameters => parameters
-            .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
-            .Add(panel => panel.SelectedC4View, ".arc42/workspace.dsl#context-backlog"));
-
+        var component = harness.RenderOnView(".arc42/workspace.dsl#containers-backlog");
         harness.Settle(component);
 
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
-        Assert.Contains("System Context", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
+        Assert.Equal("containers-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
+        Assert.Contains("Container Diagram", component.Find("[data-testid='c4-zoom-title']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task A_view_the_host_names_that_does_not_exist_leaves_the_chapters_tab_open()
+    public async Task A_view_the_host_names_that_does_not_exist_leaves_the_chapter_open()
     {
-        await using var harness = CreateHarness(c4Enabled: true);
+        await using var harness = CreateHarness();
 
         var component = harness.Context.Render<Arc42DevbookPanel>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
@@ -431,71 +311,25 @@ public sealed class C4DevbookPanelTests : IDisposable
 
         harness.Settle(component);
 
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-explorer']"));
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']"));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']")));
     }
 
     /// <summary>
-    /// A click that arrives naming a view the explorer has already left is dropped.
-    /// <para>
-    /// Drilling is a single click here and a double-click in c4hero, so a reader who
-    /// brings that habit sends the second click at the diagram that has only just
-    /// replaced the first — and applying it would descend two levels for one gesture.
-    /// The viewer suppresses the quick repeat; this is the half it cannot do, because
-    /// only the component knows where it got to.
-    /// </para>
+    /// Following a chapter the open view documents opens that chapter in the surface,
+    /// in place of the picture, and asks the host for it too.
     /// </summary>
     [Fact]
-    public async Task An_activation_naming_a_view_that_is_no_longer_open_is_ignored()
+    public async Task Following_a_chapter_the_view_documents_opens_it_in_place_of_the_picture()
     {
-        await using var harness = CreateHarness(c4Enabled: true);
+        await using var harness = CreateHarness(references: Documented);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        // Un-awaited this was never a soft assert failure: `FindComponent<C4Explorer>`
-        // below throws outright when the explorer has not rendered yet.
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+        await Harness.OpenViewAsync(component, "containers-backlog");
+        await component.Find("[data-testid='arc42-surface-document']").ClickAsync(new());
 
-        var explorer = component.FindComponent<C4Explorer>();
-        var opened = explorer.Find("[data-testid='c4-breadcrumb-step'][aria-current='page']").TextContent;
-
-        await component.InvokeAsync(() => explorer.Instance.NodeActivated("backlog", "a-view-that-is-not-open"));
-
-        Assert.Equal(opened, explorer.Find("[data-testid='c4-breadcrumb-step'][aria-current='page']").TextContent);
-    }
-
-    /// <summary>
-    /// Following a chapter reference from the C4 tab brings the Chapters tab with it.
-    /// <para>
-    /// Without this the chapter opened <em>behind</em> the diagram: the host changed
-    /// its selection, the panel stayed on C4, and the reader was left looking at the
-    /// picture they had just navigated away from. The tab is part of the answer to
-    /// "take me there", not a setting they are expected to change themselves.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public async Task Following_a_chapter_reference_from_the_C4_tab_returns_to_the_chapters()
-    {
-        await using var harness = CreateHarness(c4Enabled: true, references: Documented);
-
-        var component = harness.Render(ChapterPath);
-        harness.Settle(component);
-
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-        // Awaited for the same reason as in `A_view_names_the_chapters_that_reference_it`:
-        // `C4Explorer.Open` awaits, and both this test's remaining reads need the view open.
-        await component.FindAll("[data-testid='c4-view-option']")[1].ClickAsync(new());
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
-
-        // The click #354 observed failing. `NavigateDevbookReferenceAsync` sets `_tab`
-        // to the chapters and returns `OnNavigateToChapter.InvokeAsync`, and the two
-        // assertions below are exactly that tab flip — un-awaited they read the render
-        // that came before it.
-        await component.Find("[data-testid='arc42-c4-view-references'] [title='.arc42/05-building-block-view.md#container-view']").ClickAsync(new());
-
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-explorer']"));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']")));
     }
 
     // ---- what could not be read ----------------------------------------------
@@ -520,15 +354,12 @@ public sealed class C4DevbookPanelTests : IDisposable
             }
             """;
 
-        await using var harness = CreateHarness(c4Enabled: true, workspace: workspace);
+        await using var harness = CreateHarness(workspace: workspace);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-
-        Assert.NotEmpty(component.FindAll("[data-testid='c4-problems']"));
-        Assert.Contains("!include", component.Markup, StringComparison.Ordinal);
+        Assert.NotEmpty(component.FindAll("[data-testid='c4-zoom-problems']"));
     }
 
     /// <summary>
@@ -559,99 +390,82 @@ public sealed class C4DevbookPanelTests : IDisposable
             """;
 
         await using var harness = CreateHarness(
-            c4Enabled: true,
             workspace: workspace,
             extraFiles: new Dictionary<string, string> { ["c4/model.dsl"] = model });
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-
-        Assert.NotEmpty(component.FindAll("[data-testid='c4-breadcrumb']"));
-        Assert.Empty(component.FindAll("[data-testid='c4-problems']"));
-        Assert.Contains("Prompt Backlog", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
+        Assert.Equal("context-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
+        Assert.Empty(component.FindAll("[data-testid='c4-zoom-problems']"));
+        Assert.Contains("Prompt Backlog", component.Find("[data-testid='arc42-surface-explorer']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task A_clean_workspace_reports_nothing()
     {
-        await using var harness = CreateHarness(c4Enabled: true);
+        await using var harness = CreateHarness();
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-
-        // Anchored on the explorer being on screen, because the assertion below is a
-        // negative and an explorer that never rendered satisfies it for the wrong
-        // reason — which is exactly what an un-awaited click leaves behind.
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
-
-        // The explorer's own div renders either way, so it only proves the click
-        // dispatched. The breadcrumb sits in the `_view is not null` branch that also
-        // holds the problems alert, so it is what proves a view actually rendered —
-        // without it a workspace that parsed to no views would satisfy the negative
-        // below for the second wrong reason.
-        Assert.NotEmpty(component.FindAll("[data-testid='c4-breadcrumb']"));
-        Assert.Empty(component.FindAll("[data-testid='c4-problems']"));
+        // Anchored on a view being on screen, because the assertion below is a negative
+        // and a surface that drew no view satisfies it for the wrong reason.
+        Assert.Equal("context-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
+        Assert.Empty(component.FindAll("[data-testid='c4-zoom-problems']"));
     }
 
     // ---- the model drawn from the chapters ------------------------------------
 
     /// <summary>
-    /// A folder with C4 fences and no workspace still gets the tab. The fences are a
+    /// A folder with C4 fences and no workspace still gets a model. The fences are a
     /// model already, and offering nothing until somebody authors a <c>.dsl</c> hid the
-    /// one picture such a repository has — while saying, in the tab, where the picture
+    /// one picture such a repository has — while saying, over the picture, where it
     /// came from and what a fuller one would take.
     /// </summary>
     [Fact]
-    public async Task A_chapters_C4_fence_with_no_workspace_offers_a_C4_tab_drawn_from_it()
+    public async Task A_chapters_C4_fence_with_no_workspace_gives_a_model_drawn_from_it()
     {
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: FencedChapter);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-surface-explorer']"));
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-derived']"));
-        Assert.Single(component.FindAll("[data-testid='c4-view-option']"));
-        Assert.Contains("Finance context", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Finance context", component.Find("[data-testid='arc42-surface-explorer']").TextContent, StringComparison.Ordinal);
     }
 
-    /// <summary>A derived view documents the chapter its fence is in, so the footer
+    /// <summary>A derived view documents the chapter its fence is in, so the navigation
     /// names it rather than asking for a <c>references.json</c> nobody needs to
     /// write.</summary>
     [Fact]
     public async Task A_derived_view_names_the_chapter_its_fence_came_from()
     {
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: FencedChapter);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+        await component.FindAll("[data-testid='arc42-surface-view']")[0].ClickAsync(new());
 
-        Assert.NotEmpty(component.FindAll("[data-testid='c4-breadcrumb']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-view-unreferenced']"));
-        Assert.NotEmpty(component.FindAll($"[data-testid='arc42-c4-view-references'] [title='{ChapterPath}']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface-documents-none']"));
+        Assert.Contains("Building Block View", component.Find("[data-testid='arc42-surface-document']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task A_chapter_lists_the_view_drawn_from_its_fence_and_following_it_opens_that_view()
     {
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: FencedChapter);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
 
-        var link = Assert.Single(component.FindAll("[data-testid='arc42-chapter-c4-view']"));
-        await link.QuerySelector("button")!.ClickAsync(new());
+        var link = component.WaitForElement("[data-testid='arc42-chapter-links-view']");
+        await link.ClickAsync(new());
 
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
-        Assert.Contains("Finance context", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
+        Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
+        Assert.Contains("Finance context", component.Find("[data-testid='arc42-surface-explorer']").TextContent, StringComparison.Ordinal);
     }
 
     /// <summary>An authored workspace is the model. The chapters' fences are not
@@ -660,33 +474,28 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task With_an_authored_workspace_the_chapters_fences_are_not_drawn_as_a_second_model()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: FencedChapter);
+        await using var harness = CreateHarness(chapter: FencedChapter);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-
-        Assert.NotEmpty(component.FindAll("[data-testid='c4-breadcrumb']"));
+        Assert.Equal("context-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
         Assert.Empty(component.FindAll("[data-testid='arc42-c4-derived']"));
         Assert.Empty(component.FindAll("[data-testid='arc42-c4-workspaces']"));
-        Assert.Equal(2, component.FindAll("[data-testid='c4-view-option']").Count);
     }
 
     /// <summary>A folder that never had a <c>workspace.dsl</c> nor a <c>_c4/</c> at
     /// all — the finance case — is the same as one with an empty <c>_c4/</c>.</summary>
     [Fact]
-    public async Task With_no_workspace_folder_at_all_the_chapters_fences_still_give_a_C4_tab()
+    public async Task With_no_workspace_folder_at_all_the_chapters_fences_still_give_a_model()
     {
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter, createReferenceDirectory: false);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: FencedChapter, createReferenceDirectory: false);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-derived']"));
-        Assert.Single(component.FindAll("[data-testid='c4-view-option']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-surface-explorer']"));
     }
 
     /// <summary>Underscored folders are not chapters — the chapter list skips them on
@@ -695,15 +504,14 @@ public sealed class C4DevbookPanelTests : IDisposable
     public async Task A_fence_in_an_underscored_folder_is_not_read()
     {
         await using var harness = CreateHarness(
-            c4Enabled: true,
             writeWorkspace: false,
             extraFiles: new Dictionary<string, string> { ["_drafts/03-context.md"] = FencedChapter });
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapters-tab']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
+        Assert.Single(component.FindAll("[data-testid='arc42-surface-chapters-only']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface-explorer']"));
     }
 
     /// <summary>A review note quoting a C4 fence opens with four backticks so the
@@ -716,38 +524,38 @@ public sealed class C4DevbookPanelTests : IDisposable
             "# 05. Building Block View\n\n```meta\nstatus: active\n```\n\n" +
             "````annotation\nTry this:\n```mermaid\nC4Context\n    System(x, \"X\")\n```\n````\n";
 
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: quoting);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: quoting);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface-explorer']"));
     }
 
     [Fact]
-    public async Task A_mermaid_fence_that_is_not_C4_gives_no_C4_tab()
+    public async Task A_mermaid_fence_that_is_not_C4_gives_no_model()
     {
         const string flowchart =
             "# 05. Building Block View\n\n```meta\nstatus: active\n```\n\n```mermaid\nflowchart LR\n    a --> b\n```\n";
 
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: flowchart);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: flowchart);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface-explorer']"));
     }
 
     /// <summary>
     /// A chapter edited in the app redraws the model drawn from it. The store caches
     /// its catalog, and nothing on disk announces a save the app itself made — so
-    /// without the save telling the store, the C4 tab kept the fence as it was before
+    /// without the save telling the store, the model kept the fence as it was before
     /// the edit until something else moved the folder.
     /// </summary>
     [Fact]
     public async Task Saving_a_chapter_in_the_app_redraws_the_model_drawn_from_it()
     {
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: FencedChapter);
         var chapterFile = Path.Combine(harness.Arc42, "05-building-block-view.md");
 
         var component = harness.Render(ChapterPath);
@@ -763,7 +571,7 @@ public sealed class C4DevbookPanelTests : IDisposable
 
         // The re-read that follows the save is what asks the store again.
         component.WaitForAssertion(
-            () => Assert.Contains("Renamed context", component.Find("[data-testid='arc42-chapter-c4-views']").TextContent, StringComparison.Ordinal),
+            () => Assert.Contains("Renamed context", component.Find("[data-testid='arc42-chapter-links-view']").TextContent, StringComparison.Ordinal),
             TimeSpan.FromSeconds(5));
     }
 
@@ -789,7 +597,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_chapter_embedding_a_view_draws_that_view_where_the_image_was()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -802,17 +610,20 @@ public sealed class C4DevbookPanelTests : IDisposable
     }
 
     [Fact]
-    public async Task Open_in_C4_tab_under_an_embedded_view_opens_that_view()
+    public async Task Open_in_the_C4_model_under_an_embedded_view_opens_that_view()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
 
-        await component.WaitForElement("[data-testid='devbook-c4-embed-open']").ClickAsync(new());
+        var open = component.WaitForElement("[data-testid='devbook-c4-embed-open']");
+        Assert.Equal(C4ViewImages.OpenLabel, open.TextContent.Trim());
 
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
-        Assert.Contains("Container Diagram", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
+        await open.ClickAsync(new());
+
+        Assert.Equal("containers-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
+        Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
     }
 
     /// <summary>An embed naming no view is devbook's checker's error to report. The
@@ -822,7 +633,6 @@ public sealed class C4DevbookPanelTests : IDisposable
     public async Task An_embed_naming_no_view_keeps_its_alt_text()
     {
         await using var harness = CreateHarness(
-            c4Enabled: true,
             chapter: EmbeddingChapter.Replace("c4:Containers-Backlog", "c4:no-such-view", StringComparison.Ordinal));
 
         var component = harness.Render(ChapterPath);
@@ -832,33 +642,20 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='devbook-c4-embed']"));
     }
 
-    [Fact]
-    public async Task With_the_key_off_an_embed_keeps_its_alt_text()
-    {
-        await using var harness = CreateHarness(c4Enabled: false, chapter: EmbeddingChapter);
-
-        var component = harness.Render(ChapterPath);
-        harness.Settle(component);
-
-        component.WaitForAssertion(() => Assert.Contains("The containers", component.Find("[data-testid='arc42-chapter-file']").TextContent, StringComparison.Ordinal));
-        Assert.Empty(component.FindAll("[data-testid='devbook-c4-embed']"));
-    }
-
     /// <summary>The embed is the reference: with no <c>references.json</c> at all, the
-    /// view names the section that embeds it.</summary>
+    /// view names the chapter that embeds it.</summary>
     [Fact]
-    public async Task A_view_a_chapter_embeds_names_that_chapter_in_the_C4_tab()
+    public async Task A_view_a_chapter_embeds_names_that_chapter()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, createReferenceDirectory: false);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter, createReferenceDirectory: false);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-        await component.Find("[data-testid='c4-view-option'][title='containers-backlog']").ClickAsync(new());
+        await Harness.OpenViewAsync(component, "containers-backlog");
 
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-view-unreferenced']"));
-        Assert.NotEmpty(component.FindAll($"[data-testid='arc42-c4-view-references'] [title='{ChapterPath}#container-view']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface-documents-none']"));
+        Assert.Contains("Building Block View", component.Find("[data-testid='arc42-surface-document']").TextContent, StringComparison.Ordinal);
     }
 
     /// <summary>The section is the builder's edge source: the innermost heading that is
@@ -869,7 +666,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [InlineData("# 05. Building Block View\n\n```meta\n```\n\n## Structural\n\n![x](c4:containers-backlog)\n")]
     public async Task An_embed_outside_any_chapter_node_documents_the_file(string chapter)
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: chapter, createReferenceDirectory: false);
+        await using var harness = CreateHarness(chapter: chapter, createReferenceDirectory: false);
 
         var catalog = await harness.LoadCatalogAsync();
 
@@ -886,7 +683,7 @@ public sealed class C4DevbookPanelTests : IDisposable
             { "views": { "containers-backlog": [".devbook/domain/context-map.md"] } }
             """;
 
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, references: references);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter, references: references);
 
         var catalog = await harness.LoadCatalogAsync();
 
@@ -898,19 +695,22 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_chapter_lists_the_views_it_embeds()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, createReferenceDirectory: false);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter, createReferenceDirectory: false);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
 
-        var link = Assert.Single(component.FindAll("[data-testid='arc42-chapter-c4-view']"));
-        Assert.Contains("Container Diagram", link.TextContent, StringComparison.Ordinal);
+        component.WaitForAssertion(() =>
+        {
+            var link = Assert.Single(component.FindAll("[data-testid='arc42-chapter-links-view']"));
+            Assert.Contains("Container Diagram", link.TextContent, StringComparison.Ordinal);
+        });
     }
 
     [Fact]
     public async Task An_embed_quoted_in_a_code_span_a_fence_or_a_comment_documents_nothing()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: QuotingChapter, references: Undocumented);
+        await using var harness = CreateHarness(chapter: QuotingChapter, references: Undocumented);
 
         var catalog = await harness.LoadCatalogAsync();
 
@@ -935,7 +735,7 @@ public sealed class C4DevbookPanelTests : IDisposable
             }
             """;
 
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, references: references);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter, references: references);
 
         var catalog = await harness.LoadCatalogAsync();
 
@@ -947,27 +747,13 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Equal([".arc42/03-context-and-scope.md"], context.Documents);
     }
 
-    [Fact]
-    public async Task A_view_nothing_embeds_says_how_to_embed_it()
-    {
-        await using var harness = CreateHarness(c4Enabled: true, references: Undocumented);
-
-        var component = harness.Render(null);
-        harness.Settle(component);
-
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-
-        Assert.Contains("c4:context-backlog", component.Find("[data-testid='arc42-c4-view-unreferenced']").TextContent, StringComparison.Ordinal);
-        Assert.DoesNotContain("references.json", component.Find("[data-testid='arc42-c4-view-unreferenced']").TextContent, StringComparison.Ordinal);
-    }
-
     /// <summary>An embed is a chapter edit, so a save in the app has to drop even a
     /// catalog read from an authored workspace — no <c>.dsl</c> changed, but the map
     /// did.</summary>
     [Fact]
     public async Task Saving_a_chapter_drops_the_map_even_for_an_authored_workspace()
     {
-        await using var harness = CreateHarness(c4Enabled: true, references: Undocumented);
+        await using var harness = CreateHarness(references: Undocumented);
         var store = harness.Context.Services.GetRequiredService<C4DevbookStore>();
 
         var before = await harness.LoadCatalogAsync();
@@ -1006,7 +792,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     }
 
     [Fact]
-    public void With_the_feature_off_no_embed_resolves()
+    public void Without_a_catalog_no_embed_resolves()
     {
         var images = new C4ViewImages();
 
@@ -1046,9 +832,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     }
 
     private Harness CreateHarness(
-        bool c4Enabled,
         bool registerStore = true,
-        bool c4ZoomEnabled = false,
         IDevbookViewPreferences? preferences = null,
         string? workspace = null,
         string? references = null,
@@ -1092,8 +876,6 @@ public sealed class C4DevbookPanelTests : IDisposable
 
         var workspaceSettings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        if (c4Enabled) Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
-        if (c4ZoomEnabled) Assert.Null(features.SetEnabled(DevbookFeatures.C4Zoom, true));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -1143,6 +925,21 @@ public sealed class C4DevbookPanelTests : IDisposable
                     parameters.Add(panel => panel.OnNavigateToChapter, EventCallback.Factory.Create<DevbookChapterLink>(this, asked.Add));
                 }
             });
+
+        /// <summary>The panel with the host naming a view, as a reference from another
+        /// section arrives.</summary>
+        public IRenderedComponent<Arc42DevbookPanel> RenderOnView(string view) =>
+            Context.Render<Arc42DevbookPanel>(parameters => parameters
+                .Add(panel => panel.RepositoryAlias, RepositoryAlias)
+                .Add(panel => panel.SelectedC4View, view));
+
+        /// <summary>Opens a view from the surface's views list, the way a reader does:
+        /// what the left navigation says about the open view follows where the
+        /// explorer reports it went.</summary>
+        public static Task OpenViewAsync(IRenderedComponent<Arc42DevbookPanel> component, string viewKey) =>
+            component.FindAll("[data-testid='arc42-surface-view']")
+                .Single(view => view.GetAttribute("data-view") == viewKey)
+                .ClickAsync(new());
 
         /// <summary>
         /// The catalog and the workspace are both read asynchronously, so the first
