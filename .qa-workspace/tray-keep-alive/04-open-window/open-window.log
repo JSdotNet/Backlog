@@ -1,0 +1,44 @@
+=== before open_window (main hidden) @ 2026-11-18T00:20:02.4655189+01:00
+debug-build processes: 1 (20724)
+window: 1510344	hidden	Backlog.Desktop
+settings.tray: {"hintShown":true}
+mcp 127.0.0.1:5799 listening: True
+--- MCP open_window surface=roadmap target=desktop:
+{
+ "at": "2026-11-17T23:20:03.644Z",
+ "endpoint": "http://127.0.0.1:5799/mcp",
+ "initializeStatus": 200,
+ "server": {
+  "name": "Backlog.Desktop",
+  "version": "1.0.0.0"
+ },
+ "tool": "open_window",
+ "callStatus": 200,
+ "isError": false,
+ "summary": {
+  "surface": "roadmap",
+  "target": "desktop",
+  "opened": true,
+  "backlogLink": "backlog://window/roadmap",
+  "answer": "Opened Roadmap in a new window."
+ }
+}
+=== after open_window @ 2026-11-18T00:20:08.0050590+01:00
+debug-build processes: 1 (20724)
+window: 13569710	visible	Roadmap - Backlog.Desktop
+window: 1510344	hidden	Backlog.Desktop
+settings.tray: {"hintShown":true}
+mcp 127.0.0.1:5799 listening: True
+--- WebView2 pages over CDP:
+[
+ {
+  "id": "5DA430CA5B595105628940A498F388E6",
+  "url": "https://0.0.0.1/window/roadmap",
+  "title": "Backlog.Desktop"
+ },
+ {
+  "id": "2E4031FA30C335E5F5DE01072052AC26",
+  "url": "https://0.0.0.1/",
+  "title": "Backlog.Desktop"
+ }
+]

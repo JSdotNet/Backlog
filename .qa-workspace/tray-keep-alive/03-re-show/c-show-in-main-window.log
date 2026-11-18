@@ -1,0 +1,15 @@
+=== before Show in main window (main hidden; Goals and Roadmap popped out) @ 2026-11-18T00:21:37.8343162+01:00
+debug-build processes: 1 (20724)
+window: 1510344	hidden	Backlog.Desktop
+window: 100470730	visible	Goals - Backlog.Desktop
+window: 13569710	visible	Roadmap - Backlog.Desktop
+settings.tray: {"hintShown":true}
+mcp 127.0.0.1:5799 listening: True
+--- CDP click on the Goals pop-out's 'Show in main window' button: "clicked"
+=== after Show in main window @ 2026-11-18T00:21:42.9679329+01:00
+debug-build processes: 1 (20724)
+window: 1510344	visible	Backlog.Desktop
+window: 13569710	visible	Roadmap - Backlog.Desktop
+settings.tray: {"hintShown":true}
+mcp 127.0.0.1:5799 listening: True
+--- main window's route over CDP: "/ / active surface: Goals"

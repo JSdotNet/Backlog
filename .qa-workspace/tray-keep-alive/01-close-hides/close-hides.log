@@ -1,0 +1,30 @@
+=== before close (main shown) @ 2026-11-18T00:19:35.8018574+01:00
+debug-build processes: 1 (20724)
+window: 1510344	visible	Backlog.Desktop
+settings.tray: {"hintShown":false}
+mcp 127.0.0.1:5799 listening: True
+--- posting WM_SYSCOMMAND SC_CLOSE (the title bar's close) to the main window 1510344
+=== after close @ 2026-11-18T00:19:42.5399632+01:00
+debug-build processes: 1 (20724)
+window: 1510344	hidden	Backlog.Desktop
+settings.tray: {"hintShown":true}
+mcp 127.0.0.1:5799 listening: True
+--- MCP list_entries over the loopback endpoint while the main window is hidden:
+{
+ "at": "2026-11-17T23:19:43.371Z",
+ "endpoint": "http://127.0.0.1:5799/mcp",
+ "initializeStatus": 200,
+ "server": {
+  "name": "Backlog.Desktop",
+  "version": "1.0.0.0"
+ },
+ "tool": "list_entries",
+ "callStatus": 200,
+ "isError": false,
+ "summary": {
+  "repository": "JSdotNet/Backlog",
+  "repositoryAlias": "backlog",
+  "count": 46,
+  "entries": "[46 items]"
+ }
+}
