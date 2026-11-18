@@ -38,7 +38,6 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 The derived-data and settings format sitting beside the canonical stores.
 
 - **Used for** —
-  - the Archify artifact indexes (`_archify/index.json`);
   - settings;
   - the repo registry (`config/repos.json`);
   - the dev-tool catalog the DevPc module reads;
@@ -66,7 +65,7 @@ The structured-metadata format embedded in Markdown documents.
 rating: adopted
 type: format
 depends-on: [".devbook/tech/shared.md#markdown"]
-related: [".devbook/tech/tooling.md#archify"]
+related: [".devbook/arc42/adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md"]
 ```
 
 Diagram-as-text notation embedded directly in Markdown.
@@ -74,8 +73,8 @@ Diagram-as-text notation embedded directly in Markdown.
 - **Used for** — the technology graph, C4/deployment/sequence diagrams in
   `.devbook/arc42`, and domain model/flow diagrams in `.devbook/domain`.
 - **Why** — diagrams stay reviewable in the same diff as their prose, and GitHub
-  and the app's Devbook viewer render them natively. A mermaid fence stays
-  canonical even where an Archify artifact renders the same diagram more richly.
+  and the app's Devbook viewer render them natively. The Devbook pane draws every
+  chapter diagram with Mermaid and offers no second renderer (local ADR 0057).
 
 ## .NET Runtime
 
@@ -129,9 +128,7 @@ tool.
 - **Used for** —
   - the VS Code extension host;
   - the devbook plugin's checker and inventory scripts under `.devbook/_tools/`;
-  - the repository's `tools/devbook` writer and metadata check;
-  - the vendored Archify renderer;
-  - the `tools/diagrams` artifact commands.
+  - the repository's `tools/devbook` writer and metadata check.
 - **Why** — the VS Code extension model mandates it, developer machines already
   have it, and the repository's tooling needs nothing beyond it.
 

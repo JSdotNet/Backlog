@@ -62,7 +62,7 @@ Debt that belongs to no single decision:
 | D1 | The organization's **coding and testing conventions** were left behind when the ADRs were imported on 2026-08-27. | Agents and contributors have no checked-in statement of those conventions. |
 | D2 | ~~The **Storage settings screen describes the pre-ADR-0003 world**~~ — **resolved.** | Kept in the table because this copy caused the data loss recorded in R9. |
 | D3 | ~~**No migration mechanism for the local SQLite store**~~ — **story written, residual gap narrowed.** | **There is no mechanism for a non-additive change.** |
-| D4 | **Archify artifacts are invisible on a branch-sourced repository.** | Every diagram in a branch-sourced repository falls back to mermaid with no hint why. |
+| D4 | ~~**Archify artifacts are invisible on a branch-sourced repository.**~~ — **resolved by retiring Archify.** | None: every diagram is drawn by Mermaid, from a branch or a clone. |
 | D5 | **The devbook check still prints warnings, and a set of prose findings stands deliberately** (2026-09-26). | The check is not a zero-warning signal, and agents read the deferred prose as current. |
 | D6 | **The side panel reads sessions outside `ILinkedSessionStates`** (2026-11-02, the follow-up local ADR 0042 named). | One session's badge and side panel card can briefly disagree, and each refresh reads the record twice. |
 
@@ -75,13 +75,12 @@ Debt that belongs to no single decision:
   - no defined behaviour when an older build opens a newer database.
 
   The first non-additive change triggers building one, and ADR 0006 supersedes itself then.
-- **D4:** The lazy branch snapshot (local ADR 0008, third amendment) excludes `_archify/`
-  from the content fetch so it can be fetched only when a rendered diagram is
-  shown. The on-demand half was never built; `ArchifyDiagramArtifacts` reads the snapshot folder directly. See
+- **D4:** The lazy branch snapshot (local ADR 0008, third amendment) excluded `_archify/`
+  from the content fetch, and the on-demand half was never built, so a branch reader
+  never saw an Archify artifact. [Local ADR 0057](adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md)
+  retires Archify: the app draws every diagram with Mermaid, so a branch and a clone
+  show the same thing. See
   [TDR 0001](tdr/0001-archify-artifacts-are-invisible-on-a-branch-snapshot.md).
-
-  Since [local ADR 0034](adr/0034-archify-renders-are-generated-on-demand-not-committed.md) the
-  renders are not committed and the app draws them from the specifications. `_archify/` therefore holds only small JSON and the exclusion's cost premise is gone. Fetching it with its area (TDR option C) is now the cheap fix. Meanwhile the out-of-date signal and the render/author affordances never appear, though a clone shows all of it.
 - **D5:** This dates from plan `devbook-adoption`, entry `fix-check-findings`. Both devbook checks exit 0 with nothing blocking. They warn on the section headings inside decision and debt records and domain events, Inbox requirements proved only by `unit` tests, and terms two chapters claim. Each prose finding left standing has an owning plan entry; [TDR 0003](tdr/0003-the-devbook-check-is-not-a-zero-warning-signal.md) has the counts and list. A new warning is found by comparing counts, not by the exit code, and agents read the deferred prose as current until the owning entries land.
 - **D6:** A task row's badge reads a linked session through Tasks' port, while the task's
   side panel reads the session record straight from the Sessions adapter in the shell.
