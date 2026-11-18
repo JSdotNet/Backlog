@@ -11,7 +11,8 @@ namespace Backlog.Infrastructure.Sessions;
 /// <summary>
 /// The question Sessions asks when a delivery run reaches Personal Validation, titled
 /// "&lt;repository&gt; · &lt;run&gt; · Approve or revise", with the gate's handoff as its body and
-/// the choices Approve, Approve + follow-up, Revise and Reject
+/// the choices Approve, Approve + follow-up, Revise and Reject, and a quiet Dismiss that
+/// withdraws the question and records nothing
 /// (<c>.devbook/domain/notifications/requirements.md#requirement-a-run-at-personal-validation-asks-to-be-approved</c>).
 /// It is about the run, so the run's end closes it, and its answer is recorded on the run
 /// file as the gate decision — the desktop session then opens the pull request, or marks
@@ -19,7 +20,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// review link only the desktop can open is marked so (<see cref="ReviewLinks"/>).
 /// <para>
 /// The run file remembers the question under <c>validationQuestion</c>: the notification's
-/// id, when it was asked, whether it was answered or closed, and whether the gate's current
+/// id, when it was asked, whether it was answered, dismissed or closed, and whether the gate's current
 /// attempt still has to ask (<c>armed</c>). An attempt begins when the gate moves into
 /// progress from another status, or is reported in progress again while the run's approval
 /// is back to pending after a rejection — and only once the earlier question is settled. It
@@ -82,14 +83,27 @@ internal static class ValidationQuestions
             if (notifications() is not { } port) return;
 
             var asked = run[Key] as JsonObject;
-            var settled = asked is null || Flag(asked, "answered") || Flag(asked, "closed");
+            var settled = asked is null || Flag(asked, "answered") || Flag(asked, "closed") || Flag(asked, "dismissed");
 
             if (string.Equals(status, DeliveryStageStatuses.InProgress, StringComparison.Ordinal))
             {
                 var entering = !string.Equals(previousStatus, DeliveryStageStatuses.InProgress, StringComparison.Ordinal);
-                var revised = asked is not null && Flag(asked, "answered") && string.Equals(Decided(run), "pending", StringComparison.Ordinal);
 
-                if (settled && (entering || revised))
+                var pending = string.Equals(Decided(run), "pending", StringComparison.Ordinal);
+                var revised = asked is not null && Flag(asked, "answered") && pending;
+
+                // A dismissed question recorded no decision, so a pending approval alone says
+                // nothing about it. A revise round the desktop decided since the question went
+                // out does — before or after the dismiss, which a phone's outbox may deliver
+                // late: its approval was decided since, and is back to pending.
+                var redecided = asked is not null
+                    && Flag(asked, "dismissed")
+                    && pending
+                    && DecidedAt(run) is { } decidedAt
+                    && Instant(Text(asked, "askedAt")) is { } askedAt
+                    && decidedAt > askedAt;
+
+                if (settled && (entering || revised || redecided))
                 {
                     if (asked is null)
                     {
@@ -163,7 +177,7 @@ internal static class ValidationQuestions
     internal static ValidationAnswerStep Decide(JsonObject run, NotificationAnswer answer)
     {
         if (!Waiting(run, answer, out var asked)) return ValidationAnswerStep.Nothing;
-        if (DesktopDecided(run, asked)) return ValidationAnswerStep.Record;
+        if (DesktopDecided(run, asked) || Dismissed(answer)) return ValidationAnswerStep.Record;
 
         if (Chose(answer, SessionNotificationSubjects.ApproveFollowUpChoice)
             && !string.IsNullOrWhiteSpace(answer.Text)
@@ -180,7 +194,7 @@ internal static class ValidationQuestions
     /// the follow-up it filed, and says what happened. Only the answer to the question the
     /// run is waiting on counts, once: a replayed answer, or one to a question the run has
     /// moved past, changes nothing; one the desktop decided first only marks the question
-    /// answered.
+    /// answered; Dismiss writes nothing on the approval and only marks the question dismissed.
     /// </summary>
     internal static ValidationRecord Record(JsonObject run, NotificationAnswer answer, Guid? followUpEntryId = null)
     {
@@ -190,6 +204,18 @@ internal static class ValidationQuestions
         {
             asked["answered"] = true;
             return ValidationRecord.DesktopStands;
+        }
+
+        // Not "answered": that flag means a decision was recorded, and a pending approval
+        // after one reads as a revise round asking again.
+        if (Dismissed(answer))
+        {
+            asked["dismissed"] = true;
+
+            // When it was withdrawn, for whoever reads the run file; re-asking compares the
+            // approval with askedAt instead, because a phone may deliver the dismiss late.
+            asked["dismissedAt"] = Stamp(DateTimeOffset.UtcNow);
+            return ValidationRecord.Dismissed;
         }
 
         if (run["approval"] is not JsonObject approval)
@@ -287,7 +313,8 @@ internal static class ValidationQuestions
                         ? [new AnswerChoice(SessionNotificationSubjects.ApproveFollowUpChoice, "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?")]
                         : Array.Empty<AnswerChoice>(),
                     new AnswerChoice(SessionNotificationSubjects.ReviseChoice, "Revise", TakesText: true, Placeholder: "What should change?"),
-                    new AnswerChoice(SessionNotificationSubjects.RejectChoice, "Reject", AnswerChoiceStyle.Destructive)
+                    new AnswerChoice(SessionNotificationSubjects.RejectChoice, "Reject", AnswerChoiceStyle.Destructive),
+                    new AnswerChoice(SessionNotificationSubjects.DismissChoice, "Dismiss", Quiet: true)
                 ]),
             // The title names the run, so the place is the repository alone and the card does
             // not print the run twice.
@@ -326,8 +353,9 @@ internal static class ValidationQuestions
         if (followUp) body.Append("- **Approve + follow-up** approves and files your words as a follow-up entry after this one.\n");
         body.Append("- **Revise** sends it back with your words for another round.\n");
         body.Append(followUp
-            ? "- **Reject** records a rejection, and the entry is blocked.\n\n"
-            : "- **Reject** records a rejection and ends the run without a revise round.\n\n");
+            ? "- **Reject** records a rejection, and the entry is blocked.\n"
+            : "- **Reject** records a rejection and ends the run without a revise round.\n");
+        body.Append("- **Dismiss** withdraws this question and records nothing on the run.\n\n");
         body.Append(pulls.Count > 0
             ? "Approving lets the desktop session mark the pull request ready for review.\n"
             : "Opening the pull request still happens at the desktop, in the session that runs it.\n");
@@ -433,8 +461,12 @@ internal static class ValidationQuestions
         return run[Key] is JsonObject
             && Guid.TryParse(Text(asked, "notificationId"), out var waiting)
             && waiting == answer.NotificationId
-            && !Flag(asked, "answered");
+            && !Flag(asked, "answered")
+            && !Flag(asked, "dismissed");
     }
+
+    private static bool Dismissed(NotificationAnswer answer) =>
+        Chose(answer, SessionNotificationSubjects.DismissChoice);
 
     /// <summary>Decided at the desktop after the question went out: that decision stands.</summary>
     private static bool DesktopDecided(JsonObject run, JsonObject asked) =>
@@ -451,6 +483,9 @@ internal static class ValidationQuestions
 
     private static string? Decided(JsonObject run) =>
         run["approval"] is JsonObject approval ? Text(approval, "personalValidation") : null;
+
+    private static DateTimeOffset? DecidedAt(JsonObject run) =>
+        run["approval"] is JsonObject approval ? Instant(Text(approval, "decidedAt")) : null;
 
     private static string Stamp(DateTimeOffset at) =>
         at.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
@@ -478,9 +513,9 @@ internal enum ValidationAnswerKind
     FileFollowUp
 }
 
-/// <summary>What an answer asks of the run, and the gated entry a follow-up is filed
-/// after.</summary>
-internal sealed record ValidationAnswerStep(ValidationAnswerKind Kind, GatedEntry? Gated = null)
+/// <summary>What an answer asks of the run, the gated entry a follow-up is filed after, and —
+/// once a <see cref="ValidationAnswerKind.Record"/> step was recorded — what recording it did.</summary>
+internal sealed record ValidationAnswerStep(ValidationAnswerKind Kind, GatedEntry? Gated = null, ValidationRecord? Recorded = null)
 {
     internal static readonly ValidationAnswerStep Nothing = new(ValidationAnswerKind.Nothing);
     internal static readonly ValidationAnswerStep Record = new(ValidationAnswerKind.Record);
@@ -497,5 +532,8 @@ internal enum ValidationRecord
     DesktopStands,
 
     /// <summary>The answer is the run's gate decision.</summary>
-    Recorded
+    Recorded,
+
+    /// <summary>Dismissed: the question is withdrawn and no decision is recorded.</summary>
+    Dismissed
 }

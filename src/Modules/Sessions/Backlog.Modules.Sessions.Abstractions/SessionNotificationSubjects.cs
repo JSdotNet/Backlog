@@ -58,6 +58,11 @@ public static class SessionNotificationSubjects
     /// with the person's words. Takes text; recorded as a rejection with those words.</summary>
     public const string ReviseChoice = "revise";
 
+    /// <summary>The choice that withdraws a run's Personal Validation question on every
+    /// device and records no gate decision. Takes no text; drawn as a small quiet action.
+    /// An older build, which knows no such id, would record its answer as Revise.</summary>
+    public const string DismissChoice = "dismiss";
+
     /// <summary>
     /// The source key of the Personal Validation question about a run: the run and the
     /// worktree it is recorded in, so the answer finds the run file after a restart, when

@@ -574,6 +574,9 @@ h1.phone-notification__title { font-family: var(--font-family-heading); font-siz
 /* Seven or eight choices wrap into two even columns, so every button stays a thumb's width. */
 .phone-notification__choices--many { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .phone-notification__choices--many .btn { min-width: 0; overflow-wrap: anywhere; }
+/* A quiet choice - withdrawing the question - is a small text action after the buttons, right-aligned, still a thumb's height. */
+.phone-notification__quiet { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .375rem; }
+.phone-notification__quiet .btn { min-height: 44px; color: var(--color-text-secondary); }
 /* The note's fold sits beside Send or Answer, so a folded note costs no row of its own. */
 .phone-notification__choices:has(> .phone-notification__note-toggle) { align-items: center; }
 .phone-notification__note-toggle { justify-content: center; margin-inline-start: .5rem; }

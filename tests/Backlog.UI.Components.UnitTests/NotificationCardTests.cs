@@ -249,6 +249,65 @@ public sealed class NotificationCardTests
     }
 
     [Fact]
+    public void A_quiet_choice_draws_as_a_small_ghost_action_after_the_buttons_and_answers_at_once()
+    {
+        using var context = Context();
+        NotificationCardReply? reply = null;
+        var spec = new NotificationCardAnswerSpec(
+        [
+            new NotificationCardChoice("approve", "Approve", NotificationCardChoiceStyle.Primary),
+            new NotificationCardChoice("reject", "Reject", NotificationCardChoiceStyle.Destructive),
+            new NotificationCardChoice("dismiss", "Dismiss", Quiet: true)
+        ]);
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(spec))
+            .Add(c => c.OnAnswer, r => reply = r));
+
+        var row = card.Find("[data-testid='notification-card-choices']");
+        Assert.Null(row.QuerySelector("[data-testid='notification-card-choice-dismiss']"));
+        Assert.Equal(2, row.QuerySelectorAll(".btn").Length);
+
+        var dismiss = card.Find("[data-testid='notification-card-quiet-choices'] [data-testid='notification-card-choice-dismiss']");
+        Assert.Contains("btn--ghost", dismiss.ClassList);
+        Assert.Contains("btn--small", dismiss.ClassList);
+
+        dismiss.Click();
+
+        Assert.Equal(["dismiss"], reply!.ChoiceIds);
+        Assert.Null(reply.Text);
+    }
+
+    [Fact]
+    public void A_quiet_choice_stays_last_below_the_words_a_choice_asks_for()
+    {
+        using var context = Context();
+        var spec = Validation with { Choices = [.. Validation.Choices, new NotificationCardChoice("dismiss", "Dismiss", Quiet: true)] };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(spec)));
+        card.Find("[data-testid='notification-card-choice-revise']").Click();
+
+        Assert.NotNull(card.Find("[data-testid='notification-card-choice-text']"));
+        var last = card.FindAll("[data-testid='notification-card-answer'] button, [data-testid='notification-card-answer'] textarea")[^1];
+        Assert.Equal("notification-card-choice-dismiss", last.GetAttribute("data-testid"));
+    }
+
+    [Fact]
+    public void A_quiet_choice_does_not_count_towards_the_wrapping_grid()
+    {
+        using var context = Context();
+        var spec = new NotificationCardAnswerSpec(
+        [
+            .. Enumerable.Range(1, 6).Select(n => new NotificationCardChoice($"c{n}", $"Choice {n}")),
+            new NotificationCardChoice("dismiss", "Dismiss", Quiet: true)
+        ]);
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(spec)));
+
+        Assert.DoesNotContain("notification-card__actions--many", card.Find("[data-testid='notification-card-choices']").ClassList);
+    }
+
+    [Fact]
     public void Seven_or_eight_choices_lay_out_as_a_wrapping_grid_and_fewer_stay_one_row()
     {
         using var context = Context();

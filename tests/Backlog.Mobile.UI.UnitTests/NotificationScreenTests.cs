@@ -317,6 +317,44 @@ public sealed class NotificationScreenTests
     }
 
     [Fact]
+    public void A_quiet_choice_draws_small_after_the_buttons_and_tapping_it_queues_one_reply()
+    {
+        var validation = TestNotifications.Validation();
+        var spec = validation with { Choices = [.. validation.Choices, new AnswerChoice("dismiss", "Dismiss", Quiet: true)] };
+        var (host, service, _) = Phone(TestNotifications.Question("Approve the validation of run-58?", Now.AddMinutes(-3), spec));
+        using var disposing = host;
+        var app = OpenCard(host);
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-dismiss']")));
+
+        Assert.Null(app.Find("[data-testid='notification-choices']").QuerySelector("[data-testid='notification-choice-dismiss']"));
+        var dismiss = app.Find("[data-testid='notification-quiet-choices'] [data-testid='notification-choice-dismiss']");
+        Assert.Contains("btn--ghost", dismiss.ClassList);
+        Assert.Contains("btn--small", dismiss.ClassList);
+
+        dismiss.Click();
+
+        app.WaitForAssertion(() => Assert.Equal(["dismiss"], Assert.Single(service.Replies).ChoiceIds));
+        Assert.Null(service.Replies[0].Text);
+    }
+
+    [Fact]
+    public void A_quiet_choice_stays_last_below_the_words_a_choice_asks_for()
+    {
+        var validation = TestNotifications.Validation();
+        var spec = validation with { Choices = [.. validation.Choices, new AnswerChoice("dismiss", "Dismiss", Quiet: true)] };
+        var (host, _, _) = Phone(TestNotifications.Question("Approve the validation of run-58?", Now.AddMinutes(-3), spec));
+        using var disposing = host;
+        var app = OpenCard(host);
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-revise']")));
+
+        app.Find("[data-testid='notification-choice-revise']").Click();
+
+        Assert.NotNull(app.Find("[data-testid='notification-choice-text']"));
+        var last = app.FindAll("[data-testid='notification-answer'] button, [data-testid='notification-answer'] textarea")[^1];
+        Assert.Equal("notification-choice-dismiss", last.GetAttribute("data-testid"));
+    }
+
+    [Fact]
     public void Cancelling_a_choices_words_leaves_the_plain_choices_answering_at_once()
     {
         var (host, service, _) = Phone(TestNotifications.Question("Approve the validation of run-58?", Now.AddMinutes(-3), TestNotifications.Validation()));

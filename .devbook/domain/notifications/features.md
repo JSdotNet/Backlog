@@ -220,6 +220,10 @@ A gate that has only gone in progress has nothing to show yet.
 | Approve + follow-up, with text | an approval, with the person's words as its note and the id of the follow-up entry | Tasks files one [follow-up entry](../tasks/features.md#filing-a-follow-up-after-an-entry) after the gated entry, in the same plan. |
 | Revise, with text | a rejection in the person's words | The flow starts a [revise round](../sessions/domain.md#revise-round). |
 | Reject | a rejection with a fixed note and none of the person's words | `execute-plan` blocks the entry instead of revising it. |
+| Dismiss | nothing | The question is withdrawn on every device, and the gate waits for a decision at the desktop. The next attempt at the gate asks again. |
+
+Dismiss is for a question that went stale. It is drawn as a small text action
+after the buttons, not as a button of its own.
 
 The run's approval also records which choice answered it, and for Approve +
 follow-up the id of the follow-up entry. `get_run` returns both, so an
