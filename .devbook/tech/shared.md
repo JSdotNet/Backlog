@@ -158,7 +158,7 @@ The implementation language for the VS Code channel.
 ```meta
 rating: adopted
 type: framework
-version: "10.0.100"
+version: "10.0.110"
 depends-on: [".devbook/tech/desktop.md#winui-3", ".devbook/tech/mobile.md#android", ".devbook/tech/shared.md#c-language"]
 related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 alternatives: ["Plain WinUI 3", "Blazor WebAssembly PWA", "Kotlin native"]
@@ -204,7 +204,7 @@ Razor Components rendered inside the MAUI shell's embedded WebView, through
 ```meta
 rating: adopted
 type: framework
-version: "10.0.11"
+version: "10.0.14"
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/shared.md#c-language"]
 related: [".devbook/tech/testing.md#bunit", ".devbook/design/component-libraries.md"]
 ```
@@ -260,7 +260,7 @@ The web host underneath every HTTP surface in the solution
 ```meta
 rating: adopted
 type: framework
-version: "13.6.0"
+version: "13.6.5"
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/shared.md#c-language"]
 related: [".devbook/tech/tooling.md#aspire-cli", ".devbook/tech/shared.md#opentelemetry", ".devbook/arc42/07-deployment-view.md"]
 alternatives: ["Docker Compose only", "no orchestration"]
@@ -317,7 +317,7 @@ flowchart LR
 ```meta
 rating: adopted
 type: library
-version: "1.18.0"
+version: "1.19.1"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/arc42/08-crosscutting-concepts.md", ".devbook/arc42/09-architecture-decisions.md", ".devbook/tech/shared.md#net-aspire"]
 ```
@@ -365,7 +365,7 @@ The embedded database that is the canonical local store for tasks.
 ```meta
 rating: adopted
 type: package
-version: "10.0.11"
+version: "10.0.12"
 depends-on: [".devbook/tech/shared.md#sqlite", ".devbook/tech/shared.md#net-runtime"]
 ```
 
@@ -381,7 +381,7 @@ The ADO.NET provider the SQLite adapter is written against.
 ```meta
 rating: adopted
 type: package
-version: "10.0.12"
+version: "10.0.14"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```
 
@@ -398,7 +398,7 @@ The container abstraction each module registers itself into.
 ```meta
 rating: adopted
 type: package
-version: "10.0.12"
+version: "10.0.14"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```
 
@@ -417,7 +417,7 @@ depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```meta
 rating: adopted
 type: package
-version: "10.9.0"
+version: "10.10.0"
 depends-on: [".devbook/tech/shared.md#microsoftextensionshttp"]
 related: [".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md"]
 ```
@@ -463,7 +463,7 @@ The resilience pipeline library under the HTTP resilience handlers.
 ```meta
 rating: adopted
 type: package
-version: "10.9.0"
+version: "10.10.0"
 depends-on: [".devbook/tech/shared.md#net-aspire"]
 ```
 
@@ -479,7 +479,7 @@ Logical-name resolution for service endpoints.
 ```meta
 rating: adopted
 type: package
-version: "10.0.12"
+version: "10.0.14"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/tech/shared.md#opentelemetry"]
 ```

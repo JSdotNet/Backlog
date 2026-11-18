@@ -897,11 +897,12 @@ status; the deployment badge is the chapter's own word with its first letter
 raised, *Module* for `module`. The *Inside the boundary:* paragraph becomes the Inside card. The
 *Outside it:* paragraph becomes the Outside card, one question per clause, each
 linked to the contexts its sentence says answer it. Tiles count the domain and
-feature chapters; two cards read *N promises · M scenarios* and *N guarantees ·
-M open*, each saying how many are *linked to a test*, whatever the test's level;
-where the chapters still state a rating or a status, one bar shows how
-settled they are; the switches table links the
-features each switch gates. Events is offered as a page of its own when the
+feature chapters. Two cards read *N promises · M scenarios* and *N guarantees ·
+M open*, each saying how many are *linked to a test*, whatever the test's level.
+Where the chapters still state a rating or a status, one bar shows how settled
+they are. The switches table links the features each switch gates.
+
+Events is offered as a page of its own when the
 context raises a domain event. Model asks only what the context is made of,
 naming its aggregate when it has exactly one, *What is a task made of?*, and
 *What is it made of?* otherwise. The switches table shows no `DEV` mark: whether a
@@ -909,8 +910,8 @@ switch is still being built is the feature catalog's release state, not somethin
 a chapter states, and the view reads no workflow state from a chapter. The page's
 own words are its section headings, the two card labels, the line under Switches,
 the note under How settled, and the question beside each page it
-offers; every other word is a chapter's. A diagram in the boundary's prose — a
-process no chapter owns — is drawn in the lifecycle's style, as a unit's flows are.
+offers; every other word is a chapter's. A diagram in the boundary's prose shows a process no chapter owns, and is drawn in
+the lifecycle's style, as a unit's flows are.
 
 **Technical detail lives on Model.** Field types, how a domain service is invoked
 and what an event carries are shown on Model only. The functional pages, from the
@@ -928,10 +929,9 @@ aggregate holds, such as a shared value object or another context's type, is a
 card outside every boundary. A domain service's card carries what calls it:
 the first sentence of its chapter's *Invocation semantics:* prose as written,
 its full stop dropped. Only a diagram that does not parse, or names no
-aggregate root, is drawn with mermaid. Diagram draws no proposed state: no
-`classDiagram` and no service reading states one, and past devbook contract 38
-no chapter does, so a dashed line there means a reference by id and nothing
-else.
+aggregate root, is drawn with mermaid. Diagram draws no proposed state. No
+`classDiagram` or service reading states one, and past devbook contract 38 no
+chapter does, so a dashed line there means only a reference by id.
 
 **Fields reads the model file's own groups.** Fields heads the aggregate root
 with its kind, its chapter's status and aliases, its name and its chapter's first
@@ -953,11 +953,12 @@ other than Invocation, has no row.
 
 **Events is an index with one contract open.** Events heads the page *What
 ‹context› tells other contexts*. It lists every event with who raises it, when,
-who consumes it and whether it is emitted, and shows the picked event's contract
-beneath, each raiser followed by its kind, *Projection service*, and, where a
+who consumes it and whether it is emitted. Beneath, it shows the picked event's
+contract, each raiser followed by its kind, *Projection service*, and, where a
 lifecycle the context draws raises it, the moves it fires on, under *Would fire
 on* until it is emitted and *Fires on* after. A move opens the Domain page on the
-unit whose chapter draws that lifecycle, on About, with the lifecycle focused. *What ‹context› listens to* reads the dependency tables' rows in which
+unit whose chapter draws that lifecycle, on About, with the lifecycle focused.
+*What ‹context› listens to* reads the dependency tables' rows in which
 another context supplies a published language.
 
 **The Domain page reads one unit at a time.** An unsplit `domain.md` offers its
@@ -1081,10 +1082,10 @@ what is always true of what it uses — the rules its requirements lean on.
 **Requirements read per feature.** The Requirements page shows each requirement
 with its SHALL sentence set apart and whether it is proved, and each scenario as
 Given, When and Then rows, a row that joins clauses with ", and" read as one
-bullet each. Where a feature's requirements rest on an aggregate's rules — they
-name the aggregate, a chapter inside it, or a concept its rules are about —
-**What is always true** lists those rules under the feature's heading, counted,
-instead of a sentence explaining them.
+bullet each. A feature's requirements rest on an aggregate's rules when they name the aggregate,
+a chapter inside it, or a concept its rules are about. There, **What is always
+true** lists those rules under the feature's heading, counted, instead of a sentence
+explaining them.
 A split `features.<name>.md` or `requirements.<name>.md` reads the same way for
 its one feature. The page opens on a card saying what a requirement is, with
 how many are tested, and, where the features lean on rules, a card counting them

@@ -301,7 +301,8 @@ public sealed class ReplyInvariantTests
         new AnswerSpec(Choices(8)),
         new AnswerSpec(Choices(8), Open: new OpenAnswer(MaxLength: 4000), Note: new OpenAnswer("Add a note", MaxLength: 4000)),
         new AnswerSpec(Journeys, AllowMultiple: true, Note: new OpenAnswer()),
-        new AnswerSpec([], Open: new OpenAnswer(), Note: new OpenAnswer())
+        new AnswerSpec([], Open: new OpenAnswer(), Note: new OpenAnswer()),
+        new AnswerSpec([new AnswerChoice("approve", "Approve"), new AnswerChoice("revise", "Revise", TakesText: true), new AnswerChoice("dismiss", "Dismiss", Quiet: true)])
     ];
 
     private static AnswerChoice[] Choices(int count) =>
@@ -334,7 +335,9 @@ public sealed class ReplyInvariantTests
         new AnswerSpec(Journeys, AllowMultiple: true, MaxChoices: 4),
         new AnswerSpec([], AllowMultiple: true, Open: new OpenAnswer()),
         new AnswerSpec([], Open: new OpenAnswer(MaxLength: 0)),
-        new AnswerSpec([new AnswerChoice("a", "A"), new AnswerChoice("b", "B", TakesText: true)], AllowMultiple: true)
+        new AnswerSpec([new AnswerChoice("a", "A"), new AnswerChoice("b", "B", TakesText: true)], AllowMultiple: true),
+        new AnswerSpec([new AnswerChoice("a", "A"), new AnswerChoice("b", "B", TakesText: true, Quiet: true)]),
+        new AnswerSpec([new AnswerChoice("a", "A"), new AnswerChoice("b", "B"), new AnswerChoice("c", "C", Quiet: true)], AllowMultiple: true)
     ];
 
     [Theory]

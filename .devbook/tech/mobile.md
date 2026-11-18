@@ -60,7 +60,7 @@ own tables.
 ```meta
 rating: adopted
 type: library
-version: "4.152.1"
+version: "4.153.1"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/domain/inbox/features.md#notes-on-the-phone", ".devbook/domain/capture/features.md#talk-note", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 alternatives: ["ImageSharp", "Android Bitmap plus a browser canvas"]

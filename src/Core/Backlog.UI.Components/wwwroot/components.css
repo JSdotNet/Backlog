@@ -30601,6 +30601,15 @@ button.domain-field-rules[aria-expanded="true"] {
     overflow-wrap: anywhere;
 }
 
+/* A quiet choice — withdrawing the question, say — sits on its own short line after
+   the buttons, right-aligned and small, so it takes little room beside them. */
+.notification-card__quiet {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+}
+
 .notification-card__note {
     display: flex;
     flex-direction: column;

@@ -669,12 +669,14 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         var step = ValidationQuestions.Decide(run, answer);
         if (step.Kind is not ValidationAnswerKind.Record) return step;
 
-        if (ValidationQuestions.Record(run, answer) is not ValidationRecord.Unchanged)
+        var recorded = ValidationQuestions.Record(run, answer);
+
+        if (recorded is not ValidationRecord.Unchanged)
         {
             await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
         }
 
-        return step;
+        return step with { Recorded = recorded };
     }
 
     /// <summary>

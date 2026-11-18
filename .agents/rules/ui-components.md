@@ -65,7 +65,7 @@ repository settings screen fills with the marker saying whether a knowledge
 folder is really there — and it is added the same way, on the component, so that
 one field can grow a trailing adornment without a second input existing.
 
-**If it genuinely cannot, add the hook to the library.** A new parameter on one
+**If it cannot, add the hook to the library.** A new parameter on one
 component is a smaller change than a second implementation, and it is the change
 that leaves the storybook telling the truth. Adding a hook means the storybook
 too: `StorybookCoverageTests` requires every component to be rendered there.

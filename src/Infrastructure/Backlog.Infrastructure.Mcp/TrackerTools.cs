@@ -90,7 +90,8 @@ public sealed class TrackerTools(
     IDevbookReferenceResolver devbookReferences,
     TimeProvider? clock = null,
     ISessionRequestStore? sessionRequests = null,
-    IAppFeatureSettings? features = null)
+    IAppFeatureSettings? features = null,
+    IAgentSessionSource? sessions = null)
 {
     internal const string FindItem = "find_item";
     internal const string ReadItem = "read_item";
@@ -510,7 +511,9 @@ public sealed class TrackerTools(
     /// entry request on this entry, or a plan request for a plan the entry belongs to,
     /// that a dispatcher reported as Started with this very session. A link already
     /// recorded still tells the queue, because the request may have been reported
-    /// after the session first linked itself.
+    /// after the session first linked itself. A dispatcher reports the Claude desktop
+    /// app's id (<c>local_…</c>) while a session links itself by its transcript id, so the
+    /// queue is told under both.
     /// </summary>
     private async Task LinkSessionRequestsAsync(TaskItemDto entry, string session, CancellationToken cancellationToken)
     {
@@ -527,6 +530,14 @@ public sealed class TrackerTools(
         ];
 
         await sessionRequests.LinkAsync(entry.Id, plans, session, cancellationToken).ConfigureAwait(false);
+
+        var desktop = await new DesktopSessionIds(sessions).ResolveAsync([session], cancellationToken).ConfigureAwait(false);
+
+        if (desktop[session] is { Length: > 0 } desktopId
+            && !string.Equals(desktopId, session, StringComparison.OrdinalIgnoreCase))
+        {
+            await sessionRequests.LinkAsync(entry.Id, plans, desktopId, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <summary>

@@ -175,12 +175,12 @@ neighbours and its **Overview**, Domain, Features, Requirements, Model and Flow,
 notes and tasks that link to each, the **Demo** button for a click demo,
 and any other file as written.
 
-Model opens on **Diagram**, headed by the root's name, which draws each
-`classDiagram` of the model file as the aggregate's consistency boundary: the
-root card with its key fields and a link to Fields in the middle of the band,
-its composed parts as a tree joined to it above and below, and outside the band
-one card per type the root names by id — the class a dashed line reaches, or
-the aggregate or entity chapter whose alias or heading the id attribute spells.
+Model opens on **Diagram**, headed by the root's name. It draws each `classDiagram`
+of the model file as the aggregate's consistency boundary. The root card sits in the
+middle of the band with its key fields and a link to Fields, and its composed parts
+form a tree joined to it above and below. Outside the band stands one card per type
+the root names by id: the class a dashed line reaches, or the aggregate or entity
+chapter whose alias or heading the id attribute spells.
 The context's domain-service chapters sit below it, and a class no
 aggregate holds is a card outside every boundary. A diagram that does not parse
 or has no aggregate root is drawn with mermaid as before. **Fields** lists each
@@ -190,9 +190,9 @@ as a contract: what raises it, who consumes it, its payload and its
 published-language rules, and whether the chapters say it is emitted or only
 documented.
 
-On Domain, an unsplit `domain.md` offers its units in a chapter bar, a split
-file opens on its one aggregate, and an aggregate reads as **About** beside
-**Always true**, its rules read from the invariants file beside the page; see
+On Domain, an unsplit `domain.md` offers its units in a chapter bar, and a split
+file opens on its one aggregate. An aggregate reads as **About** beside **Always
+true**, which reads its rules from the invariants file beside the page; see
 [Domain view by unit](features.md#domain-view-by-unit).
 
 The Domain page draws each lifecycle and process a unit's chapter opens with in
