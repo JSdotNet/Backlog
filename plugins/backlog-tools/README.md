@@ -99,16 +99,18 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   another integration pattern `execute-plan` and `close-merged` do it. User-invoked only. The `UserPromptSubmit` hook
   stays quiet on a prompt that names this skill, so a pasted plan is not mistaken for one item.
 - **`final-check`** — the one check at the end of a plan, run in the session that wrote it
-  with `import-plan`, since that session still holds the specification. It brings the checkout
+  with `import-plan`, since that session still holds the specification — the artifacts it
+  published, a design canvas, the plan text. It brings the checkout
   up to the plan's landed tip — the base branch, or `origin/<integration>` while its closing
   pull request is open, or the top of a stack not yet merged — by fast-forward, or in a detached scratch worktree when the
   checkout has work of its own. Then it reviews each `prompt` entry against its instructions,
   checks and `Read first:` sections at that tip, with `file:line` for every verdict
   (*implemented*, *partial*, *missing*, *not landed*), looks across entries for duplicated
   work, leftovers and specification nobody covered, and runs the repository's build, tests and
-  checks and reads the base branch's CI. It reports one table and offers the fixes, which go
-  through the gate as their own change. User-invoked only; it edits, commits and transitions
-  nothing.
+  checks and reads the base branch's CI. It reports one table and asks which numbered gaps
+  to fix; on a yes it fixes them in that same session as one run of the repository's gate, on a
+  branch cut from the tip. User-invoked only; until that yes it edits and commits nothing, and it
+  never transitions an entry.
 - **`close-merged`** — moves to Done every entry whose pull request has merged into the
   default branch or a plan integration branch: the merges `run-plan-item` and `execute-plan` did
   not see, made on GitHub's own page or after the session ended. It lists the repository's

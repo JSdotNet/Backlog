@@ -1,0 +1,25 @@
+=== before turning the switch off @ 2026-11-18T00:22:23.0290580+01:00
+debug-build processes: 1 (20724)
+window: 1510344	visible	Backlog.Desktop
+window: 13569710	visible	Roadmap - Backlog.Desktop
+settings.tray: {"hintShown":true}
+mcp 127.0.0.1:5799 listening: True
+--- CDP click on 'Keep running in the tray when closed': "clicked"
+--- switch now: "Keep running in the tray when closed checked=undefined; Start Backlog when I sign in checked=undefined"
+=== switch off, before close @ 2026-11-18T00:22:26.2965270+01:00
+debug-build processes: 1 (20724)
+window: 1510344	visible	Backlog.Desktop
+window: 13569710	visible	Roadmap - Backlog.Desktop
+settings.tray: {"keepRunning":false,"hintShown":true}
+mcp 127.0.0.1:5799 listening: True
+posted SC_CLOSE to 1510344
+=== after close with the switch off @ 2026-11-18T00:22:33.6192668+01:00
+debug-build processes: 0 ()
+settings.tray: {"keepRunning":false,"hintShown":true}
+mcp 127.0.0.1:5799 listening: False
+=== after restart (aspire start desktop) @ 2026-11-18T00:22:55.3623362+01:00
+debug-build processes: 1 (70820)
+window: 2297928	visible	Backlog.Desktop
+settings.tray: {"keepRunning":false,"hintShown":true}
+mcp 127.0.0.1:5799 listening: True
+--- switches after restart: "Keep running in the tray when closed checked=false disabled=false; Start Backlog when I sign in checked=false disabled=true"

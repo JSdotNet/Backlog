@@ -37,7 +37,7 @@ Apply the gate literally:
   its flow, whose first stage derives the missing scope.
 - **Unmet preconditions are not an exemption.** Invoke the flow anyway and derive the
   missing inputs inside it.
-- **A phase skill is not a flow.** Loading `phase-validation` or another phase directly
+- **A phase skill is not a flow.** Loading `phase-personal-validation` or another phase directly
   bypasses the run record and the Personal Validation gate.
 
 Whatever the engine: never skip Personal Validation, and never open a pull request or

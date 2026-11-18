@@ -62,8 +62,10 @@ entry of a plan to a nested session — or, where the host refuses to start one,
 background sub-agent that parks at the gate — that runs it through `run-plan-item`, so every entry
 still passes the gate and its own Personal Validation, moved onto a draft pull request: a run is
 always unattended.
-`final-check` is user-invoked and changes nothing: run once a plan has landed, it reviews what
-each entry implemented and runs the build and tests, and a fix it finds goes through the gate.
+`final-check` is user-invoked: run once a plan has landed, it reviews what each entry
+implemented against the session's specification and runs the build and tests, and that review
+changes nothing; the gaps the person then accepts are fixed in that session through the gate, so
+it is no flow and adds no path beside it.
 `close-merged` is model-invoked when asked to close the merged items; it only moves the entries
 whose pull request merged into the default branch or a `plan/` branch to Done, so it is no flow.
 `handle-remarks` is model-invoked when asked to handle or answer the Devbook remarks; it answers
@@ -103,7 +105,7 @@ so it is no flow and adds no execution path beside the gate.
 Every flow reports its stages to the bound delivery surfaces — the `delivery-surface-*`
 MCP servers, `mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__*` and
 `mcp__plugin_delivery-surface-dashboard_delivery-surface-dashboard__*`. Skip surface calls
-only when a surface genuinely answers unavailable; do not substitute chat-only tracking
+only when a surface answers unavailable; do not substitute chat-only tracking
 when the tools are present but erroring.
 
 Never skip Personal Validation, and never create a pull request or mark a flow complete
@@ -196,8 +198,9 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   plan pasted back out of the Backlog app, after checking it is still outstanding.
 - `plugins/backlog-tools/skills/execute-plan/SKILL.md` — runs a whole plan by
   running its prompt entries in nested sessions, one worktree and pull request each; user-invoked only.
-- `plugins/backlog-tools/skills/final-check/SKILL.md` — checks a finished plan once, in the
-  session that wrote it: what each entry implemented, and that it all builds; user-invoked only.
+- `plugins/backlog-tools/skills/final-check/SKILL.md` — closes a finished plan once, in the
+  session that wrote it: what each entry implemented, that it all builds, and the accepted gaps
+  fixed through the gate; user-invoked only.
 - `plugins/backlog-tools/skills/import-inbox/SKILL.md` — turns an export from another
   to-do tool into an inbox import manifest (ADR 0017); user-invoked only.
 - `plugins/backlog-tools/skills/handle-remarks/SKILL.md` — handles the reading notes left

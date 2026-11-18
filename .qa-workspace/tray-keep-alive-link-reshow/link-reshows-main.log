@@ -1,0 +1,13 @@
+=== before close (main shown) @ 2026-11-18T02:35:54.7999351+01:00
+debug-build processes: 1 (121248)
+window: 585960026	visible	[keen-villani-46f209 (tray-keep-alive/7072008f-7836-4b18-b74e-ec8d1abb4fe3)] Backlog.Desktop
+--- posting WM_SYSCOMMAND SC_CLOSE (the title bar's close) to the main window 585960026
+=== after close (main hidden) @ 2026-11-18T02:35:59.8426156+01:00
+debug-build processes: 1 (121248)
+window: 585960026	hidden	[keen-villani-46f209 (tray-keep-alive/7072008f-7836-4b18-b74e-ec8d1abb4fe3)] Backlog.Desktop
+--- Start-Process Backlog.Desktop.exe backlog://window/goals (the Debug build reads the link on its command line and redirects it to the running instance)
+link launch process 103784 exited: True exit code: 0
+=== after backlog:// link @ 2026-11-18T02:36:06.0508551+01:00
+debug-build processes: 1 (121248)
+window: 80349862	visible	[keen-villani-46f209 (tray-keep-alive/7072008f-7836-4b18-b74e-ec8d1abb4fe3)] Goals - Backlog.Desktop
+window: 585960026	visible	[keen-villani-46f209 (tray-keep-alive/7072008f-7836-4b18-b74e-ec8d1abb4fe3)] Backlog.Desktop
