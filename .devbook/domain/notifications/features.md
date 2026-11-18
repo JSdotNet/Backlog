@@ -198,7 +198,7 @@ whether a phone showed it.
 
 ```meta
 type: feature
-related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
+related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
 ```
 
 Three contexts reach the person through notifications. A delivery run that
@@ -211,9 +211,18 @@ device raises an alert that links to the chapter.
 The Personal Validation question carries the gate's handoff as its body, so the
 person can review the run from the phone. The handoff is what the stage reports
 for the person: its review links, what to check, the acceptance criteria and the
-paths of the evidence. It travels as text, and no image is attached. The question
-is asked on the first report of the stage that carries links or handoff text.
-A gate that has only gone in progress has nothing to show yet.
+paths of the evidence. The question is asked on the first report of the stage
+that carries links or handoff text. A gate that has only gone in progress has
+nothing to show yet.
+
+The run's screenshots come with it. The body opens with up to six of them, taken
+from every stage's scenario evidence, newest report first: each a `png`, `jpeg`
+or `webp` file of at most 5 MB, sent as the run captured it. The handoff text
+follows, so cutting a long body to fit never drops an image. Any other evidence
+stays in the run's panel at the desktop. The desktop uploads the images after the
+stage reports and pushes the question once they are up, so the run never waits
+on them. The phone fetches each image it shows; one it cannot fetch, or one more
+than 30 days old, shows its file name instead.
 
 | Answer | Recorded on the run | What follows |
 | --- | --- | --- |
