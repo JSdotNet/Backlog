@@ -9,6 +9,115 @@ type: requirements
 > chapter says what the capability is and why it exists; this file says what it
 > promises.
 
+## Re-read on request
+
+```meta
+type: requirements
+related: [.devbook/domain/sessions/features.md#re-read-on-request]
+```
+
+### Requirement: A run recorded here shows in an open list without Refresh
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_shows_a_new_run_and_a_stage_change_without_reading_the_sessions_again, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_burst_of_raises_while_a_run_read_is_out_folds_into_one_follow_up_read, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_after_the_pane_is_gone_reads_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.SurfaceWindowTests.A_run_written_outside_the_window_shows_in_its_sessions_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.SurfaceWindowTests.A_closed_sessions_window_no_longer_reads_for_a_run_written_outside_it, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Starting_a_new_run_raises_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.A_session_resuming_the_run_raises_once_for_the_session_it_adds, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Recording_a_prompt_raises_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Setting_the_run_context_raises_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Updating_a_stage_raises_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Finishing_the_run_raises_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_recorded_answer_raises_the_run_change_signal_once_and_a_replay_raises_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.An_answer_recorded_after_its_follow_up_raises_the_run_change_signal_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Reading_and_opening_the_dashboard_raise_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.A_refused_write_raises_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.A_resume_that_changes_nothing_raises_nothing]
+```
+
+The system SHALL read the runs again in every open session list after a run recorded
+here is started, resumed by a session it adds, given its prompt or context, moved a
+stage, finished, or answered at its Personal Validation.
+
+#### Scenario: A run starts while the list is open in a separate window
+
+- **Given** the session list open in its own window
+- **When** a session starts a delivery run
+- **Then** the run's row appears in that window without Refresh
+
+#### Scenario: Several stages move during one reading
+
+- **Given** an open session list reading its runs
+- **When** three stage updates arrive before the reading ends
+- **Then** the runs are read once more after it, and never twice at once
+
+#### Scenario: A call that writes nothing
+
+- **Given** an open session list
+- **When** a session lists the runs, resumes a run without adding to it, or names a run that does not exist
+- **Then** the runs are not read again
+
+#### Scenario: Telemetry alone
+
+- **Given** an open session list and a run whose session reports telemetry
+- **When** a tool call's figures are added to the run
+- **Then** the list is not read again, and the figures show at the run's next recorded change
+
+#### Scenario: The list was closed
+
+- **Given** a session list window the reader closed
+- **When** a session moves a stage of a run
+- **Then** nothing is read for that window
+
+### Requirement: A run read again leaves the sessions unread
+
+```meta
+type: requirement
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_shows_a_new_run_and_a_stage_change_without_reading_the_sessions_again
+```
+
+The system SHALL read only the runs, and not the sessions or the records from other
+machines, when it reads an open list again for a run recorded here.
+
+#### Scenario: A stage moves while the list is open
+
+- **Given** an open session list
+- **When** a session moves a stage of a run recorded here
+- **Then** the runs are read again and the sessions are not
+
+### Requirement: A run read in the background moves nothing the reader holds
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_keeps_the_selected_row_an_unfolded_earlier_run_and_an_open_stage, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_that_brings_a_new_row_to_the_top_leaves_an_unclicked_panel_on_its_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.Raises_during_a_refresh_fold_into_one_run_read_after_it, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.Refresh_pressed_during_a_run_read_becomes_a_full_read_after_it]
+```
+
+The system SHALL keep the shown row, the open run card and stage, the filters, the
+"read at" time and the scroll position when it reads the runs again without the
+reader asking.
+
+#### Scenario: A new run's row lands above the one on screen
+
+- **Given** the detail panel showing a row the reader never pressed, with a stage open
+- **When** a run from another worktree starts and its row is drawn first
+- **Then** the panel, its highlight and the open stage stay on the row that was shown
+
+#### Scenario: No busy state
+
+- **Given** an open session list
+- **When** a run's stage moves
+- **Then** no loading placeholder or busy Refresh button is shown
+
+### Requirement: Refresh hands an unpressed panel back to the first row
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_refresh_after_a_raise_returns_an_unpressed_panel_to_the_first_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_during_a_refresh_leaves_an_unpressed_panel_on_the_refreshs_first_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_refresh_after_a_raise_keeps_a_pressed_row]
+```
+
+The system SHALL show the first row drawn in the detail panel after Refresh when the
+reader has pressed no row, even when a background run read held the panel on another.
+
+#### Scenario: Refresh after a run held the panel
+
+- **Given** the detail panel held on an unpressed row while a newer run's row is drawn first
+- **When** the reader presses Refresh
+- **Then** the panel shows the first row drawn
+
+#### Scenario: A pressed row survives Refresh
+
+- **Given** the detail panel on a row the reader pressed, after a run read
+- **When** the reader presses Refresh
+- **Then** the panel stays on the pressed row
+
 ## Name the source that could not be read
 
 ```meta
