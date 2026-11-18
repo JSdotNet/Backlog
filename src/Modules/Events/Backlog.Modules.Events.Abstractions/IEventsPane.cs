@@ -32,8 +32,16 @@ public interface IEventsPane
     /// <summary>Moves the event forward, skipping states if need be.</summary>
     Task<Result<KnowledgeEventDto>> MoveToAsync(Guid id, KnowledgeEventState target, CancellationToken cancellationToken = default);
 
-    /// <summary>Skips a Spotted or Considering event, for <paramref name="reason"/>.</summary>
+    /// <summary>Skips a Spotted, Considering or Going event, for <paramref name="reason"/>: a
+    /// Going event that is called off is skipped too.</summary>
     Task<Result<KnowledgeEventDto>> SkipAsync(Guid id, string reason, CancellationToken cancellationToken = default);
+
+    /// <summary>Removes an event added by mistake, from any state; afterwards neither
+    /// <see cref="ListAsync"/> nor <see cref="GetAsync"/> answers it. Refused for an event holding
+    /// its harvest task (<c>knowledge_event.has_harvest_task</c>), and for an unknown or removed
+    /// one (<c>knowledge_event.not_found</c>). Its tasks and notes stay where they are; the
+    /// removal travels to the other devices like any other write.</summary>
+    Task<Result> RemoveAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>Sets the dates the person typed, with date source Typed, or clears them with a
     /// null start and end.</summary>

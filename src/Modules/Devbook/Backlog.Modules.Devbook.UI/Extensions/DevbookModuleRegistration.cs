@@ -97,10 +97,9 @@ public static class DevbookModuleRegistration
         services.AddSingleton<Arc42DevbookStore>();
         // The C4 model beside the architecture chapters. Registered next to the
         // arc42 store because it answers the same scope question against the same
-        // clone; it reads its own feature key and hands back nothing when that key
-        // is off, so registering it does not turn it on.
+        // clone.
         services.AddSingleton<C4DevbookStore>();
-        // The Code level of the C4 zoom tab: a component's types read from its C#
+        // The Code level of the C4 zoom navigation: a component's types read from its C#
         // source when the level is opened (local ADR 0046 §3). One reader per app,
         // because it remembers each folder until a file in it moves.
         services.AddSingleton<CSharpCodeReader>();

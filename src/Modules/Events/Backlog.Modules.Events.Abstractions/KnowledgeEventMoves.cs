@@ -6,7 +6,8 @@ namespace Backlog.Modules.Events.Abstractions;
 /// in order, and whether Skip is offered.
 /// </summary>
 /// <param name="Forward">The states after the current one, Skipped never among them.</param>
-/// <param name="CanSkip">Whether Skip, with a reason, is offered: from Spotted or Considering only.</param>
+/// <param name="CanSkip">Whether Skip, with a reason, is offered: from Spotted, Considering or Going
+/// only — a Going event that is called off is skipped, an Attended one cannot be.</param>
 public sealed record KnowledgeEventMoveOffer(IReadOnlyList<KnowledgeEventState> Forward, bool CanSkip);
 
 /// <summary>
@@ -34,6 +35,6 @@ public static class KnowledgeEventMoves
 
         return new KnowledgeEventMoveOffer(
             [.. Path.Skip(at + 1)],
-            CanSkip: state is KnowledgeEventState.Spotted or KnowledgeEventState.Considering);
+            CanSkip: state is KnowledgeEventState.Spotted or KnowledgeEventState.Considering or KnowledgeEventState.Going);
     }
 }

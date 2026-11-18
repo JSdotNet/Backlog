@@ -152,6 +152,12 @@
         </section>
     </article>
 }
+else if (EventView.IsWithdrawn)
+{
+    <EmptyState Title="Events are off"
+                Description="A desktop turned its Events area off. Turn it on there to see your events here."
+                TestId="event-withdrawn" />
+}
 else if (_pulled)
 {
     <EmptyState Title="This event isn't on this phone"
@@ -174,7 +180,8 @@ else
     private bool _pulled;
     private bool _pulling;
 
-    private PhoneEvent? Item => EventView.Find(Id);
+    // Withdrawn, the area shows no event, even one a link still names (local ADR 0050 §6).
+    private PhoneEvent? Item => EventView.IsWithdrawn ? null : EventView.Find(Id);
 
     /// <summary>The Inbox note a Talk link names when this phone holds it, else null: only then
     /// is there a page to open.</summary>

@@ -33,30 +33,6 @@ public static class DevbookFeatures
     /// </para></summary>
     public const string ArchifyDiagrams = "archify-diagrams";
 
-    /// <summary>Show the C4 model that sits beside the architecture chapters, and
-    /// the references between the two.
-    /// <para>
-    /// Its own key rather than a second meaning for <see cref="ArchifyDiagrams"/>,
-    /// because the two switch unrelated things. Archify changes how a chapter's own
-    /// mermaid fence is drawn; this adds views that are not in any chapter and are
-    /// authored somewhere else entirely — in c4hero, as Structurizr DSL under
-    /// <c>.devbook/arc42/workspace.dsl</c>. Someone who wants richer pictures of the fences they
-    /// have should not have to take a whole second model with them.
-    /// </para></summary>
-    public const string C4Diagrams = "c4-diagrams";
-
-    /// <summary>Offer a second C4 tab, <c>C4 zoom</c>, that walks the model one level at
-    /// a time — System context, Containers, Components, Code — beside the C4 tab, which
-    /// stays as it is.
-    /// <para>
-    /// Effective only while <see cref="C4Diagrams"/> is on: the zoom tab is another
-    /// reading of the same model, and with the model off there is nothing to zoom
-    /// through. Its own key rather than a change to the C4 tab, so the new navigation
-    /// can be used beside the current one and replace it only once it is validated
-    /// (local ADR 0046).
-    /// </para></summary>
-    public const string C4Zoom = "c4-zoom";
-
     /// <summary>Search the knowledge areas by the words their chapters use.
     /// <para>
     /// A devbook key by the same rule as its neighbours: what it switches on is

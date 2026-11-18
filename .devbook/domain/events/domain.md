@@ -26,6 +26,7 @@ stateDiagram-v2
   Attended --> Harvested : completes the harvest task
   Spotted --> Skipped : with a reason
   Considering --> Skipped : with a reason
+  Going --> Skipped : with a reason
   Harvested --> [*]
   Skipped --> [*]
   note right of Going : a forward move may skip states
@@ -60,6 +61,11 @@ Any of the person's desktops may change an event, and the latest write wins. The
 phone writes none: it sends an [Attachment Request](#attachment-request). The rules
 it holds are `### Invariant:` chapters in
 [`domain.invariants.md`](domain.invariants.md#knowledge-event).
+
+The person may remove an event added by mistake, unless it holds a
+[harvest task](domain.invariants.md#invariant-only-an-event-with-no-harvest-task-is-removed).
+The removed event stays as a tombstone, marked removed, so the removal reaches the
+other devices like any other write, and every device leaves it out.
 
 ### Event Date
 
@@ -140,11 +146,12 @@ aliases: [KnowledgeEventState]
 - **Going**: decided. Ticket, travel and prep tasks follow.
 - **Attended**: the person was there.
 - **Harvested**: the takeaways are written up. Final.
-- **Skipped**: decided against, with a reason. Final.
+- **Skipped**: decided against, or called off, with a reason. Final.
 
 The diagram on [Knowledge Event](#knowledge-event) draws the moves. The rules they
-keep are in [`domain.invariants.md`](domain.invariants.md#knowledge-event). What a
-Going event that is cancelled becomes is not settled yet.
+keep are in [`domain.invariants.md`](domain.invariants.md#knowledge-event). A Going
+event that is called off, or whose ticket the person gives up, is Skipped. An
+Attended one cannot be.
 
 ### Skip Reason
 
@@ -185,7 +192,8 @@ or renamed leaves a broken link, which the pane shows as missing. A missing link
 can be pointed at the note's new path, in its place among the links. If the event
 already links that note, the old link just goes. A link can also be removed. A
 task link is not removed in the first version. Two links are equal when they name
-the same note.
+the same note. A Brain path is compared whatever its case, and is stored without
+`./` or empty segments, so `./Areas//Talk.md` and `areas/talk.md` name one note.
 
 ### Event Task Link
 
@@ -246,7 +254,8 @@ it with a tombstone. A request for a note the event already links changes nothin
 so a second desktop applying it does no harm.
 
 A desktop that does not hold the event yet keeps the request and tries again after
-its next pull. A desktop without Events, or with the `events` flag off, leaves the
+its next pull. A request for an event the person removed is retired unapplied, since
+the note has no event to join. A desktop without Events, or with the `events` flag off, leaves the
 request untouched until the flag is on.
 
 ## Harvest Task Policy
@@ -258,19 +267,35 @@ related: [.devbook/domain/events/domain.invariants.md#harvest-task-policy, .devb
 
 ```mermaid
 flowchart TD
-    Day["A new local day on a desktop"] --> Due{"Going, and its end day has passed?"}
+    Day["A new local day on a desktop"] --> Due{"Going, not removed, and its end day has passed?"}
     Due -->|no| Nothing["Nothing"]
-    Due -->|yes, no harvest task yet| File["File 'Harvest &lt;title&gt;' under the Brain, link it"]
+    Due -->|yes, no harvest task yet| Held{"A task under the event's harvest id held here?"}
+    Held -->|no| File["File 'Harvest &lt;title&gt;' under that id, under the Brain, link it"]
+    Held -->|"yes, live or deleted"| Link["File nothing, link that id"]
     Mark["The person marks it Harvested"] --> Open{"Harvest task still open?"}
     Open -->|yes| Complete["Complete the task"]
     Open -->|no| Nothing
 ```
 
 The policy closes the loop after an event, because the harvest is the step a
-person forgets. It files one task `Harvest <event title>` with no repository, so it
+person forgets. A removed event is never due. It files one task `Harvest <event title>` with no repository, so it
 lands under the [Brain scope](../brain/features.md#brain-scope). It links that task
 to the event as its Harvest [Event Task Link](#event-task-link). Marking the event Harvested
 completes that task. The policy raises no notification.
+
+Once per event holds across desktops because the task's id is derived from the
+event's id, as [Occurrence Spawning](../tasks/domain.md#occurrence-spawning) derives a
+successor's; the rule is the
+[derived id invariant](domain.invariants.md#invariant-an-events-harvest-task-is-filed-under-the-id-derived-from-it).
+Two desktops that both see the end day pass before they sync file the same task.
+The task replica's latest write folds the two copies into one, and whichever copy
+of the event wins links it. A deleted task is not filed again, because deleting it
+is how the person drops the harvest. The id is a one-way hash, so nothing in Tasks
+names the event.
+
+Two windows are accepted. A desktop that files after the person deleted the task on
+another, before the deletion reached it, brings the task back. A harvest task filed
+before its id was derived carries a random id, and a duplicate made then stays.
 
 It spans the event and a task in Tasks, which is why it is a service and not a rule
 of the event. Tasks knows no event, so completing the task there leaves the event

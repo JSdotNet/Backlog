@@ -5,7 +5,7 @@ using Backlog.UI.Components.Markdown;
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
-/// What the knowledge folders say about one element of the C4 model, as the zoom tab's
+/// What the knowledge folders say about one element of the C4 model, as the zoom navigation's
 /// inspector lists it (<see cref="C4ElementRecords"/>).
 /// <para>
 /// Three readings, none of them stored a second time:
@@ -51,7 +51,7 @@ public static partial class C4ElementInspection
 
     /// <summary>
     /// The debt records that name no element of the model — neither in <c>c4</c> nor in
-    /// <c>c4-touches</c> — for the zoom tab's cross-cutting tray, in file order. Read off
+    /// <c>c4-touches</c> — for the zoom navigation's cross-cutting tray, in file order. Read off
     /// the arc42 folder's documents, because a record that links to nothing is in no
     /// link of <paramref name="catalog"/>; the tray lists those still open.
     /// </summary>

@@ -14,7 +14,8 @@ internal sealed class EventsPane(
     IEventTaskTarget tasks,
     IEventBrainNotes brain,
     HarvestTaskPolicy harvest,
-    TimeProvider clock) : IEventsPane
+    TimeProvider clock,
+    KnowledgeEventSaved? saved = null) : IEventsPane
 {
     /// <summary>The order the list draws its groups in: decided, upcoming work first.</summary>
     private static readonly KnowledgeEventState[] GroupOrder =
@@ -75,6 +76,7 @@ internal sealed class EventsPane(
 
         created.Value.SetSeries(seriesId);
         await events.SaveAsync(created.Value, cancellationToken).ConfigureAwait(false);
+        saved?.Raise();
         return await ReadAsync(created.Value, cancellationToken).ConfigureAwait(false);
     }
 
@@ -90,6 +92,19 @@ internal sealed class EventsPane(
 
     public Task<Result<KnowledgeEventDto>> SkipAsync(Guid id, string reason, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e => e.Skip(reason), cancellationToken);
+
+    public async Task<Result> RemoveAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } found)
+            return Result.Failure(EventsErrors.KnowledgeEventNotFound(id));
+
+        var removed = found.Remove();
+        if (removed.IsFailure) return removed;
+
+        await events.SaveAsync(found, cancellationToken).ConfigureAwait(false);
+        saved?.Raise();
+        return Result.Success();
+    }
 
     public Task<Result<KnowledgeEventDto>> SetDatesAsync(Guid id, EventDateDto? start, EventDateDto? end, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e =>
@@ -192,6 +207,7 @@ internal sealed class EventsPane(
         if (created.IsFailure) return created.Error;
 
         await series.SaveAsync(created.Value, cancellationToken).ConfigureAwait(false);
+        saved?.Raise();
         return SeriesDto(created.Value);
     }
 
@@ -279,6 +295,7 @@ internal sealed class EventsPane(
         if (outcome.IsFailure) return outcome.Error;
 
         await events.SaveAsync(changed, cancellationToken).ConfigureAwait(false);
+        saved?.Raise();
         if (afterSave is not null) await afterSave(changed).ConfigureAwait(false);
         return await ReadAsync(changed, cancellationToken).ConfigureAwait(false);
     }
@@ -335,7 +352,8 @@ internal sealed class EventsPane(
             [.. e.Notes.Select(note => NoteDto(note, notes))],
             [.. e.Tasks.Select(task => TaskDto(task, facts))],
             e.Verdict?.Text,
-            others);
+            others,
+            RemoveOffered: !e.HoldsHarvestTask);
     }
 
     private static EventNoteLinkDto NoteDto(NoteLink note, IReadOnlyDictionary<string, EventBrainNoteDto> found)
@@ -389,11 +407,7 @@ internal sealed class EventsPane(
         return made.IsFailure ? Result.Failure<EventDate?>(made.Error) : Result.Success<EventDate?>(made.Value);
     }
 
-    /// <summary>A Brain note's path as an event stores it: forward slashes, from the root, no
-    /// leading slash. Null for a blank one.</summary>
-    private static string? NotePath(string? path)
-    {
-        var normalized = path?.Trim().Replace('\\', '/').TrimStart('/');
-        return string.IsNullOrEmpty(normalized) ? null : normalized;
-    }
+    /// <summary>A Brain note's path as an event stores it (<see cref="NoteLink.BrainPath"/>).
+    /// Null for a blank one.</summary>
+    private static string? NotePath(string? path) => NoteLink.BrainPath(path);
 }

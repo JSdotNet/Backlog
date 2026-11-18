@@ -21,7 +21,9 @@
 *@
 
 @{
-    var upcoming = EventView.Upcoming();
+    // Withdrawn, the list shows no event: the tab leaves the bar, and a person still on the
+    // page is told why (local ADR 0050 §6).
+    var upcoming = EventView.IsWithdrawn ? [] : EventView.Upcoming();
 }
 
 <header class="events-heading">
@@ -40,7 +42,13 @@
 }
 
 <section class="events" aria-label="Upcoming events">
-    @if (upcoming.Count == 0)
+    @if (EventView.IsWithdrawn)
+    {
+        <EmptyState Title="Events are off"
+                    Description="A desktop turned its Events area off. Turn it on there to see your events here."
+                    TestId="events-withdrawn" />
+    }
+    else if (upcoming.Count == 0)
     {
         @if (_pulled || EventView.HoldsAny)
         {

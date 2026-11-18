@@ -434,16 +434,23 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Null(features.SetEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events, false));
         var held = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync([record], ct);
 
+        // Kept in the head's per-installation folder, so a restart before the area is on again
+        // still applies it.
+        var store = provider.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.IHeldAttachmentRequestStore>();
+        Assert.Equal(change.Id, Assert.Single(store.ReadAll()).Id);
+        Assert.True(File.Exists(Path.Combine(_appData, "held-attachment-requests.json")));
+
         Assert.Null(features.SetEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events, true));
         var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync([record], ct);
 
         Assert.Equal(0, held.Applied);
         Assert.Equal(1, merged.Applied);
+        Assert.Empty(store.ReadAll());
         var copy = Assert.Single(await provider.GetRequiredService<Backlog.Modules.Events.Abstractions.Services.IKnowledgeEventReplication>()
             .ListEventsChangedSinceAsync(DateTimeOffset.MinValue, ct));
         var link = Assert.Single(copy.Notes);
         Assert.Equal((Backlog.Modules.Events.Abstractions.NoteLinkKind.Talk, noteId.ToString("D"), "Keynote"), (link.Kind, link.Reference, link.Title));
-        Assert.Equal(change.Id, Assert.Single(provider.GetRequiredService<ImpedimentEditRetirements>().Waiting()).Id);
+        Assert.Equal(change.Id, Assert.Single(provider.GetRequiredService<PhoneRequestRetirements>().Waiting()).Id);
     }
 
     /// <summary>

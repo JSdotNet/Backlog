@@ -75,6 +75,23 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
         Assert.Empty(Tasks.Filed);
     }
 
+    /// <summary>Over a store that answers tombstones too, as one fed straight from replication
+    /// might, so the policy's own rule is what keeps the removed event from filing.</summary>
+    [Fact]
+    public async Task A_removed_event_is_never_due()
+    {
+        var e = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama Belgium").Value;
+        Assert.True(e.SetDates(EventDate.Create(new(2026, 11, 7), null, null).Value, EventDate.Create(new(2026, 11, 9), null, null).Value, DateSource.Typed).IsSuccess);
+        Assert.True(e.MoveTo(KnowledgeEventState.Going).IsSuccess);
+        Assert.True(e.Remove().IsSuccess);
+        await Store.SaveAsync(e, Token);
+        Store.AnswersTombstones = true;
+
+        await Policy.FileDueAsync(Today, Token);
+
+        Assert.Empty(Tasks.Filed);
+    }
+
     // --- One harvest task per event ------------------------------------------------------
 
     [Fact]
@@ -97,6 +114,77 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
         await Policy.FileDueAsync(Today, Token);
 
         Assert.Empty(Tasks.Filed);
+    }
+
+    // --- One harvest task id per event ---------------------------------------------------
+
+    /// <summary>Worked out apart from the code, over <c>backlog:harvest-task:</c> and the event
+    /// id: the first sixteen bytes of the SHA-256, marked as an RFC 9562 version 8 UUID.</summary>
+    private static readonly Guid Techorama = new("3f2b8a51-6c1e-4f1e-9d7a-0c4b1a2e9f10");
+
+    private static readonly Guid TechoramaHarvest = new("2eb4e388-490c-8d44-b79d-a2fba293a2f1");
+
+    [Fact]
+    public void The_harvest_task_id_is_derived_from_the_event_id_alone()
+    {
+        var id = HarvestTaskPolicy.HarvestTaskId(Techorama);
+
+        Assert.Equal(TechoramaHarvest, id);
+        Assert.Equal(8, id.Version);
+        Assert.Equal(0x8, id.Variant & 0xC);
+    }
+
+    /// <summary>Its own namespace: not the id Occurrence Spawning derives from the same id
+    /// (<c>1f2cb991-517d-8446-85a7-4e7eaf7f8cfe</c>, worked out the same way over
+    /// <c>backlog:occurrence-successor:</c>).</summary>
+    [Fact]
+    public void The_harvest_task_id_is_not_an_occurrence_successor_id()
+    {
+        Assert.NotEqual(new Guid("1f2cb991-517d-8446-85a7-4e7eaf7f8cfe"), HarvestTaskPolicy.HarvestTaskId(Techorama));
+    }
+
+    [Fact]
+    public async Task The_harvest_task_is_filed_under_the_id_derived_from_the_event()
+    {
+        await SavedAs(Techorama, "Techorama Belgium", KnowledgeEventState.Going, new(2026, 11, 7), new(2026, 11, 9));
+
+        var filed = await Policy.FileDueAsync(Today, Token);
+
+        Assert.Equal(1, filed);
+        Assert.Equal(TechoramaHarvest.ToString("D"), Assert.Single((await Store.GetAsync(Techorama, Token))!.Tasks).TaskId);
+        Assert.Equal("Harvest Techorama Belgium", Tasks.Held[TechoramaHarvest.ToString("D")].Title);
+    }
+
+    /// <summary>A task pulled before its event, or one filed on an earlier check whose link was
+    /// not saved: held here, so it is linked and not filed again.</summary>
+    [Fact]
+    public async Task A_derived_task_already_held_is_linked_and_not_filed_again()
+    {
+        var harvest = TechoramaHarvest.ToString("D");
+        Tasks.Held[harvest] = new EventTaskFactsDto(harvest, "Harvest Techorama Belgium", "Draft");
+        await SavedAs(Techorama, "Techorama Belgium", KnowledgeEventState.Going, new(2026, 11, 7), new(2026, 11, 9));
+
+        var filed = await Policy.FileDueAsync(Today, Token);
+
+        Assert.Equal(0, filed);
+        Assert.Empty(Tasks.Filed);
+        var link = Assert.Single((await Store.GetAsync(Techorama, Token))!.Tasks);
+        Assert.Equal((harvest, TaskPurpose.Harvest), (link.TaskId, link.Purpose));
+    }
+
+    /// <summary>Deleting the harvest task is how the person said no: it is not filed again, and
+    /// the event links its id, so every desktop's copy names the same one.</summary>
+    [Fact]
+    public async Task A_derived_task_deleted_here_is_linked_and_not_filed_again()
+    {
+        var harvest = TechoramaHarvest.ToString("D");
+        Tasks.Deleted.Add(harvest);
+        await SavedAs(Techorama, "Techorama Belgium", KnowledgeEventState.Going, new(2026, 11, 7), new(2026, 11, 9));
+
+        await Policy.FileDueAsync(Today, Token);
+
+        Assert.Empty(Tasks.Filed);
+        Assert.Equal(harvest, Assert.Single((await Store.GetAsync(Techorama, Token))!.Tasks).TaskId);
     }
 
     [Fact]
@@ -140,6 +228,42 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
         var after = (await Store.GetAsync(id, Token))!;
         Assert.Equal("Techorama Belgium", after.Title);
         Assert.Equal(TaskPurpose.Harvest, Assert.Single(after.Tasks).Purpose);
+    }
+
+    /// <summary>
+    /// The requirement's scenario Two desktops
+    /// (<c>.devbook/domain/events/requirements.md#requirement-one-harvest-task-per-event</c>): two
+    /// desktops each hold their own copy of one Going event past its end day, and their own tasks,
+    /// and both check the same morning before either syncs. Folded as the replicas fold them — the
+    /// tasks by id, the event by its latest whole write — in either order, one harvest task is left,
+    /// and the event that survives links it.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Two_desktops_file_one_harvest_task_between_them(bool firstWritesLast)
+    {
+        var techorama = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama Belgium").Value;
+        Assert.True(techorama.SetDates(EventDate.Create(new(2026, 11, 7), null, null).Value, EventDate.Create(new(2026, 11, 9), null, null).Value, DateSource.Typed).IsSuccess);
+        Assert.True(techorama.MoveTo(KnowledgeEventState.Going).IsSuccess);
+        var (firstEvents, firstTasks) = (new InMemoryKnowledgeEvents(), new FakeEventTaskTarget());
+        var (secondEvents, secondTasks) = (new InMemoryKnowledgeEvents(), new FakeEventTaskTarget());
+        await firstEvents.SaveAsync(techorama, Token);
+        await secondEvents.SaveAsync(techorama, Token);
+
+        await new HarvestTaskPolicy(firstEvents, firstTasks).FileDueAsync(Today, Token);
+        await new HarvestTaskPolicy(secondEvents, secondTasks).FileDueAsync(Today, Token);
+
+        var (earlier, later) = firstWritesLast ? (secondTasks, firstTasks) : (firstTasks, secondTasks);
+        var tasks = new Dictionary<string, EventTaskFactsDto>(earlier.Held, StringComparer.Ordinal);
+        foreach (var (id, task) in later.Held) tasks[id] = task;
+        var firstLink = Assert.Single((await firstEvents.GetAsync(techorama.Id, Token))!.Tasks).TaskId;
+        var secondLink = Assert.Single((await secondEvents.GetAsync(techorama.Id, Token))!.Tasks).TaskId;
+        var surviving = firstWritesLast ? firstLink : secondLink;
+
+        var harvest = Assert.Single(tasks.Values, task => task.Title == "Harvest Techorama Belgium");
+        Assert.Equal(firstLink, secondLink);
+        Assert.Equal(harvest.TaskId, surviving);
     }
 
     // --- The policy never changes an event's state ----------------------------------------
@@ -272,9 +396,13 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
 
     /// <summary>An event saved straight into the store, in <paramref name="state"/>, dated
     /// <paramref name="start"/> to <paramref name="end"/>, holding <paramref name="tasks"/>.</summary>
-    private async Task<Guid> Saved(string title, KnowledgeEventState state, DateOnly? start, DateOnly? end = null, params EventTaskLink[] tasks)
+    private Task<Guid> Saved(string title, KnowledgeEventState state, DateOnly? start, DateOnly? end = null, params EventTaskLink[] tasks) =>
+        SavedAs(Guid.NewGuid(), title, state, start, end, tasks);
+
+    /// <summary>As <see cref="Saved"/>, under <paramref name="id"/>.</summary>
+    private async Task<Guid> SavedAs(Guid id, string title, KnowledgeEventState state, DateOnly? start, DateOnly? end = null, params EventTaskLink[] tasks)
     {
-        var e = KnowledgeEvent.Create(Guid.NewGuid(), title).Value;
+        var e = KnowledgeEvent.Create(id, title).Value;
 
         if (start is { } from)
         {

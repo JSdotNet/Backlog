@@ -82,6 +82,30 @@ public sealed class SqliteKnowledgeEventReplicaStoreTests : IDisposable
         Assert.Same(Place.Online, read.Place);
     }
 
+    /// <summary>The tombstone a removal leaves is offered like any other change, and a removed
+    /// copy from another desktop hides the event this machine held.</summary>
+    [Fact]
+    public async Task A_removed_event_is_still_offered_and_taken_as_removed()
+    {
+        var removedHere = Event("Added twice");
+        Assert.True(removedHere.Remove().IsSuccess);
+        await _events.SaveAsync(removedHere, Cancellation);
+        var held = Event("Techorama 2026");
+        await _events.SaveAsync(held, Cancellation);
+
+        var offered = await _events.ListChangedSinceAsync(DateTimeOffset.MinValue, Cancellation);
+        var arriving = KnowledgeEvent.Restore(
+            held.Id, "Techorama 2026", null, null, null, null, null, null,
+            Backlog.Modules.Events.Abstractions.KnowledgeEventState.Spotted, null, null, [], null, null, [], [], null, removed: true);
+        var taken = await _events.SaveReplicatedAsync(arriving, Noon.AddMinutes(1), Cancellation);
+
+        Assert.True(Assert.Single(offered, stored => stored.Event.Id == removedHere.Id).Event.IsRemoved);
+        Assert.True(taken);
+        Assert.Null(await _events.GetAsync(held.Id, Cancellation));
+        Assert.Empty(await _events.ListAsync(Cancellation));
+        Assert.True(Assert.Single(await _events.ListChangedSinceAsync(Noon, Cancellation)).Event.IsRemoved);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]

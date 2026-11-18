@@ -340,7 +340,7 @@ The system SHALL mark a Started request Linked when the session its dispatcher r
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Entry_and_plan_requests_share_one_queue_oldest_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.The_panel_lists_the_claimed_and_started_requests_first_then_the_requested_with_repository_state_and_age, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_withdraws_the_entry_s_request_and_the_row_goes]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Entry_and_plan_requests_share_one_queue_oldest_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.The_panel_lists_the_claimed_and_started_requests_first_then_the_requested_with_repository_state_and_age, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_withdraws_the_entry_s_request_and_the_row_goes, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_clears_a_Started_request_whose_session_never_linked, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Cancel_in_the_panel_clears_a_Started_plan_request_whose_session_never_linked, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Started_request_whose_session_never_linked_can_be_cancelled, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_Started_request_is_cancelled_and_leaves_the_open_ones]
 ```
 
 The system SHALL list every open entry and plan request in the filter bar's session queue, the Claimed and Started ones first and then the Requested ones in queue order, and mark each unpressed plan chip whose plan has one.
@@ -354,6 +354,12 @@ The system SHALL list every open entry and plan request in the filter bar's sess
 #### Scenario: The person cancels from the queue
 
 - **Given** an entry request is Requested
+- **When** the person presses Cancel on its row in the session queue
+- **Then** the request is Cancelled and its row leaves the queue
+
+#### Scenario: The person clears a request whose session never linked
+
+- **Given** a request has read Started for days and its session never called `link_session`
 - **When** the person presses Cancel on its row in the session queue
 - **Then** the request is Cancelled and its row leaves the queue
 

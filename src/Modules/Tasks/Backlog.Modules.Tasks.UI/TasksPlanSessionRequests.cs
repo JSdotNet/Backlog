@@ -175,10 +175,11 @@ public sealed class TasksPlanSessionRequests : IDisposable
     }
 
     /// <summary>Cancels the request the plan tagged <paramref name="tag"/> is waiting
-    /// on, while it is still Requested. Answers whether it was cancelled.</summary>
+    /// on, while it is Requested, or Started with a session that never linked. Answers
+    /// whether it was cancelled.</summary>
     public async Task<bool> CancelAsync(string? tag)
     {
-        if (_port is null || Busy || OpenFor(tag) is not { State: EntrySessionRequestState.Requested } request) return false;
+        if (_port is null || Busy || OpenFor(tag) is not { State: EntrySessionRequestState.Requested or EntrySessionRequestState.Started } request) return false;
 
         Busy = true;
         _open.Supersede();
@@ -188,7 +189,7 @@ public sealed class TasksPlanSessionRequests : IDisposable
         try
         {
             var cancelled = await _port.CancelAsync(request.Id);
-            if (!cancelled) Error = "The session has already started, so the request can no longer be cancelled.";
+            if (!cancelled) Error = "The request has moved on, so it can no longer be cancelled.";
             return cancelled;
         }
         catch (Exception)

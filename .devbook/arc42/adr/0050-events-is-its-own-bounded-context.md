@@ -1,8 +1,10 @@
 # ADR 0050: Events is its own bounded context
 
 ```meta
-date: 2026-11-17
-related: [".devbook/domain/events/context.md", ".devbook/domain/events/context.md#events-area", ".devbook/domain/events/domain.md#knowledge-event", ".devbook/domain/events/domain.md#event-series", ".devbook/domain/events/domain.md#harvest-task-policy", ".devbook/domain/events/features.md#harvest-task", ".devbook/domain/events/features.md#events-on-the-phone", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md"]
+date: 2026-11-18
+related: [".devbook/domain/events/context.md", ".devbook/domain/events/context.md#events-area", ".devbook/domain/events/domain.md#knowledge-event", ".devbook/domain/events/domain.md#event-series", ".devbook/domain/events/domain.md#harvest-task-policy", ".devbook/domain/events/features.md#harvest-task", ".devbook/domain/events/features.md#events-on-the-phone", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/arc42/05-building-block-view.md#desktop-app"]
+c4: [backlog.desktop.events]
+c4-touches: [backlog.desktop.tasks, backlog.desktop.brain, backlog.desktop.inbox, backlog.desktop.calendar, backlog.desktop.sync]
 ```
 
 Events is a bounded context of its own. It holds the knowledge events a person
@@ -15,9 +17,19 @@ tasks by id, one way.
 ```meta
 ```
 
-Proposed, 2026-11-10. A specification change only: the chapters are written in
-`.devbook/domain/events/`, and no code exists yet. A later `flow-code` change
-builds the module behind the `events` switch.
+Proposed, 2026-11-10. The chapters are written in `.devbook/domain/events/`. The
+`flow-code` runs of the `knowledge-events` plan built every part behind the
+`events` switch:
+
+- the module trio and its replica container;
+- the Events pane;
+- the harvest task;
+- the Inbox's To Event route;
+- the events on the phone, and its Talk-note attachments;
+- the events layer, now on the Calendar (ADR 0055).
+
+[Desktop App](../05-building-block-view.md#desktop-app) shows the module and its
+adapters. Accepting the decision is the person's call.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. Numbers 0048 and 0049 were skipped, because open
@@ -173,6 +185,26 @@ The switch is the [Events area](../../domain/events/context.md#events-area), key
 - the events layer on the Calendar;
 - the Events screen on the phone.
 
+The flag is per device, and the person may have several desktops. The phone honours
+**the latest switch any desktop made**. A desktop that turns `events` off or on sends
+that switch as one document of its own on the knowledge event feed, kind
+`events-area`, one per owner at a fixed id, stamped when the switch moved. The later
+stamp wins, as for every other document on the feed. The off switch is sent even
+though the desktop then stops sending events. The stamp is the desktop's clock, so
+two desktops whose clocks disagree may order two close switches wrongly, as they may
+two edits of one event. A desktop that first sees its switch
+after an upgrade sends nothing, so an upgrade never overrides a switch the person
+made elsewhere.
+
+The phone shows the Events screen while it holds an event and its latest switch is
+not off. Holding no switch counts as on, so a phone paired to desktops from before
+the switch behaves as it did. A desktop reads no switch: its own flag never follows
+another desktop's.
+
+Rejected: one switch document per desktop, with the screen shown while any desktop
+has the flag on. A desktop retired with the flag on would then keep the screen on
+the phone, and nothing the person does elsewhere could withdraw it.
+
 ### 7. The code is one module trio
 
 ```meta
@@ -236,8 +268,8 @@ Negative:
 
 Neutral:
 
-- **No behaviour changes yet.** Nothing is built, and no existing chapter's rule
-  changes.
+- **No existing chapter's rule changes.** The new behaviour is Events' own, and
+  other contexts reach it through adapters.
 
 ## Rejected
 
@@ -285,6 +317,9 @@ Look for these in the specification and, once built, in the code:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | A removed knowledge event travels as its document marked removed, the latest write winning as for any other edit; every device hides it. | §2's latest write wins needs a tombstone for a removal to reach the other devices; the person had no way to remove an event added by mistake. |
+| 2026-11-18 | Status lists what is built; the record stays proposed. | The Status still said no code existed, though every part had been built. |
+| 2026-11-18 | §6 says whose switch the phone honours: the latest any desktop made, sent as an `events-area` document on the knowledge event feed when a desktop's switch moves. | The phone kept showing events a desktop had withdrawn, because it read no switch at all. |
 | 2026-11-17 | The events layer's port now sits in the Calendar: `ICalendarEvents` in `Backlog.Modules.Calendar.Abstractions`, answered by `EventsCalendarEvents` under `Backlog.Infrastructure.FileSystem/Calendar/` over the unchanged read contract. Tasks no longer draws the events layer. | ADR 0055's Events layer was built, at step 13 of the `knowledge-events` plan. |
 | 2026-11-11 | §7 superseded in part by ADR 0055: the Calendar is a surface of its own, and the events layer's port moves from Tasks to the Calendar. The read contract stays. | The Calendar reads more sources than tasks, so a Tasks-owned port per source stopped making sense. |
 | 2026-11-11 | The code names the container `knowledgeEvents`, the route `/api/sync/knowledge-events`, and the kinds `knowledge-event` and `event-series`. The phone's attachment request rides the task feed as `event-attachment-request`. | §2 left the name to the code, and the task feed already carries the phone's impediment edit ([ADR 0035 §8](0035-goals-and-impediments-replace-sprints.md#8-the-phone-reads-and-edits-impediments-only)). |

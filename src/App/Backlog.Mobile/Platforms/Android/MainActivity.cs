@@ -117,7 +117,7 @@ public class MainActivity : MauiAppCompatActivity
     /// <summary>
     /// Android 13 and later show a notification only once the person allowed it, so the app
     /// asks at start until they have answered; earlier versions allow it by default. Declining
-    /// leaves the app as it was — the Notifications tab still shows every question.
+    /// leaves the app as it was — the Notifications screen still shows every question.
     /// </summary>
     private void AskToNotify()
     {

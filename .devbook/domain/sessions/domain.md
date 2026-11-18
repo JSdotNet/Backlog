@@ -1380,6 +1380,7 @@ stateDiagram-v2
   Started --> Linked: the session calls link_session
   Requested --> Cancelled: the person cancels it
   Claimed --> Cancelled: the person cancels it
+  Started --> Cancelled: the person clears it, its session never linked
   Linked --> [*]
   Cancelled --> [*]
 ```
@@ -1393,7 +1394,9 @@ stateDiagram-v2
 - **Started.** The dispatcher reported the session it started.
 - **Linked.** The started session called `link_session`. For a plan request, on any
   entry of its plan.
-- **Cancelled.** The person cancelled it.
+- **Cancelled.** The person cancelled it. A Started request can be cancelled too, when
+  its session never called `link_session`. That stops no session, and a later
+  `link_session` links nothing.
 
 A pause is not a state of the request. It belongs to the [queue](#session-request-queue):
 pausing or resuming changes no request's state, and a request queued while paused is
