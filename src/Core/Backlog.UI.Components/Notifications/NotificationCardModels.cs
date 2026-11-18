@@ -120,12 +120,15 @@ public enum NotificationCardChoiceStyle
 /// <param name="TakesText">Whether pressing it opens a plain-text box first, and the reply carries
 /// the choice with the non-empty text typed there.</param>
 /// <param name="Placeholder">The hint that box shows, or null.</param>
+/// <param name="Quiet">Whether it is drawn as a small text action after the buttons, apart from
+/// their row, so it takes little room — withdrawing the question, say.</param>
 public sealed record NotificationCardChoice(
     string Id,
     string Label,
     NotificationCardChoiceStyle Style = NotificationCardChoiceStyle.Default,
     bool TakesText = false,
-    string? Placeholder = null);
+    string? Placeholder = null,
+    bool Quiet = false);
 
 /// <summary>
 /// The answers a question takes, in the four shapes a question has: single choice (buttons),

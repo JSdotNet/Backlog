@@ -1380,7 +1380,10 @@ the brief a dispatcher hands the new session is fixed by its kind.
 | Kind | Brief |
 | --- | --- |
 | Entry request | `/backlog-tools:run-plan-item entry `<id>`:` |
-| Plan request | `/backlog-tools:execute-plan +<tag>` |
+| Plan request | `/backlog-tools:execute-plan +<tag> branch` |
+
+A plan session always runs unattended: it lands every entry on the plan's integration
+branch and asks the person nothing.
 
 **States.**
 

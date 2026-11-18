@@ -38,7 +38,10 @@ Its content is shown on every channel:
   and state, and its [origin](#origin) as "System · Place".
 - The body is Markdown, with Mermaid diagrams and images. Images travel as
   attachments through the blob store
-  (`.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md`).
+  (`.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md`):
+  the owner uploads them, the notification lists them, and the body names each as
+  `backlog-attachment:<id>`
+  (`.devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md`, §7).
 - A source can mark a notification private. Outside the app its summary then
   reads "Backlog has a question for you".
 - A notification may carry a deep link that opens the item that raised it.
@@ -208,6 +211,12 @@ one of four shapes:
 | Choices with open | One of the set choices, or an open answer instead. |
 
 Each set choice has an id, a label, and an optional style: primary or destructive.
+
+A set choice of a single-choice question may also be **quiet**: a quiet choice is
+drawn as a small text action apart from the buttons, so it takes little room, as
+Dismiss does on the Personal Validation question. A quiet choice takes no text, and
+a multiple-choice question has none. A reader that predates the mark draws it as an
+ordinary button.
 
 A set choice of a single-choice question may also take text, with or without an
 open answer beside it. A reply that picks it carries the person's words as
