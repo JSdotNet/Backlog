@@ -244,4 +244,46 @@ public sealed class SessionRequestActionsTests : IDisposable
 
         Assert.Equal(new DispatcherContactReading(null, IsSilent: false), actions.DispatcherContact);
     }
+
+    // --- pausing the queue -----------------------------------------------------------
+
+    [Fact]
+    public async Task Pausing_through_the_port_pauses_the_queue_and_resuming_runs_it_again()
+    {
+        var store = Store();
+        IEntrySessionRequests actions = new SessionRequestActions(store, clock: _clock);
+
+        Assert.False(await actions.IsPausedAsync(Ct));
+
+        await actions.SetPausedAsync(true, Ct);
+
+        Assert.True(await actions.IsPausedAsync(Ct));
+        Assert.True(await store.IsPausedAsync(Ct));
+
+        await actions.SetPausedAsync(false, Ct);
+
+        Assert.False(await store.IsPausedAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_request_queued_while_paused_reads_as_Requested()
+    {
+        IEntrySessionRequests actions = new SessionRequestActions(Store(), clock: _clock);
+        await actions.SetPausedAsync(true, Ct);
+
+        var request = await actions.RequestAsync(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
+
+        Assert.Equal(EntrySessionRequestState.Requested, request.State);
+        Assert.True(await actions.CancelAsync(request.Id, Ct));
+    }
+
+    [Fact]
+    public async Task A_host_without_a_queue_reads_as_running_and_refuses_a_pause()
+    {
+        IEntrySessionRequests actions = SessionRequestActions.NotOffered;
+
+        Assert.False(actions.IsOffered);
+        Assert.False(await actions.IsPausedAsync(Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => actions.SetPausedAsync(true, Ct));
+    }
 }

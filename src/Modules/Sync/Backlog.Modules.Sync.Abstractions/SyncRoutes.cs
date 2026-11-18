@@ -79,6 +79,14 @@ public static class SyncRoutes
     /// a cursor. Bearer.</summary>
     public const string Notifications = "/notifications";
 
+    /// <summary>The knowledge event replica (local ADR 0050 §2): POST pushes a batch of the
+    /// events and event series a desktop changed, GET pulls the owner's feed from a cursor —
+    /// the desktops to converge, the phone to read. Bearer, and the shape of
+    /// <see cref="DevbookSubjects"/>, over its own container. A service older than the client
+    /// has no such route and answers 404, which a client reads as "not yet" rather than as a
+    /// failure.</summary>
+    public const string KnowledgeEvents = "/knowledge-events";
+
     /// <summary>The replies to notifications: POST stores one reply from any device of the
     /// owner, GET lists the replies addressed to the calling owner instance. Bearer.</summary>
     public const string NotificationReplies = "/notifications/replies";

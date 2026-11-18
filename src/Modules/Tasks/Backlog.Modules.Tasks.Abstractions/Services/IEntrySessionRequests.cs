@@ -113,6 +113,15 @@ public interface IEntrySessionRequests
     /// entry and plan requests alike. An in-memory read, cheap enough for every render.</summary>
     DispatcherContactReading DispatcherContact { get; }
 
+    /// <summary>Whether the person has paused the whole queue — entry and plan requests
+    /// alike — so a dispatcher starts nothing new until it is resumed. Never throws for
+    /// an unreadable queue: what could not be read reads as running.</summary>
+    Task<bool> IsPausedAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Pauses or resumes the whole queue. Every request stays where it is, a
+    /// claim already held is not revoked, and a press still queues or cancels one.</summary>
+    Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default);
+
     /// <summary>The open request of each entry that has one — Requested, Claimed or
     /// Started — keyed by entry id. Never throws for an unreadable queue: what could
     /// not be read is not in the answer.</summary>

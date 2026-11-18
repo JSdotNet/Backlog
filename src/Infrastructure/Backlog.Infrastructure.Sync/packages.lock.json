@@ -260,6 +260,12 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
+      "backlog.modules.events.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
       "backlog.modules.inbox.abstractions": {
         "type": "Project",
         "dependencies": {

@@ -5,7 +5,8 @@ namespace Backlog.Desktop.UI.Tasks;
 /// <para>
 /// Each layout reads the same filtered rows under the same filter bar, beside the
 /// same detail panel; only the half below the bar changes. The shell picks one
-/// from its view switch.
+/// from its view switch. The Calendar is no layout of the pane (local ADR 0055): its
+/// Tasks layer hands the pane a body of its own, <see cref="TasksPane.Body"/>.
 /// </para>
 /// </summary>
 public enum TasksLayout
@@ -14,9 +15,5 @@ public enum TasksLayout
     List,
 
     /// <summary>Columns of cards, grouped by <see cref="TaskBoardGrouping"/>.</summary>
-    Board,
-
-    /// <summary>A month of entries placed by their due date, with the undated ones
-    /// in a tray beside it.</summary>
-    Calendar
+    Board
 }

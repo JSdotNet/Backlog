@@ -9,7 +9,7 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devb
 ## Terms
 
 ```meta
-related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/domain/events/domain.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md"]
 ```
 
 | Term | Definition |
@@ -28,6 +28,10 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/featu
 | **Sanitization boundary** | The line between what a session record may carry off the machine and what stays. |
 | **Settled-fact cache** | A per-machine copy of a provider's answer about something that cannot change again. |
 | **Talk note** | A [note](../domain/inbox/domain.md#note) taken on the phone during a conference talk, written in the Notes tab. |
+| **Knowledge Event** | An event the person attends to learn something, such as a conference, a meetup or a webinar. |
+| **Event Series** | An organiser's recurring run of knowledge events, such as a yearly conference. |
+| **Talk** | One talk given at a knowledge event. |
+| **Talk picks** | The talks the person means to hear at a knowledge event. |
 
 - **Brain:** also the scope of everything filed against no repository. The Brain context owns the term ([Brain](../domain/brain/domain.md#brain)).
 - **Dot-folder contract:** a repository's devbook folders sit under `.devbook/` (`.devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md`); the Brain is one folder per user outside every repository (`.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md`).
@@ -48,6 +52,10 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/featu
 - **Sanitization boundary:** the record is a whitelist of fields. The transcript, prompts, tool output and file contents never cross. Local ADR 0005 decides each field; `.devbook/arc42/08-crosscutting-concepts.md#session-record-sync` lists them.
 - **Settled-fact cache:** for example a merged pull request or a finished month's spend. It is refetched rather than synced, safe to delete, and never kept under the workspace root. See `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`.
 - **Talk note:** outbox kind `talk-note` sends a talk-note entry still waiting in the phone's outbox as a capture. It is never called a *session note*, because *session* already names a bounded context (Sessions, the record of an AI coding session). See `.devbook/domain/capture/features.md#talk-note`.
+- **Knowledge Event:** never *event* alone, because *event* already means a domain event in every context, and Tasks has a [Usage Event](../domain/tasks/domain.md#usage-event). The app labels the area *Events*. The Events context owns the term ([Knowledge Event](../domain/events/domain.md#knowledge-event)), and local ADR 0050 places it there.
+- **Event Series:** it keeps only the link to its organiser's page. The pages Capture watches stay Capture's targets. See [Event Series](../domain/events/domain.md#event-series).
+- **Talk:** never a *session*, for the reason the Talk note entry gives. Talks are not modelled yet. See [Talk](../domain/events/domain.md#talk).
+- **Talk picks:** never an *agenda*, because Tasks has [Agenda Time](../domain/tasks/domain.md#agenda-time). See [Talk picks](../domain/events/domain.md#talk-picks).
 
 ## Shared Data Types
 

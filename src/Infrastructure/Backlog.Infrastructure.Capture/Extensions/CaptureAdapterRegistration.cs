@@ -1,13 +1,17 @@
 using System.Net.Http.Headers;
 
+using Backlog.Infrastructure.Capture.EventPages;
+using Backlog.Infrastructure.Capture.Events;
 using Backlog.Infrastructure.Capture.Feeds;
 using Backlog.Infrastructure.Capture.Import;
 using Backlog.Infrastructure.Capture.Inbox;
 using Backlog.Infrastructure.Capture.Website;
 using Backlog.Infrastructure.Capture.YouTube;
+using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Ports;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Infrastructure.Capture.Extensions;
 
@@ -51,8 +55,10 @@ public static class CaptureAdapterRegistration
     private const string UserAgent = "Backlog/1.0 (+https://github.com/JSdotNet/Backlog)";
 
     /// <summary>
-    /// Registers the YouTube, Website and Import source adapters and the Inbox
-    /// delivery.
+    /// Registers the YouTube, Website, Event page and Import source adapters,
+    /// the Inbox delivery, and which sources are offered — the event page only
+    /// while the Events area's flag is on, read from the host's
+    /// <c>IAppFeatureSettings</c> when it registered one.
     /// Call after <c>AddCaptureModule()</c> and <c>AddInboxModule()</c>: the
     /// first declares the ports these answer, and the second supplies the
     /// intake the delivery captures.
@@ -101,9 +107,15 @@ public static class CaptureAdapterRegistration
         services.AddScoped<FeedFetcher>();
         services.AddScoped<ICaptureSourceAdapter, YouTubeChannelAdapter>();
         services.AddScoped<ICaptureSourceAdapter, WebsiteFeedAdapter>();
+        services.AddScoped<ICaptureSourceAdapter, EventPageAdapter>();
         services.AddScoped<ICaptureSourceAdapter, ImportFileAdapter>();
         services.AddScoped<IInboxListLookup, InboxListLookup>();
         services.AddScoped<ICaptureDelivery, InboxCaptureDelivery>();
+
+        // Replaces the module's fail-closed default: this one can read the
+        // Events area's flag, which the module may not name. A singleton like
+        // the feature settings it reads, and like the panel that listens to it.
+        services.Replace(ServiceDescriptor.Singleton<ICaptureSourceAvailability, EventsAreaSourceAvailability>());
 
         return services;
     }

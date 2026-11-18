@@ -1624,7 +1624,8 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   starting the session by then.
 - **The session queue** is a button at the right end of the Tasks filter bar. It shows
   while the flag is on and counts every open request, entry and plan alike. It reads
-  "Session queue, N waiting", or "Session queue, empty" with a muted 0. Its popover
+  "Session queue, N waiting", or "Session queue, empty" with a muted 0, and adds
+  "paused" while the queue is paused, as in "Session queue, paused, 3 waiting". Its popover
   lists the Claimed and Started requests first, then the Requested ones in queue order,
   each with the entry's title or the plan's `+tag`, the repository, its state and how
   long ago it was asked. Cancel is offered while Requested. Following a row opens the
@@ -1647,6 +1648,20 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   nothing is starting the requests. The warning names
   `/loop /backlog-tools:dispatch-sessions` in a pinned Claude Desktop session as the
   remedy.
+- **Pause queue** at the top of the popover holds every request where it is: no
+  dispatcher is handed a request or can claim one, so nothing new starts. While paused
+  the button reads **Resume queue**, and a "Queue paused" callout says nothing new will
+  start until the person resumes. The person can still queue and cancel requests, a
+  session already being started still reports in, and answers keep reaching waiting
+  sessions. The pause lasts across a restart of the app, stays on this machine, and is
+  shown beside the no-dispatcher warning when both apply. A pause that fails says so
+  under the button and leaves the queue running. Only the app pauses: no MCP tool does.
+- **Long-running agents**, below the list, names the agents a person starts under
+  `/loop` in a pinned session, each with its command and a copy button that puts exactly
+  that command on the clipboard: the session dispatcher,
+  `/loop /backlog-tools:dispatch-sessions`; the Brain, `/loop /backlog-tools:tend-brain`,
+  run from the Brain folder or given its path; and the goals,
+  `/loop /backlog-tools:track-goals`. The group shows whenever the session queue does.
 - Once the session links itself the chip and the bar's mark go, and the entry shows
   the linked session as a pasted run's does. The app reads the queue every five seconds while the flag
   is on, because a dispatcher moves a request without telling it. The same read keeps

@@ -630,8 +630,10 @@ public sealed record SessionRequestClaimPayload(bool Claimed, string? Refusal, S
 public sealed record SessionRequestMarkPayload(string Outcome, bool Marked, string? Refusal, SessionRequestPayload Request);
 
 /// <summary>What <c>list_session_requests</c> answered: the requests, oldest first.</summary>
+/// <param name="Paused">Whether the person has paused the queue. While it is, every claim
+/// is refused and the wait route hands out no request, so a dispatcher ends its turn.</param>
 /// <param name="State">The state the list was narrowed to, or null for every request.</param>
-public sealed record SessionRequestsPayload(string? State, int Count, IReadOnlyList<SessionRequestPayload> Requests);
+public sealed record SessionRequestsPayload(bool Paused, string? State, int Count, IReadOnlyList<SessionRequestPayload> Requests);
 
 /*
     The delivery surface's answers, and the three shapes its one rich argument

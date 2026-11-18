@@ -23,7 +23,10 @@ namespace Backlog.Desktop.UI.Mcp;
 /// of — a CLI session, an ended one — is never offered: nobody could send it.</item>
 /// <item><c>request</c> — the Requested session request at the head of the queue, in the
 /// order the person set (oldest first among requests never moved), a lapsed claim included:
-/// <see cref="SessionRequestPayload"/> with its own entry-or-plan kind as <c>requestKind</c>.</item>
+/// <see cref="SessionRequestPayload"/> with its own entry-or-plan kind as <c>requestKind</c>.
+/// None while the person has paused the queue: <see cref="ISessionRequestStore.NextAsync"/>
+/// answers null then, so a paused queue holds and answers <c>204</c> as an empty one does,
+/// while deliveries keep flowing — they answer sessions already running.</item>
 /// </list>
 /// </para>
 /// <para>

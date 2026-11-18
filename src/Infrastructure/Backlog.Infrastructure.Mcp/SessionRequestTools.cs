@@ -22,6 +22,11 @@ namespace Backlog.Infrastructure.Mcp;
 /// queues one, and the brief every answer carries is built by
 /// <see cref="SessionRequests.BriefFor"/> from the kind and the id alone.
 /// </para>
+/// <para>
+/// <b>No tool here pauses or resumes the queue</b> either: that too is the person's act in
+/// the app. A dispatcher only reads it — <c>paused</c> on the list — and is refused a claim
+/// while it holds.
+/// </para>
 /// </summary>
 /// <param name="requests">This machine's session request queue.</param>
 /// <param name="clock">What "now" is, for the state each request reads as; optional so
@@ -64,7 +69,8 @@ public sealed class SessionRequestTools(
     [McpServerTool(Name = ClaimSessionRequest, Title = "Claim a session request", ReadOnly = false, Idempotent = false, Destructive = false, OpenWorld = false)]
     [Description(
         "Claims one Requested session request for this dispatcher under a 2-minute lease, so no other dispatcher "
-        + "starts it. Answers claimed:false with the reason when it was taken already - leave that request alone. "
+        + "starts it. Answers claimed:false with the reason when it was taken already - leave that request alone - "
+        + "or when the person paused the queue ('The session queue is paused.'), which starts nothing until resumed. "
         + "Start the session with the brief the answer carries, in its cloneFolder, then call mark_session_request "
         + "before the lease runs out. Not idempotent: a second claim of the same request is refused.")]
     public async Task<SessionRequestClaimPayload> ClaimSessionRequestAsync(
@@ -126,8 +132,9 @@ public sealed class SessionRequestTools(
     [McpServerTool(Name = ListSessionRequests, Title = "List session requests", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
         "This machine's session requests in queue order - the order the person set in the app, requests never "
-        + "moved oldest first - each with its state, clone folder and brief: every one, or "
-        + "only those in one state. For a dispatcher that restarts: what it claimed or started before. Read-only.")]
+        + "moved oldest first - each with its state, clone folder and brief - every one, or only those in one state - "
+        + "and paused: true while the person has paused the queue, when every claim is refused and nothing should be "
+        + "started. For a dispatcher that restarts: what it claimed or started before. Read-only.")]
     public async Task<SessionRequestsPayload> ListSessionRequestsAsync(
         [Description("Optional. Only requests reading as this state now: requested, claimed, started, linked or cancelled. A claim whose lease ran out reads as requested.")]
         string? state = null,
@@ -150,9 +157,11 @@ public sealed class SessionRequestTools(
         }
 
         var listed = await requests.ListAsync(only, cancellationToken).ConfigureAwait(false);
+        var paused = await requests.IsPausedAsync(cancellationToken).ConfigureAwait(false);
         var now = _clock.GetUtcNow();
 
         return new SessionRequestsPayload(
+            paused,
             only is { } narrowed ? SessionRequestPayload.WireName(narrowed) : null,
             listed.Count,
             [.. listed.Select(request => SessionRequestPayload.From(request, now))]);

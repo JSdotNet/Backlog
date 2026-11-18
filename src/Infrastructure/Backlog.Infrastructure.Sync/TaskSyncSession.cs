@@ -735,8 +735,9 @@ public sealed class TaskSyncSession
         var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
         if (pull.IsFailure) return pull;
 
-        // An edit the pull met before its impediment is offered again now the pull is done.
-        await _merge.RetryDeferredEditsAsync(cancellationToken).ConfigureAwait(false);
+        // A phone request the pull met before its impediment or event — or while the events
+        // area was off — is offered again now the pull is done.
+        await _merge.RetryDeferredRequestsAsync(cancellationToken).ConfigureAwait(false);
 
         // An edit from the phone this pull applied goes back at once: the impediment it
         // changed, and the edit's tombstone, so the phone reads the change on its next pull.

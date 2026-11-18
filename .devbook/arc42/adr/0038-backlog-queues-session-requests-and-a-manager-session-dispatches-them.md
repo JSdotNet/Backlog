@@ -170,6 +170,15 @@ the refused report left the request reading Requested, and the next wait handed 
 A second session can still start when another dispatcher claims the request first. The
 refused report then tells the holder so, and the Manager names both sessions.
 
+**Amended 2026-11-18: a paused queue refuses every claim.** The person can pause the
+queue as a whole (§4). While it is paused, a claim on a Requested request, a lapsed one
+included, is refused with "The session queue is paused." and the request stays
+Requested. The check runs in the same immediate transaction as the claim, so a claim
+racing a pause cannot slip through. A pause is a property of the queue, not a sixth
+state: no request changes state when the queue is paused or resumed, and none expires.
+A claim already held is not revoked: its holder's `started` report, the late one
+included, and its `released` are still accepted.
+
 ### 4. Dispatchers wait on a long poll and act through MCP tools
 
 ```meta
@@ -199,6 +208,18 @@ as now for as long as the call is held. A `404` while the flag is off records no
 The record names no dispatcher and is forgotten on restart, and the Manager still holds
 no state. The Tasks filter bar's session queue lists every open request and warns when
 one waits Requested and no dispatcher has been heard for more than two minutes.
+
+**Amended 2026-11-18: the person can pause the queue.** The session queue offers Pause
+queue and Resume queue. While the queue is paused, the wait route hands out no request:
+with nothing else to hand out it holds the call and answers `204`, as on an empty queue,
+and the call is still dispatcher contact. Answer deliveries of local ADR 0041 are not
+paused, so the route still hands them out and a waiting session still gets its answer.
+`list_session_requests` says whether the queue is paused, and the Manager ends its turn
+while it is rather than try claims it knows are refused. The person can still queue and
+cancel requests. No MCP tool pauses or resumes the queue: like a request, a pause is the
+person's act in the app. The paused state is kept in the app's local database beside the
+requests, survives a restart and is never synced. A database written before the pause
+existed reads as running.
 
 **Amended 2026-11-18: the person orders the queue.** The queue was oldest first. Now
 the person sets the order of the Requested requests, a lapsed claim included, in the
@@ -249,6 +270,8 @@ Negative:
   runs wait, which may start work later than the person expected. Since the
   2026-11-11 amendment, the session queue says so when none is heard and names the
   command that starts one.
+- **A paused queue starts nothing until the person resumes it**, however long that
+  takes. The trigger and a callout in the popover say the queue is paused.
 - **A request started late runs late.** A request made days ago starts when a
   dispatcher next runs. `run-plan-item` exits when the entry is already done.
 - **The clone folder may need opening in Claude Desktop once**, so it is trusted
@@ -289,6 +312,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | §3 and §4 amended: the person can pause and resume the queue in the app. While it is paused, every claim is refused inside its transaction and the wait route hands out no request, while answer deliveries keep flowing, held claims still report and release, and requests can still be queued and cancelled. `list_session_requests` carries `paused`, and no MCP tool pauses or resumes. The state is a machine-local single-row table in the app's database. Built in the same pull request. | A person wants to stop new sessions from starting without cancelling every request or stopping the Manager. |
 | 2026-11-18 | §4 amended: the person orders the Requested requests in the session queue, one order for entry and plan requests, new requests last; the wait route, `list_session_requests` and the Manager take them in that order, not oldest first. No MCP tool reorders. | The person wants the request they put first to be the one the Manager starts next. |
 | 2026-11-11 | §4 amended: the app records dispatcher contact from the wait route, in memory, and the Tasks filter bar's session queue warns when none has come for two minutes while a request waits Requested. Built in PR #1799. | Requests waited unseen with no Manager running, and nothing said so. |
 | 2026-11-02 | §3 amended: a lapsed lease returns the request to Requested for every other dispatcher, while the holder's late `started` report still counts until another dispatcher claims it. | `start_session` can outlast the lease, and the refused report let one Manager dispatch its own request twice. |

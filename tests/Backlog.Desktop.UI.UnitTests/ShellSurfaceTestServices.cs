@@ -3,8 +3,10 @@ using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.Goals;
 using Backlog.Desktop.UI.Review;
 using Backlog.Desktop.UI.PullRequests;
+using Backlog.Modules.Calendar.UI;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Events.UI;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Sessions.UI;
@@ -31,10 +33,13 @@ internal static class ShellSurfaceTestServices
     public static IServiceCollection AddShellSurfaces(this IServiceCollection services)
     {
         services.AddTasksSurfaces();
+        services.AddTasksCalendarLayer();
+        services.AddCalendarSurface();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
         services.AddDevbookSurface();
         services.AddInboxSurface();
+        services.AddEventsSurface();
         services.AddWeeklyReviewSurface();
         services.AddSessionsSurface();
         services.AddPullRequestsSurface();
@@ -43,6 +48,7 @@ internal static class ShellSurfaceTestServices
         services.AddToolsSurface();
         services.AddAtlasSurface();
         services.AddSingleton<ITasksViewPreferences>(sp => new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
+        services.AddSingleton<ICalendarViewPreferences>(sp => new ShellCalendarViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
         services.AddScoped(sp => new ShellGoalsViewSource(sp));
         services.AddScoped<IGoalsViewSource>(sp => sp.GetRequiredService<ShellGoalsViewSource>());
         services.AddScoped<IWeeklyReviewSource>(sp => new ShellWeeklyReviewSource(sp));

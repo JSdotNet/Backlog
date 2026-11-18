@@ -11,6 +11,7 @@ internal sealed class InMemorySessionRequestStore(TimeProvider? clock = null) : 
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private readonly Lock _gate = new();
     private readonly Dictionary<Guid, SessionRequest> _held = [];
+    private bool _paused;
 
     /// <summary>How many times <see cref="NextAsync"/> was asked.</summary>
     public int NextCalls { get; private set; }
@@ -66,12 +67,24 @@ internal sealed class InMemorySessionRequestStore(TimeProvider? clock = null) : 
         {
             NextCalls++;
 
-            return Task.FromResult(SessionRequests.Waiting(_held.Values, _clock.GetUtcNow()).FirstOrDefault());
+            return Task.FromResult(_paused ? null : SessionRequests.Waiting(_held.Values, _clock.GetUtcNow()).FirstOrDefault());
         }
     }
 
     public Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) =>
-        Apply(id, request => SessionRequests.Claim(request, dispatcher, _clock.GetUtcNow()));
+        Apply(id, request => SessionRequests.Claim(request, dispatcher, _clock.GetUtcNow(), _paused));
+
+    public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default)
+    {
+        lock (_gate) return Task.FromResult(_paused);
+    }
+
+    public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default)
+    {
+        lock (_gate) _paused = paused;
+
+        return Task.CompletedTask;
+    }
 
     public Task<SessionRequestOutcome> ReleaseAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) =>
         Apply(id, request => SessionRequests.Release(request, dispatcher, _clock.GetUtcNow()));

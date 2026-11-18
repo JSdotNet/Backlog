@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Buttons;
 using Backlog.UI.Components.Overlays;
 
 using Bunit;
@@ -939,7 +940,7 @@ public sealed class TasksSessionRequestTests
         {
             Assert.Equal("warning", warning[0].GetAttribute("data-tone"));
             Assert.Contains("since it started", warning[0].TextContent, StringComparison.Ordinal);
-            Assert.Contains(SessionQueue.StartDispatcher, warning[0].TextContent, StringComparison.Ordinal);
+            Assert.Contains(LongRunningAgents.DispatchSessions, warning[0].TextContent, StringComparison.Ordinal);
             Assert.Contains("pinned Claude Desktop session", warning[0].TextContent, StringComparison.Ordinal);
         }
     }
@@ -967,6 +968,201 @@ public sealed class TasksSessionRequestTests
             StringComparison.Ordinal));
     }
 
+    // --- Pausing the queue -------------------------------------------------------
+
+    [Fact]
+    public async Task A_running_queue_offers_Pause_and_pausing_it_says_so_on_the_panel_and_the_trigger()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, clock.GetUtcNow());
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 1 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        var pause = pane.Find("[data-testid='session-queue-pause']");
+        Assert.Equal("BUTTON", pause.TagName);
+        Assert.Equal("Pause queue", pause.TextContent.Trim());
+        Assert.Empty(pane.FindAll("[data-testid='session-queue-paused']"));
+
+        pause.Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal([true], queue.PauseCalls);
+            Assert.Equal("Resume queue", pane.Find("[data-testid='session-queue-pause']").TextContent.Trim());
+            var callout = pane.Find("[data-testid='session-queue-paused']");
+            Assert.Equal("Queue paused", pane.Find("[data-testid='session-queue-paused-heading']").TextContent.Trim());
+            Assert.Contains("Nothing new will start until you resume the queue", callout.TextContent, StringComparison.Ordinal);
+            Assert.Equal("Session queue, paused, 1 waiting", QueueTrigger(pane).GetAttribute("aria-label"));
+            Assert.Single(pane.FindAll("[data-testid='session-queue-row']"));
+        });
+    }
+
+    [Fact]
+    public async Task Resuming_a_paused_queue_takes_the_callout_away()
+    {
+        var (host, queue, _) = await HostAsync();
+        using var _host = host;
+        queue.Paused = true;
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, paused, empty", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+        Assert.NotNull(pane.Find("[data-testid='session-queue-paused']"));
+
+        pane.Find("[data-testid='session-queue-pause']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal([false], queue.PauseCalls);
+            Assert.Empty(pane.FindAll("[data-testid='session-queue-paused']"));
+            Assert.Equal("Pause queue", pane.Find("[data-testid='session-queue-pause']").TextContent.Trim());
+            Assert.Equal("Session queue, empty", QueueTrigger(pane).GetAttribute("aria-label"));
+        });
+    }
+
+    /// <summary>A poll whose read set out before a Pause press and answered after it
+    /// carries the state from before the press; it must not undo what the press showed.</summary>
+    [Fact]
+    public async Task A_poll_read_taken_before_a_pause_does_not_flip_the_control_back()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, empty", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        queue.PauseReadGate = gate;
+        var started = Volatile.Read(ref queue.PauseReadsStarted);
+        var answered = Volatile.Read(ref queue.PauseReadsAnswered);
+        clock.Advance(TasksSessionRequests.PollInterval);
+        pane.WaitForAssertion(() => Assert.True(Volatile.Read(ref queue.PauseReadsStarted) > started, "The poll never read the pause."));
+
+        pane.Find("[data-testid='session-queue-pause']").Click();
+        pane.WaitForAssertion(() => Assert.Equal("Resume queue", pane.Find("[data-testid='session-queue-pause']").TextContent.Trim()));
+
+        queue.PauseReadGate = null;
+        gate.SetResult();
+        pane.WaitForAssertion(() => Assert.True(Volatile.Read(ref queue.PauseReadsAnswered) > answered, "The held read never answered."));
+        await Task.Delay(200, TestContext.Current.CancellationToken);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("Resume queue", pane.Find("[data-testid='session-queue-pause']").TextContent.Trim());
+            Assert.NotNull(pane.Find("[data-testid='session-queue-paused']"));
+            Assert.Equal("Session queue, paused, empty", QueueTrigger(pane).GetAttribute("aria-label"));
+        });
+    }
+
+    [Fact]
+    public async Task A_failed_pause_s_error_goes_once_a_poll_reads_the_queue_paused()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        queue.PauseFails = true;
+
+        var pane = host.Render();
+        OpenQueue(pane);
+        pane.Find("[data-testid='session-queue-pause']").Click();
+        pane.WaitForElement("[data-testid='session-queue-pause-error']");
+
+        queue.Paused = true;
+        clock.Advance(TasksSessionRequests.PollInterval);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotNull(pane.Find("[data-testid='session-queue-paused']"));
+            Assert.Empty(pane.FindAll("[data-testid='session-queue-pause-error']"));
+        });
+    }
+
+    [Fact]
+    public async Task A_pause_made_elsewhere_shows_on_the_next_poll()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, empty", QueueTrigger(pane).GetAttribute("aria-label")));
+
+        queue.Paused = true;
+        clock.Advance(TasksSessionRequests.PollInterval);
+
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, paused, empty", QueueTrigger(pane).GetAttribute("aria-label")));
+    }
+
+    [Fact]
+    public async Task A_paused_queue_with_a_silent_dispatcher_shows_both_the_pause_and_the_warning()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        queue.Paused = true;
+        queue.DispatcherContact = new DispatcherContactReading(LastHeardAt: null, IsSilent: true);
+        queue.Open[Guid.NewGuid()] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, clock.GetUtcNow());
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, paused, 1 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        Assert.NotNull(pane.Find("[data-testid='session-queue-paused']"));
+        Assert.NotNull(pane.Find("[data-testid='session-queue-dispatcher-warning']"));
+    }
+
+    [Fact]
+    public async Task A_pause_that_fails_says_so_and_the_queue_keeps_running()
+    {
+        var (host, queue, _) = await HostAsync();
+        using var _host = host;
+        queue.PauseFails = true;
+
+        var pane = host.Render();
+        OpenQueue(pane);
+        pane.Find("[data-testid='session-queue-pause']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Contains("Couldn't pause the session queue.", pane.Find("[data-testid='session-queue-pause-error']").TextContent, StringComparison.Ordinal);
+            Assert.Equal("Pause queue", pane.Find("[data-testid='session-queue-pause']").TextContent.Trim());
+            Assert.Empty(pane.FindAll("[data-testid='session-queue-paused']"));
+        });
+    }
+
+    // --- The long-running agents ----------------------------------------------------
+
+    [Fact]
+    public async Task The_panel_lists_each_long_running_agent_with_its_command_and_a_copy_of_exactly_that()
+    {
+        var (host, _, _) = await HostAsync();
+        using var _host = host;
+        host.Context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var pane = host.Render();
+        OpenQueue(pane);
+
+        var group = pane.Find("[data-testid='session-queue-agents']");
+        Assert.Contains("Long-running agents", group.TextContent, StringComparison.Ordinal);
+        var rows = group.QuerySelectorAll("[data-testid='session-queue-agent']");
+        Assert.Equal(
+            ["/loop /backlog-tools:dispatch-sessions", "/loop /backlog-tools:tend-brain", "/loop /backlog-tools:track-goals"],
+            rows.Select(row => row.QuerySelector("code")!.TextContent));
+
+        var copies = pane.FindComponents<CopyButton>()
+            .Where(copy => copy.Instance.TestId == "session-queue-agent-copy")
+            .ToList();
+        Assert.Equal(LongRunningAgents.All.Select(agent => agent.Command), copies.Select(copy => copy.Instance.Text));
+        Assert.Equal("Copy /loop /backlog-tools:tend-brain", copies[1].Instance.Label);
+
+        copies[2].Find("button").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "/loop /backlog-tools:track-goals",
+            Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]));
+    }
+
     private static string Normalise(string text) => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     private static GitHubRepositoryRef Repo(string alias, string owner, string name, string? clone) =>
@@ -991,6 +1187,40 @@ public sealed class TasksSessionRequestTests
         public List<(Guid EntryId, string Repository, string CloneFolder)> Asked { get; } = [];
 
         public List<Guid> Cancelled { get; } = [];
+
+        /// <summary>Whether the queue is paused; a test sets it to stand for a pause made elsewhere.</summary>
+        public bool Paused { get; set; }
+
+        /// <summary>Every pause (true) and resume (false) the pane asked for, in order.</summary>
+        public List<bool> PauseCalls { get; } = [];
+
+        /// <summary>Set, a pause or resume throws, as an unwritable queue would.</summary>
+        public bool PauseFails { get; set; }
+
+        /// <summary>Set, a read of the pause takes its answer first and then waits on it,
+        /// so a test can land a press between a poll's read and its answer.</summary>
+        public TaskCompletionSource? PauseReadGate { get; set; }
+
+        /// <summary>How many reads of the pause have set out, and how many have answered.</summary>
+        public int PauseReadsStarted;
+        public int PauseReadsAnswered;
+
+        public async Task<bool> IsPausedAsync(CancellationToken cancellationToken = default)
+        {
+            var read = Paused;
+            Interlocked.Increment(ref PauseReadsStarted);
+            if (PauseReadGate is { } gate) await gate.Task;
+            Interlocked.Increment(ref PauseReadsAnswered);
+            return read;
+        }
+
+        public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default)
+        {
+            PauseCalls.Add(paused);
+            if (PauseFails) return Task.FromException(new InvalidOperationException("The database is locked."));
+            Paused = paused;
+            return Task.CompletedTask;
+        }
 
         public Task<IReadOnlyDictionary<Guid, EntrySessionRequest>> OpenAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyDictionary<Guid, EntrySessionRequest>>(new Dictionary<Guid, EntrySessionRequest>(Open));

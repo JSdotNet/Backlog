@@ -215,7 +215,7 @@
            TestId="inbox-shortcuts-dialog">
         <ChildContent>
             <dl class="inbox-pane__shortcuts" data-testid="inbox-shortcuts-list">
-                @foreach (var (keys, action) in Shortcuts)
+                @foreach (var (keys, action) in OfferedShortcuts)
                 {
                     <div class="inbox-pane__shortcut">
                         <dt><kbd class="inbox-pane__key">@keys</kbd></dt>
@@ -382,6 +382,7 @@
         ("l", "Move to list…"),
         ("r", "Move to backlog"),
         ("b", "To Brain"),
+        ("e", "To Event"),
         ("s", "Someday: keep it in your Brain's someday area"),
         ("n", "Done now: a task, already ticked"),
         ("w", "Waiting for: a task that waits on someone…"),
@@ -392,6 +393,11 @@
         ("Esc", "Back to the list, from triage; back to triage, from the AI pass"),
         ("?", "These shortcuts"),
     ];
+
+    /// <summary>The keys the Shortcuts dialog lists: every one, except To Event's
+    /// while the Events area is off, since the key then does nothing.</summary>
+    private IEnumerable<(string Keys, string Action)> OfferedShortcuts =>
+        State.ToEventOffered ? Shortcuts : Shortcuts.Where(shortcut => shortcut.Keys != "e");
 
     protected override void OnInitialized()
     {
@@ -452,7 +458,7 @@
 
             // The inbox-zero screen has no detail on it, so the keys that act
             // on the open item have nothing to act on; U and ? still work.
-            if (State.ShowsInboxZero && key is "a" or "r" or "b" or "s" or "n" or "w" or "d" or "l" or "g" or "x") return;
+            if (State.ShowsInboxZero && key is "a" or "r" or "b" or "s" or "n" or "w" or "e" or "d" or "l" or "g" or "x") return;
 
             switch (key)
             {
@@ -487,6 +493,9 @@
                     // Asks who it waits on, and when to follow up, before routing.
                     if (State.TriageMode) _triage?.OpenWaitingFor();
                     else _detail?.OpenWaitingFor();
+                    break;
+                case "e" when CanDecide && State.ToEventOffered:
+                    await State.RouteToEventAsync();
                     break;
                 case "d":
                     if (State.TriageMode) _triage?.OpenDefer();

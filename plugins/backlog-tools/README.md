@@ -69,34 +69,29 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   branch and runs the entry through `run-plan-item` — so every
   entry passes the repository's gate and its own Personal Validation. Claude Desktop starts a
   session only on a turn the person typed or one chained to it by sessions finishing, so a
-  start it refuses — on a wake-up, or in a session another started — runs, unattended, the same
-  brief as a background sub-agent in its own worktree that parks at its gate, rather than
-  waiting on a card; attended, it stays a card for the person. Every check watch runs in the
+  start it refuses — on a wake-up, or in a session another started — runs the same brief as a
+  background sub-agent in its own worktree that parks at its gate. Every check watch runs in the
   foreground to keep the chain. Entries that wait on
-  nothing run in parallel. Before it starts anything — attended or unattended — it opens every entry's `Read first:`
-  references and linked Devbook chapters, and warns about each one it cannot reach, asking
-  once whether to go, hold the entries that name it, or stop to fix the plan.
+  nothing run in parallel. It always runs unattended and asks the person nothing. Before it
+  starts anything it opens every entry's `Read first:` references and linked Devbook chapters,
+  and holds each entry that names one it cannot reach — blocked, with a `source not reachable`
+  comment — until a later invocation finds the source again.
   An entry is done when its pull request merges — into `<integration>` in
   branch mode, into the base branch otherwise; the orchestrator
   then moves it to Done and starts what waited on it. It stops at `task` and `test` entries,
   listing what they hold up, starts the application in its own worktree for the first one
-  that validates landed work, and resumes from the plan's state when invoked again. Three
-  landing modes, defined in `skills/execute-plan/assets/landing-modes.md`: *per item*, each
-  pull request to the base branch; *branch*, each into one integration branch, by default `plan/<tag without its +>`, that the
+  that validates landed work, and resumes from the plan's state when invoked again. Two
+  landing modes, defined in `skills/execute-plan/assets/landing-modes.md`: *branch*, the
+  default, each into one integration branch, by default `plan/<tag without its +>`, that the
   orchestrator merges into, ending in a single pull request to the base branch; and
   *stacked*, each cut from and targeting its predecessor's branch, so a chain runs before
-  anything merges and the person merges bottom-up. *Attended*, the entry session ends its turn
-  at each Personal Validation, and the orchestrator relays it to the person, takes the first
-  answer — from the chat or from the question the gate raises on the person's devices
-  (`skills/execute-plan/assets/gates.md`) — and sends it back to that session (`SendMessage`);
-  Reject blocks the entry, and a follow-up an Approve + follow-up files runs as a ready entry
-  once the gated one lands; *unattended* (branch or stacked), each entry parks at
-  its gate and lands as a draft pull request whose body is the review handoff, so the whole
-  plan runs without anyone present and Personal Validation happens on the drafts — in branch
-  mode on the closing draft to the base branch. A failed entry blocks only what depends on
+  anything merges and the person merges bottom-up. Each entry parks at its gate and lands as a
+  draft pull request whose body is the review handoff, so the whole plan runs without anyone
+  present and Personal Validation happens on the drafts — in branch mode on the closing draft
+  to the base branch. A failed entry blocks only what depends on
   it. It titles its own session `<tag>:execute-plan` and each entry session
-  `<tag>:<n> - <Title>`, and a ready entry in another repository is handed to a new session
-  in that repository's checkout running the same plan, per
+  `<n> - <Title>` — the plan tag is already in the parent's name — and a ready entry in
+  another repository is handed to a new session in that repository's checkout running the same plan, per
   `skills/execute-plan/assets/handoff.md`. Branch names and pull request titles follow the
   repository's `.devbook/backlog-tools.json`, with an optional ticket the plan supplies and no
   tracker dependency (**Repository conventions** in `landing-modes.md`). The app itself moves an

@@ -12,7 +12,7 @@ public sealed record ContextMapStroke(ContextMapLine Line, double X1, double Y1,
 /// every context on one ellipse, in the order that crosses the fewest lines. On a
 /// convex ring two lines cross exactly when their ends interleave round it, so the
 /// order alone decides the crossings; no line is routed. A card a line would run
-/// beneath steps out from the ring until the line passes inside it.
+/// beneath steps away from that line until the line clears it.
 /// </summary>
 /// <param name="Width">The map's width in its own units, its SVG viewBox's. It
 /// grows past <see cref="DefaultWidth"/>, the cards keeping their size, when that
@@ -57,7 +57,7 @@ public sealed record ContextMapLayout(
 
         // Of the orders crossing fewest lines, the one that runs fewest lines
         // beneath a card it does not join; a card a line still runs beneath then
-        // steps out from the ring's centre until the line passes inside it.
+        // steps away from that line until the line clears it.
         // Turning or mirroring an order round the ellipse keeps its crossings but
         // not its geometry, so each is tried, and the smallest map wins a tie.
         var (w, h) = (Math.Round(width), Math.Round(height));
@@ -77,7 +77,7 @@ public sealed record ContextMapLayout(
         }
     }
 
-    /// <summary>How far a card may step out from the ring, a step at a time, to
+    /// <summary>How far a card may step from its slot, a step at a time, to
     /// clear a line from under it; past that the map keeps the line.</summary>
     private const double NudgeStep = 8;
 
@@ -106,17 +106,26 @@ public sealed record ContextMapLayout(
 
         for (var step = 0; step < NudgeSteps; step++)
         {
-            var covering = Hidden(PlaceStrokes(map, ids, centres, cardWidth, cardHeight), PlaceCards(map, order, centres), cardWidth, cardHeight)
-                .Select(h => ids.IndexOf(h.Card.Context.Id))
-                .Distinct()
-                .ToList();
-            if (covering.Count == 0) break;
-            foreach (var i in covering)
+            var hidden = Hidden(PlaceStrokes(map, ids, centres, cardWidth, cardHeight), PlaceCards(map, order, centres), cardWidth, cardHeight);
+            if (hidden.Count == 0) break;
+
+            // Each card steps away from the lines that run beneath it, square to each
+            // line; a line through its very centre, or two lines pulling it opposite
+            // ways, gives no side, so that card steps out from the ring's centre instead.
+            var away = new Dictionary<int, (double X, double Y)>();
+            foreach (var (stroke, card) in hidden)
             {
-                var (dx, dy) = (centres[i].X - width / 2, centres[i].Y - height / 2);
-                var length = Math.Sqrt(dx * dx + dy * dy);
-                if (length == 0) continue;
-                centres[i] = (Math.Round(centres[i].X + NudgeStep * dx / length, 2), Math.Round(centres[i].Y + NudgeStep * dy / length, 2));
+                var i = ids.IndexOf(card.Context.Id);
+                var (dx, dy) = Away(stroke, card.X, card.Y);
+                if (dx == 0 && dy == 0) (dx, dy) = Unit(card.X - width / 2, card.Y - height / 2);
+                var sum = away.GetValueOrDefault(i);
+                away[i] = (sum.X + dx, sum.Y + dy);
+            }
+            foreach (var (i, (sx, sy)) in away)
+            {
+                var (dx, dy) = Unit(sx, sy);
+                if (dx == 0 && dy == 0) (dx, dy) = Unit(centres[i].X - width / 2, centres[i].Y - height / 2);
+                centres[i] = (Math.Round(centres[i].X + NudgeStep * dx, 2), Math.Round(centres[i].Y + NudgeStep * dy, 2));
             }
         }
 
@@ -135,6 +144,23 @@ public sealed record ContextMapLayout(
             width, height, cardWidth, cardHeight,
             PlaceCards(map, order, centres), PlaceStrokes(map, ids, centres, cardWidth, cardHeight),
             CountCrossings(SlotsOf(order), pairs));
+    }
+
+    /// <summary>The unit direction, square to <paramref name="stroke"/>, from the
+    /// line through it to the point; nothing when the point lies on that line.</summary>
+    private static (double X, double Y) Away(ContextMapStroke stroke, double x, double y)
+    {
+        var (ux, uy) = Unit(stroke.X2 - stroke.X1, stroke.Y2 - stroke.Y1);
+        var (vx, vy) = (x - stroke.X1, y - stroke.Y1);
+        var along = vx * ux + vy * uy;
+        var (px, py) = (vx - along * ux, vy - along * uy);
+        return Math.Sqrt(px * px + py * py) < 1e-6 ? (0, 0) : Unit(px, py);
+    }
+
+    private static (double X, double Y) Unit(double x, double y)
+    {
+        var length = Math.Sqrt(x * x + y * y);
+        return length == 0 ? (0, 0) : (x / length, y / length);
     }
 
     // Cards in ring order, so tabbing walks round the map.

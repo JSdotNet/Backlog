@@ -61,9 +61,6 @@ public static class SessionQueue
     /// <summary>The name of a loaded entry with no title yet.</summary>
     public const string Untitled = "Untitled entry";
 
-    /// <summary>The remedy the dispatcher warning names.</summary>
-    public const string StartDispatcher = "/loop /backlog-tools:dispatch-sessions";
-
     /// <summary>The queue's rows: the Claimed and Started ones first, oldest first, since
     /// a dispatcher already has them; then the Requested ones in queue order — by
     /// <paramref name="pendingOrder"/> while a move is on its way, else by each one's
@@ -162,10 +159,11 @@ public static class SessionQueue
         _ => null
     };
 
-    /// <summary>The trigger's name, the count in words: "Session queue, 3 waiting", or
+    /// <summary>The trigger's name, the count in words and the pause when there is one:
+    /// "Session queue, 3 waiting", "Session queue, paused, 3 waiting", or
     /// "Session queue, empty".</summary>
-    public static string TriggerLabel(int count) =>
-        count <= 0 ? "Session queue, empty" : $"Session queue, {count} waiting";
+    public static string TriggerLabel(int count, bool paused = false) =>
+        $"Session queue, {(paused ? "paused, " : string.Empty)}{(count <= 0 ? "empty" : $"{count} waiting")}";
 
     /// <summary>The state in the waiting chip's own words.</summary>
     public static string StateLabel(EntrySessionRequestState state) => state switch
@@ -198,4 +196,35 @@ public static class SessionQueue
             ? $"A dispatcher last reached Backlog {Age(heard, now)}, so nothing is starting these requests."
             : "No dispatcher has reached Backlog since it started, so nothing will start these requests.";
     }
+}
+
+/// <summary>One long-running agent a person starts under <c>/loop</c> in a pinned session.</summary>
+/// <param name="Command">What the person types, verbatim — what the copy puts on the clipboard.</param>
+/// <param name="Name">What the popover calls it.</param>
+/// <param name="Purpose">One line on what it does and where it runs.</param>
+public sealed record LongRunningAgent(string Command, string Name, string Purpose);
+
+/// <summary>
+/// The commands that start the long-running agents of the <c>backlog-tools</c> plugin, each
+/// the <c>/loop</c> line its own skill names. One set, so the session queue's agents group and
+/// the dispatcher warning cannot drift apart, and a skill renamed changes one place.
+/// </summary>
+public static class LongRunningAgents
+{
+    /// <summary>The Manager session that starts what this queue holds (local ADR 0038).</summary>
+    public const string DispatchSessions = "/loop /backlog-tools:dispatch-sessions";
+
+    /// <summary>The agent that tends the Brain folder (local ADR 0026).</summary>
+    public const string TendBrain = "/loop /backlog-tools:tend-brain";
+
+    /// <summary>The agent that keeps the goals current (local ADR 0035).</summary>
+    public const string TrackGoals = "/loop /backlog-tools:track-goals";
+
+    /// <summary>Every agent, the dispatcher first: it is the one this queue needs.</summary>
+    public static IReadOnlyList<LongRunningAgent> All { get; } =
+    [
+        new(DispatchSessions, "Session dispatcher", "Starts the sessions this queue holds."),
+        new(TendBrain, "Brain", "Files what lands in the Brain's inbox. Run it from the Brain folder, or pass its path."),
+        new(TrackGoals, "Goals", "Keeps the goals current and reports each one's next step.")
+    ];
 }

@@ -101,6 +101,12 @@
          that issues it is here, so this is where the pairing's end reaches
          INotifications (.devbook/domain/notifications/context.md). Never the module. -->
     <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
+    <!-- Events' published surface (local ADR 0050 §2): the knowledge event exchange reads
+         events and series through IKnowledgeEventReplication and hands other desktops'
+         copies back through it, and the wire shape it serializes, KnowledgeEventReplicaDto,
+         is the one the phone reads. Published surface only, resolved per cycle, so a head
+         without the module composes unchanged. -->
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

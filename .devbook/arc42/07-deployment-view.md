@@ -160,14 +160,14 @@ sequenceDiagram
 ## Cloud Deployment (Azure)
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
+related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
 The optional cloud service runs in Azure as a single-region, low-cost footprint sized for sync coordination and webhook forwarding.
 
 ![Cloud Deployment](c4:deployment-azure)
 
-- **Cosmos DB:** [Cloud Service](05-building-block-view.md#cloud-service) names the eight containers.
+- **Cosmos DB:** [Cloud Service](05-building-block-view.md#cloud-service) names the nine containers.
 - **Clients:** the desktop and IDE extensions reach the service over HTTPS for state sync; the mobile app does too, and for its offline flush.
 - **Identity:** managed identities reach Cosmos DB with a data-plane role, Storage as Blob Data Contributor, and Web PubSub as Web PubSub Service Owner.
 - **Notification Hubs:** the service uses SAS Send and Manage keys. The hub reaches Firebase Cloud Messaging over FCM v1, which delivers a data-only push to the mobile app.
@@ -178,7 +178,7 @@ The optional cloud service runs in Azure as a single-region, low-cost footprint 
 Deployment considerations:
 
 - **Single region**, one Container App instance: enough for a personal tool.
-- **TTL-based cleanup** — Cosmos expires what ages out, so no reaper runs. Local ADR 0005 fixes the retentions: task and annotation tombstones at 180 days, session records at 12 months; webhook events (24h) are not built. The `devbookSubjects` container has no TTL, since a subject's state is never deleted and leaves no tombstone (local ADR 0044).
+- **TTL-based cleanup** — Cosmos expires what ages out, so no reaper runs. Local ADR 0005 fixes the retentions: task and annotation tombstones at 180 days, session records at 12 months; webhook events (24h) are not built. The `devbookSubjects` container has no TTL, since a subject's state is never deleted and leaves no tombstone (local ADR 0044). Nor has `knowledgeEvents`, for the same reason (local ADR 0050).
 - **Webhook timeout handling** — GitHub expects a response within ~10s, so the service stores and forwards.
 - **Secrets in Key Vault** — webhook secrets and OAuth tokens go there when they arrive. `infra/sync/main.bicep` provisions the vault and the identity's read role; nothing reads it yet.
 - **The token signing key is not in Key Vault.** The device-token signing key (`Modules:Sync:Tokens:SigningKey`) is required outside Development; the service refuses to start without it. It reaches the container as a **container app secret** from a `@secure()` Bicep parameter, fed by the GitHub environment secret `SYNC_TOKEN_SIGNING_KEY`. A missing key fails the provision rather than the app. The value never touches disk or a log, and a scale-to-zero app pays no vault round-trip on cold start. `docs/deployment/sync.md#the-device-token-signing-key` covers what a rotation invalidates.
@@ -261,7 +261,7 @@ The service deploys unattended: every Release All run that publishes, the nightl
 | **Provision and deploy** | `azd` (Azure Developer CLI), against `azure.yaml` at the repository root. |
 | **Environments** | One (`backlog-sync`). A personal tool does not earn a staging ring. |
 | **CI/CD** | GitHub Actions, authenticating with **OIDC federated credentials**. Infrastructure is **started by hand**. |
-| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same five containers. |
+| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same nine containers. |
 | **Observability** | Log Analytics and Application Insights, with only application telemetry going to either. |
 
 - **Infrastructure as code:** the template is resource-group scoped, so it deploys into a group created by hand.

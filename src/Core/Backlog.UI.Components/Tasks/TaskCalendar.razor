@@ -76,6 +76,17 @@
     when that or a Shift drop did, or when Remove took the chip away. The
     calendar writes nothing: it reports the figure through OnHoursChanged and redraws
     from what the host hands back.
+
+    Knowledge events, when the host offers them (EventsAvailable), are drawn while
+    the "Show events" box after "Show plans" is ticked — unticked until the reader
+    ticks it, and the host keeps the choice. Each event is a bar across its days, cut
+    at every week row like a plan's, in lanes of its own above the plan lanes: the
+    week reserves room for both under the day numbers. A bar says "Title · State ·
+    Place", in its tooltip too, and opens with "…" when carried on from the week
+    before. A decided event is filled; one still being weighed up (Tentative) is
+    dashed, and its state word says so as well. A key date is a diamond chip on its
+    day, before the day's milestones, its tooltip naming the event. An event bar is
+    no drag source and no drop: the calendar changes no event.
 *@
 <section class="@ClassValue"
          data-testid="@TestId"
@@ -128,6 +139,14 @@
                       Checked="@ShowPlans"
                       CheckedChanged="OnShowPlansChangedAsync"
                       TestId="@Part("show-plans")" />
+        }
+        @if (EventsAvailable)
+        {
+            <Checkbox CssClass="task-calendar__show-events"
+                      Label="Show events"
+                      Checked="@ShowEvents"
+                      CheckedChanged="OnShowEventsChangedAsync"
+                      TestId="@Part("show-events")" />
         }
     </div>
 
@@ -252,6 +271,7 @@
     private string? _returnFocusTo;
     private readonly IReadOnlyList<SelectorOption> _hoursPresets = CalendarHours.PresetOptions();
     private ILookup<DateOnly, CalendarMilestone> _milestonesByDay = Array.Empty<CalendarMilestone>().ToLookup(milestone => default(DateOnly));
+    private ILookup<DateOnly, CalendarKeyDate> _keyDatesByDay = Array.Empty<CalendarKeyDate>().ToLookup(keyDate => default(DateOnly));
 
     /// <summary>The tasks to place, in the order a day lists them. Filtered by the
     /// host: the calendar shows what it is given.</summary>
@@ -321,6 +341,30 @@
     /// <summary>A shelf plan was dropped on a day: start its window there.</summary>
     [Parameter]
     public EventCallback<CalendarPlanStart> OnPlanStarted { get; set; }
+
+    /// <summary>Whether the host has events to offer at all. Without it there is no
+    /// "Show events" box, no event bar and no key date, whatever <see cref="ShowEvents"/>
+    /// says.</summary>
+    [Parameter]
+    public bool EventsAvailable { get; set; }
+
+    /// <summary>Whether the events are drawn — the "Show events" box. Off by default,
+    /// unlike <see cref="ShowPlans"/>, because the layer is one the reader asks for. The
+    /// host keeps the choice; the calendar reports a change through
+    /// <see cref="ShowEventsChanged"/>.</summary>
+    [Parameter]
+    public bool ShowEvents { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> ShowEventsChanged { get; set; }
+
+    /// <summary>The events, each a bar across its days, in the order ties are stacked in.</summary>
+    [Parameter]
+    public IReadOnlyList<CalendarEvent> Events { get; set; } = [];
+
+    /// <summary>The events' key dates, each a diamond on its day.</summary>
+    [Parameter]
+    public IReadOnlyList<CalendarKeyDate> KeyDates { get; set; } = [];
 
     /// <summary>Whether the host keeps planned hours. Without it there is no "Add
     /// hours…", no hours chip and no day total, and a Shift drop is an ordinary one.</summary>
@@ -401,6 +445,24 @@
     private (IReadOnlyList<CalendarPlanSegment> Segments, int Lanes) WeekPlans(DateOnly weekStart) =>
         PlansShown ? CalendarPlanLanes.Week(weekStart, Plans) : ([], 0);
 
+    private bool EventsShown => EventsAvailable && ShowEvents;
+
+    private (IReadOnlyList<CalendarEventSegment> Segments, int Lanes) WeekEvents(DateOnly weekStart) =>
+        EventsShown ? CalendarEventLanes.Week(weekStart, Events) : ([], 0);
+
+    /// <summary>The week's lane count — events and plans together, which the day heads
+    /// reserve room for — and, while it holds events, how many lanes they take, which
+    /// the plan layer is moved down by. A week with plans alone keeps the plans' own
+    /// style.</summary>
+    private static string? WeekStyle(int eventLanes, int planLanes)
+    {
+        var lanes = eventLanes + planLanes;
+        if (lanes == 0) return null;
+        return eventLanes > 0
+            ? $"--task-calendar-lanes: {lanes}; --task-calendar-event-lanes: {eventLanes}"
+            : $"--task-calendar-lanes: {lanes}";
+    }
+
     private IReadOnlyList<CalendarTask> Undated => _undated;
 
     protected override void OnParametersSet()
@@ -426,6 +488,7 @@
         _byDay = Tasks.Where(task => task.DueOn is not null).ToLookup(task => task.DueOn!.Value);
         _undated = [.. Tasks.Where(task => task.DueOn is null && task.Open)];
         _milestonesByDay = Milestones.ToLookup(milestone => milestone.On);
+        _keyDatesByDay = KeyDates.ToLookup(keyDate => keyDate.On);
         _hoursByDay = HoursBlocks.ToLookup(block => block.On);
 
         // A draft whose task left the view, or whose block was taken away elsewhere, has
@@ -478,19 +541,40 @@
         }
     }
 
-    /// <summary>One week row: its seven days and the plan bars laid over them. The month
-    /// grid stacks one per week it touches; Week draws the one, its days tall.</summary>
+    /// <summary>One week row: its seven days and the event and plan bars laid over them,
+    /// the events' lanes first. The month grid stacks one per week it touches; Week draws
+    /// the one, its days tall.</summary>
     private RenderFragment RenderWeek(DateOnly weekStart) => __builder =>
     {
+        var (events, eventLanes) = WeekEvents(weekStart);
         var (segments, lanes) = WeekPlans(weekStart);
         <div @key="weekStart"
-             class="@(lanes > 0 ? "task-calendar__week task-calendar__week--plans" : "task-calendar__week")"
-             style="@(lanes > 0 ? $"--task-calendar-lanes: {lanes}" : null)"
+             class="@(eventLanes + lanes > 0 ? "task-calendar__week task-calendar__week--bars" : "task-calendar__week")"
+             style="@WeekStyle(eventLanes, lanes)"
              data-testid="@Part("week")">
             @for (var offset = 0; offset < 7; offset++)
             {
                 var date = weekStart.AddDays(offset);
                 @RenderDay(date)
+            }
+            @if (events.Count > 0)
+            {
+                @* No data-calendar-task and no data-calendar-plan, so backlogCalendarDrag
+                   never picks a bar up: the calendar changes no event. *@
+                <ul class="task-calendar__events" aria-label="Events this week">
+                    @foreach (var segment in events)
+                    {
+                        <li @key="segment.Event.Id"
+                            class="@EventClass(segment)"
+                            style="@($"grid-column: {segment.Column} / span {segment.Span}; grid-row: {segment.Lane}")"
+                            title="@segment.Event.Label"
+                            aria-label="@segment.Event.Label"
+                            data-calendar-event="@segment.Event.Id"
+                            data-testid="@Part($"event-{segment.Event.Id}")">
+                            <span class="task-calendar__event-text">@segment.Label</span>
+                        </li>
+                    }
+                </ul>
             }
             @if (segments.Count > 0)
             {
@@ -516,6 +600,7 @@
     {
         var tasks = _byDay[date].ToList();
         List<CalendarMilestone> milestones = PlansShown ? [.. _milestonesByDay[date]] : [];
+        List<CalendarKeyDate> keyDates = EventsShown ? [.. _keyDatesByDay[date]] : [];
         // A Week column is tall enough for the whole day, so nothing folds there.
         var expanded = IsWeek || _expandedDay == date;
         var shown = expanded ? tasks : tasks.Take(ChipsPerDay).ToList();
@@ -550,6 +635,17 @@
                     </span>
                 }
             </div>
+
+            @foreach (var keyDate in keyDates)
+            {
+                <span @key="@($"key-date-{keyDate.Id}")"
+                      class="task-calendar__milestone task-calendar__milestone--key-date"
+                      title="@KeyDateTitle(keyDate)"
+                      data-testid="@Part($"key-date-{keyDate.Id}")">
+                    <span class="task-calendar__diamond" aria-hidden="true"></span>
+                    <span class="task-calendar__milestone-text">@keyDate.Label</span>
+                </span>
+            }
 
             @foreach (var milestone in milestones)
             {
@@ -967,6 +1063,25 @@
 
     private static string MilestoneTitle(CalendarMilestone milestone) =>
         $"{milestone.Title}, milestone, {milestone.On.ToString("D", CultureInfo.CurrentCulture)}";
+
+    private Task OnShowEventsChangedAsync(bool shown) => ShowEventsChanged.InvokeAsync(shown);
+
+    /// <summary>Filled while decided, dashed while still being weighed up — the shape as
+    /// well as the state word, so the colour never carries it alone.</summary>
+    private static string EventClass(CalendarEventSegment segment)
+    {
+        var classes = new List<string>(4)
+        {
+            "task-calendar__event",
+            segment.Event.Tentative ? "task-calendar__event--tentative" : "task-calendar__event--filled"
+        };
+        if (segment.ContinuesBefore) classes.Add("task-calendar__event--continues-before");
+        if (segment.ContinuesAfter) classes.Add("task-calendar__event--continues-after");
+        return string.Join(' ', classes);
+    }
+
+    private static string KeyDateTitle(CalendarKeyDate keyDate) =>
+        $"{keyDate.Label}, {keyDate.EventTitle}, key date, {keyDate.On.ToString("D", CultureInfo.CurrentCulture)}";
 
     private static string ShelfEffort(CalendarShelfPlan plan) =>
         plan.UnestimatedCount > 0

@@ -1,5 +1,7 @@
 using System.Reflection;
 
+using Backlog.Infrastructure.Capture.EventPages;
+using Backlog.Infrastructure.Capture.Events;
 using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Capture.Import;
 using Backlog.Infrastructure.Capture.Inbox;
@@ -10,8 +12,10 @@ using Backlog.Modules.Capture.Abstractions.DataTransferObjects;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Capture.Ports;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
@@ -52,7 +56,49 @@ public sealed class CaptureAdapterRegistrationTests
         var adapters = scope.ServiceProvider.GetServices<ICaptureSourceAdapter>().ToList();
         Assert.Contains(adapters, adapter => adapter is YouTubeChannelAdapter);
         Assert.Contains(adapters, adapter => adapter is WebsiteFeedAdapter);
+        Assert.Contains(adapters, adapter => adapter is EventPageAdapter);
         Assert.Contains(adapters, adapter => adapter is ImportFileAdapter);
+
+        // The module's fail-closed default is replaced by the one that reads
+        // the Events area's flag, and only that one is left.
+        Assert.IsType<EventsAreaSourceAvailability>(scope.ServiceProvider.GetRequiredService<ICaptureSourceAvailability>());
+        Assert.Single(services, service => service.ServiceType == typeof(ICaptureSourceAvailability));
+    }
+
+    /// <summary>The host's feature settings are what the availability reads,
+    /// so the event page follows the flag the settings screen switches.</summary>
+    [Fact]
+    public void The_offered_sources_follow_the_hosts_events_flag()
+    {
+        var features = new SwitchedFeatures();
+        var services = new ServiceCollection();
+        services.AddSingleton<IAppFeatureSettings>(features);
+        services.AddCaptureModule();
+        services.AddCaptureAdapters();
+
+        // Not validated on build: the run's other ports are the first test's
+        // business, and this one resolves only the availability.
+        using var provider = services.BuildServiceProvider();
+        var availability = provider.GetRequiredService<ICaptureSourceAvailability>();
+
+        Assert.False(availability.IsOffered(CaptureSourceKind.EventPage));
+        features.On = true;
+        Assert.True(availability.IsOffered(CaptureSourceKind.EventPage));
+    }
+
+    private sealed class SwitchedFeatures : IAppFeatureSettings
+    {
+        public event Action? Changed { add { } remove { } }
+
+        public bool On { get; set; }
+
+        public AppFeatureSettings Current { get; } = new();
+
+        public string SettingsPath => "memory";
+
+        public bool IsEnabled(string key) => key == EventsFeatures.Events && On;
+
+        public string? SetEnabled(string key, bool enabled) => null;
     }
 
     /// <summary>A run happens on the reader's machine when they press the

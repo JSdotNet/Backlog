@@ -231,6 +231,7 @@ actionable, and the backlog holds every commitment.
 | Archive | **a** | Trash, kept findable |
 | Delete | — | Trash |
 | To Brain | **b** | Reference, filed where the destination picker points |
+| To Event | **e** | A Spotted [knowledge event](../events/domain.md#knowledge-event), while the Events area is on |
 | Defer | **d** | The tickler: back on its review date |
 | Someday | **s** | A note in the Brain's `someday` area |
 | Done now | **n** | A task created already ticked |
@@ -245,7 +246,8 @@ Day on Move to backlog are built ([Route to Brain](#route-to-brain),
 
 The decisions sit in a bar fixed at the foot of the detail, each naming its
 key: **Move to backlog**, **To Brain**, **Someday**, **Done now**, **Waiting
-for**, **Move to list**, **Defer** and **Archive**. The bar stays in place while the detail scrolls. Delete, tags and
+for**, **Move to list**, **Defer** and **Archive**, with **To Event** after To Brain while the
+[Events area](../events/context.md#events-area) is on. The bar stays in place while the detail scrolls. Delete, tags and
 repositories stay in the detail itself, because they are not the decision the
 item is waiting for.
 
@@ -304,6 +306,7 @@ With the Inbox pane in use, a triage session runs from the keyboard:
 | **l** | Open Move to list |
 | **r** | Move the item to the backlog |
 | **b** | Route it [To Brain](#route-to-brain) |
+| **e** | Route it [To Event](#route-to-event), while the Events area is on |
 | **s** | Route it [Someday](#route-to-brain), into the Brain's `someday` area |
 | **n** | Done now: route it to a task created already ticked |
 | **w** | Waiting for: ask who it waits on, then route it to a task that waits on them |
@@ -814,6 +817,46 @@ and a failure on the Tasks side leaves it open:
   [waiting-for](../tasks/domain.md#waiting-for) as `waiting:` and
   `followup:`. A name holding a backtick, which a token cannot carry, keeps
   the dialog's button off.
+
+### Route to Event
+
+```meta
+type: sub-feature
+aliases: [To Event]
+feature-flag: [.devbook/domain/inbox/context.md#inbox-pane, .devbook/domain/events/context.md#events-area]
+related: [.devbook/domain/inbox/requirements.md#route-to-event, .devbook/domain/events/features.md#to-event-route, .devbook/domain/events/domain.md#knowledge-event, .devbook/domain/events/domain.md#event-series, .devbook/domain/capture/features.md#event-page-monitor, .devbook/domain/inbox/domain.md#event-facts]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests]
+```
+
+```mermaid
+flowchart TD
+    Item[Item routed To Event] --> Match{A Series whose page is the item's watched page?}
+    Match -- yes --> Same[Spotted event in that Series]
+    Match -- no --> New[New Series named after the page's title]
+    New --> NewEvent[Spotted event in the new Series]
+```
+
+**To Event** makes the item a [Knowledge Event](../events/domain.md#knowledge-event)
+at Spotted, from its title, link, dates and place. It is the route for an edition
+the [event page monitor](../capture/features.md#event-page-monitor) brought in, and
+it takes any other item the person wants to track as an event. It shows only while
+the [Events area](../events/context.md#events-area) is on.
+
+The event joins the [Event Series](../events/domain.md#event-series) whose page is
+the page the item was watched from, compared without regard to case or a trailing
+slash. When no Series has that page, Events starts one named after the page's title,
+or after its host when the page gave none, with the page as its link. An item that came from no
+watched page starts no Series, and the person names one on the event.
+
+It ends the item's triage as Route to Tasks does: the item is routed, once, and
+leaves the queue. Events is asked first, and the item is routed only once the event
+exists. A failure on the Events side leaves it unrouted, and a toast says the event
+was not made. Undo returns the item to the queue and leaves the event in Events, as
+To Brain leaves its note. What Events makes of the
+dates is [the To Event route](../events/features.md#to-event-route) in Events.
+
+**To Event** sits beside Move to backlog and To Brain in triage and in the item's
+detail, and **e** takes it.
 
 ### Create plan from an item
 

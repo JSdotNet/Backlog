@@ -183,7 +183,7 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 > Local ADR 0038 decides these requirements. Both sides are built. The queue icons
 > create a request on an entry, on a plan's roadmap item, and beside a selected plan
 > filter chip. The filter bar's session queue lists every open request, lets the person
-> order the Requested ones, and warns when no dispatcher has been heard. The dispatcher side is the wait route and the claim,
+> order the Requested ones, warns when no dispatcher has been heard, and pauses and resumes the queue. The dispatcher side is the wait route and the claim,
 > mark and list tools a Manager session uses.
 
 ### Requirement: Only a click in the app requests a session
@@ -482,6 +482,39 @@ The system SHALL warn in the session queue while a request is Requested and no d
 - **Given** no dispatcher has been heard for three minutes and every open request is Claimed or Started
 - **When** the person opens the session queue
 - **Then** the queue shows no warning
+
+### Requirement: A paused queue starts no new session
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.A_running_queue_offers_Pause_and_pausing_it_says_so_on_the_panel_and_the_trigger, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Resuming_a_paused_queue_takes_the_callout_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.A_paused_queue_with_a_silent_dispatcher_shows_both_the_pause_and_the_warning, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_paused_queue_hands_out_no_request_and_answers_no_content_when_the_hold_ends, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_paused_queue_still_hands_out_a_due_delivery, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_held_call_hands_out_the_waiting_request_once_the_queue_is_resumed, integration:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.A_claim_on_a_paused_queue_is_refused_naming_the_pause_and_leaves_the_request_Requested, integration:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.The_holder_reclaiming_on_a_paused_queue_still_holds_its_claim, integration:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.The_list_says_whether_the_queue_is_paused]
+```
+
+The system SHALL hand out no request on the wait route and refuse every claim while the person has paused the session queue, and SHALL keep handing out answer deliveries, accepting a held claim's report and release, and taking new requests and cancels.
+
+#### Scenario: The person pauses the queue
+
+- **Given** the session queue runs and a request is Requested
+- **When** the person presses Pause queue in the session queue
+- **Then** the control reads Resume queue, a "Queue paused" callout says nothing new will start, the trigger reads "Session queue, paused, 1 waiting", `list_session_requests` says the queue is paused, and the request stays Requested
+
+#### Scenario: A dispatcher claims while the queue is paused
+
+- **Given** the queue is paused and a request is Requested
+- **When** a dispatcher calls `claim_session_request` on it
+- **Then** the claim is refused with "The session queue is paused." and the request stays Requested
+
+#### Scenario: A dispatcher waits while the queue is paused
+
+- **Given** the queue is paused, a request is Requested and an answer delivery is due
+- **When** a dispatcher calls `GET /session-requests/wait`
+- **Then** it receives the delivery, and once no delivery is due its next call is held and answered `204` with no request
+
+#### Scenario: The person resumes the queue
+
+- **Given** the queue is paused and a dispatcher's wait is held while a request is Requested
+- **When** the person presses Resume queue
+- **Then** the callout goes and the held call hands out the Requested request at the head of the queue
 
 ### Requirement: The flag off offers no session requests
 
