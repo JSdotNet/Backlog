@@ -101,6 +101,10 @@ public sealed class DomainEventIndexTests
 
         Assert.Equal([new DomainEventMove("Ready", "In progress")], moves["TaskProjected"]);
         Assert.Equal([new DomainEventMove("In progress", "Done")], moves["TaskCompleted"]);
+        // Each move knows where the Domain page draws it: the unit, and the
+        // lifecycle's place among the diagrams its chapter draws.
+        Assert.Equal(new DomainMovePlace(".devbook/domain/tasks/domain.md", "task", 0), moves["TaskProjected"][0].Place);
+        Assert.Equal(".devbook/domain/tasks/domain.md#task", moves["TaskProjected"][0].Place!.Reference);
         Assert.False(moves.ContainsKey("StatusChanged"));
         // A legacy flow.md is a file like any other since devbook contract 37: its
         // chapters are no unit's, so its lifecycle raises nothing.

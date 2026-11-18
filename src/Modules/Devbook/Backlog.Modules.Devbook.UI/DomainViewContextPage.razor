@@ -150,13 +150,15 @@ else if (_read?.Problem is { } problem)
                 ? DomainNeighbours.Read(DependenciesChapter(rootText), root.Path, named)
                 : DomainNeighbourhood.Empty;
 
+        var kind = kinds.GetValueOrDefault(context.Slug)?.Kind;
+        var overview = DomainContextOverview.Read(rootText, root?.Path, others) with { Subdomain = kind };
         return new ContextReading(
             context.DisplayName,
-            DomainContextOverview.Read(rootText, root?.Path, others) with { Subdomain = kinds.GetValueOrDefault(context.Slug)?.Kind },
+            overview,
             neighbours.Describe(named),
             root?.Path,
             null,
-            Summary(kinds.GetValueOrDefault(context.Slug)?.Kind, context.Status));
+            Summary(kind, overview.Deployment, context.Status));
     }
 
     /// <summary>Each context folder as the context map classifies it, its subdomain
@@ -176,12 +178,14 @@ else if (_read?.Problem is { } problem)
         return kinds;
     }
 
-    /// <summary>The middle card's line: the subdomain type and the context's
-    /// status, <c>Core · draft</c>, each left out when unknown.</summary>
-    internal static string? Summary(string? kind, string? status)
+    /// <summary>The middle card's line: the subdomain type, the deployment the
+    /// Overview's badge reads (<c>context.md</c>'s <c>deployment</c>) and the
+    /// context's status, <c>Core · module · draft</c>, each left out when unknown.</summary>
+    internal static string? Summary(string? kind, string? deployment, string? status)
     {
-        var parts = new List<string>(2);
+        var parts = new List<string>(3);
         if (!string.IsNullOrWhiteSpace(kind)) parts.Add(char.ToUpperInvariant(kind[0]) + kind[1..]);
+        if (!string.IsNullOrWhiteSpace(deployment)) parts.Add(deployment.Trim().ToLowerInvariant());
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "none", StringComparison.OrdinalIgnoreCase)) parts.Add(status);
         return parts.Count == 0 ? null : string.Join(" · ", parts);
     }

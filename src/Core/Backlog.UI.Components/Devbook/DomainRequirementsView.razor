@@ -4,7 +4,8 @@
     title and a card: what a requirement is, with how many the file holds and
     how many a test proves. Beside it, where the file's features lean on any
     rule, a second card — What is always true · n rules · on Domain — counts the
-    distinct rules they lean on; each feature lists its own below.
+    distinct rules they lean on, and with a host that opens Always true it is a
+    button that opens the first such unit there; each feature lists its own below.
 
     Below them, an unsplit requirements.md lists its features By feature · tested,
     each with its proved / count and a bar; a split requirements.<name>.md holds
@@ -49,13 +50,22 @@
                 </div>
                 @if (RuleCount > 0)
                 {
-                    <div class="domain-requirements__card" data-testid="domain-requirements-rules-summary">
-                        <div class="domain-requirements__card-head">
-                            <b>What is always true</b>
-                            <span class="domain-requirements__card-meta" data-testid="domain-requirements-rules-tally">@($"{DomainRuleText.Count(RuleCount)} · on Domain")</span>
+                    @if (OnOpenAlwaysTrue.HasDelegate && AlwaysTrueUnit is { } unit)
+                    {
+                        <button type="button"
+                                class="domain-requirements__card domain-requirements__card--link"
+                                data-testid="domain-requirements-rules-summary"
+                                data-unit="@unit.UnitKey"
+                                @onclick="@(() => OnOpenAlwaysTrue.InvokeAsync(unit))">
+                            @RulesCard()
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="domain-requirements__card" data-testid="domain-requirements-rules-summary">
+                            @RulesCard()
                         </div>
-                        <span class="domain-requirements__card-text">What the model never lets happen, whoever changes it. Not promises: each feature below lists the rules its requirements lean on.</span>
-                    </div>
+                    }
                 }
             </div>
         </header>
@@ -271,6 +281,24 @@
             .Select(rule => rule.Place?.Rule ?? (rule.Reference.Length > 0 ? rule.Reference : rule.Title))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Count();
+
+    /// <summary>The unit the What is always true card opens on the Domain page:
+    /// the first whose rules a feature of the file leans on, at the tab's top.
+    /// <see langword="null"/> when no group lists a rule.</summary>
+    private DomainAlwaysTrueLink? AlwaysTrueUnit =>
+        Groups.SelectMany(group => group.AlwaysTrue).FirstOrDefault(unit => unit.Listed.Count > 0) is { } first
+            ? first with { Rule = null }
+            : null;
+
+    // Spans throughout: the card is a button when it opens Always true.
+    private RenderFragment RulesCard() =>
+        @<text>
+            <span class="domain-requirements__card-head">
+                <b>What is always true</b>
+                <span class="domain-requirements__card-meta" data-testid="domain-requirements-rules-tally">@($"{DomainRuleText.Count(RuleCount)} · on Domain")</span>
+            </span>
+            <span class="domain-requirements__card-text">What the model never lets happen, whoever changes it. Not promises: each feature below lists the rules its requirements lean on.</span>
+        </text>;
 
     private async Task SelectAsync(DomainRequirementGroup group)
     {

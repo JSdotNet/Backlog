@@ -205,6 +205,41 @@ public sealed class DomainModelViewTests
         // An event no lifecycle raises says nothing of a move.
         view.FindAll("[data-testid='domain-event-pick']")[2].Click();
         Assert.Empty(view.FindAll("[data-testid='domain-event-fires']"));
+
+        // With no host to follow it, a move is text.
+        Assert.Empty(view.FindAll("[data-testid='domain-event-move-link']"));
+    }
+
+    [Fact]
+    public void A_move_an_event_fires_on_opens_its_lifecycle_on_the_Domain_page()
+    {
+        var place = new DomainMovePlace(".devbook/domain/tasks/domain.md", "task", 0);
+        var chapters = Fired with
+        {
+            Moves = new Dictionary<string, IReadOnlyList<DomainEventMove>>
+            {
+                ["TaskProjected"] = [new DomainEventMove("Ready", "In progress") { Place = place }],
+                ["TaskCompleted"] = [new DomainEventMove("In progress", "Done")]
+            }
+        };
+        DomainEventMove? opened = null;
+
+        using var context = Context();
+        var view = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Order)])
+            .Add(v => v.Chapters, chapters)
+            .Add(v => v.OnOpenMove, move => opened = move));
+        view.Find("[data-testid='domain-model-tab-events']").Click();
+
+        var link = view.Find("[data-testid='domain-event-move-link']");
+        Assert.Equal("Ready → In progress", link.TextContent.Trim());
+        link.Click();
+        Assert.Equal(place, opened!.Place);
+
+        // A move read from no domain file has nowhere to open.
+        view.FindAll("[data-testid='domain-event-pick']")[1].Click();
+        Assert.Empty(view.FindAll("[data-testid='domain-event-move-link']"));
+        Assert.Equal("In progress → Done", view.Find("[data-testid='domain-event-move']").TextContent.Trim());
     }
 
     [Fact]
@@ -319,6 +354,103 @@ public sealed class DomainModelViewTests
         var service = view.Find("[data-testid='domain-model-service']");
         Assert.Equal("Projection", service.GetAttribute("data-name"));
         Assert.Contains("Domain services that act on the Task", view.Find("[data-testid='domain-model-services']").TextContent);
+
+        // A chapter that does not say how it runs gives no caption.
+        Assert.Empty(view.FindAll("[data-testid='domain-model-service-caption']"));
+    }
+
+    [Fact]
+    public void A_service_card_on_Diagram_says_what_calls_it()
+    {
+        using var context = Context();
+        var chapters = new DomainChapterReading(
+            [new DomainServiceInvocation("Occurrence Spawning", "#occurrence-spawning", "Creates the next task.", "Called when a repeat is ticked. No mediator.")],
+            []);
+
+        var view = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Tasks)])
+            .Add(v => v.Chapters, chapters));
+
+        var service = view.Find("[data-testid='domain-model-service']");
+        Assert.Equal("Called when a repeat is ticked", service.QuerySelector("[data-testid='domain-model-service-caption']")!.TextContent);
+        Assert.Contains("Creates the next task.", service.TextContent);
+    }
+
+    [Fact]
+    public void How_a_service_runs_says_why_it_is_one_and_what_it_raises()
+    {
+        using var context = Context();
+        var chapters = new DomainChapterReading(
+            [
+                new DomainServiceInvocation("Projection", "#projection", "Creates one issue per repository.", "Command: a push the person asks for.")
+                {
+                    Reason = "It spans several downstream artifacts, not one change to a single task."
+                },
+                new DomainServiceInvocation("Delivery", "#delivery", "Hands an order over.", null)
+            ],
+            [
+                new DomainEventContract("TaskProjected", "#taskprojected", "draft", "Published when projected.", ["Projection"], null, null, null, DomainEventDelivery.Documented),
+                new DomainEventContract("TaskCompleted", "#taskcompleted", "draft", "Published when done.", ["Projection"], null, null, null, DomainEventDelivery.Documented),
+                new DomainEventContract("OrderShipped", "#ordershipped", "draft", "Published when shipped.", ["Delivery"], null, null, null, DomainEventDelivery.Emitted),
+                new DomainEventContract("OrderLost", "#orderlost", "draft", "Published when lost.", ["Delivery"], null, null, null, DomainEventDelivery.Documented)
+            ]);
+
+        var view = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Order)])
+            .Add(v => v.Chapters, chapters));
+        view.Find("[data-testid='domain-model-tab-fields']").Click();
+
+        var cards = view.FindAll("[data-testid='domain-service-invocation']");
+        var projection = cards[0];
+        Assert.Equal(
+            ["Invocation", "Why a service", "Raises"],
+            projection.QuerySelectorAll(".domain-services__label").Select(label => label.TextContent.Trim()));
+        Assert.Equal("It spans several downstream artifacts, not one change to a single task.", projection.QuerySelector("[data-testid='domain-service-why'] dd")!.TextContent.Trim());
+
+        // Events that share a state say it once, as the board does.
+        var raises = projection.QuerySelector("[data-testid='domain-service-raises'] dd")!;
+        Assert.Equal(["TaskProjected", "TaskCompleted"], raises.QuerySelectorAll("[data-testid='domain-service-raised']").Select(e => e.GetAttribute("data-name")));
+        Assert.EndsWith("— documented, not emitted", raises.TextContent.Trim(), StringComparison.Ordinal);
+
+        // Mixed states say each event's own; a chapter that gives no reason has no row.
+        var delivery = cards[1];
+        Assert.Null(delivery.QuerySelector("[data-testid='domain-service-why']"));
+        Assert.Single(delivery.QuerySelectorAll("[data-testid='domain-service-unsaid']"));
+        Assert.Equal(["emitted", "documented"], delivery.QuerySelectorAll("[data-testid='domain-service-raised']").Select(e => e.GetAttribute("data-delivery")));
+        var mixed = delivery.QuerySelector("[data-testid='domain-service-raises'] dd")!.TextContent;
+        Assert.Contains("OrderShipped (emitted)", mixed, StringComparison.Ordinal);
+        Assert.Contains("OrderLost (documented)", mixed, StringComparison.Ordinal);
+        Assert.Null(delivery.QuerySelector("[data-testid='domain-service-relies']"));
+    }
+
+    [Fact]
+    public void Events_names_each_raiser_with_its_kind()
+    {
+        using var context = Context();
+        var chapters = new DomainChapterReading(
+            [],
+            [
+                new DomainEventContract("TaskProjected", "#taskprojected", "draft", "Published when projected.", ["Projection", "Task"], null, null, null, DomainEventDelivery.Documented)
+                {
+                    Raisers = [new DomainEventRaiser("Projection", "service"), new DomainEventRaiser("Task", "aggregate")]
+                },
+                new DomainEventContract("TaskCompleted", "#taskcompleted", "draft", "Published when done.", ["Task"], null, null, null, DomainEventDelivery.Documented)
+            ]);
+
+        var view = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Order)])
+            .Add(v => v.Chapters, chapters));
+        view.Find("[data-testid='domain-model-tab-events']").Click();
+
+        var raisers = view.FindAll("[data-testid='domain-event-raiser']");
+        Assert.Equal(["Projection service", "Task aggregate"], raisers.Select(r => r.TextContent.Trim()));
+        Assert.Equal(["service", "aggregate"], raisers.Select(r => r.GetAttribute("data-kind")));
+        Assert.Equal("Projection", raisers[0].QuerySelector("strong")!.TextContent);
+
+        // An event read without its raisers' chapters names them alone.
+        view.FindAll("[data-testid='domain-event-pick']")[1].Click();
+        Assert.Empty(view.FindAll("[data-testid='domain-event-raiser']"));
+        Assert.Contains("Task", view.Find("[data-testid='domain-event-raised-by']").TextContent);
     }
 
     [Fact]

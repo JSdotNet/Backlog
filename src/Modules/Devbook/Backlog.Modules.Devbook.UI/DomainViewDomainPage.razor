@@ -18,10 +18,12 @@
                     RequirementFiles="@_requirementFiles"
                     InvariantFiles="@_invariantFiles"
                     ModelPath="@_modelPath"
+                    ModelPaths="@_modelPaths"
                     DomainName="@_domainName"
                     @bind-ActiveUnit="_activeUnit"
                     ActiveUnitPage="@OpenUnitPage"
                     ActiveRule="@OpenRule"
+                    ActiveFlow="@OpenFlow"
                     OnOpenAlwaysTrue="OnOpenAlwaysTrue"
                     OnNavigate="NavigateAsync"
                     AriaLabel="@($"Domain of {_contextName}")" />
@@ -64,6 +66,11 @@ else if (_problem is not null)
     [Parameter]
     public string? OpenRule { get; set; }
 
+    /// <summary>The diagram the unit focuses, by its place among those its chapter
+    /// draws — the lifecycle a move on Model's Events linked to. Unset focuses none.</summary>
+    [Parameter]
+    public int? OpenFlow { get; set; }
+
     /// <summary>A rule shown here whose unit is another domain file's, followed
     /// to its row on that unit's Always true tab.</summary>
     [Parameter]
@@ -75,6 +82,7 @@ else if (_problem is not null)
     private IReadOnlyList<DomainChapterFile> _requirementFiles = [];
     private IReadOnlyList<DomainChapterFile> _invariantFiles = [];
     private string? _modelPath;
+    private IReadOnlyList<string> _modelPaths = [];
     private string? _domainName;
     private string _contextName = "the context";
     private string? _activeUnit;
@@ -135,7 +143,7 @@ else if (_problem is not null)
         if (_disposed || version != _version) return;
         (_page, _domainFiles, _requirementFiles, _invariantFiles, _contextName, _problem) =
             (read.Page, read.DomainFiles, read.RequirementFiles, read.InvariantFiles, read.ContextName, read.Problem);
-        (_modelPath, _domainName) = (read.ModelPath, read.DomainName);
+        (_modelPath, _modelPaths, _domainName) = (read.ModelPath, read.ModelPaths, read.DomainName);
     }
 
     /// <summary>The domain file the menu path names, the context's domain files
@@ -169,7 +177,8 @@ else if (_problem is not null)
 
         return new DomainViewDomainRead(page, domainFiles, requirementFiles, invariantFiles, context.DisplayName, null)
         {
-            ModelPath = DomainViewDomainRead.ModelFor(document, context.Documents),
+            ModelPath = DomainViewDomainRead.ModelFor(document, context.Documents, page),
+            ModelPaths = DomainViewDomainRead.ModelPathsOf(context.Documents),
             DomainName = DomainViewDomainRead.DomainNameOf(view.ContextMap.Title)
         };
     }

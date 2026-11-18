@@ -21,7 +21,31 @@ public sealed record DomainEventConsumer(string Name, string? What);
 
 /// <summary>A move of a lifecycle that raises an event: the states it leaves and
 /// reaches, by the labels the diagram gives them — "Ready", "In progress".</summary>
-public sealed record DomainEventMove(string From, string To);
+public sealed record DomainEventMove(string From, string To)
+{
+    /// <summary>Where the Domain page draws the lifecycle the move is on, or null
+    /// when the move was not read from a domain file. Not part of what the move
+    /// is: two moves between the same states are one move however many diagrams
+    /// draw it.</summary>
+    public DomainMovePlace? Place { get; init; }
+
+    public bool Equals(DomainEventMove? other) =>
+        other is not null && string.Equals(From, other.From, StringComparison.Ordinal) && string.Equals(To, other.To, StringComparison.Ordinal);
+
+    public override int GetHashCode() => HashCode.Combine(From, To);
+}
+
+/// <summary>The lifecycle a move is drawn on, as the Domain page finds it.</summary>
+/// <param name="DocumentPath">The domain file, as the host spells it.</param>
+/// <param name="UnitKey">The unit of that file whose chapter draws it
+/// (<see cref="DomainUnit.Key"/>).</param>
+/// <param name="Flow">Its place among the diagrams the unit draws
+/// (<see cref="DomainFlows.InChapter"/>) — what a "How it moves" link focuses.</param>
+public sealed record DomainMovePlace(string DocumentPath, string UnitKey, int Flow)
+{
+    /// <summary>The unit's reference: the file and the unit's anchor.</summary>
+    public string Reference => $"{DocumentPath}#{UnitKey}";
+}
 
 /// <summary>
 /// The Events tab's index and detail, read out of the chapters as written
@@ -159,18 +183,19 @@ public static partial class DomainEventIndex
     /// the context's aggregate and domain-service chapters draw whose label names
     /// the event, by the event's name, each move once, in source order. Prose saying a move "would emit" an
     /// event is not read, nor a flowchart's edges or a note: only a transition.
+    /// Each move carries where it is first drawn (<see cref="DomainEventMove.Place"/>).
     /// </summary>
     public static IReadOnlyDictionary<string, IReadOnlyList<DomainEventMove>> Moves(IEnumerable<DomainChapterFile> files)
     {
         ArgumentNullException.ThrowIfNull(files);
 
         var moves = new Dictionary<string, List<DomainEventMove>>(StringComparer.Ordinal);
-        foreach (var diagram in files.SelectMany(Lifecycles))
+        foreach (var (diagram, place) in files.SelectMany(Lifecycles))
         {
             foreach (var transition in diagram.Transitions)
             {
                 if (transition.Event is not { } raised) continue;
-                var move = new DomainEventMove(Name(diagram, transition.From), Name(diagram, transition.To));
+                var move = new DomainEventMove(Name(diagram, transition.From), Name(diagram, transition.To)) { Place = place };
                 if (!moves.TryGetValue(raised.Name, out var list)) moves[raised.Name] = list = [];
                 if (!list.Contains(move)) list.Add(move);
             }
@@ -178,11 +203,15 @@ public static partial class DomainEventIndex
         return moves.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<DomainEventMove>)pair.Value, StringComparer.Ordinal);
     }
 
-    private static IEnumerable<DomainFlowDiagram> Lifecycles(DomainChapterFile file) =>
-        file.AllChapters()
-            .Where(chapter => chapter.Type is "aggregate" or "domain-service")
-            .SelectMany(chapter => DomainFlows.InChapter(chapter).Select(flow => flow.Figure))
-            .OfType<DomainFlowDiagram>();
+    // Each unit's lifecycles with their place among the diagrams it draws, as
+    // the Domain page keys and orders them.
+    private static IEnumerable<(DomainFlowDiagram Diagram, DomainMovePlace Place)> Lifecycles(DomainChapterFile file) =>
+        DomainUnits.Of(file)
+            .Where(unit => unit.Kind is DomainUnitKind.Aggregate or DomainUnitKind.DomainService)
+            .SelectMany(unit => DomainFlows.InChapter(unit.Chapter)
+                .Select((flow, index) => (flow.Figure, Place: new DomainMovePlace(file.Path, unit.Key, index))))
+            .Where(flow => flow.Figure is DomainFlowDiagram)
+            .Select(flow => ((DomainFlowDiagram)flow.Figure, flow.Place));
 
     private static string Name(DomainFlowDiagram diagram, string id) => diagram.State(id) switch
     {

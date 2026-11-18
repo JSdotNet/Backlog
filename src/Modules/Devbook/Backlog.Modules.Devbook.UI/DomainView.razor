@@ -28,7 +28,8 @@
 <CascadingValue Value="@Links" IsFixed="false">
     @if (Page == DomainViewPage.ContextMap)
     {
-        <DomainViewContextMapPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" />
+        @* Through OpenAsync, so an owner's model.md#events opens Model on Events. *@
+        <DomainViewContextMapPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OpenAsync" />
     }
     else if (Page == DomainViewPage.Domain)
     {
@@ -36,6 +37,7 @@
                               OpenUnit="@Asked?.Anchor"
                               OpenUnitPage="@(Asked is { AlwaysTrue: true } ? DomainUnitPage.AlwaysTruePage : null)"
                               OpenRule="@Asked?.Rule"
+                              OpenFlow="@Asked?.Flow"
                               OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
     }
     else if (Page == DomainViewPage.Features)
@@ -68,7 +70,7 @@
     }
     else if (Page == DomainViewPage.Model)
     {
-        <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OpenAnchor="@Asked?.Anchor" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
+        <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OpenAnchor="@Asked?.Anchor" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" OnOpenMove="OpenMoveAsync" />
     }
     else if (Page == DomainViewPage.File)
     {
@@ -256,9 +258,10 @@
     /// anchor, and whether it is a unit's Always true tab. The pane holds the
     /// selection and passes only the file back, so the anchor is held here until
     /// the pane has moved to that file — Requirements then opens on the feature's
-    /// group, Features on the feature, Domain on the unit's Always true tab.
+    /// group, Features on the feature, Domain on the unit's Always true tab, or
+    /// on the lifecycle a move on Model's Events named (<paramref name="Flow"/>).
     /// </summary>
-    private sealed record AskedChapter(string RelativePath, string Anchor, bool AlwaysTrue, string? Rule = null);
+    private sealed record AskedChapter(string RelativePath, string Anchor, bool AlwaysTrue, string? Rule = null, int? Flow = null);
 
     private AskedChapter? _asked;
     private string? _shownPath;
@@ -292,9 +295,16 @@
     private Task OpenAlwaysTrueAsync(DomainAlwaysTrueLink unit) =>
         DevbookChapterLink.From(unit.Reference) is { } target ? FollowAsync(target, alwaysTrue: true, unit.Rule) : Task.CompletedTask;
 
-    private Task FollowAsync(DevbookChapterLink target, bool alwaysTrue, string? rule = null)
+    /// <summary>A move under "Fires on" followed: the Domain page opens on the
+    /// unit whose chapter draws it, with that lifecycle focused.</summary>
+    private Task OpenMoveAsync(DomainEventMove move) =>
+        move.Place is { } place && DevbookChapterLink.From(place.Reference) is { } target
+            ? FollowAsync(target, alwaysTrue: false, flow: place.Flow)
+            : Task.CompletedTask;
+
+    private Task FollowAsync(DevbookChapterLink target, bool alwaysTrue, string? rule = null, int? flow = null)
     {
-        _asked = target.Anchor is { Length: > 0 } anchor ? new AskedChapter(target.RelativePath, anchor, alwaysTrue, rule) : null;
+        _asked = target.Anchor is { Length: > 0 } anchor ? new AskedChapter(target.RelativePath, anchor, alwaysTrue, rule, flow) : null;
         return OnNavigateToChapter.InvokeAsync(target);
     }
 

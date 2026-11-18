@@ -3,7 +3,7 @@
 <PageTitle>Domain events — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain events"
-           Summary="The Model page's Events tab: DomainEventContracts lists each domain-event chapter of a bounded context in an All events index — who raises it, when, who consumes it, and whether the chapters say it is emitted or only documented — with the picked event's contract beneath: raised by, the event, consumed by; its payload as rows; the published-language rules; and the moves of the context's lifecycles that raise it, under Would fire on until it is emitted. What the context listens to comes from its dependency tables."
+           Summary="The Model page's Events tab: DomainEventContracts lists each domain-event chapter of a bounded context in an All events index — who raises it, when, who consumes it, and whether the chapters say it is emitted or only documented — with the picked event's contract beneath: raised by, the event, consumed by; its payload as rows; the published-language rules; and the moves of the context's lifecycles that raise it, under Would fire on until it is emitted, each a link to its lifecycle on the Domain page. What the context listens to comes from its dependency tables."
            Guidelines="@Rules">
 
     <Story Name="Index and one contract"
@@ -16,12 +16,16 @@
     </Story>
 
     <Story Name="Would fire on"
-           Description="An event a lifecycle the context draws raises on a move says so after its published-language rules: the move's states by their labels, read from the stateDiagram-v2 transition whose label names the event — never from prose. It reads Would fire on while the event is documented and Fires on once it is emitted; an event no transition names has no such part."
+           Description="An event a lifecycle the context draws raises on a move says so after its published-language rules: the move's states by their labels, read from the stateDiagram-v2 transition whose label names the event — never from prose. It reads Would fire on while the event is documented and Fires on once it is emitted; an event no transition names has no such part. Each move is a link: the host opens the Domain page on the unit that draws the lifecycle and focuses it, as How it moves does. Raised by names each raiser with its kind — Task aggregate."
            Code="@MovesCode"
            Source="@Lifecycle"
            SourceLabel="domain.md"
            SourceLanguage="markdown">
-        <DomainEventContracts Events="@Fired.Events" Moves="@Fired.Moves" Context="Tasks" Root="Task" TestId="story-domain-events-fires" />
+        <DomainEventContracts Events="@Fired.Events" Moves="@Fired.Moves" Context="Tasks" Root="Task" OnOpenMove="@(move => _openedMove = move)" TestId="story-domain-events-fires" />
+        @if (_openedMove?.Place is { } place)
+        {
+            <p class="story-followed">Opened the Domain page on <code>@place.Reference</code>, diagram @(place.Flow + 1).</p>
+        }
     </Story>
 
     <Story Name="A section the chapter does not write"
@@ -147,8 +151,11 @@
         DomainChapterContracts.Read([new DomainChapterSource(".domain/tasks/domain.md", Lifecycle)])
             with { Moves = DomainEventIndex.Moves([DomainUnits.Parse(Lifecycle, ".domain/tasks/domain.md")]) };
 
+    private DomainEventMove? _openedMove;
+
     private const string MovesCode = """
-        <DomainEventContracts Events="@reading.Events" Moves="@reading.Moves" Context="Tasks" Root="Task" />
+        <DomainEventContracts Events="@reading.Events" Moves="@reading.Moves" Context="Tasks" Root="Task"
+                              OnOpenMove="OpenLifecycleAsync" />
 
         @code {
             // The moves come from the lifecycles the context's domain files draw.

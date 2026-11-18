@@ -3,7 +3,7 @@
 <PageTitle>Domain model fields — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain model fields"
-           Summary="The Model page's Fields tab: DomainModelFieldsView lists an aggregate root's fields in the model file's purpose groups — each with its meaning and how many invariants it points at — beside what the root owns, and DomainServiceInvocations says how each domain service runs, from its chapter's Invocation semantics."
+           Summary="The Model page's Fields tab: DomainModelFieldsView lists an aggregate root's fields in the model file's purpose groups — each with its meaning and how many invariants it points at — beside what the root owns, and DomainServiceInvocations says how each domain service runs, from its chapter's Invocation semantics — why it is a service, what it raises and the rules it relies on beside it."
            Guidelines="@Rules">
 
     <Story Name="Fields in purpose groups"
@@ -34,9 +34,9 @@
     </Story>
 
     <Story Name="Domain services · how they run"
-           Description="Each domain-service chapter's first sentence and its Invocation semantics prose — the paragraph after the label, or the list beneath a label that ends its line. A chapter that says nothing about how it runs is named as such."
+           Description="Each domain-service chapter's first sentence, then a row per fact the chapters give. Invocation is its Invocation semantics prose — the paragraph after the label, or the list beneath a label that ends its line — and a chapter that says nothing about how it runs is named as such. Why a service is its “It is a service because” sentence. Raises names each event whose raiser it is, with its state: once when they share one, beside each when they differ. Relies on is the rules about it and what its related names, one line per group of a unit's Always true; press one to open its rules in place. A row the chapters give nothing for is left out."
            Code="@ServicesCode">
-        <DomainServiceInvocations Services="@Services" TestId="story-domain-services" />
+        <DomainServiceInvocations Services="@Services" Events="@Events" RuleCatalog="@Catalog" TestId="story-domain-services" />
     </Story>
 
     <Story Name="On the Model page"
@@ -241,15 +241,30 @@
     private static readonly IReadOnlyList<DomainServiceInvocation> Services =
     [
         new("Occurrence Spawning", "#occurrence-spawning", "Creates the next occurrence of a repeating task.",
-            "Called synchronously by the use case that completes the task. It is deliberately not an event-triggered policy."),
+            "Called synchronously by the use case that completes the task. It is deliberately not an event-triggered policy.")
+        {
+            Reason = "It creates a second Task, which an aggregate cannot do to itself.",
+            References = [".devbook/domain/tasks/domain.md#occurrence-spawning", ".devbook/domain/tasks/domain.md#sub-item"]
+        },
         new("Classification", "#classification", "Proposes where an inbox item belongs.",
             "- On intake, it is called by the intake and capture commands.\n- Otherwise it is a query the pane asks for whenever the item on screen changes."),
         new("Projection", "#projection", "Creates and closes downstream artifacts for a multi-repo task.", null)
+        {
+            Reason = "It spans several downstream artifacts, not one change to a single task."
+        }
+    ];
+
+    // The events each service raises, as Events reads them.
+    private static readonly IReadOnlyList<DomainEventContract> Events =
+    [
+        new("OccurrenceSpawned", "#occurrencespawned", "draft", "Published when the next occurrence is created.", ["Occurrence Spawning"], null, null, null, DomainEventDelivery.Documented),
+        new("TaskProjected", "#taskprojected", "draft", "Published when a task begins external execution.", ["Projection"], null, null, null, DomainEventDelivery.Documented),
+        new("TaskCompleted", "#taskcompleted", "draft", "Published when a projected task is done.", ["Projection"], null, null, null, DomainEventDelivery.Emitted)
     ];
 
     private static readonly IReadOnlyList<DomainModelFence> Fences = [new DomainModelFence("Model diagram", Tasks)];
 
-    private static readonly DomainChapterReading Chapters = new(Services, []);
+    private static readonly DomainChapterReading Chapters = new(Services, Events);
 
     private const string FieldsCode = """
         <DomainModelFieldsView Source="@classDiagramFenceBody"
@@ -263,7 +278,10 @@
         """;
 
     private const string ServicesCode = """
-        <DomainServiceInvocations Services="@reading.Services" />
+        <DomainServiceInvocations Services="@reading.Services"
+                                  Events="@reading.Events"
+                                  RuleCatalog="@DomainRuleCatalog.Of(domainFiles, invariantFiles)"
+                                  OnOpenRule="OpenAlwaysTrueAsync" />
 
         @code {
             // Read from the context's domain.md and its splits.

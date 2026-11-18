@@ -367,6 +367,63 @@ public sealed class DomainRulesInPlaceTests
         Assert.Equal(2, view.Find("[data-testid='domain-model-rule-list']").QuerySelectorAll("[data-testid='domain-rule-list-rule']").Length);
     }
 
+    private static DomainServiceInvocation Pricing(params string[] related) =>
+        new("Pricing", $"{DomainPath}#pricing", "Prices an order.", "Called at checkout.")
+        {
+            References = [$"{DomainPath}#pricing", .. related]
+        };
+
+    [Fact]
+    public void A_service_relies_on_the_rules_about_what_it_names_grouped_as_always_true_groups_them()
+    {
+        var order = DomainServiceReliance.Of(Pricing($"{DomainPath}#order"), Catalog);
+
+        // The unit's own group, then another concept's by its heading as
+        // written, each with its count.
+        Assert.Equal(["Order (3)", "Order · Order Line (2)"], order.Select(reliance => reliance.Label));
+        Assert.Equal("Order Line", order[1].Group);
+        Assert.Equal(["A line has a quantity", "Lines change through the order"], order[1].Rules.Select(rule => rule.Title));
+
+        var line = Assert.Single(DomainServiceReliance.Of(Pricing($"{DomainPath}#order-line"), Catalog));
+        Assert.Equal("Order · Order Line (2)", line.Label);
+
+        Assert.Empty(DomainServiceReliance.Of(Pricing(), Catalog));
+        Assert.Empty(DomainServiceReliance.Of(Pricing($"{DomainPath}#order"), null));
+    }
+
+    [Fact]
+    public void How_a_service_runs_says_what_it_relies_on_and_opens_those_rules_in_place()
+    {
+        using var context = Context();
+        DomainAlwaysTrueLink? opened = null;
+        var view = context.Render<DomainServiceInvocations>(p => p
+            .Add(v => v.Services, [Pricing($"{DomainPath}#order-line")])
+            .Add(v => v.RuleCatalog, Catalog)
+            .Add(v => v.OnOpenRule, link => opened = link));
+
+        var relies = view.Find("[data-testid='domain-service-relies']");
+        Assert.Equal("Relies on", relies.QuerySelector("dt")!.TextContent.Trim());
+        var toggle = relies.QuerySelector("[data-testid='domain-service-rules']")!;
+        Assert.Equal("Order · Order Line (2)", toggle.TextContent.Trim());
+        Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
+        Assert.Empty(view.FindAll("[data-testid='domain-service-rule-list']"));
+
+        toggle.Click();
+        var list = view.Find("[data-testid='domain-service-rule-list']");
+        Assert.Equal(list.Id, view.Find("[data-testid='domain-service-rules']").GetAttribute("aria-controls"));
+        Assert.Equal(2, list.QuerySelectorAll("[data-testid='domain-rule-list-rule']").Length);
+
+        view.FindAll("[data-testid='domain-rule-list-toggle']")[0].Click();
+        view.Find("[data-testid='domain-rule-list-open']").Click();
+        Assert.Equal($"{InvariantsPath}#invariant-a-line-has-a-quantity", opened!.Rule);
+
+        // A service that names nothing with rules has no Relies on row.
+        var none = context.Render<DomainServiceInvocations>(p => p
+            .Add(v => v.Services, [Pricing()])
+            .Add(v => v.RuleCatalog, Catalog));
+        Assert.Empty(none.FindAll("[data-testid='domain-service-relies']"));
+    }
+
     [Fact]
     public void A_features_detail_shows_what_is_always_true_of_what_it_uses()
     {
