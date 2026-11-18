@@ -208,6 +208,19 @@ public sealed class TasksPlanSessionRequests : IDisposable
         }
     }
 
+    /// <summary>Reads the open requests back whatever a poll on its way would answer, as
+    /// a press that moved them elsewhere does — the session queue's Move, whose order spans
+    /// the plan requests too — and redraws.</summary>
+    public async Task ReadBackAsync()
+    {
+        if (_port is null || _open.IsDisposed || !_port.IsOffered) return;
+
+        _open.Supersede();
+        await _open.ReadBackAsync();
+
+        if (!_open.IsDisposed) Changed?.Invoke();
+    }
+
     public void Dispose()
     {
         _open.Dispose();

@@ -152,6 +152,60 @@ public sealed class SessionRequestActionsTests : IDisposable
     }
 
     [Fact]
+    public async Task Open_requests_carry_their_place_in_one_queue_across_entries_and_plans()
+    {
+        var store = Store();
+        var actions = new SessionRequestActions(store, clock: _clock);
+        var firstEntry = Guid.NewGuid();
+        var secondEntry = Guid.NewGuid();
+
+        await ((IEntrySessionRequests)actions).RequestAsync(firstEntry, "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        await ((IPlanSessionRequests)actions).RequestAsync("+session-dispatch", "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        var claimed = await ((IEntrySessionRequests)actions).RequestAsync(secondEntry, "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
+        await store.ClaimAsync(claimed.Id, "manager", Ct);
+
+        var entries = await ((IEntrySessionRequests)actions).OpenAsync(Ct);
+        var plans = await ((IPlanSessionRequests)actions).OpenAsync(Ct);
+
+        Assert.Equal(0, entries[firstEntry].QueuePosition);
+        Assert.Equal(1, plans["session-dispatch"].QueuePosition);
+        Assert.Null(entries[secondEntry].QueuePosition);
+    }
+
+    [Fact]
+    public async Task Moving_a_plan_request_above_an_entry_request_reorders_the_one_queue()
+    {
+        var store = Store();
+        var actions = new SessionRequestActions(store, clock: _clock);
+        var entryId = Guid.NewGuid();
+
+        var entry = await ((IEntrySessionRequests)actions).RequestAsync(entryId, "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        var plan = await ((IPlanSessionRequests)actions).RequestAsync("+session-dispatch", "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
+
+        Assert.True(await ((ISessionQueueOrder)actions).MoveAsync(plan.Id, 0, Ct));
+
+        Assert.Equal(0, (await ((IPlanSessionRequests)actions).OpenAsync(Ct))["session-dispatch"].QueuePosition);
+        Assert.Equal(1, (await ((IEntrySessionRequests)actions).OpenAsync(Ct))[entryId].QueuePosition);
+        Assert.Equal(plan.Id, (await store.NextAsync(Ct))!.Id);
+        Assert.NotEqual(entry.Id, (await store.NextAsync(Ct))!.Id);
+    }
+
+    [Fact]
+    public async Task A_move_the_queue_refuses_answers_false()
+    {
+        var store = Store();
+        var actions = new SessionRequestActions(store, clock: _clock);
+        var request = await ((IEntrySessionRequests)actions).RequestAsync(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
+        await store.ClaimAsync(request.Id, "manager", Ct);
+
+        Assert.False(await ((ISessionQueueOrder)actions).MoveAsync(request.Id, 0, Ct));
+        Assert.False(await ((ISessionQueueOrder)SessionRequestActions.NotOffered).MoveAsync(request.Id, 0, Ct));
+    }
+
+    [Fact]
     public void The_entry_port_reads_dispatcher_contact_from_the_record_the_wait_route_keeps()
     {
         var contact = new DispatcherContact(_clock);

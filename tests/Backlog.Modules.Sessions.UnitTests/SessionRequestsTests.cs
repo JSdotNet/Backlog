@@ -394,7 +394,7 @@ public sealed class SessionRequestsTests
     }
 
     [Fact]
-    public void Waiting_requests_are_handed_out_oldest_first_and_include_lapsed_claims()
+    public void Requests_never_moved_wait_oldest_first_and_include_lapsed_claims()
     {
         var newest = SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon.AddMinutes(10));
         var oldest = SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon.AddMinutes(-10));
@@ -403,6 +403,140 @@ public sealed class SessionRequestsTests
 
         Assert.Equal([oldest, newest], SessionRequests.Waiting([newest, started, lapsed, oldest], Noon.AddMinutes(1)));
         Assert.Equal([oldest, lapsed, newest], SessionRequests.Waiting([newest, started, lapsed, oldest], Noon.AddMinutes(3)));
+    }
+
+    // --- the person's order -----------------------------------------------------
+
+    private static SessionRequest At(int minutes) =>
+        SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon.AddMinutes(minutes));
+
+    [Fact]
+    public void Ranked_requests_wait_in_rank_order_whatever_their_age()
+    {
+        var old = At(-10) with { Rank = 1 };
+        var young = At(10) with { Rank = 0 };
+
+        Assert.Equal([young, old], SessionRequests.Waiting([old, young], Noon));
+    }
+
+    [Fact]
+    public void Moving_a_request_to_the_top_ranks_the_waiting_requests_densely_in_their_new_order()
+    {
+        var first = At(1);
+        var second = At(2);
+        var third = At(3);
+
+        var move = SessionRequests.Move([first, second, third], third.Id, 0, Noon.AddMinutes(5));
+
+        Assert.True(move.Outcome.Succeeded);
+        Assert.Equal([third.Id, first.Id, second.Id], move.Queue.Select(request => request.Id));
+        Assert.Equal([0, 1, 2], move.Queue.Select(request => request.Rank));
+        Assert.Equal(0, move.Outcome.Request!.Rank);
+        Assert.Equal([third.Id, first.Id, second.Id], SessionRequests.Waiting(move.Queue, Noon.AddMinutes(5)).Select(request => request.Id));
+    }
+
+    [Fact]
+    public void Moving_down_by_one_swaps_a_request_with_the_one_below_it()
+    {
+        var first = At(1);
+        var second = At(2);
+        var third = At(3);
+
+        var move = SessionRequests.Move([first, second, third], first.Id, 1, Noon.AddMinutes(5));
+
+        Assert.Equal([second.Id, first.Id, third.Id], move.Queue.Select(request => request.Id));
+    }
+
+    [Theory]
+    [InlineData(-4, 0)]
+    [InlineData(9, 2)]
+    public void A_position_past_either_end_of_the_queue_lands_at_that_end(int toIndex, int landsAt)
+    {
+        var first = At(1);
+        var second = At(2);
+        var third = At(3);
+
+        var move = SessionRequests.Move([first, second, third], second.Id, toIndex, Noon.AddMinutes(5));
+
+        Assert.Equal(second.Id, move.Queue[landsAt].Id);
+    }
+
+    [Fact]
+    public void Only_a_Requested_request_moves_and_a_refused_move_changes_nothing()
+    {
+        var waiting = At(1);
+        var claimed = SessionRequests.Claim(At(2), "manager-1", Noon.AddMinutes(4)).Request!;
+        var started = Started();
+        var cancelled = SessionRequests.Cancel(At(3), Noon).Request!;
+
+        foreach (var request in new[] { claimed, started, cancelled })
+        {
+            var move = SessionRequests.Move([waiting, request], request.Id, 0, Noon.AddMinutes(5));
+
+            Assert.False(move.Outcome.Succeeded);
+            Assert.Contains("only a Requested request can be moved", move.Outcome.Refusal, StringComparison.Ordinal);
+            Assert.Same(request, move.Outcome.Request);
+            Assert.Empty(move.Queue);
+        }
+    }
+
+    [Fact]
+    public void A_lapsed_claim_reads_as_Requested_and_moves()
+    {
+        var waiting = At(-5);
+        var lapsed = Claimed();
+
+        var move = SessionRequests.Move([waiting, lapsed], lapsed.Id, 0, Noon.AddMinutes(3));
+
+        Assert.True(move.Outcome.Succeeded);
+        Assert.Equal([lapsed.Id, waiting.Id], move.Queue.Select(request => request.Id));
+    }
+
+    [Fact]
+    public void Moving_an_unknown_request_is_refused_without_a_request()
+    {
+        var move = SessionRequests.Move([At(1)], Guid.NewGuid(), 0, Noon);
+
+        Assert.False(move.Outcome.Succeeded);
+        Assert.Null(move.Outcome.Request);
+    }
+
+    [Fact]
+    public void A_request_claimed_during_a_move_returns_to_its_place_by_when_it_was_asked()
+    {
+        var a = SessionRequests.Claim(At(-3), "manager-1", Noon).Request!;
+        var b = At(-2);
+        var c = At(-1);
+
+        var move = SessionRequests.Move([a, b, c], c.Id, 0, Noon.AddMinutes(1));
+
+        // A's lease lapses: it was asked first and never moved, so it heads the queue again.
+        Assert.Equal([a.Id, c.Id, b.Id], SessionRequests.Waiting(move.Queue, Noon.AddMinutes(3)).Select(request => request.Id));
+
+        var d = SessionRequests.RankedLast(At(5), move.Queue);
+
+        Assert.Equal([a.Id, c.Id, b.Id, d.Id], SessionRequests.Waiting([.. move.Queue, d], Noon.AddMinutes(6)).Select(request => request.Id));
+    }
+
+    [Fact]
+    public void A_new_request_ranks_after_every_ranked_request()
+    {
+        var top = At(5) with { Rank = 0 };
+        var next = At(1) with { Rank = 1 };
+        var candidate = At(9);
+
+        var ranked = SessionRequests.RankedLast(candidate, [top, next]);
+
+        Assert.Equal(2, ranked.Rank);
+        Assert.Equal([top, next, ranked], SessionRequests.Waiting([ranked, next, top], Noon.AddMinutes(10)));
+    }
+
+    [Fact]
+    public void A_new_request_in_a_queue_nobody_ordered_stays_unranked()
+    {
+        var candidate = At(9);
+
+        Assert.Same(candidate, SessionRequests.RankedLast(candidate, [At(1), At(2)]));
     }
 
     // --- the brief (§2) -------------------------------------------------------
