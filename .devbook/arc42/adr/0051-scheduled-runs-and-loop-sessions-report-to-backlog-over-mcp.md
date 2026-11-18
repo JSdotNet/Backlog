@@ -1,7 +1,7 @@
 # ADR 0051: Scheduled runs and loop sessions report to Backlog over MCP
 
 ```meta
-date: 2026-11-17
+date: 2026-11-18
 related: [".devbook/domain/sessions/domain.md#weekly-usage", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md", ".devbook/domain/sessions/context.md#sessions-area", ".devbook/domain/sessions/domain.md#schedule-register", ".devbook/domain/sessions/domain.md#loop-register", ".devbook/domain/sessions/domain.md#session-title-reading", ".devbook/domain/sessions/features.md#schedules-and-their-runs", ".devbook/domain/sessions/features.md#loop-sessions", ".devbook/domain/sessions/requirements.md#schedules-and-their-runs", ".devbook/domain/sessions/requirements.md#loop-sessions", ".devbook/domain/notifications/features.md#asking-from-the-contexts", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts"]
 ```
 
@@ -28,14 +28,11 @@ Built on that branch:
 - `check_in`, and the dispatch wait counted as a check-in;
 - the run states and the loop states;
 - the app's own capacity reading;
-- the alerts, with their Open run, Open Schedules and Open Sessions actions;
-- the Schedules page, the Agents section and the waiting row's question.
-
-Not yet built:
-
 - the check-in answer's room against the loop's own limits, and the Manager reading it, as
   [Amends](#amends) says;
-- closing a Failed alert when a later run recovers, as §5 says.
+- the alerts, with their Open run, Open Schedules and Open Sessions actions;
+- closing a Failed alert when a later run recovers, as §5 says;
+- the Schedules page, the Agents section and the waiting row's question.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below means the
 local one. It adds tools to the listener ADR 0012 built and changes none of its decisions. It
@@ -81,7 +78,7 @@ sequenceDiagram
   Run->>B: run started (schedule id, title, repository, cron)
   Hook->>B: Stop: run finished (verdict, Needs-you lines)
   Loop->>B: check_in(state, heartbeat, limits)
-  B-->>Loop: pause, resume or stop, and the work waiting
+  B-->>Loop: pause, resume or stop, the work waiting, and the room
   B->>P: an Alert, in the centre and on Windows
 ```
 
@@ -118,11 +115,16 @@ the stack's plugins.
 | Failed | The run reported a failure. | Yes |
 | Missed | Enabled, 30 minutes past its cron's due time, and no start report. | Yes |
 | Review ready | The run reported work ready for review, and its session is not archived. | Row only |
-| Handled | The run's session is archived. | Closes the alert |
+| Handled | Its session is archived, or it failed and a later run finished Review ready. | Closes the alert |
 | No summary yet | A start report and no finish report yet. | No |
 
-**Handled is read from the desktop record the Sessions reader already reads.** Archiving a run's
-session in Claude Desktop is how the person marks it done. Backlog never archives a session.
+**Archiving is read from the desktop record the Sessions reader already reads.** Archiving a
+run's session in Claude Desktop is how the person marks it done. Backlog never archives a session.
+
+**A failed run also reads Handled once its schedule recovers.** A later run of the same schedule
+must finish Review ready: it began after the failed run and finished no earlier. The Failed alert
+closes, but the failed run's session stays unarchived, so a run that skips itself for it still
+reads Held.
 
 A schedule's state is its latest run's. Held stays on the schedule while its later runs keep
 skipping, so the person sees one Held schedule, not one alert per skipped run.
@@ -143,7 +145,7 @@ A loop checks in two ways:
   too, because it reaches Backlog far more often than a tick.
 
 The answer to `check_in` carries what the app wants from the loop: `pause`, `resume` or `stop`,
-set by the person on the loop's row, and the work waiting for it. The loop obeys the answer.
+set by the person on the loop's detail, and the work waiting for it. The loop obeys the answer.
 Backlog still never stops a session itself.
 
 ```mermaid
@@ -161,8 +163,11 @@ stateDiagram-v2
 ```
 
 - **Listening.** It checked in within 2 minutes.
-- **Holding.** It is checking in, work is waiting, and a capacity limit is reached. The Brain
-  tender has no queue, so it never holds.
+- **Holding.** It is checking in, work is waiting, and a capacity limit is reached. Backlog's own
+  reading at the check-in decides when it can: a limit is reached, or all four figures are
+  measured. When the reading cannot decide, or a limit is reached and the work waiting cannot be
+  read, the loop's own `holding` decides. The reading cannot decide when there is none, or when a figure is unavailable
+  and no limit is reached. The Brain tender has no queue, so it never holds.
 - **Stalled.** Its process is alive, but nothing checked in past its own heartbeat plus 10
   minutes.
 - **Not running.** It has no process, or its session is archived.
@@ -188,8 +193,20 @@ Plan usage is the estimate's share of the calibrated weekly limit. It reads unav
 weekly refusal sizes that limit, and an unavailable figure holds nothing back. No Claude usage
 cache holds plan percents the app could read instead.
 
-The check-in answer says whether there is room, and the loop's row shows the four figures beside
-its limits. The person sees why the queue is not moving without opening the Manager's session.
+A dispatcher's check-in answer carries the reading as `capacity`:
+
+- `hasRoom`;
+- `heldBy`, each limit reached, in the order `sessions`, `usage`, `cpu`, `memory`;
+- `workingSessions`, `planUsagePercent`, `cpuPercent` and `freeMemoryGb`, each `null` where
+  Backlog could not measure it;
+- the limits it was held against.
+
+The Brain tender's answer carries no `capacity`, and neither does the answer on a host that
+measures nothing. Backlog keeps the reading with the check-in, so the loop's row reads Holding
+from what the app measured. The reading counts every dispatched session, because one Manager runs
+per machine. The loop's detail shows the four figures beside its limits, and a Holding row names
+the limit that holds it. The person sees why the queue is not moving without opening the
+Manager's session.
 
 ### 5. Alerts go through the existing notification centre
 
@@ -225,9 +242,20 @@ the page, the section, the report tools and `check_in` are gone, and no alert is
 ```meta
 ```
 
-This record amends ADR 0038 §4 without rewriting it. Its Manager no longer measures how much
-room the machine has. It reads the room from the `check_in` answer, against its own limits. How
-many sessions it runs at once stays the skill's own setting.
+This record amends ADR 0038 §4 without rewriting it. Its Manager reads the room from the
+`check_in` answer, against the limits it sends:
+
+| Argument | Default | Refused when |
+| --- | --- | --- |
+| `maxSessions` | 3 | below 1 |
+| `maxUsagePercent` | 80% | 0 or below, or above 100 |
+| `maxCpuPercent` | 80% | 0 or below, or above 100 |
+| `minFreeMemoryGb` | 4 GB | negative |
+
+A limit the Manager leaves out is Backlog's default, and a value out of range is refused with the
+code `loop.limits`. The Manager counts each start made since the answer as one more working
+session. It measures a figure itself only when the answer has no `capacity`, or the figure is
+missing from it. How many sessions it runs at once stays the skill's own setting.
 
 ## Consequences
 
@@ -287,5 +315,6 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | Built: `check_in` takes the loop's limits, and a dispatcher's answer carries the app's capacity reading. Holding reads from that reading, and from the loop's own word where the reading cannot decide (plan entry 15). A Failed alert closes once a later run finishes Review ready (plan entry 21). Status, §2, §3, §4 and Amends say so. | Both changes landed on the plan branch, and the record still listed them as not built. |
 | 2026-11-17 | Status names what the plan built. §4 reads plan usage from the in-app Weekly Usage estimate. §5 closes a schedule's Failed alert once a later run finishes Review ready; plan entry 21 builds it. | The owner settled the plan's open questions, and the status still said nothing was built. |
 | 2026-11-11 | Proposed: scheduled runs report through a `backlog-tools` hook pair, loop sessions check in through `check_in`, Backlog decides their states, measures capacity, alerts through the notification centre, and shows them in the Sessions takeover. Amends ADR 0038 §4's capacity. | Unattended runs and loop sessions stop without the person noticing, and Claude Desktop's own files are no contract. |

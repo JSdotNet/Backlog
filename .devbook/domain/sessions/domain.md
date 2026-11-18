@@ -1650,7 +1650,11 @@ What a run, and the schedule whose latest run it is, needs from the person:
   run reads Skipped, a line under the schedule.
 - **Missed** is the schedule's alone. A schedule reads it 30 minutes past its cron's due time
   with no start report since. Backlog takes every schedule that has reported as enabled.
-- **Handled** is any run whose session is archived, whatever it reported.
+- **Handled** is any run whose session is archived, whatever it reported. A failed run also
+  reads Handled once a later run of its schedule finished Review ready: one that began later and
+  finished no earlier than the failure. Archiving is read first, so it wins when both apply.
+  A failed run Handled by a later run is still unarchived, so a skip can still name it as its
+  holder.
 
 The states are a reading, never stored, as the [Liveness Assessment](#liveness-assessment)'s are.
 
@@ -1673,9 +1677,10 @@ A loop checks in two ways:
   limits;
 - **the dispatch wait**, a Manager's call to `GET /session-requests/wait`.
 
-The answer to `check_in` carries the work waiting for the loop, whether the machine has room for
-it, and the `pause`, `resume` or `stop` the person last set. Setting one is the register's one
-command. The loop obeys it, and this context still never stops a session.
+The answer to `check_in` carries the `pause`, `resume` or `stop` the person last set. A
+dispatcher's answer also carries the work waiting for it and, where Backlog measures one, the
+[Capacity Reading](#capacity-reading) against the limits it sent. Setting the person's wish is the
+register's one command. The loop obeys it, and this context still never stops a session.
 
 Invocation semantics: command-oriented for a check-in and for the person's wish, query-oriented
 for the states. The register keeps the latest check-in per session, in memory and in the app's
@@ -1689,9 +1694,13 @@ aliases: [LoopCheckIn, check-in, heartbeat]
 ```
 
 One check-in: the session id, when it arrived, the loop's own state as it says it, its heartbeat
-and its limits. A dispatch wait is a check-in with only the session and the time: it moves the
-time of the session's last `check_in` and keeps the rest, and a wait for a session that never
-called `check_in` records nothing. Equality is by all its parts.
+and its limits. A limit the loop leaves out is Backlog's default. A dispatcher's check-in also
+keeps the [Capacity Reading](#capacity-reading) Backlog took when it arrived, and the number of
+session requests then waiting, which is unknown when the queue could not be read.
+
+A dispatch wait is a check-in with only the session and the time. It moves the time of the
+session's last `check_in` and keeps the rest, its limits and reading included. A wait for a
+session that never called `check_in` records nothing. Equality is by all its parts.
 
 ### Capacity Reading
 
@@ -1707,9 +1716,9 @@ How much room the machine has, measured by Backlog itself at a check-in:
 - CPU;
 - free memory.
 
-Plan usage reads unavailable until a weekly refusal sizes the limit. Against the loop's limits it says whether there is room, and which limit is reached when there
-is none. A figure Backlog cannot read is left out and holds nothing back. Equality is by its
-parts.
+Plan usage reads unavailable until a weekly refusal sizes the limit. Against the limits the loop
+checked in with, it says whether there is room, and which limit is reached when there is none. A
+figure Backlog cannot read is left out and holds nothing back. Equality is by its parts.
 
 ### Loop State
 
@@ -1721,7 +1730,10 @@ aliases: [LoopState]
 How a loop session is doing: `listening`, `holding`, `stalled`, `not-running`.
 
 - **Listening:** it checked in within 2 minutes.
-- **Holding:** it checks in, work waits, and its Capacity Reading has no room.
+- **Holding:** it checks in, work waits, and its [Capacity Reading](#capacity-reading) has no
+  room. Where that reading cannot decide, the loop's own word that it holds decides. A reading
+  cannot decide when there is none, when a figure reads unavailable and no limit is reached, or
+  when a limit is reached and the work waiting is unknown.
 - **Stalled:** the [Liveness Assessment](#liveness-assessment) finds its process alive, and
   nothing checked in past its heartbeat plus 10 minutes.
 - **Not running:** it has no process, or its session is archived.
