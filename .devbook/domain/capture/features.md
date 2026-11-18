@@ -200,14 +200,14 @@ A recording made in the note is one more of its files: see
 
 ```meta
 type: sub-feature
-related: [".devbook/domain/capture/features.md#talk-note", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/tech/mobile.md#android-mediarecorder"]
+related: [".devbook/domain/capture/features.md#talk-note", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md", ".devbook/tech/mobile.md#android-mediarecorder"]
 ```
 
 A meeting recorded into a [note](../inbox/domain.md#note) on the phone, kept
 going with the screen off, and sent to the desktop as a file on the note. It
 belongs to a note the way a slide photo does, so it adds no item kind, and it uses
-the editor the [talk note](#talk-note) describes. It runs on the Android phone
-only, and is not built yet.
+the editor the [talk note](#talk-note) describes. It records on the Android phone
+only.
 
 **Record** sits in the note editor's toolbar beside **Dictate** and **Photo**.
 The first press asks for the microphone, and on Android 13 and later for
@@ -227,8 +227,16 @@ file first; the desktop's Inbox item shows it with a player.
 There is no consent prompt. The ongoing notification and Android's own
 microphone dot are the only sign that the phone is recording.
 
+Once the file has downloaded to a desktop with Foundry configured, the desktop
+transcribes it with nobody pressing a button, once per file. It appends
+`## Transcript` and `## Summary`, the summary ending in the action items as
+`- [ ]` lines, to the note's body, then removes the recording from the note, so
+sync releases it from the attachment store. The transcript is what remains of the
+meeting.
+
 [Recordings on a note](../inbox/requirements.md#recordings-on-a-note) holds what
-a recording promises when it runs long, is cut off or loses its note.
+a recording promises when it runs long, is cut off or loses its note, and what
+its transcription promises.
 
 ### Share-sheet and shortcuts
 

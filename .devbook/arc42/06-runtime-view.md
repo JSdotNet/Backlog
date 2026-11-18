@@ -167,10 +167,10 @@ sequenceDiagram
 ## Meeting Recording
 
 ```meta
-related: [".devbook/domain/capture/features.md#meeting-recording", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/tech/mobile.md#android-mediarecorder"]
+related: [".devbook/domain/capture/features.md#meeting-recording", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md", ".devbook/tech/mobile.md#android-mediarecorder", ".devbook/tech/cloud.md#gpt-4o-transcribe"]
 ```
 
-A meeting recorded into a phone note reaches the desktop as one more of the note's files. Recording is new; the journey after Stop is the staged note-file upload of **Talk Note Upload**, and the note itself syncs as **Mobile Note Sync** describes. None of it is built yet (local ADR 0048).
+A meeting recorded into a phone note reaches the desktop as one more of the note's files, and the desktop turns it into text on the note. The journey after Stop is the staged note-file upload of **Talk Note Upload**, and the note itself syncs as **Mobile Note Sync** describes. Local ADR 0048 decides the recording, local ADR 0049 the transcription; both are built.
 
 ```mermaid
 sequenceDiagram
@@ -181,6 +181,8 @@ sequenceDiagram
     participant Outbox as SQLite Outbox
     participant Sync as Sync Service
     participant Desk as Desktop
+    participant Worker as Transcription worker
+    participant Foundry as Azure Foundry
 
     ME->>Editor: Record
     Editor->>Rec: Start (foreground service, type microphone)
@@ -203,6 +205,25 @@ sequenceDiagram
     Outbox->>Sync: POST /api/sync/tasks (type note, names the file)
     Desk->>Sync: Pull the note, download the file
     Desk-->>ME: Inbox item with a player
+    Desk->>Worker: Queue the note
+
+    alt sha256 already transcribed
+        Worker->>Desk: Append the kept sections if missing, remove the file
+    else New recording, Foundry configured
+        Worker->>Worker: Remux ADTS to M4A parts of at most 5 min
+        loop Each part, in order
+            Worker->>+Foundry: Transcribe (gpt-4o-transcribe, prompt = tail of the part before)
+            Foundry-->>-Worker: Text, headed [hh:mm:ss] by the worker
+        end
+        Worker->>+Foundry: Summarize the transcript (chat deployment)
+        Foundry-->>-Worker: Summary, decisions, - [ ] action items
+        Worker->>Desk: Re-read the note, append ## Transcript + ## Summary, remove the file, keep the sha256
+    else A part or the summary failed
+        Worker-->>Desk: Nothing changes; tried again on the next pull or start
+    end
+
+    Desk->>Sync: POST /api/sync/tasks (note no longer names the file)
+    Sync->>Sync: Release the dropped file's blob
 ```
 
 - **Started in the foreground.** Android 11 and later let a microphone service start only while the app is on screen, so Record starts it from the open note.
@@ -210,7 +231,10 @@ sequenceDiagram
 - **Recovered on start.** A file left in `notes/recordings/` by an ended recording is attached to its note as "Recording (interrupted)" the next time the app starts.
 - **Paused by a call.** A phone call takes the microphone; the recording pauses and resumes only on Resume.
 - **A note gone mid-recording.** When the pull hides the note because the desktop deleted it, the recording runs on and Stop saves it to a new note "Recording · <date>".
-- **The upload is the existing one.** Each part is a note file: uploaded over any connection before the note that names it, checkpointed and retried on its own. A 409, 413 or 415 on a part sets the whole note aside, as for any file. The sync service must add `audio/aac`, `audio/mp4` and `audio/x-m4a` to its allowed types, and be deployed, before a phone build that records ships.
+- **The upload is the existing one.** Each part is a note file: uploaded over any connection before the note that names it, checkpointed and retried on its own. A 409, 413 or 415 on a part sets the whole note aside, as for any file. The sync service allows `audio/aac`, `audio/mp4` and `audio/x-m4a`; the deployed service must carry that before a phone build that records ships.
+- **Transcribed once, on the desktop.** `InboxRecordingTranscriptionWorker` takes one note at a time, queued by the pull that brought a recording down and, on start, for every open note with one. `TranscribeRecordingsCommand` keeps each transcribed sha256 with its sections, so a file is never sent twice. Without Foundry configured, nothing is sent and the recording stays.
+- **Appended, never replaced.** The note is read again after Foundry answers, so a phone edit that arrived meanwhile is kept. A later file of a rolled-over recording appends `## Transcript (part 2)`.
+- **The audio goes with the transcript.** The same save removes the file from the note; the pushed note releases its blob, as **Mobile Note Sync** says. A phone edit that names the file again is repaired from the kept sections on the next pull.
 
 ## Mobile My Day and Task Push
 
@@ -499,7 +523,7 @@ The phone's tab upserts the `note_view` row with `UpdatedAt` now and server stam
 - **Pushed through the outbox.** The row is written at once, and the entry takes every outbox entry's order, backoff and waiting marker. A retry is idempotent. Each edit is its own entry, so offline edits go out in order. An edit is never stamped earlier than the copy it replaces, so a slow phone clock cannot undo it.
 - **The desktop owns triage.** Its merge hands each `note` document to the Inbox's note port, which creates the item or applies the later edit by the note's `edited_at`. On each push the desktop sends every live note it changed itself and has not pushed yet. A flag tracks these rather than a watermark, because a note's stamp may come from the phone's clock. A note it only pulled is never sent back. A local change is stamped after the copy it replaces, whatever the clocks say.
 - **Archive and delete.** The acknowledgement outbox pushes the tombstone as a `note` document, and the phone drops the row on its next pull. A phone edit arriving after the archive or deletion leaves it standing and owes the tombstone again under a later stamp. The deleted id is kept, so no later copy remakes it. The phone never pushes a tombstone.
-- **Files keep their own path.** Photos and files travel as **Capture Attachments** describes, uploaded before the note document that names them; an edit uploads only added files. The service releases them when it takes the note's tombstone, as for a capture.
+- **Files keep their own path.** Photos and files travel as **Capture Attachments** describes, uploaded before the note document that names them; an edit uploads only added files. The service releases them when it takes the note's tombstone, as for a capture. A note edit that drops a file releases that file: `PushTasksCommand` reads the dropped files from the copy the replica held before the push and releases only those the note the replica holds after it no longer names, so an edit refused as stale releases nothing (local ADR 0049 amending ADR 0014).
 
 ## Notification Reply
 
