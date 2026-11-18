@@ -9,7 +9,7 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devb
 ## Terms
 
 ```meta
-related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/domain/events/domain.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/domain/calendar/domain.md#calendar-layer", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md"]
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/domain.md#meeting", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/domain/events/domain.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/domain/calendar/domain.md#calendar-layer", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md"]
 ```
 
 | Term | Definition |
@@ -24,10 +24,11 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/capture/featu
 | **Last-write-wins** | Conflict policy where the most recent edit prevails; new items always create rather than overwrite. |
 | **WoL relay** | Wake-on-LAN relay in the cloud PC registry that can wake a registered sleeping/offline machine. |
 | **Note** | An Inbox item of content kind `note`, synced both ways and editable on either side. |
+| **Meeting** | An Inbox item of content kind `meeting`, started on the phone by recording; it syncs and changes as a note does. |
 | **Readiness verdict** | The one word saying whether an open pull request is ready to merge, or what it waits on. |
 | **Sanitization boundary** | The line between what a session record may carry off the machine and what stays. |
 | **Settled-fact cache** | A per-machine copy of a provider's answer about something that cannot change again. |
-| **Talk note** | A [note](../domain/inbox/domain.md#note) taken on the phone during a conference talk, written in the Notes tab. |
+| **Talk note** | A [note](../domain/inbox/domain.md#note) taken on the phone during a conference talk, written in the phone's note editor. |
 | **Knowledge Event** | An event the person attends to learn something, such as a conference, a meetup or a webinar. |
 | **Event Series** | An organiser's recurring run of knowledge events, such as a yearly conference. |
 | **Talk** | One talk given at a knowledge event. |

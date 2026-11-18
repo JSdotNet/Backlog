@@ -133,6 +133,22 @@ public sealed class AgentSessionRecordStoreTests : IDisposable
         Assert.Equal(record.Session.Title, read.Session.Title);
     }
 
+    /// <summary>A record is written no earlier than anything folded into it, so a file last
+    /// written before the bound holds nothing after it: the bounded read leaves it unread.</summary>
+    [Fact]
+    public void Records_last_written_before_a_time_are_left_unread()
+    {
+        var store = Store();
+        store.Save([Record("s-old")]);
+        File.SetLastWriteTimeUtc(Assert.Single(Directory.GetFiles(_root, "*.json")), Noon.AddDays(-30).UtcDateTime);
+        store.Save([Record("s-new")]);
+
+        var since = store.AmendedSince(Noon.AddDays(-10));
+
+        Assert.Equal(["s-new"], since.Select(record => record.Session.Id));
+        Assert.Equal(2, store.All().Count);
+    }
+
     /// <summary>Two agents issuing one session id are two records.</summary>
     [Fact]
     public void Two_agents_with_one_session_id_are_two_records()

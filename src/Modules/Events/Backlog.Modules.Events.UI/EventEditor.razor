@@ -30,310 +30,303 @@
 <article class="events-editor" data-testid="events-editor" aria-labelledby="@TitleId">
     <header class="events-editor__header">
         <h2 id="@TitleId" class="events-editor__title" data-testid="events-editor-title">@Event.Title</h2>
-        <StatusBadge Status="@EventPresentation.StateTone(Event.State)"
-                     Text="@EventPresentation.StateLabel(Event.State)"
-                     Title="@($"State: {EventPresentation.StateLabel(Event.State)}")"
-                     TestId="events-editor-state" />
+        @* A pick only stands ready: no move is undone, and a closed select changes on an arrow
+           key, so the move waits for its own button. *@
+        <SelectField Label="Event state"
+                     CurrentValue="@(_stateChoice ?? Event.State.ToString())"
+                     Options="@EventPresentation.StateChoices(Event.State, Event.Moves)"
+                     Disabled="@(_moving is not null || (Event.Moves.Forward.Count == 0 && !Event.Moves.CanSkip))"
+                     CssClass="events-editor__state"
+                     TestId="events-editor-state"
+                     OnChanged="StateChosen" />
+        @if (_stateChoice is { } choice)
+        {
+            <AppButton Variant="ButtonVariant.Primary"
+                       Size="ButtonSize.Small"
+                       Busy="@(_moving is not null)"
+                       TestId="events-state-apply"
+                       OnClick="ApplyStateChoiceAsync">@ChoiceLabel(choice)</AppButton>
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       Disabled="@(_moving is not null)"
+                       TestId="events-state-cancel"
+                       OnClick="CancelStateChoice">Cancel</AppButton>
+        }
         <SaveIndicator State="SaveStatus" CssClass="events-editor__save" TestId="events-editor-save" />
     </header>
 
-    <section class="events-editor__section" aria-labelledby="@($"{TitleId}-decide")" data-testid="events-decide">
-        <h3 id="@($"{TitleId}-decide")" class="events-editor__heading">Decide</h3>
-
-        @if (Event.State == KnowledgeEventState.Skipped)
-        {
-            <p class="events-editor__reason" data-testid="events-skip-reason-shown">Skipped: @Event.SkipReason</p>
-        }
-        else
-        {
-            <FlowSteps Steps="@EventPresentation.Lifecycle(Event.State)" AriaLabel="Where the event stands" TestId="events-lifecycle" />
-        }
-
-        @if (Event.Moves.Forward.Count > 0 || Event.Moves.CanSkip)
-        {
-            <div class="events-editor__moves">
-                @if (Event.Moves.Forward.Count > 0)
-                {
-                    <ButtonGroup AriaLabel="Move the event to" TestId="events-moves">
-                        @foreach (var target in Event.Moves.Forward)
-                        {
-                            <AppButton Variant="ButtonVariant.Secondary"
-                                       Busy="@(_moving == target)"
-                                       Disabled="@(_moving is not null && _moving != target)"
-                                       TestId="@($"events-move-{target.ToString().ToLowerInvariant()}")"
-                                       OnClick="@(() => MoveAsync(target))">@EventPresentation.StateLabel(target)</AppButton>
-                        }
-                    </ButtonGroup>
-                }
-                @if (Event.Moves.CanSkip)
-                {
-                    <AppButton Variant="ButtonVariant.Ghost"
-                               Disabled="@(_moving is not null)"
-                               TestId="events-skip"
-                               OnClick="OpenSkip">Skip…</AppButton>
-                }
-            </div>
-        }
-
-        @if (Error("state") is { } stateError)
-        {
-            <Alert Message="@stateError" TestId="events-move-error" />
-        }
-    </section>
-
-    <section class="events-editor__section" aria-labelledby="@($"{TitleId}-details")" data-testid="events-details">
-        <h3 id="@($"{TitleId}-details")" class="events-editor__heading">Details</h3>
-
-        <TextField Label="Title"
-                   Value="@_title"
-                   ValueChanged="TitleInput"
-                   ErrorMessage="@Error("title")"
-                   TestId="events-field-title"
-                   @onchange="@((ChangeEventArgs e) => CommitTextAsync(TitleInput, e))" />
-
-        <div class="events-editor__row events-editor__row--fields">
-            <TextField Label="Starts"
-                       Type="date"
-                       Value="@_startDate"
-                       ValueChanged="@(value => _startDate = value)"
-                       TestId="events-field-start-date"
-                       @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _startDate = value, e))" />
-            <TextField Label="Start time"
-                       Type="time"
-                       Value="@_startTime"
-                       ValueChanged="@(value => _startTime = value)"
-                       Disabled="@(EventPresentation.ParseDate(_startDate) is null)"
-                       HelpText="@OffsetOf(_startDate, _startTime)"
-                       TestId="events-field-start-time"
-                       @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _startTime = value, e))" />
-            <TextField Label="Ends"
-                       Type="date"
-                       Value="@_endDate"
-                       ValueChanged="@(value => _endDate = value)"
-                       Disabled="@(EventPresentation.ParseDate(_startDate) is null)"
-                       ErrorMessage="@Error("dates")"
-                       TestId="events-field-end-date"
-                       @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _endDate = value, e))" />
-            <TextField Label="End time"
-                       Type="time"
-                       Value="@_endTime"
-                       ValueChanged="@(value => _endTime = value)"
-                       Disabled="@(EventPresentation.ParseDate(_endDate) is null)"
-                       HelpText="@OffsetOf(_endDate, _endTime)"
-                       TestId="events-field-end-time"
-                       @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _endTime = value, e))" />
-        </div>
-        @if (Event.Start is not null && Event.DateSource is { } dateSource)
-        {
-            <p class="events-editor__byline" data-testid="events-date-source">Source: @EventPresentation.DateSourceLabel(dateSource)</p>
-        }
-
-        <div class="events-editor__row">
-            <Checkbox Label="Online"
-                      Checked="_online"
-                      CheckedChanged="OnlineChangedAsync"
-                      TestId="events-field-online" />
-            <TextField Label="Venue"
-                       Value="@_venue"
-                       ValueChanged="VenueInput"
-                       Disabled="_online"
-                       ErrorMessage="@Error("place")"
-                       TestId="events-field-venue"
-                       @onchange="@((ChangeEventArgs e) => CommitTextAsync(VenueInput, e))" />
-        </div>
-
-        <TextField Label="Link"
-                   Type="url"
-                   Value="@_link"
-                   ValueChanged="LinkInput"
-                   ErrorMessage="@Error("link")"
-                   TestId="events-field-link"
-                   @onchange="@((ChangeEventArgs e) => CommitTextAsync(LinkInput, e))" />
-
-        <TextArea Label="What I want to learn"
-                  Value="@_learn"
-                  ValueChanged="LearnInput"
-                  ErrorMessage="@Error("learn")"
-                  TestId="events-field-learn"
-                  @onchange="@((ChangeEventArgs e) => CommitTextAsync(LearnInput, e))" />
-
-        <div class="events-editor__group" data-testid="events-key-dates">
-            <span class="events-editor__label">Key dates</span>
-            @for (var i = 0; i < _keyDates.Count; i++)
-            {
-                var row = _keyDates[i];
-                <div class="events-editor__row" data-testid="events-key-date">
-                    <TextField Label="What"
-                               Placeholder="Early bird ends"
-                               Value="@row.Label"
-                               ValueChanged="@(value => KeyDateLabelInput(row, value))"
-                               TestId="events-key-date-label"
-                               @onchange="@((ChangeEventArgs e) => CommitTextAsync(value => KeyDateLabelInput(row, value), e))" />
-                    <TextField Label="When"
-                               Type="date"
-                               Value="@row.Date"
-                               ValueChanged="@(value => row.Date = value)"
-                               TestId="events-key-date-date"
-                               @onchange="@((ChangeEventArgs e) => KeyDateDateChangedAsync(row, e))" />
-                    <IconButton AriaLabel="@KeyDateRemoveName(row)"
-                                CssClass="btn--ghost"
-                                TestId="events-key-date-remove"
-                                OnClick="@(() => RemoveKeyDateAsync(row))"><XIcon /></IconButton>
-                </div>
-            }
-            @if (Error("keyDates") is { } keyDateError)
-            {
-                <Alert Message="@keyDateError" TestId="events-key-dates-error" />
-            }
-            <AppButton Variant="ButtonVariant.Ghost"
-                       Size="ButtonSize.Small"
-                       TestId="events-key-date-add"
-                       OnClick="AddKeyDate">Add key date</AppButton>
-        </div>
-
-        <div class="events-editor__row events-editor__row--fields">
-            <SelectField Form="true"
-                         Label="Ticket"
-                         CurrentValue="@Event.Ticket?.ToString()"
-                         Options="TicketOptions"
-                         IncludeEmptyOption="true"
-                         EmptyLabel="Not set"
-                         TestId="events-field-ticket"
-                         OnChanged="TicketChangedAsync" />
-            <TextField Label="Cost"
-                       Type="number"
-                       Value="@_amount"
-                       ValueChanged="@(value => _amount = value)"
-                       ErrorMessage="@Error("cost")"
-                       TestId="events-field-cost"
-                       min="0"
-                       step="0.01"
-                       @onchange="@((ChangeEventArgs e) => CostChangedAsync(value => _amount = value, e))" />
-            <TextField Label="Currency"
-                       Placeholder="EUR"
-                       Value="@_currency"
-                       ValueChanged="@(value => _currency = value)"
-                       ErrorMessage="@Error("currency")"
-                       TestId="events-field-currency"
-                       maxlength="3"
-                       @onchange="@((ChangeEventArgs e) => CostChangedAsync(value => _currency = value, e))" />
-        </div>
-    </section>
-
-    <section class="events-editor__section" aria-labelledby="@($"{TitleId}-series")" data-testid="events-series">
-        <h3 id="@($"{TitleId}-series")" class="events-editor__heading">Series</h3>
-
-        <SelectField Form="true"
-                     Label="Series"
-                     CurrentValue="@Event.Series?.Id.ToString()"
-                     Options="SeriesOptions"
-                     IncludeEmptyOption="true"
-                     EmptyLabel="No series"
-                     TestId="events-field-series"
-                     OnChanged="SeriesChangedAsync" />
-
-        @if (Event.Series is { } series && (!string.IsNullOrWhiteSpace(series.Organiser) || !string.IsNullOrWhiteSpace(series.Link)))
-        {
-            <p class="events-editor__byline" data-testid="events-series-byline">
-                @if (!string.IsNullOrWhiteSpace(series.Organiser))
-                {
-                    <span>@series.Organiser</span>
-                }
-                @if (!string.IsNullOrWhiteSpace(series.Link))
-                {
-                    <a class="events-editor__link" href="@series.Link" target="_blank" rel="noopener noreferrer" data-testid="events-series-link">@series.Link</a>
-                }
-            </p>
-        }
-
-        @if (Event.OtherEditions.Count > 0)
-        {
-            <div class="events-editor__group" data-testid="events-editions">
-                <span class="events-editor__label">Other editions</span>
-                <ul class="events-editor__editions">
-                    @foreach (var edition in Event.OtherEditions)
-                    {
-                        <li>
-                            <AppButton BaseClass="events-editor__edition"
-                                       Variant="ButtonVariant.None"
-                                       TestId="@($"events-edition-{edition.Id:N}")"
-                                       OnClick="@(() => OnOpenEvent.InvokeAsync(edition.Id))">
-                                <span class="events-editor__edition-title">@edition.Title</span>
-                                <span class="events-editor__edition-line">@EventPresentation.When(edition.Start, null) · @EventPresentation.StateLabel(edition.State)</span>
-                            </AppButton>
-                        </li>
-                    }
-                </ul>
-            </div>
-        }
-
-        @if (_startingSeries)
-        {
-            <div class="events-editor__group" data-testid="events-new-series">
-                <TextField Label="Series name" @bind-Value="_seriesName" ErrorMessage="@Error("series")" TestId="events-new-series-name" />
-                <TextField Label="Organiser" @bind-Value="_seriesOrganiser" TestId="events-new-series-organiser" />
-                <TextField Label="Series page" Type="url" @bind-Value="_seriesLink" TestId="events-new-series-link" />
-                <div class="events-editor__moves">
-                    <AppButton Variant="ButtonVariant.Primary"
-                               Busy="_savingSeries"
-                               BusyLabel="Starting"
-                               TestId="events-new-series-start"
-                               OnClick="StartSeriesAsync">Start series</AppButton>
-                    <AppButton Variant="ButtonVariant.Ghost"
-                               TestId="events-new-series-cancel"
-                               OnClick="CancelNewSeries">Cancel</AppButton>
-                </div>
-            </div>
-        }
-        else
-        {
-            <AppButton Variant="ButtonVariant.Ghost"
-                       Size="ButtonSize.Small"
-                       TestId="events-new-series-open"
-                       OnClick="OpenNewSeries">Start a new series</AppButton>
-        }
-    </section>
-
-    <section class="events-editor__section" aria-labelledby="@($"{TitleId}-harvest")" data-testid="events-harvest">
-        <h3 id="@($"{TitleId}-harvest")" class="events-editor__heading">Harvest</h3>
-
-        <EventNoteLinks Event="Event" Writes="Writes" OnSaved="SavedAsync" Revision="Revision" />
-
-        @if (Event.VerdictOffered)
-        {
-            <TextArea Label="Verdict"
-                      Placeholder="Worth it? Go again?"
-                      Value="@_verdict"
-                      ValueChanged="VerdictInput"
-                      ErrorMessage="@Error("verdict")"
-                      TestId="events-field-verdict"
-                      @onchange="@((ChangeEventArgs e) => CommitTextAsync(VerdictInput, e))" />
-        }
-    </section>
-
-    <section class="events-editor__section" aria-labelledby="@($"{TitleId}-tasks")" data-testid="events-tasks-section">
-        <h3 id="@($"{TitleId}-tasks")" class="events-editor__heading">Tasks</h3>
-
-        <EventTasks Event="Event" Writes="Writes" OnSaved="SavedAsync" />
-    </section>
-
-    @if (Event.RemoveOffered || _removeError is not null)
+    @if (Event.State == KnowledgeEventState.Skipped)
     {
-        <div class="events-editor__section events-editor__remove" data-testid="events-remove-section">
-            @if (Event.RemoveOffered)
+        <p class="events-editor__reason" data-testid="events-skip-reason-shown">Skipped: @Event.SkipReason</p>
+    }
+    else
+    {
+        <p class="events-editor__byline" data-testid="events-state-line">@EventPresentation.StateLine(Event.State)</p>
+    }
+    @if (Error("state") is { } stateError)
+    {
+        <Alert Message="@stateError" TestId="events-move-error" />
+    }
+
+    @* Details on the left, everything that follows from them on the right, once the editor is
+       wide enough for both; one column under it. *@
+    <div class="events-editor__columns">
+        <section class="events-editor__section" aria-labelledby="@($"{TitleId}-details")" data-testid="events-details">
+            <h3 id="@($"{TitleId}-details")" class="events-editor__heading">Details</h3>
+
+            <TextField Label="Title"
+                       Value="@_title"
+                       ValueChanged="TitleInput"
+                       ErrorMessage="@Error("title")"
+                       TestId="events-field-title"
+                       @onchange="@((ChangeEventArgs e) => CommitTextAsync(TitleInput, e))" />
+
+            <div class="events-editor__row events-editor__row--fields events-editor__row--dates">
+                <TextField Label="Starts"
+                           Type="date"
+                           Value="@_startDate"
+                           ValueChanged="@(value => _startDate = value)"
+                           TestId="events-field-start-date"
+                           @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _startDate = value, e))" />
+                <TextField Label="Start time"
+                           Type="time"
+                           Value="@_startTime"
+                           ValueChanged="@(value => _startTime = value)"
+                           Disabled="@(EventPresentation.ParseDate(_startDate) is null)"
+                           HelpText="@OffsetOf(_startDate, _startTime)"
+                           TestId="events-field-start-time"
+                           @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _startTime = value, e))" />
+                <TextField Label="Ends"
+                           Type="date"
+                           Value="@_endDate"
+                           ValueChanged="@(value => _endDate = value)"
+                           Disabled="@(EventPresentation.ParseDate(_startDate) is null)"
+                           ErrorMessage="@Error("dates")"
+                           TestId="events-field-end-date"
+                           @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _endDate = value, e))" />
+                <TextField Label="End time"
+                           Type="time"
+                           Value="@_endTime"
+                           ValueChanged="@(value => _endTime = value)"
+                           Disabled="@(EventPresentation.ParseDate(_endDate) is null)"
+                           HelpText="@OffsetOf(_endDate, _endTime)"
+                           TestId="events-field-end-time"
+                           @onchange="@((ChangeEventArgs e) => DatesChangedAsync(value => _endTime = value, e))" />
+            </div>
+            @if (Event.Start is not null && Event.DateSource is { } dateSource)
             {
+                <p class="events-editor__byline" data-testid="events-date-source">Source: @EventPresentation.DateSourceLabel(dateSource)</p>
+            }
+
+            @* The place is a street address, so the browser can fill it and a map can find it. *@
+            <div class="events-editor__row">
+                <Checkbox Label="Online"
+                          Checked="_online"
+                          CheckedChanged="OnlineChangedAsync"
+                          TestId="events-field-online" />
+                <TextField Label="Address"
+                           Placeholder="Street and number, city"
+                           Value="@_venue"
+                           ValueChanged="VenueInput"
+                           Disabled="_online"
+                           ErrorMessage="@Error("place")"
+                           TestId="events-field-venue"
+                           autocomplete="street-address"
+                           @onchange="@((ChangeEventArgs e) => CommitTextAsync(VenueInput, e))" />
+                @if (!_online && MapLink(_venue) is { } map)
+                {
+                    <a class="events-editor__link events-editor__map" href="@map" target="_blank" rel="noopener noreferrer" data-testid="events-venue-map">Open in maps</a>
+                }
+            </div>
+
+            <TextField Label="Link"
+                       Type="url"
+                       Value="@_link"
+                       ValueChanged="LinkInput"
+                       ErrorMessage="@Error("link")"
+                       TestId="events-field-link"
+                       @onchange="@((ChangeEventArgs e) => CommitTextAsync(LinkInput, e))" />
+
+            <div class="events-editor__group" data-testid="events-key-dates">
+                <span class="events-editor__label">Key dates</span>
+                @for (var i = 0; i < _keyDates.Count; i++)
+                {
+                    var row = _keyDates[i];
+                    <div class="events-editor__row" data-testid="events-key-date">
+                        <TextField Label="What"
+                                   Placeholder="Early bird ends"
+                                   Value="@row.Label"
+                                   ValueChanged="@(value => KeyDateLabelInput(row, value))"
+                                   TestId="events-key-date-label"
+                                   @onchange="@((ChangeEventArgs e) => CommitTextAsync(value => KeyDateLabelInput(row, value), e))" />
+                        <TextField Label="When"
+                                   Type="date"
+                                   Value="@row.Date"
+                                   ValueChanged="@(value => row.Date = value)"
+                                   TestId="events-key-date-date"
+                                   @onchange="@((ChangeEventArgs e) => KeyDateDateChangedAsync(row, e))" />
+                        <IconButton AriaLabel="@KeyDateRemoveName(row)"
+                                    CssClass="btn--ghost"
+                                    TestId="events-key-date-remove"
+                                    OnClick="@(() => RemoveKeyDateAsync(row))"><XIcon /></IconButton>
+                    </div>
+                }
+                @if (Error("keyDates") is { } keyDateError)
+                {
+                    <Alert Message="@keyDateError" TestId="events-key-dates-error" />
+                }
                 <AppButton Variant="ButtonVariant.Ghost"
                            Size="ButtonSize.Small"
-                           Disabled="@(_moving is not null)"
-                           TestId="events-remove"
-                           OnClick="OpenRemove">Remove event…</AppButton>
-            }
-            @if (_removeError is { } removeError)
+                           TestId="events-key-date-add"
+                           OnClick="AddKeyDate">Add key date</AppButton>
+            </div>
+
+            <div class="events-editor__row events-editor__row--fields">
+                <SelectField Form="true"
+                             Label="Ticket"
+                             CurrentValue="@Event.Ticket?.ToString()"
+                             Options="TicketOptions"
+                             IncludeEmptyOption="true"
+                             EmptyLabel="Not set"
+                             TestId="events-field-ticket"
+                             OnChanged="TicketChangedAsync" />
+                <TextField Label="Cost"
+                           Type="number"
+                           Value="@_amount"
+                           ValueChanged="@(value => _amount = value)"
+                           ErrorMessage="@Error("cost")"
+                           TestId="events-field-cost"
+                           min="0"
+                           step="0.01"
+                           @onchange="@((ChangeEventArgs e) => CostChangedAsync(value => _amount = value, e))" />
+                <TextField Label="Currency"
+                           Placeholder="EUR"
+                           Value="@_currency"
+                           ValueChanged="@(value => _currency = value)"
+                           ErrorMessage="@Error("currency")"
+                           TestId="events-field-currency"
+                           maxlength="3"
+                           @onchange="@((ChangeEventArgs e) => CostChangedAsync(value => _currency = value, e))" />
+            </div>
+        </section>
+
+        <div class="events-editor__aside">
+            <section class="events-editor__section" aria-labelledby="@($"{TitleId}-series")" data-testid="events-series">
+                <h3 id="@($"{TitleId}-series")" class="events-editor__heading">Series</h3>
+
+                <SelectField Form="true"
+                             Label="Series"
+                             CurrentValue="@Event.Series?.Id.ToString()"
+                             Options="SeriesOptions"
+                             IncludeEmptyOption="true"
+                             EmptyLabel="No series"
+                             TestId="events-field-series"
+                             OnChanged="SeriesChangedAsync" />
+
+                @if (Event.Series is { } series && (!string.IsNullOrWhiteSpace(series.Organiser) || !string.IsNullOrWhiteSpace(series.Link)))
+                {
+                    <p class="events-editor__byline" data-testid="events-series-byline">
+                        @if (!string.IsNullOrWhiteSpace(series.Organiser))
+                        {
+                            <span>@series.Organiser</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(series.Link))
+                        {
+                            <a class="events-editor__link" href="@series.Link" target="_blank" rel="noopener noreferrer" data-testid="events-series-link">@series.Link</a>
+                        }
+                    </p>
+                }
+
+                @if (Event.OtherEditions.Count > 0)
+                {
+                    <div class="events-editor__group" data-testid="events-editions">
+                        <span class="events-editor__label">Other editions</span>
+                        <ul class="events-editor__editions">
+                            @foreach (var edition in Event.OtherEditions)
+                            {
+                                <li>
+                                    <AppButton BaseClass="events-editor__edition"
+                                               Variant="ButtonVariant.None"
+                                               TestId="@($"events-edition-{edition.Id:N}")"
+                                               OnClick="@(() => OnOpenEvent.InvokeAsync(edition.Id))">
+                                        <span class="events-editor__edition-title">@edition.Title</span>
+                                        <span class="events-editor__edition-line">@EventPresentation.When(edition.Start, null) · @EventPresentation.StateLabel(edition.State)</span>
+                                    </AppButton>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                @if (_startingSeries)
+                {
+                    <div class="events-editor__group" data-testid="events-new-series">
+                        <TextField Label="Series name" @bind-Value="_seriesName" ErrorMessage="@Error("series")" TestId="events-new-series-name" />
+                        <TextField Label="Organiser" @bind-Value="_seriesOrganiser" TestId="events-new-series-organiser" />
+                        <TextField Label="Series page" Type="url" @bind-Value="_seriesLink" TestId="events-new-series-link" />
+                        <div class="events-editor__moves">
+                            <AppButton Variant="ButtonVariant.Primary"
+                                       Busy="_savingSeries"
+                                       BusyLabel="Starting"
+                                       TestId="events-new-series-start"
+                                       OnClick="StartSeriesAsync">Start series</AppButton>
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       TestId="events-new-series-cancel"
+                                       OnClick="CancelNewSeries">Cancel</AppButton>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               TestId="events-new-series-open"
+                               OnClick="OpenNewSeries">Start a new series</AppButton>
+                }
+            </section>
+
+            <section class="events-editor__section" aria-labelledby="@($"{TitleId}-harvest")" data-testid="events-harvest">
+                <h3 id="@($"{TitleId}-harvest")" class="events-editor__heading">Harvest</h3>
+
+                <EventNoteLinks Event="Event" Writes="Writes" OnSaved="SavedAsync" Revision="Revision" />
+
+                @if (Event.VerdictOffered)
+                {
+                    <TextArea Label="Verdict"
+                              Placeholder="Worth it? Go again?"
+                              Value="@_verdict"
+                              ValueChanged="VerdictInput"
+                              ErrorMessage="@Error("verdict")"
+                              TestId="events-field-verdict"
+                              @onchange="@((ChangeEventArgs e) => CommitTextAsync(VerdictInput, e))" />
+                }
+            </section>
+
+            <section class="events-editor__section" aria-labelledby="@($"{TitleId}-tasks")" data-testid="events-tasks-section">
+                <h3 id="@($"{TitleId}-tasks")" class="events-editor__heading">Tasks</h3>
+
+                <EventTasks Event="Event" Writes="Writes" OnSaved="SavedAsync" />
+            </section>
+
+            @if (Event.RemoveOffered || _removeError is not null)
             {
-                <Alert Message="@removeError" TestId="events-remove-error" />
+                <div class="events-editor__section events-editor__remove" data-testid="events-remove-section">
+                    @if (Event.RemoveOffered)
+                    {
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   Size="ButtonSize.Small"
+                                   Disabled="@(_moving is not null)"
+                                   TestId="events-remove"
+                                   OnClick="OpenRemove">Remove event…</AppButton>
+                    }
+                    @if (_removeError is { } removeError)
+                    {
+                        <Alert Message="@removeError" TestId="events-remove-error" />
+                    }
+                </div>
             }
         </div>
-    }
+    </div>
 
     <EventSkipDialog Open="_skipping"
                      OpenChanged="SkipOpenChanged"
@@ -384,7 +377,6 @@
     private bool _online;
     private string _venue = string.Empty;
     private string _link = string.Empty;
-    private string _learn = string.Empty;
     private List<KeyDateDraft> _keyDates = [];
     private string _amount = string.Empty;
     private string _currency = string.Empty;
@@ -398,6 +390,9 @@
     private string _seriesLink = string.Empty;
 
     private KnowledgeEventState? _moving;
+    /// <summary>The state choice's pick, waiting for its button; null while it stands on the
+    /// event's own state.</summary>
+    private string? _stateChoice;
     private bool _skipping;
     private bool _removing;
 
@@ -477,6 +472,7 @@
         _removeError = null;
         _startingSeries = false;
         _moving = null;
+        _stateChoice = null;
         _saved = false;
         Load(Event);
     }
@@ -491,7 +487,6 @@
         _online = e.Place?.IsOnline ?? false;
         _venue = e.Place?.Venue ?? string.Empty;
         _link = e.Link ?? string.Empty;
-        _learn = e.WhatToLearn ?? string.Empty;
         _keyDates = [.. e.KeyDates.Select(keyDate => new KeyDateDraft(EventPresentation.DateText(keyDate.Date), keyDate.Label))];
         _amount = EventPresentation.AmountText(e.Cost?.Amount);
         _currency = e.Cost?.Currency ?? string.Empty;
@@ -610,6 +605,33 @@
 
     // --- Decide ------------------------------------------------------------------------------
 
+    private void StateChosen(string? value) =>
+        _stateChoice = string.IsNullOrEmpty(value) || value == Event.State.ToString() ? null : value;
+
+    private void CancelStateChoice() => _stateChoice = null;
+
+    private static string ChoiceLabel(string choice) =>
+        choice == EventPresentation.SkipChoice ? "Skip…"
+        : Enum.TryParse<KnowledgeEventState>(choice, out var target) ? $"Move to {EventPresentation.StateLabel(target)}"
+        : "Move";
+
+    /// <summary>The pick's button: a later state moves the event there, Skip… asks why first
+    /// and the pick stands until that dialog closes.</summary>
+    private async Task ApplyStateChoiceAsync()
+    {
+        if (_stateChoice == EventPresentation.SkipChoice)
+        {
+            OpenSkip();
+            return;
+        }
+
+        if (Enum.TryParse<KnowledgeEventState>(_stateChoice, out var target))
+        {
+            await MoveAsync(target);
+            if (Error("state") is null) _stateChoice = null;
+        }
+    }
+
     private async Task MoveAsync(KnowledgeEventState target)
     {
         if (_moving is not null) return;
@@ -631,7 +653,10 @@
     private void SkipOpenChanged(bool open)
     {
         _skipping = open;
-        if (!open) _errors.Remove("skip");
+        if (open) return;
+
+        _errors.Remove("skip");
+        _stateChoice = null;
     }
 
     private void OpenSkip()
@@ -644,7 +669,10 @@
     {
         var id = Event.Id;
         await WriteAsync("skip", () => Pane.SkipAsync(id, reason));
-        if (Error("skip") is null) _skipping = false;
+        if (Error("skip") is not null) return;
+
+        _skipping = false;
+        _stateChoice = null;
     }
 
     // --- Remove ------------------------------------------------------------------------------
@@ -712,6 +740,12 @@
         Queue("place", () => Pane.SetPlaceAsync(id, place));
     }
 
+    /// <summary>A map search for the address, or null while there is none.</summary>
+    private static string? MapLink(string address) =>
+        string.IsNullOrWhiteSpace(address)
+            ? null
+            : "https://www.google.com/maps/search/?api=1&query=" + Uri.EscapeDataString(address.Trim());
+
     private PlaceDto? Place() =>
         _online ? new PlaceDto(null, true)
         : string.IsNullOrWhiteSpace(_venue) ? null
@@ -722,13 +756,6 @@
         _link = value;
         var id = Event.Id;
         Queue("link", () => Pane.SetLinkAsync(id, string.IsNullOrWhiteSpace(value) ? null : value));
-    }
-
-    private void LearnInput(string value)
-    {
-        _learn = value;
-        var id = Event.Id;
-        Queue("learn", () => Pane.SetWhatToLearnAsync(id, string.IsNullOrWhiteSpace(value) ? null : value));
     }
 
     private void VerdictInput(string value)

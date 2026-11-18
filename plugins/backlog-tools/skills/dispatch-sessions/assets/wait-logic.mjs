@@ -19,8 +19,9 @@ export function settingsPath(env, platform, home) {
 }
 
 // BACKLOG_MCP_PORT / BACKLOG_MCP_TOKEN first, then the app's settings.json text (null when it
-// could not be read), then the app's default port.
-export function endpointFrom(env, settingsText) {
+// could not be read), then the app's default port. A Manager's session id rides on the call as
+// `sessionId`, so the app counts each wait as that loop's check-in (local ADR 0051 §3).
+export function endpointFrom(env, settingsText, sessionId = null) {
     let port = Number(env.BACKLOG_MCP_PORT) || null;
     let token = env.BACKLOG_MCP_TOKEN || null;
     if ((!port || !token) && settingsText) {
@@ -32,7 +33,9 @@ export function endpointFrom(env, settingsText) {
             // A half-written settings.json reads as none.
         }
     }
-    return { url: `http://127.0.0.1:${port || DEFAULT_PORT}${ROUTE}`, token };
+    const session = String(sessionId ?? "").trim();
+    const query = session ? `?sessionId=${encodeURIComponent(session)}` : "";
+    return { url: `http://127.0.0.1:${port || DEFAULT_PORT}${ROUTE}${query}`, token };
 }
 
 // The dispatcher name a restarted Manager on this machine claims with again.

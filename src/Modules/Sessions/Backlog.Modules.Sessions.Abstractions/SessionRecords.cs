@@ -31,6 +31,12 @@ public interface IAgentSessionRecordStore
     /// out rather than failing the rest.</summary>
     IReadOnlyList<AgentSessionRecord> All();
 
+    /// <summary>Every record a reading amended at or after <paramref name="from"/> — and so
+    /// everything folded into a record at or after it — in no promised order. It may answer
+    /// more than those, never fewer: by default it answers <see cref="All"/>, and a store
+    /// that can skip what was last written before the bound overrides it.</summary>
+    IReadOnlyList<AgentSessionRecord> AmendedSince(DateTimeOffset from) => All();
+
     /// <summary>Amends each reading into the record it belongs to, or starts one.
     /// Never removes a record and never replaces one whole: see
     /// <see cref="AgentSessionRecords.Amend"/>. Answers how many records were started

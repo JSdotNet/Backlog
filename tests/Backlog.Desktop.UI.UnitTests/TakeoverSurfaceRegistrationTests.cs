@@ -30,9 +30,9 @@ public sealed class TakeoverSurfaceRegistrationTests
     {
         { "inbox", "Inbox", InboxFeatures.Pane, ["item"] },
         { "events", "Events", EventsFeatures.Events, ["event"] },
-        { "sessions", "Sessions", SessionFeatures.Sessions, ["session"] },
+        { "sessions", "Sessions", SessionFeatures.Sessions, ["session", "page", "schedule"] },
         { "pull-requests", "Pull requests", RepositoryManagementFeatures.PullRequests, ["pullRequest"] },
-        { "dashboard", "Dashboard", DashboardFeatures.Dashboard, [] },
+        { "dashboard", "Dashboard", DashboardFeatures.Dashboard, ["tab"] },
         { "notifications", "Notifications", NotificationsFeatures.Notifications, ["notification"] },
         { "tools", "Tools", DevPcFeatures.SystemTools, [] },
         { "atlas", "Atlas", DevbookFeatures.LobesAtlas, ["layout"] },

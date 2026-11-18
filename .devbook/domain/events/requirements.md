@@ -523,7 +523,7 @@ The system SHALL attach a Talk note chosen on the phone to the event once one of
 
 #### Scenario: A note from the keynote
 
-- **Given** a Going event and a Talk note "Keynote" in the phone's Notes tab
+- **Given** a Going event and a Talk note "Keynote" in the phone Inbox
 - **When** the person attaches the note to the event and a desktop syncs
 - **Then** the event links "Keynote" on every device
 

@@ -99,16 +99,27 @@ public sealed class SqliteClaudeApiRequestStore : IClaudeApiRequestStore
         return added;
     }
 
-    public async Task<IReadOnlyList<ClaudeApiRequest>> ListAsync(string? sessionId = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ClaudeApiRequest>> ListAsync(string? sessionId = null, CancellationToken cancellationToken = default) =>
+        sessionId is null
+            ? ReadAsync(where: null, parameter: null, cancellationToken)
+            : ReadAsync("session_id = $value", sessionId, cancellationToken);
+
+    /// <summary>The bound answered in SQL over the timestamp index. Timestamps are stored as
+    /// UTC round-trip text, so a text comparison against the bound written the same way
+    /// orders as the instants do.</summary>
+    public Task<IReadOnlyList<ClaudeApiRequest>> ListSinceAsync(DateTimeOffset from, CancellationToken cancellationToken = default) =>
+        ReadAsync("event_timestamp >= $value", from.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture), cancellationToken);
+
+    private async Task<IReadOnlyList<ClaudeApiRequest>> ReadAsync(string? where, string? parameter, CancellationToken cancellationToken)
     {
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
 
-        command.CommandText = sessionId is null
+        command.CommandText = where is null
             ? $"SELECT {Columns} FROM claude_api_requests ORDER BY event_timestamp, request_id;"
-            : $"SELECT {Columns} FROM claude_api_requests WHERE session_id = $session_id ORDER BY event_timestamp, request_id;";
+            : $"SELECT {Columns} FROM claude_api_requests WHERE {where} ORDER BY event_timestamp, request_id;";
 
-        if (sessionId is not null) command.Parameters.AddWithValue("$session_id", sessionId);
+        if (parameter is not null) command.Parameters.AddWithValue("$value", parameter);
 
         var requests = new List<ClaudeApiRequest>();
 
@@ -166,6 +177,7 @@ public sealed class SqliteClaudeApiRequestStore : IClaudeApiRequestStore
                 received_at           TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS ix_claude_api_requests_session ON claude_api_requests (session_id, event_timestamp);
+            CREATE INDEX IF NOT EXISTS ix_claude_api_requests_timestamp ON claude_api_requests (event_timestamp);
             """);
 }
 
@@ -210,4 +222,7 @@ public sealed class RootedSqliteClaudeApiRequestStore(Func<string> currentRootDi
 
     public Task<IReadOnlyList<ClaudeApiRequest>> ListAsync(string? sessionId = null, CancellationToken cancellationToken = default) =>
         Current.ListAsync(sessionId, cancellationToken);
+
+    public Task<IReadOnlyList<ClaudeApiRequest>> ListSinceAsync(DateTimeOffset from, CancellationToken cancellationToken = default) =>
+        Current.ListSinceAsync(from, cancellationToken);
 }
