@@ -327,15 +327,31 @@ public sealed class SessionRequestsTests
     }
 
     [Fact]
-    public void A_Started_Linked_or_Cancelled_request_cannot_be_cancelled()
+    public void A_Linked_or_Cancelled_request_cannot_be_cancelled()
     {
-        var started = Started();
-        var linked = SessionRequests.Link(started, EntryId, [], "session-a", Noon.AddMinutes(1))!;
+        var linked = SessionRequests.Link(Started(), EntryId, [], "session-a", Noon.AddMinutes(1))!;
         var cancelled = SessionRequests.Cancel(Requested(), Noon).Request!;
 
-        Assert.False(SessionRequests.Cancel(started, Noon.AddMinutes(1)).Succeeded);
         Assert.False(SessionRequests.Cancel(linked, Noon.AddMinutes(1)).Succeeded);
         Assert.False(SessionRequests.Cancel(cancelled, Noon.AddMinutes(1)).Succeeded);
+    }
+
+    [Fact]
+    public void A_Started_request_whose_session_never_linked_can_be_cancelled()
+    {
+        var outcome = SessionRequests.Cancel(Started(), Noon.AddDays(6));
+
+        Assert.True(outcome.Succeeded);
+        Assert.Equal(SessionRequestState.Cancelled, outcome.Request!.State);
+        Assert.False(outcome.Request.IsOpenAt(Noon.AddDays(6)));
+    }
+
+    [Fact]
+    public void A_late_link_session_on_a_cancelled_Started_request_links_nothing()
+    {
+        var cancelled = SessionRequests.Cancel(Started(), Noon.AddDays(6)).Request!;
+
+        Assert.Null(SessionRequests.Link(cancelled, EntryId, [], "session-a", Noon.AddDays(7)));
     }
 
     // --- no expiry ------------------------------------------------------------

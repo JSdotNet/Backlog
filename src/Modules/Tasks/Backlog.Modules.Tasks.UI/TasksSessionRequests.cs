@@ -280,10 +280,11 @@ public sealed class TasksSessionRequests : IDisposable
     }
 
     /// <summary>Cancels the request <paramref name="entryId"/> is waiting on, while it
-    /// is still Requested. Answers whether it was cancelled.</summary>
+    /// is Requested, or Started with a session that never linked. Answers whether it was
+    /// cancelled.</summary>
     public async Task<bool> CancelAsync(Guid entryId)
     {
-        if (_port is null || OpenFor(entryId) is not { State: EntrySessionRequestState.Requested } request || !_busy.Add(entryId)) return false;
+        if (_port is null || OpenFor(entryId) is not { State: EntrySessionRequestState.Requested or EntrySessionRequestState.Started } request || !_busy.Add(entryId)) return false;
 
         _open.Supersede();
         Error = null;
@@ -292,7 +293,7 @@ public sealed class TasksSessionRequests : IDisposable
         try
         {
             var cancelled = await _port.CancelAsync(request.Id);
-            if (!cancelled) Error = "The session has already started, so the request can no longer be cancelled.";
+            if (!cancelled) Error = "The request has moved on, so it can no longer be cancelled.";
             return cancelled;
         }
         catch (Exception)

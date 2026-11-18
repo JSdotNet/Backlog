@@ -134,6 +134,7 @@ public sealed record SessionQueueMove(SessionRequestOutcome Outcome, IReadOnlyLi
 /// Started   → Linked     that session calls link_session
 /// Requested → Cancelled   the person cancels it
 /// Claimed   → Cancelled   the person cancels it
+/// Started   → Cancelled   the person clears it: its session never linked
 /// </code>
 /// No transition expires a request: it waits until it is answered or cancelled.
 /// <para>
@@ -312,17 +313,20 @@ public static class SessionRequests
         return answers ? request with { State = SessionRequestState.Linked } : null;
     }
 
-    /// <summary>Requested or Claimed → Cancelled, by the person. A Started request
-    /// already has its session, and Linked and Cancelled are final.</summary>
+    /// <summary>Requested, Claimed or Started → Cancelled, by the person. Cancelling a
+    /// Started request clears a row whose session never called <c>link_session</c>: it
+    /// stops no session, and a late <c>link_session</c> links nothing, because
+    /// <see cref="Link"/> answers only a Started request. Linked and Cancelled are
+    /// final.</summary>
     public static SessionRequestOutcome Cancel(SessionRequest request, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         var state = request.StateAt(now);
 
-        if (state is not (SessionRequestState.Requested or SessionRequestState.Claimed))
+        if (state is not (SessionRequestState.Requested or SessionRequestState.Claimed or SessionRequestState.Started))
         {
-            return SessionRequestOutcome.Refused(request, $"The request is {state}, and only a Requested or Claimed request can be cancelled.");
+            return SessionRequestOutcome.Refused(request, $"The request is {state}, and only a Requested, Claimed or Started request can be cancelled.");
         }
 
         return SessionRequestOutcome.Done(Unclaimed(request) with { State = SessionRequestState.Cancelled });

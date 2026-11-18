@@ -1628,8 +1628,9 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   "paused" while the queue is paused, as in "Session queue, paused, 3 waiting". Its popover
   lists the Claimed and Started requests first, then the Requested ones in queue order,
   each with the entry's title or the plan's `+tag`, the repository, its state and how
-  long ago it was asked. Cancel is offered while Requested. Following a row opens the
-  entry or presses the plan's chip and closes the popover. An entry outside the loaded
+  long ago it was asked. Cancel is offered while Requested, and while Started, so a
+  request whose session never called `link_session` can be cleared; Claimed offers none.
+  Following a row opens the entry or presses the plan's chip and closes the popover. An entry outside the loaded
   rows reads "Entry not in this view" and cannot be followed.
 - **Reordering the queue.** A Requested row offers Move up, Move down and Move to top,
   named for the row, as in "Move +plan up"; a control with nowhere to go is disabled.

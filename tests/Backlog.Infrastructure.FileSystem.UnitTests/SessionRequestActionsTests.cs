@@ -115,15 +115,24 @@ public sealed class SessionRequestActionsTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancel_is_refused_once_the_session_has_started()
+    public async Task Cancel_clears_a_started_request_and_is_refused_once_it_is_linked()
     {
         var store = Store();
         IEntrySessionRequests actions = new SessionRequestActions(store, clock: _clock);
-        var request = await actions.RequestAsync(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
-        await store.ClaimAsync(request.Id, "manager", Ct);
-        await store.ReportStartedAsync(request.Id, "manager", "session-1", Ct);
+        var started = await actions.RequestAsync(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
+        await store.ClaimAsync(started.Id, "manager", Ct);
+        await store.ReportStartedAsync(started.Id, "manager", "session-1", Ct);
 
-        Assert.False(await actions.CancelAsync(request.Id, Ct));
+        Assert.True(await actions.CancelAsync(started.Id, Ct));
+        Assert.Empty(await actions.OpenAsync(Ct));
+
+        var entryId = Guid.NewGuid();
+        var linked = await actions.RequestAsync(entryId, "JSdotNet/Backlog", @"D:\Repos\Backlog", Ct);
+        await store.ClaimAsync(linked.Id, "manager", Ct);
+        await store.ReportStartedAsync(linked.Id, "manager", "session-2", Ct);
+        await store.LinkAsync(entryId, [], "session-2", Ct);
+
+        Assert.False(await actions.CancelAsync(linked.Id, Ct));
     }
 
     [Fact]

@@ -482,6 +482,28 @@ public sealed class TasksPlanSessionRequestTests
     }
 
     [Fact]
+    public async Task Cancel_in_the_panel_clears_a_Started_plan_request_whose_session_never_linked()
+    {
+        var (host, queue) = await HostAsync(pressPlan: false);
+        using var _host = host;
+        var id = Guid.NewGuid();
+        queue.Open["alpha"] = new EntrySessionRequest(id, EntrySessionRequestState.Started, Backlog, DateTimeOffset.UnixEpoch);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal(
+            "Session queue, 1 waiting",
+            pane.Find("[data-testid='session-queue-button']").GetAttribute("aria-label")));
+        pane.Find("[data-testid='session-queue-button']").Click();
+        pane.WaitForElement("[data-testid='session-queue-cancel']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(id, Assert.Single(queue.Cancelled));
+            Assert.Empty(pane.FindAll("[data-testid='session-queue-row']"));
+        });
+    }
+
+    [Fact]
     public async Task Entry_and_plan_requests_share_one_queue_oldest_first()
     {
         var (host, plans) = await HostAsync(pressPlan: false);
@@ -616,7 +638,7 @@ public sealed class TasksPlanSessionRequestTests
         public Task<bool> CancelAsync(Guid requestId, CancellationToken cancellationToken = default)
         {
             var held = Open.FirstOrDefault(pair => pair.Value.Id == requestId);
-            if (held.Value is not { State: EntrySessionRequestState.Requested }) return Task.FromResult(false);
+            if (held.Value is not { State: EntrySessionRequestState.Requested or EntrySessionRequestState.Started }) return Task.FromResult(false);
 
             Cancelled.Add(requestId);
             Open.Remove(held.Key);
