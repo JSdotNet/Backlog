@@ -387,6 +387,7 @@ The system SHALL leave an event's state unchanged when its harvest task is compl
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Filing_and_completing_a_harvest_task_raises_no_notification]
 ```
 
 The system SHALL raise no notification when it files or completes a harvest task.

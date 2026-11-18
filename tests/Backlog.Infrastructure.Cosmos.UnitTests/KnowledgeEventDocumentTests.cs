@@ -110,6 +110,27 @@ public class KnowledgeEventDocumentTests
         }));
     }
 
+    /// <summary>The <c>events</c> switch rides the event feed (local ADR 0050 §6), so the
+    /// Cosmos replica keeps its document like an event's: through the container's serializer
+    /// and back, it maps to a record of its own kind rather than being dropped as one that is
+    /// not ours. The id is <c>EventsAreaReplicaDto.WellKnownId</c>, written out because this
+    /// adapter references no Events project.</summary>
+    [Fact]
+    public void An_events_switch_document_maps_back_to_its_record()
+    {
+        var switchId = Guid.Parse("e7e47a5e-0000-4000-8000-0000000000a1");
+        var body = $$"""{"id":"{{switchId:D}}","on":false,"updatedAt":"2026-11-09T12:00:00+00:00"}""";
+        var change = new KnowledgeEventChange(switchId, KnowledgeEventKinds.EventsArea, Noon, Json(body));
+
+        var json = JsonSerializer.Serialize(KnowledgeEventDocumentFactory.From(Scope, change), ReplicaDocumentSerialization.Options);
+        var record = KnowledgeEventDocumentFactory.ToRecord(JsonSerializer.Deserialize<KnowledgeEventDocument>(json, ReplicaDocumentSerialization.Options)!);
+
+        Assert.NotNull(record);
+        Assert.Equal(switchId, record.Change.Id);
+        Assert.Equal(KnowledgeEventKinds.EventsArea, record.Change.Kind);
+        Assert.True(JsonElement.DeepEquals(Json(body), record.Change.Document));
+    }
+
     /// <summary>The module's <c>TryAdd</c> yields to the Cosmos adapter, as it does for every
     /// other replica; resolving it reaches no account, because the container is resolved
     /// lazily.</summary>

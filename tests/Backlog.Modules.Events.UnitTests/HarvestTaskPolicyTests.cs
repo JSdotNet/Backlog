@@ -1,3 +1,5 @@
+using System.Reflection;
+
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
 using Backlog.Modules.Events.Services;
@@ -292,6 +294,37 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
         Assert.Equal(KnowledgeEventState.Going, after.State);
         Assert.Equal(harvest, Assert.Single(after.Tasks).TaskId);
     }
+
+    // --- The harvest raises no notification ----------------------------------------------
+
+    /// <summary>
+    /// <c>.devbook/domain/events/requirements.md#the-harvest-raises-no-notification</c>: the
+    /// whole life of a harvest task — filed the day after the event, then completed when the
+    /// event is marked Harvested — touches the event store and the task target and nothing
+    /// else. No port the policy is built from comes from the Notifications module, so there is
+    /// nothing it could notify through, and its module references no Notifications assembly.
+    /// </summary>
+    [Fact]
+    public async Task Filing_and_completing_a_harvest_task_raises_no_notification()
+    {
+        var id = await Saved("Techorama Belgium", KnowledgeEventState.Going, new(2026, 11, 7), new(2026, 11, 9));
+
+        await Policy.FileDueAsync(Today, Token);
+        var harvest = Assert.Single((await Store.GetAsync(id, Token))!.Tasks).TaskId;
+        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Attended, Token)).IsSuccess);
+        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Harvested, Token)).IsSuccess);
+
+        Assert.Equal(["Harvest Techorama Belgium"], Tasks.Filed);
+        Assert.Equal([harvest], Tasks.Completed);
+        Assert.DoesNotContain(
+            typeof(HarvestTaskPolicy).GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .SelectMany(constructor => constructor.GetParameters()),
+            parameter => IsNotifications(parameter.ParameterType.Assembly.GetName()));
+        Assert.DoesNotContain(typeof(HarvestTaskPolicy).Assembly.GetReferencedAssemblies(), IsNotifications);
+    }
+
+    private static bool IsNotifications(AssemblyName assembly) =>
+        assembly.Name!.StartsWith("Backlog.Modules.Notifications", StringComparison.Ordinal);
 
     // --- Harvested completes only the event's own harvest task --------------------------
 

@@ -148,13 +148,13 @@
                     @if (Overview.Requirements.Count > 0)
                     {
                         @ProofCard("requirements", "Requirements", Overview.Requirements,
-                            $"{Overview.Requirements.Count} {Plural(Overview.Requirements.Count, "requirement", "requirements")} · {Overview.Requirements.Extra} {Plural(Overview.Requirements.Extra, "scenario", "scenarios")}",
+                            $"{Overview.Requirements.Count} {Plural(Overview.Requirements.Count, "promise", "promises")} · {Overview.Requirements.Extra} {Plural(Overview.Requirements.Extra, "scenario", "scenarios")}",
                             Overview.Requirements.Reference is { } requirements ? () => FollowAsync(requirements) : null)
                     }
                     @if (Overview.Invariants.Count > 0)
                     {
                         @ProofCard("invariants", "Invariants", Overview.Invariants,
-                            $"{Overview.Invariants.Count} {Plural(Overview.Invariants.Count, "invariant", "invariants")} · {Overview.Invariants.Extra} open",
+                            $"{Overview.Invariants.Count} {Plural(Overview.Invariants.Count, "guarantee", "guarantees")} · {Overview.Invariants.Extra} open",
                             Overview.Invariants.Reference is { } unit ? () => OpenAlwaysTrueAsync(unit) : null)
                     }
                 </div>
@@ -279,7 +279,7 @@
     [Parameter]
     public string ContextName { get; set; } = "This context";
 
-    /// <summary>The neighbours' middle card's line under the name: <c>Core · draft</c>.</summary>
+    /// <summary>The neighbours' middle card's line under the name: <c>Core · module · draft</c>.</summary>
     [Parameter]
     public string? ContextSummary { get; set; }
 
@@ -326,13 +326,12 @@
         ? $"{char.ToUpperInvariant(kind[0])}{kind[1..]} subdomain"
         : null;
 
-    private string? DeploymentLabel => Overview.Deployment switch
-    {
-        "module" => "Module",
-        "service" => "Service",
-        { Length: > 0 } other => $"{char.ToUpperInvariant(other[0])}{other[1..]}",
-        _ => null
-    };
+    /// <summary>The deployment badge: the chapter's own word, its first letter
+    /// raised — <c>module</c> reads "Module" (ADR 0047 §5: the wording is the
+    /// chapters').</summary>
+    private string? DeploymentLabel => Overview.Deployment is { Length: > 0 } deployment
+        ? $"{char.ToUpperInvariant(deployment[0])}{deployment[1..]}"
+        : null;
 
     private string SettledLabel =>
         string.Join(", ", Overview.Statuses.Select(status => $"{status.Count} {status.Status}")) + " chapters";
@@ -411,10 +410,10 @@
                 <b>@title</b>
                 <span class="domain-context-page__proof-facts">@facts</span>
             </span>
-            <span class="domain-context-page__proof-bar" role="img" aria-label="@($"{proof.Proved} of {proof.Count} name a test")">
+            <span class="domain-context-page__proof-bar" role="img" aria-label="@($"{proof.Proved} of {proof.Count} linked to a test")">
                 <span class="domain-context-page__proof-fill" style="@($"width: {percent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}%")"></span>
             </span>
-            <span class="domain-context-page__proof-caption"><b>@proof.Proved of @proof.Count</b> name a test</span>
+            <span class="domain-context-page__proof-caption"><b>@proof.Proved of @proof.Count</b> linked to a test</span>
         </button>
     };
 }

@@ -160,9 +160,16 @@ internal sealed class FakeEventTaskTarget : IEventTaskTarget
     public void RaiseChanged() => Changed?.Invoke();
 }
 
-/// <summary>The device's feature settings, holding the <c>events</c> area on or off.</summary>
-internal sealed class FakeEventsFeature(bool on) : IAppFeatureSettings
+/// <summary>The device's feature settings, holding each flag a test names on or off; asked
+/// about any other flag, it throws, so a test cannot lean on one it did not name.</summary>
+internal sealed class FakeFeatureSwitches(IReadOnlyDictionary<string, bool> flags) : IAppFeatureSettings
 {
+    private readonly Dictionary<string, bool> _flags = new(flags, StringComparer.Ordinal);
+
+    /// <summary>Settings that know only the <c>events</c> area, on or off.</summary>
+    public static FakeFeatureSwitches Events(bool on) =>
+        new(new Dictionary<string, bool>(StringComparer.Ordinal) { [EventsFeatures.Events] = on });
+
     public event Action? Changed;
 
     public AppFeatureSettings Current => throw new NotSupportedException();
@@ -170,11 +177,14 @@ internal sealed class FakeEventsFeature(bool on) : IAppFeatureSettings
     public string SettingsPath => throw new NotSupportedException();
 
     public bool IsEnabled(string key) =>
-        key == EventsFeatures.Events ? on : throw new ArgumentException($"No feature is called {key}.", nameof(key));
+        _flags.TryGetValue(key, out var on) ? on : throw new ArgumentException($"No feature is called {key}.", nameof(key));
 
-    public string? SetEnabled(string key, bool enabled) => throw new NotSupportedException();
-
-    public void RaiseChanged() => Changed?.Invoke();
+    public string? SetEnabled(string key, bool enabled)
+    {
+        _flags[key] = enabled;
+        Changed?.Invoke();
+        return null;
+    }
 }
 
 /// <summary>The Brain at the boundary: the notes at their paths now.</summary>

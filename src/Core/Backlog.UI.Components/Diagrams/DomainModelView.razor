@@ -3,7 +3,8 @@
     switch that opens on Diagram. Diagram is headed by the model's name, a sentence
     on how to read the drawing and its legend, and draws each classDiagram fence of
     the model file with DomainModelDiagram, the context's domain-service chapters
-    beneath as a strip, whether or not a fence could be arranged.
+    beneath as a strip — each with what calls it, from its Invocation semantics —
+    whether or not a fence could be arranged.
     Fields is headed by the root's kind, status and aliases over its name, its
     chapter's first sentence and the type legend, and lists the root's fields in
     the model file's purpose groups beside what it owns (DomainModelFieldsView);
@@ -100,7 +101,13 @@
                             @foreach (var service in Chapters.Services)
                             {
                                 <li class="domain-model__service" data-testid="domain-model-service" data-name="@service.Title">
-                                    <span class="domain-model__service-name">@service.Title</span>
+                                    <span class="domain-model__service-heading">
+                                        <span class="domain-model__service-name">@service.Title</span>
+                                        @if (service.Caption is { } caption)
+                                        {
+                                            <span class="domain-model__service-caption" data-testid="domain-model-service-caption">@caption</span>
+                                        }
+                                    </span>
                                     @if (!string.IsNullOrWhiteSpace(service.Summary))
                                     {
                                         <span class="domain-model__service-summary">@DomainUnits.Plain(service.Summary)</span>
@@ -152,10 +159,13 @@
                         <MarkdownView Blocks="@MarkdownPreview.ParseDocument(RelationshipNotes)" />
                     </section>
                 }
-                <DomainServiceInvocations Services="@Chapters.Services" />
+                <DomainServiceInvocations Services="@Chapters.Services"
+                                          Events="@Chapters.Events"
+                                          RuleCatalog="@RuleCatalog"
+                                          OnOpenRule="OnOpenAlwaysTrue" />
             </TabPanel>
             <TabPanel Id="events" Title="Events" TabTestId="domain-model-tab-events" TestId="domain-model-events-panel">
-                <DomainEventContracts Events="@Chapters.Events" Listens="@Chapters.Listens" Moves="@Chapters.Moves" OpenEvent="@_openEvent" OpenEventChanged="@(slug => _openEvent = slug)" Context="@ContextName" Root="@(_roots.Count == 1 ? RootTitle : null)" />
+                <DomainEventContracts Events="@Chapters.Events" Listens="@Chapters.Listens" Moves="@Chapters.Moves" OpenEvent="@_openEvent" OpenEventChanged="@(slug => _openEvent = slug)" Context="@ContextName" Root="@(_roots.Count == 1 ? RootTitle : null)" OnOpenMove="OnOpenMove" />
             </TabPanel>
         </ChildContent>
     </Tabs>
@@ -211,6 +221,12 @@
     /// opens that unit there.</summary>
     [Parameter]
     public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
+
+    /// <summary>A move an event fires on, followed from Events: the host opens
+    /// the Domain page on the lifecycle that draws it (<see cref="DomainEventMove.Place"/>).
+    /// Unset, the moves are text.</summary>
+    [Parameter]
+    public EventCallback<DomainEventMove> OnOpenMove { get; set; }
 
     /// <summary>The context's class chapters by model name
     /// (<see cref="DomainFieldBoards.Profiles"/>): the Fields header's heading,

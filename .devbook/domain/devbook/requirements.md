@@ -1494,10 +1494,9 @@ related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc4
 ```
 
 > The requirements of the Domain area read by unit, behind the
-> [New domain view](context.md#new-domain-view) switch (local ADR 0047). The plan
-> `+devbook-domain-view` builds them page by page; the Context map, a context's
-> page with its neighbours and its Overview, Domain, Features, Requirements, Model, Flow, the
-> Glossary and the Brain and task links are built.
+> [New domain view](context.md#new-domain-view) switch (local ADR 0047): the
+> Context map, a context's page with its neighbours and its Overview, Domain,
+> Features, Requirements, Model, the Glossary and the Brain and task links.
 
 ### Requirement: The flag off keeps today's Domain view
 
@@ -1525,9 +1524,9 @@ The system SHALL list a bounded context's files in the devbook reading order, on
 
 #### Scenario: An unsplit context
 
-- **Given** a context holding `context.md`, `domain.md`, `features.md`, `requirements.md`, `model.md` and `flow.md`
+- **Given** a context holding `context.md`, `domain.md`, `features.md`, `requirements.md` and `model.md`
 - **When** the reader opens the context in the Domain view
-- **Then** the menu lists the context, Domain, Features, Requirements, Model and Flow rows in that order, and the Glossary is in the Domain page's chapter bar
+- **Then** the menu lists the context, Domain, Features, Requirements and Model rows in that order, and the Glossary is in the Domain page's chapter bar
 
 ### Requirement: A split file is a child of its kind's row
 
@@ -1561,9 +1560,15 @@ The system SHALL title a kind's row by its base file's heading unless that headi
 
 #### Scenario: A split context in its own words
 
-- **Given** a context whose `flow.md` is headed *Flows* and which holds ten `flow.<name>.md` files
+- **Given** a context whose `actors.md` is headed *Actoren* and which holds twenty `features.<name>.md` files and an `assets` folder
 - **When** the reader opens the context in the Domain view
-- **Then** the menu has a *Flows* row showing 10, and no *Assets* row
+- **Then** the menu has an *Actoren* row and a Features row showing 20, and no *Assets* row
+
+#### Scenario: A legacy flow file
+
+- **Given** a context holding `flow.md`, headed *Flows*, and `flow.geld-eruit.md`
+- **When** the reader opens the context in the Domain view
+- **Then** each is a row of its own labelled by its file name, with no count, and neither nests under the other
 
 ### Requirement: The rules are the Always true tab
 
@@ -1633,10 +1638,10 @@ The system SHALL offer a `*.demo.html` file as a Demo button on the page it belo
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.Neighbours_reads_dependencies_md_into_listens_to_listen_to_and_hand_in_hand, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_without_dependencies_md_reads_its_own_Dependencies_chapter, unit:dotnet:Backlog.UI.Components.UnitTests.DomainNeighboursTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_board_groups_the_neighbours_and_dashes_an_external_system, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_page_opens_with_its_title_and_tags_each_card]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.Neighbours_reads_dependencies_md_into_listens_to_listen_to_and_hand_in_hand, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_without_dependencies_md_reads_its_own_Dependencies_chapter, unit:dotnet:Backlog.UI.Components.UnitTests.DomainNeighboursTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_board_groups_the_neighbours_and_dashes_an_external_system, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_page_opens_with_its_title_and_tags_each_card, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.The_middle_cards_summary_is_the_subdomain_type_the_deployment_and_the_status]
 ```
 
-The system SHALL show a context's `dependencies.md` as the neighbours at the top of the context's page, each relation worded by the first sentence of its table's "Why" or "What it relies on" column cut to a short phrase, the whole sentence on hover, and give the file no row of its own. A neighbour stands by the way information goes: the ones that supply the context on the left as what it listens to, the ones it supplies on the right as who listens to it, read from the pattern's role mark — *(Inbox = supplier)*, *(Tasks = customer)* — and, where a row has none, from its table, outbound on the left and inbound on the right. Its Partnership neighbours stand below as hand in hand, and on neither side. A neighbour that is not one of the domain's contexts is a dashed card, and outside systems on one side that share a contract are one card. No card names the relationship's pattern. A context that keeps its tables in a `## Dependencies` chapter of `context.md` reads the same.
+The system SHALL show a context's `dependencies.md` as the neighbours at the top of the context's page, each relation worded by the first sentence of its table's "Why" or "What it relies on" column cut to a short phrase, the whole sentence on hover, and give the file no row of its own. A neighbour stands by the way information goes: the ones that supply the context on the left as what it listens to, the ones it supplies on the right as who listens to it, read from the pattern's role mark — *(Inbox = supplier)*, *(Tasks = customer)* — and, where a row has none, from its table, outbound on the left and inbound on the right. Its Partnership neighbours stand below as hand in hand, and on neither side. A neighbour that is not one of the domain's contexts is a dashed card, and outside systems on one side that share a contract are one card. No card names the relationship's pattern. The middle card names the context over its subdomain, deployment and status, *Core · module · draft*, each left out when the chapters do not give it. A context that keeps its tables in a `## Dependencies` chapter of `context.md` reads the same.
 
 #### Scenario: Each neighbour stands where its information goes
 
@@ -1655,6 +1660,12 @@ The system SHALL show a context's `dependencies.md` as the neighbours at the top
 - **Given** a context whose `dependencies.md` lists Devbook as a Partnership and *GitHub (external)* as an outbound ACL
 - **When** the reader opens the context
 - **Then** Devbook stands under hand in hand, GitHub is a dashed card on the left, and neither card says *Partnership* or *ACL*
+
+#### Scenario: The middle card's line
+
+- **Given** a core context whose `context.md` states `deployment: module` and whose status is `draft`
+- **When** the reader opens the context
+- **Then** the middle card reads *Core · module · draft* under its name
 
 ### Requirement: A context is one page however it is reached
 
@@ -1681,16 +1692,34 @@ The system SHALL show a bounded context as one page with no tabs, whichever way 
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_row_opens_on_its_neighbours_with_the_boundary_counts_proof_and_flags_below, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.An_outside_answer_a_tile_a_gate_and_a_lens_each_follow_their_reference, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_invariants_card_opens_its_units_Always_true_tab, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.How_settled_is_left_out_when_no_chapter_states_a_status, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.A_diagram_in_the_boundary_is_drawn_in_the_lifecycle_style, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowFiguresTests.Every_diagram_in_the_repository_context_files_is_drawn_in_the_lifecycle_style, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests.A_context_raising_events_offers_Events_after_Model, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests.A_context_raising_no_event_offers_no_Events, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.The_Events_lens_opens_Model_on_Events]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_row_opens_on_its_neighbours_with_the_boundary_counts_proof_and_flags_below, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.An_outside_answer_a_tile_a_gate_and_a_lens_each_follow_their_reference, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_invariants_card_opens_its_units_Always_true_tab, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.How_settled_is_left_out_when_no_chapter_states_a_status, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.A_diagram_in_the_boundary_is_drawn_in_the_lifecycle_style, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowFiguresTests.Every_diagram_in_the_repository_context_files_is_drawn_in_the_lifecycle_style, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests.A_context_raising_events_offers_Events_after_Model, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests.A_context_raising_no_event_offers_no_Events, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.The_Events_lens_opens_Model_on_Events, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_proof_cards_speak_of_promises_and_guarantees_linked_to_a_test, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_deployment_badge_is_the_chapters_own_word, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests.Any_linked_test_proves_a_requirement_or_an_invariant_whatever_its_level, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests.Model_names_its_aggregate_with_the_article_it_reads_with, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests.Model_asks_about_it_when_the_context_has_no_single_aggregate]
 ```
 
-The system SHALL show, below a context's neighbours, an Overview of the context's subdomain, deployment and status, its name, and the prose above the first chapter of its `context.md` as a lead, an Inside card and an Outside card. Each question the Outside card asks links to the contexts its sentence says answer it. Below them the Overview shows its domain and feature chapters counted per kind, each count opening its first unit, and its requirements and invariants as two cards that say how many name a test. Where any of its chapters states a `rating` or a `status`, it also shows its chapters per rating or status as one bar; a devbook past devbook contract 38 states none, and the bar is left out. It shows its feature flags and settings with the features each gates, and the context's other pages with the question each answers, and Events as a page of its own when the context has a `model.md` and raises a domain event, Model's question then narrowing to what it is made of. A state diagram, flowchart or sequence in the boundary's prose SHALL be drawn in the lifecycle's own style, not as Mermaid.
+The system SHALL show, below a context's neighbours, an Overview of the context's subdomain, deployment — the chapter's own word with its first letter raised — and status, its name, and the prose above the first chapter of its `context.md` as a lead, an Inside card and an Outside card. Each question the Outside card asks links to the contexts its sentence says answer it. Below them the Overview shows its domain and feature chapters counted per kind, each count opening its first unit, and its requirements and invariants as two cards, *N promises · M scenarios* and *N guarantees · M open*, each saying *n of m linked to a test*, a test of any level counting. Where any of its chapters states a `rating` or a `status`, it also shows its chapters per rating or status as one bar; a devbook past devbook contract 38 states none, and the bar is left out. It shows its feature flags and settings with the features each gates, the context's other pages with the question each answers, and Events as a page of its own when the context has a `model.md` and raises a domain event. Model's question is only what the context is made of, naming its aggregate when it has exactly one — *What is a task made of?* — and *What is it made of?* otherwise. A state diagram, flowchart or sequence in the boundary's prose SHALL be drawn in the lifecycle's own style, not as Mermaid.
 
 #### Scenario: A context's Overview
 
 - **Given** a context whose `context.md` holds the feature flag `github-integration` and whose `requirements.md` holds two requirements, one with `tests`
 - **When** the reader opens the context
-- **Then** the Overview stands below the neighbours, its Requirements card counts two requirements and says one of two name a test, Requirements is among its pages, and `github-integration` is among its switches
+- **Then** the Overview stands below the neighbours, its Requirements card reads *2 promises* and *1 of 2 linked to a test*, Requirements is among its pages, and `github-integration` is among its switches
+
+#### Scenario: Proof at any level
+
+- **Given** a context whose requirement names a unit test and whose invariant names an end-to-end test
+- **When** the reader opens the context
+- **Then** both cards count their chapter as linked to a test
+
+#### Scenario: A deployment in the chapter's word
+
+- **Given** a context whose `context.md` states `deployment: library`
+- **When** the reader opens the context
+- **Then** the Overview's deployment badge reads *Library*
+
+#### Scenario: Model names the one aggregate
+
+- **Given** a context whose only aggregate is *Inbox Item* and which raises a domain event
+- **When** the reader opens the context
+- **Then** Model asks *What is an inbox item made of?*, and Events asks what it tells other contexts
 
 ### Requirement: Underscore files stay hidden
 
@@ -1777,10 +1806,10 @@ The system SHALL show field types, invocation semantics and event payloads on th
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.The_page_opens_on_Diagram_with_Fields_and_Events_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.An_arranged_fence_draws_the_band_its_parts_references_and_services, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_fence_that_does_not_parse_is_drawn_with_mermaid, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.The_root_sits_in_its_band_with_its_composed_parts_and_their_multiplicity, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.The_Model_row_opens_on_Diagram_with_the_aggregate_in_its_band, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Diagram_is_headed_by_the_root_and_draws_its_parts_as_a_tree_around_its_card, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.All_fields_on_the_root_card_opens_Fields, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.Each_type_the_root_names_by_id_sits_outside_the_band_once, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.A_part_s_own_ids_are_the_part_s_detail_not_the_aggregate_s_references, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.An_id_points_at_the_chapter_whose_alias_or_heading_names_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.A_class_no_band_holds_is_drawn_outside_every_aggregate, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_class_no_aggregate_holds_is_a_card_outside_every_band, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.Every_model_in_this_repository_arranges]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.The_page_opens_on_Diagram_with_Fields_and_Events_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.An_arranged_fence_draws_the_band_its_parts_references_and_services, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_fence_that_does_not_parse_is_drawn_with_mermaid, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.The_root_sits_in_its_band_with_its_composed_parts_and_their_multiplicity, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.The_Model_row_opens_on_Diagram_with_the_aggregate_in_its_band, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Diagram_is_headed_by_the_root_and_draws_its_parts_as_a_tree_around_its_card, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.All_fields_on_the_root_card_opens_Fields, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.Each_type_the_root_names_by_id_sits_outside_the_band_once, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.A_part_s_own_ids_are_the_part_s_detail_not_the_aggregate_s_references, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.An_id_points_at_the_chapter_whose_alias_or_heading_names_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.A_class_no_band_holds_is_drawn_outside_every_aggregate, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_class_no_aggregate_holds_is_a_card_outside_every_band, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.Every_model_in_this_repository_arranges, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_service_card_on_Diagram_says_what_calls_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_service_is_captioned_by_the_first_sentence_of_how_it_runs]
 ```
 
-The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, beside Fields and Events, that draws each aggregate root inside its consistency boundary with its key fields and its composed parts and their multiplicity, places outside the boundary one entry per type the root names by id, places the context's domain services below it, draws a class no aggregate holds as a card outside every boundary, and draws the diagram with mermaid only when it does not parse or names no aggregate root.
+The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, beside Fields and Events, that draws each aggregate root inside its consistency boundary with its key fields and its composed parts and their multiplicity, places outside the boundary one entry per type the root names by id, places the context's domain services below it, each captioned by what calls it — the first sentence of its chapter's *Invocation semantics:* prose as written, without its full stop — draws a class no aggregate holds as a card outside every boundary, and draws the diagram with mermaid only when it does not parse or names no aggregate root.
 
 #### Scenario: An aggregate with parts and references
 
@@ -1807,14 +1836,20 @@ The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, be
 - **When** the reader opens Model
 - **Then** Diagram draws the fence with mermaid
 
+#### Scenario: What calls a service
+
+- **Given** a `domain-service` chapter *Occurrence Spawning* whose prose says *Invocation semantics: called when a repeat is ticked. No mediator.*
+- **When** the reader opens Model
+- **Then** *Occurrence Spawning*'s card on Diagram is captioned *Called when a repeat is ticked*
+
 ### Requirement: Fields groups each class's attributes by kind
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelFieldsTests.Attributes_are_grouped_by_kind_in_the_tab_order, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Fields_groups_each_class_and_carries_the_notes_and_how_the_services_run, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Fields_reads_the_model_files_purpose_groups_with_meanings_and_rule_counts, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFieldBoardTests.A_fields_chapter_reads_into_purpose_groups_with_their_question_meanings_and_rule_links, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFieldBoardTests.The_rule_index_counts_the_invariants_under_each_heading, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelFieldsTests.Attributes_are_grouped_by_kind_in_the_tab_order, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Fields_groups_each_class_and_carries_the_notes_and_how_the_services_run, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Fields_reads_the_model_files_purpose_groups_with_meanings_and_rule_counts, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFieldBoardTests.A_fields_chapter_reads_into_purpose_groups_with_their_question_meanings_and_rule_links, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFieldBoardTests.The_rule_index_counts_the_invariants_under_each_heading, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.How_a_service_runs_says_why_it_is_one_and_what_it_raises, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_service_says_why_it_is_one_from_its_because_sentence, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_service_is_looked_up_by_its_own_chapter_and_its_related, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_service_relies_on_the_rules_about_what_it_names_grouped_as_always_true_groups_them, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.How_a_service_runs_says_what_it_relies_on_and_opens_those_rules_in_place]
 ```
 
-The system SHALL head Model's Fields tab with the aggregate root's kind, its chapter's status and aliases, its name and its chapter's first sentence, and list the root's fields in the purpose groups the model file's `## Fields` chapter writes — each group with the question its first paragraph asks, each field with its type, its meaning and how many invariants its `Rules:` links name, fields no group names under *Other fields* — or, when the model file writes no `## Fields` chapter, grouped by what their types say: dates and times, ids pointing elsewhere, vocabularies and other values, in that order. Beside the groups it SHALL list what the root owns — its entities, value objects, enums with their values and the context's domain services — and beneath them the model file's relationship notes and each domain-service chapter's invocation semantics under *Domain services · how they run*. A fence with no aggregate root SHALL list each class that holds state with its attributes grouped by kind.
+The system SHALL head Model's Fields tab with the aggregate root's kind, its chapter's status and aliases, its name and its chapter's first sentence, and list the root's fields in the purpose groups the model file's `## Fields` chapter writes — each group with the question its first paragraph asks, each field with its type, its meaning and how many invariants its `Rules:` links name, fields no group names under *Other fields* — or, when the model file writes no `## Fields` chapter, grouped by what their types say: dates and times, ids pointing elsewhere, vocabularies and other values, in that order. Beside the groups it SHALL list what the root owns — its entities, value objects, enums with their values and the context's domain services — and beneath them the model file's relationship notes and, under *Domain services · how they run*, a card per domain-service chapter reading **Invocation**, its invocation semantics or that the chapter does not say; **Why a service**, what its *It is a service because …* sentence gives after *because*, to that sentence's end; **Raises**, each event whose raiser it is with its state, said once when they share one; and **Relies on**, the rules about its chapter and what its `related` names, one line per group of a unit's Always true as *Unit · heading (n)*, each opening its rules in place — a row other than Invocation left out where the chapters give nothing for it. A fence with no aggregate root SHALL list each class that holds state with its attributes grouped by kind.
 
 #### Scenario: A task's purpose groups
 
@@ -1832,22 +1867,41 @@ The system SHALL head Model's Fields tab with the aggregate root's kind, its cha
 
 - **Given** a `domain-service` chapter *Occurrence Spawning* whose prose says *Invocation semantics: called synchronously by the use case that completes the task.*
 - **When** the reader opens Model and picks Fields
-- **Then** *Domain services · how they run* names *Occurrence Spawning* with *Called synchronously by the use case that completes the task.*
+- **Then** *Domain services · how they run* names *Occurrence Spawning* with *Called synchronously by the use case that completes the task.* under Invocation
+
+#### Scenario: Why a service, what it raises and what it relies on
+
+- **Given** a `domain-service` chapter *Projection* that says *It is a service because it spans several downstream artifacts.*, is the raiser of the documented events *TaskProjected* and *TaskCompleted*, and whose `related` names *Order Line*, about which a group of *Order*'s invariants holds two rules
+- **When** the reader opens Model and picks Fields
+- **Then** *Projection*'s card reads Why a service *It spans several downstream artifacts.*, Raises *TaskProjected · TaskCompleted — documented, not emitted*, and Relies on *Order · Order Line (2)*
+- **And** pressing *Order · Order Line (2)* shows the two rules in place, each linking to its row on Always true
 
 ### Requirement: Events reads each event as a contract
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_reads_each_event_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_event_reads_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_says_what_the_context_listens_to, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.A_context_listens_to_the_published_languages_another_context_supplies, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.An_event_reads_when_it_fires_who_consumes_it_and_its_payload_as_rows, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.An_event_fires_on_the_moves_a_lifecycle_raises_it_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_says_which_move_an_event_would_fire_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.An_asked_event_opens_Events_on_its_contract]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_reads_each_event_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_event_reads_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_says_what_the_context_listens_to, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.A_context_listens_to_the_published_languages_another_context_supplies, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.An_event_reads_when_it_fires_who_consumes_it_and_its_payload_as_rows, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.An_event_fires_on_the_moves_a_lifecycle_raises_it_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_says_which_move_an_event_would_fire_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.An_asked_event_opens_Events_on_its_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_names_each_raiser_with_its_kind, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.An_events_raisers_carry_the_kind_of_chapter_they_are, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_move_an_event_fires_on_opens_its_lifecycle_on_the_Domain_page, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.A_move_an_event_fires_on_opens_its_lifecycle_on_the_Domain_page, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.A_lifecycle_the_host_asks_for_takes_focus_on_About]
 ```
 
-The system SHALL head Model's Events tab *What ‹context› tells other contexts*, list each `domain-event` chapter of the context in an *All events* index with what raises it, when, its consumers and its state, and show the picked event's contract beneath — what raises it, its consumers, its payload and its published-language rules as the chapter writes them — the first event picked until the reader picks another. It SHALL mark an event *Emitted* only when the chapter that raises it says it emits or publishes it and no chapter says it is not emitted yet, and *Documented* otherwise. Where a transition of a `stateDiagram-v2` the context's domain files draw names the event, the contract SHALL end on the moves it fires on, each read *Ready → In progress* from the states' labels, under *Would fire on* while it is documented and *Fires on* once it is emitted. Under *What ‹context› listens to* it SHALL list each row of the context's `dependencies.md` in which another context supplies a published language.
+The system SHALL head Model's Events tab *What ‹context› tells other contexts*, list each `domain-event` chapter of the context in an *All events* index with what raises it, when, its consumers and its state, and show the picked event's contract beneath — what raises it, each raiser followed by its kind (*Projection service*, *Task aggregate*), its consumers, its payload and its published-language rules as the chapter writes them — the first event picked until the reader picks another. It SHALL mark an event *Emitted* only when the chapter that raises it says it emits or publishes it and no chapter says it is not emitted yet, and *Documented* otherwise. Where a transition of a `stateDiagram-v2` the context's domain files draw names the event, the contract SHALL end on the moves it fires on, each read *Ready → In progress* from the states' labels, under *Would fire on* while it is documented and *Fires on* once it is emitted, each move opening the Domain page on the unit whose chapter draws that lifecycle, on About, with the lifecycle focused. Under *What ‹context› listens to* it SHALL list each row of the context's `dependencies.md` in which another context supplies a published language.
 
 #### Scenario: A documented event
 
 - **Given** a `domain-event` chapter *StatusChanged* whose `related` names the aggregate *Task*, with *Payload* and *Consumers* sub-chapters, in a context whose chapters say it publishes no domain events yet
 - **When** the reader opens Model and picks Events
 - **Then** *StatusChanged* is raised by *Task*, shows its payload and consumers, and is marked *Documented*
+
+#### Scenario: Who raises it, by kind
+
+- **Given** a `domain-event` chapter *TaskProjected* raised by the domain service *Projection* and the aggregate *Task*
+- **When** the reader opens Model, picks Events and picks *TaskProjected*
+- **Then** the contract reads it is raised by *Projection service* and *Task aggregate*
+
+#### Scenario: Following a move to its lifecycle
+
+- **Given** a Tasks `domain.md` whose *Task* lifecycle raises *TaskProjected* on *Ready → In progress*
+- **When** the reader picks *TaskProjected* on Events and presses *Ready → In progress* under *Would fire on*
+- **Then** the Domain page opens on *Task*'s About with that lifecycle focused
 
 ### Requirement: The Features page opens on its title, lead and legend
 
@@ -1925,10 +1979,10 @@ The system SHALL show on a `requirements.md` or `requirements.<name>.md` row, pe
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_page_opens_on_its_summary_and_sets_the_shall_word_apart, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_long_feature_opens_two_requirements_and_lists_the_rest_as_rows, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_shall_sentence_splits_around_its_first_shall_outside_code, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.The_page_opens_on_a_card_counting_the_rules_its_features_lean_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.No_rule_card_shows_when_no_feature_leans_on_one]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_page_opens_on_its_summary_and_sets_the_shall_word_apart, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_long_feature_opens_two_requirements_and_lists_the_rest_as_rows, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_shall_sentence_splits_around_its_first_shall_outside_code, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.The_page_opens_on_a_card_counting_the_rules_its_features_lean_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.No_rule_card_shows_when_no_feature_leans_on_one, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.The_rule_card_opens_the_domain_page_on_always_true]
 ```
 
-The system SHALL open the Requirements page on a card saying what a requirement is with how many the file holds and how many a test proves, and, when the file's features lean on any rule, a What is always true card counting the distinct rules, on Domain; list the features By feature · tested, each with its proved and total count and a bar; and draw each requirement as a card holding its title, a *Test linked* or dashed *No test linked* mark, its SHALL sentence with the word SHALL set apart, the tasks referencing it, and each scenario's GIVEN, WHEN and THEN rows on the card's foot. A feature with more than three requirements opens its first two and lists the rest as rows that each open in place, four of them before an *and n more* row.
+The system SHALL open the Requirements page on a card saying what a requirement is with how many the file holds and how many a test proves, and, when the file's features lean on any rule, a What is always true card counting the distinct rules, on Domain, that opens the Domain page on the first such unit's Always true tab; list the features By feature · tested, each with its proved and total count and a bar; and draw each requirement as a card holding its title, a *Test linked* or dashed *No test linked* mark, its SHALL sentence with the word SHALL set apart, the tasks referencing it, and each scenario's GIVEN, WHEN and THEN rows on the card's foot. A feature with more than three requirements opens its first two and lists the rest as rows that each open in place, four of them before an *and n more* row.
 
 #### Scenario: A feature with seven requirements
 
@@ -1936,6 +1990,12 @@ The system SHALL open the Requirements page on a card saying what a requirement 
 - **When** the reader opens it on Requirements
 - **Then** the first two read as cards, four more as rows reading Show, and a last row reads *and 1 more in* the feature
 - **And** pressing a row opens that requirement in place
+
+#### Scenario: The rule card opens Always true
+
+- **Given** a requirements file whose features lean on two of *Task*'s rules
+- **When** the reader presses the *What is always true* card reading *2 rules · on Domain*
+- **Then** the Domain page opens on *Task* with Always true picked
 
 ### Requirement: A feature's rules show under it
 
@@ -1962,10 +2022,10 @@ The system SHALL show under a requirements group's heading, in place of its sent
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.The_rules_about_a_concept_are_those_its_enforced_at_line_or_its_group_names, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.The_rules_about_a_unit_are_every_rule_on_its_always_true, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.Each_rule_knows_its_row_on_always_true, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_list_draws_each_rule_as_always_true_does_and_shows_three_before_the_rest, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_list_one_past_the_limit_shows_every_rule, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_row_opens_on_where_the_rule_is_enforced_and_links_to_its_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.Always_true_marks_the_rule_a_link_opened_it_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_member_cards_rule_count_opens_its_rules_in_place_and_each_lands_on_always_true, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.The_host_can_open_a_unit_on_a_rule, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_domain_service_shows_what_is_always_true_of_the_units_it_touches, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_glossary_rows_rule_count_opens_its_rules_in_place, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_lifecycle_the_invariants_name_shows_its_rules_under_it_and_a_card_behind_its_count, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_fields_rule_count_opens_the_fields_rules_in_place_marked, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_fields_rule_no_invariants_file_holds_reads_as_its_heading_unmarked, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_requirements_link_to_one_rule_shows_that_rule_alone, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_parts_rule_count_on_the_diagram_opens_its_rules_in_place, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_features_detail_shows_what_is_always_true_of_what_it_uses]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.The_rules_about_a_concept_are_those_its_enforced_at_line_or_its_group_names, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.The_rules_about_a_unit_are_every_rule_on_its_always_true, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.Each_rule_knows_its_row_on_always_true, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_list_draws_each_rule_as_always_true_does_and_shows_three_before_the_rest, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_list_one_past_the_limit_shows_every_rule, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_row_opens_on_where_the_rule_is_enforced_and_links_to_its_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.Always_true_marks_the_rule_a_link_opened_it_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_member_cards_rule_count_opens_its_rules_in_place_and_each_lands_on_always_true, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.The_host_can_open_a_unit_on_a_rule, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_domain_service_shows_what_is_always_true_of_the_units_it_touches, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_glossary_rows_rule_count_opens_its_rules_in_place, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.How_a_service_runs_says_what_it_relies_on_and_opens_those_rules_in_place, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_fields_rule_count_opens_the_fields_rules_in_place_marked, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_fields_rule_no_invariants_file_holds_reads_as_its_heading_unmarked, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_requirements_link_to_one_rule_shows_that_rule_alone, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_parts_rule_count_on_the_diagram_opens_its_rules_in_place, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_features_detail_shows_what_is_always_true_of_what_it_uses]
 ```
 
-The system SHALL show the rules about a thing on every page that draws it, in one list: on Features under a feature's promises, on Model behind a field's rule count on Fields and a part's on Diagram, on About behind a member card's rule count, on a domain service's page for the units its `related` names, on the Glossary behind a row's rule count, and on Flow under a lifecycle and behind a card's rule count — wherever a group's `related` or a rule's `Enforced at:` type names it. Each rule reads as its claim with its ✓, ○ or ? mark, opens in place on its first sentence and where it is enforced, and links to its row on its unit's Always true tab, which opens with that row marked and focused. A list shows three rules and the rest behind *n more*, or all four when there are four; Always true stays the full list.
+The system SHALL show the rules about a thing on every page that draws it, in one list: on Features under a feature's promises, on Model behind a field's rule count on Fields, a part's on Diagram and a domain service's *Relies on* line, on About behind a member card's rule count, on a domain service's page for the units its `related` names, and on the Glossary behind a row's rule count — wherever a group's `related` or a rule's `Enforced at:` type names it. Each rule reads as its claim with its ✓, ○ or ? mark, opens in place on its first sentence and where it is enforced, and links to its row on its unit's Always true tab, which opens with that row marked and focused. A list shows three rules and the rest behind *n more*, or all four when there are four; Always true stays the full list.
 
 #### Scenario: A field's rules on Model
 
@@ -1992,7 +2052,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ContextMapTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextMapPageTests]
 ```
 
-The system SHALL offer the context map, under its file's heading and a sentence counting its contexts, as a Map tab that draws the contexts and their relations and a List tab that names the contexts in reading order. Map draws every bounded context of the map's Mermaid fence as a card on an ellipse, ordered to cross as few lines as it can, and one line per pair of contexts the fence joins, with a head at both ends when the pair points both ways. A line between two core contexts is amber and any other grey, and a line the fence draws `-.->` is dashed. Each card says whether its context is core or supporting and how many lines touch it, and no line runs beneath a card it does not join. Pointing at or focusing a card fades every line that does not touch it, and the card says it zooms in. A line's tooltip and accessible name are the "Why" of the matching row in the source context's dependency tables, or the other context's when the source keeps none. Picking a card opens that context's page. List's sentence says that picking a context opens it on its neighbours. List names the core contexts and then the supporting ones, each group headed by its kind, its count and what the kind is for and each context with its "Why" from the Subdomain landscape table, then the published-languages table under the chapter's own headings with each contract named short — an event or type as the map spells it, a term in words, never its devbook path — and then each strategic rule as a card titled by its first sentence. No pattern name shows on either tab.
+The system SHALL offer the context map, under its file's heading and a sentence counting its contexts as *parts of the product*, as a Map tab that draws the contexts and their relations and a List tab that names the contexts in reading order. Map draws every bounded context of the map's Mermaid fence as a card on an ellipse, ordered to cross as few lines as it can, and one line per pair of contexts the fence joins, with a head at both ends when the pair points both ways. A line between two core contexts is amber and any other grey, and a line the fence draws `-.->` is dashed, the legend reading the first two *between core parts* and *with a supporting part*. Each card says whether its context is core or supporting and how many lines touch it, and no line runs beneath a card it does not join. Pointing at or focusing a card fades every line that does not touch it, and the card says it zooms in. A line's tooltip and accessible name are the "Why" of the matching row in the source context's dependency tables, or the other context's when the source keeps none. Picking a card opens that context's page. List's sentence says that picking a context opens it on its neighbours. List names the core contexts and then the supporting ones, each group headed by its kind, its count and what the kind is for and each context with its "Why" from the Subdomain landscape table, then the published-languages table under the chapter's own headings with each contract named short — an event or type as the map spells it, a term in words, never its devbook path — and each Owner cell opening the owner's Model on Events at that event when the contract names an event the owner's domain files document, the owner's page when it names none, and plain words for an owner the map does not know; and then each strategic rule as a card titled by its first sentence. No pattern name shows on either tab.
 
 #### Scenario: Contracts by their short names
 
@@ -2018,38 +2078,39 @@ The system SHALL offer the context map, under its file's heading and a sentence 
 - **When** the reader points at the Inbox card, then picks the Tasks card
 - **Then** every line that does not touch Inbox fades, the Inbox–Tasks line reads *A triaged item becomes a draft task* and never *OHS*, and the Tasks page opens on its neighbours
 
-### Requirement: Flow draws a lifecycle as one row of states
+#### Scenario: Parts of the product
+
+- **Given** a context map with four bounded contexts and two relationships
+- **When** the reader opens Context map, then picks List
+- **Then** Map's sentence begins *4 parts of the product and how they rely on each other*, and List's *4 parts of the product and 2 relationships*
+
+#### Scenario: Following a contract's owner
+
+- **Given** a published-languages table whose rows name Tasks as owner of `.devbook/domain/tasks/domain.md#taskcompleted`, an event Tasks' `domain.md` documents, and Sync as owner of `SyncRoutes`
+- **When** the reader opens List and presses the Tasks owner, then returns and presses the Sync owner
+- **Then** Tasks opens Model on Events at *TaskCompleted*, and Sync opens the Sync page
+
+### Requirement: A lifecycle draws as one row of states
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Moves_between_neighbours_run_straight_forward_on_top_and_back_underneath_and_the_restore_loop_runs_outermost_above, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_back_over_a_state_runs_in_a_lane_below_the_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_state_box_reads_its_alias_its_description_and_its_class, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.An_event_in_a_label_is_a_chip_under_its_transition_dashed_until_it_is_emitted, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_in_from_several_states_under_one_label_is_one_note_not_an_arc_each, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_one_line_note_is_a_caption_under_its_state_and_a_start_into_the_first_state_is_not_drawn, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_row_scales_to_its_column_rather_than_scrolling, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Marks_that_would_meet_under_the_row_take_separate_lines, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_first_chapter_titles_the_page_with_its_lead_and_a_legend_and_untyped_sub_chapters_read_as_cards, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_flow_page_draws_the_row_with_the_prose_beneath_and_mermaid_for_the_rest, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_diagram_the_row_cannot_hold_is_left_to_mermaid, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlowPageTests.The_Flow_row_draws_the_lifecycle_as_one_row_and_keeps_every_other_diagram, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.An_event_chip_on_a_unit_opens_Model_on_that_events_contract]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Moves_between_neighbours_run_straight_forward_on_top_and_back_underneath_and_the_restore_loop_runs_outermost_above, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_back_over_a_state_runs_in_a_lane_below_the_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_state_box_reads_its_alias_its_description_and_its_class, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.An_event_in_a_label_is_a_chip_under_its_transition_dashed_until_it_is_emitted, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_in_from_several_states_under_one_label_is_one_note_not_an_arc_each, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_one_line_note_is_a_caption_under_its_state_and_a_start_into_the_first_state_is_not_drawn, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_row_scales_to_its_column_rather_than_scrolling, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Marks_that_would_meet_under_the_row_take_separate_lines, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_diagram_the_row_cannot_hold_is_left_to_mermaid, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.An_event_chip_on_a_unit_opens_Model_on_that_events_contract]
 ```
 
-The system SHALL draw each `stateDiagram-v2` of a legacy `flow.md` or `flow.<name>.md` row, and each one a domain chapter opens with, as one row of states that fits the column without scrolling sideways: each state a box with its label and its description, a move to the next state on top and a move back to the one before underneath, every other forward move above the row and every other way back below it, the way from the last state back to the first as a loop round the outside above it, the event a transition raises as a chip under it that is dashed while the event is documented but not yet emitted and that opens Model's Events tab on that event's contract, a way in from several states under one label as one note under the row, and a one-line note as a caption under its state. The first chapter SHALL title the page, a chapter's markdown before its first diagram SHALL be its lead, and a state row SHALL carry a legend. A chapter that draws no diagram and holds only untyped sub-chapters SHALL show them as cards. The system SHALL render every other Mermaid diagram of the file as it renders elsewhere.
+The system SHALL draw each `stateDiagram-v2` a domain chapter opens with as one row of states that fits the column without scrolling sideways: each state a box with its label and its description, a move to the next state on top and a move back to the one before underneath, every other forward move above the row and every other way back below it, the way from the last state back to the first as a loop round the outside above it, the event a transition raises as a chip under it that is dashed while the event is documented but not yet emitted and that opens Model's Events tab on that event's contract, a way in from several states under one label as one note under the row, a one-line note as a caption under its state, and a legend beside the row. A state diagram the row cannot hold — composite states, a fork, a note block — is not drawn as a row.
 
 #### Scenario: A lifecycle with a restore
 
-- **Given** a `flow.md` chapter whose `stateDiagram-v2` runs *Draft* to *Ready* to *Done* and back from *Done* to *Draft* as *Restored*
-- **When** the reader opens Flow
-- **Then** *Draft*, *Ready* and *Done* stand in one row, *Restored* loops round the outside above it, and the chapter's prose follows the row
+- **Given** a domain chapter whose `stateDiagram-v2` runs *Draft* to *Ready* to *Done* and back from *Done* to *Draft* as *Restored*
+- **When** the reader opens the unit's About
+- **Then** *Draft*, *Ready* and *Done* stand in one row, and *Restored* loops round the outside above it
 
 #### Scenario: An event and a drop
 
 - **Given** a lifecycle whose *Ready* to *In progress* label reads *started (TaskProjected, not yet emitted)*, and whose *Draft*, *Ready* and *In progress* each go to *Archived* under one label
-- **When** the reader opens Flow
+- **When** the reader opens the unit's About
 - **Then** the move reads *started* with a dashed *TaskProjected* chip under it, and one note says *Also into Archived: Draft, Ready and In progress* in place of three arcs
-
-#### Scenario: What sits beside the status
-
-- **Given** a chapter *Beside the status, not states* holding `### The tick`, `### Readiness` and `### Time`
-- **When** the reader opens Flow
-- **Then** each of the three is a card with its title, its tag and its link
-
-#### Scenario: A class diagram beside it
-
-- **Given** the same `flow.md` holds a chapter with a `classDiagram`
-- **When** the reader opens Flow
-- **Then** that chapter's diagram renders as Mermaid, as it does on every other page
+- **And** pressing the chip opens Model on Events at *TaskProjected*'s contract
 
 ### Requirement: A unit draws the flows its chapter opens with
 
@@ -2071,10 +2132,10 @@ The system SHALL draw, on an aggregate's About below its card and on a domain se
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Lists_every_term_and_model_chapter_of_the_context_a_to_z, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Each_row_shows_its_kind_its_aliases_as_code_chips_and_its_first_sentence, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_deprecated_term_is_struck_through_and_says_so_in_words, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_proposed_term_carries_a_proposed_badge, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_filter_matches_a_heading_or_an_alias, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_glossary_opens_on_its_lead_and_a_labelled_find_box_hinting_at_aliases, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_show_pills_count_and_narrow_to_model_terms_or_borrowed, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_term_naming_its_own_heading_in_another_context_is_borrowed, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_long_list_shows_fifteen_and_the_rest_behind_more, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Terms_that_name_each_other_are_easily_confused_as_one_card_and_a_one_way_pointer_is_not, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Reached_from_the_domain_chapter_bar_it_lists_the_split_files_too]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Lists_every_term_and_model_chapter_of_the_context_a_to_z, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Each_row_shows_its_kind_its_aliases_as_code_chips_and_its_first_sentence, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_deprecated_term_is_struck_through_and_says_so_in_words, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_proposed_term_carries_a_proposed_badge, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_filter_matches_a_heading_or_an_alias, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_glossary_opens_on_its_lead_and_a_labelled_find_box_hinting_at_aliases, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_show_pills_count_and_narrow_to_model_terms_or_borrowed, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_term_naming_its_own_heading_in_another_context_is_borrowed, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_long_list_shows_fifteen_and_the_rest_behind_more, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Terms_that_name_each_other_are_easily_confused_as_one_card_and_a_one_way_pointer_is_not, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Reached_from_the_domain_chapter_bar_it_lists_the_split_files_too, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_rows_first_sentence_keeps_its_links_and_follows_them_against_its_own_file, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_model_chapter_opens_the_model_on_fields_and_a_term_does_not, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Each_row_opens_the_model_file_its_own_domain_file_pairs_with, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.With_no_model_file_or_nowhere_to_go_no_row_links_to_the_model, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_domain_file_pairs_with_its_named_model_file_else_model_md, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Each_model_kind_names_the_tab_it_opens_on]
 ```
 
-The system SHALL offer, from the Domain page's chapter bar, a Glossary that lists every term chapter under `## Ubiquitous Language` and every model chapter of the context's domain files A to Z, each with its kind, a proposed or deprecated badge, its aliases as code chips and its first sentence; that filters by heading or alias and by one choice of All, Model, Terms or Borrowed, each with its count; that strikes a deprecated chapter through; that marks as borrowed, linking there, a term whose `related` names its own heading in another context; and that sets beside the list, as one Easily confused card per group, the term chapters that name each other in `related`.
+The system SHALL offer, from the Domain page's chapter bar, a Glossary that lists every term chapter under `## Ubiquitous Language` and every model chapter of the context's domain files A to Z, each with its kind, its aliases as code chips and its first sentence with its links kept, a model chapter's row ending on *Open the model*, which opens the Model file the row's own domain file pairs with — as *How it is built* picks it — on Fields, a domain event's on its contract on Events and a domain service's on Diagram; that filters by heading or alias and by one choice of All, Model, Terms or Borrowed, each with its count; that, where a chapter still states a `proposed` or `deprecated` status, as one from before devbook contract 38 does, gives its row that badge and strikes a deprecated chapter through; that marks as borrowed, linking there, a term whose `related` names its own heading in another context; and that sets beside the list, as one Easily confused card per group, the term chapters that name each other in `related`.
 
 #### Scenario: Filtering by an alias
 
@@ -2093,6 +2154,18 @@ The system SHALL offer, from the Domain page's chapter bar, a Glossary that list
 - **Given** a term *Roadmap Tag* whose `related` names `.devbook/domain/roadmap/domain.md#roadmap-tag`
 - **When** the reader presses Borrowed
 - **Then** *Roadmap Tag* is listed, reading *borrowed from roadmap*, and following that opens the roadmap context's chapter
+
+#### Scenario: A first sentence with a link
+
+- **Given** a term *Customer* whose first sentence reads *Whoever places the [order](domain.md#order) through `checkout`.*
+- **When** the reader opens the Glossary
+- **Then** *Customer*'s row reads *Whoever places the order through checkout.*, with *order* a link that opens the *Order* chapter and `checkout` as code
+
+#### Scenario: Opening the model from a row
+
+- **Given** a context with `domain.md` and `domain.invoice.md`, and `model.md` and `model.invoice.md`
+- **When** the reader presses *Open the model* on the aggregate *Invoice*, then on the domain event *OrderPlaced* of `domain.md`
+- **Then** the first opens `model.invoice.md` on Fields and the second `model.md` on Events at *OrderPlaced*'s contract, and a term's row has no such link
 
 ### Requirement: A unit, feature or term shows the Brain notes linking to it
 
@@ -2157,16 +2230,22 @@ The system SHALL lead an enum row on an aggregate's About with the words its cha
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.About_links_to_how_the_aggregate_moves_and_how_it_is_built, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDomainPageTests.A_split_aggregate_links_to_its_own_model_split]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.About_links_to_how_the_aggregate_moves_and_how_it_is_built, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDomainPageTests.A_split_aggregate_links_to_its_own_model_split, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDomainPageTests.When_no_name_matches_the_chapters_related_decides_before_model_md, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDomainPageTests.A_related_entry_on_a_chapter_at_any_level_decides, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDomainPageTests.The_splits_own_related_is_read_before_its_chapters, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewDomainPageTests.A_name_match_wins_over_related_and_related_naming_no_model_file_falls_back]
 ```
 
-The system SHALL end an aggregate's About card on links to *Always true*, *How it moves* — the flow file a group of its rules names, else the first lifecycle its own chapter draws on the page, else the first a member's chapter draws — *How it is built*, which opens Model on Diagram, and the Glossary, in that order. *How it is built* opens the `model.<name>.md` beside a split `domain.<name>.md` when there is one, and `model.md` otherwise.
+The system SHALL end an aggregate's About card on links to *Always true*, *How it moves* — which focuses the first lifecycle its own chapter draws on the page, else the first a member's chapter draws — *How it is built*, which opens Model on Diagram, and the Glossary, in that order. *How it is built* opens the Model file named for the domain file — `model.<name>.md` beside `domain.<name>.md`, `model.md` beside `domain.md` — when there is one, else the first Model file a `related` entry names, the file's own before its chapters' at any level, else `model.md`, else the context's first Model file.
 
 #### Scenario: Task on an unsplit file
 
 - **Given** a context with `domain.md`, whose *Task* draws its lifecycle, and `model.md`
 - **When** the reader opens Task's About
 - **Then** the card reads *What is always true · N →*, *How it moves →*, *How it is built →* and *Glossary →*, and *How it is built* opens `model.md` on Diagram
+
+#### Scenario: A split whose related names its Model file
+
+- **Given** a context with `domain.boekingsservice.md`, whose chapter's `related` names `model.domain-services.md`, and with `model.md` and `model.domain-services.md`
+- **When** the reader follows *How it is built* from that file's page
+- **Then** `model.domain-services.md` opens, and with a `model.boekingsservice.md` beside it, that file opens instead
 
 ### Requirement: A unit's events say who hears them and when none is sent yet
 

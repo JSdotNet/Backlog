@@ -5,8 +5,8 @@ type: invariants
 ```
 
 What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each,
-with the unit tests that prove each rule built so far. The Attachment Request is not built
-yet, so its rules name no test.
+with the unit tests that prove it. Every rule names its tests except "A request never
+changes", which names none.
 
 ## Knowledge Event
 
@@ -249,6 +249,7 @@ Enforced at: constructor
 
 ```meta
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.AttachmentRequestInvariantTests.A_request_offers_no_way_to_change_it, unit:dotnet:Backlog.Modules.Events.UnitTests.AttachmentRequestInvariantTests.Linking_a_request_leaves_it_as_it_was]
 ```
 
 An attachment request is written once and never changed. A desktop applies it whole, then deletes it.

@@ -1,9 +1,0 @@
-=== main hidden, Roadmap popped out @ 2026-11-18T00:20:23.5009965+01:00
-debug-build processes: 1 (20724)
-window: 13569710	visible	Roadmap - Backlog.Desktop
-window: 1510344	hidden	Backlog.Desktop
-settings.tray: {"hintShown":true}
-mcp 127.0.0.1:5799 listening: True
---- pop-out lane toggle before click: [  "Collapse backlog to one lane" ]
---- after click (the pop-out answered): [  "Expand backlog into its lanes" ]
---- toggled back: [  "Collapse backlog to one lane" ]

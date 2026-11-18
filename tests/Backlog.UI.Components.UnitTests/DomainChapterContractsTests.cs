@@ -118,6 +118,64 @@ public sealed class DomainChapterContractsTests
     }
 
     [Fact]
+    public void A_domain_service_says_why_it_is_one_from_its_because_sentence()
+    {
+        var reading = Read(Domain);
+
+        // The sentence's wrapped lines read as one; what follows "because" is
+        // its own sentence.
+        Assert.Equal("It reads two aggregates.", reading.Services[0].Reason);
+        Assert.Null(reading.Services[1].Reason);
+        Assert.Null(reading.Services[2].Reason);
+
+        // The reason runs to its sentence's end, not the paragraph's.
+        var spanning = Read(Domain.Replace(
+            "It is a service because it reads two",
+            "It is a service because the link crosses two contexts: the note is the Brain's, and the task is not. It reads two"));
+        Assert.Equal("The link crosses two contexts: the note is the Brain's, and the task is not.", spanning.Services[0].Reason);
+
+        // An abbreviation's full stop ends no sentence.
+        var abbreviated = Read(Domain.Replace(
+            "It is a service because it reads two",
+            "It is a service because it reads other aggregates, e.g. the catalogue and the cart, i.e. two. It reads two"));
+        Assert.Equal("It reads other aggregates, e.g. the catalogue and the cart, i.e. two.", abbreviated.Services[0].Reason);
+    }
+
+    [Fact]
+    public void A_domain_service_is_captioned_by_the_first_sentence_of_how_it_runs()
+    {
+        var reading = Read(Domain);
+
+        // As the chapter writes it, the full stop dropped.
+        Assert.Equal("Command-invoked, once per checkout", reading.Services[0].Caption);
+        // A list's first item stands for it.
+        Assert.Equal("On payment, by the checkout command", reading.Services[1].Caption);
+        Assert.Null(reading.Services[2].Caption);
+
+        // A proper noun keeps its casing.
+        Assert.Equal("GitHub calls it on a push", new DomainServiceInvocation("Sync", "#sync", "Syncs.", "GitHub calls it on a push.").Caption);
+    }
+
+    [Fact]
+    public void A_domain_service_is_looked_up_by_its_own_chapter_and_its_related()
+    {
+        var reading = Read("# Ordering\n\n## Pricing\n\n```meta\ntype: domain-service\nrelated: [domain.md#order, \"#audit\"]\n```\n\nPrices an order.\n");
+
+        Assert.Equal(
+            [".domain/ordering/domain.md#pricing", ".domain/ordering/domain.md#order", ".domain/ordering/domain.md#audit"],
+            Assert.Single(reading.Services).References);
+    }
+
+    [Fact]
+    public void An_events_raisers_carry_the_kind_of_chapter_they_are()
+    {
+        var reading = Read(Domain);
+
+        Assert.Equal([new DomainEventRaiser("Order", "aggregate")], reading.Events[0].Raisers);
+        Assert.Equal([new DomainEventRaiser("Delivery", "service")], reading.Events[1].Raisers);
+    }
+
+    [Fact]
     public void A_domain_event_reads_as_a_contract()
     {
         var placed = Read(Domain).Events[0];
