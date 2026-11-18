@@ -72,17 +72,17 @@ of their own, on their own replica container, which Sync carries without reading
 
 ```mermaid
 flowchart LR
-    Inbox["Inbox"] -.->|"ItemTriaged: To Event"| Events["Events<br/>Knowledge Event, Event Series"]
-    Capture["Capture"] -.->|"event facts, through the Inbox"| Events
-    Tasks["Tasks"] -.->|"files and completes tasks, by id"| Events
-    Events -.->|"events layer on the Calendar"| Tasks
+    Inbox["Inbox"] -->|"ItemTriaged: To Event"| Events["Events<br/>Knowledge Event, Event Series"]
+    Capture["Capture"] -->|"event facts, through the Inbox"| Events
+    Tasks["Tasks"] -->|"files and completes tasks, by id"| Events
+    Events -->|"events layer"| Calendar["Calendar"]
     Events -.->|"note links by id, one way"| Brain["Brain"]
-    Sync["Sync"] -.->|"Conformist: event replica"| Events
+    Sync["Sync"] -->|"Conformist: event replica"| Events
 ```
 
-Every edge is dashed because none is built. Each arrow runs from the upstream
-context to the one that depends on it, as on the
-[context map](../../domain/context-map.md).
+Each arrow runs from the upstream context to the one that depends on it, as on the
+[context map](../../domain/context-map.md). The dashed line is a one-way reference
+by id, not a contract, and it is built like every other edge.
 
 ### 1. Events is a bounded context, for knowledge events only
 
@@ -116,7 +116,7 @@ Talks are terms only and are not modelled in the first version.
 A knowledge event is a document kind of its own, on a replica container of its
 own. Sync stores and carries the documents and never reads them, as it does for
 notifications ([ADR 0039 §3](0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md#3-notifications-get-their-own-replica-containers)).
-The container's name stays open until the code.
+The container is `knowledgeEvents`, set by `CosmosOptions.KnowledgeEventsContainerName`.
 
 Every desktop of the person may write a knowledge event, and the latest write
 wins, as for tasks (ADR 0005). ADR 0039's rule of one owner desktop is not
@@ -228,6 +228,7 @@ reads the roadmap. So neither module references the other's implementation.
 ## Consequences
 
 ```meta
+related: [".devbook/domain/inbox/features.md#route-to-event", ".devbook/domain/capture/features.md#event-page-monitor", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/sync/context.md", ".devbook/arc42/06-runtime-view.md#talk-note-attach", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement"]
 ```
 
 Positive:
@@ -246,25 +247,22 @@ Negative:
 - **An offline edit can be lost.** Two desktops that edit one event apart keep
   only the latest write, as tasks do.
 - **A Brain note link breaks when the note moves.**
-- **The sibling chapters lag.** They are left as follow-ups, and until each lands
-  the Events chapters describe a contract its neighbour does not yet state:
-  - Inbox: the To Event route beside
-    [Route to Brain](../../domain/inbox/features.md#route-to-brain), an Events
-    value on the routing target, and the route on `ItemTriaged`;
-  - Capture: an event page source beside
-    [Automation capture](../../domain/capture/features.md#automation-capture),
+- **Every sibling chapter had to change.** Each now states its side of the contract:
+  - Inbox: [Route to Event](../../domain/inbox/features.md#route-to-event);
+  - Capture: the [event page monitor](../../domain/capture/features.md#event-page-monitor),
     event facts on the capture, and a Talk note attached to an event;
-  - Tasks: a **Show events** choice on the
+  - Calendar: the **Show events** choice on the
     [Calendar view](../../domain/calendar/features.md#calendar-view), and its
-    dependency tables;
-  - Sync: the feeds list, the container and the inbound table in
+    dependency table (ADR 0055);
+  - Sync: the `knowledgeEvents` feed and the inbound table in
     [Sync](../../domain/sync/context.md);
   - arc42: the module and the phone tab in
-    [chapter 5](../05-building-block-view.md), the runtime in chapter 6,
+    [chapter 5](../05-building-block-view.md), the
+    [Talk note attach](../06-runtime-view.md#talk-note-attach) runtime,
     [Storage and Sync](../08-crosscutting-concepts.md#storage-and-sync),
     [Feature Enablement](../08-crosscutting-concepts.md#feature-enablement), and
-    the C4 element in the workspace once the module exists;
-  - design: the Events pane and the phone screen.
+    the `events` component in the workspace;
+  - design: the Events toggle, the phone tab and the calendar event tones.
 
 Neutral:
 
@@ -317,6 +315,7 @@ Look for these in the specification and, once built, in the code:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | The decision diagram draws the built edges solid and the events layer into the Calendar, §2 names the container `knowledgeEvents`, and Consequences lists the sibling chapters as landed. The record stays proposed. | The record still described the context as unbuilt after the `knowledge-events` plan built it and every sibling chapter followed. |
 | 2026-11-18 | A removed knowledge event travels as its document marked removed, the latest write winning as for any other edit; every device hides it. | §2's latest write wins needs a tombstone for a removal to reach the other devices; the person had no way to remove an event added by mistake. |
 | 2026-11-18 | Status lists what is built; the record stays proposed. | The Status still said no code existed, though every part had been built. |
 | 2026-11-18 | §6 says whose switch the phone honours: the latest any desktop made, sent as an `events-area` document on the knowledge event feed when a desktop's switch moves. | The phone kept showing events a desktop had withdrawn, because it read no switch at all. |
