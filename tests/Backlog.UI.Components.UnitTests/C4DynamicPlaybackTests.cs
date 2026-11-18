@@ -462,7 +462,6 @@ public sealed class C4DynamicPlaybackTests : IDisposable
         Assert.Equal(diagram.Edges.Count(edge => edge.Order is not null), Count(plain, "class=\"c4-diagram__step-badge\""));
         Assert.Contains("data-c4-step=\"1\"", plain, StringComparison.Ordinal);
         Assert.DoesNotContain("--current", plain, StringComparison.Ordinal);
-        Assert.DoesNotContain("c4-diagram__edge-order", plain, StringComparison.Ordinal);
     }
 
     private static int Count(string text, string value) =>

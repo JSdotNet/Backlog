@@ -17,7 +17,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// </para>
 /// <para>
 /// A key is matched without regard to case, as devbook's checker matches it. A key
-/// that names no view — or any key while the feature is off, when the catalog is
+/// that names no view — or any key when there is no model, when the catalog is
 /// <see cref="C4Catalog.Off"/> — is declined, so the chapter keeps its own rule and
 /// shows the alt text, which is what devbook's checker flags as an error anyway.
 /// </para>

@@ -103,11 +103,6 @@ public static class AppFeatures
             "Draw a devbook chapter's diagrams from their generated Archify artifacts where one exists, and offer to generate the rest. Chapters whose artifact is missing or was authored from an earlier version of the diagram keep their mermaid rendering.",
             EnabledByDefault: false),
         new(
-            DevbookFeatures.C4Diagrams,
-            "C4 diagrams",
-            "Read the architecture pane as the C4 model, one level at a time from System context to Containers to Components to Code: the model kept in .devbook/arc42/workspace.dsl, authored as Structurizr DSL in c4hero, or, without one, a model drawn from the chapters' own mermaid C4 diagrams. A chapter that documents a view links to it and back.",
-            EnabledByDefault: false),
-        new(
             DevbookFeatures.LobesAtlas,
             "Lobes atlas",
             "Offer the Atlas in the header: the Brain and every registered devbook drawn as brains in one full-window map, with a scope switch for each. The Devbook's own Atlas button opens it at the scope it is reading.",

@@ -72,9 +72,8 @@ public sealed class C4ExplorationTests
 
     /// <summary>
     /// Structurizr has no field for a team or a lifecycle status, so c4hero keeps
-    /// them in a <c>properties</c> block — and two of the Highlighter's four facets
-    /// are exactly those. A block that was skipped, as this reader did before, left
-    /// two facets permanently empty.
+    /// them in a <c>properties</c> block, and the inspector shows both. A block that
+    /// was skipped, as this reader did before, left both permanently empty.
     /// </summary>
     [Fact]
     public void An_elements_properties_block_is_read()

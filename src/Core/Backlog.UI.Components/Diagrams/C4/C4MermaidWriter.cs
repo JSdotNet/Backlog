@@ -144,7 +144,7 @@ public static class C4MermaidWriter
     /// The elements this view draws, in no particular order.
     /// <para>
     /// Public because the explorer has to index exactly what the picture contains —
-    /// which node is clickable, which one a Highlighter facet dims — and computing
+    /// which node is clickable, which one zooms — and computing
     /// that a second time is how the index and the diagram come to disagree about
     /// what is on screen.
     /// </para>

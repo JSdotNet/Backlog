@@ -9,10 +9,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The C4 model beside the architecture chapters, as the panel offers it.
 /// <para>
-/// Three things are worth pinning here and nothing else is. That the feature stays
-/// invisible when its key is off, so the panel is its Chapters tab alone. That with
-/// it on the pane is the architecture surface, and the only reading of the model
-/// (local ADR 0046). And that the reference works in both directions off the single
+/// Two things are worth pinning here and nothing else is. That the pane is the
+/// architecture surface, and the only reading of the model (local ADR 0046). And that the reference works in both directions off the single
 /// authored statement in <c>_c4/references.json</c> and the chapters' embeds, because
 /// the reverse direction is derived and a derivation that silently produces an empty
 /// list looks exactly like a chapter that never referenced anything.
@@ -81,36 +79,23 @@ public sealed class C4DevbookPanelTests : IDisposable
 
     private readonly List<string> _roots = [];
 
-    // ---- the feature key -----------------------------------------------------
-
-    [Fact]
-    public async Task With_the_key_off_there_is_no_C4_tab()
-    {
-        await using var harness = CreateHarness(c4Enabled: false);
-
-        var component = harness.Render(null);
-        harness.Settle(component);
-
-        Assert.Equal(["Chapters"], component.FindAll("[role='tab']").Select(tab => tab.TextContent.Trim()));
-        Assert.Empty(component.FindAll("[data-testid='arc42-surface']"));
-        Assert.Empty(component.FindAll("[data-testid='c4-zoom-bar']"));
-    }
+    // ---- with no model -------------------------------------------------------
 
     /// <summary>
     /// A host that never registered the store — the storybook page, and every panel
-    /// test written before this feature existed. It has to render as it did rather
-    /// than fail on a service it does not know about.
+    /// test written before this feature existed. It draws the chapters-only surface
+    /// rather than fail on a service it does not know about.
     /// </summary>
     [Fact]
     public async Task Without_the_store_registered_the_panel_still_renders_its_chapters()
     {
-        await using var harness = CreateHarness(c4Enabled: true, registerStore: false);
+        await using var harness = CreateHarness(registerStore: false);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
+        Assert.Single(component.FindAll("[data-testid='arc42-surface-chapters-only']"));
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-surface']"));
     }
 
     /// <summary>
@@ -120,7 +105,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task With_no_workspace_on_disk_the_surface_is_the_chapters_alone()
     {
-        await using var harness = CreateHarness(c4Enabled: true, workspace: string.Empty, writeWorkspace: false);
+        await using var harness = CreateHarness(workspace: string.Empty, writeWorkspace: false);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -136,9 +121,9 @@ public sealed class C4DevbookPanelTests : IDisposable
     /// tab — opening on the model, with the zoom bar and the left navigation (local ADR
     /// 0046). No second switch is asked for.</summary>
     [Fact]
-    public async Task With_the_key_on_the_pane_is_one_surface_rather_than_tabs()
+    public async Task The_pane_is_one_surface_rather_than_tabs()
     {
-        await using var harness = CreateHarness(c4Enabled: true);
+        await using var harness = CreateHarness();
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -161,7 +146,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     public async Task The_surface_opens_on_the_context_view_and_its_hint_is_dismissed_per_user()
     {
         var preferences = new RememberedViewPreferences();
-        await using var harness = CreateHarness(c4Enabled: true, preferences: preferences);
+        await using var harness = CreateHarness(preferences: preferences);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -174,7 +159,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='c4-zoom-hint']"));
         Assert.True(preferences.C4ZoomHintDismissed);
 
-        await using var again = CreateHarness(c4Enabled: true, preferences: preferences);
+        await using var again = CreateHarness(preferences: preferences);
         var reopened = again.Render(null);
         again.Settle(reopened);
 
@@ -195,7 +180,6 @@ public sealed class C4DevbookPanelTests : IDisposable
             "# ADR 0030: Stored credentials go through the OS envelope\n\n```meta\nstatus: proposed\nc4: [backlog.desktop]\n```\n\nText.\n";
 
         await using var harness = CreateHarness(
-            c4Enabled: true,
             references: Documented,
             extraFiles: new Dictionary<string, string> { ["adr/0030-stored-credentials.md"] = Decision });
 
@@ -241,7 +225,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_view_names_the_chapters_that_reference_it()
     {
-        await using var harness = CreateHarness(c4Enabled: true, references: Documented);
+        await using var harness = CreateHarness(references: Documented);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -256,7 +240,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_view_nothing_references_says_so_rather_than_showing_an_empty_list()
     {
-        await using var harness = CreateHarness(c4Enabled: true, references: Undocumented);
+        await using var harness = CreateHarness(references: Undocumented);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -272,7 +256,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_chapter_lists_the_views_that_document_it()
     {
-        await using var harness = CreateHarness(c4Enabled: true, references: Documented);
+        await using var harness = CreateHarness(references: Documented);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -288,7 +272,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task Following_a_chapters_view_link_opens_that_view()
     {
-        await using var harness = CreateHarness(c4Enabled: true, references: Documented);
+        await using var harness = CreateHarness(references: Documented);
 
         var asked = new List<DevbookChapterLink>();
         var component = harness.Render(ChapterPath, asked);
@@ -306,7 +290,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_view_named_by_the_host_opens_without_anybody_clicking()
     {
-        await using var harness = CreateHarness(c4Enabled: true);
+        await using var harness = CreateHarness();
 
         var component = harness.RenderOnView(".arc42/workspace.dsl#containers-backlog");
         harness.Settle(component);
@@ -318,7 +302,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_view_the_host_names_that_does_not_exist_leaves_the_chapter_open()
     {
-        await using var harness = CreateHarness(c4Enabled: true);
+        await using var harness = CreateHarness();
 
         var component = harness.Context.Render<Arc42DevbookPanel>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
@@ -337,7 +321,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task Following_a_chapter_the_view_documents_opens_it_in_place_of_the_picture()
     {
-        await using var harness = CreateHarness(c4Enabled: true, references: Documented);
+        await using var harness = CreateHarness(references: Documented);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -370,7 +354,7 @@ public sealed class C4DevbookPanelTests : IDisposable
             }
             """;
 
-        await using var harness = CreateHarness(c4Enabled: true, workspace: workspace);
+        await using var harness = CreateHarness(workspace: workspace);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -406,7 +390,6 @@ public sealed class C4DevbookPanelTests : IDisposable
             """;
 
         await using var harness = CreateHarness(
-            c4Enabled: true,
             workspace: workspace,
             extraFiles: new Dictionary<string, string> { ["c4/model.dsl"] = model });
 
@@ -421,7 +404,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_clean_workspace_reports_nothing()
     {
-        await using var harness = CreateHarness(c4Enabled: true);
+        await using var harness = CreateHarness();
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -443,7 +426,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_chapters_C4_fence_with_no_workspace_gives_a_model_drawn_from_it()
     {
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: FencedChapter);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -459,7 +442,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_derived_view_names_the_chapter_its_fence_came_from()
     {
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: FencedChapter);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -473,7 +456,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_chapter_lists_the_view_drawn_from_its_fence_and_following_it_opens_that_view()
     {
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: FencedChapter);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -491,7 +474,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task With_an_authored_workspace_the_chapters_fences_are_not_drawn_as_a_second_model()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: FencedChapter);
+        await using var harness = CreateHarness(chapter: FencedChapter);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -506,7 +489,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task With_no_workspace_folder_at_all_the_chapters_fences_still_give_a_model()
     {
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter, createReferenceDirectory: false);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: FencedChapter, createReferenceDirectory: false);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -521,7 +504,6 @@ public sealed class C4DevbookPanelTests : IDisposable
     public async Task A_fence_in_an_underscored_folder_is_not_read()
     {
         await using var harness = CreateHarness(
-            c4Enabled: true,
             writeWorkspace: false,
             extraFiles: new Dictionary<string, string> { ["_drafts/03-context.md"] = FencedChapter });
 
@@ -542,7 +524,7 @@ public sealed class C4DevbookPanelTests : IDisposable
             "# 05. Building Block View\n\n```meta\nstatus: active\n```\n\n" +
             "````annotation\nTry this:\n```mermaid\nC4Context\n    System(x, \"X\")\n```\n````\n";
 
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: quoting);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: quoting);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -556,7 +538,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         const string flowchart =
             "# 05. Building Block View\n\n```meta\nstatus: active\n```\n\n```mermaid\nflowchart LR\n    a --> b\n```\n";
 
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: flowchart);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: flowchart);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -573,7 +555,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task Saving_a_chapter_in_the_app_redraws_the_model_drawn_from_it()
     {
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+        await using var harness = CreateHarness(writeWorkspace: false, chapter: FencedChapter);
         var chapterFile = Path.Combine(harness.Arc42, "05-building-block-view.md");
 
         var component = harness.Render(ChapterPath);
@@ -615,7 +597,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_chapter_embedding_a_view_draws_that_view_where_the_image_was()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -630,7 +612,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task Open_in_the_C4_model_under_an_embedded_view_opens_that_view()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -651,20 +633,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     public async Task An_embed_naming_no_view_keeps_its_alt_text()
     {
         await using var harness = CreateHarness(
-            c4Enabled: true,
             chapter: EmbeddingChapter.Replace("c4:Containers-Backlog", "c4:no-such-view", StringComparison.Ordinal));
-
-        var component = harness.Render(ChapterPath);
-        harness.Settle(component);
-
-        component.WaitForAssertion(() => Assert.Contains("The containers", component.Find("[data-testid='arc42-chapter-file']").TextContent, StringComparison.Ordinal));
-        Assert.Empty(component.FindAll("[data-testid='devbook-c4-embed']"));
-    }
-
-    [Fact]
-    public async Task With_the_key_off_an_embed_keeps_its_alt_text()
-    {
-        await using var harness = CreateHarness(c4Enabled: false, chapter: EmbeddingChapter);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -678,7 +647,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_view_a_chapter_embeds_names_that_chapter()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, createReferenceDirectory: false);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter, createReferenceDirectory: false);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -697,7 +666,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [InlineData("# 05. Building Block View\n\n```meta\n```\n\n## Structural\n\n![x](c4:containers-backlog)\n")]
     public async Task An_embed_outside_any_chapter_node_documents_the_file(string chapter)
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: chapter, createReferenceDirectory: false);
+        await using var harness = CreateHarness(chapter: chapter, createReferenceDirectory: false);
 
         var catalog = await harness.LoadCatalogAsync();
 
@@ -714,7 +683,7 @@ public sealed class C4DevbookPanelTests : IDisposable
             { "views": { "containers-backlog": [".devbook/domain/context-map.md"] } }
             """;
 
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, references: references);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter, references: references);
 
         var catalog = await harness.LoadCatalogAsync();
 
@@ -726,7 +695,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task A_chapter_lists_the_views_it_embeds()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, createReferenceDirectory: false);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter, createReferenceDirectory: false);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -741,7 +710,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task An_embed_quoted_in_a_code_span_a_fence_or_a_comment_documents_nothing()
     {
-        await using var harness = CreateHarness(c4Enabled: true, chapter: QuotingChapter, references: Undocumented);
+        await using var harness = CreateHarness(chapter: QuotingChapter, references: Undocumented);
 
         var catalog = await harness.LoadCatalogAsync();
 
@@ -766,7 +735,7 @@ public sealed class C4DevbookPanelTests : IDisposable
             }
             """;
 
-        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, references: references);
+        await using var harness = CreateHarness(chapter: EmbeddingChapter, references: references);
 
         var catalog = await harness.LoadCatalogAsync();
 
@@ -784,7 +753,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     [Fact]
     public async Task Saving_a_chapter_drops_the_map_even_for_an_authored_workspace()
     {
-        await using var harness = CreateHarness(c4Enabled: true, references: Undocumented);
+        await using var harness = CreateHarness(references: Undocumented);
         var store = harness.Context.Services.GetRequiredService<C4DevbookStore>();
 
         var before = await harness.LoadCatalogAsync();
@@ -823,7 +792,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     }
 
     [Fact]
-    public void With_the_feature_off_no_embed_resolves()
+    public void Without_a_catalog_no_embed_resolves()
     {
         var images = new C4ViewImages();
 
@@ -863,7 +832,6 @@ public sealed class C4DevbookPanelTests : IDisposable
     }
 
     private Harness CreateHarness(
-        bool c4Enabled,
         bool registerStore = true,
         IDevbookViewPreferences? preferences = null,
         string? workspace = null,
@@ -908,7 +876,6 @@ public sealed class C4DevbookPanelTests : IDisposable
 
         var workspaceSettings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        if (c4Enabled) Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");

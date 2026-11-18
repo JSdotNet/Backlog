@@ -274,6 +274,36 @@ public sealed class C4LayoutGroupTests
         Assert.Contains(diagram.Edges, edge => edge.FromAlias == "github" && edge.ToAlias == "backlog" && edge.Group is null);
     }
 
+    /// <summary>A line to a band ends on the band's edge and never runs through the
+    /// member cards inside it: the members are obstacles to it like any other card.
+    /// The committed workspace's container view once routed the line to Capture
+    /// sources down through YouTube and Email.</summary>
+    [Theory]
+    [InlineData("landscape")]
+    [InlineData("context-backlog")]
+    [InlineData("containers-backlog")]
+    public void A_line_to_a_band_runs_through_none_of_its_members(string key)
+    {
+        var diagram = Layout(key);
+
+        foreach (var edge in diagram.Edges.Where(edge => edge.Group is not null))
+        {
+            var members = Band(diagram, edge.Group!).MemberAliases;
+            var cards = diagram.Nodes.Where(node => members.Contains(node.Alias)).ToList();
+
+            foreach (var (x, y) in C4PathSampler.Along(edge.Path))
+            {
+                foreach (var card in cards)
+                {
+                    var inside = x > card.X + 4 && x < card.X + card.Width - 4
+                        && y > card.Y + 4 && y < card.Y + card.Height - 4;
+
+                    Assert.False(inside, $"{key}: the line to {edge.Group} runs through {card.Node.Name}");
+                }
+            }
+        }
+    }
+
     [Fact]
     public void A_line_to_a_band_ends_on_the_bands_edge()
     {

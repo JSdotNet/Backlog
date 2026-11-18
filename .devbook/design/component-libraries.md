@@ -336,7 +336,7 @@ affordances, described in
 - **One surface, not an entry in the chapter list:** a C4 view is not a chapter,
   so it stays out of the chapter list even though the section that embeds it draws
   it inline. With no workspace the surface shows its chapters alone, with no
-  picture; with `c4-diagrams` off the panel shows its **Chapters** tab. The surface replaced the earlier **C4** tab (local ADR
+  picture. The surface replaced the earlier **C4** tab and is always on (local ADR
   0046).
 - **Every gesture has a control beside it:** drilling in by clicking a box is
   invisible to a keyboard. `accessibility.md#target-sizes-and-text` is the rule;
@@ -356,7 +356,7 @@ affordances, described in
 - **The generated Mermaid is never shown as the source:** a reader who wants the
   source wants the workspace, not the Mermaid it was turned into.
 
-C4 workspaces are off by default, behind `c4-diagrams`. `tools/diagrams/C4.md` carries the
+C4 workspaces are always on; no switch gates them. `tools/diagrams/C4.md` carries the
 arrangement, the DSL subset, and what the drawing cannot say.
 
 ### Archify artifacts

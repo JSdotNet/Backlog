@@ -500,7 +500,6 @@ storage.
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/devbook/context.md#c4-diagrams
 depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 related: [.devbook/domain/devbook/requirements.md#c4-zoom-navigation, .devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
@@ -522,10 +521,10 @@ Walk the architecture one C4 level at a time, and see beside every element the
 chapters, decisions and debt about it. The architecture surface is one model a
 reader zooms through.
 
-**Where it sits.** While the `c4-diagrams` switch is on and the repository has a C4
-model, the architecture panel is one surface in place of its **Chapters** tab, and
-the pane's own architecture menu stands down. With the switch off, the panel shows
-the **Chapters** tab alone. The surface opens on the System context view. The first time it opens it
+**Where it sits.** The architecture panel is always one surface, and the pane's own
+architecture menu stands down. A repository with no C4 model shows its chapters on
+the surface with no picture. No switch turns the surface off, and a `c4-zoom` or
+`c4-diagrams` value still stored in `features.json` is ignored. The surface opens on the System context view. The first time it opens it
 shows a hint, which the reader can dismiss, naming the ways to move.
 
 **The surface.** It has four parts:

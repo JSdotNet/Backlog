@@ -2,7 +2,7 @@ namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>
 /// One request to open a view in the C4 zoom navigation, made by a host — an arc42 chapter
-/// offering "Open in C4 zoom" on the view it embeds, or a decision record on the
+/// offering "Open in the C4 model" on the view it embeds, or a decision record on the
 /// element it lands on.
 /// <para>
 /// A class matched by reference, not a key: asking twice for the same view, after the

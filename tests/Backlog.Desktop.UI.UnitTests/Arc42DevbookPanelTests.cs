@@ -662,19 +662,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// no container is said under the map rather than dropped.
     /// </summary>
     [Fact]
-    public async Task With_c4_diagrams_off_a_decision_record_shows_no_model_panel()
-    {
-        await using var harness = CreateModelHarness(c4DiagramsEnabled: false);
-
-        var component = harness.Render(ModelDecisionPath);
-        component.WaitForAssertion(() => Assert.Contains("The replica decision.", component.Markup, StringComparison.Ordinal));
-
-        Assert.Empty(component.FindAll("[data-testid='arc42-record-model']"));
-        Assert.Empty(component.FindAll(".arc42-devbook-layout--record"));
-    }
-
-    [Fact]
-    public async Task With_c4_diagrams_on_a_decision_record_marks_what_it_decides_and_touches()
+    public async Task A_decision_record_marks_what_it_decides_and_touches()
     {
         await using var harness = CreateModelHarness();
 
@@ -700,7 +688,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// of supersession reads back from ADR 0004.
     /// </summary>
     [Fact]
-    public async Task With_c4_diagrams_on_a_decision_record_shows_its_decision_chain()
+    public async Task A_decision_record_shows_its_decision_chain()
     {
         await using var harness = CreateModelHarness();
 
@@ -749,7 +737,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// <summary>The arc42 sections whose <c>related:</c> name the record, each a way to
     /// that section: a request to the host, which owns the selection.</summary>
     [Fact]
-    public async Task With_c4_diagrams_on_a_decision_record_lists_the_chapters_that_cite_it()
+    public async Task A_decision_record_lists_the_chapters_that_cite_it()
     {
         await using var harness = CreateModelHarness();
         var asked = new List<DevbookChapterLink>();
@@ -768,7 +756,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         Assert.Equal("containers", link.Anchor);
     }
 
-    /// <summary>"Open in C4 zoom" closes the record and opens the picture, on the
+    /// <summary>"Open in the C4 model" closes the record and opens the picture, on the
     /// container view, with the element the record decides selected.</summary>
     [Fact]
     public async Task Open_in_C4_zoom_opens_the_container_view_with_the_decided_element_selected()
@@ -819,7 +807,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// <c>related:</c> does not is no part of it.
     /// </summary>
     [Fact]
-    public async Task With_c4_diagrams_on_a_debt_record_shows_its_originating_and_related_decisions()
+    public async Task A_debt_record_shows_its_originating_and_related_decisions()
     {
         await using var harness = CreateModelHarness();
         var asked = new List<DevbookChapterLink>();
@@ -873,7 +861,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// <summary>A TDR shows the same map, with its severity and where it stands on the
     /// debt ladder.</summary>
     [Fact]
-    public async Task With_c4_diagrams_on_a_debt_record_shows_the_map_with_its_severity_and_lifecycle()
+    public async Task A_debt_record_shows_the_map_with_its_severity_and_lifecycle()
     {
         await using var harness = CreateModelHarness();
 
@@ -934,7 +922,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// (proposed) and ADR 0007 build on it; TDR 0001 names it and the mobile app; and
     /// chapter 05's Containers section cites it.
     /// </summary>
-    private ModelHarness CreateModelHarness(bool c4DiagramsEnabled = true)
+    private ModelHarness CreateModelHarness()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-panel-tests", Guid.NewGuid().ToString("N"));
         _roots.Add(root);
@@ -982,7 +970,6 @@ public sealed class Arc42DevbookPanelTests : IDisposable
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, c4DiagramsEnabled));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");

@@ -116,7 +116,6 @@ public sealed class AppFeatureSettingsStoreTests
                 RoadmapFeatures.Roadmap,
                 DevbookFeatures.RepositoryDevbook,
                 DevbookFeatures.ArchifyDiagrams,
-                DevbookFeatures.C4Diagrams,
                 DevbookFeatures.LobesAtlas,
                 DevbookFeatures.Search,
                 DevbookFeatures.SemanticSearch,
@@ -158,16 +157,15 @@ public sealed class AppFeatureSettingsStoreTests
     }
 
     /// <summary>Maturity and the default switch are two decisions, and graduating
-    /// a feature is meant to be one of them at a time. C4 and Archify diagrams were
-    /// judged finished on 2026-09-16 and lost their badge, but stay opt-in until
-    /// somebody decides otherwise; Sync moved one step, from not usable to worth
+    /// a feature is meant to be one of them at a time. Archify diagrams were judged
+    /// finished on 2026-09-16 and lost their badge, but stay opt-in until somebody
+    /// decides otherwise; Sync moved one step, from not usable to worth
     /// trying. The Dashboard was released on 2026-10-15 and stays on by default; its
     /// Devbook and Cost tabs carry the DEV flag on their own. Pinned so that the next
     /// graduation is a deliberate edit here too, not a side effect of tidying the
     /// catalog.</summary>
     [Theory]
     [InlineData(DashboardFeatures.Dashboard, AppFeatureStatus.Released, true)]
-    [InlineData(DevbookFeatures.C4Diagrams, AppFeatureStatus.Released, false)]
     [InlineData(DevbookFeatures.ArchifyDiagrams, AppFeatureStatus.Released, false)]
     [InlineData(SyncFeatures.Sync, AppFeatureStatus.Beta, false)]
     public void Graduated_features_keep_their_maturity_and_default_apart(string key, AppFeatureStatus status, bool enabledByDefault)
@@ -366,14 +364,13 @@ public sealed class AppFeatureSettingsStoreTests
     }
 
     /// <summary>
-    /// The C4 zoom switch is retired: the zoom navigation is the only reading of the
-    /// C4 model and follows <c>c4-diagrams</c> alone. A file written while
-    /// <c>"c4-zoom"</c> was on still loads, keeps <c>c4-diagrams</c> as it was, and
-    /// the next save no longer carries the retired key. It is not a former key of
-    /// <c>c4-diagrams</c>: it only ever took effect with that switch already on.
+    /// The C4 switches are retired: the architecture surface is always on, the only
+    /// reading of the C4 model (local ADR 0046). A file written while
+    /// <c>"c4-diagrams"</c> or <c>"c4-zoom"</c> was on still loads, the choices beside
+    /// them keep, and the next save carries neither retired key.
     /// </summary>
     [Fact]
-    public void A_stored_c4_zoom_choice_is_dropped_on_the_next_save()
+    public void Stored_c4_switch_choices_are_dropped_on_the_next_save()
     {
         var path = NewSettingsPath();
 
@@ -382,18 +379,18 @@ public sealed class AppFeatureSettingsStoreTests
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new
             {
-                enabledFeatures = new[] { "c4-diagrams", "c4-zoom" }
+                enabledFeatures = new[] { "c4-diagrams", "c4-zoom", "archify-diagrams" }
             }));
 
             var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.True(store.IsEnabled(DevbookFeatures.C4Diagrams));
-            Assert.Equal([DevbookFeatures.C4Diagrams], store.Current.EnabledFeatures);
+            Assert.Equal([DevbookFeatures.ArchifyDiagrams], store.Current.EnabledFeatures);
 
             store.SetEnabled(AppFeatures.FeedbackReporting, enabled: false);
 
             var saved = File.ReadAllText(path);
-            Assert.Contains("c4-diagrams", saved);
+            Assert.Contains("archify-diagrams", saved);
+            Assert.DoesNotContain("c4-diagrams", saved);
             Assert.DoesNotContain("c4-zoom", saved);
         }
         finally

@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <c>_c4/references.json</c> names, and flagging where its own C4 fence and the model
 /// part ways (local ADR 0046).
 /// <para>
-/// With <c>c4-diagrams</c> on, the view is drawn with its Model / Chapter fence toggle
+/// The view is drawn with its Model / Chapter fence toggle
 /// and the way into the zoom navigation. A harness of its own rather than a share of
 /// <c>C4DevbookPanelTests</c>'.
 /// </para>
@@ -176,7 +176,7 @@ public sealed class C4ChapterViewsTests : IDisposable
     }
 
     /// <summary>Asking again for the view after the reader zoomed elsewhere opens it
-    /// again: each "Open in C4 zoom" is a request of its own.</summary>
+    /// again: each "Open in the C4 model" is a request of its own.</summary>
     [Fact]
     public async Task Open_in_C4_zoom_a_second_time_reopens_the_view()
     {
@@ -300,7 +300,6 @@ public sealed class C4ChapterViewsTests : IDisposable
 
         var workspaceSettings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");

@@ -73,26 +73,6 @@ The catalog also reads three former keys: `repository-knowledge`,
 catalog in `AppFeatures.cs`, and the choice is kept in `features.json` beside the
 app's other per-device choices.
 
-## C4 diagrams
-
-```meta
-type: feature-flag
-key: c4-diagrams
-default: off
-related: [".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/arc42/adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md"]
-```
-
-Turning it on shows the C4 model kept beside the arc42 chapters: the architecture
-panel is one **architecture surface** in place of its **Chapters** tab, and the pane's own architecture menu stands down. An
-ADR, a TDR or an arc42 chapter opened on the surface shows where it lands in the
-model, and a chapter's `![…](c4:<key>)` embeds draw their views. With the switch
-off, the panel shows the **Chapters** tab alone.
-
-The flag ships off by default, and no plan sets a date for its retirement yet. The
-`c4-zoom` switch that once kept the surface apart from a classic **C4** tab is
-retired (local ADR 0046). A `c4-zoom` value still stored in `features.json` is
-ignored.
-
 ## Devbook editing
 
 ```meta

@@ -7,9 +7,9 @@ namespace Backlog.UI.Components.UnitTests;
 /// no longer draws it.
 /// <para>
 /// Two things here are load-bearing rather than cosmetic. The card's id is
-/// <c>&lt;svg id&gt;-&lt;alias&gt;</c>, which is the only thread the explorer's viewer
-/// follows back to the model — get it wrong and click-to-drill, the Highlighter's
-/// dimming and the search ring all stop working at once, silently. And the text is
+/// <c>&lt;svg id&gt;-&lt;alias&gt;</c>, which is the only thread the zoom viewer
+/// follows back to the model — get it wrong and selecting a card, zooming and
+/// lighting its relationships all stop working at once, silently. And the text is
 /// XML-escaped, because this is emitted as raw markup from strings somebody authored
 /// in a <c>.dsl</c>.
 /// </para>

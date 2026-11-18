@@ -34,7 +34,7 @@ public sealed record C4RecordTile(string ElementId, string Name, C4RecordRole Ro
 /// <param name="Beyond">What the record names that is no container of the view — a
 /// person, an external system, or the system itself — so a link is never lost for
 /// having no tile.</param>
-/// <param name="FocusId">The tile "Open in C4 zoom" leaves selected: the first the
+/// <param name="FocusId">The tile "Open in the C4 model" leaves selected: the first the
 /// record decides, else the first it touches, else none.</param>
 public sealed record C4RecordMap(
     C4WorkspaceEntry Workspace,

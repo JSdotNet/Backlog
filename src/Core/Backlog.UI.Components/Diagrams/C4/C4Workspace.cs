@@ -58,8 +58,8 @@ public enum C4ViewKind
 /// overwrite it and a deployment view selects on exactly this.</param>
 /// <param name="Properties">The element's own <c>properties</c> block. Read because
 /// it is where c4hero keeps what Structurizr has no field for — the owning team, a
-/// lifecycle status — and those are two of the four facets the Highlighter filters
-/// on. Keys are matched case-insensitively.</param>
+/// lifecycle status — and the inspector shows both. Keys are matched
+/// case-insensitively.</param>
 public sealed record C4Element(
     string Id,
     C4ElementKind Kind,

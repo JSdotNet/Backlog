@@ -14,8 +14,8 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <summary>
 /// The C4 model that sits beside the architecture chapters.
 /// <para>
-/// Everything the pure reader deliberately does not know is here: whether the
-/// feature is switched on, which repository clone the chapters came from, and where
+/// Everything the pure reader deliberately does not know is here: which repository
+/// clone the chapters came from, and where
 /// <c>workspace.dsl</c> sits inside it. The reader is handed text and answers with a
 /// workspace; this is where that becomes a question about files.
 /// </para>
@@ -106,7 +106,6 @@ public sealed class C4DevbookStore : IDisposable
     /// <summary>The derived workspace's name, as the tab shows it.</summary>
     public const string DerivedWorkspaceName = "From the chapters";
 
-    private readonly IAppFeatureSettings _features;
     private readonly IDevbookFolderSource _folders;
     private readonly object _gate = new();
 
@@ -128,20 +127,14 @@ public sealed class C4DevbookStore : IDisposable
     /// the model as the first save had it.</summary>
     private int _generation;
 
-    public C4DevbookStore(IAppFeatureSettings features, IDevbookFolderSource folders)
+    public C4DevbookStore(IDevbookFolderSource folders)
     {
-        _features = features;
         _folders = folders;
 
         _folders.Changed += Invalidate;
-        _features.Changed += Invalidate;
     }
 
     public event Action? Changed;
-
-    /// <summary>Whether the feature is on at all. Asked before anything is drawn, so
-    /// a panel with the feature off is the panel it was before this existed.</summary>
-    public bool Enabled => _features.IsEnabled(DevbookFeatures.C4Diagrams);
 
     /// <summary>
     /// The workspaces beside the architecture chapters of this scope, with every
@@ -155,8 +148,6 @@ public sealed class C4DevbookStore : IDisposable
     /// </summary>
     public async Task<C4Catalog> LoadAsync(string? repositoryAlias = null)
     {
-        if (!Enabled) return C4Catalog.Off;
-
         var key = repositoryAlias ?? string.Empty;
         int generation;
         C4Catalog? relink;
@@ -756,7 +747,6 @@ public sealed class C4DevbookStore : IDisposable
     public void Dispose()
     {
         _folders.Changed -= Invalidate;
-        _features.Changed -= Invalidate;
     }
 }
 
@@ -849,9 +839,8 @@ public sealed record C4WorkspaceEntry(
         viewKey is not null && References.TryGetValue(viewKey, out var chapters) ? chapters : [];
 }
 
-/// <param name="Available">Whether the architecture folder resolved at all. False
-/// is also what an switched-off feature looks like, and the two are the same to a
-/// panel: there is nothing to draw either way.</param>
+/// <param name="Available">Whether the architecture folder resolved at all. False,
+/// there is nothing to draw.</param>
 /// <param name="Workspaces">The parsed model — <c>workspace.dsl</c>, or the one
 /// drawn from the chapters' fences. What the explorer is given.</param>
 public sealed record C4Catalog(

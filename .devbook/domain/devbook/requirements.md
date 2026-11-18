@@ -646,35 +646,29 @@ type: requirements
 related: [.devbook/domain/devbook/features.md#c4-zoom-navigation]
 ```
 
-> The `c4-diagrams` switch gates these (local ADR 0046). Each has its cases written
+> No switch gates these (local ADR 0046). Each has its cases written
 > inline until a journey proves it.
 
-### Requirement: The architecture surface stands in for the Chapters tab while the switch is on
+### Requirement: The architecture panel is always the architecture surface
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.With_the_key_on_the_pane_is_one_surface_rather_than_tabs, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.With_the_key_off_there_is_no_C4_tab, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.The_surface_opens_on_the_context_view_and_its_hint_is_dismissed_per_user, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.The_surface_opens_on_the_model_with_the_header_the_bar_and_the_left_navigation, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneChapterNavigationTests.With_c4_diagrams_on_the_architecture_section_has_no_menu_of_the_pane_and_opens_the_chapter_in_the_surface, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.It_opens_on_the_system_context_view_with_the_hint_naming_the_ways_to_move, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.A_reader_who_dismissed_the_hint_sees_the_view_alone, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.With_no_workspace_on_disk_the_surface_is_the_chapters_alone]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.The_pane_is_one_surface_rather_than_tabs, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.The_surface_opens_on_the_context_view_and_its_hint_is_dismissed_per_user, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.The_surface_opens_on_the_model_with_the_header_the_bar_and_the_left_navigation, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneChapterNavigationTests.The_architecture_section_has_no_menu_of_the_pane_and_opens_the_chapter_in_the_surface, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.It_opens_on_the_system_context_view_with_the_hint_naming_the_ways_to_move, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomExplorerTests.A_reader_who_dismissed_the_hint_sees_the_view_alone, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4DevbookPanelTests.With_no_workspace_on_disk_the_surface_is_the_chapters_alone]
 ```
 
-The system SHALL show the architecture panel as one surface, in place of its **Chapters** tab and with the pane's own architecture menu stood down, whenever `c4-diagrams` is on, open it on the System context view when the repository has a C4 model and on its chapters alone when it has none, and show a dismissable hint naming the ways to move the first time it opens.
+The system SHALL always show the architecture panel as one surface, with the pane's own architecture menu stood down, open it on the System context view when the repository has a C4 model and on its chapters alone when it has none, and show a dismissable hint naming the ways to move the first time it opens.
 
-#### Scenario: The switch on
+#### Scenario: A model to draw
 
-- **Given** `c4-diagrams` is on and the repository has a C4 model
+- **Given** the repository has a C4 model
 - **When** the reader opens the architecture panel
 - **Then** it shows the zoom bar, a left navigation headed by a find field, and the diagram, with no tabs and no menu of the pane beside them
 
 #### Scenario: No model to draw
 
-- **Given** `c4-diagrams` is on and the repository has no C4 model
+- **Given** the repository has no C4 model
 - **When** the reader opens the architecture panel
 - **Then** the surface shows its chapters alone, with no picture
-
-#### Scenario: The switch off
-
-- **Given** `c4-diagrams` is off
-- **When** the reader opens the architecture panel
-- **Then** it shows the Chapters tab alone, with no surface and no C4 tab
 
 #### Scenario: First opening
 
@@ -896,34 +890,28 @@ The system SHALL play a dynamic view one numbered step at a time, switch a deplo
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.Decisions_opens_the_decisions_chapter_beside_the_decision_log_and_a_record_shows_where_it_lands, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.A_chapter_opens_inside_the_surface_with_its_list_and_its_links_and_Back_returns_to_the_model, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.An_embedded_view_opens_in_the_picture_and_says_the_C4_model, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_c4_diagrams_on_a_decision_record_marks_what_it_decides_and_touches, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_c4_diagrams_off_a_decision_record_shows_no_model_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.With_c4_diagrams_on_a_decision_record_shows_its_decision_chain, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4ChapterViewsTests.A_fence_that_disagrees_with_the_model_lists_what_each_has_alone]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.Decisions_opens_the_decisions_chapter_beside_the_decision_log_and_a_record_shows_where_it_lands, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.A_chapter_opens_inside_the_surface_with_its_list_and_its_links_and_Back_returns_to_the_model, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42SurfaceTests.An_embedded_view_opens_in_the_picture_and_says_the_C4_model, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.A_decision_record_marks_what_it_decides_and_touches, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.A_decision_record_shows_its_decision_chain, unit:dotnet:Backlog.Desktop.UI.UnitTests.C4ChapterViewsTests.A_fence_that_disagrees_with_the_model_lists_what_each_has_alone]
 ```
 
-The system SHALL, while `c4-diagrams` is on, show beside an ADR or a TDR opened on the surface where it lands on the container view and its decision chain, and for an arc42 chapter draw each view it documents, flagging for a view drawn under a section with its own C4 mermaid fence the elements in the model but not in the fence, and those in the fence but not in the model.
+The system SHALL show beside an ADR or a TDR opened on the surface where it lands on the container view and its decision chain, and for an arc42 chapter draw each view it documents, flagging for a view drawn under a section with its own C4 mermaid fence the elements in the model but not in the fence, and those in the fence but not in the model.
 
 #### Scenario: A decision record
 
-- **Given** `c4-diagrams` is on and ADR 0005 names Cloud Service and Cloud Database
+- **Given** ADR 0005 names Cloud Service and Cloud Database
 - **When** the reader opens ADR 0005 on the surface
 - **Then** a container view beside it marks the elements it decides and touches, and its chain shows what it builds on and what builds on it
 
 #### Scenario: A chapter that embeds its view
 
-- **Given** `c4-diagrams` is on and chapter 05 embeds the Containers view as `![…](c4:container-view)`
+- **Given** chapter 05 embeds the Containers view as `![…](c4:container-view)`
 - **When** the reader opens chapter 05 on the surface
 - **Then** the Containers view is drawn where the embed sits, and nothing is flagged
 
 #### Scenario: A chapter and the model disagree
 
-- **Given** `c4-diagrams` is on, and a chapter section that `_c4/references.json` maps to the Containers view draws a C4 mermaid fence holding Attachments, which the model lacks
+- **Given** a chapter section that `_c4/references.json` maps to the Containers view draws a C4 mermaid fence holding Attachments, which the model lacks
 - **When** the reader opens that chapter on the surface
 - **Then** the Containers view is drawn under that section and flags Attachments as in the fence but not in the model
-
-#### Scenario: The switch off
-
-- **Given** `c4-diagrams` is off
-- **When** the reader opens ADR 0005 in the Chapters tab
-- **Then** the record shows no container view and no decision chain
 
 ## Technology view
 
