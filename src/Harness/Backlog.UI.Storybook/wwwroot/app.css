@@ -1363,7 +1363,7 @@ html, body {
     min-height: 0;
 }
 
-/* The zoom tab sizes its own frame, so its stage takes the height it asks for. */
+/* The zoom navigation sizes its own frame, so its stage takes the height it asks for. */
 .sb-c4-stage--zoom {
     display: block;
     height: auto;

@@ -211,7 +211,9 @@ device raises an alert that links to the chapter.
 The Personal Validation question carries the gate's handoff as its body, so the
 person can review the run from the phone. The handoff is what the stage reports
 for the person: its review links, what to check, the acceptance criteria and the
-paths of the evidence. The question is asked on the first report of the stage
+paths of the evidence. A link only the desktop can open — the running app on
+`localhost`, a `file:` path — is left out, since the phone cannot follow it; the
+run's own panel lists it. The question is asked on the first report of the stage
 that carries links or handoff text. A gate that has only gone in progress has
 nothing to show yet.
 
