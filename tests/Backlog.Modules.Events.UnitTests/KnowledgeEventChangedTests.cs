@@ -66,6 +66,20 @@ public sealed class KnowledgeEventChangedTests : IDisposable
         Assert.Equal(1, Raised);
     }
 
+    /// <summary>A removal travels as the event's tombstone, so it is pushed as an edit is; a
+    /// refused one writes nothing and announces nothing.</summary>
+    [Fact]
+    public async Task A_removal_is_announced_and_a_refused_one_is_not()
+    {
+        var added = await Pane.AddAsync("Techorama 2026", cancellationToken: Cancellation);
+
+        Assert.True((await Pane.RemoveAsync(added.Value.Id, Cancellation)).IsSuccess);
+        Assert.Equal(2, Raised);
+
+        Assert.True((await Pane.RemoveAsync(added.Value.Id, Cancellation)).IsFailure);
+        Assert.Equal(2, Raised);
+    }
+
     [Fact]
     public async Task An_event_spotted_by_the_to_event_route_is_announced()
     {

@@ -102,6 +102,7 @@ internal sealed class EventsPane(
         if (removed.IsFailure) return removed;
 
         await events.SaveAsync(found, cancellationToken).ConfigureAwait(false);
+        saved?.Raise();
         return Result.Success();
     }
 

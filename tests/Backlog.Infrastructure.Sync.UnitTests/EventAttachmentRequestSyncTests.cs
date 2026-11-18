@@ -103,7 +103,7 @@ public sealed class EventAttachmentRequestSyncTests
     [Fact]
     public async Task A_request_for_a_removed_event_is_retired_unapplied()
     {
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var attachments = new RecordingEventAttachments { Answer = EventAttachmentOutcome.RemovedEvent };
         var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
 
