@@ -12,8 +12,8 @@ internal enum ReviewLinkKind
     Web,
 
     /// <summary>An address only the machine that runs the session can open: a loopback host
-    /// or a file. It stays a link, because the desktop's own centre shows the same body and
-    /// the link works there.</summary>
+    /// or a file. The question's body leaves it out, because the phone cannot open it; the
+    /// run's own panel at the desktop still lists it.</summary>
     DesktopOnly,
 
     /// <summary>A GitHub pull request, which the question shows first.</summary>
@@ -24,7 +24,7 @@ internal enum ReviewLinkKind
 /// Sorts the review links a run's gate passes
 /// (<c>.devbook/domain/notifications/requirements.md#requirement-a-run-at-personal-validation-asks-to-be-approved</c>):
 /// the phone opens none of the addresses the running app and its storybook listen on, so
-/// those are marked desktop only, and the pull request is lifted out to be read first.
+/// those are left out of the question, and the pull request is lifted out to be read first.
 /// </summary>
 internal static partial class ReviewLinks
 {
