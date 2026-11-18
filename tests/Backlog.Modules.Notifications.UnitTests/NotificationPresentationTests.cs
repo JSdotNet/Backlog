@@ -82,6 +82,16 @@ public sealed class NotificationPresentationTests
     }
 
     [Fact]
+    public void The_card_carries_which_choices_are_quiet()
+    {
+        var spec = new AnswerSpec([new AnswerChoice("approve", "Approve"), new AnswerChoice("dismiss", "Dismiss", Quiet: true)]);
+
+        var card = NotificationPresentation.ToCard(View() with { AnswerSpec = spec }, Now, Owner);
+
+        Assert.Equal([false, true], card.Answer!.Choices.Select(choice => choice.Quiet));
+    }
+
+    [Fact]
     public void Settled_ones_are_listed_only_when_shown_and_the_kept_one_always()
     {
         var open = View();

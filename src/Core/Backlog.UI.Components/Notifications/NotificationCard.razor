@@ -16,7 +16,10 @@
       choices with open  the buttons, and the box with Send beside them
       alert              its actions ("Open run", "Open Sessions"), then Acknowledge
     Seven or eight choices lay out as an even grid that wraps, so no row runs
-    past the card. A question that takes a note adds a plain-text box, "Add a
+    past the card. A quiet choice is not one of the buttons: it is a small ghost
+    text action on its own short line, right-aligned, last of the answer
+    controls (after any text box), and it does not
+    count towards the seven. A question that takes a note adds a plain-text box, "Add a
     note (optional)", under the answers; whatever is in it goes with the answer.
     A settled card draws no controls that answer, only how it was settled. An
     answered one whose host says which set answers were chosen lists them
@@ -174,10 +177,10 @@
             }
             else
             {
-                @if (Model.Answer.Choices.Count > 0)
+                @if (RowChoices.Count > 0)
                 {
                     <div class="@ChoicesClass" data-testid="notification-card-choices">
-                        @foreach (var choice in Model.Answer.Choices)
+                        @foreach (var choice in RowChoices)
                         {
                             <AppButton Variant="@VariantFor(choice.Style)"
                                        Busy="@(Busy && _pressed == choice.Id)"
@@ -245,6 +248,24 @@
                               Rows="2"
                               TestId="notification-card-note-text"
                               maxlength="@note.MaxLength" />
+                </div>
+            }
+
+            @* A quiet choice takes little room: a small text action on its own short line,
+               last of the answer controls so it never sits between a choice and its words. *@
+            @if (Model.Kind == NotificationCardKind.Question && Model.Answer is { AllowMultiple: false } && QuietChoices.Count > 0)
+            {
+                <div class="notification-card__quiet" data-testid="notification-card-quiet-choices">
+                    @foreach (var choice in QuietChoices)
+                    {
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   Size="ButtonSize.Small"
+                                   Busy="@(Busy && _pressed == choice.Id)"
+                                   BusyLabel="Answering"
+                                   Disabled="@(Busy && _pressed != choice.Id)"
+                                   TestId="@($"notification-card-choice-{choice.Id}")"
+                                   OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
+                    }
                 </div>
             }
 
@@ -399,7 +420,15 @@
     /// <summary>The choices that lay out as a wrapping grid once there are this many.</summary>
     private const int ManyChoices = 7;
 
-    private string ChoicesClass => Model.Answer?.Choices.Count >= ManyChoices
+    /// <summary>The choices drawn as buttons in the row.</summary>
+    private IReadOnlyList<NotificationCardChoice> RowChoices =>
+        [.. (Model.Answer?.Choices ?? []).Where(choice => !choice.Quiet)];
+
+    /// <summary>The choices drawn as small text actions after the row.</summary>
+    private IReadOnlyList<NotificationCardChoice> QuietChoices =>
+        [.. (Model.Answer?.Choices ?? []).Where(choice => choice.Quiet)];
+
+    private string ChoicesClass => RowChoices.Count >= ManyChoices
         ? "notification-card__actions notification-card__actions--many"
         : "notification-card__actions";
 

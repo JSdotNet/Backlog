@@ -237,6 +237,36 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
 
         Assert.All(read!.AnswerSpec!.Choices, choice => Assert.False(choice.TakesText));
         Assert.All(read.AnswerSpec.Choices, choice => Assert.Null(choice.Placeholder));
+        Assert.All(read.AnswerSpec.Choices, choice => Assert.False(choice.Quiet));
+    }
+
+    [Fact]
+    public async Task A_quiet_choice_reads_back_quiet()
+    {
+        var question = Notification.Publish(
+            Guid.NewGuid(),
+            Owner,
+            new NotificationDraft(
+                new NotificationSource("sessions", "run-58"),
+                Session,
+                NotificationKind.Question,
+                NotificationSeverity.Info,
+                "Approve the validation of run-58?",
+                "Personal Validation",
+                "Check the toast.",
+                new AnswerSpec(
+                [
+                    new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
+                    new AnswerChoice("dismiss", "Dismiss", Quiet: true)
+                ])),
+            Now).Value;
+
+        await _repository.SaveAsync(question, Cancellation);
+        var read = await _repository.GetAsync(question.Id, Cancellation);
+
+        Assert.Equal(
+            [("approve", false), ("dismiss", true)],
+            read!.AnswerSpec!.Choices.Select(choice => (choice.Id, choice.Quiet)));
     }
 
     [Fact]
