@@ -55,9 +55,10 @@ public static class LoopSessionView
     };
 
     /// <summary>
-    /// The row's line of what the loop holds. A dispatcher: the requests waiting for it,
-    /// the sessions it started that still work against its limit, and the answers it holds
-    /// to deliver. The Brain tender: the notes it has in hand. A pause leads the line.
+    /// The row's line of what the loop holds. A dispatcher: the requests waiting for it —
+    /// or, while the queue is paused, "Queue paused" and how many it holds — the sessions it
+    /// started that still work against its limit, and the answers it holds to deliver. The
+    /// Brain tender: the notes it has in hand. The loop's own Pause leads the line.
     /// </summary>
     /// <param name="loop">The loop as its latest check-in left it.</param>
     /// <param name="waitingRequests">The session requests waiting in the queue; null where
@@ -67,7 +68,10 @@ public static class LoopSessionView
     /// <param name="measuredWorking">The dispatched sessions working as the app measured
     /// them (local ADR 0051 §4), so the row and the card's Sessions tile say one number;
     /// null where it measured none, and then the loop's own count stands.</param>
-    public static string HeldLine(LoopSession loop, int? waitingRequests, CapacityLimits? limits = null, int? measuredWorking = null)
+    /// <param name="queuePaused">Whether the person paused the session request queue
+    /// (local ADR 0038), so it hands out nothing; the line then reads the count as held,
+    /// not waiting. Ignored where <paramref name="waitingRequests"/> is null.</param>
+    public static string HeldLine(LoopSession loop, int? waitingRequests, CapacityLimits? limits = null, int? measuredWorking = null, bool queuePaused = false)
     {
         ArgumentNullException.ThrowIfNull(loop);
 
@@ -85,7 +89,14 @@ public static class LoopSessionView
         }
         else
         {
-            if (waitingRequests is { } waiting) parts.Add(Count(waiting, "request", "requests") + " waiting");
+            if (waitingRequests is { } waiting)
+            {
+                // A paused queue hands out nothing, so its requests wait on the person, not on
+                // the dispatcher: say so, and still say how many it holds.
+                parts.Add(queuePaused
+                    ? "Queue paused · " + Count(waiting, "request", "requests")
+                    : Count(waiting, "request", "requests") + " waiting");
+            }
             parts.Add($"{working.ToString(CultureInfo.InvariantCulture)} of {limits.Sessions.ToString(CultureInfo.InvariantCulture)} sessions working");
             parts.Add(Count(held.Deliveries, "answer", "answers") + " to deliver");
         }
@@ -279,10 +290,13 @@ public static class LoopSessionView
     private static string Limit(string limit, bool reached) => reached ? $"{limit} · reached" : limit;
 
     /// <summary>
-    /// A dispatcher's work list: the session requests still open — Requested, Claimed or
-    /// Started, a lapsed claim read as Requested — oldest first, then the answer deliveries
-    /// still to make. A request carries none of its entry's text (local ADR 0038), so an
-    /// entry is named by its id and a plan by its tag.
+    /// A dispatcher's work list: the session requests still open, in the order the Sessions
+    /// queue shows them and the dispatcher takes them (local ADR 0038 §4, amended) — the
+    /// Claimed and Started ones first, oldest first, then the Requested ones, a lapsed claim
+    /// among them, in queue order (<see cref="SessionRequests.Waiting"/>: the person's rank,
+    /// an unranked one last) — then the answer deliveries still to make. A request carries
+    /// none of its entry's text (local ADR 0038), so an entry is named by its id and a plan
+    /// by its tag.
     /// </summary>
     public static IReadOnlyList<LoopWorkItem> Work(
         IEnumerable<SessionRequest> requests,
@@ -292,9 +306,13 @@ public static class LoopSessionView
         ArgumentNullException.ThrowIfNull(requests);
         ArgumentNullException.ThrowIfNull(undelivered);
 
+        var held = requests as IReadOnlyCollection<SessionRequest> ?? [.. requests];
+        var taken = held
+            .Where(request => request.StateAt(now) is SessionRequestState.Claimed or SessionRequestState.Started)
+            .OrderBy(request => request.CreatedAt);
         var items = new List<LoopWorkItem>();
 
-        foreach (var request in requests.Where(request => request.IsOpenAt(now)).OrderBy(request => request.CreatedAt))
+        foreach (var request in taken.Concat(SessionRequests.Waiting(held, now)))
         {
             var state = request.StateAt(now);
             var (what, title) = request.Kind == SessionRequestKind.Plan

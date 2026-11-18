@@ -648,8 +648,9 @@ else
             @if (reading.Purpose is SessionPurpose.Agent && LoopOf(row) is { } loop)
             {
                 @* What the loop holds, from its latest check-in, against the limits it sent;
-                   while it holds, its sessions counted as the Holding line counts them. *@
-                <span class="sessions-row__line sessions-row__holds" data-testid="sessions-loop-holds">@LoopSessionView.HeldLine(loop.Loop, WaitingRequests, measuredWorking: LoopSessionView.WorkingShown(loop, _capacity))</span>
+                   while it holds, its sessions counted as the Holding line counts them; a
+                   paused queue's requests read as held, not waiting. *@
+                <span class="sessions-row__line sessions-row__holds" data-testid="sessions-loop-holds">@LoopSessionView.HeldLine(loop.Loop, WaitingRequests, measuredWorking: LoopSessionView.WorkingShown(loop, _capacity), queuePaused: _queuePaused)</span>
                 @if (loop is { State: LoopState.Holding, Loop.CheckIn.Kind: LoopKind.Dispatcher })
                 {
                     @* Which limit holds it, from the reading the app took at its check-in
@@ -1135,6 +1136,10 @@ else
     /// composed no queue.</summary>
     private int? WaitingRequests { get; set; }
 
+    /// <summary>Whether the person paused the session request queue, so the dispatcher's
+    /// row reads its requests as held rather than waiting.</summary>
+    private bool _queuePaused;
+
     /// <summary>How many session requests a person may cancel — Requested or Claimed —
     /// or null where the host composed no queue.</summary>
     private int? _cancellable;
@@ -1317,7 +1322,8 @@ else
         IReadOnlyList<LoopWorkItem>? Work,
         int? Cancellable = null,
         int? DispatchedToday = null,
-        bool CapacityRead = true);
+        bool CapacityRead = true,
+        bool QueuePaused = false);
 
     /// <summary>What <see cref="ReadLoopsAsync"/> read, taken in on the
     /// renderer's thread. A timed re-read keeps the card's last error, which only the
@@ -1330,6 +1336,7 @@ else
         _loopsReadAt = read.ReadAt;
         if (read.CapacityRead) _capacity = read.Capacity;
         WaitingRequests = read.WaitingRequests;
+        _queuePaused = read.QueuePaused;
         _loopWork = read.Work;
         _cancellable = read.Cancellable;
         _dispatchedToday = read.DispatchedToday;
@@ -1457,6 +1464,7 @@ else
         }
 
         IReadOnlyList<SessionRequest>? requests = null;
+        var queuePaused = false;
 
         if (Services.GetService<ISessionRequestStore>() is { } queue)
         {
@@ -1467,6 +1475,17 @@ else
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 requests = null;
+            }
+
+            // Read apart from the list, so a failed pause read costs the row only its
+            // "Queue paused" wording, never the requests already read.
+            try
+            {
+                queuePaused = await queue.IsPausedAsync();
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                queuePaused = false;
             }
         }
 
@@ -1508,7 +1527,8 @@ else
             requests is null && undelivered.Count == 0 ? null : LoopSessionView.Work(requests ?? [], undelivered, now),
             requests?.Count(request => request.StateAt(now) is SessionRequestState.Requested or SessionRequestState.Claimed),
             requests is null ? null : LoopSessionView.DispatchedToday(requests, SessionStartOf(_catalog), now, _clock.LocalTimeZone),
-            withCapacity);
+            withCapacity,
+            queuePaused);
     }
 
     /// <summary>When a session in <paramref name="catalog"/> began, by its id.</summary>
