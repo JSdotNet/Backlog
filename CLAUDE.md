@@ -82,8 +82,9 @@ ADR 0038). It also hands each answer the app accepted for a waiting session back
 as a message (local ADR 0041), which runs nothing new. It is no flow and adds no execution path
 beside the gate.
 `tend-brain` is model- or user-invoked and changes only the Brain folder it runs in, outside every
-repository, by the rules that folder carries, plus the Backlog `task` entries it files for the
-follow-ups the person routes there — so it is no flow and never meets the gate.
+repository, by the rules that folder carries, plus the Backlog `task` and `plan` entries it files for the
+follow-ups the person routes there or the app's inbox holds, and the app inbox items it archives
+once their Brain copy exists — so it is no flow and never meets the gate.
 `weekly-cost-analysis` is model-invoked and changes nothing: it reads the `backlog` server's
 `list_run_usage` and ends on a report of what the window's runs cost, so it is no flow.
 `weekly-review` is model- or user-invoked and changes nothing: it reads the Inbox, the Brain and
