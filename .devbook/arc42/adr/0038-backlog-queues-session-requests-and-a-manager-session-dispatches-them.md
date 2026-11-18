@@ -117,6 +117,7 @@ treats the follow-up's text as an item to check.
 
 | Kind | Created on | Brief |
 | --- | --- | --- |
+| 2026-11-18 | §3 amended: the app closes a Requested or Started request once its entry, or every entry of its plan, is Done or Archived, at start and after every task write; `link_session` matches a request under the session's desktop id as well as its transcript id, and `execute-plan` links its own session to one entry of its plan. Built in the same pull request. | No request had ever reached Linked: the dispatcher reports the desktop id and a session links by its transcript id, and a plan's `execute-plan` session never linked at all. Plans the person had finished stayed in the session queue as Started. |
 | Entry request | a prompt entry | `/backlog-tools:run-plan-item entry `<id>`:` |
 | Plan request | a plan's roadmap item | `/backlog-tools:execute-plan +<tag> branch` |
 
@@ -144,6 +145,8 @@ stateDiagram-v2
   Requested --> Cancelled: the person cancels it
   Claimed --> Cancelled: the person cancels it
   Started --> Cancelled: the person clears it, its session never linked
+  Requested --> Cancelled: its work is finished
+  Started --> Cancelled: its work is finished
   Linked --> [*]
   Cancelled --> [*]
 ```
@@ -157,7 +160,8 @@ stateDiagram-v2
   session id.
 - **Linked.** That session called `link_session` on the entry. A plan request is
   Linked when its session links any entry of the plan.
-- **Cancelled.** The person cancelled it, or cleared it once Started.
+- **Cancelled.** The person cancelled it, or cleared it once Started, or the app closed
+  it because its work is finished.
 
 **Requests never expire.** A request made while no dispatcher runs waits until one
 does, or until the person cancels it. Linked and Cancelled are final.
@@ -192,6 +196,21 @@ cancel a Started request from the session queue, and it is Cancelled like any ot
 Cancelling stops no session. A `link_session` that comes later links nothing, because
 only a Started request is linked. A Claimed request still offers no Cancel in the app,
 because a dispatcher is starting its session right then. Requests still never expire.
+
+**Amended 2026-11-18: a finished request leaves the queue.** The person can finish the
+work a request names without its session: mark the entry Done in the app, or every entry
+of the plan. Such a request read Started, or waited Requested, with nothing left to do.
+The app now closes a Requested or Started request once its entry is Done or Archived, or
+once every entry of its plan is, the plan's entries read as `get_plan_items` reads them.
+It sweeps when it starts and after every local task write, and the request is Cancelled
+as a press of Cancel leaves it. A Claimed request is left to its dispatcher, and a plan
+with no entries is not finished.
+
+**Amended 2026-11-18: a link matches the dispatcher's session id.** A dispatcher reports
+the Claude desktop app's id for the session it started, `local_<guid>`, while a session
+calls `link_session` with its transcript id. `link_session` now matches a request under
+both. The plan's `execute-plan` session links itself to one entry of its plan, because
+its entry sessions link with their own ids.
 
 ### 4. Dispatchers wait on a long poll and act through MCP tools
 
