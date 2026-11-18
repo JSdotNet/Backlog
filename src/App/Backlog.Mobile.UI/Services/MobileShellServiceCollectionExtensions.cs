@@ -70,7 +70,7 @@ public static class MobileShellServiceCollectionExtensions
         // in the browser harness, shared by every browser on it, as one pretend phone.
         services.TryAddSingleton<ISpeechSettingsStore, InMemorySpeechSettingsStore>();
 
-        // The Notifications tab's From and Repository choices, kept the same way: the
+        // The Notifications screen's From and Repository choices, kept the same way: the
         // Android head registers its preferences store first, anything else keeps them in
         // memory.
         services.TryAddSingleton<Backlog.Mobile.UI.Notifications.INotificationFilterStore, Backlog.Mobile.UI.Notifications.InMemoryNotificationFilterStore>();

@@ -140,7 +140,7 @@ public static class MauiProgram
 		// Before AddMobileShell, whose in-memory store is only the default.
 		builder.Services.AddSingleton<ISpeechSettingsStore, PreferencesSpeechSettingsStore>();
 
-		// The Notifications tab's From and Repository choices, kept across launches.
+		// The Notifications screen's From and Repository choices, kept across launches.
 		builder.Services.AddSingleton<Backlog.Mobile.UI.Notifications.INotificationFilterStore, PreferencesNotificationFilterStore>();
 
 		// The Android push (local ADR 0039 §4): Firebase's token, registered with the sync

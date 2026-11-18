@@ -1,7 +1,7 @@
 namespace Backlog.Mobile.UI.Notifications;
 
 /// <summary>
-/// The From and Repository choices of the phone's Notifications tab, kept on this device
+/// The From and Repository choices of the phone's Notifications screen, kept on this device
 /// (<c>.devbook/domain/notifications/requirements.md</c> — "The phone remembers its filters until
 /// the person clears them").
 /// </summary>
