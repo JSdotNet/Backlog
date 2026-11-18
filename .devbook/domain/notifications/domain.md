@@ -37,7 +37,10 @@ Its content is shown on every channel:
   and state, and its [origin](#origin) as "System · Place".
 - The body is Markdown, with Mermaid diagrams and images. Images travel as
   attachments through the blob store
-  (`.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md`).
+  (`.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md`):
+  the owner uploads them, the notification lists them, and the body names each as
+  `backlog-attachment:<id>`
+  (`.devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md`, §7).
 - A source can mark a notification private. Outside the app its summary then
   reads "Backlog has a question for you".
 - A notification may carry a deep link that opens the item that raised it.
