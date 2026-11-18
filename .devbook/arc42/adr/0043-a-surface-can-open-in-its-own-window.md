@@ -1,7 +1,7 @@
 # ADR 0043: A surface can open in its own window, and modules register the surfaces the shell shows
 
 ```meta
-date: 2026-11-11
+date: 2026-11-18
 related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment", ".devbook/arc42/06-runtime-view.md#main-window-close-hide-and-quit", ".devbook/design/interaction-guidelines.md#save-timing-and-debounce", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md#1-the-server-lives-in-the-desktop-process-over-streamable-http-on-loopback", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md#deviations-and-gaps", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/component-libraries.md", ".devbook/design/accessibility.md#target-sizes-and-text"]
 ```
 
@@ -27,8 +27,7 @@ Amended 2026-11-04: §5 lets a person remember a popped-out window, one window a
 time. The repository owner decided it, and it is built, as the History records.
 Amended 2026-11-10: §5 closes the main window to the notification area, so the app and
 its MCP listener outlive it. The repository owner decided it under plan
-`tray-keep-alive`, and it is built, as the History records, except that a `backlog://`
-link does not yet re-show a hidden main window.
+`tray-keep-alive`, and it is built, as the History records.
 Amended 2026-11-11: §4 moves **Keep on top** and **Remember this window** into the
 popped-out window's title bar, and no surface draws a close of its own in a window. The
 repository owner decided it, and it is built in the same pull request.
@@ -364,6 +363,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | Built §5's last part: a `backlog://` link handed to a running instance shows the main window before it opens its pop-out, so a main window hidden to the tray comes back. `BacklogLinkActivation` calls `IShellWindows.ActivateMainWindow` first, and three unit tests cover it ([#1857](https://github.com/JSdotNet/Backlog/pull/1857)). | The plan's desktop QA found the link left a hidden main window hidden. |
 | 2026-11-18 | Built §5's tray keep-alive under plan `tray-keep-alive`: the close policy, the hide on close, the tray icon with **Open Backlog** and **Quit**, the one-time toast, the plain second-launch redirect, both switches on the MCP server settings page and the MSIX `StartupTask` that starts to the tray. The desktop QA passed and the installed-app check is marked done, except that a `backlog://` link opens its pop-out and leaves a hidden main window hidden; that re-show is still open. | Step 5 of the plan, `review-plan`, checked what landed against §5. |
 | 2026-11-11 | Amended §4: **Keep on top** and **Remember this window** leave the slim header for the popped-out window's title bar, in that order, just left of the system caption buttons. The head draws them as native controls in the trailing content of MAUI's `Window.TitleBar`, whose title follows the surface. The slim header keeps the title, the scope chips and **Show in main window**. No surface draws a close of its own in a window: the window hands it no close callback, and the OS close closes it. §5 names the toggle's new place. The toggles' behaviour, persistence and `shell-windows.json` are unchanged. Rejected gains the toggles among the caption buttons, a Blazor-drawn title bar and the surface ✕ in a window; the Consequences gain the toggles' move out of the component library. The design chapter takes their 32 px target as an exception and drops the ✕ from the main window's takeovers too. Built in the same pull request. | The repository owner wants the toggles beside the system buttons and no second ✕ under the OS one. |
 | 2026-11-10 | Amended §5, renamed from "the main window owns the app's life": closing the main window (✕ or Alt+F4) flushes the navigation and window-bounds stores and hides it to a notification-area icon. The process and the MCP listener keep running, and popped-out windows stay open. The tray menu has **Open Backlog** and **Quit**, and a double-click restores the window. Quit keeps the flush, closes every window and quits. A plain second launch, a `backlog://` link, a toast press and **Show in main window** re-show a hidden main window, and the first hide shows a one-time toast. Two per-machine switches join the MCP server settings page: **Keep running in the tray when closed**, on by default, and **Start Backlog when I sign in**, off by default, an MSIX `StartupTask` that starts to the tray. That switch is disabled in an unpackaged build and when Windows reports the task disabled by the person or by policy. The runtime view gains the scenario "Main window close, hide and quit". Not built yet. | Plan `tray-keep-alive`: closing the window stopped the MCP listener, so every session lost the `backlog` tools until Backlog was opened again. |
