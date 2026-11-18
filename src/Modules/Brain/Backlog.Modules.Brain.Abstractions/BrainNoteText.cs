@@ -74,9 +74,16 @@ public static partial class BrainNoteText
     /// The whole note: <paramref name="title"/> as its heading, the <c>meta</c>
     /// block, and <paramref name="bodyMd"/> guarded by <see cref="GuardBody"/>.
     /// Line endings are <c>\n</c>, and the text ends with one.
+    /// <para>
+    /// <paramref name="roadmap"/> starts the block's <c>roadmap</c> list, as a flow
+    /// list — the Roadmap Tags of the plans the note is made beside, bare, the way
+    /// the roadmap gathers a note by its tag. A value that is not one plain tag (a
+    /// space, a comma, a bracket, a quote or a line break in it) is left out rather
+    /// than allowed to break the block; with none left there is no field.
+    /// </para>
     /// </summary>
     /// <exception cref="ArgumentException">The title is blank.</exception>
-    public static string Compose(string title, string? bodyMd, BrainNoteSource source)
+    public static string Compose(string title, string? bodyMd, BrainNoteSource source, IReadOnlyList<string>? roadmap = null)
     {
         var heading = TitleOf(title) ?? throw new ArgumentException("A note needs a title.", nameof(title));
 
@@ -86,8 +93,16 @@ public static partial class BrainNoteText
             .Append("```meta\n")
             .Append("type: ").Append(NoteType).Append('\n')
             .Append("status: draft\n")
-            .Append("source: ").Append(SourceSlug(source)).Append('\n')
-            .Append("```\n");
+            .Append("source: ").Append(SourceSlug(source)).Append('\n');
+
+        var tags = (roadmap ?? [])
+            .Select(tag => tag?.Trim() ?? string.Empty)
+            .Where(tag => RoadmapTag().IsMatch(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (tags.Count > 0) text.Append("roadmap: [").Append(string.Join(", ", tags)).Append("]\n");
+
+        text.Append("```\n");
 
         var body = GuardBody(bodyMd);
         if (body.Length > 0) text.Append('\n').Append(body).Append('\n');
@@ -217,6 +232,11 @@ public static partial class BrainNoteText
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Whitespace();
+
+    /// <summary>One plain Roadmap Tag in a flow list: no space, comma, bracket,
+    /// brace, quote, hash or colon, so the list reads back as the values written.</summary>
+    [GeneratedRegex(@"^[^\s,\[\]{}""'#:]+$")]
+    private static partial Regex RoadmapTag();
 
     /// <summary>JavaScript's <c>\s</c>, which the devbook parse uses — the
     /// generator's and its C# port's (<c>DevbookMarkdown.JsWhitespaceClass</c>) —

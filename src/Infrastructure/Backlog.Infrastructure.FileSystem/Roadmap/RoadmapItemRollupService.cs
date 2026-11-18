@@ -25,6 +25,12 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// carries no <c>started:</c> or <c>completed:</c> date of its own. When no gathered
 /// entry needs that, the sessions are not read at all.
 /// </para>
+/// <para>
+/// A fourth is this device's Brain, through Roadmap's own <see cref="IRoadmapBrainNotes"/>
+/// (local ADR 0053): read once per gathering, so an item's <c>#brain:</c> refs resolve
+/// for the Brain's owner and its tag reaches the notes naming it. A host with no Brain
+/// passes none, and those refs read as unresolved.
+/// </para>
 /// </summary>
 public sealed class RoadmapItemRollupService : IRoadmapItemRollup
 {
@@ -32,6 +38,7 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
     private readonly Func<string> _rootDirectory;
     private readonly IAgentSessionSource? _sessions;
     private readonly TimeProvider _time;
+    private readonly IRoadmapBrainNotes? _brainNotes;
 
     /// <param name="entries">The backlog port, read for entries linked or tagged.</param>
     /// <param name="rootDirectory">Where the storage root is right now — read per
@@ -40,12 +47,15 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
     /// <param name="sessions">Where the sessions linked to an entry are read from, or
     /// null in a host that has none — entries are then dated by Tasks alone.</param>
     /// <param name="time">The clock the session horizon is measured from.</param>
+    /// <param name="brainNotes">This device's Brain notes, or null in a host that has
+    /// no Brain.</param>
     public RoadmapItemRollupService(
         ITaskItems entries,
         Func<string> rootDirectory,
         IAgentSessionSource? sessions = null,
-        TimeProvider? time = null)
-        : this(Pinned(entries), rootDirectory, sessions, time)
+        TimeProvider? time = null,
+        IRoadmapBrainNotes? brainNotes = null)
+        : this(Pinned(entries), rootDirectory, sessions, time, brainNotes)
     {
     }
 
@@ -56,11 +66,14 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
     /// <param name="sessions">Where the sessions linked to an entry are read from, or
     /// null in a host that has none.</param>
     /// <param name="time">The clock the session horizon is measured from.</param>
+    /// <param name="brainNotes">This device's Brain notes, or null in a host that has
+    /// no Brain.</param>
     public RoadmapItemRollupService(
         Func<ITaskItems> entries,
         Func<string> rootDirectory,
         IAgentSessionSource? sessions = null,
-        TimeProvider? time = null)
+        TimeProvider? time = null,
+        IRoadmapBrainNotes? brainNotes = null)
     {
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(rootDirectory);
@@ -68,6 +81,7 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
         _rootDirectory = rootDirectory;
         _sessions = sessions;
         _time = time ?? TimeProvider.System;
+        _brainNotes = brainNotes;
     }
 
     private static Func<ITaskItems> Pinned(ITaskItems entries)
@@ -85,8 +99,9 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
         var sessions = await ReadSessionsAsync(
             backlog.Where(entry => RoadmapItemRollupBuilder.Gathers(item, entry)),
             cancellationToken).ConfigureAwait(false);
+        var brain = await ReadBrainAsync(cancellationToken).ConfigureAwait(false);
 
-        return RoadmapItemRollupBuilder.Build(item, backlog, knowledge, sessions);
+        return RoadmapItemRollupBuilder.Build(item, backlog, knowledge, sessions, brain);
     }
 
     /// <summary>
@@ -107,9 +122,15 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
         var sessions = await ReadSessionsAsync(
             backlog.Where(entry => plan.Items.Any(item => RoadmapItemRollupBuilder.Gathers(item, entry))),
             cancellationToken).ConfigureAwait(false);
+        var brain = await ReadBrainAsync(cancellationToken).ConfigureAwait(false);
 
-        return RoadmapItemRollupBuilder.BuildPlan(plan, backlog, knowledge, sessions);
+        return RoadmapItemRollupBuilder.BuildPlan(plan, backlog, knowledge, sessions, brain);
     }
+
+    /// <summary>The owner's Brain notes, or null where this host has no Brain port or
+    /// the port has no Brain to read — which the builder reads as no Brain.</summary>
+    private async Task<IReadOnlyList<RoadmapBrainNote>?> ReadBrainAsync(CancellationToken cancellationToken) =>
+        _brainNotes is null ? null : await _brainNotes.ReadAsync(cancellationToken).ConfigureAwait(false);
 
     /// <summary>
     /// The sessions linked to the <paramref name="gathered"/> entries that need one to

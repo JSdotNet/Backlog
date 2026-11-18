@@ -32,7 +32,7 @@ namespace Backlog.Infrastructure.Sqlite.Sessions;
 public sealed class SqliteSessionRequestStore : ISessionRequestStore
 {
     private const string Columns =
-        "id, kind, entry_id, plan_tag, repository, clone_folder, state, claimed_by, lease_ends_at, session_id, created_at";
+        "id, kind, entry_id, plan_tag, repository, clone_folder, state, claimed_by, lease_ends_at, session_id, created_at, rank";
 
     private readonly string _databasePath;
     private readonly TimeProvider _clock;
@@ -67,10 +67,12 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
             return open;
         }
 
-        await WriteAsync(connection, transaction, candidate, cancellationToken).ConfigureAwait(false);
+        var queued = SessionRequests.RankedLast(candidate, held);
+
+        await WriteAsync(connection, transaction, queued, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 
-        return candidate;
+        return queued;
     }
 
     public async Task<SessionRequest?> GetAsync(Guid id, CancellationToken cancellationToken = default)
@@ -87,26 +89,82 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
         var held = await ReadAsync(connection, null, cancellationToken).ConfigureAwait(false);
         var now = Now;
 
-        return
-        [
-            .. held
-                .Where(request => state is null || request.StateAt(now) == state)
-                .OrderBy(request => request.CreatedAt)
-                .ThenBy(request => request.Id)
-        ];
+        return SessionRequests.InQueueOrder(held.Where(request => state is null || request.StateAt(now) == state));
     }
 
     public async Task<SessionRequest?> NextAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
 
+        if (await PausedAsync(connection, null, cancellationToken).ConfigureAwait(false)) return null;
+
         var held = await ReadAsync(connection, null, cancellationToken).ConfigureAwait(false);
 
         return SessionRequests.Waiting(held, Now).FirstOrDefault();
     }
 
-    public Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) =>
-        ChangeAsync(id, (request, now) => SessionRequests.Claim(request, dispatcher, now), cancellationToken);
+    /// <summary>The move and every rank it changes are one immediate transaction, the
+    /// write lock taken before the read, so a claim racing it either lands first — and
+    /// the move reads the request as Claimed and is refused — or reads the new order.</summary>
+    public async Task<SessionRequestOutcome> MoveAsync(Guid id, int toIndex, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var transaction = await BeginAsync(connection, cancellationToken).ConfigureAwait(false);
+
+        var held = await ReadAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        var move = SessionRequests.Move(held, id, toIndex, Now);
+
+        foreach (var request in move.Queue)
+        {
+            await WriteAsync(connection, transaction, request, cancellationToken).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        return move.Outcome;
+    }
+
+    public async Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var transaction = await BeginAsync(connection, cancellationToken).ConfigureAwait(false);
+
+        // Read inside the immediate transaction that writes the claim: a pause committed
+        // before this claim took the write lock refuses it.
+        var paused = await PausedAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+
+        return await ChangeAsync(
+            connection,
+            transaction,
+            id,
+            (request, now) => SessionRequests.Claim(request, dispatcher, now, paused),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<bool> IsPausedAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+
+        return await PausedAsync(connection, null, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var transaction = await BeginAsync(connection, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            INSERT INTO session_request_queue (id, paused, paused_at) VALUES (1, $paused, $paused_at)
+            ON CONFLICT(id) DO UPDATE SET paused = excluded.paused, paused_at = excluded.paused_at;
+            """;
+        command.Parameters.AddWithValue("$paused", paused ? 1 : 0);
+        command.Parameters.AddWithValue("$paused_at", paused ? Text(Now)! : (object)DBNull.Value);
+
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public Task<SessionRequestOutcome> ReleaseAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, (request, now) => SessionRequests.Release(request, dispatcher, now), cancellationToken);
@@ -156,6 +214,16 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         await using var transaction = await BeginAsync(connection, cancellationToken).ConfigureAwait(false);
 
+        return await ChangeAsync(connection, transaction, id, transition, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<SessionRequestOutcome> ChangeAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        Guid id,
+        Func<SessionRequest, DateTimeOffset, SessionRequestOutcome> transition,
+        CancellationToken cancellationToken)
+    {
         var held = await ReadAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
 
         if (held.FirstOrDefault(request => request.Id == id) is not { } request)
@@ -182,6 +250,20 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
         // Not deferred: BEGIN IMMEDIATE takes the write lock before the read, so the
         // read a transition decides on cannot be overtaken by another writer.
         return Task.FromResult(connection.BeginTransaction(deferred: false));
+    }
+
+    /// <summary>Whether the queue's one row says paused. No row — a queue nobody ever
+    /// paused, or a database from before the pause — reads as running.</summary>
+    private static async Task<bool> PausedAsync(
+        SqliteConnection connection,
+        SqliteTransaction? transaction,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT paused FROM session_request_queue WHERE id = 1;";
+
+        return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is long paused && paused != 0;
     }
 
     private static async Task<IReadOnlyList<SessionRequest>> ReadAsync(
@@ -216,7 +298,8 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
                 Text(reader, 7),
                 Instant(Text(reader, 8)),
                 Text(reader, 9),
-                Instant(reader.GetString(10))!.Value));
+                Instant(reader.GetString(10))!.Value,
+                reader.IsDBNull(11) ? null : reader.GetInt32(11)));
         }
 
         return requests;
@@ -234,7 +317,7 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
             $"""
             INSERT OR REPLACE INTO session_requests ({Columns})
             VALUES ($id, $kind, $entry_id, $plan_tag, $repository, $clone_folder, $state, $claimed_by,
-                    $lease_ends_at, $session_id, $created_at);
+                    $lease_ends_at, $session_id, $created_at, $rank);
             """;
 
         command.Parameters.AddWithValue("$id", request.Id.ToString("D"));
@@ -248,6 +331,7 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
         command.Parameters.AddWithValue("$lease_ends_at", (object?)Text(request.LeaseEndsAt) ?? DBNull.Value);
         command.Parameters.AddWithValue("$session_id", (object?)request.SessionId ?? DBNull.Value);
         command.Parameters.AddWithValue("$created_at", Text(request.CreatedAt)!);
+        command.Parameters.AddWithValue("$rank", (object?)request.Rank ?? DBNull.Value);
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -285,7 +369,26 @@ public sealed class SqliteSessionRequestStore : ISessionRequestStore
                 created_at    TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS ix_session_requests_created ON session_requests (created_at, id);
-            """);
+            CREATE TABLE IF NOT EXISTS session_request_queue (
+                id        INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
+                paused    INTEGER NOT NULL,
+                paused_at TEXT NULL
+            );
+            """,
+
+        // The place the person set in the queue (local ADR 0038 §4, amended). Nullable
+        // and never backfilled: a row from before the column was never moved, and an
+        // unranked row reads oldest first after the ranked ones (local ADR 0006).
+        columns:
+        [
+            new("session_requests", "rank", "INTEGER NULL"),
+        ],
+        afterColumns:
+        [
+            // After the column rather than in the DDL: on a database from before it, rank
+            // does not exist until the step above adds it.
+            "CREATE INDEX IF NOT EXISTS ix_session_requests_rank ON session_requests (rank, created_at, id);",
+        ]);
 }
 
 /// <summary>
@@ -336,8 +439,17 @@ public sealed class RootedSqliteSessionRequestStore(Func<string> currentRootDire
     public Task<SessionRequest?> NextAsync(CancellationToken cancellationToken = default) =>
         Current.NextAsync(cancellationToken);
 
+    public Task<SessionRequestOutcome> MoveAsync(Guid id, int toIndex, CancellationToken cancellationToken = default) =>
+        Current.MoveAsync(id, toIndex, cancellationToken);
+
     public Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) =>
         Current.ClaimAsync(id, dispatcher, cancellationToken);
+
+    public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default) =>
+        Current.IsPausedAsync(cancellationToken);
+
+    public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default) =>
+        Current.SetPausedAsync(paused, cancellationToken);
 
     public Task<SessionRequestOutcome> ReleaseAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) =>
         Current.ReleaseAsync(id, dispatcher, cancellationToken);

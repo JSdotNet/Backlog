@@ -350,6 +350,15 @@ public sealed record AgentSession(
     /// terms as <see cref="Archived"/>.
     /// </summary>
     public string? DesktopSessionId { get; init; }
+
+    /// <summary>
+    /// The sidebar name of the session that started this one — the desktop record its
+    /// <c>spawnedFrom</c> names — or null where none started it or the store holds no
+    /// record of that one. What an <c>execute-plan</c> entry titled <c>n - X</c> takes its
+    /// plan tag from (<see cref="SessionTitles.Of"/>); local-only on the same terms as
+    /// <see cref="Archived"/>.
+    /// </summary>
+    public string? ParentDesktopTitle { get; init; }
 }
 
 /// <summary>

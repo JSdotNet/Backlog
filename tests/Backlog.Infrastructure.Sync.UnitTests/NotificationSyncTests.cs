@@ -456,6 +456,47 @@ public sealed class NotificationSyncTests
         Assert.All(read.Notification.AnswerSpec!.Choices, choice => Assert.False(choice.TakesText));
     }
 
+    [Fact]
+    public void A_quiet_choice_round_trips_through_the_wire()
+    {
+        var question = Question(Guid.CreateVersion7()) with
+        {
+            AnswerSpec = new AnswerSpec(
+            [
+                new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
+                new AnswerChoice("dismiss", "Dismiss", Quiet: true)
+            ])
+        };
+
+        var read = NotificationPayloads.Read(NotificationPayloads.ToChange(question, [], Noon));
+
+        Assert.Equal(
+            [("approve", false), ("dismiss", true)],
+            read!.Notification.AnswerSpec!.Choices.Select(choice => (choice.Id, choice.Quiet)));
+    }
+
+    [Fact]
+    public void A_payload_written_before_choices_could_be_quiet_reads_as_none_quiet()
+    {
+        var question = Question(Guid.CreateVersion7()) with
+        {
+            AnswerSpec = new AnswerSpec([new AnswerChoice("approve", "Approve"), new AnswerChoice("dismiss", "Dismiss", Quiet: true)])
+        };
+        var change = NotificationPayloads.ToChange(question, [], Noon);
+
+        // An older desktop writes no quiet on a choice.
+        var older = System.Text.Json.Nodes.JsonNode.Parse(change.Notification.GetRawText())!;
+        foreach (var choice in older["notification"]!["answerSpec"]!["choices"]!.AsArray())
+        {
+            Assert.True(choice!.AsObject().Remove("quiet"));
+        }
+
+        var read = NotificationPayloads.Read(change with { Notification = JsonSerializer.SerializeToElement(older) });
+
+        Assert.NotNull(read);
+        Assert.All(read.Notification.AnswerSpec!.Choices, choice => Assert.False(choice.Quiet));
+    }
+
     // --- The repository a notification is about (local ADR 0039 §6) -----------------
 
     [Fact]

@@ -237,12 +237,16 @@ internal sealed partial class DesktopHarness
     }
 
     /// <summary>Routes the open Inbox item To Brain with the decision bar's
-    /// button, and returns what the page said about it.</summary>
+    /// button and the destination picker's first row, the Brain's inbox area, and
+    /// returns what the page said about it.</summary>
     public async Task<string> RouteOpenItemToBrainAsync()
     {
         var toBrain = Page.Locator("[data-testid='inbox-to-brain']:visible").First;
-        var kept = Page.Locator("[role='status']").Filter(new LocatorFilterOptions { HasText = "in your Brain as" });
-        await Interactive.ClickAsync(toBrain, kept);
+        var inboxArea = Page.Locator("[data-testid='inbox-brain-choices-brain-0']");
+        await Interactive.ClickAsync(toBrain, inboxArea);
+
+        var kept = Page.Locator("[role='status']").Filter(new LocatorFilterOptions { HasText = "area as" });
+        await Interactive.ClickAsync(inboxArea, kept);
         return await kept.First.InnerTextAsync();
     }
 }

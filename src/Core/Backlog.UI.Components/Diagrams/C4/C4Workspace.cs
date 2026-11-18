@@ -45,9 +45,9 @@ public enum C4ViewKind
 /// boundary, and what a view walks up when it has to roll an edge endpoint up to
 /// something it is actually drawing.</param>
 /// <param name="Group">The <c>group</c> block the declaration sat in, if any.
-/// Carried because it is part of what the author said. The C4 zoom tab draws it as a
-/// labelled band (<see cref="C4LayoutOptions.GroupBands"/>); the C4 tab does not, and
-/// mermaid C4 has no grouping construct to draw it with.</param>
+/// Carried because it is part of what the author said. The layout draws it as a
+/// labelled band (<see cref="C4LayoutEngine"/>); mermaid C4 has no grouping construct
+/// to draw it with.</param>
 /// <param name="InstanceOfId">For a deployment instance, the static element it is
 /// an instance of. A deployment view draws the instance with the name and
 /// technology of the thing it instantiates, so the reference has to survive
@@ -58,8 +58,8 @@ public enum C4ViewKind
 /// overwrite it and a deployment view selects on exactly this.</param>
 /// <param name="Properties">The element's own <c>properties</c> block. Read because
 /// it is where c4hero keeps what Structurizr has no field for — the owning team, a
-/// lifecycle status — and those are two of the four facets the Highlighter filters
-/// on. Keys are matched case-insensitively.</param>
+/// lifecycle status — and the inspector shows both. Keys are matched
+/// case-insensitively.</param>
 public sealed record C4Element(
     string Id,
     C4ElementKind Kind,

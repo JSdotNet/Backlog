@@ -98,6 +98,9 @@ internal static class SyncResults
         // And for the subject state container.
         SyncErrorCodes.DevbookSubjectTooLarge => StatusCodes.Status413PayloadTooLarge,
 
+        // And for the knowledge event container.
+        SyncErrorCodes.KnowledgeEventTooLarge => StatusCodes.Status413PayloadTooLarge,
+
         // More than the store will take from this caller right now. Same shape
         // as the 503 above and a different sentence: the store is answering.
         SyncErrorCodes.ReplicaBusy => StatusCodes.Status429TooManyRequests,
@@ -115,6 +118,8 @@ internal static class SyncResults
         // And over the annotation container, under the same rule.
         SyncErrorCodes.AnnotationBatchTooLarge => StatusCodes.Status400BadRequest,
         SyncErrorCodes.DevbookSubjectBatchTooLarge => StatusCodes.Status400BadRequest,
+        SyncErrorCodes.KnowledgeEventBatchTooLarge => StatusCodes.Status400BadRequest,
+        SyncErrorCodes.KnowledgeEventInvalid => StatusCodes.Status400BadRequest,
 
         // And over the notification container. A notification the store refused
         // as too large surfaces under the same invalid code the edge uses, and

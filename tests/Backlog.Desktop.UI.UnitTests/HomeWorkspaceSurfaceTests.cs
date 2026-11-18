@@ -1,4 +1,6 @@
 ﻿using AngleSharp.Dom;
+using Backlog.Modules.Calendar.Abstractions.Services;
+using Backlog.Modules.Calendar.Extensions;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.AzureFoundry;
@@ -12,6 +14,7 @@ using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
@@ -1627,6 +1630,58 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// A navigation file written while the Calendar was a layout of the Tasks pane reopens
+    /// on the Calendar, now its own module's view (local ADR 0055 §4: every stored name
+    /// stays): on its Week range, with Show plans and Show events ticked as they were, and
+    /// the file still saying all of it under the same names.
+    /// </summary>
+    [Fact]
+    public void A_shell_navigation_file_written_before_the_calendar_module_reopens_the_calendar_on_its_range_and_choices()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            WriteShellNavigation(path, """
+                {"lastSurface":"Workspace","lastView":"calendar","calendarRange":"Week","calendarPlansShown":true,"calendarEventsShown":true}
+                """);
+            var shellNavigation = new ShellNavigationStore(path);
+            var today = DateOnly.FromDateTime(DateTime.Now);
+
+            using var harness = CreateHarness(
+                shellNavigation: shellNavigation,
+                configureServices: services =>
+                {
+                    services.AddCalendarModule();
+                    services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(today));
+                    services.AddSingleton<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>(
+                        new FakeCalendarEvents(today));
+                });
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("true", component.Find("[data-testid='task-calendar-range-week']").GetAttribute("aria-pressed"));
+                Assert.Equal(7, component.FindAll("[data-testid='task-calendar'] [data-calendar-day]").Count);
+                Assert.True(component.Find("[data-testid='task-calendar-show-plans'] input").HasAttribute("checked"));
+                Assert.NotEmpty(component.FindAll($"[data-testid='task-calendar-plan-{FakeCalendarPlans.PlanId:N}']"));
+                Assert.True(component.Find("[data-testid='task-calendar-show-events'] input").HasAttribute("checked"));
+            });
+
+            using var written = System.Text.Json.JsonDocument.Parse(ShellNavigationStoreTests.Written(path));
+            Assert.Equal("calendar", written.RootElement.GetProperty("lastView").GetString());
+            Assert.Equal("Week", written.RootElement.GetProperty("calendarRange").GetString());
+            Assert.True(written.RootElement.GetProperty("calendarPlansShown").GetBoolean());
+            Assert.True(written.RootElement.GetProperty("calendarEventsShown").GetBoolean());
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
     /// Every view option and every Goals group option leads with a glyph. The
     /// glyph is decoration, hidden from assistive technology and out of the tab
     /// order, so the option's name is still its word alone
@@ -2184,6 +2239,102 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal(
                 component.Find("[data-testid='inbox-pane-option']"),
                 badge.ParentElement);
+        });
+    }
+
+    /// <summary>
+    /// The weekly review is offered only behind its own flag, which is off until asked
+    /// for (.devbook/domain/progress/features.md#the-weekly-review).
+    /// </summary>
+    [Fact]
+    public void The_weekly_review_option_is_absent_while_its_flag_is_off()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']"));
+            Assert.Empty(component.FindAll("[data-testid='weekly-review-option']"));
+        });
+        Assert.False(AppFeatures.All.Single(feature => feature.Key == ProgressFeatures.WeeklyReview).EnabledByDefault);
+    }
+
+    /// <summary>
+    /// Switched on, the option stands right after the Inbox's, before the view switch,
+    /// and wears the DEV flag on the control itself.
+    /// </summary>
+    [Fact]
+    public void The_weekly_review_option_follows_the_inbox_and_carries_its_dev_flag()
+    {
+        using var harness = CreateHarness(features =>
+        {
+            features.SetEnabled(AppFeatures.InboxPane, true);
+            features.SetEnabled(ProgressFeatures.WeeklyReview, true);
+        });
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            var workspace = component.Find("[data-testid='workspace-navigation']").Children
+                .Select(child => child.GetAttribute("data-testid")).ToList();
+            Assert.Equal(["inbox-header-item", "weekly-review-header-item", "view-switch", "devbook-header-item"], workspace);
+
+            var badge = component.Find("[data-testid='weekly-review-feature-status']");
+            Assert.Equal("DEV", badge.TextContent.ToUpperInvariant());
+            Assert.Equal(component.Find("[data-testid='weekly-review-option']"), badge.ParentElement);
+            Assert.Contains("header-group__option--loose", component.Find("[data-testid='weekly-review-option']").ClassName);
+        });
+    }
+
+    /// <summary>
+    /// A press gives the review the whole screen in place of the view, as the Inbox's
+    /// does; a second press returns to the view, kept underneath.
+    /// </summary>
+    [Fact]
+    public void The_weekly_review_takes_the_screen_over_the_view_and_a_second_press_returns_to_it()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(ProgressFeatures.WeeklyReview, true));
+        var component = Render(harness);
+
+        OpenTheRoadmap(component);
+
+        component.Find("[data-testid='weekly-review-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='weekly-review-surface'] [data-testid='weekly-review']"));
+            Assert.Empty(component.FindAll("[data-testid='workspace']"));
+            Assert.Equal("true", component.Find("[data-testid='weekly-review-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("Back to Roadmap", component.Find("[data-testid='weekly-review-option']").GetAttribute("title"));
+        });
+
+        component.Find("[data-testid='weekly-review-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='weekly-review-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
+        });
+    }
+
+    /// <summary>The review keeps no key of its own, so Escape heard at the document
+    /// closes it, as it closes every takeover but the Inbox.</summary>
+    [Fact]
+    public async Task Escape_heard_at_the_document_closes_the_weekly_review()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(ProgressFeatures.WeeklyReview, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='weekly-review-option']")));
+        component.Find("[data-testid='weekly-review-option']").Click();
+        component.WaitForAssertion(() =>
+            Assert.True(component.Find("[data-testid='weekly-review-surface']").HasAttribute("data-escape-closes")));
+
+        await component.InvokeAsync(component.Instance.CloseSurfaceOnEscapeAsync);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='weekly-review-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
         });
     }
 

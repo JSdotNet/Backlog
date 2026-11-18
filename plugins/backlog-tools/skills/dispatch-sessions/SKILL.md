@@ -23,7 +23,9 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
    `claim_delivery` (id, `dispatcher`), `claimed: false` → next; `send_message` to that id:
    "You asked: <question>. The answer from Backlog: <answer>", both verbatim. Sent or queued →
    `mark_delivery` `delivered`; the session no longer exists, or any other failure → `released`.
-4. **Queue.** `list_session_requests` `state: requested`, oldest first; empty → step 7. A
+4. **Queue.** `list_session_requests` `state: requested`, in the order listed — the person's
+   queue order; never reorder it; empty, or `paused: true` — the person paused the queue, and
+   every claim is refused until they resume it → step 7. A
    Monitor line other than `delivery`, `request` or `ready` → say it once, then step 7.
 5. **Capacity**, before each start, cheapest first; the first that fails holds the queue:
    - fewer than `sessions` rows of `list_sessions` (`linked: true`, `limit: 100`) with `startedBy`
@@ -32,7 +34,7 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
    - every plan limit `get_usage` reports under `usage` percent (`not_applicable` passes);
    - `powershell -NoProfile -ExecutionPolicy Bypass -File assets/capacity.ps1 -MaxCpu <cpu>
      -MinFreeGb <memory>` prints `"fits":true`.
-6. **Dispatch** the oldest: `claim_session_request` (id, `dispatcher`), `claimed: false` → next. `start_session`:
+6. **Dispatch** the first listed: `claim_session_request` (id, `dispatcher`), `claimed: false` → next. `start_session`:
    `initiation: user_asked`, `context: fresh`, `cwd` its `cloneFolder`, `use_worktree: true`, `prompt` its
    `brief` verbatim, `wake_when_done: true`, `title` the entry's `read_item` title or plan's `+tag` (<60
    chars), `background` "Started by dispatch-sessions for Backlog session request <id>." Failed → `released`.

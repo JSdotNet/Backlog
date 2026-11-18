@@ -176,11 +176,11 @@ test("an unreached label keeps its file and earlier entry; a dropped label and a
 
 // The reporter receives Playwright's objects; these are the fields it reads.
 // `results` maps a title to its attempts, or `<project>|<title>` with several projects.
-// As in Playwright, a part's own location is setup.ts, where `part()` calls `test()`;
+// As in Playwright, a part declared through a helper has the helper as its location;
 // only its file suite names the spec.
 function fakeRun(root, { titles = ["Statuses are set up", "An item is moved"], projects = ["chromium"], results }) {
     const file = path.join(root, "e2e/tests/set-up-and-fill-the-backlog.spec.ts");
-    const setup = path.join(root, ".devbook/_tools/scenarios/setup.ts");
+    const setup = path.join(root, "e2e/scenario-runner/setup.ts");
     const tests = projects.flatMap((name) => {
         const project = () => ({ name });
         const fileSuite = { type: "file", location: { file }, project, parent: { type: "project", project } };
@@ -285,7 +285,7 @@ test("a journey that cannot be written is reported and does not stop the others"
 
 test("specFileOf: the file suite's location, else the test's own", () => {
     const fileSuite = { type: "file", location: { file: "/repo/e2e/tests/journey.spec.ts" } };
-    const declared = { location: { file: "/repo/.devbook/_tools/scenarios/setup.ts" }, parent: { type: "describe", parent: fileSuite } };
+    const declared = { location: { file: "/repo/e2e/scenario-runner/setup.ts" }, parent: { type: "describe", parent: fileSuite } };
     assert.equal(specFileOf(declared), "/repo/e2e/tests/journey.spec.ts");
     assert.equal(specFileOf({ location: { file: "/repo/e2e/plain.spec.ts" } }), "/repo/e2e/plain.spec.ts");
 });

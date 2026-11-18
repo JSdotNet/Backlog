@@ -61,7 +61,9 @@
     </Story>
 
     <Story Name="A choice that takes text"
-           Description="A set answer that needs the person's words with it, as Revise and Approve + follow-up do on the Personal Validation question. Pressing it sends nothing: it opens a plain-text box under the buttons, and Send stays disabled until the box holds text. The reply then carries the choice and the words. Cancel puts the box away, and a plain choice still answers at once."
+           Description="A set answer that needs the person's words with it, as Revise and Approve + follow-up do on the Personal Validation question. Pressing it sends nothing: it opens a plain-text box under the buttons, and Send stays disabled until the box holds text. The reply then carries the choice and the words. Cancel puts the box away, and a plain choice still answers at once.
+
+Dismiss is a quiet choice: a small ghost text action on its own line after the buttons, right-aligned, so withdrawing the question takes little room. It answers at once, like any plain choice."
            Code="@TakesTextCode">
         <NotificationCard Model="@TakesText" TestId="notification-card-takes-text" OnAnswer="@Answered" />
     </Story>
@@ -219,7 +221,7 @@
             new NotificationCardChoice("approve", "Approve", NotificationCardChoiceStyle.Primary),
             new NotificationCardChoice("approve-follow-up", "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?"),
             new NotificationCardChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
-            new NotificationCardChoice("reject", "Reject", NotificationCardChoiceStyle.Destructive)
+            new NotificationCardChoice("dismiss", "Dismiss", Quiet: true)
         ]),
         NotificationCardState.Open);
 
@@ -413,8 +415,9 @@
         // question.Answer = new NotificationCardAnswerSpec(
         // [
         //     new("approve", "Approve", NotificationCardChoiceStyle.Primary),
+        //     new("approve-follow-up", "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?"),
         //     new("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
-        //     new("reject", "Reject", NotificationCardChoiceStyle.Destructive)
+        //     new("dismiss", "Dismiss", Quiet: true)
         // ]);
         // The reply: ChoiceIds ["revise"], Text "The toast overlaps the header".
         """;

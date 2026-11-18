@@ -354,7 +354,6 @@ public sealed class C4DevbookLinksTests : IDisposable
         _roots.Add(scratch);
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(scratch, "features", "features.json"));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(scratch, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -363,7 +362,7 @@ public sealed class C4DevbookLinksTests : IDisposable
         Assert.Null(gitHub.SetRepositories([repository]));
 
         var folders = new DevbookFolderSource(gitHub, new WorkspaceSettingsStore(Path.Combine(scratch, "store")));
-        return (new C4DevbookStore(features, folders), repository.Alias);
+        return (new C4DevbookStore(folders), repository.Alias);
     }
 
     private static string RepositoryRoot()

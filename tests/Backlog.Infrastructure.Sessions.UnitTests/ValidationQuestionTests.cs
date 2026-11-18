@@ -4,6 +4,7 @@ using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Markdown;
 using Backlog.SharedKernel.Results;
 using Backlog.Tests;
 using Microsoft.Extensions.Time.Testing;
@@ -58,16 +59,16 @@ public sealed class ValidationQuestionTests : IDisposable
         await surface.UpdateStageAsync(
             Worktree, run, Gate, "in_progress",
             output: "Check the toast. Criteria: AC 1-3. Evidence: .qa-workspace/toast.png",
-            links: AppLink,
+            links: [new("Docs", "https://learn.microsoft.com/dotnet", "The notification API")],
             cancellationToken: Cancellation);
 
         var (id, draft) = Assert.Single(_notifications.Published);
         Assert.Equal(NotificationKind.Question, draft.Kind);
-        Assert.Equal("Backlog · notifications:11 - Raise notifications · Approve or revise", draft.Title);
+        Assert.Equal("notifications:11 - Raise notifications · Approve or revise", draft.Title);
         Assert.Equal(new NotificationSubject("sessions", "run", run), draft.Subject);
         Assert.Equal(new NotificationSource("sessions", $"{run}@{Worktree}"), draft.Source);
 
-        foreach (var part in new[] { "App", "http://localhost:5000", "The running application", "Check the toast. Criteria: AC 1-3. Evidence: .qa-workspace/toast.png", "JSdotNet/Backlog" })
+        foreach (var part in new[] { "Docs", "https://learn.microsoft.com/dotnet", "The notification API", "Check the toast. Criteria: AC 1-3. Evidence: .qa-workspace/toast.png" })
         {
             Assert.Contains(part, draft.BodyMarkdown, StringComparison.Ordinal);
         }
@@ -88,7 +89,7 @@ public sealed class ValidationQuestionTests : IDisposable
     }
 
     [Fact]
-    public async Task A_link_only_the_desktop_can_open_stays_a_link_marked_desktop_only()
+    public async Task A_link_only_the_desktop_can_open_is_left_out_and_a_web_link_is_listed_after_the_pull_request()
     {
         var surface = Surface();
         var run = await Start(surface);
@@ -99,14 +100,61 @@ public sealed class ValidationQuestionTests : IDisposable
             [
                 new("App", "http://localhost:5000", "The running application"),
                 new("Evidence", "file:///D:/n/9b960f5e/.qa-workspace/toast.png", null),
-                new("Docs", "https://learn.microsoft.com/dotnet", null)
+                new("Docs", "https://learn.microsoft.com/dotnet", null),
+                new("Draft PR", "https://github.com/JSdotNet/Backlog/pull/1700", null)
             ],
             cancellationToken: Cancellation);
 
         var body = Assert.Single(_notifications.Published).Draft.BodyMarkdown!;
-        Assert.Contains("- [App](http://localhost:5000) (desktop only) — The running application\n", body, StringComparison.Ordinal);
-        Assert.Contains("- [Evidence](file:///D:/n/9b960f5e/.qa-workspace/toast.png) (desktop only)\n", body, StringComparison.Ordinal);
-        Assert.Contains("- [Docs](https://learn.microsoft.com/dotnet)\n", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("localhost", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("file:", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("desktop only", body, StringComparison.Ordinal);
+        Assert.Contains("\n## Review links\n\n- [Docs](https://learn.microsoft.com/dotnet)\n", body, StringComparison.Ordinal);
+        Assert.True(
+            body.IndexOf("- [Draft PR](https://github.com/JSdotNet/Backlog/pull/1700)\n", StringComparison.Ordinal)
+            < body.IndexOf("## Review links", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task With_only_desktop_only_links_the_body_has_no_review_links_heading()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+
+        await surface.UpdateStageAsync(
+            Worktree, run, Gate, "in_progress",
+            output: "Check the toast.",
+            links:
+            [
+                new("App", "http://127.0.0.1:5000", null),
+                new("Storybook", "http://storybook.localhost:6006", null),
+                new("Evidence", "file:///D:/n/9b960f5e/.qa-workspace/toast.png", null)
+            ],
+            cancellationToken: Cancellation);
+
+        var body = Assert.Single(_notifications.Published).Draft.BodyMarkdown!;
+        Assert.DoesNotContain("## Review links", body, StringComparison.Ordinal);
+        Assert.StartsWith("## Handoff\n\nCheck the toast.\n", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_report_with_only_desktop_only_links_and_no_handoff_still_asks_once()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(
+            Worktree, run, 1, "done",
+            links: [new("Draft PR", "https://github.com/JSdotNet/Backlog/pull/1703", null)],
+            cancellationToken: Cancellation);
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+
+        var body = Assert.Single(_notifications.Published).Draft.BodyMarkdown!;
+        Assert.Contains("## Pull request\n\n- [Draft PR](https://github.com/JSdotNet/Backlog/pull/1703)\n", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Review links", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Handoff", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("localhost", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -120,7 +168,7 @@ public sealed class ValidationQuestionTests : IDisposable
             output: "Check the toast.",
             links:
             [
-                new("App", "http://localhost:5000", null),
+                new("Docs", "https://learn.microsoft.com/dotnet", null),
                 new("Draft PR", "https://github.com/JSdotNet/Backlog/pull/1700", "Ready once approved"),
                 new(null, "https://github.com/JSdotNet/Backlog-Desktop/pull/12/files", null)
             ],
@@ -131,10 +179,8 @@ public sealed class ValidationQuestionTests : IDisposable
         var first = body.IndexOf("- [Draft PR](https://github.com/JSdotNet/Backlog/pull/1700) — Ready once approved\n", StringComparison.Ordinal);
         var second = body.IndexOf("- [PR #12](https://github.com/JSdotNet/Backlog-Desktop/pull/12/files)\n", StringComparison.Ordinal);
 
-        Assert.True(section > 0);
         Assert.True(section < first && first < second);
-        Assert.True(second < body.IndexOf("**Approve**", StringComparison.Ordinal));
-        Assert.True(section > body.IndexOf("reached Personal Validation", StringComparison.Ordinal));
+        Assert.Equal(0, section);
         // Lifted out, not repeated: the address appears once, and not under Review links.
         Assert.Equal(2, body.Split("/pull/1700").Length);
         Assert.DoesNotContain("pull/1700", body[body.IndexOf("## Review links", StringComparison.Ordinal)..], StringComparison.Ordinal);
@@ -172,13 +218,10 @@ public sealed class ValidationQuestionTests : IDisposable
         var (pulled, plain) = (_notifications.Published[0].Draft, _notifications.Published[1].Draft);
 
         Assert.Contains("mark the pull request ready for review", pulled.Summary, StringComparison.Ordinal);
-        Assert.Contains("mark the pull request ready for review", pulled.BodyMarkdown, StringComparison.Ordinal);
         Assert.DoesNotContain("still", pulled.Summary, StringComparison.Ordinal);
-        Assert.DoesNotContain("still happens at the desktop", pulled.BodyMarkdown, StringComparison.Ordinal);
         Assert.InRange(pulled.Summary!.Length, 1, 180);
 
         Assert.Equal("The run reached Personal Validation. Your answer is recorded on the run; the pull request is still opened at the desktop.", plain.Summary);
-        Assert.Contains("Opening the pull request still happens at the desktop, in the session that runs it.", plain.BodyMarkdown, StringComparison.Ordinal);
         Assert.DoesNotContain("## Pull request", plain.BodyMarkdown, StringComparison.Ordinal);
     }
 
@@ -328,9 +371,8 @@ public sealed class ValidationQuestionTests : IDisposable
         await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
 
         var draft = Assert.Single(_notifications.Published).Draft;
-        Assert.Equal("Backlog · notifications:11 - Raise notifications · Approve or revise", draft.Title);
+        Assert.Equal("notifications:11 - Raise notifications · Approve or revise", draft.Title);
         Assert.Equal(new NotificationOrigin("Claude Code", "JSdotNet/Backlog", Via: "Agent session"), draft.Origin);
-        Assert.Contains("in `JSdotNet/Backlog`", draft.BodyMarkdown, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -342,7 +384,6 @@ public sealed class ValidationQuestionTests : IDisposable
         await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
 
         var draft = Assert.Single(_notifications.Published).Draft;
-        Assert.StartsWith("Backlog · ", draft.Title, StringComparison.Ordinal);
         Assert.Equal("JSdotNet/Backlog", draft.Origin!.Place);
     }
 
@@ -357,6 +398,48 @@ public sealed class ValidationQuestionTests : IDisposable
         var draft = Assert.Single(_notifications.Published).Draft;
         Assert.Equal("notifications:11 - Raise notifications · Approve or revise", draft.Title);
         Assert.Equal(new NotificationOrigin("Claude Code", Via: "Agent session"), draft.Origin);
+    }
+
+    [Fact]
+    public async Task A_handoffs_criteria_read_as_a_checklist_and_its_evidence_and_open_points_as_bullet_lists()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+
+        await surface.UpdateStageAsync(
+            Worktree, run, Gate, "in_progress",
+            output: "Check the toast on the phone.\n\n"
+                + "Acceptance criteria: the toast shows; it closes after 5 s, unless hovered\n\n"
+                + "Evidence: .qa-workspace/toast.png; draft PR not opened (classifier denied gh pr create; retry); 1 unverified fixed. Open: cosmetic spacing",
+            cancellationToken: Cancellation);
+
+        var body = Assert.Single(_notifications.Published).Draft.BodyMarkdown!;
+        Assert.EndsWith(
+            "## Handoff\n\n"
+            + "Check the toast on the phone.\n\n"
+            + "**Acceptance criteria**\n\n"
+            + "- [ ] the toast shows\n"
+            + "- [ ] it closes after 5 s, unless hovered\n\n"
+            + "**Evidence**\n\n"
+            + "- .qa-workspace/toast.png\n"
+            + "- draft PR not opened (classifier denied gh pr create; retry)\n"
+            + "- 1 unverified fixed\n\n"
+            + "**Open**\n\n"
+            + "- cosmetic spacing\n",
+            body,
+            StringComparison.Ordinal);
+
+        // Both cards render the body through MarkdownPreview: the criteria are read-only
+        // checkboxes, the evidence and the open points plain bullets.
+        var lists = MarkdownPreview.ParseDocument(body).OfType<MdList>().Select(Items).ToList();
+        Assert.Contains([("the toast shows", (bool?)false), ("it closes after 5 s, unless hovered", false)], lists);
+        Assert.Contains(
+            [(".qa-workspace/toast.png", (bool?)null), ("draft PR not opened (classifier denied gh pr create; retry)", null), ("1 unverified fixed", null)],
+            lists);
+        Assert.Contains([("cosmetic spacing", (bool?)null)], lists);
+
+        static List<(string Text, bool? Done)> Items(MdList list) =>
+            [.. list.Items.Select(item => (string.Concat(item.Content.OfType<MdText>().Select(text => text.Text)), item.Done))];
     }
 
     [Fact]
@@ -383,7 +466,7 @@ public sealed class ValidationQuestionTests : IDisposable
     [Theory]
     [InlineData($"/backlog-tools:run-plan-item entry `{GatedEntry}`:\n# Raise notifications")]
     [InlineData("Backlog plan item `11` of plan `notifications`: raise them.")]
-    public async Task A_run_that_names_its_entry_is_offered_approve_approve_with_a_follow_up_revise_and_reject(string prompt)
+    public async Task A_run_that_names_its_entry_is_offered_approve_approve_with_a_follow_up_revise_and_a_quiet_dismiss(string prompt)
     {
         var surface = Surface();
         var run = await Start(surface, prompt: prompt);
@@ -391,15 +474,17 @@ public sealed class ValidationQuestionTests : IDisposable
         await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
 
         var spec = Assert.IsType<AnswerSpec>(Assert.Single(_notifications.Published).Draft.Answer);
-        Assert.Equal(["approve", "approve-follow-up", "revise", "reject"], spec.Choices.Select(choice => choice.Id));
+        Assert.Equal(["approve", "approve-follow-up", "revise", "dismiss"], spec.Choices.Select(choice => choice.Id));
         Assert.Equal([false, true, true, false], spec.Choices.Select(choice => choice.TakesText));
+        Assert.Equal([false, false, false, true], spec.Choices.Select(choice => choice.Quiet));
+        Assert.Equal("Dismiss", spec.Choices[^1].Label);
         Assert.False(spec.AllowMultiple);
         Assert.Null(spec.Open);
         Assert.Equal(AnswerOn.AnyInstance, spec.AnswerOn);
     }
 
     [Fact]
-    public async Task A_run_that_names_no_entry_is_offered_approve_revise_and_reject_with_no_follow_up()
+    public async Task A_run_that_names_no_entry_is_offered_approve_revise_and_a_quiet_dismiss_with_no_follow_up()
     {
         var surface = Surface();
         var run = await Start(surface, prompt: "Fix the flaky toast test.");
@@ -407,9 +492,128 @@ public sealed class ValidationQuestionTests : IDisposable
         await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
 
         var spec = Assert.IsType<AnswerSpec>(Assert.Single(_notifications.Published).Draft.Answer);
-        Assert.Equal(["approve", "revise", "reject"], spec.Choices.Select(choice => choice.Id));
+        Assert.Equal(["approve", "revise", "dismiss"], spec.Choices.Select(choice => choice.Id));
         Assert.Equal([false, true, false], spec.Choices.Select(choice => choice.TakesText));
-        Assert.DoesNotContain("entry is blocked", Assert.Single(_notifications.Published).Draft.BodyMarkdown!, StringComparison.Ordinal);
+        Assert.Equal([false, false, true], spec.Choices.Select(choice => choice.Quiet));
+        Assert.Equal("What should change?", spec.Choices[1].Placeholder);
+    }
+
+    [Fact]
+    public async Task The_body_carries_neither_the_repository_nor_what_each_answer_does()
+    {
+        var surface = Surface();
+        var run = await Start(surface, repository: "JSdotNet/Backlog", prompt: $"/backlog-tools:run-plan-item entry `{GatedEntry}`:\n# Raise notifications");
+
+        await surface.UpdateStageAsync(
+            Worktree, run, Gate, "in_progress",
+            output: "Check the toast.",
+            links: [new("Docs", "https://learn.microsoft.com/dotnet", null)],
+            cancellationToken: Cancellation);
+
+        var draft = Assert.Single(_notifications.Published).Draft;
+        foreach (var gone in new[] { "JSdotNet/Backlog", "**Approve**", "**Revise**", "**Reject**", "**Dismiss**", "reached Personal Validation", "still happens at the desktop" })
+        {
+            Assert.DoesNotContain(gone, draft.BodyMarkdown, StringComparison.Ordinal);
+        }
+
+        Assert.StartsWith("## Review links\n", draft.BodyMarkdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Dismiss_records_nothing_on_the_runs_approval_and_marks_the_question_dismissed()
+    {
+        var surface = Surface();
+        var run = await Start(surface, prompt: $"/backlog-tools:run-plan-item entry `{GatedEntry}`:\n# Raise notifications");
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        var before = (await File(run))["approval"]?.ToJsonString();
+
+        await Answers(surface).HandleAnswerAsync(Answer(run, "dismiss", null), Cancellation);
+
+        var file = await File(run);
+        Assert.Equal(before, file["approval"]?.ToJsonString());
+        var asked = file["validationQuestion"]!.AsObject();
+        Assert.True(asked["dismissed"]!.GetValue<bool>());
+        Assert.False(asked["answered"]!.GetValue<bool>());
+        Assert.Empty(_followUps.Requests);
+    }
+
+    [Fact]
+    public async Task A_replayed_dismiss_leaves_the_run_unchanged()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        var answers = Answers(surface);
+        var dismiss = Answer(run, "dismiss", null);
+
+        await answers.HandleAnswerAsync(dismiss, Cancellation);
+        var once = (await File(run)).ToJsonString();
+        await answers.HandleAnswerAsync(dismiss, Cancellation);
+
+        Assert.Equal(once, (await File(run)).ToJsonString());
+    }
+
+    [Fact]
+    public async Task A_dismiss_after_a_desktop_decision_leaves_that_decision_standing()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        await Task.Delay(5, Cancellation);
+        await surface.SetRunContextAsync(Worktree, run, approval: "approved", approvalNote: "Looks right.", cancellationToken: Cancellation);
+
+        await Answers(surface).HandleAnswerAsync(Answer(run, "dismiss", null), Cancellation);
+
+        var approval = (await File(run))["approval"]!.AsObject();
+        Assert.Equal("approved", approval["personalValidation"]!.GetValue<string>());
+        Assert.Equal("Looks right.", approval["note"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task A_dismissed_question_is_not_asked_again_or_closed_for_the_same_attempt()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        await Answers(surface).HandleAnswerAsync(Answer(run, "dismiss", null), Cancellation);
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", output: "Still here.", links: AppLink, cancellationToken: Cancellation);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "done", cancellationToken: Cancellation);
+
+        Assert.Single(_notifications.Published);
+        Assert.Empty(_notifications.ClosedById);
+    }
+
+    [Fact]
+    public async Task A_revise_round_decided_at_the_desktop_after_a_dismiss_asks_again()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", output: "First attempt.", links: AppLink, cancellationToken: Cancellation);
+        await Answers(surface).HandleAnswerAsync(Answer(run, "dismiss", null), Cancellation);
+        await Task.Delay(5, Cancellation);
+        await surface.SetRunContextAsync(Worktree, run, approval: "rejected", approvalNote: "Split the migration.", cancellationToken: Cancellation);
+        await surface.SetRunContextAsync(Worktree, run, approval: "pending", cancellationToken: Cancellation);
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", output: "Second attempt.", cancellationToken: Cancellation);
+
+        Assert.Equal(2, _notifications.Published.Count);
+        Assert.Contains("Second attempt.", _notifications.Published[^1].Draft.BodyMarkdown!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_new_attempt_after_a_dismiss_asks_again()
+    {
+        var surface = Surface();
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        await Answers(surface).HandleAnswerAsync(Answer(run, "dismiss", null), Cancellation);
+
+        await surface.UpdateStageAsync(Worktree, run, Gate, "blocked", cancellationToken: Cancellation);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", output: "Second attempt.", cancellationToken: Cancellation);
+
+        Assert.Equal(2, _notifications.Published.Count);
+        Assert.Contains("Second attempt.", _notifications.Published[^1].Draft.BodyMarkdown!, StringComparison.Ordinal);
     }
 
     [Fact]

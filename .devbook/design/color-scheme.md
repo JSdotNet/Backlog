@@ -589,12 +589,7 @@ related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/a
 ```
 
 The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
-marks a model element by its kind on the Model page's diagram and beside its
-name, a relation between two core contexts on the Context map, a context's
-hand-in-hand neighbours on its Neighbours board, the requirement
-kind on the Requirements page, a domain service in the Domain page's chapter
-bar, an enumeration's name on Model's Fields tab, and a domain event's name on
-Model's Events tab. These are the seven values this file adds outside the
+marks each element the table below names with a tone of its own. These are the seven values this file adds outside the
 palette. The kind's glyph and word
 always say what the element is, and the tone only helps the eye group the same
 kind across a diagram.
@@ -893,6 +888,44 @@ Rules:
   shows the marks alone.
 
 Review surface: storybook → *Progress* → **Pull request status**.
+
+### Calendar event tones
+
+```meta
+related: [".devbook/domain/events/features.md#events-on-the-calendar", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/design/accessibility.md#contrast"]
+```
+
+A knowledge event on the Calendar is a bar over the days it spans, and its key
+dates are diamonds on their day. Both spend the brand gold and nothing else, so
+the calendar gains no colour.
+
+| Mark | Drawn as | Against a day / weekend / outside / today / drop target |
+|---|---|---|
+| Decided event | `color-primary` fill and 1px edge, `color-text-inverse` ink, semibold | ink on the fill: **9.19:1**; fill: 11.15:1 / 10.68:1 / 11.43:1 / 10.06:1 / 8.83:1 |
+| Tentative event | A transparent surface inside a 1px dashed `color-primary` edge, `color-primary` ink | ink and edge: 11.15:1 / 10.68:1 / 11.43:1 / 10.06:1 / **8.83:1** |
+| Key date | A hollow diamond, a 2px `color-primary` ring with no fill, before its label in `color-text-secondary` | ring: 11.15:1 / 10.68:1 / 11.43:1 / 10.06:1 / 8.83:1; label: 9.92:1 or more |
+
+The decided bar's words take `color-text-inverse`, the ink the
+[contrast rules](#contrast-rules-wcag-aa-minimum) already name for a
+`color-primary` fill. At 9.19:1 it clears the 4.5:1 a 12px label owes, so the
+product needs no `color-on-primary` while it has one theme.
+
+A tentative bar is the same gold as an edge and an ink, dashed, on no surface.
+Decided and tentative differ by a fill and a dash, not a hue. Each bar's words
+also say *Going* or *Considering*, so the shape is never the only cue.
+
+A key date is the roadmap milestone's diamond, hollow. Its tooltip names it a
+key date.
+
+The binding pair is a tentative bar's ink on a drop target's 12% gold, at
+8.83:1; on a plain day every gold here measures 11.15:1.
+
+An event bar is not a badge, so
+[*Filled means the product acts on it*](#badge-and-chip-tones) does not bind it.
+The fill says the event is settled, as today's ring says which day is today, and
+neither is followable.
+
+Review surface: storybook → *Task calendar* → **Calendar with events**.
 
 ### Chart roles
 

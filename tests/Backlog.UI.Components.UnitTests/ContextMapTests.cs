@@ -437,8 +437,10 @@ public sealed class ContextMapTests
 
         var layout = ContextMapLayout.Arrange(map);
 
-        Assert.Equal(16, layout.Cards.Count);
+        Assert.Equal(18, layout.Cards.Count);
         Assert.Contains(map.Contexts, c => c.Id == "Brain");
+        Assert.Contains(map.Contexts, c => c.Id == "Calendar");
+        Assert.Equal(3, map.LinesTouching("Calendar"));
         Assert.DoesNotContain(map.Contexts, c => c.Id == "Shell");
         Assert.Equal(map.Lines.Count, layout.Strokes.Count);
         var ids = map.Contexts.Select(c => c.Id).ToList();
@@ -452,8 +454,17 @@ public sealed class ContextMapTests
             Assert.InRange(card.Y + layout.CardHeight / 2, 0, layout.Height);
         }
 
-        // No line runs beneath a card it does not join.
+        // No line runs beneath a card it does not join, and no card stepped clear of one onto another.
         Assert.Empty(ContextMapLayout.Hidden(layout));
+        var cards = layout.Cards.ToList();
+        for (var i = 0; i < cards.Count; i++)
+        {
+            for (var j = i + 1; j < cards.Count; j++)
+            {
+                var (a, b) = (cards[i], cards[j]);
+                Assert.True(Math.Abs(a.X - b.X) >= layout.CardWidth || Math.Abs(a.Y - b.Y) >= layout.CardHeight, $"{a.Context.Id} touches {b.Context.Id}");
+            }
+        }
 
         // Every contract reads by its short name, and every rule is a card.
         Assert.Equal(
@@ -463,7 +474,7 @@ public sealed class ContextMapTests
              "FollowUpCaptured", "MachineStatusChanged", "ComplianceUpdated", "ProductivityRecorded",
              "Environment Shortcut Resolution", "Technology Baseline", "BaselineProvided", "The pull request contract",
              "ITaskLookup", "Backlog.Modules.Tasks.Abstractions",
-             "INotifications", "INotificationAnswerHandler", "NotificationDraft", "Backlog.Modules.Notifications.Abstractions", "The replica protocol"],
+             "INotifications", "INotificationAnswerHandler", "NotificationDraft", "Backlog.Modules.Notifications.Abstractions", "The events read contract", "IKnowledgeEventReplication", "IEventAttachmentRequests", "Backlog.Modules.Events.Abstractions", "The replica protocol"],
             map.Contracts.SelectMany(c => c.Names).Select(n => n.Name));
         Assert.Equal("Backlog", map.Title);
         Assert.True(map.RuleCards.Count >= 6);

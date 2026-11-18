@@ -305,8 +305,16 @@ public static class MauiProgram
         // And annotation replication's loop, the third sibling, on the same terms.
         _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
+        // And the Inbox's transcription of meeting recordings (local ADR 0049): started
+        // here, for the reason the sync loops are, so a recording that came down while the
+        // app was closed — or failed last time — is tried on this start.
+        app.Services.GetRequiredService<Backlog.Modules.Inbox.Services.InboxRecordingTranscriptionWorker>().Start();
+
         // And devbook subject state's loop, the annotations' sibling, on the same terms.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
+
+        // And knowledge event replication's loop (local ADR 0050 §2), on the same terms.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.KnowledgeEventSyncWorker>();
 
         // And the one-time devbook import, on the same terms: it reads each repository's
         // default branch once into the two stores above, and a worker nobody resolves
@@ -327,6 +335,11 @@ public static class MauiProgram
         // And the linked task sync's timer, on the same terms: each connected
         // repository or product syncs on its own interval only while this exists.
         _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
+
+        // And the Desktop clock of the Events area, on the same terms: it files a harvest task
+        // the day after a Going event ends, at start and when the local day turns, and checks
+        // the `events` flag itself, so it is resolved whether the area is on or off.
+        _ = app.Services.GetRequiredService<Backlog.Modules.Events.Services.HarvestTaskWorker>();
 
         // And the spec-manager question source, on the same terms: while signed in to
         // spec-manager it holds the notification stream and brings the product's questions

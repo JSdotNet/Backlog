@@ -124,6 +124,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             typeof(Backlog.Infrastructure.Sync.Sessions.SessionSyncWorker),
             typeof(Backlog.Infrastructure.Sync.Annotations.AnnotationSyncWorker),
             typeof(Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker),
+            typeof(Backlog.Infrastructure.Sync.KnowledgeEvents.KnowledgeEventSyncWorker),
             typeof(Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker),
             typeof(Backlog.Infrastructure.Sync.Notifications.NotificationNudgeListener),
             typeof(BackupWorker),
@@ -258,6 +259,18 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Same(
             first.ServiceProvider.GetRequiredService<ITaskChangeSignal>(),
             second.ServiceProvider.GetRequiredService<ITaskChangeSignal>());
+        // The Calendar's layers (local ADR 0055): the Plans port and its read policy are a
+        // window's, as the roadmap ports they read are; the working week is the process's.
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlans>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlans>());
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlansLayer>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlansLayer>());
+        Assert.Same(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarCapacity>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarCapacity>());
+        Assert.NotNull(first.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.UI.ICalendarViewPreferences>());
 
         Assert.IsType<DpapiDeviceCredentialStore>(provider.GetRequiredService<IDeviceCredentialStore>());
         Assert.IsType<DevToolService>(provider.GetRequiredService<IDevToolService>());
@@ -390,6 +403,54 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Equal(1, merged.Applied);
         Assert.Equal(Backlog.Modules.Progress.Abstractions.IterationLength.TwoWeeks, settings.Length);
         Assert.Equal(new DateOnly(2026, 10, 19), settings.TwoWeekStart);
+    }
+
+    /// <summary>
+    /// The sync merge the head composes hands an <c>event-attachment-request</c> the phone wrote
+    /// to Events once the <c>events</c> area is on (<c>.devbook/domain/events/domain.md#attachment-request</c>):
+    /// the event gains the Talk note under its title, and the request waits to be retired. With
+    /// the area off the same request is held.
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_attaches_a_talk_note_the_phone_asked_for_while_the_events_area_is_on()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        var ct = TestContext.Current.CancellationToken;
+        using var provider = BuildMauiShaped(validateScopes: false);
+        var spotted = await provider.GetRequiredService<Backlog.Modules.Events.Abstractions.IKnowledgeEvents>()
+            .SpotAsync(new Backlog.Modules.Events.Abstractions.SpotKnowledgeEventDto("Techorama 2026", null, null, null, null, null, null), ct);
+        var noteId = Guid.NewGuid();
+        var change = EventAttachmentReplicaDocuments.ToChange(
+            new Backlog.Modules.Events.Abstractions.DataTransferObjects.EventAttachmentRequestDto(Guid.NewGuid(), spotted.Value.EventId, noteId, "Keynote"),
+            new DateTimeOffset(2026, 10, 27, 9, 40, 0, TimeSpan.Zero));
+        var record = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1);
+
+        var features = provider.GetRequiredService<Backlog.SharedKernel.IAppFeatureSettings>();
+        Assert.Null(features.SetEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events, false));
+        var held = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync([record], ct);
+
+        // Kept in the head's per-installation folder, so a restart before the area is on again
+        // still applies it.
+        var store = provider.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.IHeldAttachmentRequestStore>();
+        Assert.Equal(change.Id, Assert.Single(store.ReadAll()).Id);
+        Assert.True(File.Exists(Path.Combine(_appData, "held-attachment-requests.json")));
+
+        Assert.Null(features.SetEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events, true));
+        var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync([record], ct);
+
+        Assert.Equal(0, held.Applied);
+        Assert.Equal(1, merged.Applied);
+        Assert.Empty(store.ReadAll());
+        var copy = Assert.Single(await provider.GetRequiredService<Backlog.Modules.Events.Abstractions.Services.IKnowledgeEventReplication>()
+            .ListEventsChangedSinceAsync(DateTimeOffset.MinValue, ct));
+        var link = Assert.Single(copy.Notes);
+        Assert.Equal((Backlog.Modules.Events.Abstractions.NoteLinkKind.Talk, noteId.ToString("D"), "Keynote"), (link.Kind, link.Reference, link.Title));
+        Assert.Equal(change.Id, Assert.Single(provider.GetRequiredService<PhoneRequestRetirements>().Waiting()).Id);
     }
 
     /// <summary>

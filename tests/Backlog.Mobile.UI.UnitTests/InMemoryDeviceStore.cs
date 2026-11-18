@@ -1,7 +1,9 @@
+using Backlog.Mobile.UI.Events;
 using Backlog.Mobile.UI.Notifications;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Progress;
+using Backlog.Mobile.UI.Recordings;
 using Backlog.Mobile.UI.TalkNotes;
 using Backlog.Mobile.UI.Tasks;
 
@@ -76,6 +78,8 @@ internal static class TestOutbox
         services.AddSingleton<INoteViewStore>(new InMemoryNoteViewStore());
         services.AddSingleton<NoteViewProjection>();
         services.AddSingleton<IOutboxKind, NoteOutboxKind>();
+        services.TryAddSingleton(_ => new RecordingFiles(Path.Combine(TestFolders.Create(), "notes", "recordings")));
+        services.AddSingleton<RecordingRecovery>();
         services.TryAddSingleton<IProgressViewStore>(new InMemoryProgressViewStore());
         services.AddSingleton<ProgressViewProjection>();
         services.AddSingleton<PhoneStandUp>();
@@ -83,6 +87,10 @@ internal static class TestOutbox
         services.TryAddSingleton<INotificationViewStore>(new InMemoryNotificationViewStore());
         services.AddSingleton<NotificationViewProjection>();
         services.AddSingleton<IOutboxKind, ReplyOutboxKind>();
+        services.TryAddSingleton<IEventViewStore>(new InMemoryEventViewStore());
+        services.AddSingleton<EventViewProjection>();
+        services.AddSingleton<EventNoteAttachments>();
+        services.AddSingleton<IOutboxKind, EventAttachmentRequestOutboxKind>();
         return services;
     }
 }

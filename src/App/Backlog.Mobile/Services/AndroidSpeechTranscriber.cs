@@ -39,8 +39,7 @@ public sealed class AndroidSpeechTranscriber(ISpeechSettingsStore settings) : IS
     private const string NoRecognizer =
         "This device has no speech recognition service installed.";
 
-    private const string PermissionDenied =
-        "Microphone access was denied. Allow it in Android settings and try again.";
+    private const string PermissionDenied = AndroidMicrophoneAccess.Denied;
 
     private const string NothingHeard =
         "Nothing was heard. Try again and speak once the button is on.";

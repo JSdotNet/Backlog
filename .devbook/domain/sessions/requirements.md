@@ -182,8 +182,8 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 
 > Local ADR 0038 decides these requirements. Both sides are built. The queue icons
 > create a request on an entry, on a plan's roadmap item, and beside a selected plan
-> filter chip. The filter bar's session queue lists every open request and warns when
-> no dispatcher has been heard. The dispatcher side is the wait route and the claim,
+> filter chip. The filter bar's session queue lists every open request, lets the person
+> order the Requested ones, warns when no dispatcher has been heard, and pauses and resumes the queue. The dispatcher side is the wait route and the claim,
 > mark and list tools a Manager session uses.
 
 ### Requirement: Only a click in the app requests a session
@@ -220,19 +220,26 @@ The system SHALL hand a dispatcher a request's kind, entry id or plan tag, repos
 - **When** a dispatcher waiting on the listener receives the request
 - **Then** the request it receives names the entry id, the repository and the clone folder and holds no text of the entry
 
-### Requirement: A waiting dispatcher gets the oldest request first
+### Requirement: A waiting dispatcher gets the request at the head of the queue
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.The_request_the_person_moved_to_the_top_is_handed_out_before_an_older_one]
 ```
 
-The system SHALL answer a dispatcher waiting on `GET /session-requests/wait` with the oldest Requested request as soon as one exists.
+The system SHALL answer a dispatcher waiting on `GET /session-requests/wait` with the Requested request at the head of the person's queue order as soon as one exists.
 
 #### Scenario: A request arrives while a dispatcher waits
 
 - **Given** a dispatcher waiting on the route and no request Requested
 - **When** the person presses the queue icon on an entry
 - **Then** the waiting call answers with that request
+
+#### Scenario: The person moved a later request to the top
+
+- **Given** two requests are Requested and the person moved the later one to the top of the session queue
+- **When** a dispatcher waits on the route
+- **Then** the call answers with the request the person moved, not the older one
 
 #### Scenario: Nothing arrives
 
@@ -333,22 +340,106 @@ The system SHALL mark a Started request Linked when the session its dispatcher r
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Entry_and_plan_requests_share_one_queue_oldest_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.The_panel_lists_every_open_request_oldest_first_with_its_repository_state_and_age, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_withdraws_the_entry_s_request_and_the_row_goes]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Entry_and_plan_requests_share_one_queue_oldest_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.The_panel_lists_the_claimed_and_started_requests_first_then_the_requested_with_repository_state_and_age, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_withdraws_the_entry_s_request_and_the_row_goes, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_clears_a_Started_request_whose_session_never_linked, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Cancel_in_the_panel_clears_a_Started_plan_request_whose_session_never_linked, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Started_request_whose_session_never_linked_can_be_cancelled, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_Started_request_is_cancelled_and_leaves_the_open_ones]
 ```
 
-The system SHALL list every open entry and plan request, oldest first, in the filter bar's session queue, and mark each unpressed plan chip whose plan has one.
+The system SHALL list every open entry and plan request in the filter bar's session queue, the Claimed and Started ones first and then the Requested ones in queue order, and mark each unpressed plan chip whose plan has one.
 
 #### Scenario: A plan waits while its chip is let go
 
 - **Given** a plan request is Requested and the plan's chip on the Tasks filter bar is not pressed
 - **When** the person looks at the filter bar and opens the session queue
-- **Then** the chip carries the waiting mark and the queue lists the plan's `+tag` among the entry requests, oldest first
+- **Then** the chip carries the waiting mark and the queue lists the plan's `+tag` among the entry requests, in queue order
 
 #### Scenario: The person cancels from the queue
 
 - **Given** an entry request is Requested
 - **When** the person presses Cancel on its row in the session queue
 - **Then** the request is Cancelled and its row leaves the queue
+
+#### Scenario: The person clears a request whose session never linked
+
+- **Given** a request has read Started for days and its session never called `link_session`
+- **When** the person presses Cancel on its row in the session queue
+- **Then** the request is Cancelled and its row leaves the queue
+
+### Requirement: The person orders the waiting requests
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Move_up_reorders_the_queue_announces_the_new_place_and_keeps_the_focus_on_the_row, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Alt_arrow_keys_move_the_focused_row, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.The_order_the_person_set_survives_a_new_store, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Entry_and_plan_requests_interleave_by_queue_position_and_a_plan_moves_above_an_entry]
+```
+
+The system SHALL let the person move a Requested request up, down or to the top of the session queue, and keep that order until the person moves a request again.
+
+#### Scenario: The person moves a request up
+
+- **Given** three requests are Requested and the session queue is open
+- **When** the person presses Move up on the third row, or presses Alt+ArrowUp on it
+- **Then** it lists second, the move is announced as "Moved to position 2 of 3.", and the row keeps focus
+
+#### Scenario: The order survives a restart
+
+- **Given** the person moved a request to the top of the queue
+- **When** the app restarts
+- **Then** the session queue still lists that request first among the Requested ones
+
+#### Scenario: Entry and plan requests share one order
+
+- **Given** an entry request and a later plan request are Requested
+- **When** the person moves the plan request to the top
+- **Then** the queue lists the plan's `+tag` before the entry, and a waiting dispatcher receives the plan request first
+
+### Requirement: Only a waiting request moves
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Requested_rows_carry_move_controls_and_claimed_and_started_rows_list_first_without_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.A_move_is_drawn_at_once_and_a_refused_one_reverts_with_a_toast]
+```
+
+The system SHALL move only a Requested request, a lapsed claim included, and SHALL refuse the move of any other request and leave the order as it was.
+
+#### Scenario: A started request has no move controls
+
+- **Given** a request is Started and another is Requested
+- **When** the person opens the session queue
+- **Then** the Started row offers no move control and lists above the Requested one
+
+#### Scenario: A dispatcher claims the request while the person moves it
+
+- **Given** the session queue shows a request as Requested
+- **When** a dispatcher claims it and then the person presses Move to top on its row
+- **Then** the move is refused with a toast, the queue shows its previous order again, and the request stays Claimed
+
+### Requirement: A new request joins the end of the queue
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_request_queued_after_a_move_joins_the_end]
+```
+
+The system SHALL place a new request after every request already Requested.
+
+#### Scenario: A request is queued after the person reordered
+
+- **Given** the person moved the newest of two Requested requests to the top
+- **When** the person queues a session on a third entry
+- **Then** the queue lists the moved request first, the other second and the new request last
+
+### Requirement: A dispatcher lists the requests in queue order
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.The_requested_list_follows_the_order_the_person_set]
+```
+
+The system SHALL answer `list_session_requests` with the Requested requests in the person's queue order.
+
+#### Scenario: A restarted dispatcher lists the queue
+
+- **Given** the person moved a later request above an older one, both Requested
+- **When** a dispatcher calls `list_session_requests` with `state: requested`
+- **Then** the moved request is listed first
 
 ### Requirement: A dispatcher's wait is recorded as contact
 
@@ -397,6 +488,39 @@ The system SHALL warn in the session queue while a request is Requested and no d
 - **Given** no dispatcher has been heard for three minutes and every open request is Claimed or Started
 - **When** the person opens the session queue
 - **Then** the queue shows no warning
+
+### Requirement: A paused queue starts no new session
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.A_running_queue_offers_Pause_and_pausing_it_says_so_on_the_panel_and_the_trigger, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Resuming_a_paused_queue_takes_the_callout_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.A_paused_queue_with_a_silent_dispatcher_shows_both_the_pause_and_the_warning, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_paused_queue_hands_out_no_request_and_answers_no_content_when_the_hold_ends, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_paused_queue_still_hands_out_a_due_delivery, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_held_call_hands_out_the_waiting_request_once_the_queue_is_resumed, integration:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.A_claim_on_a_paused_queue_is_refused_naming_the_pause_and_leaves_the_request_Requested, integration:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.The_holder_reclaiming_on_a_paused_queue_still_holds_its_claim, integration:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.The_list_says_whether_the_queue_is_paused]
+```
+
+The system SHALL hand out no request on the wait route and refuse every claim while the person has paused the session queue, and SHALL keep handing out answer deliveries, accepting a held claim's report and release, and taking new requests and cancels.
+
+#### Scenario: The person pauses the queue
+
+- **Given** the session queue runs and a request is Requested
+- **When** the person presses Pause queue in the session queue
+- **Then** the control reads Resume queue, a "Queue paused" callout says nothing new will start, the trigger reads "Session queue, paused, 1 waiting", `list_session_requests` says the queue is paused, and the request stays Requested
+
+#### Scenario: A dispatcher claims while the queue is paused
+
+- **Given** the queue is paused and a request is Requested
+- **When** a dispatcher calls `claim_session_request` on it
+- **Then** the claim is refused with "The session queue is paused." and the request stays Requested
+
+#### Scenario: A dispatcher waits while the queue is paused
+
+- **Given** the queue is paused, a request is Requested and an answer delivery is due
+- **When** a dispatcher calls `GET /session-requests/wait`
+- **Then** it receives the delivery, and once no delivery is due its next call is held and answered `204` with no request
+
+#### Scenario: The person resumes the queue
+
+- **Given** the queue is paused and a dispatcher's wait is held while a request is Requested
+- **When** the person presses Resume queue
+- **Then** the callout goes and the held call hands out the Requested request at the head of the queue
 
 ### Requirement: The flag off offers no session requests
 

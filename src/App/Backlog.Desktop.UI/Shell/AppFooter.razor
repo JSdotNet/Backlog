@@ -1,5 +1,6 @@
 ﻿@implements IDisposable
 @using Backlog.Infrastructure.Sync
+@using Backlog.Infrastructure.Sync.KnowledgeEvents
 @using Backlog.Infrastructure.Sync.Sessions
 @using Microsoft.AspNetCore.Components.Sections
 @inject IAppUpdateService Updates
@@ -328,6 +329,11 @@
     private TaskSyncWorker? _taskSync;
     private SessionSyncWorker? _sessionSync;
 
+    // The knowledge event loop, asked for a cycle by the Sync button so an event
+    // reaches the phone now rather than on the loop's tick. The band's phrase
+    // stays the task and session loops' reading.
+    private KnowledgeEventSyncWorker? _knowledgeEventSync;
+
     // What the loops moved, by name. Null where the host composed no sync
     // client at all; empty where it did and nothing has travelled yet.
     private SyncActivityLog? _syncActivity;
@@ -389,6 +395,7 @@
         // "broken", and its footer is the footer without a sync phrase.
         _taskSync = ResolveOptional<TaskSyncWorker>();
         _sessionSync = ResolveOptional<SessionSyncWorker>();
+        _knowledgeEventSync = ResolveOptional<KnowledgeEventSyncWorker>();
         _syncActivity = Services.GetService<SyncActivityLog>();
         _compatibility = Services.GetService<SyncCompatibility>();
         _updateWindowRequests = Services.GetService<AppUpdateWindowRequests>();
@@ -438,14 +445,15 @@
 
     private void OpenSyncWindow() => _syncWindowOpen = true;
 
-    // Both loops, and neither is awaited: RequestSync hands the exchange to the
-    // thread pool and returns, and what happened arrives through Changed. A
-    // loop whose gates are shut declines quietly, which is the right answer
-    // for a button that says "now" rather than "whether".
+    // Every loop the button answers for, and none is awaited: RequestSync hands
+    // the exchange to the thread pool and returns, and what happened arrives
+    // through Changed. A loop whose gates are shut declines quietly, which is
+    // the right answer for a button that says "now" rather than "whether".
     private void RequestSyncNow()
     {
         _taskSync?.RequestSync();
         _sessionSync?.RequestSync();
+        _knowledgeEventSync?.RequestSync();
     }
 
     public void Dispose()

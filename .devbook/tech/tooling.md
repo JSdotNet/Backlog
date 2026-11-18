@@ -289,7 +289,7 @@ Automated dependency and security updates.
 ```meta
 rating: adopted
 type: tool
-version: "1.24.0"
+version: "1.37.0"
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#json", ".devbook/tech/ai-development.md#devbook-plugin"]
 related: [".devbook/tech/tooling.md#github-actions", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
 ```
@@ -466,9 +466,9 @@ dependency**.
 
 - **Used for** — authoring `.devbook/arc42/workspace.dsl`, the C4 model kept
   beside the architecture chapters. The desktop app reads that DSL and draws it
-  itself on the Architecture panel's C4 tab, behind the `c4-diagrams` flag.
+  itself on the Architecture panel's C4 surface, which is always on.
   [C4 workspaces](../design/component-libraries.md#c4-workspaces) holds the
-  tab's rules.
+  surface's rules.
 - **Why** — the model wanted a real editor, and this repository wanted no new
   build. c4hero is local-first and saves plain `.dsl` through the File System
   Access API. So the authored artifact is reviewable text in git, and the editor

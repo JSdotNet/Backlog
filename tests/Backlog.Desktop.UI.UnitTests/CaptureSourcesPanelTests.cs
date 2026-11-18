@@ -57,9 +57,9 @@ public sealed class CaptureSourcesPanelTests
     }
 
     [Fact]
-    public void Every_monitorable_source_gets_a_toggle_a_targets_field_and_a_last_run()
+    public void Every_offered_source_gets_a_toggle_a_targets_field_and_a_last_run()
     {
-        using var panel = RenderPanel();
+        using var panel = RenderPanel(availability: new SwitchableAvailability(eventsAreaOn: true));
 
         foreach (var kind in CaptureSourceKinds.Monitorable)
         {
@@ -71,6 +71,104 @@ public sealed class CaptureSourcesPanelTests
             Assert.NotEmpty(panel.Component.FindAll($"[data-testid='capture-source-{slug}-targets']"));
             Assert.Equal("Never captured.", panel.Component.Find($"[data-testid='capture-source-{slug}-last-run']").TextContent.Trim());
             Assert.NotEmpty(panel.Component.FindAll($"[data-testid='capture-source-{slug}-log-toggle']"));
+        }
+    }
+
+    /// <summary>The event page source belongs to the Events area: with the
+    /// <c>events</c> flag off it is not listed, and the summary counts only the
+    /// sources that are — a stored choice for it is kept, not counted.</summary>
+    [Fact]
+    public void The_event_page_source_is_not_listed_while_it_is_not_offered()
+    {
+        using var panel = RenderPanel(before: store =>
+        {
+            store.SetEnabled(CaptureSourceKind.EventPage, true);
+            store.SetEnabled(CaptureSourceKind.YouTube, true);
+        });
+
+        Assert.Empty(panel.Component.FindAll("[data-testid='capture-source-event_page']"));
+        Assert.Equal("1 of 3 sources on", panel.Component.Find("[data-testid='capture-sources-summary']").TextContent.Trim());
+        Assert.True(panel.CaptureSources.Current.For(CaptureSourceKind.EventPage).Enabled);
+    }
+
+    [Fact]
+    public void The_event_page_source_is_listed_beside_the_website_while_it_is_offered()
+    {
+        using var panel = RenderPanel(availability: new SwitchableAvailability(eventsAreaOn: true));
+
+        var row = panel.Component.Find("[data-testid='capture-source-event_page']");
+        Assert.Contains("Event page", row.TextContent, StringComparison.Ordinal);
+        Assert.Contains("New editions announced on the event pages listed below.", row.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Event pages - one URL per line", row.TextContent, StringComparison.Ordinal);
+        Assert.Equal(
+            "https://dotnetfriday.nl/",
+            panel.Component.Find("[data-testid='capture-source-event_page-targets'] textarea").GetAttribute("placeholder"));
+        Assert.Equal("None of 4 sources on", panel.Component.Find("[data-testid='capture-sources-summary']").TextContent.Trim());
+
+        var order = panel.Component.FindAll(".capture-sources__source:not(.capture-sources__import)")
+            .Select(block => block.GetAttribute("data-testid"))
+            .ToArray();
+        Assert.Equal(
+            ["capture-source-youtube", "capture-source-website", "capture-source-event_page", "capture-source-email"],
+            order);
+    }
+
+    [Fact]
+    public void An_offered_event_page_source_says_what_it_is_looking_at()
+    {
+        using var panel = RenderPanel(
+            before: store =>
+            {
+                store.SetEnabled(CaptureSourceKind.EventPage, true);
+                store.SetTargets(CaptureSourceKind.EventPage, ["https://dotnetfriday.nl/", "https://techorama.nl/"]);
+            },
+            availability: new SwitchableAvailability(eventsAreaOn: true));
+
+        Assert.Equal(
+            "On. Looking at 2 event pages.",
+            panel.Component.Find("[data-testid='capture-source-event_page'] .field__help").TextContent.Trim());
+    }
+
+    /// <summary>Switching the area on while the panel is open lists the source
+    /// without a reopen, the way a run landing on the log redraws a row.</summary>
+    [Fact]
+    public void The_event_page_source_appears_when_the_area_is_switched_on()
+    {
+        var availability = new SwitchableAvailability(eventsAreaOn: false);
+        using var panel = RenderPanel(availability: availability);
+        Assert.Empty(panel.Component.FindAll("[data-testid='capture-source-event_page']"));
+
+        availability.Switch(eventsAreaOn: true);
+
+        panel.Component.WaitForAssertion(() =>
+            Assert.NotEmpty(panel.Component.FindAll("[data-testid='capture-source-event_page']")));
+        Assert.Equal("None of 4 sources on", panel.Component.Find("[data-testid='capture-sources-summary']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void Closing_the_panel_lets_go_of_the_availability()
+    {
+        var availability = new SwitchableAvailability(eventsAreaOn: false);
+        var panel = RenderPanel(availability: availability);
+        Assert.Equal(1, availability.Subscribers);
+
+        panel.Dispose();
+
+        Assert.Equal(0, availability.Subscribers);
+    }
+
+    /// <summary>The Inbox badge carries the slug as a raw string, so the two
+    /// spellings are kept the same by this rather than by a type — for every
+    /// kind, the event page's too.</summary>
+    [Fact]
+    public void Every_capture_source_reads_the_same_on_the_inbox_badge()
+    {
+        foreach (var kind in Enum.GetValues<CaptureSourceKind>())
+        {
+            var slug = CaptureSourceKinds.Slug(kind);
+
+            Assert.Equal(slug, Backlog.Modules.Inbox.Abstractions.InboxEnumMap.NormalizeChannel(slug));
+            Assert.Equal(CaptureSourceKinds.Label(kind), Backlog.Modules.Inbox.UI.InboxLabels.Channel(slug));
         }
     }
 
@@ -289,7 +387,8 @@ public sealed class CaptureSourcesPanelTests
         ICaptureSourceSettings? captureSources = null,
         Action<ICaptureSourceSettings>? before = null,
         Action<ICaptureRunLog>? log = null,
-        Action<CaptureRunResultDto>? imported = null)
+        Action<CaptureRunResultDto>? imported = null,
+        ICaptureSourceAvailability? availability = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-capture-sources-panel-tests", Guid.NewGuid().ToString("n"));
 
@@ -302,6 +401,9 @@ public sealed class CaptureSourcesPanelTests
         var context = new BunitContext();
         context.Services.AddSingleton(captureSources);
         context.Services.AddSingleton<ICaptureRunLog>(runLog);
+        // The Events area off unless a test says otherwise — the module's own
+        // fail-closed answer, and the state a fresh device is in.
+        context.Services.AddSingleton(availability ?? new SwitchableAvailability(eventsAreaOn: false));
         var runner = new RecordingRunner();
         context.Services.AddSingleton<ICaptureRunner>(runner);
 
@@ -331,6 +433,39 @@ public sealed class CaptureSourcesPanelTests
             return new CaptureRunResultDto(
                 [new CaptureRunSourceResult(CaptureSourceKind.Import, 2, "Import (microsoft-todo): 2 new items · 1 already known.")],
                 Noon);
+        }
+    }
+
+    /// <summary>The Events area's flag, reduced to the one thing the panel asks
+    /// of it: is the event page offered. Counts who is listening, so a panel
+    /// that forgot to let go would show.</summary>
+    private sealed class SwitchableAvailability(bool eventsAreaOn) : ICaptureSourceAvailability
+    {
+        private Action? _changed;
+        private bool _eventsAreaOn = eventsAreaOn;
+
+        public event Action? Changed
+        {
+            add
+            {
+                _changed += value;
+                Subscribers++;
+            }
+            remove
+            {
+                _changed -= value;
+                Subscribers--;
+            }
+        }
+
+        public int Subscribers { get; private set; }
+
+        public bool IsOffered(CaptureSourceKind kind) => kind != CaptureSourceKind.EventPage || _eventsAreaOn;
+
+        public void Switch(bool eventsAreaOn)
+        {
+            _eventsAreaOn = eventsAreaOn;
+            _changed?.Invoke();
         }
     }
 

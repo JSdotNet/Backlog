@@ -17,7 +17,10 @@
       open               a plain-text TextArea and Send
       choices with open  the buttons, and the box with Send below them
     The choices stack full width, one per row, so every button is the same width;
-    seven or eight wrap into two even columns. A question that takes a note adds
+    seven or eight wrap into two even columns. A quiet choice is none of them: a
+    small ghost text action, right-aligned, still a thumb's height, last of the
+    controls - after any text box.
+    A question that takes a note adds
     "Add a note (optional)" beside the last Send or Answer (on its own row under
     choice buttons alone), folded until the person opens it; the box opens under
     the answers, and whatever is in it goes with the answer.
@@ -76,17 +79,20 @@
         }
         else if (spec.Choices.Count > 0)
         {
-            <div class="@ChoicesClass(spec)" data-testid="notification-choices">
-                @foreach (var choice in spec.Choices)
-                {
-                    <AppButton Variant="@VariantFor(choice.Style)"
-                               Busy="@(Busy && _answering == choice.Id)"
-                               BusyLabel="Answering"
-                               aria-disabled="@Blocked"
-                               TestId="@($"notification-choice-{choice.Id}")"
-                               OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
-                }
-            </div>
+            @if (RowChoices(spec) is { Count: > 0 } row)
+            {
+                <div class="@ChoicesClass(row)" data-testid="notification-choices">
+                    @foreach (var choice in row)
+                    {
+                        <AppButton Variant="@VariantFor(choice.Style)"
+                                   Busy="@(Busy && _answering == choice.Id)"
+                                   BusyLabel="Answering"
+                                   aria-disabled="@Blocked"
+                                   TestId="@($"notification-choice-{choice.Id}")"
+                                   OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
+                    }
+                </div>
+            }
 
             @if (Composing is { } composing)
             {
@@ -160,6 +166,23 @@
                     @Mic(AnswerBox.Note, "Dictate a note", "notification-note-dictate")
                 </div>
                 @SpeechStatus(AnswerBox.Note)
+            </div>
+        }
+
+        @* Last of the controls, so it never sits between a choice and its words. *@
+        @if (!spec.AllowMultiple && QuietChoices(spec) is { Count: > 0 } quiet)
+        {
+            <div class="phone-notification__quiet" data-testid="notification-quiet-choices">
+                @foreach (var choice in quiet)
+                {
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               Busy="@(Busy && _answering == choice.Id)"
+                               BusyLabel="Answering"
+                               aria-disabled="@Blocked"
+                               TestId="@($"notification-choice-{choice.Id}")"
+                               OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
+                }
             </div>
         }
     </div>
@@ -269,10 +292,17 @@
                         CssClass="phone-notification__note-toggle"
                         TestId="notification-note-toggle" />;
 
-    /// <summary>The choices stack full width, one per row; seven or eight wrap into two even columns.</summary>
-    private static string ChoicesClass(AnswerSpec spec) => spec.Choices.Count >= 7
+    /// <summary>The choices stack full width, one per row; seven or eight wrap into two even
+    /// columns. A quiet choice is not counted: it is drawn apart, after them.</summary>
+    private static string ChoicesClass(IReadOnlyList<AnswerChoice> row) => row.Count >= 7
         ? "phone-notification__choices phone-notification__choices--many"
         : "phone-notification__choices phone-notification__choices--stack";
+
+    /// <summary>The choices drawn as full-width buttons.</summary>
+    private static IReadOnlyList<AnswerChoice> RowChoices(AnswerSpec spec) => [.. spec.Choices.Where(choice => !choice.Quiet)];
+
+    /// <summary>The choices drawn as small text actions after the buttons.</summary>
+    private static IReadOnlyList<AnswerChoice> QuietChoices(AnswerSpec spec) => [.. spec.Choices.Where(choice => choice.Quiet)];
 
     private static string PickHint(AnswerSpec spec)
     {

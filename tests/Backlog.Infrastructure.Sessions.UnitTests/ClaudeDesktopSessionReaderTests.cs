@@ -84,6 +84,27 @@ public sealed class ClaudeDesktopSessionReaderTests : IDisposable
         Assert.Null(sessions.For("cli-d")!.Title);
     }
 
+    /// <summary>
+    /// <c>spawnedFrom</c> names the session that started this one by its desktop id; the
+    /// fields after it are still read, and a record that names none, or names it in a
+    /// shape that is not an object, states nothing.
+    /// </summary>
+    [Fact]
+    public async Task The_session_that_started_one_is_read_from_spawned_from()
+    {
+        GivenRecord(Account, Org, "local_a", """{"sessionId":"local_a","cliSessionId":"cli-a","spawnedFrom":{"taskId":"task_1","nested":{"sessionId":"no"},"sessionId":"local_run"},"title":"13 - Move"}""");
+        GivenRecord(Account, Org, "local_b", """{"sessionId":"local_b","cliSessionId":"cli-b","spawnedFrom":"local_run","title":"b"}""");
+        GivenRecord(Account, Org, "local_run", """{"sessionId":"local_run","cliSessionId":"cli-run","title":"+tag:execute-plan"}""");
+
+        var sessions = await ReadAsync();
+
+        Assert.Equal(("local_run", "13 - Move"), (sessions.For("cli-a")!.SpawnedFrom, sessions.For("cli-a")!.Title));
+        Assert.Equal((null, "b"), (sessions.For("cli-b")!.SpawnedFrom, sessions.For("cli-b")!.Title));
+        Assert.Null(sessions.For("cli-run")!.SpawnedFrom);
+        Assert.Equal("+tag:execute-plan", sessions.ByDesktopId("LOCAL_RUN")!.Title);
+        Assert.Null(sessions.ByDesktopId(null));
+    }
+
     [Fact]
     public async Task Only_local_records_are_read_and_never_the_scheduled_tasks_file()
     {

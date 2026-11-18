@@ -12,7 +12,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The long poll a dispatcher waits on (local ADR 0038 §4): it answers <c>200</c> with
-/// the oldest Requested request the moment there is one, <c>204</c> once the hold has
+/// the Requested request at the head of the queue the moment there is one, <c>204</c> once the hold has
 /// passed without one, and <c>404</c> while <c>session-requests</c> is off. A call that
 /// is held runs on a <see cref="FakeTimeProvider"/>, so the route's own
 /// <see cref="SessionRequestWaitEndpoint.Hold"/> and poll pass as advanced time, not wall-clock time.
@@ -59,6 +59,21 @@ public class SessionRequestWaitEndpointTests
     }
 
     [Fact]
+    public async Task The_request_the_person_moved_to_the_top_is_handed_out_before_an_older_one()
+    {
+        var queue = new InMemorySessionRequestStore();
+        var now = DateTimeOffset.UtcNow;
+        queue.Add(Entry(Guid.NewGuid(), now - TimeSpan.FromMinutes(5)));
+        var later = queue.Add(SessionRequests.ForPlan("+session-dispatch", "JSdotNet/Backlog", @"D:\Repos\Backlog", now));
+        await queue.MoveAsync(later.Id, 0, TestContext.Current.CancellationToken);
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken);
+
+        using var json = JsonDocument.Parse(reply.Body);
+        Assert.Equal(later.Id, json.RootElement.GetProperty("id").GetGuid());
+    }
+
+    [Fact]
     public async Task A_plan_request_carries_its_tag_and_the_execute_plan_brief()
     {
         var queue = new InMemorySessionRequestStore();
@@ -70,7 +85,7 @@ public class SessionRequestWaitEndpointTests
         Assert.Equal("request", json.RootElement.GetProperty("kind").GetString());
         Assert.Equal("plan", json.RootElement.GetProperty("requestKind").GetString());
         Assert.Equal("session-dispatch", json.RootElement.GetProperty("planTag").GetString());
-        Assert.Equal("/backlog-tools:execute-plan +session-dispatch", json.RootElement.GetProperty("brief").GetString());
+        Assert.Equal("/backlog-tools:execute-plan +session-dispatch branch", json.RootElement.GetProperty("brief").GetString());
     }
 
     [Fact]
@@ -349,6 +364,64 @@ public class SessionRequestWaitEndpointTests
         Assert.Equal(1, sessions.Reads);
     }
 
+    // --- A paused queue ---------------------------------------------------------------
+
+    [Fact]
+    public async Task A_paused_queue_hands_out_no_request_and_answers_no_content_when_the_hold_ends()
+    {
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
+        queue.Add(Entry(Guid.NewGuid(), clock.GetUtcNow()));
+        await queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
+        var contact = new DispatcherContact(clock);
+
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, TestContext.Current.CancellationToken, ShortHold, contact: contact);
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
+
+        Assert.Equal(204, reply.StatusCode);
+        Assert.Empty(reply.Body);
+        Assert.Equal(clock.GetUtcNow(), contact.LastHeardAt);
+    }
+
+    [Fact]
+    public async Task A_paused_queue_still_hands_out_a_due_delivery()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var queue = new InMemorySessionRequestStore();
+        queue.Add(Entry(Guid.NewGuid(), now - TimeSpan.FromHours(1)));
+        await queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
+        var questions = new HeldWaitingQuestions();
+        var delivery = questions.AddPendingDelivery("cli-1", "Which database?", "Postgres", now);
+        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
+
+        var reply = await SessionRequestWaitEndpoint.WaitAsync(
+            queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken, questions: questions, sessions: sessions);
+
+        Assert.Equal(200, reply.StatusCode);
+        using var json = JsonDocument.Parse(reply.Body);
+        Assert.Equal("delivery", json.RootElement.GetProperty("kind").GetString());
+        Assert.Equal(delivery.Id, json.RootElement.GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task A_held_call_hands_out_the_waiting_request_once_the_queue_is_resumed()
+    {
+        var clock = Clock();
+        var queue = new InMemorySessionRequestStore(clock);
+        var request = queue.Add(Entry(Guid.NewGuid(), clock.GetUtcNow()));
+        await queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
+
+        var waiting = SessionRequestWaitEndpoint.WaitAsync(queue, Features(on: true), clock, TestContext.Current.CancellationToken);
+        Assert.False(waiting.IsCompleted, "A paused queue handed out a request.");
+
+        await queue.SetPausedAsync(false, TestContext.Current.CancellationToken);
+        var reply = await AdvanceUntilAnsweredAsync(waiting, clock);
+
+        Assert.Equal(200, reply.StatusCode);
+        using var json = JsonDocument.Parse(reply.Body);
+        Assert.Equal(request.Id, json.RootElement.GetProperty("id").GetGuid());
+    }
+
     // --- Dispatcher contact (local ADR 0038 §4) -----------------------------------------
 
     [Fact]
@@ -479,6 +552,8 @@ public class SessionRequestWaitEndpointTests
 
         public Task<SessionRequest?> NextAsync(CancellationToken cancellationToken = default) => Fail<SessionRequest?>();
 
+        public Task<SessionRequestOutcome> MoveAsync(Guid id, int toIndex, CancellationToken cancellationToken = default) => Fail<SessionRequestOutcome>();
+
         public Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) => Fail<SessionRequestOutcome>();
 
         public Task<SessionRequestOutcome> ReleaseAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) => Fail<SessionRequestOutcome>();
@@ -486,6 +561,10 @@ public class SessionRequestWaitEndpointTests
         public Task<SessionRequestOutcome> ReportStartedAsync(Guid id, string dispatcher, string sessionId, CancellationToken cancellationToken = default) => Fail<SessionRequestOutcome>();
 
         public Task<SessionRequestOutcome> CancelAsync(Guid id, CancellationToken cancellationToken = default) => Fail<SessionRequestOutcome>();
+
+        public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default) => Fail<bool>();
+
+        public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default) => Fail<bool>();
 
         public Task<IReadOnlyList<SessionRequest>> LinkAsync(Guid entryId, IReadOnlyCollection<string> planTags, string sessionId, CancellationToken cancellationToken = default) =>
             Fail<IReadOnlyList<SessionRequest>>();

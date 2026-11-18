@@ -9,7 +9,7 @@
     opens the chart with that plan's bar selected.
 *@
 <div class="roadmap-view" id="roadmap-view" data-testid="roadmap-view">
-    <RoadmapBand OnOpenTasks="OpenTasks" SelectedPlan="@Plan" />
+    <RoadmapBand OnOpenTasks="OpenTasks" OnOpenBrainNote="OpenBrainNote" SelectedPlan="@Plan" />
 </div>
 
 @code {
@@ -17,6 +17,26 @@
     /// named here as strings, since the Roadmap module references no Tasks project.</summary>
     private const string TasksSurfaceId = "tasks";
     private const string LinkedKey = "linked";
+
+    /// <summary>The Devbook surface's id and the keys it opens a Brain note on (local
+    /// ADR 0043 §6) — strings, as for Tasks, since the Roadmap module references no
+    /// Devbook project: <c>DevbookSurfaceQuery</c>'s <c>SurfaceId</c>, <c>Scope</c>
+    /// with its <c>Brain</c> value, and <c>Chapter</c>, as the Tasks view writes them
+    /// for a task row's Brain notes.</summary>
+    private const string DevbookSurfaceId = "devbook";
+    private const string ScopeKey = "scope";
+    private const string BrainScopeValue = "brain";
+    private const string ChapterKey = "chapter";
+
+    /// <summary>A gathered Brain note's chip (local ADR 0053): the Devbook on the
+    /// Brain side, at the note. The shell stamps each ask as a new press, so the same
+    /// note pressed twice opens again.</summary>
+    private void OpenBrainNote(string note) =>
+        Navigator.Show(DevbookSurfaceId, new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [ScopeKey] = BrainScopeValue,
+            [ChapterKey] = note,
+        });
 
     /// <summary>The query the surface was shown with.</summary>
     [Parameter]

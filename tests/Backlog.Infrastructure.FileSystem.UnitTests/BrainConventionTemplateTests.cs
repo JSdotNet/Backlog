@@ -26,7 +26,7 @@ public sealed class BrainConventionTemplateTests
         var areas = BrainConventionTemplate.ReadDeclaredAreas(BrainConventionTemplate.Conventions);
 
         Assert.Equal(
-            ["_inbox", "projects", "areas", "resources", "people", "journal", "archive"],
+            ["_inbox", "projects", "someday", "areas", "resources", "people", "journal", "archive"],
             areas.Select(area => area.Folder));
         Assert.Equal(BrainConventionTemplate.ParaAreas, areas);
     }

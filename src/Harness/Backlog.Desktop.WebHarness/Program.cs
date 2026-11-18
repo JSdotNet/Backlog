@@ -249,6 +249,10 @@ var app = builder.Build();
 // can test against the harness.
 _ = app.Services.GetRequiredService<TaskSyncWorker>();
 
+// And the Inbox's transcription of meeting recordings (local ADR 0049), started as the
+// desktop head starts it, against the harness's local Foundry stand-in.
+app.Services.GetRequiredService<Backlog.Modules.Inbox.Services.InboxRecordingTranscriptionWorker>().Start();
+
 // And session replication's own loop, for the same reason and with the same
 // failure if it is left out. A sibling rather than a second exchange inside the
 // worker above: see SessionSyncWorker for why one loop over two independently
@@ -261,6 +265,9 @@ _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
 // And devbook subject state's loop, the annotations' sibling, on the same terms.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
+
+// And knowledge event replication's loop (local ADR 0050 §2), on the same terms.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.KnowledgeEventSyncWorker>();
 
 // And the one-time devbook import, on the same terms and for the same reason the
 // desktop head resolves it.
@@ -280,6 +287,10 @@ _ = app.Services.GetRequiredService<BackupWorker>();
 // And the linked task sync's timer, on the same terms and for the same reason the
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
+
+// And the Desktop clock of the Events area, on the same terms and for the same reason the
+// desktop head resolves it.
+_ = app.Services.GetRequiredService<Backlog.Modules.Events.Services.HarvestTaskWorker>();
 
 // And the spec-manager question source, on the same terms and for the same reason the
 // desktop head resolves it.

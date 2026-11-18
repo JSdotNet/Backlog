@@ -35,8 +35,29 @@ public sealed class DevbookBrainNoteLinkTests
         Assert.Equal(DevbookMenu.PersonalTabKey("projects"), DevbookChapterLink.ForBrainNote("Projects/plan.md")?.AreaKey);
     }
 
+    /// <summary>An area folder alone names its tab — what the Inbox's queue health
+    /// opens the Brain's inbox area by.</summary>
+    [Theory]
+    [InlineData("_inbox/")]
+    [InlineData("./_Inbox/")]
+    public void An_area_folder_names_its_tab(string reference)
+    {
+        var link = DevbookChapterLink.ForBrainNote(reference);
+
+        Assert.NotNull(link);
+        Assert.Equal(DevbookMenu.PersonalTabKey("_inbox"), link.AreaKey);
+        Assert.True(link.IsFolder);
+        Assert.Null(link.Anchor);
+    }
+
+    [Fact]
+    public void A_note_is_not_a_folder() =>
+        Assert.False(DevbookChapterLink.ForBrainNote("_inbox/standup.md")!.IsFolder);
+
     [Theory]
     [InlineData("plan.md")]
+    [InlineData("_inbox")]
+    [InlineData("_inbox/#top")]
     [InlineData("projects/diagram.png")]
     [InlineData("")]
     [InlineData(null)]

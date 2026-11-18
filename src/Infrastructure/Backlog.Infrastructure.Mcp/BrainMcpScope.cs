@@ -26,7 +26,7 @@ internal static class BrainMcpScope
 {
     /// <summary>The Brain's name in a tool's <c>repository</c> argument, and the
     /// <c>repository</c> every Brain answer carries.</summary>
-    internal const string Value = "#brain";
+    internal const string Value = BrainNoteAddress.Scope;
 
     /// <summary>Whether <paramref name="repository"/> names the Brain.</summary>
     internal static bool Is(string? repository) =>

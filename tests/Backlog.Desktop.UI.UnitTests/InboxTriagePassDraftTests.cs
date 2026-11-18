@@ -86,6 +86,48 @@ public sealed class InboxTriagePassDraftTests
     }
 
     [Fact]
+    public void A_waiting_for_carries_the_name_the_reader_left_and_counts_only_while_it_can_be_written()
+    {
+        var sam = _inbox.Seed("Hear back from Sam");
+        var bank = _inbox.Seed("Loan answer");
+        var draft = new InboxTriagePassDraft(
+            InboxTriagePassDto.Nothing with
+            {
+                Outcomes =
+                [
+                    new(sam.Id, InboxClarifyOutcome.WaitingFor, "Sam replies.", 0.9) { Who = "Sam" },
+                    new(bank.Id, InboxClarifyOutcome.WaitingFor, "The bank decides.", 0.9) { Who = "The bank" },
+                ],
+            },
+            _inbox.Items,
+            _inbox.Lists);
+
+        Assert.Equal(["Sam", "The bank"], draft.Outcomes.Select(outcome => outcome.Who));
+        draft.Outcomes[0].Who = "  Sam Jones ";
+        draft.Outcomes[1].Who = "   ";
+
+        Assert.False(draft.Outcomes[1].Appliable);
+        Assert.Equal(1, draft.DecisionCount);
+        var decision = Assert.IsType<InboxTriageOutcomeDecision>(Assert.Single(draft.Decisions()));
+        Assert.Equal(sam.Id, decision.ItemId);
+        Assert.Equal(InboxClarifyOutcome.WaitingFor, decision.Outcome);
+        Assert.Equal("Sam Jones", decision.Who);
+    }
+
+    [Fact]
+    public void Someday_and_done_now_hand_apply_no_name()
+    {
+        var someday = _inbox.Seed("Learn the cello");
+        var draft = new InboxTriagePassDraft(
+            InboxTriagePassDto.Nothing with { Outcomes = [new(someday.Id, InboxClarifyOutcome.Someday, "One day.", 0.9)] },
+            _inbox.Items,
+            _inbox.Lists);
+
+        Assert.True(draft.Outcomes[0].Appliable);
+        Assert.Null(Assert.IsType<InboxTriageOutcomeDecision>(Assert.Single(draft.Decisions())).Who);
+    }
+
+    [Fact]
     public void Removing_what_applied_matches_the_plan_by_identity_hands_its_waiting_members_to_the_reader_and_drops_what_no_longer_waits()
     {
         var p1 = _inbox.Seed("P1");

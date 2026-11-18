@@ -19,6 +19,10 @@ public enum AzureFoundryTranscriptionCredential
     /// <summary>No credential at all — the local stand-in in
     /// <c>Backlog.AzureFoundry.TestService</c>, which takes none.</summary>
     None,
+
+    /// <summary>The account key, sent as <c>api-key</c> — the desktop's DPAPI-sealed key from
+    /// <see cref="AzureFoundrySettings"/> (local ADR 0049 §2, ADR 0030).</summary>
+    ApiKey,
 }
 
 /// <summary>
@@ -50,6 +54,9 @@ public sealed class AzureFoundryTranscriptionOptions
     /// system-assigned one. The deployed container sets <c>AZURE_CLIENT_ID</c>.</summary>
     public string? ManagedIdentityClientId { get; set; }
 
+    /// <summary>The key <see cref="AzureFoundryTranscriptionCredential.ApiKey"/> sends.</summary>
+    public string? ApiKey { get; set; }
+
     /// <summary>The whole call, retry included (local ADR 0045 §3): 50 seconds, so the service
     /// answers before the phone's 60-second upload timeout.</summary>
     public TimeSpan TotalBudget { get; set; } = TimeSpan.FromSeconds(50);
@@ -72,7 +79,9 @@ public sealed class AzureFoundryTranscriptionTokens(TokenCredential? credential)
 /// <summary>One recording to transcribe.</summary>
 /// <param name="ContentType">The media type without parameters; it names the file.</param>
 /// <param name="Language">An ISO-639-1 hint, or null for the model to detect.</param>
-public sealed record AzureFoundryTranscriptionRequest(ReadOnlyMemory<byte> Audio, string ContentType, string? Language);
+/// <param name="Prompt">Text the audio continues, such as the last words of the part before
+/// it (local ADR 0049 §3), or null.</param>
+public sealed record AzureFoundryTranscriptionRequest(ReadOnlyMemory<byte> Audio, string ContentType, string? Language, string? Prompt = null);
 
 /// <summary>The text, or that there is none. A failure carries nothing Foundry said: its
 /// message may quote the input.</summary>
@@ -143,7 +152,17 @@ public sealed partial class AzureFoundryTranscriptionClient(
                 Content = Body(request),
             };
 
-            if (tokens.Credential is { } credential)
+            if (settings.Credential == AzureFoundryTranscriptionCredential.ApiKey)
+            {
+                if (string.IsNullOrWhiteSpace(settings.ApiKey))
+                {
+                    LogNotConfigured(logger);
+                    return AzureFoundryTranscriptionResult.Failure;
+                }
+
+                message.Headers.Add("api-key", settings.ApiKey);
+            }
+            else if (tokens.Credential is { } credential)
             {
                 var token = await credential.GetTokenAsync(new TokenRequestContext([AzureFoundryTranscriptionTokens.Scope]), budget.Token)
                     .ConfigureAwait(false);
@@ -213,6 +232,11 @@ public sealed partial class AzureFoundryTranscriptionClient(
             body.Add(new StringContent(request.Language), "language");
         }
 
+        if (!string.IsNullOrWhiteSpace(request.Prompt))
+        {
+            body.Add(new StringContent(request.Prompt), "prompt");
+        }
+
         return body;
     }
 
@@ -255,7 +279,7 @@ public sealed partial class AzureFoundryTranscriptionClient(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Foundry transcription did not complete: {Failure}.")]
     private static partial void LogUnreachable(ILogger logger, string failure);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Foundry transcription has no endpoint configured.")]
+    [LoggerMessage(Level = LogLevel.Error, Message = "Foundry transcription has no endpoint or key configured.")]
     private static partial void LogNotConfigured(ILogger logger);
 
     private sealed record TranscriptionPayload([property: JsonPropertyName("text")] string? Text);

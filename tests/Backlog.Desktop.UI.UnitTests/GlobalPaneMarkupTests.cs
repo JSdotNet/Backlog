@@ -63,6 +63,7 @@ public sealed class GlobalPaneMarkupTests
         {
             "<nav class=\"app-header__nav\"",
             "TestId=\"inbox-pane-option\"",
+            "TestId=\"weekly-review-option\"",
             "TestId=\"view-switch\"",
             "TestId=\"tasks-view-option\"",
             "TestId=\"board-view-option\"",
@@ -106,7 +107,12 @@ public sealed class GlobalPaneMarkupTests
         var nav = home.IndexOf("<nav class=\"app-header__nav\"", StringComparison.Ordinal);
         var viewSwitch = home.IndexOf("TestId=\"view-switch\"", StringComparison.Ordinal);
         var inboxGuard = home.IndexOf("@if (InboxPaneOptionVisible)", nav, StringComparison.Ordinal);
-        Assert.DoesNotContain("@if", home[(home.IndexOf('}', inboxGuard) + 1)..viewSwitch], StringComparison.Ordinal);
+        // The weekly review's option follows the Inbox's under a guard of its own; the
+        // view switch after both stands unguarded.
+        var weeklyReviewGuard = home.IndexOf("@if (WeeklyReviewOffered)", inboxGuard, StringComparison.Ordinal);
+        Assert.True(weeklyReviewGuard > inboxGuard && weeklyReviewGuard < viewSwitch);
+        Assert.DoesNotContain("@if", home[(home.IndexOf('}', inboxGuard) + 1)..weeklyReviewGuard], StringComparison.Ordinal);
+        Assert.DoesNotContain("@if", home[(home.IndexOf('}', weeklyReviewGuard) + 1)..viewSwitch], StringComparison.Ordinal);
 
         // During a takeover no view option reads pressed; the Devbook's reads its
         // own surface.
@@ -147,8 +153,9 @@ public sealed class GlobalPaneMarkupTests
             StringComparison.Ordinal);
         Assert.DoesNotContain("header-group--panes", home, StringComparison.Ordinal);
 
-        // Two standalone toggles and the four loose takeovers wear the loose option.
-        Assert.Equal(6, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
+        // Three standalone toggles — the Inbox, the weekly review and the registered
+        // takeovers' — and the four loose takeovers wear the loose option.
+        Assert.Equal(7, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
 
         // The workspace's own three controls are one cluster, closer together than
         // the groups around them.

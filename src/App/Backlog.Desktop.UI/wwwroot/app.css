@@ -1070,6 +1070,90 @@ h1, h2, h3 {
     grid-row: 1 / span 2;
 }
 
+/* A Requested row that can move carries its Move controls between the words and
+   Cancel, so Cancel keeps the right-hand edge on every row. */
+.session-queue__row--movable {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.session-queue__row--movable .session-queue__cancel {
+    grid-column: 3;
+}
+
+.session-queue__order {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* One chevron for both directions (the library's ChevronUpIcon leaves the turn to
+   the host): Move down wears it half a turn round. */
+.session-queue__glyph--down {
+    transform: rotate(180deg);
+}
+
+/* Pause or Resume, at the panel's top: it acts on the whole queue, above any row. */
+.session-queue__controls {
+    display: flex;
+    justify-content: flex-end;
+    margin-block-end: var(--spacing-xs);
+}
+
+/* The commands that start the long-running agents, under the list and set off from
+   it: they are not requests, and they show whether or not anything waits. */
+.session-queue__agents {
+    margin-block-start: var(--spacing-sm);
+    padding-block-start: var(--spacing-sm);
+    border-block-start: var(--border-width) solid var(--color-border);
+}
+
+.session-queue__agents-heading {
+    margin: 0 0 var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.session-queue__agents-list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.session-queue__agent {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--spacing-sm);
+}
+
+.session-queue__agent-name {
+    grid-column: 1;
+    font-size: var(--font-size-sm);
+}
+
+.session-queue__agent-command {
+    grid-column: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--font-size-xs);
+}
+
+.session-queue__agent-copy {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+}
+
+.session-queue__agent-purpose {
+    grid-column: 1;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
 .chip--summary {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
@@ -2049,7 +2133,8 @@ h1, h2, h3 {
    the reason `.badge--glob` gives: a date token is a machine string. It was never
    right on a select whose options are "Weekly", "medium" and "critical". */
 .entry-doc__schedule-input,
-.entry-doc__schedule-select {
+.entry-doc__schedule-select,
+.entry-doc__area-picker {
     align-self: flex-start;
     margin-left: var(--spacing-lg);
     font-size: var(--font-size-xs);
@@ -4535,6 +4620,70 @@ h1, h2, h3 {
     gap: var(--spacing-md);
     min-width: 0;
     padding: var(--spacing-md) 0 var(--spacing-lg);
+}
+
+/* The weekly review takeover (.devbook/domain/progress/features.md#the-weekly-review):
+   one column read top to bottom — the stage switch, then the stage on screen and its
+   lines, each line its subject, its check and its buttons. */
+.weekly-review {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--spacing-md) 0 var(--spacing-lg);
+}
+
+.weekly-review__stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.weekly-review__lines {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--color-border);
+}
+
+.weekly-review__line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--spacing-xs) var(--spacing-md);
+    align-items: center;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.weekly-review__subject {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.weekly-review__check {
+    grid-column: 1;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.weekly-review__actions {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    justify-content: flex-end;
+}
+
+.weekly-review__steps {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
 }
 
 /* Choosing which colour each band takes.
@@ -7173,6 +7322,26 @@ a.pull-request-detail-checks__name:hover {
     margin: 0;
 }
 
+/* Picking work up from a Brain note: Create task and Plan this project, then the
+   line saying what the last one did, wrapping under the buttons in a narrow pane. */
+.brain-note__pickup {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0 0 var(--spacing-sm);
+}
+
+.brain-note__pickup-status {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.brain-note__pickup-status--warning {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
 .devbook-stack__repositories,
 .devbook-stack__nav {
     flex: 0 0 auto;
@@ -8488,23 +8657,8 @@ a.pull-request-detail-checks__name:hover {
     gap: var(--spacing-xs);
 }
 
-/* The C4 views, listed under the chapters. A rule above the group rather than a
-   gap on each item: it separates two lists of the same shape, and the chapters
-   above already carry their own spacing. The label is the nav's accessible name,
-   so nothing is drawn for it. */
-.devbook-chapters--c4 {
-    margin-top: var(--spacing-sm);
-    padding-top: var(--spacing-sm);
-    border-top: var(--border-width) solid var(--color-border);
-}
-
-.devbook-c4-references {
-    margin-top: var(--spacing-sm);
-}
-
 /* A C4 view a chapter embeds as ![…](c4:<key>), drawn where the image was. A block
-   inside the paragraph, the full width of the chapter, framed like the explorer's
-   stage; the diagram's inline host keeps the picture's own aspect ratio. */
+   inside the paragraph, the full width of the chapter, framed; the diagram's inline host keeps the picture's own aspect ratio. */
 .devbook-c4-embed {
     display: flex;
     flex-direction: column;
@@ -8530,8 +8684,7 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /* A C4 view drawn inside the arc42 chapter that documents it, under the section
-   the view map names, while c4-zoom is on (plan c4-zoom-navigation, the design's
-   arc42 screen). A figure with its own edge: it is not part of the chapter's text,
+   the view map names (local ADR 0046, the design's arc42 screen). A figure with its own edge: it is not part of the chapter's text,
    and the chapter's own fence is still drawn where the chapter writes it. */
 .md-chapter-insert {
     display: flex;
@@ -8606,8 +8759,8 @@ a.pull-request-detail-checks__name:hover {
     outline-offset: 2px;
 }
 
-/* Where an ADR or a TDR lands on the model, beside the record while `c4-zoom` is
-   on (the design's ADR screen). A column of its own beside the chapter, which keeps
+/* Where an ADR or a TDR lands on the model, beside the record on the architecture
+   surface (the design's ADR screen). A column of its own beside the chapter, which keeps
    scrolling on its own; in a narrow pane it goes under the chapter, capped so the
    chapter still has the room. */
 .arc42-devbook-layout--record {
@@ -11899,9 +12052,9 @@ a.pull-request-detail-checks__name:hover {
     outline-offset: var(--border-width);
 }
 
-/* ---- the architecture surface (c4-zoom on) ----
+/* ---- the architecture surface ----
 
-   The Architecture pane as one surface (plan c4-zoom-navigation): the zoom bar, then
+   The Architecture pane as one surface (local ADR 0046): the zoom bar, then
    the left navigation headed by the find field, the main area and the right-hand
    panel (the explorer lays those out; components.css). There is no header row: the
    open line in the navigation and the main area's heading say where the reader is.

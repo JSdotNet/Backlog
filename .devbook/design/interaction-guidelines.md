@@ -401,6 +401,13 @@ related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 | No redundant save toasts | Routine auto-saves MUST NOT spam toasts, which are for failures and notable events only. |
 | Inline confirmation | Prefer subtle inline confirmation over a toast for small edits. |
 | Above an open dialog | A toast raised while a `Modal` is open MUST be seen above it. |
+| One action | An offer MAY carry one button that names its act; the press runs it and takes the toast down. Dismissing never runs it. |
+
+- **One action:** an offer the person can safely miss, because another screen
+  lists the same thing, is the only kind. It keeps the longer dwell an error
+  takes. The example is the roadmap's archive offer for a finished plan's project
+  note (`.devbook/domain/roadmap/features.md#archiving-a-finished-plans-project-note`),
+  which the weekly review lists again.
 
 - **Inline confirmation:** an example is a brief saved-confirmation flash on a
   saved inline edit, per `#motion-and-reduced-motion`.
@@ -775,7 +782,7 @@ question. Below it the workspace shows exactly one **main view**, unless a
 | Region | Answers | Holds |
 |---|---|---|
 | Identity | Over which repositories? | The repository scope, a fused group of chips led by the **Brain** chip, and nothing else. |
-| Navigation | What am I looking at? | Left to right: **Inbox**, the view switch, **Devbook**, the Goals group, the remaining takeovers. |
+| Navigation | What am I looking at? | Left to right: **Inbox**, the view switch, **Devbook**, **Events** (while its flag is on), the Goals group, the remaining takeovers. |
 | Status | How is the workspace doing? | The GitHub check, only while a task view is on screen. |
 | Utilities | What cuts across all of it? | **Ask AI**, while an area has something to ask about. |
 
@@ -796,6 +803,7 @@ as its kind:
 | View switch | `Tasks`, `Board`, `Calendar`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows; a view is never closed. |
 | Inbox toggle | `Inbox`, before the view switch | An on-or-off giving the Inbox the whole screen; pressed again, it returns to the view. |
 | Devbook toggle | `Devbook`, after the view switch; `Brain` while the Devbook shows the Brain | An on-or-off giving the Devbook the whole screen; a second press or Escape returns. |
+| Events toggle | `Events`, after the Devbook, under `events` | An on-or-off giving the Events pane the whole screen; a second press, its close button or Escape returns. |
 | Goals group | `Goals` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the work in flight; it always renders. |
 | Remaining takeovers | `Dashboard`, `Notifications`, `Tools`, `Atlas` | A loose group, each under its own flag, rendered while one of them is offered. |
 
@@ -816,11 +824,13 @@ as its kind:
 - **Remaining takeovers:** **Atlas** is under `atlas-lobes` ([Lobes
   atlas](../domain/brain/features.md#lobes-atlas)). **Notifications** opens the
   notification centre and wears the count of questions waiting, in the
-  question's gold, and no count while none wait.
+  question's gold, and no count while none wait. Each takeover a module
+  registers that the header does not place itself draws after the Devbook, in
+  its registered order. Today that is Events.
 
 | Rule | Requirement |
 |---|---|
-| The workspace cluster sits close | The Inbox toggle, view switch and Devbook toggle MUST sit at the tighter `spacing-xs` gap. |
+| The workspace cluster sits close | The Inbox toggle, view switch, Devbook toggle and Events toggle MUST sit at the tighter `spacing-xs` gap. |
 | A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view underneath. |
 | Every way back works | A takeover MUST close on Escape and on a second press of its option. |
 | A surface draws no close of its own | A surface MUST NOT draw a close (✕) button that leaves the surface itself, in the main window or a popped-out one. A close for something inside it — an entry panel, a dialog, a sheet — stays. |
@@ -840,7 +850,8 @@ as its kind:
 | Views and work lead with a glyph | Each view-switch option and Goals group member MUST lead with a decorative glyph before its word. |
 
 - **The workspace cluster sits close:** the groups after it sit at the wider
-  navigation gap, so the Inbox and the Devbook read as belonging to the views.
+  navigation gap, so the Inbox, the Devbook and Events read as belonging to the
+  views.
 - **A takeover hides, it does not close:** closing it shows the view as it was.
   The Devbook is a takeover.
 - **Every way back works:** pressing a view option during a takeover MUST close
@@ -1032,8 +1043,8 @@ neither shares the window with the view. See local ADR 0022, amendments of
 ## Phone Tab Bar
 
 ```meta
-related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/progress/features.md#the-goals-view"]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_shows_once_the_phone_holds_a_notification]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/events/features.md#events-on-the-phone"]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_bell_shows_in_the_app_bar_once_the_phone_holds_a_notification, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_shows_before_notes_once_the_phone_holds_an_event, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_sits_before_notes_beside_the_bell_when_both_are_held, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_bar_holds_five_tabs_when_stand_up_notifications_and_events_are_all_held]
 ```
 
 The phone's shell has no header navigation. Its destinations are a row of tabs
@@ -1041,31 +1052,61 @@ along the bottom, where a thumb already is:
 
 - **Today**
 - **Inbox**
-- **Notifications**, once the phone holds a notification
 - **Stand-up**, once a desktop has sent the stand-up
+- **Events**, once the phone holds a knowledge event
 - **Notes**
 
-Each is a route of its own, so the bar is a nav of links, not a tablist. The tabs are the phone's views, so
-they lead with a glyph as the desktop's views do (`#shell-header`).
+Notifications is not a tab. It is a bell in the app bar, once the phone holds a
+notification, as the desktop's Notifications option sits in its header
+(`#shell-header`).
+
+Each is a route of its own, so the bar is a nav of links, not a tablist, and the
+bell is a link too. The tabs are the phone's views, so they lead with a glyph as
+the desktop's views do (`#shell-header`).
 
 | Rule | Requirement |
 |---|---|
+| Five at most | The bar MUST hold no more than five tabs. A sixth destination goes to the app bar or into a page. |
+| Every word whole | Each tab's word MUST fit its column whole at `font-size-sm`, in the lit tab's weight, on a 360px screen. |
 | Every tab or none | Each tab MUST lead with a decorative glyph, or none may. |
 | Glyph above the word | The glyph sits above the tab's word, at `icon-md` (20px), in the word's ink. |
 | The word is the name | The glyph MUST be hidden from assistive technology, so each tab is announced by its word. |
 | The target holds | Every tab stays at least 48px tall with its glyph, past the 44px minimum in `accessibility.md#target-sizes-and-text`. |
 | Lit by more than colour | The current tab carries a top-edge bar and a heavier word, never its glyph's colour alone. |
+| The bell is the way to Notifications | While the phone holds a notification, the app bar MUST carry a **Notifications** bell link. |
 
+- **Five at most:** Material 3's navigation bar and Apple's tab bar both stop at
+  five. At 360px five tabs leave each word 68px, and six leave 56px, where
+  Stand-up no longer fits.
+- **Every word whole:** a word MUST NOT be shortened or set smaller to fit, because
+  `font-size-sm` is the floor. Notifications fits no bar of more than four tabs,
+  which is why it is the bell. The ellipsis in `app.css` stays as the guard for a
+  larger text scale. It keeps the name and cuts only the ink, and no layout may
+  rely on it.
 - **Every tab or none:** one tab with a picture beside tabs without reads as the
   one that is different. The glyphs are a sun for Today (the My Day glyph), an
-  inbox tray for Inbox and a target (Lucide `target`) for Stand-up. Notifications
-  takes a bell (Lucide `bell`) and Notes a sticky note (Lucide `sticky-note`).
-  Stand-up and Notifications match the desktop's Goals and Notifications options.
+  inbox tray for Inbox and a target (Lucide `target`) for Stand-up. Events takes
+  a calendar (Lucide `calendar`) and Notes a sticky note (Lucide `sticky-note`).
+  Stand-up matches the desktop's Goals option.
 - **Glyph above the word:** the lit tab's glyph lights with its word. The word
   stays, because a glyph alone is not a name. See
   `accessibility.md#iconography-accessibility`.
+- **The bell is the way to Notifications:**
+  - It takes the Lucide `bell` at `icon-md` (20px) in a 44 × 44px target, the
+    gear's size. The glyph is hidden from assistive technology, and the name
+    **Notifications** is on the link.
+  - It carries `aria-current="page"` while the notification list or any
+    notification's detail is on screen. It is lit by more than colour: a 2px
+    `color-primary` bar on its bottom edge, the tab's bar turned to face the
+    page. No tab reads lit meanwhile.
+  - It is an icon button between the sync line and the **Settings** gear.
+    **Settings** stays last and never moves, whether the bell shows or not. The
+    sync line gives up the bell's width, as it gives way to the title.
+  - A tap on a notification in the Android tray still opens its detail. The bell
+    is the way back to the list.
 
-Review surface: storybook → *App shell* → **Tab bar with glyphs**.
+Review surface: storybook → *App shell* → **Tab bar with glyphs**, which shows the
+five-tab maximum, and storybook → *Buttons* for the icon button drawn as a link.
 
 ## Group Shape Says Cardinality
 
@@ -1102,7 +1143,7 @@ is the pressed state's to say, not the shape's.
 ## Combobox
 
 ```meta
-related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/domain/tasks/features.md#planned-hours"]
+related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/domain/calendar/features.md#planned-hours"]
 ```
 
 A combobox is a text field with a list of suggestions under it. The reader may

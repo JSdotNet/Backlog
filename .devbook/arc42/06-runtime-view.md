@@ -164,6 +164,54 @@ sequenceDiagram
 - **Released on delivery.** The phone deletes the files once the capture is taken (201, or 200 for a known id).
 - **Status from the outbox.** *synced* once the entry is gone, *uploading i of n* during an attempt, *waiting* otherwise, *waiting — tap to retry* once parked.
 
+## Meeting Recording
+
+```meta
+related: [".devbook/domain/capture/features.md#meeting-recording", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/tech/mobile.md#android-mediarecorder"]
+```
+
+A meeting recorded into a phone note reaches the desktop as one more of the note's files. Recording is new; the journey after Stop is the staged note-file upload of **Talk Note Upload**, and the note itself syncs as **Mobile Note Sync** describes. None of it is built yet (local ADR 0048).
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant Editor as Note editor
+    participant Rec as RecordingService
+    participant Files as notes/recordings
+    participant Outbox as SQLite Outbox
+    participant Sync as Sync Service
+    participant Desk as Desktop
+
+    ME->>Editor: Record
+    Editor->>Rec: Start (foreground service, type microphone)
+    Rec->>Files: AAC ADTS stream, 16 kHz mono, 32 kbps
+    Rec-->>ME: Ongoing notification: timer, Pause, Stop
+
+    opt File reaches 24 MB
+        Rec->>Files: Close the part, open "part 2" with no gap
+    end
+
+    ME->>Editor: Stop
+    Rec->>Files: Close the file
+    Rec-->>Editor: File, duration, size, sha256
+    Editor->>Outbox: Note document + file, staged
+    Editor-->>ME: "Recording · duration" plays in place
+
+    loop Each file not yet uploaded
+        Outbox->>Sync: PUT /api/sync/attachments/{id} (checkpointed, retried alone)
+    end
+    Outbox->>Sync: POST /api/sync/tasks (type note, names the file)
+    Desk->>Sync: Pull the note, download the file
+    Desk-->>ME: Inbox item with a player
+```
+
+- **Started in the foreground.** Android 11 and later let a microphone service start only while the app is on screen, so Record starts it from the open note.
+- **A stream, not a container.** The file is an ADTS stream of self-contained AAC frames (local ADR 0048), so whatever was written before the app ended plays.
+- **Recovered on start.** A file left in `notes/recordings/` by an ended recording is attached to its note as "Recording (interrupted)" the next time the app starts.
+- **Paused by a call.** A phone call takes the microphone; the recording pauses and resumes only on Resume.
+- **A note gone mid-recording.** When the pull hides the note because the desktop deleted it, the recording runs on and Stop saves it to a new note "Recording · <date>".
+- **The upload is the existing one.** Each part is a note file: uploaded over any connection before the note that names it, checkpointed and retried on its own. A 409, 413 or 415 on a part sets the whole note aside, as for any file. The sync service must add `audio/aac`, `audio/mp4` and `audio/x-m4a` to its allowed types, and be deployed, before a phone build that records ships.
+
 ## Mobile My Day and Task Push
 
 ```meta
@@ -496,6 +544,65 @@ sequenceDiagram
 - **A missed nudge costs only time.** Desktop A runs a full exchange on every nudge and one to catch up when its socket opens. While a question is open and the socket is down, it polls for replies every two minutes.
 - **The answer survives a restart.** Desktop A stores the accepted answer in SQLite before calling the source's handler and replays it to a handler that was not running. The handler must therefore accept the same answer twice.
 - **A late reply is rejected with its reason.** A reply to a question already answered or closed is rejected, and the phone shows which answer won.
+
+## Talk Note Attach
+
+```meta
+related: [".devbook/domain/events/features.md#attach-a-talk-note", ".devbook/domain/events/domain.md#attachment-request", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/05-building-block-view.md#mobile-app"]
+```
+
+The phone writes no knowledge event, so it attaches a Talk note by asking a
+desktop. The request rides the task feed, as the phone's impediment edit does
+(ADR 0035 §8), and the answer comes back on the `knowledgeEvents` feed. Local
+ADR 0050 records the decision. The scenario is built.
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant Phone as Phone (note page)
+    participant Outbox as SQLite Outbox
+    participant Sync as Sync Service
+    participant Merge as Desktop task sync<br/>(TaskReplicaMerge)
+    participant Events as Events<br/>(IEventAttachmentRequests)
+    participant Worker as KnowledgeEventSyncWorker
+
+    ME->>Phone: Attach the note to an event
+    Phone->>Outbox: Entry (kind=event-attachment-request: event id, note id, note title)
+    Outbox->>+Sync: POST /api/sync/tasks (same request id each attempt)
+    Sync-->>-Outbox: 200, entry deleted
+    Merge->>Sync: GET /api/sync/tasks?since=cursor
+    Merge->>+Events: ApplyAsync(request)
+    alt Attached
+        Events->>Events: Add a Talk Note Link, save the event
+    else Already attached or incomplete
+        Events->>Events: Write nothing
+    end
+    Events-->>-Merge: Outcome
+    Merge->>Sync: Next task push: the request's tombstone
+    Worker->>Sync: POST /api/sync/knowledge-events (the changed event)
+    Phone->>Sync: GET /api/sync/knowledge-events?since=cursor
+    Phone-->>ME: The note reads attached to the event
+```
+
+- **No document answers the request.** The note reads attached once the pulled
+  event carries its Talk Note Link. Until then the note's Event section shows the
+  outbox state of the request.
+- **Every answer but one retires the request.** Attached, already attached and
+  incomplete each queue a tombstone, so a second desktop or a second tap links
+  nothing twice.
+- **An unknown event defers the request.** A desktop that holds no event by that
+  id yet keeps the request and offers it again after each pull.
+- **A desktop without Events holds the request.** A head without the port leaves
+  it on the replica for another desktop. With the `events` area off, a desktop
+  defers it and applies it once the area is on again.
+- **A deferred request survives a restart.** The desktop keeps it in
+  `held-attachment-requests.json`, beside the knowledge event feed's progress.
+  It lets go once Events answers it, another desktop's tombstone arrives, or
+  the request proves unreadable.
+- **The answer leaves within seconds.** On a paired desktop with sync and the
+  `events` area on, every Events save starts a knowledge event cycle a few
+  seconds later. That includes the applied request. The footer's Sync runs
+  that loop too.
 
 ## Main Window Close, Hide and Quit
 

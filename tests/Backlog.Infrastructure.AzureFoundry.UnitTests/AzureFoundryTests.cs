@@ -42,6 +42,35 @@ public sealed class AzureFoundrySettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void The_transcription_deployment_defaults_survives_restart_and_is_kept_by_other_updates()
+    {
+        var path = NewSettingsPath();
+        var store = new AzureFoundrySettingsStore(path);
+        Assert.Equal("gpt-4o-transcribe", store.Current.TranscriptionDeployment);
+        Assert.Equal("2025-03-01-preview", store.Current.TranscriptionApiVersion);
+
+        store.SetTranscriptionDeployment(" meetings ");
+        store.SetConnection("https://foundry.example.com", "chat", "secret", null);
+        store.SetCostScope("/subscriptions/x");
+        store.SetApiKey("other");
+
+        Assert.Equal("meetings", new AzureFoundrySettingsStore(path).Current.TranscriptionDeployment);
+
+        store.SetTranscriptionDeployment("  ");
+        Assert.Equal("gpt-4o-transcribe", store.Current.TranscriptionDeployment);
+    }
+
+    [Fact]
+    public void A_settings_file_from_before_the_transcription_deployment_reads_as_the_default()
+    {
+        var path = NewSettingsPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{ "endpoint": "https://foundry.example.com", "deployment": "chat" }""");
+
+        Assert.Equal("gpt-4o-transcribe", new AzureFoundrySettingsStore(path).Current.TranscriptionDeployment);
+    }
+
+    [Fact]
     public void Connection_updates_keep_existing_api_key_unless_replaced()
     {
         var store = new AzureFoundrySettingsStore(NewSettingsPath());

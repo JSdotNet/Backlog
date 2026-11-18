@@ -1,9 +1,11 @@
 using Backlog.Infrastructure.Sync;
 using Backlog.Mobile.UI.AppUpdate;
+using Backlog.Mobile.UI.Events;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Notifications;
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Progress;
+using Backlog.Mobile.UI.Recordings;
 using Backlog.Mobile.UI.TalkNotes;
 using Backlog.Mobile.UI.Tasks;
 using Backlog.UI.Components.AppUpdate;
@@ -42,6 +44,17 @@ public static class MobileShellServiceCollectionExtensions
         // singleton, because its window events arrive from outside any scope.
         services.TryAddScoped<AppLifecycle>();
 
+        // The meeting recording the note page and the notification both drive. Scoped unless
+        // the host already registered it: the Android head makes it a singleton, because its
+        // notification reaches it from outside any scope. A host that records registers its own
+        // IMeetingRecorder first; anything else gets the one that cannot record.
+        services.TryAddScoped<IMeetingRecorder, UnsupportedMeetingRecorder>();
+        services.TryAddScoped<NoteRecordingSession>();
+
+        // The free space a recording watches, so it stops before the disk is full. The Android
+        // head registers its own over StatFs first; the harness reads the drive.
+        services.TryAddSingleton<IFreeSpace, DriveFreeSpace>();
+
         // The app bar's version control and its update window. A host that can
         // update itself registers its own service first - the Android head does;
         // anything else, the browser harness and the tests included, gets the
@@ -57,7 +70,7 @@ public static class MobileShellServiceCollectionExtensions
         // in the browser harness, shared by every browser on it, as one pretend phone.
         services.TryAddSingleton<ISpeechSettingsStore, InMemorySpeechSettingsStore>();
 
-        // The Notifications tab's From and Repository choices, kept the same way: the
+        // The Notifications screen's From and Repository choices, kept the same way: the
         // Android head registers its preferences store first, anything else keeps them in
         // memory.
         services.TryAddSingleton<Backlog.Mobile.UI.Notifications.INotificationFilterStore, Backlog.Mobile.UI.Notifications.InMemoryNotificationFilterStore>();
@@ -154,6 +167,12 @@ public static class MobileShellServiceCollectionExtensions
         services.AddSingleton<NoteViewProjection>();
         services.AddSingleton<IOutboxKind, NoteOutboxKind>();
 
+        // A meeting recording is written into notes/recordings beside the database while it
+        // runs, and whatever a killed app left there is attached at the next start, once per
+        // process, before anything can record (.devbook/arc42/06-runtime-view.md#meeting-recording).
+        services.AddSingleton(_ => new RecordingFiles(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(databasePath))!, "notes", "recordings")));
+        services.AddSingleton<RecordingRecovery>();
+
         // Goals, impediments and the stand-up (local ADR 0035 §8): their own view and
         // cursor over the task feed, the stand-up read from it with the desktop's rules, and
         // the impediment edits the phone queues for a desktop to apply.
@@ -168,6 +187,14 @@ public static class MobileShellServiceCollectionExtensions
         services.AddSingleton<INotificationViewStore>(_ => new SqliteNotificationViewStore(databasePath));
         services.AddSingleton<NotificationViewProjection>();
         services.AddSingleton<IOutboxKind, ReplyOutboxKind>();
+
+        // Knowledge events as a reader (local ADR 0050 §2): the owner's knowledge event feed
+        // folded into its own view and cursor, and the one thing the phone asks about an event —
+        // attaching a Talk note — queued as its own outbox kind on the task feed.
+        services.AddSingleton<IEventViewStore>(_ => new SqliteEventViewStore(databasePath));
+        services.AddSingleton<EventViewProjection>();
+        services.AddSingleton<EventNoteAttachments>();
+        services.AddSingleton<IOutboxKind, EventAttachmentRequestOutboxKind>();
 
         return services;
     }

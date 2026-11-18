@@ -9,4 +9,10 @@
     <None Update="Fixtures\*.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Event pages as they were saved from the web on 2026-11-10, served to the
+       adapter over the scripted wire so it reads the markup the sites write. -->
+  <ItemGroup>
+    <None Update="Fixtures\EventPages\*.html" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

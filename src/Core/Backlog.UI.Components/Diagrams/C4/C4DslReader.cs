@@ -168,7 +168,7 @@ public static class C4DslReader
 
                 // Read rather than skipped, and only inside an element. This is where
                 // c4hero keeps what Structurizr has no field for — the owning team, a
-                // lifecycle status — and two of the Highlighter's four facets are those.
+                // lifecycle status — and the inspector shows both.
                 if (head.IsWord("properties") && parentId is not null)
                 {
                     if (hasBlock) ReadProperties(parentId);

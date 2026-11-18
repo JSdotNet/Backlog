@@ -148,8 +148,34 @@
        you can see rather than a line you have to interpret. @key is what makes
        that work: the rows move rather than being rebuilt, so the one under the
        pointer stays the one under the pointer. *@
+    @* A host that hands SectionOf a grouping gets a heading wherever the group
+       changes down the open rows. The rows are already in the host's group order;
+       the list only says where one group ends. Keyed by the group, so a heading
+       moves with its rows rather than being rebuilt as another one, and
+       presentational: a screen reader hears the group's name and the list's rows
+       stay the list's items. A row with no group sits under the heading before
+       it, and a group the host splits draws its heading once, where it starts:
+       a key may appear only once among the rows. *@
+    @{
+        string? section = null;
+        var drawn = new HashSet<string>(StringComparer.Ordinal);
+    }
     @foreach (var task in Open)
     {
+        @if (SectionOf?.Invoke(task) is { Length: > 0 } current
+             && !string.Equals(current, section, StringComparison.Ordinal))
+        {
+            section = current;
+            @if (drawn.Add(current))
+            {
+                <li @key="@("section:" + current)"
+                    class="task-list__section"
+                    role="presentation"
+                    data-testid="@Suffix("section")"
+                    data-section="@current">@current</li>
+            }
+        }
+
         @RenderRow(task)
     }
 
@@ -845,6 +871,16 @@
     /// </summary>
     [Parameter]
     public Func<TaskRow, string?>? RowCopyValue { get; set; }
+
+    /// <summary>
+    /// The group an open row is listed under, drawn as a heading wherever it changes
+    /// down the list — the Tasks pane's Next actions slice groups by context. Null for
+    /// the list, the default, draws no heading. A function for the reason
+    /// <see cref="RowCssClass"/> is one: the group is the host's fact, not the task's.
+    /// The host hands the rows in group order; the list never sorts them.
+    /// </summary>
+    [Parameter]
+    public Func<TaskRow, string?>? SectionOf { get; set; }
 
     [Parameter]
     public string? TestId { get; set; }

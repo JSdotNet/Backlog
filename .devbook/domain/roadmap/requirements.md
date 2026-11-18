@@ -693,6 +693,73 @@ The system SHALL put one Completed switch on the roadmap toolbar beside Hours, o
 - **When** the person restarts the app on the first device and opens the roadmap on the second
 - **Then** the first device's switch is still off and the second device's is on
 
+## Archiving a finished plan's project note
+
+```meta
+type: requirements
+related: [.devbook/domain/roadmap/features.md#archiving-a-finished-plans-project-note]
+```
+
+### Requirement: A plan that finishes is offered the archive move once
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_plan_that_finishes_while_the_app_is_open_is_offered_once, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_plan_already_finished_when_the_app_opens_is_left_to_the_weekly_review, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_Brain_with_no_archive_area_is_never_offered_the_move, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.An_old_plan_is_not_offered_when_the_archive_area_appears_later, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.FinishedProjectNoteTests.Only_a_finished_plans_resolved_project_notes_are_selected, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainRoadmapProjectNotesTests.Only_a_note_in_the_projects_area_can_be_archived, unit:dotnet:Backlog.UI.Components.UnitTests.ToastTrayTests.An_offer_draws_its_button_runs_it_on_the_press_and_goes]
+```
+
+The system SHALL, when a plan whose project note sits in the projects area of a Brain with an archive area becomes finished while the app is open, raise one toast offering **Move the project note to the archive**, and SHALL offer each plan once per device.
+
+#### Scenario: The last task of a plan is ticked off
+
+- **Given** the plan "House move" names `#brain:projects/house.md`, and one of its tasks is still open
+- **When** the person ticks that task off
+- **Then** a toast says "House move is done" and offers **Move the project note to the archive**
+
+### Requirement: The press moves the note unchanged and the Knowledge Ref follows
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.The_press_moves_the_file_unchanged_and_the_Knowledge_Ref_follows, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.Pressing_the_offer_archives_the_note_and_says_where_it_went, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_refused_move_leaves_the_plan_as_it_was, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.FinishedProjectNoteTests.Every_ref_naming_the_moved_note_follows_it_with_its_heading_kept, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainRoadmapProjectNotesTests.The_move_answers_the_new_path_and_keeps_the_bytes]
+```
+
+The system SHALL, on the press, move the note's file byte for byte into the Brain's archive area through the link writer, and SHALL point every Knowledge Ref of the plan that named the note at the new path, keeping the heading it named. A refused move SHALL leave the plan unchanged.
+
+#### Scenario: Pressing the offer
+
+- **Given** the offer for "House move", whose Knowledge Ref is `#brain:projects/house.md#budget`
+- **When** the person presses **Move the project note to the archive**
+- **Then** the note is at `archive/house.md` with the same bytes, and the plan's Knowledge Ref reads `#brain:archive/house.md#budget`
+
+### Requirement: Dismissing the offer changes nothing
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.Dismissing_the_offer_changes_nothing_and_it_is_not_offered_again, unit:dotnet:Backlog.UI.Components.UnitTests.ToastTrayTests.A_toast_with_no_action_draws_no_button]
+```
+
+The system SHALL write nothing when the offer is dismissed or times out, and SHALL not offer the same plan again on that device, after a restart or after the plan is reopened and finished again.
+
+#### Scenario: Dismissing the offer
+
+- **Given** the offer for "House move"
+- **When** the person dismisses it, restarts the app, then reopens a task of the plan and ticks it off again
+- **Then** the note is still at `projects/house.md`, the plan's refs are unchanged, and no offer appears
+
+### Requirement: The weekly review lists finished plans' project notes
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainReviewToolTests.The_review_lists_the_project_notes_of_finished_plans_to_archive, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainReviewToolTests.A_host_with_no_roadmap_lists_nothing_to_archive, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_finished_plan_lists_its_project_notes_once_each_and_nothing_else]
+```
+
+The system SHALL answer, through `list_brain_reviews` under `toArchive`, every finished plan's project note still in the projects area, with its path, its title and the plan's title, whether or not the plan was offered the move.
+
+#### Scenario: The weekly review after a dismissed offer
+
+- **Given** "House move" is finished and its offer was dismissed
+- **When** an assistant calls `list_brain_reviews`
+- **Then** `toArchive` lists `projects/house.md` with the plan "House move"
+
 ## Forecasting work in flight
 
 ```meta

@@ -64,7 +64,13 @@ public sealed class SessionValidationAnswers(
         if (step.Kind is not ValidationAnswerKind.FileFollowUp)
         {
             _logger.LogDebug(
-                step.Kind is ValidationAnswerKind.Record ? "Recorded the validation answer on run {Run}." : "The validation answer about run {Run} changed nothing.",
+                step.Recorded switch
+                {
+                    ValidationRecord.Recorded => "Recorded the validation answer on run {Run}.",
+                    ValidationRecord.Dismissed => "The validation question about run {Run} was dismissed; nothing is recorded on the run.",
+                    ValidationRecord.DesktopStands => "Run {Run} was decided at the desktop first; that decision stands.",
+                    _ => "The validation answer about run {Run} changed nothing."
+                },
                 named.RunId);
             return;
         }

@@ -1,4 +1,5 @@
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -103,7 +104,7 @@ public sealed class OpenWorkSummaryTests
         await pane.Find(Summary).ClickAsync(new());
 
         var dialog = pane.Find(Report);
-        Assert.Equal("dialog", dialog.GetAttribute("role"));
+        Assert.NotNull(dialog.Closest("dialog[aria-modal='true']"));
         Assert.Contains("Open work", pane.Find($"{Report} .modal__title").TextContent, StringComparison.Ordinal);
         Assert.Equal("3", pane.Find("[data-testid='open-work-tile-open'] .metric-tile__value").TextContent.Trim());
 
@@ -148,15 +149,21 @@ public sealed class OpenWorkSummaryTests
     }
 
     /// <summary>The Board and the Calendar have no New entry row, so a narrow column
-    /// keeps the total on their bar.</summary>
+    /// keeps the total on their bar. The Calendar's Tasks part is a list-layout pane
+    /// with a <see cref="TasksPane.Body"/> handed in, stood in for here by an empty one.</summary>
     [Theory]
-    [InlineData(TasksLayout.Board)]
-    [InlineData(TasksLayout.Calendar)]
-    public async Task On_the_board_and_calendar_a_narrow_column_keeps_the_summary_on_the_bar(TasksLayout layout)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task On_the_board_and_calendar_a_narrow_column_keeps_the_summary_on_the_bar(bool calendar)
     {
         using var host = await SeededAsync();
 
-        var pane = host.Context.Render<TasksPane>(parameters => parameters.Add(p => p.Layout, layout));
+        RenderFragment<TasksPaneBody> body = _ => builder => builder.AddMarkupContent(0, "<div data-testid='calendar-body'></div>");
+        var pane = host.Context.Render<TasksPane>(parameters =>
+        {
+            if (calendar) parameters.Add(p => p.Body, body);
+            else parameters.Add(p => p.Layout, TasksLayout.Board);
+        });
         await pane.InvokeAsync(() => pane.Instance.ListNarrowChangedAsync(true));
 
         Assert.NotNull(pane.Find(Summary).Closest(".filter-bar .filter-group--summary"));

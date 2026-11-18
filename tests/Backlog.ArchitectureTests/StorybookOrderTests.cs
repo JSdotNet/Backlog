@@ -59,7 +59,7 @@ public class StorybookOrderTests
         ["Feedback"] = ["feedback"],
         ["Goals"] = ["goals"],
         ["Icons"] = ["foundations"],
-        ["Inputs"] = ["inputs", "radio-group", "file-field", "attachment-strip"],
+        ["Inputs"] = ["inputs", "radio-group", "file-field", "audio-player", "attachment-strip"],
         ["Integrations"] = ["integrations"],
         ["Devbook"] = ["devbook", "markdown/references"],
         ["Layout"] = ["layout", "file-view", "folder-view"],
@@ -209,7 +209,7 @@ public class StorybookOrderTests
     }
 
     /// <summary>Every component the library offers, keyed by name, to the top-level
-    /// folder it lives in — Diagrams/C4/C4Explorer is a Diagrams component. Minus
+    /// folder it lives in — Diagrams/C4/C4ZoomExplorer is a Diagrams component. Minus
     /// _Imports, which is compiler plumbing rather than a component.</summary>
     private static IReadOnlyDictionary<string, string> ComponentFolders() =>
         Library.EnumerateFiles("*.razor", SearchOption.AllDirectories)

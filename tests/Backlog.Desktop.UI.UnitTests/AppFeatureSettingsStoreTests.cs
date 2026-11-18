@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 
 using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
@@ -112,11 +112,10 @@ public sealed class AppFeatureSettingsStoreTests
                 // Product areas
                 TasksFeatures.Tasks,
                 AppFeatures.InboxPane,
+                Backlog.Modules.Progress.Abstractions.ProgressFeatures.WeeklyReview,
                 RoadmapFeatures.Roadmap,
                 DevbookFeatures.RepositoryDevbook,
                 DevbookFeatures.ArchifyDiagrams,
-                DevbookFeatures.C4Diagrams,
-                DevbookFeatures.C4Zoom,
                 DevbookFeatures.LobesAtlas,
                 DevbookFeatures.Search,
                 DevbookFeatures.SemanticSearch,
@@ -130,6 +129,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DashboardFeatures.Dashboard,
                 SyncFeatures.Sync,
                 Backlog.Modules.Notifications.Abstractions.NotificationsFeatures.Notifications,
+                Backlog.Modules.Events.Abstractions.EventsFeatures.Events,
 
                 // Cross-cutting
                 TasksFeatures.AdditionalRepositories,
@@ -158,18 +158,16 @@ public sealed class AppFeatureSettingsStoreTests
     }
 
     /// <summary>Maturity and the default switch are two decisions, and graduating
-    /// a feature is meant to be one of them at a time. C4 and Archify diagrams were
-    /// judged finished on 2026-09-16 and lost their badge, but stay opt-in until
-    /// somebody decides otherwise; Sync moved one step, from not usable to worth
+    /// a feature is meant to be one of them at a time. Archify diagrams were judged
+    /// finished on 2026-09-16 and lost their badge, but stay opt-in until somebody
+    /// decides otherwise; Sync moved one step, from not usable to worth
     /// trying. The Dashboard was released on 2026-10-15 and stays on by default; its
     /// Devbook and Cost tabs carry the DEV flag on their own. Pinned so that the next
     /// graduation is a deliberate edit here too, not a side effect of tidying the
     /// catalog.</summary>
     [Theory]
     [InlineData(DashboardFeatures.Dashboard, AppFeatureStatus.Released, true)]
-    [InlineData(DevbookFeatures.C4Diagrams, AppFeatureStatus.Released, false)]
     [InlineData(DevbookFeatures.ArchifyDiagrams, AppFeatureStatus.Released, false)]
-    [InlineData(DevbookFeatures.C4Zoom, AppFeatureStatus.Dev, false)]
     [InlineData(SyncFeatures.Sync, AppFeatureStatus.Beta, false)]
     public void Graduated_features_keep_their_maturity_and_default_apart(string key, AppFeatureStatus status, bool enabledByDefault)
     {
@@ -192,6 +190,21 @@ public sealed class AppFeatureSettingsStoreTests
 
         Assert.Equal(persisted, key);
         Assert.Equal(AppFeatureStatus.Released, feature.Status);
+        Assert.False(feature.EnabledByDefault);
+        Assert.Equal(AppFeatureGroup.Domain, feature.Group);
+    }
+
+    /// <summary>Events is a product area still being built (local ADR 0050): marked Dev and
+    /// off until a person asks for it, so nothing of it shows by default. The key is a
+    /// persisted value and is pinned as a literal.</summary>
+    [Fact]
+    public void Events_is_a_dev_product_area_that_starts_off()
+    {
+        var feature = Assert.Single(AppFeatures.All, feature => feature.Key == Backlog.Modules.Events.Abstractions.EventsFeatures.Events);
+
+        Assert.Equal("events", feature.Key);
+        Assert.Equal("Events", feature.Name);
+        Assert.Equal(AppFeatureStatus.Dev, feature.Status);
         Assert.False(feature.EnabledByDefault);
         Assert.Equal(AppFeatureGroup.Domain, feature.Group);
     }
@@ -359,6 +372,42 @@ public sealed class AppFeatureSettingsStoreTests
 
             Assert.True(store.IsEnabled(SyncFeatures.Sync));
             Assert.Equal([SyncFeatures.Sync], store.Current.EnabledFeatures);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The C4 switches are retired: the architecture surface is always on, the only
+    /// reading of the C4 model (local ADR 0046). A file written while
+    /// <c>"c4-diagrams"</c> or <c>"c4-zoom"</c> was on still loads, the choices beside
+    /// them keep, and the next save carries neither retired key.
+    /// </summary>
+    [Fact]
+    public void Stored_c4_switch_choices_are_dropped_on_the_next_save()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(new
+            {
+                enabledFeatures = new[] { "c4-diagrams", "c4-zoom", "archify-diagrams" }
+            }));
+
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+
+            Assert.Equal([DevbookFeatures.ArchifyDiagrams], store.Current.EnabledFeatures);
+
+            store.SetEnabled(AppFeatures.FeedbackReporting, enabled: false);
+
+            var saved = File.ReadAllText(path);
+            Assert.Contains("archify-diagrams", saved);
+            Assert.DoesNotContain("c4-diagrams", saved);
+            Assert.DoesNotContain("c4-zoom", saved);
         }
         finally
         {

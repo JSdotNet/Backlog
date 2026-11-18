@@ -1047,6 +1047,8 @@ internal sealed class RecordingSessionRequestStore : ISessionRequestStore
 
     public Task<SessionRequest?> NextAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
+    public Task<SessionRequestOutcome> MoveAsync(Guid id, int toIndex, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
     public Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
     public Task<SessionRequestOutcome> ReleaseAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -1054,4 +1056,8 @@ internal sealed class RecordingSessionRequestStore : ISessionRequestStore
     public Task<SessionRequestOutcome> ReportStartedAsync(Guid id, string dispatcher, string sessionId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
     public Task<SessionRequestOutcome> CancelAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }

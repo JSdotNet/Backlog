@@ -456,10 +456,10 @@ Enforced at: `RoadmapItemRollupDto.UnestimatedCount`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupMergeTests.TheSameThingReachedBothWays_isCountedOnce_andWearsBoth, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupMergeTests.Keys_compareCaseInsensitively_soOneThingIsNotTwo, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AnEntryBothLinkedAndTagged_IsCountedOnce_WearingBoth, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AChapterBothReferencedAndRoadmapTagged_IsCountedOnce_WearingBoth]
+tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupMergeTests.TheSameThingReachedBothWays_isCountedOnce_andWearsBoth, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupMergeTests.Keys_compareCaseInsensitively_soOneThingIsNotTwo, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AnEntryBothLinkedAndTagged_IsCountedOnce_WearingBoth, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AChapterBothReferencedAndRoadmapTagged_IsCountedOnce_WearingBoth, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderBrainTests.GatheringByTag_ReachesEveryNoteNamingTheTag_CaseInsensitively_OnceEach]
 ```
 
-A task or chapter an item reaches both by name and by tag appears once in what it gathers, marked as reached both ways.
+A task, chapter or Brain note an item reaches both by name and by tag appears once in what it gathers, marked as reached both ways.
 A person deciding whether a link is safe to remove needs to see that the tag still holds the work.
 
 Enforced at: `RoadmapRollup.Merge()`, keyed without regard to case; `RoadmapItemRollupBuilder` reads each entry once and marks it reached both ways
@@ -599,7 +599,7 @@ Enforced at: `RoadmapItemRollupBuilder.BuildPlan()`
 type: invariant
 ```
 
-Gathering changes nothing in the plan, in a task, or in a chapter, and stores none of what it reads, the actual dates included.
+Gathering changes nothing in the plan, in a task, in a chapter or in a Brain note, and stores none of what it reads, the actual dates included.
 An unreachable supplier therefore shrinks a total rather than corrupting a plan.
 
-Enforced at: `IRoadmapItemRollup`, whose two operations only answer; `RoadmapItemRollupService` calls nothing on the backlog but `ListAsync()`, and `RoadmapItemRollupBuilder` is a pure function
+Enforced at: `IRoadmapItemRollup`, whose two operations only answer; `RoadmapItemRollupService` calls nothing on the backlog but `ListAsync()` and nothing on the Brain but `IRoadmapBrainNotes.ReadAsync()`, and `RoadmapItemRollupBuilder` is a pure function
