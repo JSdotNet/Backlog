@@ -611,7 +611,8 @@ related: [".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#5-eac
 ```
 
 Closing the desktop app's main window hides it to a notification-area icon, so the process
-and its MCP listener keep running. Local ADR 0043 §5 records the decision. It is not built yet.
+and its MCP listener keep running. Local ADR 0043 §5 records the decision, and it is built,
+except that a `backlog://` link does not yet re-show a hidden main window.
 
 ```mermaid
 stateDiagram-v2

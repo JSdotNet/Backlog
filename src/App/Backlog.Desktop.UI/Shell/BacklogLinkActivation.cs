@@ -9,6 +9,9 @@ namespace Backlog.Desktop.UI.Shell;
 /// (local ADR 0043 §7): one more window on the surface it names, through
 /// <see cref="IShellWindows"/>, with the query it carries.
 /// <list type="bullet">
+/// <item>A link that opens a window brings the main window back first, so one hidden
+/// to the tray is shown again (local ADR 0043 §5); a link that opens nothing leaves it
+/// where it is.</item>
 /// <item>A link that arrives before the app has started — the one the app was launched
 /// with — waits, and opens once <see cref="Started"/> says the main window is up.</item>
 /// <item>A link that names a surface <see cref="ISurfaceCatalog"/> does not offer — an
@@ -77,6 +80,10 @@ public sealed class BacklogLinkActivation(IShellWindows windows, ISurfaceCatalog
             return;
         }
 
+        // The main window first, then the link's own: a main window hidden to the tray
+        // comes back for a link as for a plain second launch (local ADR 0043 §5), and
+        // the window the link asked for opens in front of it.
+        windows.ActivateMainWindow();
         windows.Open(surface.Id, link.Query);
     }
 }

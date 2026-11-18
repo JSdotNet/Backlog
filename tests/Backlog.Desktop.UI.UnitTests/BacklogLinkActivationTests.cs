@@ -37,6 +37,45 @@ public sealed class BacklogLinkActivationTests
     }
 
     [Fact]
+    public void A_link_brings_a_hidden_main_window_back_before_it_opens_its_window()
+    {
+        // A link redirected to an app whose main window is hidden to the tray
+        // re-shows it, as a plain second launch does (local ADR 0043 §5); the pop-out
+        // opens after it, so it is the window in front.
+        var activation = Activation("goals");
+        activation.Started();
+
+        activation.Activate("backlog://window/goals");
+
+        Assert.Equal(["main", "goals"], _windows.Calls);
+    }
+
+    [Fact]
+    public void A_waiting_link_brings_the_main_window_back_once_the_app_has_started()
+    {
+        var activation = Activation("goals");
+        activation.Activate("backlog://window/goals");
+        Assert.Empty(_windows.Calls);
+
+        activation.Started();
+
+        Assert.Equal(["main", "goals"], _windows.Calls);
+    }
+
+    [Theory]
+    [InlineData("backlog://window/no-such-surface")]
+    [InlineData("https://example.com/")]
+    public void A_link_that_opens_nothing_leaves_the_main_window_where_it_is(string link)
+    {
+        var activation = Activation("goals");
+        activation.Started();
+
+        activation.Activate(link);
+
+        Assert.Empty(_windows.Calls);
+    }
+
+    [Fact]
     public void A_link_activated_before_start_waits_and_opens_once_the_app_has_started()
     {
         var activation = Activation("devbook", "roadmap");
@@ -134,8 +173,15 @@ public sealed class BacklogLinkActivationTests
     {
         public List<(string SurfaceId, IReadOnlyDictionary<string, string> Query)> Opened { get; } = [];
 
-        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
+        /// <summary>Every call, in order: the surface for an open, <c>main</c> for a
+        /// call that brings the main window back.</summary>
+        public List<string> Calls { get; } = [];
+
+        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
+        {
+            Calls.Add(surfaceId);
             Opened.Add((surfaceId, query ?? new Dictionary<string, string>()));
+        }
 
         public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
         {
@@ -147,7 +193,7 @@ public sealed class BacklogLinkActivationTests
 
         public void SetTitle(string windowKey, string title) { }
 
-        public void ActivateMainWindow() { }
+        public void ActivateMainWindow() => Calls.Add("main");
     }
 
     private sealed class RecordingLogger : ILogger<BacklogLinkActivation>

@@ -1,7 +1,7 @@
 # ADR 0039: Notifications are an owned document kind on their own replica container, and the realtime channel only nudges
 
 ```meta
-date: 2026-11-05
+date: 2026-11-18
 related: [".devbook/tech/mobile.md#xamarinfirebasemessaging", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md#2-brain-is-the-scope-of-everything-filed-against-no-repository", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/domain/notifications/context.md", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
@@ -36,6 +36,11 @@ until then.
 by the repository owner at its Personal Validation gate: the owner publishes the repository each
 notification is about, so the phone can filter by it. That amendment is not yet
 built.
+
+§7 was added in place on 2026-11-18 by flow-spec run `run-mwm3z7rt-hmjxyj`,
+accepted by the repository owner at its Personal Validation gate: a
+notification's images travel as attachments the owner desktop uploads. That
+amendment is not yet built.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. It **extends** ADR 0005 with a fourth replica container,
@@ -222,6 +227,74 @@ out alone. The field holds one of two answers, and its absence is a third:
   unchanged, and the sync service stores the field without reading it. A reader
   on an older build ignores it.
 
+### 7. A notification's images travel as attachments the owner uploads
+
+**Amended 2026-11-18.** A notification may carry images. Their bytes travel
+through the blob store of
+[local ADR 0014](0014-attachments-travel-through-a-blob-store-beside-the-replica.md),
+never in the document, and the body names each one by its attachment id. The case
+that drives it is the Personal Validation question: the person reviews a run from
+the phone and needs to see the run's screenshots, not paths only the desktop can
+open.
+
+```mermaid
+sequenceDiagram
+  participant Owner as Owner desktop
+  participant Sync as Sync service
+  participant Phone
+  Owner->>Sync: PUT /api/sync/attachments/{id}, each image
+  Owner->>Sync: push the notification, listing the attachments
+  Sync-->>Phone: pull now
+  Phone->>Sync: pull the notification
+  Phone->>Sync: GET /api/sync/attachments/{id}, each image the body names
+```
+
+- **The owner desktop uploads.** It puts each image through ADR 0014's
+  `PUT /api/sync/attachments/{id}` with its own device token, under the same
+  owner prefix, size cap and allowlist a phone's upload meets. A desktop becomes
+  an uploader beside the phone; the service's routes and checks do not change.
+- **Never inside the run gate.** The Sessions handler that asks the question only
+  names the images. The owner's notification exchange uploads them and pushes the
+  notification after the last upload succeeds, as the phone's outbox orders a
+  capture's files before the capture. A stage report never waits on an upload.
+- **The id is derived, so a repeat is free.** The owner derives each attachment
+  id from the notification id and the image's sha256. A gate reported twice, or an
+  exchange retried, names the same id with the same hash, which ADR 0014's `PUT`
+  takes as a success that writes nothing.
+- **The list sits beside the document.** The published notification carries an
+  `attachments` list on the `NotificationChange` envelope, as §4's push preview
+  does, so the sync service reads it without opening the document. Per
+  attachment: `id`, file `name`, `contentType`, `sizeBytes` and `sha256`, the
+  names ADR 0014 uses for a capture. The service refuses a change that lists an
+  attachment missing under the owner's prefix or differing in size or hash, as it
+  refuses such a capture. The owner leaves an image whose upload was refused off
+  the list and out of the body.
+- **The body names an image as `![name](backlog-attachment:<id>)`.** The scheme
+  is never a link. `LinkSchemes` stays as it is, so the scheme is neither
+  navigable nor a bare URL. The Markdown renderer hands an image source in this
+  scheme to its render hook. The hook looks the id up in the notification's
+  list, fetches the bytes with `GET /api/sync/attachments/{id}` behind the device
+  token, checks the hash, and shows them from memory. An `<img>` cannot send the
+  bearer token, and `data:` sources stay refused, so the hook fetches the bytes
+  itself. An id the list does not hold, a failed fetch or a hash mismatch shows
+  the image's name as text in its place. A reader on an older build shows the
+  same alt text.
+- **Images go first.** The body puts its images before the text, so the 32 KiB
+  cut of the body never removes an image reference.
+- **The blob store's backstop is the whole lifecycle.** Nothing releases a
+  notification's attachments. ADR 0014's 30-day lifecycle rule deletes them, which
+  is no later than Cosmos TTL removes a notification closed when they were
+  uploaded. Cosmos TTL raises no event for the service to act on, and a release on
+  close would strip the images from a closed notification someone is still
+  reading.
+
+**Which images the Personal Validation question carries.** The owner takes the
+run's own screenshots: every stage's `scenarios[].evidence` entry that is a
+`png`, `jpeg` or `webp` file of at most 5 MB, newest report first, the first six.
+It sends each file's bytes as they are, with no re-encoding and no resizing, so
+the person sees what the run captured. An evidence file of another type, a larger
+one, and any beyond the sixth stay in the run's own panel at the desktop.
+
 ## Consequences
 
 Positive:
@@ -244,6 +317,9 @@ Positive:
 - **The phone filters by repository without a resolver of its own.** It reads
   the owner's answer from the document and needs no session catalog, task rows
   or alias registry.
+- **The person sees a run's screenshots on the phone.** Personal Validation can
+  be reviewed away from the desk, and the trust boundary does not move: the bytes
+  sit behind the same owner check as a capture's files.
 
 Negative, and accepted:
 
@@ -268,6 +344,13 @@ Negative, and accepted:
   answer on it.
 - **The alias is one desktop's name.** Two owner desktops may alias the same
   repository differently, and the phone then shows two repository choices for it.
+- **An image lives 30 days from its upload.** A question still open after that,
+  or a closed one read late, shows the image's name in its place. A re-push does
+  not renew it, since a repeated `PUT` writes nothing.
+- **Screenshots transit the sync service twice,** up from the desktop and down to
+  each viewer. Six images of at most 5 MB bound one question to 30 MB each way.
+- **A question waits for its uploads.** A slow or failing upload delays the push
+  of the question, never the run's stage report.
 
 ## Rejected
 
@@ -297,6 +380,22 @@ Negative, and accepted:
   registry, so it would show a name the desktop's header scope never uses.
 - **Repository in the push preview.** The tray shows no repository, and the
   phone filters only what it pulled, so the push would carry a value nobody reads.
+- **Images inline in the body as `data:` URIs.** The body is capped at 32 KiB and
+  Cosmos at 2 MB an item, smaller than one screenshot, and the renderer refuses
+  `data:` sources so a body cannot smuggle content past the allowlist.
+- **An `https:` image URL to the attachment route.** An `<img>` cannot send the
+  device's bearer token, and a URL that carried a token in its query would be a
+  credential in every log that saw it — ADR 0014's reason to reject SAS URLs.
+- **Widening `LinkSchemes` with `backlog-attachment:`.** The scheme would become
+  a link every Markdown surface follows. Only an image source needs it, and only
+  the render hook can resolve it.
+- **Uploading inside the run gate.** A stage report would wait on the network,
+  and a failed upload would fail the report.
+- **Releasing the images when the notification closes or expires.** Close would
+  strip a closed notification's history, and Cosmos TTL expiry raises no event
+  the service could act on. The 30-day backstop already ends no later.
+- **Re-encoding or resizing screenshots to save bytes.** The person validates what
+  the run captured; a lossy copy can hide the defect they look for.
 
 ## Verification
 
@@ -360,6 +459,12 @@ entered, so no test or device check has yet seen a push reach a phone.
   tests: the payload round trip with an older document reading as unknown, a
   push carrying the resolved answer, a failing resolution that leaves the field
   out without failing the push, and the sync service storing the field untouched.
+- The 2026-11-18 §7 is not yet built. The flow-code run that builds it names its
+  tests: the selection of at most six qualifying evidence images newest first, a
+  repeated gate report naming the same attachment ids, the stage report finishing
+  before any upload, the service refusing a change that lists a missing or
+  mismatched attachment, and the phone's render hook showing a listed image and
+  falling back to its name for an unlisted id or a hash mismatch.
 
 ## History
 
@@ -368,6 +473,7 @@ entered, so no test or device check has yet seen a push reach a phone.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | §7 added: a notification's images travel as ADR 0014 attachments the owner desktop uploads outside the run gate, listed beside the document and named in the body as `backlog-attachment:<id>`, which the phone's render hook fetches; the blob backstop is their only release. The Personal Validation question carries up to six of the run's evidence screenshots. | The person reviews runs from the phone, where the evidence paths open nothing. |
 | 2026-11-05 | §6 added: the owner publishes the repository each notification is about, as an optional field on the document, resolved at push time to its alias or the Brain, and absent when unknown. | The phone's Notifications tab filters by repository, and the phone cannot work the repository out alone. |
 | 2026-11-04 | §2 amended: a viewer acknowledges an alert with a reply that holds no choice, text or note, through the same outbox, route and container; the owner takes the first one and records the device. | The phone's swipe pager needs a Dismiss for alerts, and a dismiss kept only on the phone would leave the alert open on every other device. |
 | 2026-11-02 | Accepted. | Built on main by PR #1499 and its follow-ups #1537, #1561 and #1601; the owner accepted it at the gate of flow-spec run `run-mvzoobww-d5511o`. |

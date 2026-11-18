@@ -1045,9 +1045,8 @@ Only a route reuses: two captures in the Brain with the same words are two notes
 
 **Someday (s)** (local ADR 0054) is To Brain with the `someday` area chosen, in
 one press, beside To Brain in triage and in the item's detail. Its toast and
-its undo are To Brain's. A Brain with no `someday` area — one that declares its
-own areas — offers it disabled, with the reason, as it does while the Brain
-cannot take a note.
+its undo are To Brain's. A Brain that declares its own areas has no `someday` area, so it offers Someday
+disabled, with the reason, as it does while the Brain cannot take a note.
 
 An item is still routed once whichever destination is chosen, and the Inbox
 keeps nothing of it but the record.

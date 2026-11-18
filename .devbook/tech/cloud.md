@@ -38,7 +38,7 @@ The HTTP surface of the cloud service.
 ```meta
 rating: adopted
 type: package
-version: "10.0.12"
+version: "10.0.14"
 depends-on: [".devbook/tech/shared.md#aspnet-core"]
 related: [".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/08-crosscutting-concepts.md#task-sync"]
 ```
@@ -57,7 +57,7 @@ Validates the device token on every sync request.
 ```meta
 rating: adopted
 type: package
-version: "8.19.2"
+version: "8.23.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/arc42/08-crosscutting-concepts.md#task-sync"]
 ```
@@ -76,7 +76,7 @@ The token library the sync service issues its own device tokens with.
 ```meta
 rating: adopted
 type: package
-version: "10.0.11"
+version: "10.0.12"
 depends-on: [".devbook/tech/shared.md#aspnet-core"]
 ```
 

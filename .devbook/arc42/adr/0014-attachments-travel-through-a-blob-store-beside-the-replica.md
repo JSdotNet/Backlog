@@ -34,6 +34,13 @@ Two details the record left open are settled in the build. The upload declares
 its digest in an `X-Attachment-Sha256` header, as hex. The metadata field is
 `sizeBytes` on the wire, not `size`.
 
+**Extended 2026-11-18** by §7 of
+`.devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md`:
+the owner desktop uploads a notification's images through the same `PUT`, and a
+viewer fetches them through the same `GET`. The routes, the owner prefix, the cap,
+the allowlist and the 30-day backstop are unchanged; a desktop is an uploader
+beside the phone. Not built yet.
+
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0014 under `.devbook/arc42/adr/guidelines/`, which is about persistence
 boundaries. Every reference below to a local ADR by bare number means the local
