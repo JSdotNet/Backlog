@@ -183,6 +183,56 @@ public sealed class SqliteKnowledgeEventRepositoryTests : IDisposable
         Assert.Equal([first.Id, second.Id], (await _repository.ListAsync(Cancellation)).Select(knowledgeEvent => knowledgeEvent.Id));
     }
 
+    /// <summary>The removal is saved as a tombstone, so replication still carries it, but the
+    /// pane's reads never answer it.</summary>
+    [Fact]
+    public async Task A_removed_event_is_neither_listed_nor_got()
+    {
+        var kept = TitleOnly("Kept");
+        var removed = TitleOnly("Added twice");
+        await _repository.SaveAsync(kept, Cancellation);
+        await _repository.SaveAsync(removed, Cancellation);
+
+        Assert.True(removed.Remove().IsSuccess);
+        await _repository.SaveAsync(removed, Cancellation);
+
+        Assert.Null(await _repository.GetAsync(removed.Id, Cancellation));
+        Assert.Equal([kept.Id], (await _repository.ListAsync(Cancellation)).Select(knowledgeEvent => knowledgeEvent.Id));
+        Assert.Equal("2", await ScalarAsync("SELECT COUNT(*) FROM events_knowledge_events;"));
+    }
+
+    [Fact]
+    public async Task Only_a_removed_event_is_known_as_removed()
+    {
+        var kept = TitleOnly("Kept");
+        var removed = TitleOnly("Added twice");
+        await _repository.SaveAsync(kept, Cancellation);
+        Assert.True(removed.Remove().IsSuccess);
+        await _repository.SaveAsync(removed, Cancellation);
+
+        Assert.True(await _repository.IsRemovedAsync(removed.Id, Cancellation));
+        Assert.False(await _repository.IsRemovedAsync(kept.Id, Cancellation));
+        Assert.False(await _repository.IsRemovedAsync(Guid.NewGuid(), Cancellation));
+        Assert.True(await new RootedSqliteKnowledgeEventRepository(() => _dir, _clock).IsRemovedAsync(removed.Id, Cancellation));
+    }
+
+    /// <summary>A row written before <c>removed</c> was added has no such field, and reads as an
+    /// event that was not removed.</summary>
+    [Fact]
+    public async Task An_old_row_without_removed_reads_as_not_removed()
+    {
+        await _repository.SaveAsync(TitleOnly("Schema seed"), Cancellation);
+        var id = Guid.NewGuid();
+        await InsertRawAsync(id.ToString("D"), $$"""{"version":1,"id":"{{id:D}}","title":"Techorama 2025","state":"Going"}""");
+
+        var read = await _repository.GetAsync(id, Cancellation);
+
+        Assert.NotNull(read);
+        Assert.False(read.IsRemoved);
+        Assert.Contains(id, (await _repository.ListAsync(Cancellation)).Select(knowledgeEvent => knowledgeEvent.Id));
+        Assert.False(await _repository.IsRemovedAsync(id, Cancellation));
+    }
+
     [Fact]
     public async Task A_row_that_is_not_json_is_skipped()
     {

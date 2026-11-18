@@ -75,6 +75,23 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
         Assert.Empty(Tasks.Filed);
     }
 
+    /// <summary>Over a store that answers tombstones too, as one fed straight from replication
+    /// might, so the policy's own rule is what keeps the removed event from filing.</summary>
+    [Fact]
+    public async Task A_removed_event_is_never_due()
+    {
+        var e = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama Belgium").Value;
+        Assert.True(e.SetDates(EventDate.Create(new(2026, 11, 7), null, null).Value, EventDate.Create(new(2026, 11, 9), null, null).Value, DateSource.Typed).IsSuccess);
+        Assert.True(e.MoveTo(KnowledgeEventState.Going).IsSuccess);
+        Assert.True(e.Remove().IsSuccess);
+        await Store.SaveAsync(e, Token);
+        Store.AnswersTombstones = true;
+
+        await Policy.FileDueAsync(Today, Token);
+
+        Assert.Empty(Tasks.Filed);
+    }
+
     // --- One harvest task per event ------------------------------------------------------
 
     [Fact]

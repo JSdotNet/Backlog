@@ -42,6 +42,9 @@ public sealed class RootedSqliteKnowledgeEventRepository(Func<string> currentRoo
     public Task<KnowledgeEvent?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
         Current.GetAsync(id, cancellationToken);
 
+    public Task<bool> IsRemovedAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Current.IsRemovedAsync(id, cancellationToken);
+
     public Task<IReadOnlyList<KnowledgeEvent>> ListAsync(CancellationToken cancellationToken = default) =>
         Current.ListAsync(cancellationToken);
 

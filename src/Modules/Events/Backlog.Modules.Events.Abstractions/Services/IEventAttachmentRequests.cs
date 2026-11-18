@@ -20,6 +20,10 @@ public enum EventAttachmentOutcome
     /// <summary>This device holds no event by that id — not yet, or the Events area keeps none
     /// here. Nothing was written.</summary>
     UnknownEvent,
+
+    /// <summary>This device holds the event removed. Nothing was written, and asking again will
+    /// not change that, so the request is retired unapplied.</summary>
+    RemovedEvent,
 }
 
 /// <summary>

@@ -16,7 +16,15 @@
     and the indicator says the change is not saved.
 
     The state choice offers only what the event may move to: the later states on its path,
-    and Skip from Spotted or Considering alone, which asks for a reason.
+    and Skip from Spotted, Considering or Going, which asks for a reason.
+
+    Remove event… sits apart at the end, so it never reads as one of the states. It asks
+    first, in a destructive confirmation, and is not offered while the event holds its
+    harvest task (RemoveOffered); the dialog closes if the event, read again, stops offering
+    it. Text still waiting is written before the event goes. A refusal stays at the editor's
+    end, the dialog closed, even once the button is gone, since it says why; nothing typed is
+    unsaved by it, so the indicator leaves it out. An event already removed elsewhere counts
+    as removed.
 *@
 
 <article class="events-editor" data-testid="events-editor" aria-labelledby="@TitleId">
@@ -304,11 +312,40 @@
         <EventTasks Event="Event" Writes="Writes" OnSaved="SavedAsync" />
     </section>
 
+    @if (Event.RemoveOffered || _removeError is not null)
+    {
+        <div class="events-editor__section events-editor__remove" data-testid="events-remove-section">
+            @if (Event.RemoveOffered)
+            {
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           Disabled="@(_moving is not null)"
+                           TestId="events-remove"
+                           OnClick="OpenRemove">Remove event…</AppButton>
+            }
+            @if (_removeError is { } removeError)
+            {
+                <Alert Message="@removeError" TestId="events-remove-error" />
+            }
+        </div>
+    }
+
     <EventSkipDialog Open="_skipping"
                      OpenChanged="SkipOpenChanged"
                      EventTitle="@Event.Title"
                      ErrorMessage="@Error("skip")"
                      OnSkip="SkipAsync" />
+
+    <ConfirmDialog Open="_removing"
+                   OpenChanged="open => _removing = open"
+                   Title="@($"Remove {Event.Title}?")"
+                   Message="It leaves the list, the Calendar and the phone. Its tasks and notes stay where they are."
+                   ConfirmText="Remove event"
+                   Destructive="true"
+                   OnConfirm="RemoveAsync"
+                   TestId="events-remove-dialog"
+                   ConfirmTestId="events-remove-confirm"
+                   CancelTestId="events-remove-cancel" />
 </article>
 
 @code {
@@ -353,6 +390,11 @@
 
     private KnowledgeEventState? _moving;
     private bool _skipping;
+    private bool _removing;
+
+    /// <summary>Why the last remove did not hold. Apart from the field errors, because no change
+    /// of the person's waits on it.</summary>
+    private string? _removeError;
 
     /// <summary>The open event, as the pane last answered it.</summary>
     [Parameter, EditorRequired]
@@ -365,6 +407,11 @@
     /// <summary>Raised with another event to open: an edition of the same series.</summary>
     [Parameter]
     public EventCallback<Guid> OnOpenEvent { get; set; }
+
+    /// <summary>Raised with the event's id once it was removed: it no longer opens, so the
+    /// host lets go of it.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnRemoved { get; set; }
 
     /// <summary>The pane's one write queue, which the sections share, so no two writes to an
     /// event overlap. A fresh one when the host hands none.</summary>
@@ -404,6 +451,9 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        // Read again holding its harvest task: there is no Remove left to confirm.
+        if (!Event.RemoveOffered) _removing = false;
+
         if (_loadedId == Event.Id) return;
 
         // What was typed for the event being left is written for that event before the
@@ -414,6 +464,8 @@
         _loadedId = Event.Id;
         _errors.Clear();
         _skipping = false;
+        _removing = false;
+        _removeError = null;
         _startingSeries = false;
         _moving = null;
         _saved = false;
@@ -482,25 +534,37 @@
     /// refusal stays under its field until the field saves.</summary>
     private async Task WriteAsync(string field, Func<Task<Result<KnowledgeEventDto>>> write)
     {
-        _inFlight++;
-        try
+        var refused = await RunWriteAsync(write, "Could not save: ", async saved =>
         {
-            var saved = await Writes.RunAsync(write);
-            if (saved.IsFailure)
-            {
-                _errors[field] = saved.Error.Message;
-                if (_leaving) Toast(saved.Error.Message);
-                return;
-            }
-
             _errors.Remove(field);
             _saved = true;
             await OnSaved.InvokeAsync(saved.Value);
+        });
+        if (refused is not { } error) return;
+
+        _errors[field] = error.Message;
+        if (_leaving) Toast(error.Message);
+    }
+
+    /// <summary>Runs one write through the pane's queue, counted while it is out, and hands
+    /// what held to <paramref name="held"/>. Answers why it did not hold, or null when it did;
+    /// a write that threw answers the same way, its words led by <paramref name="threw"/>.</summary>
+    private async Task<Error?> RunWriteAsync<TResult>(Func<Task<TResult>> write, string threw, Func<TResult, Task> held)
+        where TResult : Result
+    {
+        _inFlight++;
+        try
+        {
+            var result = await Writes.RunAsync(write);
+            if (result.IsFailure) return result.Error;
+
+            await held(result);
+            return null;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _errors[field] = "Could not save: " + exception.Message;
-            if (_leaving) Toast(_errors[field]);
+            // Qualified: inside the editor, Error is the field-error lookup.
+            return global::Backlog.SharedKernel.Results.Error.Unexpected("events_editor.write_threw", threw + exception.Message);
         }
         finally
         {
@@ -572,6 +636,33 @@
         var id = Event.Id;
         await WriteAsync("skip", () => Pane.SkipAsync(id, reason));
         if (Error("skip") is null) _skipping = false;
+    }
+
+    // --- Remove ------------------------------------------------------------------------------
+
+    private void OpenRemove()
+    {
+        _removeError = null;
+        _removing = true;
+    }
+
+    /// <summary>The confirmed remove. What was typed is written first, so a refused remove
+    /// loses nothing and a removed event leaves no write behind to fail on it. An event already
+    /// gone, removed on another desktop, is what the person asked for, so the host lets go of it
+    /// as the surface does when a read answers the same.</summary>
+    private async Task RemoveAsync()
+    {
+        await FlushOnLeaveAsync();
+
+        var id = Event.Id;
+        var refused = await RunWriteAsync(() => Pane.RemoveAsync(id), "Could not remove: ", _ => OnRemoved.InvokeAsync(id));
+        if (refused is { } error && error.Code == EventsErrors.KnowledgeEventNotFound(id).Code)
+        {
+            await OnRemoved.InvokeAsync(id);
+            return;
+        }
+
+        _removeError = refused?.Message;
     }
 
     // --- Details -----------------------------------------------------------------------------

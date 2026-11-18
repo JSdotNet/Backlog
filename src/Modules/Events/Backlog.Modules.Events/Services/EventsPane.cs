@@ -91,6 +91,18 @@ internal sealed class EventsPane(
     public Task<Result<KnowledgeEventDto>> SkipAsync(Guid id, string reason, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e => e.Skip(reason), cancellationToken);
 
+    public async Task<Result> RemoveAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } found)
+            return Result.Failure(EventsErrors.KnowledgeEventNotFound(id));
+
+        var removed = found.Remove();
+        if (removed.IsFailure) return removed;
+
+        await events.SaveAsync(found, cancellationToken).ConfigureAwait(false);
+        return Result.Success();
+    }
+
     public Task<Result<KnowledgeEventDto>> SetDatesAsync(Guid id, EventDateDto? start, EventDateDto? end, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e =>
         {
@@ -335,7 +347,8 @@ internal sealed class EventsPane(
             [.. e.Notes.Select(note => NoteDto(note, notes))],
             [.. e.Tasks.Select(task => TaskDto(task, facts))],
             e.Verdict?.Text,
-            others);
+            others,
+            RemoveOffered: !e.HoldsHarvestTask);
     }
 
     private static EventNoteLinkDto NoteDto(NoteLink note, IReadOnlyDictionary<string, EventBrainNoteDto> found)

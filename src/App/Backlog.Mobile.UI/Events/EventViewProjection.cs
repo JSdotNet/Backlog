@@ -211,7 +211,8 @@ public sealed class EventViewProjection : IDisposable
     }
 
     /// <summary>Every event the phone can read, each with its series' name. A record this build
-    /// cannot read is passed over.</summary>
+    /// cannot read is passed over, and so is a removed event's tombstone: the record stays held
+    /// so an older copy arriving late cannot bring the event back.</summary>
     private List<PhoneEvent> Events()
     {
         List<KnowledgeEventChangeRecord> rows;
@@ -225,6 +226,7 @@ public sealed class EventViewProjection : IDisposable
         return rows
             .Select(row => KnowledgeEventDocuments.ReadEvent(row.Change))
             .OfType<KnowledgeEventReplicaDto>()
+            .Where(item => !item.Removed)
             .Select(item => new PhoneEvent(item, item.SeriesId is { } id ? series.GetValueOrDefault(id) : null))
             .ToList();
     }

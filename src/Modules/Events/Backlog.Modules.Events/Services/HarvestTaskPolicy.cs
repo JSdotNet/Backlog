@@ -72,7 +72,7 @@ internal sealed class HarvestTaskPolicy(
         var filed = 0;
         foreach (var due in (await events.ListAsync(cancellationToken).ConfigureAwait(false)).Where(e => IsDue(e, today)))
         {
-            if (due.Tasks.Any(task => task.Purpose == TaskPurpose.Harvest)) continue;
+            if (due.HoldsHarvestTask) continue;
 
             try
             {
@@ -142,8 +142,9 @@ internal sealed class HarvestTaskPolicy(
         return filed.Value;
     }
 
-    /// <summary>Going, and its last day — the end, else the start — is before
-    /// <paramref name="today"/>. An event with no dates is never due.</summary>
+    /// <summary>Not removed, Going, and its last day — the end, else the start — is before
+    /// <paramref name="today"/>. An event with no dates is never due. The store already leaves
+    /// a removed event out; the policy holds its own rule rather than lean on that.</summary>
     private static bool IsDue(KnowledgeEvent e, DateOnly today) =>
-        e.State == KnowledgeEventState.Going && (e.End ?? e.Start) is { } last && last.Date < today;
+        !e.IsRemoved && e.State == KnowledgeEventState.Going && (e.End ?? e.Start) is { } last && last.Date < today;
 }

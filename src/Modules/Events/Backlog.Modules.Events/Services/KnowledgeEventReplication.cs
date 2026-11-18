@@ -107,7 +107,8 @@ internal sealed class KnowledgeEventReplication : IKnowledgeEventReplication
         e.Cost is { } cost ? new EventCostReplicaDto(cost.Amount, cost.Currency) : null,
         [.. e.Tasks.Select(task => new EventTaskLinkReplicaDto(task.TaskId, task.Purpose))],
         e.Verdict?.Text,
-        updatedAt);
+        updatedAt,
+        e.IsRemoved);
 
     private static EventDateReplicaDto? DateCopy(EventDate? date) =>
         date is null ? null : new EventDateReplicaDto(date.Date, date.Time, date.UtcOffset);
@@ -175,7 +176,8 @@ internal sealed class KnowledgeEventReplication : IKnowledgeEventReplication
             cost,
             notes,
             tasks,
-            copy.Verdict);
+            copy.Verdict,
+            removed: copy.Removed);
     }
 
     private static bool TryDate(EventDateReplicaDto? copy, out EventDate? date)
