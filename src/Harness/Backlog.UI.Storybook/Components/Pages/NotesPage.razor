@@ -78,7 +78,7 @@
     </Story>
 
     <Story Name="Editing a note"
-           Description="A saved note opens with its words, when it last changed, and Saved. Tools holds the host's ways of adding to it — dictation, a photo, a file — and ChildContent what they produce, such as the files attached."
+           Description="A saved note opens with its words, when it last changed, and Saved. Tools holds the host's ways of adding to it — dictation, a recording, a photo, pictures, files — as one row of tiles pinned along the bottom, each a glyph above a short word so five fit across a phone; a tile whose word is shorter than its act keeps the act as its name. ChildContent holds what they produce, such as the files attached, between the body and the row. On the phone the row sits right above the tab bar."
            Code="@EditCode">
         <div class="sb-phone">
             <NoteEditor Title="@_editTitle" TitleChanged="v => _editTitle = v"
@@ -88,10 +88,24 @@
                 <Tools>
                     <ToggleButton Pressed="_listening" PressedChanged="p => _listening = p"
                                   AriaLabel="Dictate into the note" Title="Dictate into the note">
-                        <MicIcon />
+                        <MicIcon Size="20" />Dictate
                     </ToggleButton>
-                    <AppButton Size="ButtonSize.Small">Take photo</AppButton>
-                    <AppButton Size="ButtonSize.Small">Choose files</AppButton>
+                    <AppButton>
+                        <Icon><CircleDotIcon Size="20" /></Icon>
+                        <ChildContent>Record</ChildContent>
+                    </AppButton>
+                    <AppButton aria-label="Take photo" title="Take photo">
+                        <Icon><CameraIcon Size="20" /></Icon>
+                        <ChildContent>Photo</ChildContent>
+                    </AppButton>
+                    <AppButton aria-label="Choose pictures" title="Choose pictures">
+                        <Icon><ImageIcon Size="20" /></Icon>
+                        <ChildContent>Pictures</ChildContent>
+                    </AppButton>
+                    <AppButton aria-label="Choose files" title="Choose files">
+                        <Icon><PaperclipIcon Size="20" /></Icon>
+                        <ChildContent>Files</ChildContent>
+                    </AppButton>
                 </Tools>
                 <ChildContent>
                     <AttachmentStrip Tiles="Attached" AriaLabel="Attached to this note" />
@@ -330,9 +344,25 @@ Leaving the note does not stop the recording; the bar is back when the note is o
                     Body="@draft.Body" BodyChanged="OnBodyChanged"
                     When="Wed 7 Oct · 09:50" State="SaveState.Saved">
             <Tools>
-                <ToggleButton Pressed="listening" PressedChanged="OnSpeechToggledAsync" AriaLabel="Dictate into the note">…</ToggleButton>
-                <AppButton Size="ButtonSize.Small" OnClick="TakePhotoAsync">Take photo</AppButton>
-                <AppButton Size="ButtonSize.Small" OnClick="PickFilesAsync">Choose files</AppButton>
+                <ToggleButton Pressed="listening" PressedChanged="OnSpeechToggledAsync" AriaLabel="Dictate into the note">
+                    <MicIcon Size="20" />Dictate
+                </ToggleButton>
+                <AppButton OnClick="RecordAsync">
+                    <Icon><CircleDotIcon Size="20" /></Icon>
+                    <ChildContent>Record</ChildContent>
+                </AppButton>
+                <AppButton OnClick="TakePhotoAsync" aria-label="Take photo" title="Take photo">
+                    <Icon><CameraIcon Size="20" /></Icon>
+                    <ChildContent>Photo</ChildContent>
+                </AppButton>
+                <AppButton OnClick="PickPicturesAsync" aria-label="Choose pictures" title="Choose pictures">
+                    <Icon><ImageIcon Size="20" /></Icon>
+                    <ChildContent>Pictures</ChildContent>
+                </AppButton>
+                <AppButton OnClick="PickFilesAsync" aria-label="Choose files" title="Choose files">
+                    <Icon><PaperclipIcon Size="20" /></Icon>
+                    <ChildContent>Files</ChildContent>
+                </AppButton>
             </Tools>
             <ChildContent>
                 <AttachmentStrip Tiles="attached" AriaLabel="Attached to this note" />

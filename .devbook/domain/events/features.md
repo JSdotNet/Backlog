@@ -227,7 +227,7 @@ type: sub-feature
 related: [.devbook/domain/capture/features.md#talk-note, .devbook/domain/events/domain.md#attachment-request, .devbook/domain/events/requirements.md#requirement-a-talk-note-is-attached-through-a-desktop]
 ```
 
-From a [Talk note](../capture/features.md#talk-note) in the Notes tab, the person
+From a [Talk note](../capture/features.md#talk-note) on the phone, the person
 picks one event the phone holds and attaches the note to it. The picker offers the
 upcoming events first, then the past ones. Skipped events and events the note is
 already attached to are left off. With no event held, the note shows no event

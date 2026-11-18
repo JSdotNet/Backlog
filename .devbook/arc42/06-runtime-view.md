@@ -94,8 +94,8 @@ sequenceDiagram
 
   The last three skip the pending wait and give a parked entry its attempts back.
 - **The list outlives the service.** Every successful pull is kept in the same file with its time. A failed pull, including 503 `sync.replica_unavailable` while the Cosmos emulator warms up, shows that list with one line saying why it is not newer.
-- **Only the phone's own captures.** The Inbox tab lists captures from the phone channel (`mobile`) until the desktop takes each in. The phone sends no acknowledgement or other decision: triage stays on the desktop (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`).
-- **Notes come back.** Notes are the one Inbox kind the phone also pulls, on the task feed (**Mobile Note Sync**).
+- **The phone's own captures, plus its notes and meetings.** The Inbox tab lists captures from the phone channel (`mobile`) until the desktop takes each in, beside the synced notes and meetings, which stay. The phone sends no acknowledgement or other decision: triage stays on the desktop (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`).
+- **Notes and meetings come back.** Notes and meetings are the Inbox kinds the phone also pulls, on the task feed (**Mobile Note Sync**).
 
 ## Capture Attachments
 
@@ -167,10 +167,10 @@ sequenceDiagram
 ## Meeting Recording
 
 ```meta
-related: [".devbook/domain/capture/features.md#meeting-recording", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md", ".devbook/tech/mobile.md#android-mediarecorder", ".devbook/tech/cloud.md#gpt-4o-transcribe"]
+related: [".devbook/domain/capture/features.md#meeting-recording", ".devbook/domain/inbox/domain.md#meeting", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md", ".devbook/tech/mobile.md#android-mediarecorder", ".devbook/tech/cloud.md#gpt-4o-transcribe"]
 ```
 
-A meeting recorded into a phone note reaches the desktop as one more of the note's files, and the desktop turns it into text on the note. The journey after Stop is the staged note-file upload of **Talk Note Upload**, and the note itself syncs as **Mobile Note Sync** describes. Local ADR 0048 decides the recording, local ADR 0049 the transcription; both are built.
+A meeting is an Inbox item of content kind `meeting`: the phone's Inbox **+** menu opens a new one already recording. Its recording reaches the desktop as one more of its files, and the desktop turns it into text in its body. A note that is given a recording later stays a note and is transcribed the same way. The journey after Stop is the staged note-file upload of **Talk Note Upload**, and the note itself syncs as **Mobile Note Sync** describes. Local ADR 0048 decides the recording, local ADR 0049 the transcription; both are built.
 
 ```mermaid
 sequenceDiagram
@@ -509,17 +509,17 @@ sequenceDiagram
 ## Mobile Note Sync
 
 ```meta
-related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/features.md#notes", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#capture-attachments", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md"]
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/features.md#notes", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#capture-attachments", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md"]
 ```
 
-A note (`.devbook/domain/inbox/domain.md#note`) is the one Inbox item that syncs both ways. The phone pulls every note and pushes those it creates or edits; the desktop pushes its own edits and a tombstone on archive or delete. Both sides are built. `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md` records why notes ride the task feed.
+A note (`.devbook/domain/inbox/domain.md#note`) and a meeting are the Inbox items that sync both ways; a meeting travels as a note does. The phone pulls every note and pushes those it creates or edits; the desktop pushes its own edits and a tombstone on archive or delete. Both sides are built. `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md` records why notes ride the task feed.
 
 ![A note syncing both ways](c4:mobile-note-sync)
 
 The phone's tab upserts the `note_view` row with `UpdatedAt` now and server stamp 0. It queues an outbox entry of kind `note` holding the whole document and posts it to `POST /api/sync/tasks` with type `note` and the same id each attempt, answered 200. The desktop pulls it with `GET /api/sync/tasks?since=cursor`, and the Inbox intake creates or updates the item, the later `UpdatedAt` winning. Desktop edits, archives and deletes go back as a note document or tombstone, which the phone folds into `note_view` on its next pull.
 
 - **A third document kind.** A note travels as a task-shaped document in the `tasks` container with `type: "note"` under the Inbox item's id, following `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`. Unlike a capture, nobody acknowledges a note away: the desktop takes it in and keeps pushing it.
-- **Pulled with the task feed.** The phone folds every `note`-type document from `GET /api/sync/tasks?since=` into `note_view` as it folds tasks. The later `UpdatedAt` wins, an equal stamp goes to the higher server timestamp, and a `DeletedAt` hides the row. The note pull keeps its own cursor beside `task_view`'s. The task fold skips notes; the Notes tab reads and searches `note_view` on the phone.
+- **Pulled with the task feed.** The phone folds every `note`-type document from `GET /api/sync/tasks?since=` into `note_view` as it folds tasks. The later `UpdatedAt` wins, an equal stamp goes to the higher server timestamp, and a `DeletedAt` hides the row. The note pull keeps its own cursor beside `task_view`'s. The task fold skips notes; the Inbox tab reads and searches `note_view` on the phone, beside its own captures.
 - **Pushed through the outbox.** The row is written at once, and the entry takes every outbox entry's order, backoff and waiting marker. A retry is idempotent. Each edit is its own entry, so offline edits go out in order. An edit is never stamped earlier than the copy it replaces, so a slow phone clock cannot undo it.
 - **The desktop owns triage.** Its merge hands each `note` document to the Inbox's note port, which creates the item or applies the later edit by the note's `edited_at`. On each push the desktop sends every live note it changed itself and has not pushed yet. A flag tracks these rather than a watermark, because a note's stamp may come from the phone's clock. A note it only pulled is never sent back. A local change is stamped after the copy it replaces, whatever the clocks say.
 - **Archive and delete.** The acknowledgement outbox pushes the tombstone as a `note` document, and the phone drops the row on its next pull. A phone edit arriving after the archive or deletion leaves it standing and owes the tombstone again under a later stamp. The deleted id is kept, so no later copy remakes it. The phone never pushes a tombstone.

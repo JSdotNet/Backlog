@@ -92,6 +92,7 @@
 }
 
 .events-pane__detail {
+    container-type: inline-size;
     padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
@@ -173,11 +174,39 @@
     font-size: var(--font-size-sm);
 }
 
-/* The editor: a header line, then one section per concern. */
+/* The editor: a header line with the state choice, then one section per concern — Details
+   beside the rest once the editor is wide enough, so an event reads without scrolling. */
 .events-editor {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-sm);
+}
+
+.events-editor__columns,
+.events-editor__aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+@container (min-width: 56rem) {
+    .events-editor__columns {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+        gap: var(--spacing-lg);
+        align-items: start;
+    }
+}
+
+.events-editor__state {
+    flex: none;
+}
+
+/* Open in maps sits on the address field's baseline, beside it. */
+.events-editor__map {
+    flex: none;
+    padding-bottom: var(--spacing-sm);
 }
 
 .events-editor__header {
@@ -201,7 +230,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-    padding-top: var(--spacing-md);
+    padding-top: var(--spacing-sm);
     border-top: var(--border-width) solid var(--color-border);
 }
 
@@ -230,6 +259,11 @@
 .events-editor__row > .field {
     flex: 1 1 10rem;
     min-width: 0;
+}
+
+/* Start, start time, end and end time: narrow enough that all four share one line. */
+.events-editor__row--dates > .field {
+    flex-basis: 7rem;
 }
 
 .events-editor__group {

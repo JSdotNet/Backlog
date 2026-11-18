@@ -64,8 +64,8 @@ public sealed class NotificationViewProjection : IDisposable
     public event Action? Changed;
 
     /// <summary>Whether the phone holds any notification to show — what puts the
-    /// Notifications bell in the app bar. A desktop pushes only with the <c>notifications</c>
-    /// feature on, so a phone paired to desktops without it never shows the bell.</summary>
+    /// Notifications tab in the bar. A desktop pushes only with the <c>notifications</c>
+    /// feature on, so a phone paired to desktops without it never shows the tab.</summary>
     public bool HoldsAny => Notifications().Count > 0;
 
     /// <summary>

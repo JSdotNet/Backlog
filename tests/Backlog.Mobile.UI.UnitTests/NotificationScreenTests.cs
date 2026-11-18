@@ -47,39 +47,38 @@ public sealed class NotificationScreenTests
     private static List<string> Tabs(IRenderedComponent<Routes> app) =>
         [.. app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent.Trim())];
 
-    /// <summary>Notifications is not a tab: the bar holds five at most, and the word fits no bar
-    /// of more than four (<c>.devbook/design/interaction-guidelines.md#phone-tab-bar</c>). It is a
-    /// bell in the app bar, a link between the sync line and the settings cog.</summary>
+    /// <summary>The Notifications tab follows Inbox and is icon-only
+    /// (<c>.devbook/design/interaction-guidelines.md#phone-tab-bar</c>): the bell alone shows, and
+    /// the word stays its name and its tooltip. The app bar keeps only the sync line and the cog.</summary>
     [Fact]
-    public void The_bell_shows_in_the_app_bar_once_the_phone_holds_a_notification()
+    public void The_tab_shows_once_the_phone_holds_a_notification()
     {
         var (host, _, _) = Phone(Migration());
         using var disposing = host;
 
         var app = host.Open("");
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='app-notifications']")));
-        var bell = app.Find("[data-testid='app-notifications']");
-        Assert.Equal("A", bell.TagName, ignoreCase: true);
-        Assert.Equal("notifications", bell.GetAttribute("href"));
-        Assert.Equal("Notifications", bell.GetAttribute("aria-label"));
-        Assert.Equal("Notifications", bell.GetAttribute("title"));
-        Assert.Equal("true", bell.QuerySelector("span")!.GetAttribute("aria-hidden"));
-        Assert.NotNull(bell.QuerySelector(".bell-icon"));
+        app.WaitForAssertion(() => Assert.Contains("Notifications", Tabs(app)));
+        Assert.Equal(["Today", "Inbox", "Notifications", "Notes"], Tabs(app));
 
-        // Between the sync line and the cog, which keeps the bar's end.
+        var tab = app.Find("[data-testid='tab-bar-notifications']");
+        Assert.Equal("notifications", tab.GetAttribute("href"));
+        Assert.Equal("Notifications", tab.GetAttribute("title"));
+        Assert.Equal("Notifications", tab.QuerySelector(".sr-only")!.TextContent);
+        Assert.Null(tab.QuerySelector(".tab-bar__label"));
+        Assert.Equal("true", tab.QuerySelector(".tab-bar__icon .bell-icon")!.GetAttribute("aria-hidden"));
+
+        Assert.Empty(app.FindAll("[data-testid='app-notifications']"));
         Assert.Equal(
-            ["sync-status-button", "app-notifications", "app-settings"],
+            ["sync-status-button", "app-settings"],
             app.FindAll(".app-bar__end > [data-testid]")
                 .Select(part => part.GetAttribute("data-testid"))
-                .Where(id => id is "sync-status-button" or "app-notifications" or "app-settings"));
-
-        Assert.Equal(["Today", "Inbox", "Notes"], Tabs(app));
-        Assert.Empty(app.FindAll("[data-testid='tab-bar'] a[href='notifications']"));
+                // The cog's closed sheet is the cog's own, not a third control.
+                .Where(id => id != "app-settings-sheet"));
     }
 
     [Fact]
-    public void No_notification_means_no_bell()
+    public void No_notification_means_no_tab()
     {
         var (host, service, _) = Phone();
         using var disposing = host;
@@ -87,74 +86,73 @@ public sealed class NotificationScreenTests
         var app = host.Open("");
 
         app.WaitForAssertion(() => Assert.True(service.Pulls > 0));
-        Assert.Empty(app.FindAll("[data-testid='app-notifications']"));
-        Assert.NotNull(app.Find("[data-testid='app-settings']"));
         Assert.Equal(["Today", "Inbox", "Notes"], Tabs(app));
+        Assert.Empty(app.FindAll("[data-testid='tab-bar-notifications']"));
     }
 
     [Fact]
-    public void The_bell_appears_on_the_screen_that_is_open_when_a_pull_brings_the_first_notification()
+    public void The_tab_appears_on_the_screen_that_is_open_when_a_pull_brings_the_first_notification()
     {
         var (host, service, _) = Phone();
         using var disposing = host;
         var app = host.Open("notes");
         app.WaitForAssertion(() => Assert.True(service.Pulls > 0));
-        Assert.Empty(app.FindAll("[data-testid='app-notifications']"));
+        Assert.Empty(app.FindAll("[data-testid='tab-bar-notifications']"));
 
         service.Publish(Migration(), Now);
         PullAgain(host);
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='app-notifications']")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='tab-bar-notifications']")));
         Assert.EndsWith("/notes", host.Navigation.Uri, StringComparison.Ordinal);
         Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-notes']").ClassList);
+        Assert.DoesNotContain("tab-bar__tab--active", app.Find("[data-testid='tab-bar-notifications']").ClassList);
     }
 
     [Fact]
-    public void Forgetting_the_device_takes_the_bell_away()
+    public void Forgetting_the_device_takes_the_tab_away()
     {
         var (host, _, _) = Phone(Migration());
         using var disposing = host;
         var app = host.Open("");
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='app-notifications']")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='tab-bar-notifications']")));
 
         app.Find("[data-testid='sync-status-button']").Click();
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='forget-device-dialog']")));
         app.Find("[data-testid='forget-device-confirm']").Click();
 
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='pairing-code-field'] input")));
-        Assert.Empty(app.FindAll("[data-testid='app-notifications']"));
+        Assert.Empty(app.FindAll("[data-testid='tab-bar-notifications']"));
     }
 
-    /// <summary>The bell is current on the list and on any notification's detail, as the tab it
-    /// replaced was, and lit there by more than colour; no tab reads lit meanwhile.</summary>
+    /// <summary>The tab is lit on the list and on any notification's detail, and no other tab is.</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void The_bell_is_current_on_the_notifications_screen_and_its_details_and_no_tab_is_lit(bool detail)
+    public void The_tab_is_lit_on_the_notifications_screen_and_its_details(bool detail)
     {
         var (host, _, _) = Phone(Migration());
         using var disposing = host;
 
         var app = host.Open(detail ? $"notifications/{_card}" : "notifications");
 
-        app.WaitForAssertion(() => Assert.Equal("page", app.Find("[data-testid='app-notifications']").GetAttribute("aria-current")));
-        Assert.Contains("btn--icon-current", app.Find("[data-testid='app-notifications']").ClassList);
-        Assert.Empty(app.FindAll("[data-testid='tab-bar'] .tab-bar__tab--active"));
-        Assert.Empty(app.FindAll("[data-testid='tab-bar'] a[aria-current]"));
+        app.WaitForAssertion(() => Assert.Equal("page", app.Find("[data-testid='tab-bar-notifications']").GetAttribute("aria-current")));
+        var lit = Assert.Single(app.FindAll("[data-testid='tab-bar'] .tab-bar__tab--active"));
+        Assert.Equal("tab-bar-notifications", lit.GetAttribute("data-testid"));
+        Assert.Single(app.FindAll("[data-testid='tab-bar'] a[aria-current]"));
     }
 
     [Fact]
-    public void The_bell_is_not_current_on_today()
+    public void The_tab_is_not_lit_on_today()
     {
         var (host, _, _) = Phone(Migration());
         using var disposing = host;
 
         var app = host.Open("");
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='app-notifications']")));
-        var bell = app.Find("[data-testid='app-notifications']");
-        Assert.Null(bell.GetAttribute("aria-current"));
-        Assert.DoesNotContain("btn--icon-current", bell.ClassList);
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='tab-bar-notifications']")));
+        var tab = app.Find("[data-testid='tab-bar-notifications']");
+        Assert.Null(tab.GetAttribute("aria-current"));
+        Assert.DoesNotContain("tab-bar__tab--active", tab.ClassList);
         Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-today']").ClassList);
     }
 

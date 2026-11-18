@@ -57,6 +57,23 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     private IRenderedComponent<EventsSurface> RenderOn(Guid id) =>
         RenderPane(new Dictionary<string, string>(StringComparer.Ordinal) { [EventsSurfaceRegistration.EventKey] = id.ToString() });
 
+    private const string StateSelect = "[data-testid='events-editor-state'] select";
+
+    /// <summary>The state the editor's state choice stands on.</summary>
+    private static string? State(IRenderedComponent<EventsSurface> pane) =>
+        pane.Find(StateSelect).GetAttribute("value");
+
+    /// <summary>What the state choice offers, in order: where the event stands first.</summary>
+    private static string[] StateChoices(IRenderedComponent<EventsSurface> pane) =>
+        [.. pane.FindAll(StateSelect + " option").Select(option => option.TextContent.Trim())];
+
+    /// <summary>Picks a state and presses the button that applies the pick.</summary>
+    private static void Choose(IRenderedComponent<EventsSurface> pane, string value)
+    {
+        pane.Find(StateSelect).Change(value);
+        pane.Find("[data-testid='events-state-apply']").Click();
+    }
+
     private static string Text(IRenderedComponent<EventsSurface> pane, string testId) =>
         pane.Find($"[data-testid='{testId}']").TextContent.Trim();
 
@@ -113,7 +130,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.WaitForAssertion(() => Assert.Equal("dotNET Friday, 27 November", Text(pane, "events-editor-title")));
         var listed = Assert.Single(await Pane.ListAsync(Token));
         Assert.Equal(KnowledgeEventState.Spotted, listed.State);
-        Assert.Equal("Spotted", Text(pane, "events-editor-state"));
+        Assert.Equal("Spotted", State(pane));
         Assert.Empty(pane.FindAll("[data-testid='events-add']"));
     }
 
@@ -154,21 +171,33 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     {
         var id = await Add("Techorama Belgium");
         var pane = RenderOn(id);
-        pane.WaitForAssertion(() => pane.Find("[data-testid='events-moves']"));
+        pane.WaitForAssertion(() => pane.Find(StateSelect));
 
-        Assert.Equal(
-            ["Considering", "Going", "Attended", "Harvested"],
-            pane.FindAll("[data-testid='events-moves'] button").Select(button => button.TextContent.Trim()));
-        Assert.NotNull(pane.Find("[data-testid='events-skip']"));
+        Assert.Equal(["Spotted", "Considering", "Going", "Attended", "Harvested", "Skip…"], StateChoices(pane));
 
-        pane.Find("[data-testid='events-move-going']").Click();
+        Choose(pane, "Going");
 
-        pane.WaitForAssertion(() => Assert.Equal("Going", Text(pane, "events-editor-state")));
-        Assert.Equal(
-            ["Attended", "Harvested"],
-            pane.FindAll("[data-testid='events-moves'] button").Select(button => button.TextContent.Trim()));
-        Assert.NotNull(pane.Find("[data-testid='events-skip']"));
+        pane.WaitForAssertion(() => Assert.Equal("Going", State(pane)));
+        Assert.Equal(["Going", "Attended", "Harvested", "Skip…"], StateChoices(pane));
         Assert.Equal(KnowledgeEventState.Going, (await Pane.GetAsync(id, Token)).Value.State);
+    }
+
+    [Fact]
+    public async Task A_pick_alone_moves_nothing_and_cancel_puts_the_choice_back()
+    {
+        var id = await Add("Techorama Belgium");
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find(StateSelect));
+
+        pane.Find(StateSelect).Change("Attended");
+
+        Assert.Equal("Move to Attended", Text(pane, "events-state-apply"));
+        Assert.Equal(KnowledgeEventState.Spotted, (await Pane.GetAsync(id, Token)).Value.State);
+
+        pane.Find("[data-testid='events-state-cancel']").Click();
+
+        Assert.Equal("Spotted", State(pane));
+        Assert.Empty(pane.FindAll("[data-testid='events-state-apply']"));
     }
 
     [Fact]
@@ -177,9 +206,9 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         var id = await Add("Techorama Belgium");
         Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Considering, Token)).IsSuccess);
         var pane = RenderOn(id);
-        pane.WaitForAssertion(() => pane.Find("[data-testid='events-skip']"));
+        pane.WaitForAssertion(() => pane.Find(StateSelect));
 
-        pane.Find("[data-testid='events-skip']").Click();
+        Choose(pane, EventPresentation.SkipChoice);
         pane.Find("[data-testid='events-skip-confirm']").Click();
 
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='events-skip-dialog'] .app-error-message, [data-testid='events-skip-dialog'] .field__error")));
@@ -188,10 +217,31 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.Find("[data-testid='events-skip-reason'] textarea").Input("Clashes with the release");
         pane.Find("[data-testid='events-skip-confirm']").Click();
 
-        pane.WaitForAssertion(() => Assert.Equal("Skipped", Text(pane, "events-editor-state")));
+        pane.WaitForAssertion(() => Assert.Equal("Skipped", State(pane)));
         Assert.Empty(pane.FindAll("[data-testid='events-skip-dialog']"));
         Assert.Equal("Skipped: Clashes with the release", Text(pane, "events-skip-reason-shown"));
-        Assert.Empty(pane.FindAll("[data-testid='events-moves']"));
+        Assert.Equal(["Skipped"], StateChoices(pane));
+        Assert.True(pane.Find(StateSelect).HasAttribute("disabled"));
+    }
+
+    // --- Details -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task The_place_is_an_address_with_a_map_and_no_learning_goal_is_asked()
+    {
+        var id = await Add("Techorama Belgium");
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-venue']"));
+
+        Assert.Empty(pane.FindAll("[data-testid='events-field-learn']"));
+        Assert.Empty(pane.FindAll("[data-testid='events-venue-map']"));
+        Assert.Equal("street-address", pane.Find("[data-testid='events-field-venue'] input").GetAttribute("autocomplete"));
+
+        pane.Find("[data-testid='events-field-venue'] input").Input("Kinepolis, Antwerp");
+
+        Assert.Equal(
+            "https://www.google.com/maps/search/?api=1&query=Kinepolis%2C%20Antwerp",
+            pane.Find("[data-testid='events-venue-map']").GetAttribute("href"));
     }
 
     // --- Removing ------------------------------------------------------------------------
@@ -434,7 +484,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
 
         Assert.Empty(pane.FindAll("[data-testid='events-field-verdict']"));
 
-        pane.Find("[data-testid='events-move-attended']").Click();
+        Choose(pane, "Attended");
 
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='events-field-verdict']")));
     }
@@ -564,9 +614,9 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     {
         var id = await Add("Techorama Belgium");
         var pane = RenderOn(id);
-        pane.WaitForAssertion(() => pane.Find("[data-testid='events-skip']"));
+        pane.WaitForAssertion(() => pane.Find(StateSelect));
 
-        pane.Find("[data-testid='events-skip']").Click();
+        Choose(pane, EventPresentation.SkipChoice);
         pane.Find("[data-testid='events-skip-confirm']").Click();
         pane.WaitForAssertion(() => Assert.Contains("save-indicator--error", pane.Find("[data-testid='events-editor-save']").ClassName, StringComparison.Ordinal));
 
@@ -830,9 +880,9 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     {
         var id = await Add("Techorama Belgium");
         var pane = RenderOn(id);
-        pane.WaitForAssertion(() => pane.Find("[data-testid='events-skip']"));
+        pane.WaitForAssertion(() => pane.Find(StateSelect));
 
-        pane.Find("[data-testid='events-skip']").Click();
+        Choose(pane, EventPresentation.SkipChoice);
 
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-skip-dialog']"));
         var dialog = Assert.Single(pane.FindAll("dialog"));
