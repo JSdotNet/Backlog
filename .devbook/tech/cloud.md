@@ -26,7 +26,7 @@ The HTTP surface of the cloud service.
 
 - **Used for** — `Backlog.Modules.Sync.Api`, which serves two groups of endpoints.
   `/api/sync/devices/*` handles registration, pairing-code, pairing, and token.
-  The bearer-protected `/api/sync/inbox` handles capture, list, and acknowledge.
+  The bearer-protected `/api/sync/inbox` handles capture, list, edit, and acknowledge.
   Webhook intake, push dispatch, and the remote PC registry are to follow.
 - **Why** — the organization's governed .NET stack for services; minimal APIs fit
   a handful of endpoints. The API head sits over the `Backlog.Modules.Sync`

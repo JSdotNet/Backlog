@@ -24,7 +24,8 @@ Inbox Item. The aggregate guarantees that every capture is normalized into the
 standard shape and keeps the
 original source link and capture timestamp until delivery. Each capture is a
 unique entry: the same content from two devices makes two captures. Edits follow
-last-write-wins by timestamp.
+last-write-wins by timestamp, but a capture's tombstone is final: it wins over a
+live copy whatever their stamps.
 
 A note the phone creates starts as a capture like any other, with an id the
 phone mints. Unlike the others, it does not end at delivery. Its Inbox

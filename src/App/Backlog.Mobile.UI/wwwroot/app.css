@@ -146,7 +146,10 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 
 .inbox__list { display: grid; gap: .5rem; list-style: none; padding: 0; margin: 0; }
 
-.inbox-sheet__body { margin-bottom: 1rem; }
+/* The capture's title and notes, edited in place, with the line saying whether
+   the edit is kept just under them. */
+.inbox-sheet__editor { display: grid; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
+.inbox-sheet__save { justify-self: start; }
 .inbox-sheet__facts { display: grid; grid-template-columns: auto 1fr; gap: .35rem .75rem; margin: 0; }
 .inbox-sheet__facts dt { color: var(--color-text-secondary); }
 .inbox-sheet__facts dd { margin: 0; overflow-wrap: anywhere; }
@@ -173,6 +176,10 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 }
 .detail-sheet.app-update-sheet[data-open="true"],
 .detail-sheet.app-settings-sheet[data-open="true"] { transform: translateY(0); }
+/* Risen from the bottom, these never meet the status bar, so their header does
+   not make room for it the way the library's top-anchored sheet does. */
+.detail-sheet.app-update-sheet .detail-sheet__header,
+.detail-sheet.app-settings-sheet .detail-sheet__header { padding-top: var(--spacing-lg); }
 .app-update-sheet__current { margin: 0; }
 .app-update-sheet__actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 

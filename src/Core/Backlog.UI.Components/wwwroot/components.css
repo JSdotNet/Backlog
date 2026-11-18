@@ -18183,6 +18183,12 @@ select.field__input {
 
    Width is clamped rather than a share of the viewport: a drawer belongs
    between about 320 and 480px, and a third of a wide monitor is well past that.
+   On a phone the clamp's floor is most of the screen and would leave a strip of
+   the list showing beside it, so at 600px and under the sheet is the screen.
+
+   The header clears the status bar: a fixed panel at the top edge sits under it
+   on a phone with no safe-area inset of its own, and the inset is zero
+   everywhere else, so desktop widths draw exactly as before.
    ========================================================================== */
 
 .detail-sheet-backdrop {
@@ -18230,8 +18236,32 @@ select.field__input {
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--spacing-sm);
-    padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+    padding: calc(var(--spacing-lg) + env(safe-area-inset-top, 0px)) var(--spacing-lg) var(--spacing-md);
     border-bottom: var(--border-width) solid var(--color-border);
+}
+
+/* The library's icon button, held to the 44px target accessibility.md asks of
+   anything tapped, and kept from shrinking beside a long title. */
+.detail-sheet__close {
+    flex: none;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    font-size: var(--font-size-xl);
+    color: var(--color-text-secondary);
+}
+
+.detail-sheet__close:hover:not(:disabled) {
+    color: var(--color-text-primary);
+}
+
+/* Anchored to both edges rather than sized to the viewport: 100vw counts a
+   classic scrollbar too, and would push the sheet's left edge off the screen. */
+@media (max-width: 37.5rem) {
+    .detail-sheet {
+        left: 0;
+        width: auto;
+        border-left: 0;
+    }
 }
 
 .detail-sheet__heading {

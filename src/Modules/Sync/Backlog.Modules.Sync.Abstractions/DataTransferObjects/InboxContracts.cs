@@ -51,6 +51,19 @@ public sealed record CaptureRequest(
     DateTimeOffset? CapturedAt = null);
 
 /// <summary>
+/// The phone rewording one of its captures before the desktop decides it, sent
+/// to <c>PUT /api/sync/inbox/{id}</c>.
+/// <para>
+/// The new <paramref name="Title"/> and <paramref name="BodyMd"/> replace the
+/// old ones whole; a null body means the capture has none. Nothing else a
+/// capture said can change — its time, its source, its tags and person, the
+/// files it names — so the request has no field for them. Both are bounded as
+/// a new capture's are, at the edge that accepts them.
+/// </para>
+/// </summary>
+public sealed record CaptureEditRequest(string Title, string? BodyMd = null);
+
+/// <summary>
 /// An unsynced capture awaiting pickup by the desktop.
 /// <para>
 /// The record carries no owner id, and that is deliberate: the owner is never

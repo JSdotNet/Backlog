@@ -1177,10 +1177,10 @@ Deleting an item that arrived through sync SHALL leave the acknowledgement archi
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.A_replay_of_a_deleted_capture_does_not_bring_it_back, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.The_phone_withdrawing_a_deleted_capture_forgets_its_acknowledgement]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.A_replay_of_a_deleted_capture_does_not_bring_it_back, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.The_phone_withdrawing_a_deleted_capture_forgets_its_acknowledgement, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_later_copy_of_a_deleted_capture_owes_its_tombstone_again_after_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.An_older_copy_of_a_deleted_capture_leaves_its_tombstone_as_it_was]
 ```
 
-The system SHALL treat a capture it deleted and has not yet acknowledged as already known when the replica sends it again, and SHALL forget the acknowledgement when the replica withdraws the capture itself.
+The system SHALL treat a capture it deleted and has not yet acknowledged as already known when the replica sends it again, SHALL owe its acknowledgement again after a copy stamped at or after the deletion, and SHALL forget the acknowledgement when the replica withdraws the capture itself.
 
 #### Scenario: A replayed page
 
@@ -1193,6 +1193,12 @@ The system SHALL treat a capture it deleted and has not yet acknowledged as alre
 - **Given** a capture from the phone was deleted before its acknowledgement was pushed
 - **When** the next pull carries the capture's tombstone
 - **Then** the acknowledgement is dropped unsent
+
+#### Scenario: The phone reworded it meanwhile
+
+- **Given** a capture from the phone was deleted before its acknowledgement was pushed
+- **When** the next pull carries a copy the phone reworded after the deletion
+- **Then** no item is created, and the acknowledgement is owed again under a stamp after that copy
 
 ## Queue health
 
@@ -2095,7 +2101,7 @@ related: [.devbook/domain/inbox/features.md#triage-stays-on-the-desktop]
 ```
 
 > Every scenario starts from captures the phone made, because the phone's
-> Inbox tab shows only those until the desktop takes them in.
+> Inbox tab shows only those until the desktop decides them.
 
 ### Requirement: The phone offers no triage
 
@@ -2107,15 +2113,121 @@ The phone SHALL offer no way to route, defer, accept or archive an Inbox Item, i
 
 #### Scenario: The list
 
-- **Given** the phone's Inbox tab shows two captures the phone made that the desktop has not taken in
+- **Given** the phone's Inbox tab shows two captures the phone made that the desktop has not decided
 - **When** the reader looks at the list
 - **Then** each row shows its sync state and none offers to route, defer, accept or archive
 
 #### Scenario: An opened item
 
-- **Given** the phone's Inbox tab shows a capture the phone made that the desktop has not taken in
+- **Given** the phone's Inbox tab shows a capture the phone made that the desktop has not decided
 - **When** the reader opens it
 - **Then** the capture is shown with no button to route, defer, accept or archive it
+
+## Edit and delete a capture on the phone
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#edit-and-delete-a-capture-on-the-phone]
+```
+
+### Requirement: A phone edit to a capture reaches the open item
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.An_edit_in_the_sheet_reaches_the_service_after_a_pause_and_the_row_shows_it, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.An_edit_made_offline_shows_on_the_row_at_once_marked_waiting, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditsTests.Editing_a_capture_still_waiting_rewrites_it_where_it_waits, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditsTests.Editing_a_capture_that_has_left_queues_an_edit_naming_it, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditOutboxTests.The_client_puts_the_new_title_and_body_on_the_captures_route, unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.InboxCaptureEditEndpointTests.An_edit_answers_the_reworded_capture_and_the_desktop_pulls_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_later_copy_of_an_open_capture_updates_its_title_and_body, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_later_copy_of_a_decided_capture_changes_nothing]
+```
+
+The system SHALL replace the title and body of an open Inbox item with the phone's later edit of its capture, and SHALL leave a decided item as it is.
+
+#### Scenario: A sent capture
+
+- **Given** a capture the phone sent, open in the desktop Inbox
+- **When** the reader changes its title in the phone's capture sheet, and the desktop pulls
+- **Then** the desktop item shows the new title and its tags, kind and list are unchanged
+
+#### Scenario: A capture still waiting
+
+- **Given** a capture still waiting in the phone's outbox
+- **When** the reader changes its body
+- **Then** the waiting capture is rewritten in place, and the service receives only the new text
+
+#### Scenario: Decided first
+
+- **Given** a capture the desktop has archived
+- **When** a later copy the phone reworded arrives
+- **Then** the item stays archived with its old text
+
+### Requirement: An edit on the phone is kept without a save button
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Closing_the_sheet_inside_the_wait_keeps_the_edit, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Going_to_the_background_inside_the_wait_keeps_the_edit, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Leaving_the_page_inside_the_wait_keeps_the_edit, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.A_blank_title_keeps_the_sheet_open_with_the_reason_until_one_is_typed, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Closing_while_a_save_is_still_writing_waits_for_it_and_stays_open_when_it_fails, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.An_edit_that_cannot_be_kept_can_be_discarded_and_the_sheet_closed]
+```
+
+The phone SHALL save a capture edit a second after typing stops and at once on closing the sheet, going to the background or leaving the page, and SHALL keep the sheet open while an edit cannot be kept, offering to discard it.
+
+#### Scenario: Closing inside the wait
+
+- **Given** the reader changed a capture's title less than a second ago
+- **When** the reader closes the sheet
+- **Then** the edit is queued and the row shows it
+
+#### Scenario: A blank title
+
+- **Given** the reader cleared a capture's title
+- **When** the reader closes the sheet
+- **Then** the sheet stays open with the reason and offers Discard changes
+
+### Requirement: A phone delete archives the open item
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Delete_asks_first_and_takes_the_capture_off_the_list, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Deleting_a_capture_still_waiting_never_sends_it, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditsTests.Deleting_a_capture_that_has_left_queues_one_withdrawal_and_drops_its_waiting_edit, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditOutboxTests.The_client_acknowledges_on_the_ack_route_and_reports_what_was_answered, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_tombstone_for_an_unprocessed_item_archives_it_without_owing_an_acknowledgement, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryTaskReplicaPrecedenceTests.A_capture_tombstone_wins_over_a_live_capture_whatever_the_stamps]
+```
+
+The phone SHALL delete a capture only after the reader confirms, take it off its list, and send a capture still waiting in the outbox nowhere; the desktop SHALL archive the open item the capture became.
+
+#### Scenario: A sent capture
+
+- **Given** a capture the phone sent, open in the desktop Inbox
+- **When** the reader presses Delete in the phone's capture sheet, confirms, and the desktop pulls
+- **Then** the capture is gone from the phone's list and the desktop item is archived
+
+#### Scenario: A capture still waiting
+
+- **Given** a capture still waiting in the phone's outbox
+- **When** the reader deletes it and confirms
+- **Then** the capture leaves the outbox and the service never receives it
+
+### Requirement: The phone says when the desktop already dealt with a capture
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.An_edit_of_a_capture_the_desktop_already_decided_says_so_calmly, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditOutboxTests.A_capture_the_desktop_already_decided_is_delivered_and_the_person_is_told, unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.InboxCaptureEditEndpointTests.An_edit_of_an_acknowledged_capture_is_not_found_with_the_inbox_code]
+```
+
+The phone SHALL count an edit or delete of a capture the desktop already decided as delivered, and SHALL say so in one line rather than as an error.
+
+#### Scenario: Decided while the edit travelled
+
+- **Given** the desktop archived a capture the phone still lists
+- **When** the phone sends an edit of it
+- **Then** the entry leaves the outbox and the phone says the desktop already dealt with it
+
+### Requirement: A service without the edit route sets the edit aside
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditOutboxTests.An_edit_route_the_service_lacks_is_set_aside_not_delivered]
+```
+
+The phone SHALL set aside an edit that an older service answers with a bare 404 or 405, saying "The cloud service cannot change a capture yet.", so later entries still leave.
+
+#### Scenario: An older service
+
+- **Given** a service deployed before the edit route
+- **When** the phone sends a capture edit
+- **Then** the edit is set aside as refused and the next capture is sent
 
 ## Clarify outcomes
 

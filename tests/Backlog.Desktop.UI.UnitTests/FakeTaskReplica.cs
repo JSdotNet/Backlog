@@ -78,10 +78,21 @@ internal sealed class FakeTaskReplica
         }
     }
 
-    private static bool Supersedes(TaskChange inbound, TaskChange stored) =>
-        inbound.UpdatedAt != stored.UpdatedAt
+    /// <summary><c>TaskChangePrecedence.Supersedes</c>, restated: between a live
+    /// capture and a capture tombstone the tombstone wins whatever the stamps,
+    /// and otherwise the later stamp, a tombstone winning a tie.</summary>
+    private static bool Supersedes(TaskChange inbound, TaskChange stored)
+    {
+        if (inbound.Task.Type == "capture" && stored.Task.Type == "capture"
+            && (inbound.DeletedAt is null) != (stored.DeletedAt is null))
+        {
+            return inbound.DeletedAt is not null;
+        }
+
+        return inbound.UpdatedAt != stored.UpdatedAt
             ? inbound.UpdatedAt > stored.UpdatedAt
             : inbound.DeletedAt is not null && stored.DeletedAt is null;
+    }
 
     private sealed class Handler(FakeTaskReplica replica, Guid deviceId) : HttpMessageHandler
     {

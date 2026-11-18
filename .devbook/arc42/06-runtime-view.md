@@ -82,6 +82,10 @@ sequenceDiagram
   | `task` | A task, sent to its own endpoint. |
   | `note` | A note the phone creates or edits (**Mobile Note Sync**). |
   | `talk-note` | An entry an earlier build left queued, which it drains (**Talk Note Upload**). |
+  | `capture-edit` | A capture's new title and body, sent as `PUT /api/sync/inbox/{id}`. |
+  | `capture-withdraw` | A capture the phone deleted, sent as `POST /api/sync/inbox/{id}/ack`. |
+
+  Kind tokens are stored values and never change.
 - **Oldest first, head of line.** A transient failure stops the flush. No network, a timeout and a 5xx count, as does a 401 from a service that restarted with a new signing key. Retries come after 2s, 4s, 8s, 16s; the fifth failure parks the entry as *waiting — tap to retry*, still first in line. A refusal (any other 4xx but 426) is set aside at once and holds nothing up.
 - **Held while the service is newer.** A 426 is the phone's own answer when the service reports a version above the app's (local ADR 0005 §Version compatibility). Nothing was sent. The head entry keeps its place and attempts, and the flush stops. It is tried again ten minutes on, so a rolled-back service takes the queue without a tap.
 - **Same id on every attempt.** The id is minted (`Guid.CreateVersion7()`) when queued. The service answers a repeat with 200 and the capture it holds, so a lost 201 delivers once.
@@ -94,7 +98,17 @@ sequenceDiagram
 
   The last three skip the pending wait and give a parked entry its attempts back.
 - **The list outlives the service.** Every successful pull is kept in the same file with its time. A failed pull, including 503 `sync.replica_unavailable` while the Cosmos emulator warms up, shows that list with one line saying why it is not newer.
-- **Only the phone's own captures.** The Inbox tab lists captures from the phone channel (`mobile`) until the desktop takes each in. The phone sends no acknowledgement or other decision: triage stays on the desktop (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`).
+- **Only the phone's own captures.** The Inbox tab lists captures from the phone channel (`mobile`) until the desktop decides each. The phone sends no decision: triage stays on the desktop (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`).
+- **Edit and delete until decided.** A capture still waiting, and not being sent, is rewritten or removed in its outbox entry, so a deleted one never reaches the service. Any other capture queues a `capture-edit` or a `capture-withdraw` entry (`.devbook/domain/inbox/features.md#edit-and-delete-a-capture-on-the-phone`). The service stamps an edit on its own clock, or one tick after the held stamp.
+
+  | Answer | Result |
+  | --- | --- |
+  | 404 `inbox.item_not_found` | The desktop already decided it: delivered, with one calm line saying so. |
+  | 400 `inbox.capture_invalid` | A blank or overlong title or body: refused. |
+  | Bare 404 or 405 on the edit route | An older service: set aside with "The cloud service cannot change a capture yet." |
+  | Bare 404 or 405 on the acknowledgement route | A request gone astray, since every service has the route: held and tried again, never delivered. |
+
+  A capture tombstone wins over a live capture whatever their stamps, so a decision racing an edit still ends tombstoned.
 - **Notes come back.** Notes are the one Inbox kind the phone also pulls, on the task feed (**Mobile Note Sync**).
 
 ## Capture Attachments
@@ -357,6 +371,7 @@ stateDiagram-v2
     [*] --> Queued: Capture written to the outbox
     Queued --> Sending: Flush reaches it (oldest first)
     Sending --> Delivered: 201, or 200 for a known id
+    Sending --> Delivered: 404 inbox.item_not_found for a capture edit or withdrawal
     Sending --> Backoff: No network, timeout, 5xx or 401
     Backoff --> Sending: 2s, 4s, 8s, 16s, or resume / network back
     Backoff --> Parked: Fifth failed attempt

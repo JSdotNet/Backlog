@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 
+using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 namespace Backlog.Mobile.UI.UnitTests;
@@ -78,6 +79,38 @@ internal sealed class ScriptedInboxService
     /// <summary>Only the posts answered 201 — the ones that wrote something.</summary>
     public int Created { get; private set; }
 
+    private readonly List<(Guid Id, CaptureEditRequest Edit)> _edits = [];
+    private readonly List<Guid> _acknowledged = [];
+
+    /// <summary>Every capture edit that reached the service, in order, taken or not.</summary>
+    public IReadOnlyList<(Guid Id, CaptureEditRequest Edit)> Edits
+    {
+        get
+        {
+            lock (_lock) return [.. _edits];
+        }
+    }
+
+    /// <summary>Every acknowledgement that reached the service, in order, taken or not.</summary>
+    public IReadOnlyList<Guid> Acknowledged
+    {
+        get
+        {
+            lock (_lock) return [.. _acknowledged];
+        }
+    }
+
+    /// <summary>Answers an edit as taken but keeps the words it had — so a pull
+    /// shows whether the phone is still laying its own edit over the list.</summary>
+    public bool IgnoreEdits { get; set; }
+
+    /// <summary>The desktop decides a capture: it leaves the service's list, and an
+    /// edit or acknowledgement of it is answered as already dealt with.</summary>
+    public void Decide(Guid id)
+    {
+        lock (_lock) _items.RemoveAll(item => item.Id == id);
+    }
+
     public async Task<HttpResponseMessage> AnswerAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         Requests++;
@@ -94,14 +127,25 @@ internal sealed class ScriptedInboxService
             return JsonAnswer(HttpStatusCode.OK, answered);
         }
 
+        var path = request.RequestUri!.AbsolutePath;
+        var inboxRoute = SyncRoutes.Absolute(SyncRoutes.Inbox) + "/";
+
+        CaptureEditRequest? edit = null;
+        if (request.Method == HttpMethod.Put && path.StartsWith(inboxRoute, StringComparison.Ordinal) && request.Content is not null)
+        {
+            edit = await request.Content.ReadFromJsonAsync<CaptureEditRequest>(cancellationToken);
+        }
+
+        var acknowledging = request.Method == HttpMethod.Post && path.StartsWith(inboxRoute, StringComparison.Ordinal) && path.EndsWith("/ack", StringComparison.Ordinal);
+
         byte[]? upload = null;
-        if (request.Method == HttpMethod.Put && request.Content is not null)
+        if (edit is null && request.Method == HttpMethod.Put && request.Content is not null)
         {
             upload = await request.Content.ReadAsByteArrayAsync(cancellationToken);
         }
 
         CaptureRequest? capture = null;
-        if (request.Method == HttpMethod.Post && request.Content is not null)
+        if (!acknowledging && request.Method == HttpMethod.Post && request.Content is not null)
         {
             capture = await request.Content.ReadFromJsonAsync<CaptureRequest>(cancellationToken);
         }
@@ -126,6 +170,28 @@ internal sealed class ScriptedInboxService
                             Encoding.UTF8,
                             "application/problem+json")
                     };
+            }
+
+            if (edit is not null)
+            {
+                var edited = Guid.Parse(path[inboxRoute.Length..]);
+                _edits.Add((edited, edit));
+
+                var index = _items.FindIndex(item => item.Id == edited);
+                if (index < 0) return NotWaiting();
+
+                if (!IgnoreEdits) _items[index] = _items[index] with { Title = edit.Title, BodyMd = edit.BodyMd };
+                return JsonAnswer(HttpStatusCode.OK, _items[index]);
+            }
+
+            if (acknowledging)
+            {
+                var acknowledged = Guid.Parse(path[inboxRoute.Length..^"/ack".Length]);
+                _acknowledged.Add(acknowledged);
+
+                return _items.RemoveAll(item => item.Id == acknowledged) > 0
+                    ? new HttpResponseMessage(HttpStatusCode.NoContent)
+                    : NotWaiting();
             }
 
             if (upload is not null)
@@ -155,6 +221,14 @@ internal sealed class ScriptedInboxService
             return JsonAnswer(HttpStatusCode.Created, stored);
         }
     }
+
+    private static HttpResponseMessage NotWaiting() => new(HttpStatusCode.NotFound)
+    {
+        Content = new StringContent(
+            """{"title":"Not Found","status":404,"detail":"No capture with that id is waiting for this owner.","code":"inbox.item_not_found"}""",
+            Encoding.UTF8,
+            "application/problem+json")
+    };
 
     private static HttpResponseMessage JsonAnswer<T>(HttpStatusCode status, T value) =>
         new(status) { Content = JsonContent.Create(value) };
