@@ -249,6 +249,7 @@ Enforced at: constructor
 
 ```meta
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.AttachmentRequestInvariantTests.A_request_offers_no_way_to_change_it, unit:dotnet:Backlog.Modules.Events.UnitTests.AttachmentRequestInvariantTests.Linking_a_request_leaves_it_as_it_was]
 ```
 
 An attachment request is written once and never changed. A desktop applies it whole, then deletes it.

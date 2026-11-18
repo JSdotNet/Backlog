@@ -6,6 +6,8 @@ using Backlog.Modules.Capture.Abstractions;
 using Backlog.Modules.Capture.Abstractions.DataTransferObjects;
 using Backlog.Modules.Capture.Ports;
 
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.Infrastructure.Capture.UnitTests;
 
 /// <summary>
@@ -64,6 +66,49 @@ public sealed class EventPageAdapterTests
         Assert.Equal(
             "When: 27 November 2026, 16:30 (+01:00)\n\nWhere: Nieuwegein\n\nRead from [DotnetFriday](https://dotnetfriday.nl/)",
             entry.BodyMd);
+    }
+
+    /// <summary><c>.devbook/domain/capture/requirements.md</c>, "The monitor
+    /// reads pages only when asked": the adapter left standing while a day
+    /// passes on a clock that fires every timer set on it reads nothing; the
+    /// run is what reads the page.</summary>
+    [Fact]
+    public async Task A_day_passing_reads_no_page_until_a_run_is_asked_for()
+    {
+        var wire = new StubHttpMessageHandler()
+            .Html(DotnetFriday, Fixture("dotnetfriday.nl.html"))
+            .Html(RegisterNow, Fixture("eventbrite-dotnetfriday-2026-11-27.html"));
+        var clock = new FakeTimeProvider(new DateTimeOffset(SavedOn.ToDateTime(new TimeOnly(9, 0)), TimeSpan.Zero));
+        var adapter = new EventPageAdapter(new FeedFetcher(new StubHttpClientFactory(wire)), clock);
+
+        clock.Advance(TimeSpan.FromDays(1));
+
+        Assert.Empty(wire.Requested);
+
+        await adapter.RunAsync(new MonitoredSource(CaptureSourceKind.EventPage, Enabled: true, [DotnetFriday]), TestContext.Current.CancellationToken);
+
+        Assert.Equal([DotnetFriday, RegisterNow], wire.Requested);
+    }
+
+    /// <summary><c>.devbook/domain/capture/requirements.md</c>, "The monitor
+    /// asks no AI model": a run reads the watched page and its one
+    /// registration hop and nothing else, and the adapter has no way to reach
+    /// a model — nothing the adapter or its fetcher is built from comes from
+    /// an AI assembly, and its own assembly references none of the AI
+    /// adapters or their clients.</summary>
+    [Fact]
+    public async Task A_run_reads_only_the_watched_page_and_its_hop_and_asks_no_ai_model()
+    {
+        var wire = new StubHttpMessageHandler()
+            .Html(DotnetFriday, Fixture("dotnetfriday.nl.html"))
+            .Html(RegisterNow, Fixture("eventbrite-dotnetfriday-2026-11-27.html"));
+
+        await Run(wire, SavedOn, DotnetFriday);
+
+        Assert.Equal([DotnetFriday, RegisterNow], wire.Requested);
+        Assert.DoesNotContain(ParametersOf(typeof(EventPageAdapter)), parameter => IsAi(parameter.Assembly.GetName()));
+        Assert.DoesNotContain(ParametersOf(typeof(FeedFetcher)), parameter => IsAi(parameter.Assembly.GetName()));
+        Assert.DoesNotContain(typeof(EventPageAdapter).Assembly.GetReferencedAssemblies(), IsAi);
     }
 
     /// <summary>Watched directly, the listing's structured data is the first
@@ -529,6 +574,26 @@ public sealed class EventPageAdapterTests
             "https://down.example.org/: the server answered 503 (ServiceUnavailable)",
             Assert.Single(findings.Notes));
     }
+
+    /// <summary>The assemblies a call to a model would need: the solution's
+    /// two AI adapters and the client libraries they and the wider .NET
+    /// ecosystem reach a model through.</summary>
+    private static readonly string[] AiAssemblies =
+    [
+        "Backlog.Infrastructure.AzureFoundry",
+        "Backlog.Infrastructure.Claude",
+        "Microsoft.Extensions.AI",
+        "Azure.AI",
+        "OpenAI",
+        "Anthropic",
+    ];
+
+    private static bool IsAi(System.Reflection.AssemblyName assembly) =>
+        AiAssemblies.Any(prefix => assembly.Name!.StartsWith(prefix, StringComparison.Ordinal));
+
+    /// <summary>The parameter types of every constructor <paramref name="type"/> has.</summary>
+    private static Type[] ParametersOf(Type type) =>
+        [.. type.GetConstructors().SelectMany(constructor => constructor.GetParameters()).Select(parameter => parameter.ParameterType)];
 
     private static CaptureEventFacts EventOf(CapturedEntry entry)
     {

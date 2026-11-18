@@ -219,6 +219,14 @@
     align-items: flex-end;
 }
 
+/* A row of labelled fields only, any of which may show a message or a hint under its
+   control: aligned by their tops, so a message under one field grows the row downwards
+   rather than lifting that field's input above its neighbours. The base row keeps
+   flex-end for the rows that hold an unlabelled button or a checkbox beside a field. */
+.events-editor__row--fields {
+    align-items: flex-start;
+}
+
 .events-editor__row > .field {
     flex: 1 1 10rem;
     min-width: 0;

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Backlog.Infrastructure.Sync.KnowledgeEvents;
+using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Api.Endpoints;
@@ -74,6 +76,33 @@ public class KnowledgeEventSyncEndpointTests : IDisposable
 
         var kinds = (await phone.PullEvents()).Events.Select(record => record.Change.Kind).Order(StringComparer.Ordinal).ToArray();
         Assert.Equal([KnowledgeEventKinds.EventSeries, KnowledgeEventKinds.KnowledgeEvent], kinds);
+    }
+
+    /// <summary>The <c>events</c> switch a desktop last moved rides the same feed (local ADR
+    /// 0050 §6; <c>.devbook/domain/events/context.md</c>): the phone pulls it under its kind
+    /// with its <c>on</c> body whole, and a later switch replaces the earlier one at the one id
+    /// an owner's switch has.</summary>
+    [Fact]
+    public async Task The_events_switch_travels_to_the_phone_and_a_later_switch_replaces_it()
+    {
+        var (desktop, phone) = await PairedDevices();
+        var switchedOff = new DateTimeOffset(2026, 11, 9, 9, 0, 0, TimeSpan.Zero);
+
+        var off = EventsArea(on: false, switchedOff);
+        await desktop.PushEvents([off]);
+
+        var arrived = Assert.Single((await phone.PullEvents()).Events);
+        Assert.Equal(EventsAreaReplicaDto.WellKnownId, arrived.Change.Id);
+        Assert.Equal(KnowledgeEventKinds.EventsArea, arrived.Change.Kind);
+        Assert.True(JsonElement.DeepEquals(off.Document, arrived.Change.Document));
+        Assert.False(arrived.Change.Document.GetProperty("on").GetBoolean());
+
+        var later = await desktop.PushEvents([EventsArea(on: true, switchedOff.AddDays(1))]);
+        Assert.Equal(1, (await later.Content.ReadFromJsonAsync<PushKnowledgeEventsResponse>(Cancellation))!.Accepted);
+
+        var replaced = Assert.Single((await phone.PullEvents()).Events);
+        Assert.Equal(EventsAreaReplicaDto.WellKnownId, replaced.Change.Id);
+        Assert.True(replaced.Change.Document.GetProperty("on").GetBoolean());
     }
 
     [Fact]
@@ -195,6 +224,10 @@ public class KnowledgeEventSyncEndpointTests : IDisposable
 
     internal static KnowledgeEventChange Event(Guid id, DateTimeOffset at, string state) =>
         new(id, KnowledgeEventKinds.KnowledgeEvent, at, Json($$"""{"title":"NDC Oslo 2026","state":"{{state}}"}"""));
+
+    /// <summary>The switch as a desktop pushes it, through the desktop's own mapping.</summary>
+    private static KnowledgeEventChange EventsArea(bool on, DateTimeOffset at) =>
+        KnowledgeEventDocuments.ToChange(new EventsAreaReplicaDto(EventsAreaReplicaDto.WellKnownId, on, at));
 
     private static JsonElement Json(string text)
     {

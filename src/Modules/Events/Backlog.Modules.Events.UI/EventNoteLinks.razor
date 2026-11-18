@@ -1,5 +1,6 @@
 @inject IEventsPane Pane
 @inject ISurfaceNavigator Navigator
+@inject ISurfaceCatalog Catalog
 
 @*
     The notes under Harvest (.devbook/domain/events/features.md#linking-notes), linked the way
@@ -7,7 +8,10 @@
     link is a chip. A Brain note that is at its path is followable, in the live tone, and opens
     the note in the Devbook on the Brain side. One that moved reads "missing" inside a dashed
     edge, never as an error, and can be linked again to the note it moved to. A Talk note shows
-    by its stored title and opens the Inbox on that note.
+    by its stored title and opens the Inbox on that note — while the shell offers the Inbox.
+    With the Inbox switched off there is nowhere to open it, so the chip is plain text. The
+    catalog is read on each render, as DashboardSurface reads it: the flag is switched in
+    Settings, and coming back from there renders the pane again.
 
     Link note is a combobox of the Brain's notes that also takes a typed path, from the Brain's
     root; what is typed narrows the list to the notes whose title or path holds it. With no
@@ -18,6 +22,7 @@
 <div class="events-notes" data-testid="events-notes">
     @if (Event.Notes.Count > 0)
     {
+        var inboxOffered = Catalog.TryGet(InboxSurfaceId, out _);
         <ul class="events-notes__chips">
             @foreach (var note in Event.Notes)
             {
@@ -28,7 +33,7 @@
                                   Reference="@note.Reference"
                                   Resolved="@(!note.Missing)"
                                   Problem="@Missing"
-                                  OnOpen="@(!brain ? EventCallback.Factory.Create<string?>(this, OpenTalkNote)
+                                  OnOpen="@(!brain ? (inboxOffered ? EventCallback.Factory.Create<string?>(this, OpenTalkNote) : default)
                                             : !note.Missing ? EventCallback.Factory.Create<string?>(this, OpenNote)
                                             : default)"
                                   TestId="events-note-chip" />

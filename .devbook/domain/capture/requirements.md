@@ -362,6 +362,7 @@ The event page monitor SHALL deliver each edition once, knowing it by its listin
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.A_day_passing_reads_no_page_until_a_run_is_asked_for, integration:dotnet:Backlog.Infrastructure.Capture.UnitTests.CaptureAdapterRegistrationTests.With_the_event_page_source_on_a_day_passes_without_a_read_until_a_run]
 ```
 
 The event page monitor SHALL read its pages only when the person presses Run capture now.
@@ -376,6 +377,7 @@ The event page monitor SHALL read its pages only when the person presses Run cap
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.EventPageAdapterTests.A_run_reads_only_the_watched_page_and_its_hop_and_asks_no_ai_model]
 ```
 
 The event page monitor SHALL read every page by its fixed rules and send no page to an AI model.
