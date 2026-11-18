@@ -19,23 +19,6 @@ namespace Backlog.Modules.Tasks.Abstractions;
 /// </summary>
 public static class TasksFeatures
 {
-    /// <summary>Create, edit, filter, reorder, and store tasks. Always
-    /// on — the app without it is not this app.
-    /// <para>
-    /// The value stays <c>"backlog"</c> even though this context is now Tasks.
-    /// It is a persisted key: it is written into <c>features.json</c> under the
-    /// user's app-data folder as a member of the disabled/enabled feature sets,
-    /// so changing it would orphan whatever the user had already toggled. The
-    /// constant is the name this codebase reads; the string is a stored value,
-    /// and only one of the two is ours to rename.
-    /// </para>
-    /// </summary>
-    public const string Tasks = "backlog";
-
     /// <summary>Push a task to a GitHub issue and read its state back.</summary>
     public const string GitHubIntegration = "github-integration";
-
-    /// <summary>Configure more than one repository and switch the pane between
-    /// them.</summary>
-    public const string AdditionalRepositories = "additional-repositories";
 }

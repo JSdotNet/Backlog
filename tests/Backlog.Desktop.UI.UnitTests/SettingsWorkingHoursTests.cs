@@ -233,7 +233,7 @@ public sealed class SettingsWorkingHoursTests
     [Fact]
     public void The_page_writes_its_headline_and_a_committed_change_moves_it()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
 
         OpenTab(settings.Component, "Working week");
         Assert.Equal("You work Mon–Fri, 09:00–17:30.", Headline(settings.Component));
@@ -266,7 +266,7 @@ public sealed class SettingsWorkingHoursTests
     [Fact]
     public void The_settings_screen_offers_the_working_week_on_its_own_page()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
 
         var tabs = Tabs(settings.Component);
         Assert.Contains("Working week", tabs);
@@ -278,25 +278,10 @@ public sealed class SettingsWorkingHoursTests
         Assert.Equal(new TimeOnly(13, 0), settings.WorkingWeek.Current.On(DayOfWeek.Friday).End);
     }
 
-    /// <summary>The roadmap counts the week whether or not the dashboard is on
-    /// (ADR 0019), so switching the dashboard off marks its usage-reset page Off
-    /// and leaves the working week where it is.</summary>
-    [Fact]
-    public void With_the_dashboard_off_the_working_week_is_still_offered()
-    {
-        using var settings = RenderSettings(dashboard: false);
-
-        var tabs = Tabs(settings.Component);
-        Assert.Contains("Working week", tabs);
-        Assert.Contains("Dashboard", tabs);
-        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "dashboard"));
-        Assert.NotEqual("Off", SettingsMenu.Badge(settings.Component, "working-week"));
-    }
-
     [Fact]
     public void The_storage_tab_no_longer_carries_the_working_week()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
         OpenTab(settings.Component, "Storage & backup");
 
         Assert.Empty(settings.Component.FindAll("[data-testid='working-hours-settings']"));
@@ -311,7 +296,7 @@ public sealed class SettingsWorkingHoursTests
     [Fact]
     public void The_storage_tab_no_longer_carries_the_pace()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
         OpenTab(settings.Component, "Storage & backup");
 
         Assert.Empty(settings.Component.FindAll("[data-testid='planning-velocity-settings']"));
@@ -340,7 +325,7 @@ public sealed class SettingsWorkingHoursTests
         return new SectionRenderContext(root, context, context.Render<WorkingWeekSettings>(), workingWeek, usageReset);
     }
 
-    private static SettingsRenderContext RenderSettings(bool dashboard)
+    private static SettingsRenderContext RenderSettings()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-working-hours-tests", Guid.NewGuid().ToString("n"));
 
@@ -349,7 +334,6 @@ public sealed class SettingsWorkingHoursTests
         _ = features.SetEnabled(TasksFeatures.GitHubIntegration, false);
         _ = features.SetEnabled(AppFeatures.AiAssistant, false);
         _ = features.SetEnabled(AppFeatures.UsageMetrics, false);
-        _ = features.SetEnabled(DashboardFeatures.Dashboard, dashboard);
 
         var workingWeek = new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json"));
         var usageReset = new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json"));

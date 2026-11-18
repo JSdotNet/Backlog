@@ -7,8 +7,7 @@ namespace Backlog.Modules.RepositoryManagement.Abstractions;
 /// lived on <c>SessionFeatures</c> while the pull requests list was the Sessions
 /// context's second surface. Repository Management owns pull-request state now (local
 /// ADR 0042), so the key moved to the context that owns it; keeping the string means
-/// nobody's settings file forgets that they had switched the list off. The same move
-/// <c>DashboardFeatures</c> and <c>RoadmapFeatures</c> record, for the same reason.
+/// nobody's settings file forgets that they had switched the list off.
 /// </para>
 /// </summary>
 public static class RepositoryManagementFeatures

@@ -98,7 +98,7 @@ public sealed class DevbookUnifiedSearch
                 : () => personal.Resolve(personal.FolderKey) is { Available: false, Message: { Length: > 0 } message } ? message : null);
     }
 
-    /// <summary>The Brain, when the host composes one and Devbook offers it, then
+    /// <summary>The Brain, when the host composes one, then
     /// every configured repository that has a devbook to read, in the registry's
     /// order. A repository with no devbook folders is not a source: it has no
     /// devbook, which is different from a devbook with no index yet.</summary>

@@ -12,11 +12,9 @@ namespace Backlog.Infrastructure.Mcp;
 /// The plan above the backlog: what is scheduled, the days it is read against,
 /// and where it disagrees with itself.
 /// <para>
-/// <b>Its own class because it is its own group.</b> Local ADR 0012 §7 gives each
-/// switchable area one feature check, and Roadmap Planning is a bounded context
-/// with a key of its own (<see cref="Backlog.Modules.Roadmap.Abstractions.RoadmapFeatures.Roadmap"/>)
-/// — the same key the Home shell reads to decide whether to draw the band. A
-/// group is a tool class, so a second group needs a second class.
+/// <b>Its own class because it is its own group.</b> Roadmap Planning is a bounded
+/// context of its own, and a group is a tool class, so a second group needs a
+/// second class.
 /// </para>
 /// <para>
 /// It would have been fewer files to leave this method on <c>WorkTools</c> and

@@ -5,14 +5,14 @@ namespace Backlog.Modules.Calendar.Abstractions.Services;
 /// <summary>
 /// The Plans layer as the Calendar reads it (local ADR 0055 §3): the last read of
 /// <see cref="ICalendarPlans"/>, read again only when one is owed — on arriving, after the
-/// plan, its work or the pace changed, after a feature switched, on a new day, and when
+/// plan, its work or the pace changed, on a new day, and when
 /// Show plans is ticked — never on every render, because a read gathers the backlog per
 /// plan. One per window.
 /// </summary>
 public interface ICalendarPlansLayer
 {
-    /// <summary>Raised when a read is owed: the port said the plans changed, or a feature
-    /// switched. It may arrive on any thread.</summary>
+    /// <summary>Raised when a read is owed: the port said the plans changed. It may
+    /// arrive on any thread.</summary>
     event Action? Changed;
 
     /// <summary>Whether the host composed a Plans port at all.</summary>

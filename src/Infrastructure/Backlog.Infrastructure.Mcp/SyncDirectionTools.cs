@@ -45,14 +45,12 @@ public sealed class SyncDirectionTools(IDevbookSyncDirectionStore directions, IR
     internal const string BrainCode = "brain.no_sync_directions";
 
     /// <summary>
-    /// This class as a switchable group, behind <c>repository-devbook</c> — the
-    /// key <see cref="BacklogMcpTools.Devbook"/> and <see cref="DecisionTools"/>
-    /// read. Somebody switching the devbook off has switched off the units these
-    /// directions are about. A group of its own because it is another port: that
-    /// class keeps subjects' workflow state, this reads the direction map.
+    /// This class as a group, always listed as <see cref="BacklogMcpTools.Devbook"/>
+    /// and <see cref="DecisionTools"/> are. A group of its own because it is another
+    /// port: that class keeps subjects' workflow state, this reads the direction map.
     /// </summary>
     internal static BacklogMcpTools.McpToolGroup Group { get; } = new(
-        DevbookFeatures.RepositoryDevbook,
+        FeatureKey: null,
         typeof(SyncDirectionTools),
         [ListSyncDirections]);
 

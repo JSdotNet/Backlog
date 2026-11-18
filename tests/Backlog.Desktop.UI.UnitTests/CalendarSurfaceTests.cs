@@ -84,23 +84,6 @@ public sealed class CalendarSurfaceTests
         surface.WaitForAssertion(() => Assert.Equal(3, plans.Reads));
     }
 
-    /// <summary>The roadmap switched off — any feature switched — owes a read, so the
-    /// plans and the box follow the switch without leaving the Calendar.</summary>
-    [Fact]
-    public async Task The_plans_are_read_again_on_a_feature_change()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var plans = new FakeCalendarPlans(Today);
-        host.Context.Services.AddSingleton<ICalendarPlans>(plans);
-
-        var surface = host.WithCalendarSurface().RenderCalendarSurface();
-        surface.WaitForAssertion(() => Assert.Equal(1, plans.Reads));
-
-        host.Features.SetEnabled("events", true);
-
-        surface.WaitForAssertion(() => Assert.Equal(2, plans.Reads));
-    }
-
     /// <summary>The Calendar left open past midnight: a press of its own — the range — draws
     /// the plans as they stand on the new day, not as they stood yesterday. The surface's own
     /// redraw does not pass through its parameters, so the press asks for the read itself.</summary>

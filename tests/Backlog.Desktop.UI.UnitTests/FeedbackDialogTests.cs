@@ -195,7 +195,6 @@ public sealed class FeedbackDialogTests
         var root = Path.Combine(Path.GetTempPath(), "backlog-feedback-dialog", Guid.NewGuid().ToString("n"));
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
-        _ = features.SetEnabled(AppFeatures.FeedbackReporting, true);
 
         var client = new RecordingGitHubClient();
         var gitHub = new GitHubIntegration(

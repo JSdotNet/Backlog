@@ -32,9 +32,8 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <para>
 /// A singleton the heads resolve once after building, like the sync workers: it runs
 /// once a short delay after start, and again whenever
-/// <see cref="IDevbookFolderSource.Changed"/> or the feature switches say something
-/// moved — a repository added, a snapshot landed — while
-/// <see cref="DevbookFeatures.RepositoryDevbook"/> is on. A run already in flight
+/// <see cref="IDevbookFolderSource.Changed"/> says something moved — a repository
+/// added, a snapshot landed. A run already in flight
 /// takes the request as one more pass rather than starting a second beside it.
 /// </para>
 /// </summary>
@@ -51,7 +50,6 @@ public sealed class DevbookImportWorker : IDisposable
     private readonly IDevbookImportLedger _ledger;
     private readonly IDevbookSubjectStateStore _subjects;
     private readonly IDevbookAnnotationStore _remarks;
-    private readonly IAppFeatureSettings _features;
     private readonly TimeProvider _time;
     private readonly ILogger _log;
 
@@ -73,7 +71,6 @@ public sealed class DevbookImportWorker : IDisposable
         IDevbookImportLedger ledger,
         IDevbookSubjectStateStore subjects,
         IDevbookAnnotationStore remarks,
-        IAppFeatureSettings features,
         TimeProvider time,
         ILogger<DevbookImportWorker>? log = null)
     {
@@ -84,7 +81,6 @@ public sealed class DevbookImportWorker : IDisposable
         ArgumentNullException.ThrowIfNull(ledger);
         ArgumentNullException.ThrowIfNull(subjects);
         ArgumentNullException.ThrowIfNull(remarks);
-        ArgumentNullException.ThrowIfNull(features);
         ArgumentNullException.ThrowIfNull(time);
 
         _repositories = repositories;
@@ -94,12 +90,10 @@ public sealed class DevbookImportWorker : IDisposable
         _ledger = ledger;
         _subjects = subjects;
         _remarks = remarks;
-        _features = features;
         _time = time;
         _log = log ?? NullLogger<DevbookImportWorker>.Instance;
 
         _folders.Changed += OnSomethingMoved;
-        _features.Changed += OnSomethingMoved;
 
         _firstRun = _time.CreateTimer(_ => OnFirstRun(), state: null, FirstRunDelay, Timeout.InfiniteTimeSpan);
     }
@@ -130,7 +124,6 @@ public sealed class DevbookImportWorker : IDisposable
         }
 
         _folders.Changed -= OnSomethingMoved;
-        _features.Changed -= OnSomethingMoved;
 
         _lifetime.Cancel();
         _lifetime.Dispose();
@@ -138,13 +131,10 @@ public sealed class DevbookImportWorker : IDisposable
 
     /// <summary>
     /// One pass over every registered repository: each one that is active, not the
-    /// Brain and not yet marked is imported, and reported. Nothing at all while
-    /// <see cref="DevbookFeatures.RepositoryDevbook"/> is off.
+    /// Brain and not yet marked is imported, and reported.
     /// </summary>
     internal async Task<IReadOnlyList<DevbookImportReport>> RunOnceAsync(CancellationToken cancellationToken)
     {
-        if (!_features.IsEnabled(DevbookFeatures.RepositoryDevbook)) return [];
-
         var reports = new List<DevbookImportReport>();
 
         foreach (var repository in _repositories())
@@ -323,7 +313,7 @@ public sealed class DevbookImportWorker : IDisposable
     {
         lock (_gate)
         {
-            if (_disposed || !_features.IsEnabled(DevbookFeatures.RepositoryDevbook)) return;
+            if (_disposed) return;
 
             if (_inFlight)
             {

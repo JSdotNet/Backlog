@@ -22,7 +22,6 @@ public sealed class TasksArchivedRepositoryTests
     private static async Task<TasksPaneHost> CreateAsync()
     {
         var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
-        host.Features.SetEnabled(TasksFeatures.AdditionalRepositories, enabled: true);
         Assert.Null(host.GitHub.Settings.SetRepositoryArchived("docs", archived: true));
         return host;
     }
@@ -137,7 +136,6 @@ public sealed class TasksArchivedRepositoryTests
     {
         using var host = await TasksPaneHost.CreateAsync(
             "backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs", "web = JSdotNet/Web");
-        host.Features.SetEnabled(TasksFeatures.AdditionalRepositories, enabled: true);
         Assert.Null(host.GitHub.Settings.SetRepositoryArchived("docs", archived: true));
         var both = await host.WriteEntryAsync("# Move the guides\n`task` `repo:docs` `repo:backlog`\n");
 

@@ -231,7 +231,6 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         // The overview is read for the status each subject states, which is
         // behind its own switch and off by default.
         _ = features.SetEnabled(DevbookFeatures.Status, true);
