@@ -17,8 +17,9 @@ namespace Backlog.Modules.Sync.Api.Endpoints;
 /// <para>
 /// Three of the five run anonymously, which is the whole shape of an
 /// account-free product: a device with no owner yet has nothing to authenticate
-/// as, and what authorizes each of those calls is in the body — a pairing code,
-/// or a registration credential — rather than in a header.
+/// as, and what authorizes each of those calls is in the body — an enrolment code,
+/// a pairing code, or a device's signed assertion or registration credential —
+/// rather than in a header.
 /// </para>
 /// </summary>
 internal static class DeviceEndpoints
@@ -44,7 +45,7 @@ internal static class DeviceEndpoints
 
         devices.MapPost(SyncRoutes.DeviceToken, IssueDeviceToken)
             .AllowAnonymous()
-            .WithSummary("Exchanges a registration credential for a short-lived device token.");
+            .WithSummary("Exchanges a signed device assertion, or a registration credential, for a short-lived device token.");
 
         var paired = devices.MapGroup(string.Empty)
             .RequireAuthorization(SyncPolicies.PairedDevice)
@@ -71,7 +72,7 @@ internal static class DeviceEndpoints
         ICommandHandler<RegisterFirstDeviceCommand, Result<DeviceRegistrationResponse>> handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.Handle(new RegisterFirstDeviceCommand(request.DeviceName, request.EnrolmentCode, request.CodeVerifier), cancellationToken);
+        var result = await handler.Handle(new RegisterFirstDeviceCommand(request.DeviceName, request.EnrolmentCode, request.CodeVerifier, request.PublicKey), cancellationToken);
 
         return SyncResults.From(
             context,
@@ -86,7 +87,7 @@ internal static class DeviceEndpoints
         CancellationToken cancellationToken)
     {
         var result = await handler.Handle(
-            new RedeemPairingCodeCommand(request.Code, request.DeviceName), cancellationToken);
+            new RedeemPairingCodeCommand(request.Code, request.DeviceName, request.PublicKey), cancellationToken);
 
         return SyncResults.From(
             context,
@@ -101,7 +102,13 @@ internal static class DeviceEndpoints
         CancellationToken cancellationToken)
     {
         var result = await handler.Handle(
-            new IssueDeviceTokenCommand(request.DeviceId, request.Credential), cancellationToken);
+            new IssueDeviceTokenCommand(
+                request.DeviceId,
+                request.Credential,
+                request.ClientAssertionType,
+                request.ClientAssertion,
+                request.PublicKey),
+            cancellationToken);
 
         return SyncResults.From(context, result, Results.Ok);
     }

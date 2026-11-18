@@ -91,11 +91,25 @@
         }
         else if (StoredDevice is { } stored)
         {
-            @* The service has said, in as many words, that it has no
-               record of this device. Said before the identity rather
-               than after it, because everything below is describing a
-               credential that no longer opens anything. *@
-            @if (DeviceNoLongerRegistered)
+            @* Bound to a key this machine cannot use - a TPM in lockout or
+               reset. Nothing goes to the service, so nothing syncs; the way
+               back is the one a refused credential gets. One alert, never
+               two: a refusal heard before the key went says nothing the key
+               does not, and the key is what to fix first.
+
+               Otherwise the service has said, in as many words, that it has
+               no record of this device. Said before the identity rather than
+               after it, because everything below is describing a credential
+               that no longer opens anything. *@
+            @if (KeyUnavailable)
+            {
+                <Alert Message="This device signs in with its own key, and that key cannot be used on this machine right now - the TPM may be locked out or reset. Nothing syncs until it comes back. Register this device again, pair it with one that is already in, or forget it."
+                       TestId="devices-key-unavailable"
+                       Role="alert"
+                       BaseClass="setting__status"
+                       CssClass="setting__status--error" />
+            }
+            else if (DeviceNoLongerRegistered)
             {
                 <Alert Message="The sync service no longer recognises this device. Its credential is still on this machine, but nothing will accept it - register this device again, pair it with one that is already in, or forget the credential."
                        TestId="devices-unregistered"
@@ -118,8 +132,26 @@
                 </Callout>
             }
 
+            @* The key this device signs in with is in software, not the TPM
+               (local ADR 0052 §2). Nothing reads it out, but a full copy of
+               the Windows profile carries it, which a TPM key never is. The
+               heading says where the key is rather than why: a TPM may be
+               missing or unavailable, and a development harness keeps its key
+               in software by design. *@
+            @if (KeyIsInSoftware)
+            {
+                <Callout Tone="warning" Heading="This device's key is kept in software"
+                         TestId="devices-key-in-software">
+                    Not in a TPM - this PC may not have one, it may be unavailable, or this build keeps its key in software. The key is sealed to your Windows account, but anyone with a full copy of your Windows profile could sign in to sync as this device. A key in a TPM never leaves the chip.
+                </Callout>
+            }
+
             <p class="setting__body" data-testid="devices-paired">
-                @if (DeviceNoLongerRegistered)
+                @if (KeyUnavailable)
+                {
+                    <text>Registered as <strong>@stored.DeviceName</strong>, but it cannot sign in without its key.</text>
+                }
+                else if (DeviceNoLongerRegistered)
                 {
                     <text>This device still holds a credential for <strong>@stored.DeviceName</strong>.</text>
                 }
@@ -156,8 +188,21 @@
                         Description="Register it to start an owner of your own, or pair it with a device that is already in." />
         }
 
-        <p class="setting__note">
-            The registration credential is kept in <code>@CredentialStorePath</code> - outside the backlog folder, so it is never synced or committed with entries.
+        <p class="setting__note" data-testid="devices-credential-note">
+            @* Worded on what actually protects the key, and only once there is
+               one: before pairing there is nothing to describe. *@
+            @if (StoredDevice is null)
+            {
+                <text>Once this device is in, which device it is will be kept in <code>@CredentialStorePath</code> - outside the backlog folder, so it is never synced or committed with entries.</text>
+            }
+            else if (StoredDevice.IsKeyBound)
+            {
+                <text>@KeyBoundNote Which device it is is kept in <code>@CredentialStorePath</code> - outside the backlog folder, so it is never synced or committed with entries.</text>
+            }
+            else
+            {
+                <text>The registration credential is kept in <code>@CredentialStorePath</code> - outside the backlog folder, so it is never synced or committed with entries.</text>
+            }
         </p>
     </SettingsCard>
 
@@ -172,7 +217,7 @@
        below it: a credential nothing will accept cannot replicate
        anything, and the button would fail every time it was pressed.
        The panel offers the way back instead. *@
-    @if (SyncEnabled && _taskSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
+    @if (SyncEnabled && _taskSync is not null && StoredDevice is not null && !NeedsRecovery)
     {
         <SettingsCard Title="@SyncTasksCardTitle"
                       Description="Runs on its own every few minutes. Sends what changed on this machine and brings back what changed on the others."
@@ -237,7 +282,7 @@
        that owner already had, and the only cure was a file to delete by
        hand. The exchange resets itself across that line now; the button
        is for the person whose second machine still shows nothing. *@
-    @if (SyncEnabled && _sessionSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
+    @if (SyncEnabled && _sessionSync is not null && StoredDevice is not null && !NeedsRecovery)
     {
         <SettingsCard Title="@SyncSessionsCardTitle"
                       Description="Runs on its own every few minutes. Sends this machine's Claude and Copilot session records and brings back what the other devices reported."
@@ -274,7 +319,7 @@
         </SettingsCard>
     }
 
-    @if (StoredDevice is null || DeviceNoLongerRegistered)
+    @if (StoredDevice is null || NeedsRecovery)
     {
         <SettingsCard Title="@RegisterCardTitle"
                       Description="Claims an owner of its own. Do this on the first device only - every device after it pairs instead, or it ends up with an owner nobody else can see."
@@ -434,7 +479,7 @@
     public static string Headline(bool paired) =>
         paired ? "This device is paired with the sync service." : "This device is not paired.";
 
-    private bool IsPaired => StoredDevice is not null && !DeviceNoLongerRegistered;
+    private bool IsPaired => StoredDevice is not null && !NeedsRecovery;
 
     private DevicePairingClient? _devicePairing;
     private SyncServiceSettingsStore? _syncService;
@@ -456,6 +501,9 @@
 
     private bool UpdateRequired => _compatibility?.UpdateRequired == true;
     private IDeviceCredentialStore? _deviceCredentials;
+
+    /// <summary>This device's key, on a host that keeps one (local ADR 0052 §2).</summary>
+    private IDeviceKeyStore? _deviceKeys;
 
     /// <summary>Optional for the reason the pairing client is: a host that has
     /// not registered an <c>ITaskSyncStateStore</c> - which every host must do
@@ -607,6 +655,55 @@
             ? $"This machine will forget the credential it holds for {stored.DeviceName}. Nothing on the sync service is deleted, and the entries in this backlog are untouched - but pairing again means registering or redeeming a code."
             : "This machine will forget the credential it holds.";
 
+    /// <summary>This device is bound to a key the token provider could not use, so
+    /// it cannot sync until the key comes back or it registers again.</summary>
+    private bool KeyUnavailable => StoredDevice is not null && _deviceTokens?.KeyUnavailable == true;
+
+    /// <summary>Either way this device cannot sync, and the panel offers the way back
+    /// in place of the cards a working device gets.</summary>
+    private bool NeedsRecovery => DeviceNoLongerRegistered || KeyUnavailable;
+
+    /// <summary>How this device's key is kept, once <see cref="ResolveKeyProtectionAsync"/>
+    /// has asked; null before that, on a host with no key store, for a device not
+    /// bound to a key, and where the key could not be opened.</summary>
+    private DeviceKeyProtection? _keyProtection;
+
+    private bool KeyIsInSoftware => StoredDevice is { IsKeyBound: true } && _keyProtection == DeviceKeyProtection.Software;
+
+    private string KeyBoundNote => _keyProtection switch
+    {
+        DeviceKeyProtection.Hardware => "This device signs in with a key kept in this PC's TPM, which cannot be copied out, and stores no password-like secret.",
+        DeviceKeyProtection.Software => "This device signs in with a key kept in software, sealed to your Windows account, and stores no password-like secret.",
+        _ => "This device signs in with a key of its own and stores no password-like secret.",
+    };
+
+    /// <summary>
+    /// Asks the key store how the key is kept - off the render thread, because opening
+    /// a TPM key can take a moment - when the page opens and whenever the credential
+    /// changes (<see cref="OnCredentialChanged"/>). Only for a device bound to a key: asking
+    /// opens the key or creates it, and rendering the page must never make a key for
+    /// a device that has none. A key that cannot be opened leaves the answer null;
+    /// the token exchange says so through <see cref="KeyUnavailable"/>.
+    /// </summary>
+    private async Task ResolveKeyProtectionAsync()
+    {
+        if (StoredDevice is not { IsKeyBound: true } || _deviceKeys is not { } keys)
+        {
+            _keyProtection = null;
+            return;
+        }
+
+        try
+        {
+            _keyProtection = await Task.Run(() => keys.Protection);
+        }
+        catch (System.Security.Cryptography.CryptographicException ex)
+        {
+            _deviceLog?.LogWarning(ex, "This device's key could not be opened to read how it is kept.");
+            _keyProtection = null;
+        }
+    }
+
     private string CredentialStorePath =>
         _deviceCredentials?.StorePath ?? "nowhere - cloud sync is not configured in this build";
 
@@ -654,6 +751,7 @@
             }
 
             ReportDeviceOutcome($"Registered as {result.Value.DeviceName}.", failed: false);
+            await ResolveKeyProtectionAsync();
             await RefreshDeviceStatusAsync();
         }
         catch (Exception ex)
@@ -695,6 +793,7 @@
 
             _draftPairingCode = string.Empty;
             ReportDeviceOutcome($"Paired as {result.Value.DeviceName}.", failed: false);
+            await ResolveKeyProtectionAsync();
             await RefreshDeviceStatusAsync();
         }
         catch (Exception ex)
@@ -1101,6 +1200,19 @@
     /// <summary>The verdict moved, and it usually moved on a background thread.</summary>
     private void OnCredentialRejectedChanged() => _ = InvokeAsync(StateHasChanged);
 
+    /// <summary>The key became usable or stopped being, on a background fetch.</summary>
+    private void OnKeyUnavailableChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>The credential was saved or forgotten - usually by the token provider on
+    /// a background fetch, moving a device on a secret onto its key. What the page says
+    /// about the key follows it without a reload: the protection is asked again off the
+    /// render thread, and the page redrawn on it.</summary>
+    private void OnCredentialChanged() => _ = InvokeAsync(async () =>
+    {
+        await ResolveKeyProtectionAsync();
+        StateHasChanged();
+    });
+
     private void ReportDeviceOutcome(string message, bool failed)
     {
         _devicesMessage = message;
@@ -1121,6 +1233,7 @@
     {
         _devicePairing = Services.GetService<DevicePairingClient>();
         _deviceCredentials = Services.GetService<IDeviceCredentialStore>();
+        _deviceKeys = Services.GetService<IDeviceKeyStore>();
         // Optional the way the pairing client is: a head that composes the sync
         // clients against a fixed address has no URL to offer and hides the field.
         _syncService = Services.GetService<SyncServiceSettingsStore>();
@@ -1134,6 +1247,7 @@
         _compatibility = Services.GetService<SyncCompatibility>();
         _updateWindowRequests = Services.GetService<AppUpdateWindowRequests>();
         if (_compatibility is not null) _compatibility.Changed += OnCompatibilityChanged;
+        if (_deviceCredentials is not null) _deviceCredentials.Changed += OnCredentialChanged;
 
         // The loop outlives this page, so what it did while nobody was here is
         // already on it - and what it does while somebody is here has to reach
@@ -1145,10 +1259,16 @@
         // that is not this one - hence the marshal in the handler. That
         // background sync is now the loop above, which is what made the refusal
         // reachable without anybody pressing anything.
-        if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged += OnCredentialRejectedChanged;
+        if (_deviceTokens is not null)
+        {
+            _deviceTokens.CredentialRejectedChanged += OnCredentialRejectedChanged;
+            _deviceTokens.KeyUnavailableChanged += OnKeyUnavailableChanged;
+        }
 
         _draftDeviceName = StoredDevice?.DeviceName ?? Environment.MachineName;
     }
+
+    protected override Task OnInitializedAsync() => ResolveKeyProtectionAsync();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -1180,8 +1300,13 @@
 
         if (_taskSync is not null) _taskSync.Changed -= OnTaskSyncChanged;
         if (_sessionSync is not null) _sessionSync.Changed -= OnSessionSyncChanged;
-        if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged -= OnCredentialRejectedChanged;
+        if (_deviceTokens is not null)
+        {
+            _deviceTokens.CredentialRejectedChanged -= OnCredentialRejectedChanged;
+            _deviceTokens.KeyUnavailableChanged -= OnKeyUnavailableChanged;
+        }
         if (_compatibility is not null) _compatibility.Changed -= OnCompatibilityChanged;
+        if (_deviceCredentials is not null) _deviceCredentials.Changed -= OnCredentialChanged;
     }
 
     // Raised on whichever thread asked the service.

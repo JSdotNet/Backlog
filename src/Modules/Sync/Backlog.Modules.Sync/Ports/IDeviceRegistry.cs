@@ -29,6 +29,14 @@ public interface IDeviceRegistry
     Task<IReadOnlyList<Device>> ListByOwner(OwnerId ownerId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Binds <paramref name="publicKey"/> to a device that has no key yet and drops
+    /// its credential hash, so the credential mints no further token (local ADR 0052
+    /// §2). Answers false when there is no such device or it is already bound — a
+    /// concurrent binding included — so a device migrates once and only once.
+    /// </summary>
+    Task<bool> BindKey(DeviceId id, string publicKey, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Forgets one device of this owner, so its credential mints no further token.
     /// Answers false when the owner has no such device — already removed, or never
     /// theirs — which the caller reports the same way.

@@ -30,8 +30,9 @@ namespace Backlog.Infrastructure.Cosmos.Devices;
 /// <para>
 /// A registry rather than a replica, and the difference shows in what it does
 /// not have: no change feed, no cursor, no tombstone, no TTL. A device is
-/// written once and read many times; there is no offline copy that needs to
-/// converge with it.
+/// written on registration, replaced at most once — when it binds a key in
+/// place of its credential (local ADR 0052 §2) — and read many times; there is
+/// no offline copy that needs to converge with it.
 /// </para>
 /// </summary>
 internal sealed class CosmosDeviceRegistry : IDeviceRegistry
@@ -96,6 +97,52 @@ internal sealed class CosmosDeviceRegistry : IDeviceRegistry
             // wrong credential with, so this null carries no information a
             // caller could not already get.
             return null;
+        }
+        catch (CosmosException failure)
+        {
+            throw Fault(failure);
+        }
+    }
+
+    /// <summary>A point read, then a replace conditional on the etag read with it,
+    /// so a binding that raced another fails rather than overwriting the key the
+    /// other bound.</summary>
+    public async Task<bool> BindKey(DeviceId id, string publicKey, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(publicKey);
+
+        var key = ReplicaDocumentSerialization.Key(id.Value);
+
+        try
+        {
+            var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+            var read = await container.ReadItemAsync<DeviceDocument>(
+                key,
+                new PartitionKey(key),
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            var document = read.Resource;
+            if (!string.IsNullOrEmpty(document.PublicKey))
+            {
+                return false;
+            }
+
+            document.PublicKey = publicKey;
+            document.CredentialHash = null;
+
+            await container.ReplaceItemAsync(
+                document,
+                key,
+                new PartitionKey(key),
+                new ItemRequestOptions { IfMatchEtag = read.ETag },
+                cancellationToken).ConfigureAwait(false);
+
+            return true;
+        }
+        catch (CosmosException failure) when (failure.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.PreconditionFailed)
+        {
+            // Gone, or another binding replaced it between the read and this write.
+            return false;
         }
         catch (CosmosException failure)
         {

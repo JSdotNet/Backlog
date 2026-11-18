@@ -1,8 +1,12 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 using Polly;
 
@@ -47,6 +51,21 @@ namespace Backlog.Infrastructure.Sync;
 /// nothing about the credential, and a screen that unpaired a device over it
 /// would throw away a good pairing every time a laptop woke on a dead network.
 /// </para>
+/// <para>
+/// On a host with an <see cref="IDeviceKeyStore"/> the proof is the device's key
+/// (local ADR 0052 §2). A device bound to it — a stored credential with no secret —
+/// sends a fresh <see cref="DeviceAssertion"/> on every fetch. A device still holding
+/// a secret moves onto the key on its next fetch: it sends the secret, the public key
+/// and an assertion that key signed, and once a token comes back the secret is
+/// deleted from this machine, as it is from the service. A host with no key store
+/// goes on sending the secret.
+/// </para>
+/// <para>
+/// A device bound to its key whose key cannot be opened, or will not sign, has no
+/// proof to offer at all. That is <see cref="KeyUnavailable"/>, the second thing a
+/// screen can tell apart: not a verdict from the service, but a device that cannot
+/// sync until its key comes back or it registers again.
+/// </para>
 /// </summary>
 public sealed class SyncTokenProvider : IDisposable
 {
@@ -61,11 +80,19 @@ public sealed class SyncTokenProvider : IDisposable
     private readonly IHttpClientFactory _clients;
     private readonly IDeviceCredentialStore _credentials;
     private readonly TimeProvider _time;
+    private readonly IDeviceKeyStore? _keys;
+    private readonly ILogger _log;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private string? _token;
     private DateTimeOffset _expiresAt;
     private bool _credentialRejected;
+    private bool _keyUnavailable;
+
+    /// <summary>Whether the last attempt to open or sign with the key failed, so a key
+    /// that keeps failing is a warning once and a debug line on every fetch after it,
+    /// rather than a warning per background sync. Read and written under the gate.</summary>
+    private bool _keyFailing;
     private long _tokensRefused;
 
     /// <summary>Bumped every time the cache is dropped. A fetch reads it on the
@@ -75,7 +102,15 @@ public sealed class SyncTokenProvider : IDisposable
     /// the device it was for.</summary>
     private int _generation;
 
-    public SyncTokenProvider(IHttpClientFactory clients, IDeviceCredentialStore credentials, TimeProvider time)
+    /// <param name="keys">This device's key, or none on a host that keeps none.</param>
+    /// <param name="log">Where a key that cannot be used, and a secret that cannot be
+    /// forgotten, are written.</param>
+    public SyncTokenProvider(
+        IHttpClientFactory clients,
+        IDeviceCredentialStore credentials,
+        TimeProvider time,
+        IDeviceKeyStore? keys = null,
+        ILogger<SyncTokenProvider>? log = null)
     {
         ArgumentNullException.ThrowIfNull(clients);
         ArgumentNullException.ThrowIfNull(credentials);
@@ -84,6 +119,8 @@ public sealed class SyncTokenProvider : IDisposable
         _clients = clients;
         _credentials = credentials;
         _time = time;
+        _keys = keys;
+        _log = log ?? NullLogger<SyncTokenProvider>.Instance;
 
         // Pairing, unpairing and re-registering all replace the credential the
         // cached token was minted from, so the cache is dropped the moment the
@@ -110,6 +147,23 @@ public sealed class SyncTokenProvider : IDisposable
     /// thread the change happened on, which for a background sync is not the UI
     /// one - a handler that touches a component has to marshal.</summary>
     public event Action? CredentialRejectedChanged;
+
+    /// <summary>
+    /// Whether this device is bound to a key it cannot use right now - the store will
+    /// not open it, or it will not sign - so it has nothing to prove itself with and
+    /// does not sync. A screen offers registering again from it, as from
+    /// <see cref="CredentialRejected"/>.
+    /// <para>
+    /// Set by a fetch that found no usable key and taken back by one that did, and by
+    /// the credential being replaced or forgotten. Nothing is remembered between
+    /// fetches: a TPM out of lockout is asked again on the next one.
+    /// </para>
+    /// </summary>
+    public bool KeyUnavailable => _keyUnavailable;
+
+    /// <summary>Raised when <see cref="KeyUnavailable"/> changes, on the thread the
+    /// change happened on, as <see cref="CredentialRejectedChanged"/> is.</summary>
+    public event Action? KeyUnavailableChanged;
 
     /// <summary>
     /// A token for the next call, or <c>null</c> when this device cannot get
@@ -188,6 +242,17 @@ public sealed class SyncTokenProvider : IDisposable
     {
         Invalidate();
         SetCredentialRejected(false);
+        SetKeyUnavailable(false);
+    }
+
+    /// <returns>Whether the state moved.</returns>
+    private bool SetKeyUnavailable(bool unavailable)
+    {
+        if (_keyUnavailable == unavailable) return false;
+
+        _keyUnavailable = unavailable;
+        KeyUnavailableChanged?.Invoke();
+        return true;
     }
 
     private void SetCredentialRejected(bool rejected)
@@ -206,13 +271,40 @@ public sealed class SyncTokenProvider : IDisposable
         var client = _clients.CreateClient(HttpClientName);
         var generation = Volatile.Read(ref _generation);
 
+        if (Proof(credential) is not { } request)
+        {
+            // Bound to a key that cannot be used: nothing to send, and nothing the
+            // service could say would help. Said rather than left to look like a
+            // device that has simply gone quiet - but only while the credential that
+            // went looking for the key is still the one this device holds, as with
+            // CredentialRejected below: opening a TPM key takes a moment, and a
+            // device unpaired or paired again meanwhile is not the one that failed.
+            // Read before Invalidate, which moves the generation.
+            var current = Volatile.Read(ref _generation) == generation
+                && _credentials.Current is { } holder
+                && holder.DeviceId == credential.DeviceId;
+
+            Invalidate();
+            if (current && SetKeyUnavailable(true))
+            {
+                _log.LogWarning("Device {DeviceId} is bound to a key this machine cannot use, so it cannot sync.", credential.DeviceId);
+            }
+
+            return null;
+        }
+
+        SetKeyUnavailable(false);
+
+        // A migration re-sent for a device the service already bound - the app
+        // stopped between the bind and forgetting the secret here - is answered on
+        // its assertion, the secret beside it ignored, so it lands on the same
+        // success path as the first one and the secret is forgotten then.
+        var migrating = request.Credential is not null && request.PublicKey is not null;
+
         try
         {
             using var response = await client
-                .PostAsJsonAsync(
-                    SyncRoutes.Absolute(SyncRoutes.DeviceToken),
-                    new DeviceTokenRequest(credential.DeviceId, credential.Credential),
-                    cancellationToken)
+                .PostAsJsonAsync(SyncRoutes.Absolute(SyncRoutes.DeviceToken), request, cancellationToken)
                 .ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
@@ -255,6 +347,19 @@ public sealed class SyncTokenProvider : IDisposable
             if (Volatile.Read(ref _generation) != generation) return null;
             if (_credentials.Current is not { } current || current.DeviceId != credential.DeviceId) return null;
 
+            if (migrating)
+            {
+                // The service has bound the key and forgotten the secret, so this
+                // machine forgets it too. The save raises Changed, which drops the
+                // cache: this provider's own save is no reason to lose the token it
+                // just earned, which is committed below regardless. A save that fails
+                // leaves the secret here; the token is still good, and the next
+                // fetch's re-sent migration is answered on its assertion and forgets
+                // the secret then.
+                await ForgetSecretAsync(current).ConfigureAwait(false);
+                if (_credentials.Current is not { } saved || saved.DeviceId != credential.DeviceId) return null;
+            }
+
             _token = token.AccessToken;
             _expiresAt = token.ExpiresAt;
 
@@ -275,6 +380,93 @@ public sealed class SyncTokenProvider : IDisposable
         {
             Invalidate();
             return null;
+        }
+    }
+
+    /// <summary>
+    /// What this device offers the token endpoint, or null when it has nothing it
+    /// can offer — a device bound to a key it cannot open, or that will not sign.
+    /// <list type="bullet">
+    /// <item>No secret: an assertion its key signs.</item>
+    /// <item>A secret and a key: the secret, the public key, and an assertion that
+    /// key signs — the migration, which proves possession of the key it binds.</item>
+    /// <item>A secret and no key — no key store, or one that cannot give a key or a
+    /// signature: the secret alone, as before keys.</item>
+    /// </list>
+    /// </summary>
+    private DeviceTokenRequest? Proof(DeviceCredential credential)
+    {
+        var key = KeyOrNull();
+        var assertion = key is null ? null : AssertionOrNull(credential.DeviceId, key);
+        if (assertion is not null) _keyFailing = false;
+
+        if (credential.Credential is not { } secret)
+        {
+            return assertion is null
+                ? null
+                : new DeviceTokenRequest(
+                    credential.DeviceId,
+                    ClientAssertionType: SyncAssertion.ClientAssertionType,
+                    ClientAssertion: assertion);
+        }
+
+        return assertion is null
+            ? new DeviceTokenRequest(credential.DeviceId, secret)
+            : new DeviceTokenRequest(credential.DeviceId, secret, SyncAssertion.ClientAssertionType, assertion, key!.PublicKey);
+    }
+
+    private IDeviceKey? KeyOrNull()
+    {
+        if (_keys is null) return null;
+
+        try
+        {
+            return _keys.GetOrCreate();
+        }
+        catch (CryptographicException ex)
+        {
+            _log.Log(KeyFailureLevel(), ex, "This device's key could not be opened; the token fetch goes without it.");
+            return null;
+        }
+    }
+
+    /// <summary>An assertion, or null when the key would not sign — a TPM that is
+    /// locked out or gone. That is a failed fetch, not a verdict on the device.</summary>
+    private string? AssertionOrNull(Guid deviceId, IDeviceKey key)
+    {
+        try
+        {
+            return DeviceAssertion.Create(deviceId, key, _time);
+        }
+        catch (CryptographicException ex)
+        {
+            _log.Log(KeyFailureLevel(), ex, "This device's key would not sign; the token fetch goes without it.");
+            return null;
+        }
+    }
+
+    /// <summary>Warning for the failure that starts a run of them, debug for the rest.</summary>
+    private LogLevel KeyFailureLevel()
+    {
+        var level = _keyFailing ? LogLevel.Debug : LogLevel.Warning;
+        _keyFailing = true;
+        return level;
+    }
+
+    /// <summary>Stores <paramref name="current"/> without its secret. A store that
+    /// will not write is logged and left: the token already minted is still kept,
+    /// and the next fetch's re-sent migration - answered on its assertion - tries the
+    /// forgetting again.</summary>
+    private async Task ForgetSecretAsync(DeviceCredential current)
+    {
+        try
+        {
+            // Not cancellable: the service has already forgotten the secret.
+            await _credentials.SaveAsync(current with { Credential = null }, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
+        {
+            _log.LogWarning(ex, "Device {DeviceId} moved onto its key, but its old secret could not be deleted here; the next token fetch tries again.", current.DeviceId);
         }
     }
 }

@@ -3,17 +3,21 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// <summary>What a device sends to enrol as the owner's device: what to call
 /// itself, the one-time code its owner sign-in handed back to its loopback, and
 /// the PKCE verifier only the device that started that sign-in holds (local ADR
-/// 0052 §1).</summary>
-public sealed record RegisterDeviceRequest(string DeviceName, string? EnrolmentCode = null, string? CodeVerifier = null);
+/// 0052 §1). <paramref name="PublicKey"/> is the base64url SubjectPublicKeyInfo of
+/// the device's non-exportable P-256 key (§2): with it the device is bound to that
+/// key and gets no credential.</summary>
+public sealed record RegisterDeviceRequest(string DeviceName, string? EnrolmentCode = null, string? CodeVerifier = null, string? PublicKey = null);
 
 /// <summary>
 /// What a newly registered device gets back. <paramref name="Credential"/> is a
 /// long-lived secret shown exactly once — the service keeps only its hash — and
-/// the device is expected to put it straight into the OS credential store.
+/// the device is expected to put it straight into the OS credential store. It is
+/// null for a device that registered a public key: that device proves itself by
+/// signing an assertion instead (local ADR 0052 §2).
 /// <paramref name="RevokedDeviceCount"/> is how many of the owner's other devices a
 /// recovery revoked: zero for a first device.
 /// </summary>
-public sealed record DeviceRegistrationResponse(Guid OwnerId, Guid DeviceId, string Credential, int RevokedDeviceCount = 0);
+public sealed record DeviceRegistrationResponse(Guid OwnerId, Guid DeviceId, string? Credential, int RevokedDeviceCount = 0);
 
 /// <summary>
 /// A device starts the owner sign-in (local ADR 0052 §1). <paramref name="RedirectUri"/>
@@ -39,14 +43,32 @@ public sealed record EnrolmentStartResponse(Uri SignInAddress);
 /// </summary>
 public sealed record PairingCodeResponse(string Code, DateTimeOffset ExpiresAt);
 
-/// <summary>What the second device sends: the code it was given, and what to
-/// call itself once it is in.</summary>
-public sealed record RedeemPairingCodeRequest(string Code, string DeviceName);
+/// <summary>What the second device sends: the code it was given, what to call
+/// itself once it is in, and — for a device bound to a key — its public key, as
+/// on <see cref="RegisterDeviceRequest"/>.</summary>
+public sealed record RedeemPairingCodeRequest(string Code, string DeviceName, string? PublicKey = null);
 
-/// <summary>The registration credential, offered in exchange for a short-lived
-/// access token. Sent on every sync, so it never leaves the device except over
-/// TLS to this one endpoint.</summary>
-public sealed record DeviceTokenRequest(Guid DeviceId, string Credential);
+/// <summary>
+/// What a device offers in exchange for a short-lived access token: either a
+/// signed assertion or its registration credential.
+/// <para>
+/// A device bound to a key sends <paramref name="ClientAssertion"/>, a
+/// <c>private_key_jwt</c> signed with that key, and <paramref name="ClientAssertionType"/>
+/// set to <see cref="SyncAssertion.ClientAssertionType"/> (local ADR 0052 §2). Its
+/// credential sent alone is refused; sent beside a valid assertion it is ignored, so a
+/// migration request re-sent after the key was bound is answered by the assertion. A
+/// device still on a credential sends
+/// <paramref name="Credential"/>, and may add <paramref name="PublicKey"/> once to
+/// bind a key in its place, with an assertion signed by that key to prove it holds
+/// it: the service then forgets the credential.
+/// </para>
+/// </summary>
+public sealed record DeviceTokenRequest(
+    Guid DeviceId,
+    string? Credential = null,
+    string? ClientAssertionType = null,
+    string? ClientAssertion = null,
+    string? PublicKey = null);
 
 /// <summary>
 /// The short-lived token every other sync call carries. Per inherited ADR 0012
