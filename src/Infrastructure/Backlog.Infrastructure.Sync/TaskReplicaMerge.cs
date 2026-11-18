@@ -168,7 +168,7 @@ public sealed class TaskReplicaMerge(
     IGoalReplication? goals = null,
     IImpedimentReplication? impediments = null,
     IImpedimentEditIntake? impedimentEdits = null,
-    ImpedimentEditRetirements? retirements = null,
+    PhoneRequestRetirements? retirements = null,
     TimeProvider? time = null,
     IIterationSettingsReplication? iteration = null,
     IEventAttachmentRequests? eventAttachments = null,
@@ -225,7 +225,7 @@ public sealed class TaskReplicaMerge(
     /// <summary>Where the tombstone of an edit Progress answered waits for the push, or null
     /// on a head that sends none — the edit then stays on the replica, and the next desktop
     /// refuses it as stale.</summary>
-    private readonly ImpedimentEditRetirements? _retirements = retirements;
+    private readonly PhoneRequestRetirements? _retirements = retirements;
 
     /// <summary>Where an attachment request the phone wrote is applied, or null on a head
     /// without Events, which leaves the request on the replica for one that has it.</summary>
@@ -1001,7 +1001,8 @@ public sealed class TaskReplicaMerge(
     /// process; one Progress answers is retired as any other. An attachment request deferred
     /// for an event this desktop did not hold yet, or met while the <c>events</c> area was off,
     /// is offered again the same way: the event arrives on its own feed and the area may be
-    /// switched on later, so a later cycle's retry is the one that finds it.
+    /// switched on later, so a later cycle's retry is the one that finds it — in a later run
+    /// too, since an attachment request is held durably.
     /// </summary>
     public async Task<int> RetryDeferredRequestsAsync(CancellationToken cancellationToken = default)
     {
@@ -1091,16 +1092,24 @@ public sealed class TaskReplicaMerge(
     /// event, and queues the request's tombstone once Events has answered it — attached, already
     /// attached or incomplete alike, since none of those answers changes on a second asking
     /// (<c>.devbook/domain/events/domain.md#attachment-request</c>). A retired request and one on
-    /// a head without Events are left alone: another desktop may still apply them. One met while
-    /// the <c>events</c> area is off is deferred, since the task cursor moves past it and the area
-    /// may be switched on again in this process.
+    /// a head without Events are left alone: another desktop may still apply them, and a retired
+    /// one this desktop holds is let go. One met while the <c>events</c> area is off is deferred,
+    /// since the task cursor moves past it and the area may be switched on again — after a
+    /// restart too, because <see cref="PhoneRequestRetirements"/> keeps it durably.
     /// </summary>
     private async Task<ApplyOutcome> ApplyEventAttachmentAsync(
         TaskChangeRecord record,
         List<SyncActivityEntry> moved,
         CancellationToken cancellationToken)
     {
-        if (record.Change.DeletedAt is not null || _eventAttachments is null) return ApplyOutcome.Held;
+        if (record.Change.DeletedAt is not null)
+        {
+            // Another desktop answered it, or this one did and the tombstone echoed back.
+            _retirements?.Release(record.Change.Id);
+            return ApplyOutcome.Held;
+        }
+
+        if (_eventAttachments is null) return ApplyOutcome.Held;
 
         if (_features?.IsEnabled(EventsFeatures.Events) != true)
         {
@@ -1116,6 +1125,9 @@ public sealed class TaskReplicaMerge(
                 record.Change.Task.Type,
                 record.Change.Id);
 
+            // Held while the area was off, it reads no better on the next retry: let it go, so
+            // it is not offered on every cycle. The replica still has it for a newer build.
+            _retirements?.Release(record.Change.Id);
             return ApplyOutcome.Unreadable;
         }
 

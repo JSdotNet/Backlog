@@ -30,11 +30,19 @@ internal sealed class KnowledgeEventReplication : IKnowledgeEventReplication
     /// <param name="events">Where this host keeps its events, or null on a head that keeps
     /// none — then there is nothing to send, and every copy reads as unreadable.</param>
     /// <param name="series">Where this host keeps its series, or null, on the same terms.</param>
-    public KnowledgeEventReplication(IKnowledgeEventReplicaStore? events = null, IEventSeriesReplicaStore? series = null)
+    /// <param name="saved">The notice every local save raises, forwarded as
+    /// <see cref="Changed"/>; null where nothing announces one.</param>
+    public KnowledgeEventReplication(
+        IKnowledgeEventReplicaStore? events = null,
+        IEventSeriesReplicaStore? series = null,
+        KnowledgeEventSaved? saved = null)
     {
         _events = events;
         _series = series;
+        if (saved is not null) saved.Changed += () => Changed?.Invoke();
     }
+
+    public event Action? Changed;
 
     public async Task<IReadOnlyList<KnowledgeEventReplicaDto>> ListEventsChangedSinceAsync(
         DateTimeOffset watermark,

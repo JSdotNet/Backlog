@@ -267,7 +267,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
             services.AddSingleton<IGoalPullRequestReader, OneOpenPullRequest>();
             services.AddSqlite(_ => root);
             services.AddProgressModule();
-            services.AddSingleton<ImpedimentEditRetirements>();
+            services.AddSingleton<PhoneRequestRetirements>();
 
             _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
             _tasks = new SqliteTaskRepository(root);
@@ -308,7 +308,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         {
             var goals = _provider.GetRequiredService<IGoalReplication>();
             var impediments = _provider.GetRequiredService<IImpedimentReplication>();
-            var retirements = _provider.GetRequiredService<ImpedimentEditRetirements>();
+            var retirements = _provider.GetRequiredService<PhoneRequestRetirements>();
 
             return new TaskSyncSession(
                 new TaskSyncClient(_http),
