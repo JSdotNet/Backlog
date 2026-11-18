@@ -18,8 +18,10 @@ using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Capture.UnitTests;
 
@@ -63,6 +65,69 @@ public sealed class CaptureAdapterRegistrationTests
         // the Events area's flag, and only that one is left.
         Assert.IsType<EventsAreaSourceAvailability>(scope.ServiceProvider.GetRequiredService<ICaptureSourceAvailability>());
         Assert.Single(services, service => service.ServiceType == typeof(ICaptureSourceAvailability));
+    }
+
+    /// <summary><c>.devbook/domain/capture/requirements.md</c>, "The monitor
+    /// reads pages only when asked", as a host composes it: the event page
+    /// source on with a watched page, the Events area on, and a day passing on
+    /// a clock that fires every timer set on it. The registration starts no
+    /// hosted service and nothing reads the page; the run asked for is what
+    /// does.</summary>
+    [Fact]
+    public async Task With_the_event_page_source_on_a_day_passes_without_a_read_until_a_run()
+    {
+        const string watched = "https://dotnetfriday.nl/";
+        var wire = new StubHttpMessageHandler();
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 10, 9, 0, 0, TimeSpan.Zero));
+        var services = new ServiceCollection();
+        services.AddSingleton<TimeProvider>(clock);
+        services.AddSingleton<IAppFeatureSettings>(new SwitchedFeatures { On = true });
+        services.AddSingleton<ICaptureSourceSettings>(new WatchedEventPage(watched));
+        services.AddSingleton<ICaptureRunLog>(new NoLog());
+        services.AddSingleton<ICaptureTargetLedger>(new NoLedger());
+        services.AddSingleton<IInboxIntake>(new NoIntake());
+        services.AddSingleton(DispatchProxy.Create<IInboxItems, NeverCalled>());
+        services.AddCaptureModule();
+        services.AddCaptureAdapters();
+        services.AddSingleton<IHttpClientFactory>(new StubHttpClientFactory(wire));
+
+        Assert.DoesNotContain(services, service => service.ServiceType == typeof(IHostedService));
+
+        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
+        await using var scope = provider.CreateAsyncScope();
+        var runner = scope.ServiceProvider.GetRequiredService<ICaptureRunner>();
+
+        clock.Advance(TimeSpan.FromDays(1));
+
+        Assert.Empty(wire.Requested);
+
+        await runner.RunAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal([watched], wire.Requested);
+    }
+
+    /// <summary>The settings with only the event page source on, watching one
+    /// page.</summary>
+    private sealed class WatchedEventPage(string target) : ICaptureSourceSettings
+    {
+        public event Action? Changed { add { } remove { } }
+
+        public CaptureSourceSettings Current { get; } = new()
+        {
+            Sources = [.. CaptureSourceKinds.Monitorable.Select(kind => kind == CaptureSourceKind.EventPage
+                ? new MonitoredSource(kind, Enabled: true, [target])
+                : new MonitoredSource(kind, Enabled: false, []))]
+        };
+
+        public string SettingsPath => "memory";
+
+        public string? SetEnabled(CaptureSourceKind kind, bool enabled) => null;
+
+        public string? SetTargets(CaptureSourceKind kind, IReadOnlyList<string> targets) => null;
     }
 
     /// <summary>The host's feature settings are what the availability reads,

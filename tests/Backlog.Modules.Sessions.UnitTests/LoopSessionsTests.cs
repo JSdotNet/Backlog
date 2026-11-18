@@ -1,0 +1,388 @@
+using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Tests;
+
+using Microsoft.Extensions.Time.Testing;
+
+namespace Backlog.Modules.Sessions.UnitTests;
+
+/// <summary>
+/// The Loop State (local ADR 0051 §3, <c>.devbook/domain/sessions/domain.md#loop-state</c>):
+/// Listening or Holding while a loop checks in, Stalled past its heartbeat plus 10 minutes
+/// with its process alive, Not running with no process or its session archived — and the
+/// monitor a screen reads them through.
+/// </summary>
+public class LoopSessionsTests
+{
+    private static readonly DateTimeOffset Noon = new(2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
+
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    private static LoopCheckIn CheckIn(
+        LoopActivity activity = LoopActivity.Listening,
+        int heartbeat = 30,
+        LoopKind kind = LoopKind.Dispatcher,
+        string sessionId = "manager-session") =>
+        LoopSessions.CheckIn(sessionId, kind, activity, heartbeat, LoopHeldWork.None, Noon);
+
+    /// <summary>The scenario "A Manager waits for requests": a check-in 40 seconds ago.</summary>
+    [Fact]
+    public void A_loop_that_checked_in_within_two_minutes_reads_Listening()
+    {
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(CheckIn(), LoopProcess.Alive, Noon + TimeSpan.FromSeconds(40)));
+    }
+
+    [Fact]
+    public void A_dispatcher_that_says_it_holds_reads_Holding()
+    {
+        Assert.Equal(LoopState.Holding, LoopSessions.StateAt(CheckIn(LoopActivity.Holding), LoopProcess.Alive, Noon + TimeSpan.FromMinutes(1)));
+    }
+
+    [Fact]
+    public void A_working_loop_reads_Listening()
+    {
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(CheckIn(LoopActivity.Working), LoopProcess.Alive, Noon));
+    }
+
+    [Fact]
+    public void The_Brain_tender_has_no_queue_so_it_never_reads_Holding()
+    {
+        var checkIn = CheckIn(LoopActivity.Holding, kind: LoopKind.BrainTender);
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    // --- Holding, as the app's own reading decides it (local ADR 0051 §4) -------------------
+
+    /// <summary>A dispatcher's check-in as the app recorded it: its own word, the reading the
+    /// app took at it against the default limits, and the requests waiting then.</summary>
+    private static LoopCheckIn Measured(
+        LoopActivity activity,
+        CapacityReading? reading,
+        int workWaiting,
+        LoopKind kind = LoopKind.Dispatcher) =>
+        CheckIn(activity, kind: kind) with { Reading = reading, WorkWaiting = workWaiting };
+
+    [Fact]
+    public void A_check_in_holds_the_default_limits_and_no_reading_until_it_says_otherwise()
+    {
+        var checkIn = CheckIn();
+
+        Assert.Equal(CapacityLimits.Default, checkIn.Limits);
+        Assert.Null(checkIn.Reading);
+        Assert.Null(checkIn.WorkWaiting);
+    }
+
+    /// <summary>A reached limit with the work waiting unknown — no queue, or one that could
+    /// not be read — leaves the loop's own word to decide.</summary>
+    [Theory]
+    [InlineData(LoopActivity.Holding, LoopState.Holding)]
+    [InlineData(LoopActivity.Listening, LoopState.Listening)]
+    public void A_reached_limit_with_the_work_waiting_unknown_leaves_the_loops_own_word(LoopActivity activity, LoopState expected)
+    {
+        var checkIn = CheckIn(activity) with { Reading = new CapacityReading(3, 84, 30, 12, CapacityLimits.Default) };
+
+        Assert.Equal(expected, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    [Fact]
+    public void A_fully_measured_reading_with_room_reads_Listening_even_with_the_work_waiting_unknown()
+    {
+        var checkIn = CheckIn(LoopActivity.Holding) with { Reading = new CapacityReading(1, 40, 30, 12, CapacityLimits.Default) };
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    /// <summary>The scenario "Plan usage holds the queue": 84% of the week against an 80%
+    /// limit, two requests waiting — Holding, whatever the loop said.</summary>
+    [Fact]
+    public void A_dispatcher_reads_Holding_when_work_waits_and_its_reading_has_a_limit_reached()
+    {
+        var checkIn = Measured(LoopActivity.Listening, new CapacityReading(1, 84, null, null, CapacityLimits.Default), workWaiting: 2);
+
+        Assert.Equal(LoopState.Holding, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    [Fact]
+    public void A_fully_measured_reading_with_room_reads_Listening_even_when_the_loop_says_it_holds()
+    {
+        var checkIn = Measured(LoopActivity.Holding, new CapacityReading(1, 40, 30, 12, CapacityLimits.Default), workWaiting: 2);
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    [Fact]
+    public void A_limit_reached_with_no_work_waiting_reads_Listening()
+    {
+        var checkIn = Measured(LoopActivity.Holding, new CapacityReading(3, 84, 30, 12, CapacityLimits.Default), workWaiting: 0);
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    /// <summary>A reading that cannot decide — a figure unavailable and none of the others
+    /// reached, or no reading at all — leaves the loop's own word to decide.</summary>
+    [Theory]
+    [InlineData(LoopActivity.Holding, true, LoopState.Holding)]
+    [InlineData(LoopActivity.Listening, true, LoopState.Listening)]
+    [InlineData(LoopActivity.Holding, false, LoopState.Holding)]
+    [InlineData(LoopActivity.Working, false, LoopState.Listening)]
+    public void A_reading_that_cannot_decide_leaves_the_loops_own_word(LoopActivity activity, bool withReading, LoopState expected)
+    {
+        var reading = withReading ? new CapacityReading(1, null, 30, 12, CapacityLimits.Default) : null;
+
+        Assert.Equal(expected, LoopSessions.StateAt(Measured(activity, reading, workWaiting: 2), LoopProcess.Alive, Noon));
+    }
+
+    [Fact]
+    public void The_Brain_tender_never_holds_even_on_a_reading_with_a_limit_reached()
+    {
+        var checkIn = Measured(LoopActivity.Holding, new CapacityReading(3, 90, 90, 1, CapacityLimits.Default), workWaiting: 2, LoopKind.BrainTender);
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon));
+    }
+
+    [Theory]
+    [InlineData(0, 80.0, 80.0, 4.0)]
+    [InlineData(3, 0.0, 80.0, 4.0)]
+    [InlineData(3, 100.5, 80.0, 4.0)]
+    [InlineData(3, 80.0, 0.0, 4.0)]
+    [InlineData(3, 80.0, 101.0, 4.0)]
+    [InlineData(3, 80.0, 80.0, -1.0)]
+    public void Limits_outside_their_range_are_refused(int sessions, double usage, double cpu, double free)
+    {
+        Assert.NotNull(LoopSessions.Refusal(new CapacityLimits(sessions, usage, cpu, free)));
+    }
+
+    [Theory]
+    [InlineData(3, 80.0, 80.0, 4.0)]
+    [InlineData(1, 100.0, 100.0, 0.0)]
+    [InlineData(12, 0.5, 0.5, 64.0)]
+    public void Limits_in_their_range_are_taken(int sessions, double usage, double cpu, double free)
+    {
+        Assert.Null(LoopSessions.Refusal(new CapacityLimits(sessions, usage, cpu, free)));
+    }
+
+    /// <summary>A loop keeps the state it last read until its heartbeat; past it, what it
+    /// said about holding has lapsed, and it reads Listening until its heartbeat plus 10
+    /// minutes.</summary>
+    [Theory]
+    [InlineData(LoopActivity.Listening, LoopState.Listening)]
+    [InlineData(LoopActivity.Holding, LoopState.Holding)]
+    public void A_loop_keeps_its_last_state_until_its_heartbeat_and_reads_Listening_to_ten_minutes_past_it(LoopActivity activity, LoopState expected)
+    {
+        var checkIn = CheckIn(activity, heartbeat: 30);
+
+        Assert.Equal(expected, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon + TimeSpan.FromMinutes(3)));
+        Assert.Equal(expected, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon + TimeSpan.FromMinutes(30)));
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon + TimeSpan.FromMinutes(31)));
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon + TimeSpan.FromMinutes(40)));
+    }
+
+    /// <summary>The scenario "A hung loop": a 30-minute heartbeat, 41 minutes quiet, a process.</summary>
+    [Fact]
+    public void A_live_loop_quiet_past_its_heartbeat_plus_ten_minutes_reads_Stalled()
+    {
+        var checkIn = CheckIn(heartbeat: 30);
+
+        Assert.Equal(Noon + TimeSpan.FromMinutes(40), LoopSessions.StalledAfter(checkIn));
+        Assert.Equal(LoopState.Stalled, LoopSessions.StateAt(checkIn, LoopProcess.Alive, Noon + TimeSpan.FromMinutes(41)));
+    }
+
+    [Fact]
+    public void A_loop_the_session_list_does_not_hold_reads_by_its_check_ins_alone()
+    {
+        var checkIn = CheckIn(heartbeat: 5);
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(checkIn, LoopProcess.Unknown, Noon + TimeSpan.FromMinutes(10)));
+        Assert.Equal(LoopState.Stalled, LoopSessions.StateAt(checkIn, LoopProcess.Unknown, Noon + TimeSpan.FromMinutes(16)));
+    }
+
+    [Theory]
+    [InlineData(LoopProcess.Gone)]
+    [InlineData(LoopProcess.Archived)]
+    public void A_loop_with_no_process_or_an_archived_session_reads_Not_running(LoopProcess process)
+    {
+        Assert.Equal(LoopState.NotRunning, LoopSessions.StateAt(CheckIn(), process, Noon));
+        Assert.Equal(LoopState.NotRunning, LoopSessions.StateAt(CheckIn(), process, Noon + TimeSpan.FromHours(2)));
+    }
+
+    [Theory]
+    [InlineData(AgentSessionState.Running, null, LoopProcess.Alive)]
+    [InlineData(AgentSessionState.Waiting, false, LoopProcess.Alive)]
+    [InlineData(AgentSessionState.Stalled, false, LoopProcess.Alive)]
+    [InlineData(AgentSessionState.Finished, false, LoopProcess.Gone)]
+    [InlineData(AgentSessionState.Running, true, LoopProcess.Archived)]
+    public void A_sessions_state_and_archived_flag_read_as_its_process(AgentSessionState state, bool? archived, LoopProcess expected)
+    {
+        Assert.Equal(expected, LoopSessions.ProcessOf(Session("manager-session", state, archived)));
+    }
+
+    [Fact]
+    public void No_session_reads_as_an_unknown_process()
+    {
+        Assert.Equal(LoopProcess.Unknown, LoopSessions.ProcessOf(null));
+    }
+
+    [Theory]
+    [InlineData("", 5)]
+    [InlineData("manager-session", 0)]
+    [InlineData("manager-session", LoopSessions.MaxHeartbeatMinutes + 1)]
+    public void A_check_in_needs_a_session_and_a_heartbeat_between_a_minute_and_a_day(string sessionId, int heartbeat)
+    {
+        Assert.NotNull(LoopSessions.Refusal(sessionId, heartbeat, LoopHeldWork.None));
+        Assert.Throws<ArgumentException>(() => LoopSessions.CheckIn(sessionId, LoopKind.Dispatcher, LoopActivity.Listening, heartbeat, LoopHeldWork.None, Noon));
+    }
+
+    [Fact]
+    public void A_new_check_in_keeps_the_command_and_setting_none_clears_it()
+    {
+        var first = LoopSessions.Record(null, CheckIn());
+        var paused = LoopSessions.Command(first, LoopCommand.Pause, Noon);
+        var later = LoopSessions.Record(paused, CheckIn(LoopActivity.Working) with { At = Noon + TimeSpan.FromMinutes(5) });
+
+        Assert.Equal(LoopCommand.None, first.Command);
+        Assert.Equal(LoopCommand.Pause, later.Command);
+        Assert.Equal(Noon, later.CommandSetAt);
+        Assert.Equal(LoopActivity.Working, later.CheckIn.Activity);
+
+        var cleared = LoopSessions.Command(later, LoopCommand.None, Noon + TimeSpan.FromMinutes(6));
+        Assert.Equal(LoopCommand.None, cleared.Command);
+        Assert.Null(cleared.CommandSetAt);
+    }
+
+    /// <summary>A dispatch wait (local ADR 0051 §3) is a check-in with only the session and
+    /// the time: everything else the last check-in said, its own time, and the person's
+    /// command stay.</summary>
+    [Fact]
+    public void A_wait_moves_only_the_check_in_time_keeps_the_full_check_ins_own_and_never_goes_back()
+    {
+        var full = LoopSessions.CheckIn("manager-session", LoopKind.Dispatcher, LoopActivity.Holding, 5, new LoopHeldWork(1, 2, 3, 0), Noon) with
+        {
+            Limits = new CapacityLimits(2, 70, 90, 8),
+            Reading = new CapacityReading(2, 71, 20, 16, new CapacityLimits(2, 70, 90, 8)),
+            WorkWaiting = 4
+        };
+        var paused = LoopSessions.Command(LoopSessions.Record(null, full), LoopCommand.Pause, Noon + TimeSpan.FromMinutes(1));
+
+        var waited = LoopSessions.RecordWait(paused, Noon + TimeSpan.FromMinutes(3));
+        var waitedAgain = LoopSessions.RecordWait(waited, Noon + TimeSpan.FromMinutes(4));
+
+        Assert.Equal(
+            new LoopSession(full with { At = Noon + TimeSpan.FromMinutes(3), ReportedAt = Noon }, LoopCommand.Pause, Noon + TimeSpan.FromMinutes(1)),
+            waited);
+        Assert.Equal(full with { At = Noon + TimeSpan.FromMinutes(4), ReportedAt = Noon }, waitedAgain.CheckIn);
+        Assert.Equal(waited, LoopSessions.RecordWait(waited, Noon + TimeSpan.FromMinutes(2)));
+    }
+
+    /// <summary>A full check-in after waits is its own time again.</summary>
+    [Fact]
+    public void A_full_check_in_after_a_wait_reports_at_its_own_time()
+    {
+        var waited = LoopSessions.RecordWait(LoopSessions.Record(null, CheckIn(LoopActivity.Holding, heartbeat: 5)), Noon + TimeSpan.FromMinutes(6));
+
+        var later = LoopSessions.Record(waited, CheckIn(LoopActivity.Holding, heartbeat: 5) with { At = Noon + TimeSpan.FromMinutes(7) });
+
+        Assert.Null(later.CheckIn.ReportedAt);
+        Assert.Equal(LoopState.Holding, LoopSessions.StateAt(later.CheckIn, LoopProcess.Alive, Noon + TimeSpan.FromMinutes(11)));
+    }
+
+    /// <summary>A Holding check-in — by the app's reading or the loop's own word — stands only
+    /// until the heartbeat it promised: a wait past it keeps the loop off Stalled, but no
+    /// longer keeps it Holding.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_wait_past_the_check_ins_heartbeat_leaves_no_holding(bool measured)
+    {
+        var checkIn = LoopSessions.CheckIn("manager-session", LoopKind.Dispatcher, LoopActivity.Holding, 5, LoopHeldWork.None, Noon) with
+        {
+            Reading = measured ? new CapacityReading(3, 84, 30, 12, CapacityLimits.Default) : null,
+            WorkWaiting = measured ? 3 : null
+        };
+        var loop = LoopSessions.Record(null, checkIn);
+
+        var waited = LoopSessions.RecordWait(loop, Noon + TimeSpan.FromMinutes(6));
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(waited.CheckIn, LoopProcess.Alive, Noon + TimeSpan.FromMinutes(6)));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_wait_within_the_check_ins_heartbeat_still_reads_Holding(bool measured)
+    {
+        var checkIn = LoopSessions.CheckIn("manager-session", LoopKind.Dispatcher, LoopActivity.Holding, 5, LoopHeldWork.None, Noon) with
+        {
+            Reading = measured ? new CapacityReading(3, 84, 30, 12, CapacityLimits.Default) : null,
+            WorkWaiting = measured ? 3 : null
+        };
+
+        var waited = LoopSessions.RecordWait(LoopSessions.Record(null, checkIn), Noon + TimeSpan.FromMinutes(4));
+
+        Assert.Equal(LoopState.Holding, LoopSessions.StateAt(waited.CheckIn, LoopProcess.Alive, Noon + TimeSpan.FromMinutes(4)));
+    }
+
+    /// <summary>Waits alone keep a loop off Stalled long after its last full check-in.</summary>
+    [Fact]
+    public void Waits_keep_a_loop_off_Stalled_long_after_its_last_full_check_in()
+    {
+        var loop = LoopSessions.Record(null, CheckIn(LoopActivity.Holding, heartbeat: 5));
+
+        for (var minute = 1; minute <= 60; minute++) loop = LoopSessions.RecordWait(loop, Noon + TimeSpan.FromMinutes(minute));
+
+        Assert.Equal(LoopState.Listening, LoopSessions.StateAt(loop.CheckIn, LoopProcess.Alive, Noon + TimeSpan.FromMinutes(61)));
+    }
+
+    [Fact]
+    public async Task The_monitor_reads_each_loop_against_the_session_list()
+    {
+        var clock = new FakeTimeProvider(Noon);
+        var register = new InMemoryLoopRegister(clock);
+        await register.CheckInAsync(CheckIn(heartbeat: 5, sessionId: "live"), Ct);
+        await register.CheckInAsync(CheckIn(heartbeat: 5, sessionId: "hung"), Ct);
+        await register.CheckInAsync(CheckIn(heartbeat: 5, sessionId: "archived"), Ct);
+        clock.Advance(TimeSpan.FromMinutes(16));
+        await register.CheckInAsync(CheckIn(heartbeat: 5, sessionId: "live") with { At = clock.GetUtcNow() }, Ct);
+
+        var monitor = new LoopSessionMonitor(
+            register,
+            new ListedSessions(
+                Session("live", AgentSessionState.Running, false),
+                Session("hung", AgentSessionState.Running, false),
+                Session("archived", AgentSessionState.Finished, true)),
+            clock);
+
+        var read = (await monitor.ReadAsync(Ct)).ToDictionary(reading => reading.Loop.SessionId, reading => reading.State);
+
+        Assert.Equal(LoopState.Listening, read["live"]);
+        Assert.Equal(LoopState.Stalled, read["hung"]);
+        Assert.Equal(LoopState.NotRunning, read["archived"]);
+    }
+
+    private static AgentSession Session(string id, AgentSessionState state, bool? archived) =>
+        new(
+            id,
+            AgentSessionKind.Claude,
+            EnvironmentId: "this-machine",
+            Environment: "This machine",
+            Title: "📡 SESSION DISPATCHER",
+            WorkingFolder: @"D:\Repos\Backlog",
+            Repository: null,
+            Branch: "main",
+            StartedAt: Noon - TimeSpan.FromHours(1),
+            LastActivityAt: Noon,
+            state,
+            TurnCount: 3,
+            AgentSessionOrigin.Local)
+        {
+            Archived = archived
+        };
+
+    private sealed class ListedSessions(params AgentSession[] sessions) : IAgentSessionSource
+    {
+        private readonly AgentSessionCatalog _catalog = new(sessions, [], sessions.Length);
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) => Task.FromResult(_catalog);
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) => Task.FromResult(_catalog);
+    }
+}

@@ -87,7 +87,7 @@ related: [.devbook/domain/events/domain.md#note-link, .devbook/domain/brain/doma
 
 The person links Brain notes holding the takeaways, and Talk notes taken on the
 phone. Each link opens its note: a Brain note in the Devbook on the Brain side, a
-Talk note in the Inbox, in the list it is filed in. The note picker narrows its
+Talk note in the Inbox, in the list it is filed in. While the Inbox is off, a Talk note shows without the jump. The note picker narrows its
 list to the notes whose title or path holds what is typed. A Brain path names one
 note whatever its case, and with or without `./`, so a note is never linked twice. A
 Brain note no longer at its path shows as missing, and the person can link it again.

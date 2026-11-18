@@ -244,6 +244,26 @@ public sealed class NotificationCentreScreenTests : IDisposable
     }
 
     [Fact]
+    public async Task An_alerts_action_opens_its_surface_in_this_window_and_leaves_the_alert_open()
+    {
+        var navigator = new SurfaceNavigator();
+        SurfaceRequest? shown = null;
+        navigator.ShowRequested += request => shown = request;
+        _context.Services.AddSingleton<ISurfaceNavigator>(navigator);
+        var id = await PublishAsync(Alert() with { Actions = [new NotificationAction("Open Sessions", "backlog://window/sessions?session=loop-1")] });
+
+        var pane = _context.Render<NotificationCentrePane>();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='notification-card-action']")));
+
+        pane.Find("[data-testid='notification-card-action']").Click();
+
+        Assert.NotNull(shown);
+        Assert.Equal("sessions", shown.SurfaceId);
+        Assert.Equal("loop-1", shown.Value("session"));
+        Assert.Equal(NotificationState.Open, (await _inner.GetAsync(id, Ct))!.State);
+    }
+
+    [Fact]
     public async Task The_pane_opens_on_the_notification_it_is_focused_on()
     {
         var alert = await PublishAsync(Alert());

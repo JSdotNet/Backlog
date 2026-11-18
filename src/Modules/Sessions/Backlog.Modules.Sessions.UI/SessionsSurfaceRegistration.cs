@@ -28,6 +28,18 @@ public static class SessionsSurfaceRegistration
     /// <summary>The query key naming the session the list opens on.</summary>
     public const string SessionKey = "session";
 
+    /// <summary>The query key naming the page inside the takeover the surface opens on:
+    /// <see cref="SchedulesPage"/>, or the list when it is absent.</summary>
+    public const string PageKey = "page";
+
+    /// <summary>The <see cref="PageKey"/> value that opens the Schedules page (local ADR 0051
+    /// §6) — what a schedule alert's Open Schedules links to.</summary>
+    public const string SchedulesPage = "schedules";
+
+    /// <summary>The query key naming the schedule the Schedules page opens on, picked in its
+    /// detail.</summary>
+    public const string ScheduleKey = "schedule";
+
     /// <summary>The session list's place among the takeovers: after the Inbox and the
     /// Devbook, after Goals in the header's Goals group.</summary>
     public const int Order = 30;
@@ -49,7 +61,7 @@ public static class SessionsSurfaceRegistration
             Order,
             typeof(SessionsSurface),
             SessionFeatures.Sessions,
-            [SessionKey]));
+            [SessionKey, PageKey, ScheduleKey]));
 
         return services;
     }

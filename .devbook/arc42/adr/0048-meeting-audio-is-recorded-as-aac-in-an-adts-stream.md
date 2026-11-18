@@ -1,7 +1,7 @@
 # ADR 0048: Meeting audio is recorded as AAC in an ADTS stream
 
 ```meta
-date: 2026-11-10
+date: 2026-11-17
 related: [".devbook/domain/capture/features.md#meeting-recording", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/tech/mobile.md#android-mediarecorder"]
 ```
 
@@ -14,9 +14,13 @@ to the moment it was ended.
 ```meta
 ```
 
-Proposed, 2026-11-10, by the flow-spec run that drafted it for the plan
-`+meeting-recording`. It awaits acceptance at that run's Personal Validation gate.
-No code is built yet.
+Accepted, 2026-11-17, when the plan `+meeting-recording` merged into `main`
+(PR #1715). Built in PR #1713 (the recorder), PR #1743 (calls, silenced capture,
+low space, a deleted note) and PR #1796 (the sync allowlist and playback).
+`AndroidMeetingRecorder` runs `MediaRecorder` in `RecordingService`, writing into a
+pipe that `AdtsPartWriter` splits into part files of at most 24 MiB on frame
+boundaries. `SyncAttachmentLimits` and the phone's `AttachmentRules` read one
+allowlist.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -54,7 +58,8 @@ an encoder newer than that cannot be the only one.
    the limit.
 4. **Android `MediaRecorder` writes it,** with output format `AAC_ADTS` and
    encoder `AAC`, inside a foreground service of type microphone
-   (`.devbook/tech/mobile.md#android-mediarecorder`).
+   (`.devbook/tech/mobile.md#android-mediarecorder`). It writes into a pipe, and
+   the app cuts the stream into parts between frames as it reads.
 5. **The note accepts `audio/aac`, and `audio/mp4` and `audio/x-m4a` beside it**
    for an `.m4a` file the person picks, since Android reports either; the sync
    service's allowed types grow by all three, as `SyncTranscriptionLimits`
@@ -70,7 +75,7 @@ an encoder newer than that cannot be the only one.
 - The desktop's WebView2 and the Android WebView both play ADTS AAC, so the
   players need no conversion.
 - A transcription service that does not take ADTS needs the stream wrapped into
-  M4A first, without re-encoding. Which service is a later decision.
+  M4A first, without re-encoding. ADR 0049 chose the service and the remux.
 - The sync service must take the audio types before a phone build that records
   ships, or every recording is set aside on a 415.
 - A cloud dictation turn keeps recording M4A at 64 kbps (ADR 0045): a turn lasts
@@ -98,4 +103,5 @@ an encoder newer than that cannot be the only one.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-17 | Accepted and built: `MediaRecorder` writes ADTS into a pipe, `AdtsPartWriter` cuts 24 MiB parts on frame boundaries, and the sync service and the phone share the three-type audio allowlist. | Plan `+meeting-recording` merged into `main` in PR #1715, after PRs #1713, #1743 and #1796. |
 | 2026-11-10 | Proposed: meeting audio is AAC in an ADTS stream, 16 kHz mono, 32 kbps, in 24 MB parts, written by `MediaRecorder` in a microphone foreground service. | The Notes tab gains a meeting recorder, and a killed recording must stay playable. |

@@ -19,6 +19,8 @@ namespace Backlog.Desktop.UI.Shell;
 /// <item>A question about a session — the relay's, an MCP <c>ask</c> or <c>notify</c> from a
 /// session: the session's resolved, else recorded, repository.</item>
 /// <item>A pull request's: the repository its subject names.</item>
+/// <item>A schedule alert's: the repository at the head of its origin's place. A loop's alert,
+/// and a schedule's that reported no repository, name none and are the Brain's.</item>
 /// <item>A spec-manager question on a linked task: the task's repository. Any other
 /// spec-manager notification: its product's connected target's repository, the product read
 /// from the source key or the head of the place, matched against the target either way.</item>
@@ -99,6 +101,8 @@ public sealed class NotificationRepositories(
                     return catalog is not null && catalog.TryGetValue(subject.Id, out var session)
                         ? new Answer(_aliasOf(RepositoryOf(session)))
                         : null;
+                case SessionNotificationSubjects.Alert:
+                    return new Answer(_aliasOf(AlertRepository(notification)));
             }
         }
 
@@ -163,6 +167,14 @@ public sealed class NotificationRepositories(
             .FirstOrDefault(target => target is not null)
             ?.RepositoryId;
     }
+
+    /// <summary>The repository a schedule alert's place leads with
+    /// (<see cref="SessionAlerts.SchedulePlace"/>), or null for one whose place is a bare
+    /// "Schedules" or a loop's "Sessions": those name no repository and are the Brain's.</summary>
+    private static string? AlertRepository(NotificationView notification) =>
+        notification.Origin?.Place?.Contains(NotificationOrigin.Separator, StringComparison.Ordinal) is true
+            ? PlaceHead(notification)
+            : null;
 
     private static string? PlaceHead(NotificationView notification)
     {

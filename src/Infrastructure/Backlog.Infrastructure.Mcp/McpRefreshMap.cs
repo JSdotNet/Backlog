@@ -100,6 +100,11 @@ internal static class McpRefreshMap
         [SurfaceTools.UpdateStage] = SessionsNotRefreshedYet,
         [SurfaceTools.FinishRun] = SessionsNotRefreshedYet,
 
+        // The loop check-in and the schedule run report land in the Sessions pane's Loops and
+        // Schedules sections, read with its list on request: the same separate change covers them.
+        [LoopTools.CheckIn] = SessionsNotRefreshedYet,
+        [ScheduleTools.ReportScheduleRun] = SessionsNotRefreshedYet,
+
         [SurfaceTools.OpenDashboard] = NoData,
         [WindowTools.OpenWindow] = NoData,
 
