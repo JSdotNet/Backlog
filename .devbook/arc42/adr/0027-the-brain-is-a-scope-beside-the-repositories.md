@@ -185,7 +185,8 @@ migrates it:
 | The old "no repository" state | Brain |
 
 Today's "No repo" chip is not persisted, so nothing writes the last row's value
-now. The row stays as a guard.
+now. The row stays as a guard. *(Amended 2026-11-19: the guard is removed. See the
+[Amendment](#amendment).)*
 
 ### 6. Links run from the Brain into a repository, never back
 
@@ -267,6 +268,19 @@ Neutral:
   personal. A link back would point everyone else at a note they cannot read.
 - **Showing Brain backlinks to everyone.** They would expose one person's notes to
   every reader of the repository.
+
+## Amendment
+
+```meta
+```
+
+**2026-11-19: the "no repository" migration is removed.** Every install has run
+v0.1.149 or later, so every `shell-navigation.json` has already been read into the
+shape §5 describes and written back. Pull request #1910 deleted
+`ShellNavigationStore.MigrateNoRepositoryOnly`, the `noRepositoryOnly` field it
+read and its tests. The last row of §5's table no longer applies: a file that still
+holds the old state reads only its `repositoryScope`. The other rows, and the
+decision, stand.
 
 ## Verification
 
