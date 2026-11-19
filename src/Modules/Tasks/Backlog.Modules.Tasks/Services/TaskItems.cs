@@ -15,6 +15,7 @@ using Backlog.Modules.Tasks.Features.ReorderTasks;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
 using Backlog.Modules.Tasks.Features.SetDevbookReferences;
 using Backlog.Modules.Tasks.Features.SetPlannedHours;
+using Backlog.Modules.Tasks.Features.SetTaskDue;
 using Backlog.Modules.Tasks.Features.UnlinkTaskFromIssue;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -42,7 +43,8 @@ internal sealed class TaskItems(
     ICommandHandler<RefileRepositoryTasksCommand, Result<int>> refileRepositoryTasks,
     IQueryHandler<GetTaskQuery, TaskItemDto?> get,
     IQueryHandler<CountTasksQuery, int> count,
-    ICommandHandler<CreateTaskIfAbsentCommand, Result<bool>> createIfAbsent) : ITaskItems
+    ICommandHandler<CreateTaskIfAbsentCommand, Result<bool>> createIfAbsent,
+    ICommandHandler<SetTaskDueCommand, Result<TaskItemDto>> setDue) : ITaskItems
 {
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
         list.Handle(new ListTasksQuery(), cancellationToken);
@@ -101,6 +103,12 @@ internal sealed class TaskItems(
         IReadOnlyList<PlannedHoursDto> blocks,
         CancellationToken cancellationToken = default) =>
         setPlannedHours.Handle(new SetPlannedHoursCommand(id, blocks), cancellationToken);
+
+    public Task<Result<TaskItemDto>> SetDueAsync(
+        Guid id,
+        DateOnly? dueOn,
+        CancellationToken cancellationToken = default) =>
+        setDue.Handle(new SetTaskDueCommand(id, dueOn), cancellationToken);
 
     public Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default) =>
         recordUsage.Handle(new RecordTaskUsageCommand(id, action), cancellationToken);

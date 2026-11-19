@@ -1,4 +1,5 @@
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
@@ -284,6 +285,17 @@ public static class BacklogMcpTools
         [InboxTools.ListInboxItems, InboxTools.ReadInboxItem, InboxTools.ArchiveInboxItem, InboxTools.CaptureToInbox]);
 
     /// <summary>
+    /// <c>add_knowledge_event</c>, behind <c>events</c> — the one key Events owns, which
+    /// withdraws the whole area (local ADR 0050 §6). Off, the tool is absent from
+    /// <c>tools/list</c> and a call to it is an unknown tool, as ADR 0012 §7 has every group;
+    /// there is no refusal of its own.
+    /// </summary>
+    public static McpToolGroup Events { get; } = new(
+        EventsFeatures.Events,
+        typeof(EventTools),
+        [EventTools.AddKnowledgeEvent]);
+
+    /// <summary>
     /// <c>open_window</c>, which shows the person a registered surface in a window or
     /// as a web link (local ADR 0043 §7), behind no key.
     /// <para>
@@ -300,7 +312,7 @@ public static class BacklogMcpTools
         [WindowTools.OpenWindow]);
 
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Schedules, Impediments, Goals, SessionRequests, Loops, Notifications, Inbox, Windows];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Schedules, Impediments, Goals, SessionRequests, Loops, Notifications, Inbox, Events, Windows];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>

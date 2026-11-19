@@ -225,7 +225,22 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
 
             if (_settle is null)
             {
-                _settle = _time.CreateTimer(_ => OnSettled(), state: null, ChangeSettleDelay, Timeout.InfiniteTimeSpan);
+                // Created on the writer's call, so without this the timer would hold the
+                // writer's execution context, and every cycle after would run in it for the
+                // app's life: the Events pane's self-write mark, a window's scope. A writer whose
+                // flow is suppressed already is left as it is: suppressing twice is documented
+                // to throw, and undoing it here would hand the writer its flow back.
+                if (ExecutionContext.IsFlowSuppressed())
+                {
+                    _settle = CreateSettleTimer();
+                }
+                else
+                {
+                    using (ExecutionContext.SuppressFlow())
+                    {
+                        _settle = CreateSettleTimer();
+                    }
+                }
             }
             else
             {
@@ -233,6 +248,9 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
             }
         }
     }
+
+    private ITimer CreateSettleTimer() =>
+        _time.CreateTimer(_ => OnSettled(), state: null, ChangeSettleDelay, Timeout.InfiniteTimeSpan);
 
     /// <summary>The writes have stopped: run a cycle now, recorded first so a cycle already
     /// holding the guard runs one more on its way out.</summary>

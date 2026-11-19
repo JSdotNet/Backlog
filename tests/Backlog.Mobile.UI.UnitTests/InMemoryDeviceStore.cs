@@ -71,6 +71,10 @@ internal static class TestOutbox
         services.TryAddSingleton(_ => new TalkNoteFiles(TestFolders.Create()));
         services.AddSingleton<IOutboxKind, TalkNoteOutboxKind>();
         services.AddSingleton<TalkNoteComposer>();
+        services.AddSingleton<CaptureDealtWithNotices>();
+        services.AddSingleton<IOutboxKind, CaptureEditOutboxKind>();
+        services.AddSingleton<IOutboxKind, CaptureWithdrawOutboxKind>();
+        services.AddSingleton<CaptureEdits>();
         services.AddSingleton<DeviceOutbox>();
         services.AddSingleton(taskView ?? new InMemoryTaskViewStore());
         services.AddSingleton<TaskViewProjection>();

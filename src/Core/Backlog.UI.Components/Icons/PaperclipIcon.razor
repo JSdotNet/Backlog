@@ -1,0 +1,45 @@
+@*
+    A paper clip, on the slant.
+
+    Drawn here rather than fetched, for the reason ChevronUpIcon gives, in Lucide's
+    idiom on the terms `.devbook/design/typography-and-layout.md#iconography` allows:
+    an outline on the 24x24 grid, stroked at 2, round caps and joins, filled nowhere.
+    Lucide's `paperclip`.
+
+    Named for the shape, not for a meaning. The phone's Notes editor puts it on
+    the tool that chooses files; the button carries the name.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>;
+    /// see <see cref="ChevronUpIcon.Size"/> for the scale it is drawn on.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "paperclip-icon" : $"paperclip-icon {CssClass}";
+}

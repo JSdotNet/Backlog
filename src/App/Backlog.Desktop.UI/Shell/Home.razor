@@ -252,8 +252,9 @@
                     </ToggleButton>)
                 }
 
-                @* The view switch. Tasks, Board and Calendar are always offered; the
-                   Roadmap while its flag is on. Tasks' option is still the way back
+                @* The view switch. Tasks and Board are always offered; the
+                   Roadmap while its flag is on. The Calendar is a view too, but its
+                   option stands alone right after the switch. Tasks' option is still the way back
                    from a takeover. Goals is a view too, but its option is the
                    first of the Goals group further along, not one of these.
                    Each option, and each of that group's, leads with a glyph from
@@ -289,21 +290,6 @@
                         <span class="header-nav-label header-nav-label--tier-4">Board</span>
                     </ToggleButton>)
 
-                    @* The Calendar: its own module's view (local ADR 0055), drawing the
-                       Tasks pane's filtered rows by due date as its Tasks layer. Board
-                       sits between it and Tasks. *@
-                    @HeaderItem(CalendarViewId, @<ToggleButton BaseClass="header-group__option"
-                                  PressedCssClass="header-group__option--selected"
-                                  Pressed="ViewOptionPressed(CalendarViewId)"
-                                  id="calendar-view-option"
-                                  Title="Calendar"
-                                  TestId="calendar-view-option"
-                                  aria-controls="backlog-pane"
-                                  OnClick="() => ShowView(CalendarViewId)">
-                        <CalendarIcon />
-                        <span class="header-nav-label header-nav-label--tier-4">Calendar</span>
-                    </ToggleButton>)
-
                     @if (RoadmapViewOffered)
                     {
                         @HeaderItem(RoadmapViewId, @<ToggleButton BaseClass="header-group__option"
@@ -319,6 +305,23 @@
                         </ToggleButton>)
                     }
                 </ButtonGroup>
+
+                @* The Calendar tab: its own module's view (local ADR 0056 §7), drawing
+                   its own grid in its own region. It stands outside the switch, whose
+                   options are readings of the same tasks, in the loose option shape; it
+                   acts as a view option does — pressing it again changes nothing, and a
+                   takeover hides it (interaction-guidelines.md#shell-header). *@
+                @HeaderItem(CalendarViewId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
+                              PressedCssClass="header-group__option--selected"
+                              Pressed="ViewOptionPressed(CalendarViewId)"
+                              id="calendar-view-option"
+                              Title="Calendar"
+                              TestId="calendar-view-option"
+                              aria-controls="calendar-view"
+                              OnClick="() => ShowView(CalendarViewId)">
+                    <CalendarIcon />
+                    <span class="header-nav-label header-nav-label--tier-4">Calendar</span>
+                </ToggleButton>)
 
                 @* The registered takeovers, from the surface catalog (local ADR 0043
                    §1): today the Devbook, which follows the switch. Each option's id,
@@ -1162,10 +1165,14 @@
     private bool GoalsViewVisible => WorkspaceVisible && EffectiveView == GoalsViewId;
 
     /// <summary>Whether the task list is in front of the reader — the Tasks view, or
-    /// the Board or the Calendar laying out the same filtered rows, on screen in
-    /// the workspace, not merely chosen underneath a takeover. The GitHub check acts
-    /// on the list and is offered on this answer; so is the Tasks area of Ask AI.</summary>
-    private bool TasksListOnScreen => WorkspaceVisible && EffectiveView is TasksViewId or BoardViewId or CalendarViewId;
+    /// the Board laying out the same filtered rows, on screen in the workspace, not
+    /// merely chosen underneath a takeover. The GitHub check acts on the list and is
+    /// offered on this answer; so is the Tasks area of Ask AI. The Calendar is not the
+    /// list (local ADR 0056 §7): it carries neither.</summary>
+    private bool TasksListOnScreen => WorkspaceVisible && EffectiveView is TasksViewId or BoardViewId;
+
+    /// <summary>Whether the Calendar is the main view on screen.</summary>
+    private bool CalendarViewVisible => WorkspaceVisible && EffectiveView == CalendarViewId;
 
     /// <summary>Whether the header offers the GitHub check: the list is on screen,
     /// the integration is on and configured, and a row links to GitHub. Read by the
@@ -1173,7 +1180,8 @@
     private bool GitHubSyncOffered => TasksListOnScreen && IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows;
 
     /// <summary>Whether what is on screen can show several repositories at once:
-    /// the task list, the Dashboard, the session list, or the pull requests list —
+    /// the task list, the Calendar — whose Tasks layer the scope narrows (local ADR
+    /// 0056 §2) — the Dashboard, the session list, or the pull requests list —
     /// and the Inbox, which shows none but routes into the list: it sat beside the
     /// list before it took the screen, and a triage session must not cost the reader
     /// the scope the list goes back to.
@@ -1186,7 +1194,7 @@
     /// scope at once. Tools reads none, so there a chip is a single select and the
     /// scope is kept to its anchor.</summary>
     private bool RepositoryScopeTakesSeveral =>
-        TasksListOnScreen || GoalsViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible || NotificationsVisible || AtlasVisible;
+        TasksListOnScreen || CalendarViewVisible || GoalsViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible || NotificationsVisible || AtlasVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button

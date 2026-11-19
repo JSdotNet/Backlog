@@ -245,6 +245,14 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Same(
             first.ServiceProvider.GetRequiredService<ITaskChangeSignal>(),
             second.ServiceProvider.GetRequiredService<ITaskChangeSignal>());
+        // So is the delivery run change signal: the MCP listener raises it from the root,
+        // and the Sessions pane in every window listens on the same one.
+        Assert.Same(
+            provider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>(),
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>());
+        Assert.Same(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>());
         // The Calendar's layers (local ADR 0055): the Plans port and its read policy are a
         // window's, as the roadmap ports they read are; the working week is the process's.
         Assert.NotSame(
@@ -437,6 +445,37 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         var link = Assert.Single(copy.Notes);
         Assert.Equal((Backlog.Modules.Events.Abstractions.NoteLinkKind.Talk, noteId.ToString("D"), "Keynote"), (link.Kind, link.Reference, link.Title));
         Assert.Equal(change.Id, Assert.Single(provider.GetRequiredService<PhoneRequestRetirements>().Waiting()).Id);
+    }
+
+    /// <summary>
+    /// <c>add_knowledge_event</c> in this head: <c>EventTools</c> is built out of a scope the way
+    /// the MCP listener's forwarding builds it, from <c>IEventsPane</c> and the clock, and the
+    /// event it adds reaches an Events pane open in another scope, a window's, on that pane's
+    /// <c>Changed</c> — the one notice an MCP write has to reach an open page by.
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_builds_the_events_tool_and_an_open_events_pane_hears_what_it_adds()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        var ct = TestContext.Current.CancellationToken;
+        using var provider = BuildMauiShaped(validateScopes: true);
+        using var window = provider.CreateScope();
+        using var request = provider.CreateScope();
+        var pane = window.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventsPane>();
+        var heard = 0;
+        pane.Changed += () => Interlocked.Increment(ref heard);
+
+        var tools = ActivatorUtilities.CreateInstance<Backlog.Infrastructure.Mcp.EventTools>(request.ServiceProvider);
+        var added = await tools.AddAsync("Techorama Belgium 2027", series: "Techorama", start: "2027-05-18", cancellationToken: ct);
+
+        Assert.Equal(1, Volatile.Read(ref heard));
+        Assert.Equal(("Spotted", "2027-05-18", "Typed"), (added.State, added.Start, added.DateSource));
+        Assert.Contains((await pane.ListAsync(ct)).SelectMany(group => group.Events), listed => listed.Id == added.Id);
     }
 
     /// <summary>

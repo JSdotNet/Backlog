@@ -46,7 +46,8 @@ public class InfrastructureGraphTests
             + "through Tasks' ITaskItems (local ADR 0050 §3). The twelfth is the Calendar's published surface, "
             + "for the joins under Calendar/ that answer its Plans layer and working-week ports, ICalendarPlans "
             + "and ICalendarCapacity, over Roadmap's abstractions, and its Events layer port, ICalendarEvents, "
-            + "over Events' read contract (local ADR 0055 §2)."),
+            + "over Events' read contract (local ADR 0055 §2), and its Tasks layer port, ICalendarTasks, over Tasks' "
+            + "ITaskItems (local ADR 0056 §2)."),
         ("Backlog.Infrastructure.Sqlite", 7,
             "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
             + "Planning, the Inbox, Sessions, Progress, Notifications and Events — each answering that module's own repository "
@@ -67,13 +68,14 @@ public class InfrastructureGraphTests
             + "here, which issues the pairing codes a notification can be about, tells Notifications when one ends. "
             + "Events' surface is the knowledge event exchange's (local ADR 0050 §2): it reads and applies events "
             + "through IKnowledgeEventReplication and serializes the wire shape the phone reads."),
-        ("Backlog.Infrastructure.Mcp", 8,
+        ("Backlog.Infrastructure.Mcp", 9,
             "The MCP server is one adapter: the agent tools over each context's published port, one tool "
             + "group per context behind that context's own key (local ADR 0012 §7) — Tasks, Roadmap, Devbook, "
             + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0039), for the "
             + "impediment tools beside set_blocked, Progress (local ADR 0035), and the Brain (local ADR 0040) "
             + "for `#brain` and the capture tool, and the Inbox for list_inbox_items, read_inbox_item, "
-            + "archive_inbox_item and capture_to_inbox. It references abstractions only, never a module's implementation."),
+            + "archive_inbox_item and capture_to_inbox, and Events for add_knowledge_event, through the Events pane's "
+            + "own port behind the events key (local ADR 0050 §6, §7). It references abstractions only, never a module's implementation."),
         ("Backlog.Infrastructure.Brain", 5,
             "The Brain's adapter project (local ADR 0040 §1): every join that reads or writes the person's "
             + "notes lives here rather than in folders spread across FileSystem, Devbook and Mcp. Beside the "

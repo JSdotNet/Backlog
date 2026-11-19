@@ -17,6 +17,52 @@ public sealed class SqliteDeviceStoreTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
+    /// <summary>A payload rewritten while the entry waited — the person rewording a
+    /// capture, a staged kind's checkpoint — is what comes back after the app is
+    /// ended, not the words it was first written with.</summary>
+    [Fact]
+    public async Task A_rewritten_payload_comes_back_after_a_reopen()
+    {
+        var at = new DateTimeOffset(2026, 11, 19, 9, 0, 0, TimeSpan.Zero);
+        var entry = new OutboxEntry(Guid.CreateVersion7(), "capture", """{"title":"one"}""", 0, null, at);
+
+        var store = new SqliteDeviceStore(DatabasePath);
+        await store.AddAsync(entry, Cancellation);
+        await store.UpdateAsync(entry with { PayloadJson = """{"title":"reworded"}""", Attempts = 1 }, Cancellation);
+
+        Assert.Equal(
+            [entry with { PayloadJson = """{"title":"reworded"}""", Attempts = 1 }],
+            new SqliteDeviceStore(DatabasePath).ReadOutbox());
+    }
+
+    /// <summary>The whole path: the outbox rewrites a waiting entry, the app is
+    /// ended, and the next run's outbox reads the rewritten words from the file.</summary>
+    [Fact]
+    public async Task An_outbox_rewrite_survives_the_app_being_ended()
+    {
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(new DateTimeOffset(2026, 11, 19, 9, 0, 0, TimeSpan.Zero));
+        var id = Guid.CreateVersion7();
+
+        using (var outbox = new DeviceOutbox(new SqliteDeviceStore(DatabasePath), [new OfflineKind()], clock))
+        {
+            await outbox.EnqueueAsync("capture", id, """{"title":"one"}""", Cancellation);
+            await outbox.WhenIdleAsync();
+            Assert.True(await outbox.ReplacePayloadAsync(id, """{"title":"reworded"}""", Cancellation));
+        }
+
+        using var restarted = new DeviceOutbox(new SqliteDeviceStore(DatabasePath), [new OfflineKind()], clock);
+
+        Assert.Equal("""{"title":"reworded"}""", Assert.Single(restarted.Entries).PayloadJson);
+    }
+
+    private sealed class OfflineKind : IOutboxKind
+    {
+        public string Kind => "capture";
+
+        public Task<OutboxDelivery> SendAsync(OutboxEntry entry, CancellationToken cancellationToken) =>
+            Task.FromResult(OutboxDelivery.Transient("No network."));
+    }
+
     [Fact]
     public async Task The_outbox_comes_back_in_the_order_it_was_written_after_a_reopen()
     {

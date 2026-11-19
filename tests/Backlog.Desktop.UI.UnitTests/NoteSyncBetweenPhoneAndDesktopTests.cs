@@ -83,6 +83,29 @@ public sealed class NoteSyncBetweenPhoneAndDesktopTests : IDisposable
         Assert.Equal(made.Id, Assert.Single(_phone.Notes.Notes()).Id);
     }
 
+    /// <summary>.devbook/domain/inbox/requirements.md#requirement-a-meeting-reaches-the-desktop-as-a-meeting</summary>
+    [Fact]
+    public async Task A_meeting_made_on_the_phone_reaches_the_desktop_as_a_meeting_and_comes_back_one()
+    {
+        var made = await _phone.Notes.CreateMeetingAsync("Weekly sync", Cancellation);
+        await _phone.Outbox.FlushAsync(Cancellation);
+
+        await _desktop.SyncAsync();
+
+        var item = await _desktop.ItemAsync(made.Id);
+        Assert.NotNull(item);
+        Assert.Equal(ContentKind.Meeting, item.Kind);
+
+        _clock.Advance(TimeSpan.FromMinutes(30));
+        Assert.True((await _desktop.EditAsync(made.Id, "Weekly sync", "transcript")).IsSuccess);
+        await _desktop.SyncAsync();
+        await _phone.Notes.PullAsync(Cancellation);
+
+        var back = Assert.Single(_phone.Notes.Notes());
+        Assert.Equal("transcript", back.Body);
+        Assert.True(back.IsMeeting);
+    }
+
     [Fact]
     public async Task An_edit_on_the_desktop_reaches_the_phone()
     {

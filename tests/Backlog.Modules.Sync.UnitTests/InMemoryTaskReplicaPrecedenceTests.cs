@@ -119,16 +119,67 @@ public class InMemoryTaskReplicaPrecedenceTests
         Assert.Equal(expected, TaskChangePrecedence.Supersedes(inbound, stored));
     }
 
-    private static TaskChange Live(Guid id, DateTimeOffset updatedAt, string title = "Expose a Backlog MCP server") =>
-        new(id, updatedAt, DeletedAt: null, Payload(title));
+    /// <summary>A capture's tombstone is final. The desktop decides at T1, the
+    /// phone's edit lands at T2, and the desktop's tombstone stamped T1 arrives
+    /// last: it still wins, and no later echo of the edited live copy brings the
+    /// capture back. A capture is never made live again on purpose — a resent
+    /// capture writes nothing — so nothing legitimate is lost.</summary>
+    [Theory]
+    [InlineData(-1, true, false, true)]   // the desktop's earlier tombstone over the phone's later edit
+    [InlineData(1, false, true, false)]   // another device's echo of the edit over the tombstone
+    [InlineData(1, true, false, true)]    // a later tombstone, as before
+    [InlineData(1, false, false, true)]   // a later edit of a live capture, as before
+    [InlineData(-1, false, false, false)] // an older live capture, as before
+    public void A_capture_tombstone_wins_over_a_live_capture_whatever_the_stamps(int hoursApart, bool inboundDeleted, bool storedDeleted, bool expected)
+    {
+        var id = Guid.CreateVersion7();
+        var stored = storedDeleted ? Tombstone(id, Imported, "capture") : Live(id, Imported, type: "capture");
+        var at = Imported.AddHours(hoursApart);
+        var inbound = inboundDeleted ? Tombstone(id, at, "capture") : Live(id, at, type: "capture");
 
-    private static TaskChange Tombstone(Guid id, DateTimeOffset at) =>
-        new(id, at, DeletedAt: at, Payload("Expose a Backlog MCP server"));
+        Assert.Equal(expected, TaskChangePrecedence.Supersedes(inbound, stored));
+    }
 
-    private static TaskPayload Payload(string title) => new(
+    /// <summary>Only a capture's: a task's or a note's tombstone keeps the stamp
+    /// rule, because both of those come back to life on purpose.</summary>
+    [Theory]
+    [InlineData("task")]
+    [InlineData("note")]
+    public void Any_other_tombstone_still_yields_to_a_later_live_copy(string type)
+    {
+        var id = Guid.CreateVersion7();
+
+        Assert.True(TaskChangePrecedence.Supersedes(Live(id, Imported.AddHours(1), type: type), Tombstone(id, Imported, type)));
+        Assert.False(TaskChangePrecedence.Supersedes(Tombstone(id, Imported.AddHours(-1), type), Live(id, Imported, type: type)));
+    }
+
+    [Fact]
+    public async Task The_desktop_tombstone_stamped_before_a_phone_edit_still_tombstones_the_capture()
+    {
+        var replica = new InMemoryTaskReplica();
+        var id = Guid.CreateVersion7();
+
+        await replica.Upsert(Laptop, [Live(id, Imported, type: "capture")], Cancellation);
+        await replica.Upsert(Laptop, [Live(id, Imported.AddHours(2), "Reworded on the phone", "capture")], Cancellation);
+
+        var accepted = await replica.Upsert(Desktop, [Tombstone(id, Imported.AddHours(1), "capture")], Cancellation);
+
+        Assert.Equal(1, accepted);
+        Assert.Empty(await replica.ListCaptures(Mine, Cancellation));
+        Assert.Equal(0, await replica.Upsert(Laptop, [Live(id, Imported.AddHours(2), "Reworded on the phone", "capture")], Cancellation));
+        Assert.Empty(await replica.ListCaptures(Mine, Cancellation));
+    }
+
+    private static TaskChange Live(Guid id, DateTimeOffset updatedAt, string title = "Expose a Backlog MCP server", string type = "task") =>
+        new(id, updatedAt, DeletedAt: null, Payload(title, type));
+
+    private static TaskChange Tombstone(Guid id, DateTimeOffset at, string type = "task") =>
+        new(id, at, DeletedAt: at, Payload("Expose a Backlog MCP server", type));
+
+    private static TaskPayload Payload(string title, string type = "task") => new(
         title,
         ContentMd: string.Empty,
-        "task",
+        type,
         Status: "ready",
         Priority: "medium",
         Order: 0,

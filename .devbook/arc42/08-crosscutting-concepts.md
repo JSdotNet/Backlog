@@ -26,7 +26,7 @@ Optional cloud sync carries this state between a person's devices. Every kind ri
 | State | Travels as | Reconciled by | Decision |
 |---|---|---|---|
 | Task aggregate | a task document in the `tasks` container | [last-write-wins](12-glossary.md#terms), whole document ([Task Sync](#task-sync)) | local ADR 0005 |
-| Phone capture | kind `capture` in `tasks` | the desktop takes it into the Inbox and acknowledges it by tombstone | local ADR 0009 |
+| Phone capture | kind `capture` in `tasks` | the desktop takes it into the Inbox and acknowledges it by tombstone; a tombstone beats a live copy whatever the stamps | local ADR 0009 |
 | Note | kind `note` in `tasks` | the later edit wins, in both directions | local ADR 0025 |
 | Roadmap plan | kind `roadmap-plan` in `tasks` | last-write-wins on `roadmap_plan.updated_at` | local ADR 0018 |
 | Planning pace and working week | kind `planning-pace` in `tasks`, with a `workingWeek` key | last-write-wins | local ADRs 0018 and 0019 |
@@ -476,6 +476,27 @@ These parts are built:
   notifications are not available.
 - **The sync service still scales to zero.** No connection to the sync service
   stays open. Web PubSub holds the desktop connections instead.
+
+## Change Notices
+
+```meta
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/domain/events/features.md#events-pane", ".devbook/domain/inbox/features.md#work-the-queue-over-mcp", ".devbook/domain/sessions/features.md#re-read-on-request"]
+```
+
+An open page shows a write made elsewhere because the module that owns the data
+raises a singleton notice on every save, whoever saves. The module's published port
+holds its `Changed` on that notice. An MCP call runs in a desktop scope of its own,
+and each window has its own scopes, so a scoped event would reach neither.
+
+- **A page ignores its own writes.** The Tasks and Events panes mark their own saves
+  and skip the notice they cause, so a reload never reads over a field being typed.
+- **Every MCP write tool names its notice.** `McpRefreshMap` in
+  `Backlog.Infrastructure.Mcp` maps each tool not marked read-only to the notice that
+  refreshes its pages, or the reason none does. `BacklogMcpToolsTests` fails for a
+  write tool missing from it.
+- **The exceptions are named in the map.** The session request queue is polled every
+  five seconds. The window tools change no data. The surface run tools do not refresh
+  the Sessions pane, which reads its runs on request.
 
 ## Feature Enablement
 

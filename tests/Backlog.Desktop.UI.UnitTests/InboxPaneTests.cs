@@ -146,6 +146,30 @@ public sealed class InboxPaneTests
         Assert.Equal("false", pane.Find("[data-testid='inbox-kind-youtube']").GetAttribute("aria-pressed"));
     }
 
+    /// <summary>.devbook/domain/inbox/requirements.md#requirement-meetings-have-a-mark-and-a-chip-of-their-own:
+    /// a meeting has a mark of its own, and its chip sits beside the note's.</summary>
+    [Fact]
+    public async Task A_meeting_has_its_own_mark_and_a_chip_beside_the_notes()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Release plan", ContentKind.Note);
+        harness.Inbox.Seed("Weekly sync", ContentKind.Meeting);
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal(
+            ["inbox-kind-all", "inbox-kind-note", "inbox-kind-meeting"],
+            pane.FindAll("[data-testid='inbox-pane-filters'] [aria-pressed]").Select(chip => chip.GetAttribute("data-testid")));
+        Assert.Equal("Meeting", pane.Find("[data-testid='inbox-kind-meeting'] .inbox-pane__chip-label").TextContent.Trim());
+
+        await pane.Find("[data-testid='inbox-kind-meeting']").ClickAsync(new());
+
+        Assert.Equal(["Weekly sync"], Titles(pane));
+        var mark = pane.Find("[data-testid='inbox-pane-item-tile'] svg");
+        Assert.Contains("capture-kind-marker--meeting", mark.ClassList);
+        Assert.Equal("Meeting", pane.Find("[data-testid='inbox-pane-item-kind']").TextContent.Trim());
+    }
+
     [Fact]
     public async Task A_filter_that_empties_the_slice_offers_to_clear_itself()
     {

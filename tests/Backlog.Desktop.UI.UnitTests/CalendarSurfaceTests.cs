@@ -1,4 +1,5 @@
 using System.Globalization;
+using Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
 using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Calendar.UI;
 using Backlog.UI.Components.Tasks;
@@ -9,13 +10,14 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Calendar as its own module's view (local ADR 0055), rendered with the real Tasks
-/// part it hosts: the Plans and Events layers the Calendar reads through its own ports and
-/// hands the part — the bars, the milestones and the shelf, the events and their key
-/// dates, Show plans, Show events and the range it keeps — and when it reads them again.
+/// The Calendar as its own module's view (local ADR 0055, local ADR 0056), drawing its own
+/// grid from the layers it reads through its own ports: the tasks and their hours, narrowed
+/// and coloured by the window's scope, a chip opening the task in Tasks, a drop and an hours
+/// edit written through the Tasks port; the plans — the bars, the milestones and the shelf —
+/// the events and their key dates; Show tasks, Show plans, Show events and the range it
+/// keeps; and when it reads them again.
 /// <para>
-/// Dates are relative to the real today, because the Calendar and the pane read their own
-/// clock the way the list does for My Day.
+/// Dates are relative to the real today, because the Calendar reads its own clock.
 /// </para>
 /// </summary>
 public sealed class CalendarSurfaceTests
@@ -103,38 +105,6 @@ public sealed class CalendarSurfaceTests
         surface.Find("[data-testid='task-calendar-range-week']").Click();
 
         surface.WaitForAssertion(() => Assert.Equal(2, plans.Reads));
-    }
-
-    [Fact]
-    public async Task A_plans_read_that_fails_leaves_the_tasks_on_the_calendar()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var dated = await host.WriteEntryAsync($"# Ship the calendar\n`task` `!ready` `due:{Iso(Today)}`\n");
-        var plans = new FakeCalendarPlans(Today) { Failure = new IOException("The roadmap could not be read.") };
-        host.Context.Services.AddSingleton<ICalendarPlans>(plans);
-
-        var surface = host.WithCalendarSurface().RenderCalendarSurface();
-
-        surface.WaitForAssertion(() => Assert.Equal(1, plans.Reads));
-        Assert.NotEmpty(surface.FindAll($"[data-calendar-day='{Iso(Today)}'] [data-testid='task-calendar-chip-{dated.TaskId}']"));
-        Assert.Empty(surface.FindAll($"[data-testid='{PlanTestId}']"));
-    }
-
-    /// <summary>The colours are the Tasks window's, which the Calendar cannot see: the
-    /// part gives each bar the band of its first repository while they show.</summary>
-    [Fact]
-    public async Task A_bar_wears_its_repository_colour_only_while_the_colours_are_showing()
-    {
-        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        host.Context.Services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(Today));
-
-        var surface = host.WithCalendarSurface().RenderCalendarSurface();
-        surface.WaitForAssertion(() => Assert.Contains("task-calendar__plan--neutral", surface.FindAll($"[data-testid='{PlanTestId}']")[0].ClassName));
-
-        Assert.Null(host.GitHub.Settings.SetShowRepositoryColours(true));
-        surface.Render();
-
-        surface.WaitForAssertion(() => Assert.Contains("task-calendar__plan--band-1", surface.FindAll($"[data-testid='{PlanTestId}']")[0].ClassName));
     }
 
     [Fact]
@@ -235,7 +205,7 @@ public sealed class CalendarSurfaceTests
 
         var surface = host.WithCalendarSurface().RenderCalendarSurface();
         surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll("[data-testid='task-calendar-shelf-release-q4']")));
-        var calendar = surface.FindComponent<TaskCalendar>();
+        var calendar = surface.FindComponent<CalendarGrid>();
 
         await calendar.InvokeAsync(() => calendar.Instance.DropPlanOnDay("release-q4", Iso(day)));
 
@@ -256,7 +226,7 @@ public sealed class CalendarSurfaceTests
 
         var surface = host.WithCalendarSurface().RenderCalendarSurface();
         surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll("[data-testid='task-calendar-shelf-release-q4']")));
-        var calendar = surface.FindComponent<TaskCalendar>();
+        var calendar = surface.FindComponent<CalendarGrid>();
 
         await calendar.InvokeAsync(() => calendar.Instance.DropPlanOnDay("release-q4", Iso(Today)));
 
@@ -264,68 +234,6 @@ public sealed class CalendarSurfaceTests
             toast.Message.Contains("+release-q4 could not be planned: a cycle", StringComparison.Ordinal)
             && toast.TestId == CalendarSurface.PlanRefusedTestId);
         Assert.NotEmpty(surface.FindAll("[data-testid='task-calendar-shelf-release-q4']"));
-    }
-
-    /// <summary>The filter bar, the open task and the selection are the window's (local ADR
-    /// 0043 §5), so the Calendar's Tasks part draws what Tasks left — the filtered chips,
-    /// the open entry beside them — and a filter set on the Calendar narrows Tasks.</summary>
-    [Fact]
-    public async Task A_filter_and_the_open_task_set_on_tasks_are_the_calendars_too()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var prompt = await host.WriteEntryAsync($"# A prompt\n`prompt` `due:{Iso(Today)}`\n");
-        var task = await host.WriteEntryAsync($"# A task\n`task` `due:{Iso(Today)}`\n");
-        host.WithCalendarSurface();
-
-        var tasks = host.Context.Render<TasksSurface>();
-        tasks.Find("[data-testid='type-filter-option'][data-type='prompt']").Click();
-        await host.OpenAsync(prompt);
-        tasks.WaitForAssertion(() => Assert.Single(tasks.FindAll("[data-testid='entry-detail']")));
-
-        // Over to the Calendar.
-        await host.Context.DisposeComponentsAsync();
-        var calendar = host.RenderCalendarSurface();
-
-        calendar.WaitForAssertion(() =>
-        {
-            Assert.NotEmpty(calendar.FindAll($"[data-testid='task-calendar-chip-{prompt.TaskId}']"));
-            Assert.Empty(calendar.FindAll($"[data-testid='task-calendar-chip-{task.TaskId}']"));
-            Assert.Equal("true", calendar.Find("[data-testid='type-filter-option'][data-type='prompt']").GetAttribute("aria-pressed"));
-            Assert.Contains("A prompt", Assert.Single(calendar.FindAll("[data-testid='entry-detail']")).TextContent, StringComparison.Ordinal);
-        });
-
-        // And back: a filter set on the Calendar narrows Tasks.
-        calendar.Find("[data-testid='type-filter-option'][data-type='task']").Click();
-        await host.Context.DisposeComponentsAsync();
-        tasks = host.Context.Render<TasksSurface>();
-
-        tasks.WaitForAssertion(() =>
-        {
-            Assert.Equal("true", tasks.Find("[data-testid='type-filter-option'][data-type='task']").GetAttribute("aria-pressed"));
-            Assert.Contains(task, host.State.FilteredRows);
-            Assert.DoesNotContain(prompt, host.State.FilteredRows);
-        });
-    }
-
-    /// <summary>The Tasks layer's chips read the pane's live title: while the open panel
-    /// drafts a rename, the chip for that entry says the draft, as its row in the list
-    /// would, and nothing is written until the rename is committed.</summary>
-    [Fact]
-    public async Task A_chip_follows_the_open_panels_title_draft()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        var dated = await host.WriteEntryAsync($"# Ship the calendar\n`task` `due:{Iso(Today)}`\n");
-        await host.OpenAsync(dated);
-        var chip = $"[data-testid='task-calendar-chip-{dated.TaskId}'] .task-calendar__chip-text";
-
-        var surface = host.WithCalendarSurface().RenderCalendarSurface();
-        surface.WaitForAssertion(() => Assert.Equal("Ship the calendar", surface.Find(chip).TextContent));
-
-        await surface.Find("[data-testid='entry-panel-title']").ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
-        await surface.Find("[data-testid='entry-panel-rename']").InputAsync(new() { Value = "Ship the month view" });
-
-        surface.WaitForAssertion(() => Assert.Equal("Ship the month view", surface.Find(chip).TextContent));
-        Assert.Equal("Ship the calendar", dated.PreviewTitle);
     }
 
     // --- The Events layer ----------------------------------------------------
@@ -555,17 +463,430 @@ public sealed class CalendarSurfaceTests
     }
 
     [Fact]
+    public async Task A_plans_read_that_fails_leaves_the_tasks_on_the_calendar()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        OneTask(host);
+        var plans = new FakeCalendarPlans(Today) { Failure = new IOException("The roadmap could not be read.") };
+        host.Context.Services.AddSingleton<ICalendarPlans>(plans);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+
+        surface.WaitForAssertion(() => Assert.Equal(1, plans.Reads));
+        surface.WaitForAssertion(() =>
+            Assert.NotEmpty(surface.FindAll($"[data-calendar-day='{Iso(Today)}'] [data-testid='{ChipTestId(ShipId)}']")));
+        Assert.Empty(surface.FindAll($"[data-testid='{PlanTestId}']"));
+    }
+
+    [Fact]
     public async Task An_events_read_that_fails_leaves_the_tasks_on_the_calendar()
     {
         using var host = await TasksPaneHost.CreateAsync();
-        var dated = await host.WriteEntryAsync($"# Ship the calendar\n`task` `!ready` `due:{Iso(Today)}`\n");
+        OneTask(host);
         var events = new FakeCalendarEvents(Today) { Fails = true };
         host.Context.Services.AddSingleton<ICalendarEvents>(events);
 
         var surface = host.WithCalendarSurface(new FakeCalendarViewPreferences { EventsShown = true }).RenderCalendarSurface();
 
         surface.WaitForAssertion(() => Assert.Equal(1, events.Reads));
-        Assert.NotEmpty(surface.FindAll($"[data-calendar-day='{Iso(Today)}'] [data-testid='task-calendar-chip-{dated.TaskId}']"));
+        surface.WaitForAssertion(() =>
+            Assert.NotEmpty(surface.FindAll($"[data-calendar-day='{Iso(Today)}'] [data-testid='{ChipTestId(ShipId)}']")));
         Assert.Empty(surface.FindAll(".task-calendar__event"));
+    }
+
+    // --- The Tasks layer (local ADR 0056) ------------------------------------------
+
+    private static readonly Guid ShipId = Guid.Parse("a5d6b0c1-37e4-4b0a-9a51-2f1e7c0d4e11");
+
+    private static readonly Guid DocsId = Guid.Parse("0b9f6f0e-6a40-4d55-8b0e-5a2b7f3c9d22");
+
+    private static string ChipTestId(Guid id) => $"task-calendar-chip-{id}";
+
+    private static string BlockTestId(Guid id, DateOnly day) => $"task-calendar-block-{id}-{Iso(day)}";
+
+    /// <summary>Another day of today's month, so it is on the grid whatever the date.</summary>
+    private static DateOnly Day => Today.Day <= 15 ? Today.AddDays(3) : Today.AddDays(-3);
+
+    /// <summary>A Tasks port holding one ready task due today, filed under
+    /// <c>backlog</c>, with three hours on <see cref="Day"/>.</summary>
+    private static FakeCalendarTasks OneTask(TasksPaneHost host)
+    {
+        var tasks = new FakeCalendarTasks();
+        tasks.Tasks.Add(new CalendarTaskDto(ShipId, "Ship the calendar", Today, CalendarTaskStatus.Ready, false, ["backlog"]));
+        tasks.Hours.Add(new CalendarHoursBlockDto(ShipId, "Ship the calendar", Day, 3m, ["backlog"]));
+        host.Context.Services.AddSingleton<ICalendarTasks>(tasks);
+        return tasks;
+    }
+
+    [Fact]
+    public async Task The_tasks_and_their_hours_are_drawn_from_the_port_for_the_days_on_screen()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var tasks = OneTask(host);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+
+        surface.WaitForAssertion(() =>
+        {
+            Assert.NotNull(surface.Find($"[data-calendar-day='{Iso(Today)}']").QuerySelector($"[data-testid='{ChipTestId(ShipId)}']"));
+            Assert.NotNull(surface.Find($"[data-calendar-day='{Iso(Day)}']").QuerySelector($"[data-testid='{BlockTestId(ShipId, Day)}']"));
+        });
+        var grid = surface.FindComponent<CalendarGrid>().Instance;
+        Assert.Equal(grid.ShownWindow, tasks.Reads[^1]);
+        Assert.Equal(CalendarMonth.Window(Today), tasks.Reads[0]);
+        Assert.Single(tasks.Reads);
+    }
+
+    [Fact]
+    public async Task Stepping_to_another_month_reads_the_tasks_for_its_days()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var tasks = OneTask(host);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+        surface.WaitForAssertion(() => Assert.Single(tasks.Reads));
+
+        surface.Find("[data-testid='task-calendar-next']").Click();
+
+        var next = CalendarMonth.Window(CalendarMonth.FirstOf(Today).AddMonths(1));
+        surface.WaitForAssertion(() => Assert.Equal(next, tasks.Reads[^1]));
+        Assert.Equal(2, tasks.Reads.Count);
+    }
+
+    /// <summary>Show tasks is on by default, offered only while there are tasks to show;
+    /// unticked, the chips and their hours go and the choice is kept (local ADR 0056 §4).</summary>
+    [Fact]
+    public async Task Show_tasks_is_on_by_default_and_unticking_it_hides_the_chips_and_hours_and_is_remembered()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        OneTask(host);
+        var preferences = new FakeCalendarViewPreferences();
+
+        var surface = host.WithCalendarSurface(preferences).RenderCalendarSurface();
+
+        surface.WaitForAssertion(() =>
+            Assert.True(surface.Find("[data-testid='task-calendar-show-tasks'] input").HasAttribute("checked")));
+        Assert.NotEmpty(surface.FindAll($"[data-testid='{ChipTestId(ShipId)}']"));
+
+        surface.Find("[data-testid='task-calendar-show-tasks'] input").Change(false);
+
+        surface.WaitForAssertion(() =>
+        {
+            Assert.False(preferences.TasksShown);
+            Assert.Empty(surface.FindAll($"[data-testid='{ChipTestId(ShipId)}']"));
+            Assert.Empty(surface.FindAll($"[data-testid='{BlockTestId(ShipId, Day)}']"));
+            Assert.Empty(surface.FindAll($"[data-testid='task-calendar-day-{Iso(Day)}-hours']"));
+        });
+    }
+
+    /// <summary>A host without Tasks still has a Calendar: the plans and the events draw,
+    /// and there is no Show tasks to offer (ADR 0056 Verification 4).</summary>
+    [Fact]
+    public async Task Without_tasks_the_calendar_draws_the_plans_and_events_and_offers_no_show_tasks()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        host.Context.Services.AddSingleton<ICalendarTasks>(new FakeCalendarTasks { Off = true });
+        host.Context.Services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(Today));
+        host.Context.Services.AddSingleton<ICalendarEvents>(new FakeCalendarEvents(Today));
+
+        var surface = host.WithCalendarSurface(new FakeCalendarViewPreferences { EventsShown = true }).RenderCalendarSurface();
+
+        surface.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(surface.FindAll($"[data-testid='{PlanTestId}']"));
+            Assert.NotEmpty(surface.FindAll($"[data-testid='{EventTestId}']"));
+        });
+        Assert.Empty(surface.FindAll("[data-testid='task-calendar-show-tasks']"));
+        Assert.Empty(surface.FindAll("[data-testid^='task-calendar-day-'][data-testid$='-add-hours']"));
+    }
+
+    [Fact]
+    public async Task A_tasks_read_that_fails_leaves_the_plans_on_the_calendar()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var tasks = OneTask(host);
+        tasks.Failure = new IOException("The task list could not be read.");
+        host.Context.Services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(Today));
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+
+        surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll($"[data-testid='{PlanTestId}']")));
+        Assert.NotEmpty(tasks.Reads);
+        Assert.Empty(surface.FindAll($"[data-testid='{ChipTestId(ShipId)}']"));
+    }
+
+    /// <summary>The window's scope narrows the tasks and their hours — the Brain taking the
+    /// ones filed under no repository — and nothing of the Tasks view's filter bar
+    /// reaches the Calendar.</summary>
+    [Fact]
+    public async Task The_windows_scope_narrows_the_tasks_and_their_hours_the_brain_included()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var tasks = OneTask(host);
+        tasks.Tasks.Add(new CalendarTaskDto(DocsId, "Write the docs", Today, CalendarTaskStatus.Draft, false, []));
+        tasks.Hours.Add(new CalendarHoursBlockDto(DocsId, "Write the docs", Day, 2m, []));
+        var scope = new FakeCalendarWindowScope();
+        host.Context.Services.AddSingleton<ICalendarWindowScope>(scope);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+        surface.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(surface.FindAll($"[data-testid='{ChipTestId(ShipId)}']"));
+            Assert.NotEmpty(surface.FindAll($"[data-testid='{ChipTestId(DocsId)}']"));
+        });
+
+        scope.Scope.Add("other");
+        scope.Brain = true;
+        scope.RaiseChanged();
+
+        surface.WaitForAssertion(() =>
+        {
+            Assert.Empty(surface.FindAll($"[data-testid='{ChipTestId(ShipId)}']"));
+            Assert.Empty(surface.FindAll($"[data-testid='{BlockTestId(ShipId, Day)}']"));
+            Assert.NotEmpty(surface.FindAll($"[data-testid='{ChipTestId(DocsId)}']"));
+            Assert.NotEmpty(surface.FindAll($"[data-testid='{BlockTestId(DocsId, Day)}']"));
+            Assert.Equal("2h", surface.Find($"[data-testid='task-calendar-day-{Iso(Day)}-hours']").QuerySelector("[aria-hidden='true']")!.TextContent.Trim());
+        });
+    }
+
+    /// <summary>A type filter set in Tasks does not narrow the Calendar, and none of the
+    /// Tasks view comes along: no filter bar, no detail panel, no tray, no My Day (ADR 0056
+    /// Verification 7).</summary>
+    [Fact]
+    public async Task A_tasks_filter_does_not_reach_the_calendar_and_nothing_of_the_tasks_view_draws_there()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var prompt = await host.WriteEntryAsync($"# A prompt\n`prompt` `due:{Iso(Today)}`\n");
+        await host.WriteEntryAsync($"# A task\n`task` `due:{Iso(Today)}`\n");
+        var tasks = OneTask(host);
+        host.WithCalendarSurface();
+
+        var list = host.Context.Render<TasksSurface>();
+        list.Find("[data-testid='type-filter-option'][data-type='prompt']").Click();
+        await host.OpenAsync(prompt);
+        list.WaitForAssertion(() => Assert.Single(list.FindAll("[data-testid='entry-detail']")));
+
+        await host.Context.DisposeComponentsAsync();
+        var surface = host.RenderCalendarSurface();
+
+        surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll($"[data-testid='{ChipTestId(ShipId)}']")));
+        Assert.Empty(surface.FindAll(".filter-bar"));
+        Assert.Empty(surface.FindAll("[data-testid='entry-detail']"));
+        Assert.Empty(surface.FindAll("[data-testid='task-calendar-tray']"));
+        Assert.Empty(surface.FindAll("[data-testid='task-calendar-my-day']"));
+        Assert.Empty(surface.FindAll("[data-testid='backlog-pane']"));
+        Assert.Single(tasks.Reads);
+    }
+
+    [Fact]
+    public async Task The_calendar_draws_in_its_own_region_the_tab_controls()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+
+        var region = surface.Find($"#{CalendarSurface.RegionId}");
+        Assert.Equal("calendar-view", region.Id);
+        Assert.Equal("Calendar", region.GetAttribute("aria-label"));
+        Assert.NotNull(region.QuerySelector("[data-testid='task-calendar']"));
+    }
+
+    /// <summary>The chips, the hours blocks and the plan bars wear the band the window's
+    /// colours give their first repository, and none while the colours are hidden.</summary>
+    [Fact]
+    public async Task Chips_blocks_and_plan_bars_wear_the_windows_band_and_are_neutral_without_one()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        OneTask(host);
+        host.Context.Services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(Today));
+        var scope = new FakeCalendarWindowScope();
+        host.Context.Services.AddSingleton<ICalendarWindowScope>(scope);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+        surface.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("repo-mark", surface.Find($"[data-testid='{ChipTestId(ShipId)}']").ClassName);
+            Assert.DoesNotContain("repo-mark", surface.Find($"[data-testid='{BlockTestId(ShipId, Day)}']").ClassName);
+            Assert.Contains("task-calendar__plan--neutral", surface.FindAll($"[data-testid='{PlanTestId}']")[0].ClassName);
+        });
+
+        scope.Bands["backlog"] = 2;
+        scope.RaiseChanged();
+
+        surface.WaitForAssertion(() =>
+        {
+            Assert.Contains("repo-mark--2", surface.Find($"[data-testid='{ChipTestId(ShipId)}']").ClassName);
+            Assert.Contains("repo-mark--2", surface.Find($"[data-testid='{BlockTestId(ShipId, Day)}']").ClassName);
+            Assert.Contains("task-calendar__plan--band-2", surface.FindAll($"[data-testid='{PlanTestId}']")[0].ClassName);
+        });
+    }
+
+    /// <summary>The shell's scope answers from the window's own state: the bar takes the
+    /// band of its repository only while the colours show.</summary>
+    [Fact]
+    public async Task A_bar_wears_its_repository_colour_only_while_the_windows_colours_are_showing()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        host.Context.Services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(Today));
+        host.Context.Services.AddSingleton<ICalendarWindowScope>(new ShellCalendarWindowScope(host.State));
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+        surface.WaitForAssertion(() => Assert.Contains("task-calendar__plan--neutral", surface.FindAll($"[data-testid='{PlanTestId}']")[0].ClassName));
+
+        Assert.Null(host.State.SetRepositoryColoursVisible(true));
+
+        surface.WaitForAssertion(() => Assert.Contains("task-calendar__plan--band-1", surface.FindAll($"[data-testid='{PlanTestId}']")[0].ClassName));
+    }
+
+    /// <summary>A chip dropped on another day writes its due date through the port; a
+    /// refusal is said in a toast (ADR 0056 Verification 6).</summary>
+    [Fact]
+    public async Task Dragging_a_chip_to_another_day_writes_its_due_date_through_the_port_and_a_refusal_is_toasted()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var tasks = OneTask(host);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+        surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll($"[data-testid='{ChipTestId(ShipId)}']")));
+        var grid = surface.FindComponent<CalendarGrid>();
+
+        await grid.InvokeAsync(() => grid.Instance.DropOnDay(ShipId.ToString(), Iso(Day)));
+
+        Assert.Equal([(ShipId, Day)], tasks.DueWrites);
+        surface.WaitForAssertion(() =>
+            Assert.NotNull(surface.Find($"[data-calendar-day='{Iso(Day)}']").QuerySelector($"[data-testid='{ChipTestId(ShipId)}']")));
+        Assert.Empty(host.Toasts.Visible);
+
+        tasks.Refusal = "the entry is read-only";
+        await grid.InvokeAsync(() => grid.Instance.DropOnDay(ShipId.ToString(), Iso(Today)));
+
+        Assert.Contains(host.Toasts.Visible, toast =>
+            toast.Message.Contains("the entry is read-only", StringComparison.Ordinal)
+            && toast.TestId == CalendarSurface.DueRefusedTestId);
+        Assert.NotNull(surface.Find($"[data-calendar-day='{Iso(Day)}']").QuerySelector($"[data-testid='{ChipTestId(ShipId)}']"));
+    }
+
+    /// <summary>Hours added, changed and removed on a day go through the port; a refusal is
+    /// said in a toast.</summary>
+    [Fact]
+    public async Task Hours_added_changed_and_removed_on_a_day_go_through_the_port()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var tasks = OneTask(host);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+        surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll($"[data-testid='{BlockTestId(ShipId, Day)}']")));
+
+        // Change the block that is there.
+        surface.Find($"[data-testid='{BlockTestId(ShipId, Day)}']").Click();
+        surface.Find("[data-testid='task-calendar-hours-editor-hours'] input").Input("5");
+        surface.Find("[data-testid='task-calendar-hours-editor-save']").Click();
+        surface.WaitForAssertion(() => Assert.Equal([(ShipId, Day, (decimal?)5m)], tasks.HoursWrites));
+        surface.WaitForAssertion(() => Assert.Contains("5h", surface.Find($"[data-testid='{BlockTestId(ShipId, Day)}']").TextContent, StringComparison.Ordinal));
+
+        // Remove it.
+        surface.Find($"[data-testid='{BlockTestId(ShipId, Day)}']").Click();
+        surface.Find("[data-testid='task-calendar-hours-editor-remove']").Click();
+        surface.WaitForAssertion(() => Assert.Empty(surface.FindAll($"[data-testid='{BlockTestId(ShipId, Day)}']")));
+        Assert.Equal((ShipId, Day, (decimal?)null), tasks.HoursWrites[^1]);
+
+        // Add one through the day's "Add hours…".
+        surface.Find($"[data-testid='task-calendar-day-{Iso(Day)}-add-hours']").Click();
+        surface.Find("[data-testid='task-calendar-hours-editor-pick'] select").Change(ShipId.ToString());
+        surface.Find("[data-testid='task-calendar-hours-editor-hours'] input").Input("2");
+        surface.Find("[data-testid='task-calendar-hours-editor-save']").Click();
+        surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll($"[data-testid='{BlockTestId(ShipId, Day)}']")));
+        Assert.Equal((ShipId, Day, (decimal?)2m), tasks.HoursWrites[^1]);
+
+        // A refusal is said, and the block stays as it was.
+        tasks.Refusal = "at most 24";
+        surface.Find($"[data-testid='{BlockTestId(ShipId, Day)}']").Click();
+        surface.Find("[data-testid='task-calendar-hours-editor-hours'] input").Input("4");
+        surface.Find("[data-testid='task-calendar-hours-editor-save']").Click();
+        surface.WaitForAssertion(() => Assert.Contains(host.Toasts.Visible, toast =>
+            toast.Message.Contains("at most 24", StringComparison.Ordinal)
+            && toast.TestId == CalendarSurface.HoursRefusedTestId));
+        Assert.Contains("2h", surface.Find($"[data-testid='{BlockTestId(ShipId, Day)}']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_day_totals_its_blocks_against_the_capacity_the_port_answers_and_marks_a_day_over_it()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var tasks = OneTask(host);
+        tasks.Tasks.Add(new CalendarTaskDto(DocsId, "Write the docs", Today, CalendarTaskStatus.Draft, false, []));
+        tasks.Hours.Add(new CalendarHoursBlockDto(DocsId, "Write the docs", Day, 4m, []));
+        var capacity = new FakeCalendarCapacity(8m);
+        host.Context.Services.AddSingleton<ICalendarCapacity>(capacity);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+
+        surface.WaitForAssertion(() =>
+            Assert.Equal("7h / 8h", surface.Find($"[data-testid='task-calendar-day-{Iso(Day)}-hours']").QuerySelector("[aria-hidden='true']")!.TextContent.Trim()));
+
+        capacity.Hours = 6m;
+        capacity.RaiseChanged();
+
+        surface.WaitForAssertion(() =>
+        {
+            var day = surface.Find($"[data-testid='task-calendar-day-{Iso(Day)}-hours']");
+            Assert.Equal("7h / 6h", day.QuerySelector("[aria-hidden='true']")!.TextContent.Trim());
+            Assert.Contains("task-calendar__hours--over", day.ClassName);
+        });
+    }
+
+    [Fact]
+    public async Task Overdue_and_done_tasks_are_drawn_apart()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var tasks = new FakeCalendarTasks();
+        tasks.Tasks.Add(new CalendarTaskDto(ShipId, "Late one", Today.AddDays(-1), CalendarTaskStatus.Ready, false, []));
+        tasks.Tasks.Add(new CalendarTaskDto(DocsId, "Finished one", Today.AddDays(-1), CalendarTaskStatus.Done, false, []));
+        host.Context.Services.AddSingleton<ICalendarTasks>(tasks);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+
+        // On the 1st, yesterday is in the month before, which a grid that opens on a
+        // Monday the 1st does not reach; step back to it.
+        if (Today.Day == 1) surface.Find("[data-testid='task-calendar-previous']").Click();
+
+        surface.WaitForAssertion(() =>
+        {
+            Assert.Contains("task-calendar__chip--overdue", surface.Find($"[data-testid='{ChipTestId(ShipId)}']").ClassName);
+            var done = surface.Find($"[data-testid='{ChipTestId(DocsId)}']");
+            Assert.Contains("task-calendar__chip--done", done.ClassName);
+            Assert.DoesNotContain("task-calendar__chip--overdue", done.ClassName);
+        });
+    }
+
+    /// <summary>Pressing a chip asks this window's navigator for the task in Tasks (ADR 0056
+    /// Verification 8).</summary>
+    [Fact]
+    public async Task Pressing_a_chip_asks_the_windows_navigator_for_the_task_in_tasks()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        OneTask(host);
+        var navigator = new SurfaceNavigator();
+        var requests = new List<SurfaceRequest>();
+        navigator.ShowRequested += requests.Add;
+        host.Context.Services.AddSingleton<ISurfaceNavigator>(navigator);
+
+        var surface = host.WithCalendarSurface().RenderCalendarSurface();
+        surface.WaitForAssertion(() => Assert.NotEmpty(surface.FindAll($"[data-testid='{ChipTestId(ShipId)}']")));
+
+        surface.Find($"[data-testid='{ChipTestId(ShipId)}']").Click();
+
+        var request = Assert.Single(requests);
+        Assert.Equal("tasks", request.SurfaceId);
+        Assert.Equal(ShipId.ToString(), request.Value("entry"));
+    }
+
+    /// <summary>The Calendar may not see Tasks' query constants, so it keeps its own; they
+    /// must name the same surface and key.</summary>
+    [Fact]
+    public void The_calendars_tasks_surface_and_entry_key_are_the_tasks_views_own()
+    {
+        Assert.Equal(TasksSurfaceQuery.SurfaceId, CalendarSurface.TasksSurfaceId);
+        Assert.Equal(TasksSurfaceQuery.Entry, CalendarSurface.EntryQueryKey);
     }
 }

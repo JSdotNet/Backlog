@@ -396,7 +396,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     /// The task type the view is narrowed to — prompts, tasks, ideas or tests — or
     /// null for every type. A scope like the source: a task has exactly one type, so
     /// pressing another lets go of the first, and it narrows the one set of rows the
-    /// list, the Board and the Calendar all read. Held here with the other filters,
+    /// list and the Board read; the Calendar draws every type (local ADR 0056 §4). Held here with the other filters,
     /// so switching views keeps it.
     /// </summary>
     public EntryType? SelectedType { get; private set; }
@@ -1061,6 +1061,44 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         var error = _gitHub.Settings.SetShowRepositoryColours(visible);
         Changed?.Invoke();
         return error;
+    }
+
+    /// <summary>
+    /// Whether a task filed under <paramref name="repositoryIds"/> — the ids its text
+    /// names, as a row's <c>PreviewRepoIds</c> — is in this window's repository scope,
+    /// by the rules the list itself narrows by: one filed only under archived
+    /// repositories is out while show archived is off (local ADR 0029); an empty scope
+    /// takes every other; the Brain takes one that resolves to no repository (local ADR
+    /// 0027); a repository takes one that names it. What the Calendar asks of the window
+    /// (local ADR 0056 §2), which has ids rather than a row.
+    /// </summary>
+    public bool RepositoriesInScope(IReadOnlyList<string> repositoryIds)
+    {
+        ArgumentNullException.ThrowIfNull(repositoryIds);
+
+        var resolved = repositoryIds
+            .Select(_gitHub.ResolveRepository)
+            .OfType<GitHubRepositoryRef>()
+            .ToList();
+
+        if (!ShowArchivedRepositories && resolved.Count > 0 && resolved.All(repository => repository.Archived)) return false;
+        if (_selectedRepositoryAliases.Count == 0) return true;
+
+        return (BrainInScope && resolved.Count == 0)
+            || resolved.Any(repository => _selectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal));
+    }
+
+    /// <summary>The band colour of the first of <paramref name="repositories"/> — ids,
+    /// aliases or <c>owner/name</c> — that the window colours, or null when none does and
+    /// for every one while the colours are hidden. What the Calendar marks a chip, an
+    /// hours block and a plan bar with (local ADR 0056 §2).</summary>
+    public int? RepositoryColourForAny(IReadOnlyList<string> repositories)
+    {
+        ArgumentNullException.ThrowIfNull(repositories);
+
+        return repositories
+            .Select(repository => _gitHub.Settings.Current.VisibleColourFor(repository))
+            .FirstOrDefault(colour => colour is not null);
     }
 
     /// <summary>The identity mark for a row, as classes, or null when the row targets
@@ -4257,28 +4295,15 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         try
         {
             var current = _entries.TryGetValue(id, out var known) ? known.PlannedHours : row.PlannedHours;
-            var held = current.FirstOrDefault(block => block.On == on);
-            if (hours is null && held is null) return;
-            if (hours is { } same && held is not null && held.Hours == same) return;
+            if (PlannedHoursMerge.WithDay(current, on, hours) is not { } next) return;
 
-            List<PlannedHoursDto> next = [.. current.Where(block => block.On != on)];
-            if (hours is { } figure) next.Add(new PlannedHoursDto(on, figure));
-
-            await SavePlannedHoursAsync(row, id, [.. next.OrderBy(block => block.On)]);
+            await SavePlannedHoursAsync(row, id, next);
         }
         finally
         {
             _devbookWrites.Release();
         }
     }
-
-    /// <summary>
-    /// Every block of planned hours in the filtered rows, with the row it belongs to —
-    /// what the Calendar draws on its days. Read from the filtered rows, so the filter
-    /// bar narrows the blocks as it narrows the chips.
-    /// </summary>
-    public IEnumerable<(EntryRow Row, PlannedHoursDto Block)> FilteredPlannedHours() =>
-        FilteredRows.SelectMany(row => row.PlannedHours.Select(block => (row, block)));
 
     private async Task SavePlannedHoursAsync(EntryRow row, Guid id, IReadOnlyList<PlannedHoursDto> blocks)
     {

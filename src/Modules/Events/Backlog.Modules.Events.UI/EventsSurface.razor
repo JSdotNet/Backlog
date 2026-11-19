@@ -14,7 +14,9 @@
     or a new name starts one.
 
     The list is read on open and after every change the pane makes. A task or the Brain
-    changing underneath reads the open event again, so its chips follow.
+    changing underneath, or an event saved elsewhere (another window, the MCP server), reads
+    the list and the open event again, so a new event shows and the chips follow; the open
+    event waits while one of the editor's writes is out.
 
     The editor is keyed by the event it shows, so nothing typed into one event's fields or
     sections is carried to the next; leaving writes what was still waiting. An event removed
@@ -158,6 +160,10 @@
     private string? _loadError;
     private int _revision;
 
+    /// <summary>Whether a change made elsewhere may be missing from the open event the editor
+    /// holds: set by every notice, cleared by the read after the editor's next answer.</summary>
+    private bool _selectedOwed;
+
     private bool _adding;
     private bool _saving;
     private string _newTitle = string.Empty;
@@ -201,6 +207,7 @@
     protected override async Task OnInitializedAsync()
     {
         Pane.Changed += OnChanged;
+        _writes.Drained += OnDrained;
         await LoadAsync();
     }
 
@@ -209,7 +216,22 @@
         if (_loaded) await ApplyFocusAsync();
     }
 
-    public void Dispose() => Pane.Changed -= OnChanged;
+    public void Dispose()
+    {
+        Pane.Changed -= OnChanged;
+        _writes.Drained -= OnDrained;
+    }
+
+    // The queue ran dry. A held write's answer reads what is owed in SavedAsync; a refused or
+    // failed one brings no answer, so the open event owed a read is read here. The flag stays
+    // for SavedAsync, which may still apply an answer older than this read.
+    private void OnDrained() => _ = InvokeAsync(async () =>
+    {
+        if (!_selectedOwed || !_writes.IsIdle) return;
+
+        await ReloadSelectedAsync();
+        StateHasChanged();
+    });
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -225,11 +247,20 @@
         }
     }
 
-    // A task or the Brain changed underneath: the open event's chips are read again.
+    // A task or the Brain changed underneath, or an event saved elsewhere — another window, the
+    // MCP server, the To Event route; the pane's own saves are not heard back. The list is read
+    // again, and the open event too while no write of the editor is out: read mid-write it
+    // would be the event as it stood before that write landed, and the write's own answer
+    // follows anyway. What the person is typing is the editor's and is never read over.
+    // Either way the open event is owed one more read once the editor's next answer is in: a
+    // change that landed after that write read its answer is not in it, and an answer applied
+    // after this read would put the older event back.
     private void OnChanged() => _ = InvokeAsync(async () =>
     {
         _revision++;
-        await ReloadSelectedAsync();
+        _selectedOwed = true;
+        await ReloadListAsync();
+        if (_writes.IsIdle) await ReloadSelectedAsync();
         StateHasChanged();
     });
 
@@ -289,12 +320,19 @@
     }
 
     /// <summary>A change the editor saved: the event as it now stands, and the list again,
-    /// since its title, dates or state may move it.</summary>
+    /// since its title, dates or state may move it. A change made elsewhere while the write was
+    /// out is read now, once no write is left in the queue.</summary>
     private async Task SavedAsync(KnowledgeEventDto saved)
     {
         if (saved.Id == _selectedId) _selected = saved;
 
         await ReloadListAsync();
+
+        if (_selectedOwed && _writes.IsIdle)
+        {
+            _selectedOwed = false;
+            await ReloadSelectedAsync();
+        }
     }
 
     /// <summary>An event removed from the editor: it no longer opens, so the detail goes back

@@ -109,6 +109,16 @@ public static class SyncRoutes
     /// <summary>The full path for one reply.</summary>
     public static string NotificationReplyFor(Guid id) => $"{Base}/notifications/replies/{id:D}";
 
+    /// <summary>Route template for one capture: PUT replaces its title and body
+    /// while the desktop has not decided it. Bearer. A service older than the
+    /// phone has no such route and answers 404 or 405 with no problem code, which
+    /// the phone holds rather than counting as delivered. Use
+    /// <see cref="EditInboxItemFor"/> to build a concrete URL.</summary>
+    public const string EditInboxItem = "/inbox/{id:guid}";
+
+    /// <summary>The full path for editing one capture.</summary>
+    public static string EditInboxItemFor(Guid id) => $"{Base}/inbox/{id:D}";
+
     /// <summary>Route template for acknowledging one capture. Bearer. Use
     /// <see cref="AcknowledgeInboxItemFor"/> to build a concrete URL.</summary>
     public const string AcknowledgeInboxItem = "/inbox/{id:guid}/ack";

@@ -18,6 +18,11 @@ public static class NoteFold
     /// is one: neither side may see the other.</summary>
     public const string NoteType = "note";
 
+    /// <summary>The kind a meeting's note document names beside its type
+    /// (<c>.devbook/domain/inbox/domain.md#meeting</c>). A literal duplicated from the
+    /// desktop's <c>InboxEnumMap.MeetingKind</c>, for the reason <see cref="NoteType"/> is one.</summary>
+    public const string MeetingKind = "meeting";
+
     /// <summary>Whether a document is a note's. Ordinal, as every token on the
     /// feed is compared.</summary>
     public static bool IsNote(string? type) => string.Equals(type, NoteType, StringComparison.Ordinal);

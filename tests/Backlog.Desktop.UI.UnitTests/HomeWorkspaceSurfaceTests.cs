@@ -618,7 +618,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='calendar-view']"));
             Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
             Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
             Assert.Null(shellNavigation.LastSurface);
@@ -675,14 +675,15 @@ public sealed class HomeWorkspaceSurfaceTests
                 .Select(child => child.GetAttribute("data-testid")).ToList();
             // Each option stands in its header item, beside its ⧉ where the host
             // opens windows (local ADR 0043 §4).
-            Assert.Equal(["inbox-header-item", "view-switch", "devbook-header-item"], workspace);
+            // The Calendar tab stands alone right after the switch (local ADR 0056 §7).
+            Assert.Equal(["inbox-header-item", "view-switch", "calendar-header-item", "devbook-header-item"], workspace);
             Assert.Equal("inbox-pane-option",
                 component.Find("[data-testid='inbox-header-item']").FirstElementChild?.GetAttribute("data-testid"));
             Assert.Equal("devbook-pane-option",
                 component.Find("[data-testid='devbook-header-item']").FirstElementChild?.GetAttribute("data-testid"));
 
             Assert.Equal(
-                ["tasks-view-option", "board-view-option", "calendar-view-option", "roadmap-view-option"],
+                ["tasks-view-option", "board-view-option", "roadmap-view-option"],
                 GroupOptionIds(component, "view-switch"));
             Assert.Equal(
                 ["goals-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
@@ -1270,18 +1271,18 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The Calendar is a main view over the same Tasks pane: the filter bar stays,
-    /// the list gives way to the month, and the switch reads Calendar pressed. Its
-    /// name is what the shell remembers, and a fresh shell reopens on it.
+    /// The Calendar is a view of its own (local ADR 0056 §1, §7): its tab shows the grid in
+    /// the Calendar's own region, with no Tasks filter bar and no list, and the tab reads
+    /// pressed. Its name is what the shell remembers, and a fresh shell reopens on it.
     /// </summary>
     [Fact]
-    public void The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered()
+    public void The_calendar_tab_shows_the_grid_in_its_own_region_and_is_remembered()
     {
         using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
         var path = temp.Combine("shell", "shell-navigation.json");
 
         var shellNavigation = new ShellNavigationStore(path);
-        using (var harness = CreateHarness(shellNavigation: shellNavigation))
+        using (var harness = CreateHarness(shellNavigation: shellNavigation, configureServices: AddCalendarTasks))
         {
             var component = Render(harness);
 
@@ -1290,13 +1291,19 @@ public sealed class HomeWorkspaceSurfaceTests
 
             component.WaitForAssertion(() =>
             {
-                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane'] .filter-bar"));
-                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane'] [data-testid='task-calendar']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='calendar-view'] [data-testid='task-calendar']"));
+                Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+                Assert.Empty(component.FindAll(".filter-bar"));
                 Assert.Empty(component.FindAll("[data-testid='entry-list']"));
                 Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("calendar-view", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-controls"));
                 Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
                 Assert.Equal("calendar", shellNavigation.LastView);
             });
+
+            // Pressed again, it changes nothing: a view is never closed.
+            component.Find("[data-testid='calendar-view-option']").Click();
+            Assert.NotEmpty(component.FindAll("[data-testid='task-calendar']"));
 
             component.Find("[data-testid='tasks-view-option']").Click();
             component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='task-calendar']")));
@@ -1304,13 +1311,122 @@ public sealed class HomeWorkspaceSurfaceTests
             component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='task-calendar']")));
         }
 
-        using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path));
+        using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path), configureServices: AddCalendarTasks);
         var again = Render(reopened);
 
         again.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(again.FindAll("[data-testid='task-calendar']"));
+            Assert.NotEmpty(again.FindAll("[data-testid='calendar-view'] [data-testid='task-calendar']"));
             Assert.Equal("true", again.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>The Calendar is not the task list: while it shows there is no GitHub check
+    /// and no Ask AI with a Tasks area (local ADR 0056 §7).</summary>
+    [Fact]
+    public void While_the_calendar_shows_there_is_no_github_check_and_no_ask_ai()
+    {
+        using var harness = CreateHarness(
+            features =>
+            {
+                features.SetEnabled(AppFeatures.AiAssistant, true);
+                features.SetEnabled(TasksFeatures.GitHubIntegration, true);
+            },
+            configureServices: AddCalendarTasks);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+
+        component.Find("[data-testid='calendar-view-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='task-calendar']"));
+            Assert.Empty(component.FindAll("[data-testid='ai-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='github-sync-button']"));
+        });
+    }
+
+    /// <summary>The scope narrows the Calendar's Tasks layer, so it stays plural there: the
+    /// Calendar does not narrow it to its anchor, and Ctrl on a chip adds a member.</summary>
+    [Fact]
+    public void The_calendar_keeps_a_plural_scope_and_ctrl_on_a_chip_adds_to_it()
+    {
+        using var harness = CreateHarness(configureServices: AddCalendarTasks);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForElement("[data-testid='repository-filter-option']").Click();
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() => Assert.Equal(2, state.SelectedRepositoryAliases.Count));
+
+        component.Find("[data-testid='calendar-view-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='task-calendar']"));
+            Assert.Equal(2, state.SelectedRepositoryAliases.Count);
+        });
+
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() => Assert.Equal(["backlog"], state.SelectedRepositoryAliases));
+
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() => Assert.Equal(2, state.SelectedRepositoryAliases.Count));
+    }
+
+    /// <summary>Pressing a chip shows the task in Tasks, through this window's navigator:
+    /// the Tasks view on screen with that row selected and its detail open (local ADR 0056
+    /// §2, Verification 8).</summary>
+    [Fact]
+    public void Pressing_a_calendar_chip_shows_the_task_in_tasks_selected_and_open()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        using var harness = CreateHarness(
+            seed: $"# Ship the calendar\n`task` `!ready` `due:{today:yyyy-MM-dd}`\n",
+            configureServices: AddCalendarTasks);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='calendar-view-option']")));
+        component.Find("[data-testid='calendar-view-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='task-calendar'] [data-calendar-task]")));
+        Assert.Null(state.SelectedRow);
+
+        component.Find("[data-testid='task-calendar'] [data-calendar-task]").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            Assert.Empty(component.FindAll("[data-testid='task-calendar']"));
+            Assert.Equal("Ship the calendar", state.SelectedRow?.PreviewTitle);
+            Assert.Contains("Ship the calendar", Assert.Single(component.FindAll("[data-testid='entry-detail']")).TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>A Tasks type filter narrows the list, never the Calendar (local ADR 0056
+    /// §4, Verification 7).</summary>
+    [Fact]
+    public void A_tasks_type_filter_does_not_narrow_the_calendar()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        using var harness = CreateHarness(
+            seed: $"# A prompt\n`prompt` `due:{today:yyyy-MM-dd}`\n",
+            moreSeeds: [$"# A task\n`task` `due:{today:yyyy-MM-dd}`\n"],
+            configureServices: AddCalendarTasks);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='type-filter-option'][data-type='prompt']")));
+        component.Find("[data-testid='type-filter-option'][data-type='prompt']").Click();
+        component.WaitForAssertion(() => Assert.DoesNotContain("A task", component.Find("[data-testid='entry-list']").TextContent, StringComparison.Ordinal));
+
+        component.Find("[data-testid='calendar-view-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var day = component.Find($"[data-testid='task-calendar'] [data-calendar-day='{today:yyyy-MM-dd}']");
+            Assert.Contains("A task", day.TextContent, StringComparison.Ordinal);
+            Assert.Contains("A prompt", day.TextContent, StringComparison.Ordinal);
         });
     }
 
@@ -1385,9 +1501,10 @@ public sealed class HomeWorkspaceSurfaceTests
 
         using var harness = CreateHarness(
             shellNavigation: shellNavigation,
+            seed: $"# Ship the calendar\n`task` `!ready` `due:{today:yyyy-MM-dd}`\n",
             configureServices: services =>
             {
-                services.AddCalendarModule();
+                AddCalendarTasks(services);
                 services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(today));
                 services.AddSingleton<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>(
                     new FakeCalendarEvents(today));
@@ -1402,6 +1519,9 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.True(component.Find("[data-testid='task-calendar-show-plans'] input").HasAttribute("checked"));
             Assert.NotEmpty(component.FindAll($"[data-testid='task-calendar-plan-{FakeCalendarPlans.PlanId:N}']"));
             Assert.True(component.Find("[data-testid='task-calendar-show-events'] input").HasAttribute("checked"));
+            // No calendarTasksShown in the file: the tasks are drawn (local ADR 0056 §4).
+            Assert.True(component.Find("[data-testid='task-calendar-show-tasks'] input").HasAttribute("checked"));
+            Assert.Contains("Ship the calendar", component.Find($"[data-calendar-day='{today:yyyy-MM-dd}']").TextContent, StringComparison.Ordinal);
         });
 
         using var written = System.Text.Json.JsonDocument.Parse(ShellNavigationStoreTests.Written(path));
@@ -1409,6 +1529,7 @@ public sealed class HomeWorkspaceSurfaceTests
         Assert.Equal("Week", written.RootElement.GetProperty("calendarRange").GetString());
         Assert.True(written.RootElement.GetProperty("calendarPlansShown").GetBoolean());
         Assert.True(written.RootElement.GetProperty("calendarEventsShown").GetBoolean());
+        Assert.False(written.RootElement.TryGetProperty("calendarTasksShown", out _));
     }
 
     /// <summary>
@@ -1874,7 +1995,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             var workspace = component.Find("[data-testid='workspace-navigation']").Children
                 .Select(child => child.GetAttribute("data-testid")).ToList();
-            Assert.Equal(["inbox-header-item", "weekly-review-header-item", "view-switch", "devbook-header-item"], workspace);
+            Assert.Equal(["inbox-header-item", "weekly-review-header-item", "view-switch", "calendar-header-item", "devbook-header-item"], workspace);
 
             var badge = component.Find("[data-testid='weekly-review-feature-status']");
             Assert.Equal("DEV", badge.TextContent.ToUpperInvariant());
@@ -3663,6 +3784,19 @@ public sealed class HomeWorkspaceSurfaceTests
             // does not hold what they asked for.
             Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']"));
         });
+    }
+
+    /// <summary>The Calendar's layers and its Tasks port over the harness's own store,
+    /// composed as the hosts compose them (local ADR 0056 §2): the adapter over the module's
+    /// <c>ITaskItems</c>, so a chip is a stored entry.</summary>
+    private static void AddCalendarTasks(IServiceCollection services)
+    {
+        services.AddCalendarModule();
+        services.AddScoped<ICalendarTasks>(sp =>
+            new Backlog.Infrastructure.FileSystem.Calendar.TasksCalendarTasks(
+                TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
+                null,
+                null));
     }
 
     private static Harness CreateHarness(

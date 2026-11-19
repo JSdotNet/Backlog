@@ -33,7 +33,6 @@ internal static class ShellSurfaceTestServices
     public static IServiceCollection AddShellSurfaces(this IServiceCollection services)
     {
         services.AddTasksSurfaces();
-        services.AddTasksCalendarLayer();
         services.AddCalendarSurface();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
@@ -57,6 +56,7 @@ internal static class ShellSurfaceTestServices
         services.AddScoped<IDevbookTaskTitles>(sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()));
         services.AddScoped<IDevbookTaskReferences>(sp => new ShellDevbookTaskReferences(sp.GetRequiredService<TasksDesktopState>()));
         services.AddScoped<IDevbookWindowScope>(sp => new ShellDevbookWindowScope(sp.GetRequiredService<TasksDesktopState>()));
+        services.AddScoped<Backlog.Modules.Calendar.Abstractions.Services.ICalendarWindowScope>(sp => new ShellCalendarWindowScope(sp.GetRequiredService<TasksDesktopState>()));
         services.AddShellSurfaceWiring(ServiceLifetime.Scoped);
         return services;
     }

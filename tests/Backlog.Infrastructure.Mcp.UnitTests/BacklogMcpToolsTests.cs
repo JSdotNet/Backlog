@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Reflection;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
@@ -123,6 +124,9 @@ public class BacklogMcpToolsTests
                 "archive_inbox_item",
                 "capture_to_inbox",
 
+                // Events: add a knowledge event as the pane's Add does (local ADR 0050).
+                "add_knowledge_event",
+
                 // The surface windows (local ADR 0043 §7).
                 "open_window"
             ],
@@ -154,6 +158,8 @@ public class BacklogMcpToolsTests
         // The dispatcher tools have the queue's own key, off by default (local ADR 0038 §5).
         Assert.Equal(SessionFeatures.SessionRequests, BacklogMcpTools.SessionRequests.FeatureKey);
         Assert.Equal(NotificationsFeatures.Notifications, BacklogMcpTools.Notifications.FeatureKey);
+        // Events is withdrawn whole by its own key (local ADR 0050 §6).
+        Assert.Equal(EventsFeatures.Events, BacklogMcpTools.Events.FeatureKey);
         // open_window has no flag (local ADR 0043 §7): a surface's own flag hides it in the catalog.
         Assert.Null(BacklogMcpTools.Windows.FeatureKey);
     }
@@ -174,6 +180,9 @@ public class BacklogMcpToolsTests
     /// The groups of an area no switch turns off carry no key at all: the backlog,
     /// the roadmap and the devbook are permanent, Progress has no switch of its own
     /// (local ADR 0035 §10), and <c>open_window</c> is ungated (local ADR 0043 §7).
+    /// The keys the groups name are five: sessions, the session request queue's
+    /// <c>session-requests</c>, the notification tools' <c>notifications</c>, the Inbox
+    /// tools' <c>inbox-pane</c>, and the Events tool's <c>events</c>.
     /// </para>
     /// </summary>
     [Fact]
@@ -198,7 +207,7 @@ public class BacklogMcpToolsTests
             .GroupBy(group => group.FeatureKey!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
 
-        Assert.Equal(4, byKey.Count);
+        Assert.Equal(5, byKey.Count);
 
         Assert.Equal(
             [BacklogMcpTools.Sessions, BacklogMcpTools.Surface, BacklogMcpTools.Usage, BacklogMcpTools.Schedules, BacklogMcpTools.Loops],
@@ -295,6 +304,7 @@ public class BacklogMcpToolsTests
             DevbookTools.CaptureNote,
             InboxTools.ArchiveInboxItem,
             InboxTools.CaptureToInbox,
+            EventTools.AddKnowledgeEvent,
             DecisionTools.SetState,
             DecisionTools.Approve,
             DecisionTools.Accept,
@@ -500,6 +510,68 @@ public class BacklogMcpToolsTests
                 .Concat(BacklogMcpTools.Roadmap.ToolNames)
                 .Concat(BacklogMcpTools.Devbook.ToolNames),
             name => Assert.True(BacklogMcpTools.IsExposed(name, features)));
+    }
+
+    /// <summary>
+    /// The Events tool answers to the <c>events</c> key alone (local ADR 0050 §6): off, it is
+    /// absent from <c>tools/list</c> and a call to it is refused as an unknown tool, in any
+    /// case, while every other group stays; on, it is listed and callable again.
+    /// </summary>
+    [Fact]
+    public void The_events_tool_follows_the_events_switch_and_nothing_else()
+    {
+        var features = Everything();
+
+        features.SetEnabled(EventsFeatures.Events, enabled: false);
+
+        Assert.False(BacklogMcpTools.IsExposed(EventTools.AddKnowledgeEvent, features));
+        Assert.False(BacklogMcpTools.IsCallable(EventTools.AddKnowledgeEvent, features));
+        Assert.False(BacklogMcpTools.IsCallable("ADD_KNOWLEDGE_EVENT", features));
+        Assert.All(
+            BacklogMcpTools.ToolNames.Where(name => name != EventTools.AddKnowledgeEvent),
+            name => Assert.True(BacklogMcpTools.IsExposed(name, features)));
+
+        features.SetEnabled(EventsFeatures.Events, enabled: true);
+
+        Assert.True(BacklogMcpTools.IsExposed(EventTools.AddKnowledgeEvent, features));
+        Assert.True(BacklogMcpTools.IsCallable(EventTools.AddKnowledgeEvent, features));
+    }
+
+    /// <summary>
+    /// Every tool that writes says how the pages showing what it changed hear of it
+    /// (<see cref="McpRefreshMap"/>). Read off the attributes rather than off a list, so a new
+    /// write tool fails here until somebody writes down which notice refreshes its pages — or
+    /// that none does yet, and why.
+    /// </summary>
+    [Fact]
+    public void Every_write_tool_names_the_notice_that_refreshes_its_pages()
+    {
+        var writes = BacklogMcpTools.Groups
+            .SelectMany(group => group.ToolType.GetMethods())
+            .Select(method => method.GetCustomAttribute<McpServerToolAttribute>())
+            .Where(tool => tool is { ReadOnly: false })
+            .Select(tool => tool!.Name!)
+            .ToList();
+
+        Assert.NotEmpty(writes);
+        Assert.All(writes, name => Assert.True(
+            McpRefreshMap.Notices.TryGetValue(name, out var notice) && !string.IsNullOrWhiteSpace(notice),
+            $"{name} writes, and the refresh map does not say which notice refreshes its pages."));
+
+        // And nothing else: a read in the map, or a tool renamed away, is an entry nobody reads.
+        Assert.Equal([.. writes.Order()], [.. McpRefreshMap.Notices.Keys.Order()]);
+    }
+
+    /// <summary>The surface's run writes do not refresh the Sessions pane yet: its list is read
+    /// on request (<c>.devbook/domain/sessions/features.md#re-read-on-request</c>), and making it
+    /// live is a change of its own. The map says so rather than leaving them out.</summary>
+    [Fact]
+    public void The_surface_run_writes_are_declared_as_not_refreshed_yet()
+    {
+        Assert.All(
+            [SurfaceTools.StartRun, SurfaceTools.RecordPrompt, SurfaceTools.SetRunContext, SurfaceTools.UpdateStage, SurfaceTools.FinishRun],
+            name => Assert.Equal(McpRefreshMap.SessionsNotRefreshedYet, McpRefreshMap.Notices[name]));
+        Assert.Equal(McpRefreshMap.EventsPaneChanged, McpRefreshMap.Notices[EventTools.AddKnowledgeEvent]);
     }
 
     /// <summary>A name this library does not publish is left alone: a host may

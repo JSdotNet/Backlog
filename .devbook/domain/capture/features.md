@@ -146,10 +146,12 @@ over a field that adds one more. Each row in its list shows:
 - the first line of its body;
 - where it stands: `Waiting`, `Waiting — tap to retry`, or `Sent`.
 
-A tap opens the whole capture with its source, tags and person. The list holds
-only this phone's captures, and each leaves it once the desktop takes it
-in. The phone never triages, so a row offers no decide or dismiss action: see
-[Triage stays on the desktop](../inbox/features.md#triage-stays-on-the-desktop).
+A tap opens the whole capture with its source, tags and person, in a sheet that
+edits or deletes it
+([Edit and delete a capture on the phone](../inbox/features.md#edit-and-delete-a-capture-on-the-phone)).
+The list holds only this phone's captures, and each leaves it once the desktop
+decides it. The phone never triages, so a row offers no decide or dismiss action:
+see [Triage stays on the desktop](../inbox/features.md#triage-stays-on-the-desktop).
 The list refreshes on a pull down, on the refresh button and on returning to the
 app. When the service cannot answer, the last list stays on screen
 with a line saying why it is not newer.

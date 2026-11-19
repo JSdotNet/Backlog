@@ -148,22 +148,14 @@ public sealed class OpenWorkSummaryTests
         Assert.NotNull(pane.Find(Summary).Closest(".filter-bar .filter-group--summary"));
     }
 
-    /// <summary>The Board and the Calendar have no New entry row, so a narrow column
-    /// keeps the total on their bar. The Calendar's Tasks part is a list-layout pane
-    /// with a <see cref="TasksPane.Body"/> handed in, stood in for here by an empty one.</summary>
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task On_the_board_and_calendar_a_narrow_column_keeps_the_summary_on_the_bar(bool calendar)
+    /// <summary>The Board has no New entry row, so a narrow column keeps the total on
+    /// its bar. The Calendar draws no Tasks filter bar at all (local ADR 0056 §4).</summary>
+    [Fact]
+    public async Task On_the_board_a_narrow_column_keeps_the_summary_on_the_bar()
     {
         using var host = await SeededAsync();
 
-        RenderFragment<TasksPaneBody> body = _ => builder => builder.AddMarkupContent(0, "<div data-testid='calendar-body'></div>");
-        var pane = host.Context.Render<TasksPane>(parameters =>
-        {
-            if (calendar) parameters.Add(p => p.Body, body);
-            else parameters.Add(p => p.Layout, TasksLayout.Board);
-        });
+        var pane = host.Context.Render<TasksPane>(parameters => parameters.Add(p => p.Layout, TasksLayout.Board));
         await pane.InvokeAsync(() => pane.Instance.ListNarrowChangedAsync(true));
 
         Assert.NotNull(pane.Find(Summary).Closest(".filter-bar .filter-group--summary"));
