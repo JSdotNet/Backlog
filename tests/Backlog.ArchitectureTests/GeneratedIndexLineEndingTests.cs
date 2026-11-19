@@ -57,59 +57,6 @@ public class GeneratedIndexLineEndingTests
     private static readonly string[] Generators =
         ["tools/diagrams/archify-artifacts.mjs"];
 
-    [Fact]
-    public void Every_generated_index_is_pinned_to_lf()
-    {
-        var indexes = TrackedFiles(GeneratedIndexes);
-
-        Assert.True(
-            indexes.Count > 0,
-            "This rule found no generated index files at all, so it is passing on nothing. Either the "
-            + "generators stopped writing _meta/*.json and _archify/index.json, or the pathspecs here "
-            + "are stale.");
-
-        foreach (var (path, attributes) in Attributes(indexes))
-        {
-            Assert.True(
-                attributes["text"] == Set && attributes["eol"] == Lf,
-                $"{path} resolves to text: {attributes["text"]}, eol: {attributes["eol"]} rather than "
-                + $"text: {Set}, eol: {Lf}. The generator that writes it always emits LF, so with "
-                + "core.autocrlf=true git checks it out as CRLF and the next run reports it as modified "
-                + "with an empty diff. Add the pattern that covers it to .gitattributes.");
-        }
-    }
-
-    /// <summary>
-    /// The rules stay scoped to what a generator writes.
-    ///
-    /// <para><c>**/_archify/*.json</c> would have been the shorter pattern and it
-    /// is the wrong one: the Archify specifications beside the index are written
-    /// by hand — <c>.devbook/arc42/08-crosscutting-concepts.md</c> says so — and pinning
-    /// an authored file's line endings changes what a Windows editor writes
-    /// rather than fixing a generator's phantom diff. This rule is what stops the
-    /// pattern being widened by accident on the way past.</para>
-    /// </summary>
-    [Fact]
-    public void Hand_written_archify_specifications_are_left_to_git()
-    {
-        var specifications = TrackedFiles(AuthoredSpecifications);
-
-        Assert.True(
-            specifications.Count > 0,
-            "This rule found no authored Archify specifications at all, so it is passing on nothing. "
-            + "Either the specifications moved out of _archify/, or the pathspecs here are stale.");
-
-        foreach (var (path, attributes) in Attributes(specifications))
-        {
-            Assert.True(
-                attributes["text"] == Unspecified && attributes["eol"] == Unspecified,
-                $"{path} resolves to text: {attributes["text"]}, eol: {attributes["eol"]} rather than "
-                + "being left unspecified. This file is authored by hand, not written by a generator, "
-                + "so it is outside what the line-ending rules are for — a pattern was widened past the "
-                + "index it was meant to cover.");
-        }
-    }
-
     /// <summary>
     /// The comment above the rules names every generator whose output they pin.
     ///

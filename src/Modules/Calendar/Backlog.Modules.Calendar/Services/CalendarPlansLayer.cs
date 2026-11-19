@@ -10,8 +10,7 @@ namespace Backlog.Modules.Calendar.Services;
 /// <para>
 /// A read gathers the backlog per plan, so it is never taken on every render: only on
 /// arriving at the Calendar, after the port said the plans, their work or the pace
-/// changed, after a feature switched — the roadmap switched off means no plans — and on a
-/// new day, when the windows the roadmap draws move on. Show plans ticked reads at once.
+/// changed, and on a new day, when the windows the roadmap draws move on. Show plans ticked reads at once.
 /// </para>
 /// <para>
 /// Without a port — a host that composed no roadmap — nothing is offered, read or started.
@@ -20,16 +19,13 @@ namespace Backlog.Modules.Calendar.Services;
 internal sealed class CalendarPlansLayer : ICalendarPlansLayer, IDisposable
 {
     private readonly ICalendarPlans? _plans;
-    private readonly IAppFeatureSettings? _features;
     private bool _owed = true;
     private DateOnly? _readOn;
 
-    public CalendarPlansLayer(ICalendarPlans? plans, IAppFeatureSettings? features)
+    public CalendarPlansLayer(ICalendarPlans? plans)
     {
         _plans = plans;
-        _features = features;
         if (_plans is not null) _plans.Changed += OnOwed;
-        if (_features is not null) _features.Changed += OnOwed;
     }
 
     public event Action? Changed;
@@ -78,6 +74,5 @@ internal sealed class CalendarPlansLayer : ICalendarPlansLayer, IDisposable
     public void Dispose()
     {
         if (_plans is not null) _plans.Changed -= OnOwed;
-        if (_features is not null) _features.Changed -= OnOwed;
     }
 }

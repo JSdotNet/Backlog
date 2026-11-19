@@ -8,7 +8,6 @@ type: features
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/tasks/context.md#task-backlog
 related: [.devbook/domain/inbox/features.md#routing]
 ```
 
@@ -964,7 +963,6 @@ entry while the [`copy-entries`](context.md#copy-entries) flag is on (the defaul
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/tasks/context.md#copy-entries
 related: [.devbook/domain/tasks/features.md#import, .devbook/domain/tasks/domain.md#task-type]
 ```
 

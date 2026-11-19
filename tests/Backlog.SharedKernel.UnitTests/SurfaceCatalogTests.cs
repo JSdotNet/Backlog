@@ -31,11 +31,11 @@ public class SurfaceCatalogTests
     [Fact]
     public void ASurfaceWhoseFeatureIsOff_IsLeftOutAndNotAvailable_UntilTheFeatureIsOnAgain()
     {
-        var features = new Features("repository-devbook");
+        var features = new Features("devbook-flag");
         var catalog = new SurfaceCatalog(
             [
                 Surface("tasks", ShellSurfaceGroup.View, 10),
-                Surface("devbook", ShellSurfaceGroup.Takeover, 10, "repository-devbook"),
+                Surface("devbook", ShellSurfaceGroup.Takeover, 10, "devbook-flag"),
             ],
             features);
 

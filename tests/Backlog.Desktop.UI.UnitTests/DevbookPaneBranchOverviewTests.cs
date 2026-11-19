@@ -294,7 +294,6 @@ public sealed class DevbookPaneBranchOverviewTests
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);

@@ -30,25 +30,6 @@ flowchart LR
     C -->|delivers| I[Inbox Item]
 ```
 
-## Feedback reporting
-
-```meta
-type: feature-flag
-key: feedback-reporting
-default: on
-related: [".devbook/domain/capture/features.md#in-app-feedback-capture"]
-```
-
-Turning it on puts a report action in the app chrome. The action files a Desktop
-app issue on GitHub with a title, details, and a screenshot.
-
-The flag is released: on by default, without the `DEV` or `BETA` mark that the
-settings screen puts on an unfinished feature
-([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
-The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a
-person's choice is kept in `features.json`. It is retired once nobody needs to
-switch the report action off.
-
 ## Capture sources
 
 ```meta

@@ -94,7 +94,7 @@ public sealed class SectionHeaderAdoptionTests
     [Fact]
     public void The_feedback_dialog_header_keeps_its_unclassed_heading_and_its_id()
     {
-        using var context = FooterContext(feedback: true);
+        using var context = FooterContext();
 
         var footer = context.Render<AppFooter>();
 
@@ -119,7 +119,7 @@ public sealed class SectionHeaderAdoptionTests
         Assert.NotNull(footer.Find("#feedback-description"));
     }
 
-    private static BunitContext FooterContext(bool feedback = false)
+    private static BunitContext FooterContext()
     {
         var context = new BunitContext();
 
@@ -132,7 +132,6 @@ public sealed class SectionHeaderAdoptionTests
             Guid.NewGuid().ToString("n"));
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
-        _ = features.SetEnabled(AppFeatures.FeedbackReporting, feedback);
 
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());

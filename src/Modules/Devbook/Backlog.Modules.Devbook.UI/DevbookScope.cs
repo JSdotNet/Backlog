@@ -29,14 +29,12 @@ public sealed class DevbookScope(GitHubSettingsStore repositories, IDevbookFolde
         folders.Folders(repositoryAlias);
 
     /// <summary>The sections that actually have something behind them, or none
-    /// at all while Devbook is turned off — or while nothing is
-    /// scoped. The second case is asked here rather than left to the catalog,
+    /// at all while nothing is scoped. That case is asked here rather than left
+    /// to the catalog,
     /// because the catalog normalises whatever it is handed against the
     /// defaults, and "no folders" would come back as "every folder".</summary>
     public IReadOnlyList<DevbookArea> VisibleAreas(string? repositoryAlias)
     {
-        if (!features.IsEnabled(DevbookFeatures.RepositoryDevbook)) return [];
-
         var folders = Folders(repositoryAlias);
         return folders.Count == 0 ? [] : DevbookAreaCatalog.VisibleAreas(folders);
     }
@@ -56,21 +54,20 @@ public sealed class DevbookScope(GitHubSettingsStore repositories, IDevbookFolde
     public bool SearchOffered => features.IsEnabled(DevbookFeatures.Search);
 
     /// <summary>
-    /// Whether the pane offers the Brain (local ADR 0027 §4): whenever Devbook is
-    /// on. The Brain is always in the scope, so unlike a repository it needs no
+    /// Whether the pane offers the Brain (local ADR 0027 §4): always. The Brain is
+    /// always in the scope, so unlike a repository it needs no
     /// folder behind it to be offered — a pane on a Brain with no folder yet is
     /// where the person is asked for one.
     /// </summary>
-    public bool BrainOffered => features.IsEnabled(DevbookFeatures.RepositoryDevbook);
+    public bool BrainOffered => true;
 
     /// <summary>
     /// Whether the Lobes atlas is offered
     /// (<c>.devbook/domain/brain/context.md#lobes-atlas</c>): its own switch is
-    /// on, and so is Devbook, whose Brain and devbooks it maps. The shell's header
+    /// on. The shell's header
     /// and the pane's Atlas button both ask this one question.
     /// </summary>
-    public bool LobesAtlasOffered =>
-        features.IsEnabled(DevbookFeatures.RepositoryDevbook) && features.IsEnabled(DevbookFeatures.LobesAtlas);
+    public bool LobesAtlasOffered => features.IsEnabled(DevbookFeatures.LobesAtlas);
 
     /// <summary>Every configured repository that has a devbook to read, in the
     /// registry's order — the devbook scopes the Lobes atlas offers.</summary>

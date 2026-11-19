@@ -160,7 +160,6 @@ public sealed class TasksPaneBoardTests
     public async Task Columns_by_priority_run_highest_first_and_by_repository_follow_the_configured_ones()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "sync = JSdotNet/Backlog-Sync");
-        host.Features.SetEnabled(TasksFeatures.AdditionalRepositories, enabled: true);
         var critical = await host.WriteEntryAsync("# Rotate the key\n`task` `*critical` `repo:sync`\n");
         var low = await host.WriteEntryAsync("# Banner copy\n`task` `*low` `repo:backlog`\n");
         var plain = await host.WriteEntryAsync("# Hours report\n`task`\n");

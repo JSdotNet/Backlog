@@ -766,7 +766,6 @@ public static class DesktopCompositionRegistration
                 sp.GetRequiredService<IDevbookImportLedger>(),
                 sp.GetRequiredService<IDevbookSubjectStateStore>(),
                 sp.GetRequiredService<IDevbookAnnotationStore>(),
-                sp.GetRequiredService<IAppFeatureSettings>(),
                 sp.GetService<TimeProvider>() ?? TimeProvider.System,
                 sp.GetService<ILogger<Backlog.Desktop.UI.Devbook.DevbookImportWorker>>());
         });

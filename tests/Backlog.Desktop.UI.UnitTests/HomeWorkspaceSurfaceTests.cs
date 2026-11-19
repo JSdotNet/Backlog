@@ -1868,38 +1868,17 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     [Fact]
-    public void The_roadmap_is_absent_when_its_feature_is_off()
-    {
-        using var harness = CreateHarness(features => features.SetEnabled(RoadmapFeatures.Roadmap, false));
-        var component = Render(harness);
-
-        component.WaitForAssertion(() =>
-        {
-            // No option offering it: the flag decides whether the option exists. The
-            // switch stays, with Tasks, the Board and the Calendar as its options.
-            Assert.Empty(component.FindAll("[data-testid='roadmap-view-option']"));
-            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
-
-            Assert.Equal(
-                ["tasks-view-option", "board-view-option", "calendar-view-option"],
-                GroupOptionIds(component, "view-switch"));
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-        });
-    }
-
-    [Fact]
     public void A_surface_whose_feature_is_switched_off_falls_back_to_the_workspace()
     {
         using var harness = CreateHarness(features =>
         {
-            features.SetEnabled(DashboardFeatures.Dashboard, false);
             features.SetEnabled(SessionFeatures.Sessions, false);
         });
         var component = Render(harness);
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='dashboard-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-toggle-button']"));
             Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
         });
     }
@@ -1937,73 +1916,6 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             DeleteShellNavigationDirectory(path);
         }
-    }
-
-    /// <summary>
-    /// Turning the Devbook's flag off while it has the screen returns the reader to
-    /// the view underneath, with no Devbook option left to press; it is remembered
-    /// so, as the side pane closed for the same reason, and the flag coming back
-    /// offers the option without taking the screen by itself.
-    /// </summary>
-    [Fact]
-    public void Turning_the_devbook_flag_off_while_it_has_the_screen_returns_to_the_workspace()
-    {
-        var path = NewShellNavigationPath();
-
-        try
-        {
-            var shellNavigation = new ShellNavigationStore(path);
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
-            var component = Render(harness);
-            var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
-
-            OpenTheRoadmap(component);
-            OpenTheDevbook(component);
-
-            _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
-                Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
-                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='roadmap-band']"));
-                Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
-                Assert.Null(shellNavigation.LastSurface);
-            });
-
-            _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-                Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
-    }
-
-    /// <summary>
-    /// Each segment is gated on its own feature: with the Dashboard off, Sessions
-    /// is still offered and still opens its list.
-    /// </summary>
-    [Fact]
-    public void With_only_the_dashboard_feature_off_sessions_is_still_offered()
-    {
-        using var harness = CreateHarness(features => features.SetEnabled(DashboardFeatures.Dashboard, false));
-        var component = Render(harness);
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Empty(component.FindAll("[data-testid='dashboard-toggle-button']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='sessions-toggle-button']"));
-        });
-
-        OpenSessions(component);
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']")));
     }
 
     /// <summary>
@@ -2181,40 +2093,6 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The feature and the chosen view are independent: turning the feature off
-    /// shows the Tasks view and takes the option away, and turning it back on
-    /// returns the reader to the roadmap they were on, because the choice was
-    /// never reset.
-    /// </summary>
-    [Fact]
-    public void The_roadmap_survives_its_feature_going_off_and_back_on()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
-
-        OpenTheRoadmap(component);
-
-        _ = features.SetEnabled(RoadmapFeatures.Roadmap, false);
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Empty(component.FindAll("[data-testid='roadmap-view-option']"));
-            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-        });
-
-        _ = features.SetEnabled(RoadmapFeatures.Roadmap, true);
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
-            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
-        });
-    }
-
-    /// <summary>
     /// The maturity flag follows an unfinished feature out of the settings screen
     /// and onto the control that leads to it.
     ///
@@ -2338,12 +2216,12 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
-    /// <summary>A released feature is the ordinary case and the header stays quiet
+    /// <summary>A permanent area is the ordinary case and the header stays quiet
     /// about it — otherwise the flag would be wallpaper rather than a warning.
-    /// Devbook, Roadmap and Dashboard are the released ones of the four enabled
-    /// here; Tools is Dev and is the control group.</summary>
+    /// Devbook, Roadmap and Dashboard carry no switch and so no mark; Tools is Dev
+    /// and is the control group.</summary>
     [Fact]
-    public void A_released_feature_adds_no_flag_to_the_header()
+    public void A_permanent_area_adds_no_flag_to_the_header()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
@@ -2352,11 +2230,11 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             // Present and unflagged.
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']"));
-            Assert.Empty(component.FindAll("[data-testid='devbook-feature-status']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-pane-option'] [data-testid$='-feature-status']"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view-option']"));
-            Assert.Empty(component.FindAll("[data-testid='roadmap-feature-status']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-view-option'] [data-testid$='-feature-status']"));
             Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']"));
-            Assert.Empty(component.FindAll("[data-testid='dashboard-feature-status']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-toggle-button'] [data-testid$='-feature-status']"));
 
             // Present and flagged — proving the absence above is the status
             // talking rather than the badge being broken everywhere.
@@ -3731,14 +3609,14 @@ public sealed class HomeWorkspaceSurfaceTests
             configureServices: AddLobes);
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-toggle-button']")));
+        component.Find("[data-testid='sessions-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']")));
         component.Find("[data-testid='atlas-toggle-button']").Click();
         component.WaitForAssertion(() =>
-            Assert.Equal("Back to Dashboard", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title")));
+            Assert.Equal("Back to Sessions", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title")));
 
-        _ = features!.SetEnabled(DashboardFeatures.Dashboard, false);
+        _ = features!.SetEnabled(SessionFeatures.Sessions, false);
 
         component.WaitForAssertion(() =>
             Assert.Equal("Back to Tasks", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title")));
@@ -3751,12 +3629,12 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
         });
 
-        // The dashboard back on does not put a takeover the reader left back on screen.
-        _ = features.SetEnabled(DashboardFeatures.Dashboard, true);
+        // Sessions back on does not put a takeover the reader left back on screen.
+        _ = features.SetEnabled(SessionFeatures.Sessions, true);
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
         });
     }
@@ -4014,35 +3892,6 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// A Devbook the reader pressed open is the catalog's: switching its flag off
-    /// takes it out of the catalog, the header loses its option, and the surface
-    /// leaves the screen for the workspace.
-    /// </summary>
-    [Fact]
-    public void The_devbook_option_and_surface_follow_its_catalog_entry()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-        var catalog = harness.Context.Services.GetRequiredService<ISurfaceCatalog>();
-        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
-
-        Assert.True(catalog.TryGet("devbook", out var devbook));
-        Assert.Equal(ShellSurfaceGroup.Takeover, devbook.Group);
-
-        OpenTheDevbook(component);
-        Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.False(catalog.TryGet("devbook", out _));
-            Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
-            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
-        });
-    }
-
-    /// <summary>
     /// A run started from an entry copied out of the app names it by its stored id and
     /// nothing else, and that id is what the shell opens it by.
     /// </summary>
@@ -4164,17 +4013,13 @@ public sealed class HomeWorkspaceSurfaceTests
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         shellNavigation ??= new ShellNavigationStore(Path.Combine(root, "shell", "shell-navigation.json"));
 
-        // The three surfaces under test are on; everything that would put extra
+        // The switchable surfaces under test are on; everything that would put extra
         // chrome or a network call in the way is off.
-        _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, true);
-        _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
         _ = featureSettings.SetEnabled(RepositoryManagementFeatures.PullRequests, true);
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
-        _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
         _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
 
         configureFeatures?.Invoke(featureSettings);

@@ -276,14 +276,14 @@ public sealed class GlobalPaneMarkupTests
     /// hold, which the navigation store reads as the Roadmap view over the workspace.
     /// </summary>
     [Fact]
-    public void Roadmap_option_is_feature_gated_and_is_a_view_not_a_takeover()
+    public void Roadmap_option_is_a_view_not_a_takeover()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
         var store = NormalizeLineEndings(File.ReadAllText(FindShellNavigationStore()));
 
         Assert.Contains("@if (RoadmapViewOffered)", home, StringComparison.Ordinal);
         Assert.Contains("private bool RoadmapViewOffered => ViewOffered(RoadmapViewId);", home, StringComparison.Ordinal);
-        Assert.Contains("RoadmapFeatures.Roadmap,", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurfaceRegistration.cs"))), StringComparison.Ordinal);
+        Assert.Contains("ShellSurfaceGroup.View,", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurfaceRegistration.cs"))), StringComparison.Ordinal);
         Assert.Contains("private bool WorkspaceVisible => TakeoverOnScreen is null;", home, StringComparison.Ordinal);
         Assert.Contains(
             "private string EffectiveView => ViewOffered(_view) ? _view : TasksViewId;",

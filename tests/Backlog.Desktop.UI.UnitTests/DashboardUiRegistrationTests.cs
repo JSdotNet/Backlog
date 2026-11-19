@@ -71,7 +71,7 @@ public sealed class DashboardUiRegistrationTests
         Assert.DoesNotContain(section.Id, TakenPageIds);
         Assert.Equal(SettingsGroup.ProductAreas, section.Group);
         Assert.True(section.Order < InboxSettingsRegistration.Order);
-        Assert.Equal(DashboardFeatures.Dashboard, section.FeatureKey);
+        Assert.Null(section.FeatureKey);
     }
 
     /// <summary>The working week is read by the roadmap as well as the dashboard

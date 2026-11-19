@@ -57,14 +57,3 @@ tests: [unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.RepositoryMan
 With the `pull-requests` flag on, the shell offers the pull requests pane, with its lanes, detail panel and acts. Off, the pane is not offered, and a task's side panel names only sessions under its linked work.
 
 The flag is marked `DEV` in the feature catalog in `AppFeatures.cs`, the settings screen's mark for a feature still under construction ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)). A person's choice is kept in `features.json` beside the app's other per-device choices. The key is declared as `RepositoryManagementFeatures.PullRequests` in this context's `.Abstractions` project. Local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#7-the-flag-pull-requests-moves-owner-and-keeps-its-key) moved the declaration here from `SessionFeatures` and kept the key, so a stored choice still applies. It is retired when the pane leaves `DEV`.
-
-## Additional repositories
-
-```meta
-type: feature-flag
-key: additional-repositories
-default: on
-related: [".devbook/domain/repository-management/features.md#repository-registry-configuration"]
-```
-
-With the `additional-repositories` flag on, a person can configure more than one repository and switch the panes, and their devbooks, between them. It is released and on by default, and listed with the cross-cutting features because every pane that reads a repository follows it. The key is declared on `TasksFeatures`, the first context to gate on it. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices.

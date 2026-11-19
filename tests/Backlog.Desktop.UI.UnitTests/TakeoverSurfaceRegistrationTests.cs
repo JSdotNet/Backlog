@@ -26,13 +26,13 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class TakeoverSurfaceRegistrationTests
 {
-    public static TheoryData<string, string, string, string[]> Takeovers => new()
+    public static TheoryData<string, string, string?, string[]> Takeovers => new()
     {
         { "inbox", "Inbox", InboxFeatures.Pane, ["item"] },
         { "events", "Events", EventsFeatures.Events, ["event"] },
         { "sessions", "Sessions", SessionFeatures.Sessions, ["session", "page", "schedule"] },
         { "pull-requests", "Pull requests", RepositoryManagementFeatures.PullRequests, ["pullRequest"] },
-        { "dashboard", "Dashboard", DashboardFeatures.Dashboard, ["tab"] },
+        { "dashboard", "Dashboard", null, ["tab"] },
         { "notifications", "Notifications", NotificationsFeatures.Notifications, ["notification"] },
         { "tools", "Tools", DevPcFeatures.SystemTools, [] },
         { "atlas", "Atlas", DevbookFeatures.LobesAtlas, ["layout"] },
@@ -40,7 +40,7 @@ public sealed class TakeoverSurfaceRegistrationTests
 
     [Theory]
     [MemberData(nameof(Takeovers))]
-    public void Each_takeover_registers_in_the_takeover_group_behind_its_flag(string id, string title, string feature, string[] keys)
+    public void Each_takeover_registers_in_the_takeover_group_behind_its_flag(string id, string title, string? feature, string[] keys)
     {
         var surface = Assert.Single(Registered(), candidate => candidate.Id == id);
 
