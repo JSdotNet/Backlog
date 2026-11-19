@@ -1,5 +1,6 @@
 using System.Globalization;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Dashboard.Services;
 
@@ -77,7 +78,7 @@ internal sealed class UsageWeeks
     {
         var local = TimeZoneInfo.ConvertTime(now, zone);
         var date = DateOnly.FromDateTime(local.DateTime);
-        var monday = date.AddDays(-(((int)date.DayOfWeek + 6) % 7)).ToDateTime(TimeOnly.MinValue);
+        var monday = CalendarWeek.MondayOf(date).ToDateTime(TimeOnly.MinValue);
 
         return new UsageWeeks(new DateTimeOffset(monday, zone.GetUtcOffset(monday)), zone, WeekSource.Calendar);
     }

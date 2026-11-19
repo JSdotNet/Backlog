@@ -244,7 +244,7 @@ else if (_looked)
     private IReadOnlyList<int> Weeks(IReadOnlyList<GoalItem> items)
     {
         var today = Progress.Today;
-        var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+        var monday = global::Backlog.SharedKernel.CalendarWeek.MondayOf(today);
 
         return
         [

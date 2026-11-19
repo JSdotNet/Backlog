@@ -40,6 +40,7 @@
     <!-- The one envelope every settings file seals its secret in (local ADR 0030),
          compiled in for the same reason. -->
     <Compile Include="..\Backlog.Infrastructure.GitHub\SecretEnvelope.cs" Link="SecretEnvelope.cs" />
+    <Compile Include="..\Backlog.Infrastructure.GitHub\UserDpapi.cs" Link="UserDpapi.cs" />
   </ItemGroup>
 
 </Project>

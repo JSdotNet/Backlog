@@ -6,6 +6,7 @@ using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Progress;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using Backlog.SharedKernel;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -147,7 +148,7 @@ public sealed class GoalsHostTests : IDisposable
 
         host.Find("[data-testid='goals-board-iteration-twoweeks']").Click();
 
-        var monday = Iterations.MondayOf(DateOnly.FromDateTime(DateTime.Now));
+        var monday = CalendarWeek.MondayOf(DateOnly.FromDateTime(DateTime.Now));
         host.WaitForAssertion(() => Assert.Equal(
             monday.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
             host.Find("[data-testid='two-week-start-dialog-start'] input").GetAttribute("value")));

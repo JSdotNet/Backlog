@@ -1,5 +1,6 @@
 using System.Globalization;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Dashboard.Services;
 
@@ -188,8 +189,7 @@ internal static class WeekBuckets
     /// <summary>The Monday of the ISO week an instant falls in, at midnight.</summary>
     private static DateTimeOffset StartOfWeek(DateTimeOffset instant)
     {
-        var date = instant.UtcDateTime.Date;
-        var offset = ((int)date.DayOfWeek + 6) % 7;
-        return new DateTimeOffset(date.AddDays(-offset), TimeSpan.Zero);
+        var monday = CalendarWeek.MondayOf(DateOnly.FromDateTime(instant.UtcDateTime));
+        return new DateTimeOffset(monday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
     }
 }

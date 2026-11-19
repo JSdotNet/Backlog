@@ -134,7 +134,7 @@ else
 
 <TwoWeekStartDialog Open="_askingStart"
                     OpenChanged="open => _askingStart = open"
-                    Offered="@Iterations.MondayOf(Today)"
+                    Offered="@(global::Backlog.SharedKernel.CalendarWeek.MondayOf(Today))"
                     OnSave="SetTwoWeekStartAsync" />
 
 <GoalPicker Open="@(_picking is not null)"

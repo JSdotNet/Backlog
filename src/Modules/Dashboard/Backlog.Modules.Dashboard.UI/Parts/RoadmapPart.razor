@@ -26,6 +26,7 @@
     roadmap is on and could not be read, which is news.
 *@
 @using System.Globalization
+@using global::Backlog.SharedKernel
 @inherits DashboardPartBase<PlanInsight>
 @inject ITaskInsights Insights
 
@@ -192,11 +193,11 @@
             if (from == default || to < from) return [];
 
             var weeks = new List<DateOnly>();
-            var last = Monday(to);
+            var last = CalendarWeek.MondayOf(to);
 
             // Bounded rather than trusted: an absurd fallback stretch should draw a wide
             // axis, not hang the pane.
-            for (var cursor = Monday(from); cursor <= last && weeks.Count < 104; cursor = cursor.AddDays(7))
+            for (var cursor = CalendarWeek.MondayOf(from); cursor <= last && weeks.Count < 104; cursor = cursor.AddDays(7))
             {
                 weeks.Add(cursor);
             }
@@ -224,7 +225,7 @@
 
     /// <summary>The Monday of the week today falls in, where the window ends; default
     /// for an insight built without a window, which has no today to mark.</summary>
-    private DateOnly TodayWeek => IsReady && Value!.WindowFrom != default ? Monday(Value!.WindowTo) : default;
+    private DateOnly TodayWeek => IsReady && Value!.WindowFrom != default ? CalendarWeek.MondayOf(Value!.WindowTo) : default;
 
     /// <summary>Where today sits along the weeks, as a share of their width — the start
     /// of its week plus the days into it — or null when it is not on the axis.</summary>
@@ -239,9 +240,6 @@
 
         return (index + into / 7d) / weeks.Count;
     }
-
-    private static DateOnly Monday(DateOnly day) =>
-        day.AddDays(-(((int)day.DayOfWeek + 6) % 7));
 
     /// <summary>An axis label as the task charts write one: <c>W41</c>.</summary>
     private static string WeekLabel(DateOnly monday) =>
@@ -265,8 +263,8 @@
         if (start > axisEnd) return null;
         if (end < axisStart) end = axisStart;
 
-        var first = (Monday(start < axisStart ? axisStart : start).DayNumber - axisStart.DayNumber) / 7;
-        var last = (Monday(end > axisEnd ? axisEnd : end).DayNumber - axisStart.DayNumber) / 7;
+        var first = (CalendarWeek.MondayOf(start < axisStart ? axisStart : start).DayNumber - axisStart.DayNumber) / 7;
+        var last = (CalendarWeek.MondayOf(end > axisEnd ? axisEnd : end).DayNumber - axisStart.DayNumber) / 7;
 
         return new Placement(first, Math.Max(first, last), start < axisStart, end > axisEnd);
     }
