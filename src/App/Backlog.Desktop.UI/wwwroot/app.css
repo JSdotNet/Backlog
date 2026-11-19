@@ -9087,7 +9087,8 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /* A C4 view a chapter embeds as ![…](c4:<key>), drawn where the image was. A block
-   inside the paragraph, the full width of the chapter, framed; the diagram's inline host keeps the picture's own aspect ratio. */
+   inside the paragraph, the full width of the chapter, drawn straight on the page
+   with no panel behind it; the diagram's inline host keeps the picture's own aspect ratio. */
 .devbook-c4-embed {
     display: flex;
     flex-direction: column;
@@ -9095,11 +9096,11 @@ a.pull-request-detail-checks__name:hover {
     margin: var(--spacing-sm) 0;
 }
 
-.devbook-c4-embed .c4-diagram-host--inline {
-    padding: var(--spacing-sm);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-raised);
+/* The full width includes the strip an annotated block keeps clear for its corner
+   controls (.md-block--affordance): a picture loses more to that strip than a line
+   of prose does, and the controls float over the diagram's empty corner. */
+.md-block--affordance:has(> .md-p > .devbook-c4-embed) {
+    padding-inline-end: 0;
 }
 
 .devbook-c4-embed__caption {
