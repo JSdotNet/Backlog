@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-07
-related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md"]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md"]
 c4: [backlog.desktop.shell]
 c4-touches: [backlog.desktop.inbox, backlog.desktop.devbook, backlog.desktop.roadmap, backlog.desktop.sessions, backlog.desktop.dashboard, backlog.desktop.tasks]
 ```
@@ -40,6 +40,12 @@ deferred pieces step 18 settled landed in pull request #1134.
 > surface of its own that reads the Tasks, Plans and Events layers. Tasks and Board
 > stay one pane, and the Calendar keeps its slot in §2's view switch and its stored
 > names in §6.
+
+> **Amended, 2026-11-18, by
+> [ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (accepted).**
+> §2's view switch becomes `Tasks | Board | Roadmap`, and the Calendar gets a header
+> tab of its own after it. It stays a main view, and `lastView: calendar` still
+> reopens it.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -123,6 +129,10 @@ render their own content and carry no Tasks filter bar.
 
 ```meta
 ```
+
+Amended by [ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md#7-the-calendar-gets-a-header-tab-of-its-own):
+the Calendar leaves the switch for a tab of its own, so the switch reads
+`Tasks | Board | Roadmap`. The text below is the decision as first taken.
 
 The header's view switch is one fused group, `Tasks | Board | Calendar | Roadmap`.
 In progress is a main view too, but its option leads the work in progress group,
@@ -378,6 +388,12 @@ nor does the negative consequence about dragging the side-pane edge. The
 [ADR 0043](0043-a-surface-can-open-in-its-own-window.md) (proposed) keeps one main view
 per window, lets any surface open in separate OS windows, and replaces the enums of
 §1 and §4 with surfaces modules register.
+
+**2026-11-18: the Calendar gets a tab of its own.**
+[ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (accepted) takes
+the Calendar out of §2's view switch, which reads `Tasks | Board | Roadmap`. The
+Calendar tab stands alone after it and acts as a view option. The GitHub check and
+Ask AI's Tasks area are not offered while it shows.
 
 ## Verification
 

@@ -2,7 +2,7 @@
 
 ```meta
 type: domain
-related: [.devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md]
+related: [.devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md]
 ```
 
 The Calendar owns no aggregate, domain service or domain event: everything it shows
@@ -23,21 +23,22 @@ aliases: [layer, Tasks layer, Plans layer, Events layer]
 related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/tasks/features.md#tasks-on-the-calendar, .devbook/domain/events/features.md#events-on-the-calendar, .devbook/domain/calendar/context.md]
 ```
 
-What one source draws on the Calendar's days. There are three: the **Tasks layer**,
-always drawn, the **Plans layer** and the **Events layer**. The Plans and Events layers
-are read through [ports the Calendar owns](context.md). The Tasks layer is drawn by a part
-Tasks offers, which the Calendar hosts. A layer writes only back through its source.
+What one source draws on the Calendar's days. There are three: the **Tasks layer**, the
+**Plans layer** and the **Events layer**. Each is read through a
+[port the Calendar owns](context.md#dependencies), and the Calendar draws them all on
+its own grid. A layer writes only back through its source.
 
 ### Layer Choice
 
 ```meta
 type: term
-aliases: [Show plans, Show events]
-related: [.devbook/domain/calendar/context.md#show-plans, .devbook/domain/calendar/context.md#show-events]
+aliases: [Show tasks, Show plans, Show events]
+related: [.devbook/domain/calendar/context.md#show-tasks, .devbook/domain/calendar/context.md#show-plans, .devbook/domain/calendar/context.md#show-events]
 ```
 
-The choice that turns one layer on or off. **Show plans** switches the Plans layer and
-**Show events** the Events layer. The Tasks layer has none.
+The choice that turns one layer on or off. **Show tasks** switches the Tasks layer,
+**Show plans** the Plans layer and **Show events** the Events layer. A choice is
+offered only while its layer's source is there to answer.
 
 ### Range
 

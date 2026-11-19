@@ -3,24 +3,73 @@
 @inject IToastChannel Toasts
 
 @*
-    The Calendar as a shell surface (local ADR 0043 §1, local ADR 0055): a view of its own
-    that hosts the Tasks layer as the part Tasks offers (CalendarTasksLayer) and hands it the
-    layers the Calendar reads — the Plans layer, the Events layer and the hours worked a day —
-    with the range, Show plans and Show events it keeps (ICalendarViewPreferences). It owns
-    no data.
+    The Calendar as a shell surface (local ADR 0043 §1, local ADR 0055, local ADR 0056): a
+    view of its own that draws its own grid (CalendarGrid) in its own region, from the
+    layers it reads — the Tasks layer, the Plans layer, the Events layer and the hours
+    worked a day — with the range and the Show tasks, Show plans and Show events choices
+    it keeps (ICalendarViewPreferences). It owns no data.
 
-    It draws no element of its own around the part, so the shell's pane and every selector
-    under it stay what they were when the Calendar was a layout of the Tasks pane. With no
-    part composed it draws nothing.
+    The window's repository scope narrows the tasks and their hours, and the window's
+    colours mark the chips, the hours blocks and the plan bars (ICalendarWindowScope).
+    Nothing of the Tasks view comes along: no filter bar, no open task and no selection.
+    Pressing a chip shows the task in Tasks, through this window's navigator. A drop and
+    an hours edit are written through the Tasks layer, and a refusal is said in a toast.
+    With no Tasks composed the Calendar still draws the plans and the events, and offers
+    no Show tasks.
 *@
-@if (_part is { } part)
-{
-    <DynamicComponent Type="part.Component" Parameters="PartParameters()" />
-}
+<section class="calendar-view" id="@RegionId" data-testid="@RegionId" aria-label="Calendar">
+    <CalendarGrid Tasks="@GridTasks()"
+                  Today="@Today"
+                  Range="@Range"
+                  RangeChanged="SetRange"
+                  ShownChanged="OnShownChangedAsync"
+                  OnOpen="OpenTask"
+                  OnDueChanged="OnDueChangedAsync"
+                  TasksAvailable="@TasksAvailable"
+                  ShowTasks="@TasksShown"
+                  ShowTasksChanged="SetTasksShownAsync"
+                  PlansAvailable="@(_plans?.Available ?? false)"
+                  ShowPlans="@PlansShown"
+                  ShowPlansChanged="SetPlansShownAsync"
+                  Plans="@PlanBars()"
+                  Milestones="@Milestones()"
+                  ShelfPlans="@ShelfPlans()"
+                  OnPlanStarted="StartPlanAsync"
+                  EventsAvailable="@(_events?.Available ?? false)"
+                  ShowEvents="@EventsShown"
+                  ShowEventsChanged="SetEventsShownAsync"
+                  Events="@GridEvents()"
+                  KeyDates="@KeyDates()"
+                  HoursAvailable="@TasksAvailable"
+                  HoursBlocks="@HoursBlocks()"
+                  CapacityOn="@CapacityOn"
+                  OnHoursChanged="OnHoursChangedAsync"
+                  AriaLabel="Tasks, plans and events by day"
+                  TestId="task-calendar" />
+</section>
 
 @code {
+    /// <summary>The id of the Calendar's region: what its header option's
+    /// <c>aria-controls</c> names.</summary>
+    public const string RegionId = "calendar-view";
+
     /// <summary>The test id of the toast a refused shelf drop raises.</summary>
     public const string PlanRefusedTestId = "calendar-plan-refused";
+
+    /// <summary>The test id of the toast a refused due-date drop raises.</summary>
+    public const string DueRefusedTestId = "calendar-due-refused";
+
+    /// <summary>The test id of the toast a refused hours edit raises.</summary>
+    public const string HoursRefusedTestId = "calendar-hours-refused";
+
+    /// <summary>The surface a pressed chip asks this window's navigator for: the Tasks
+    /// view's id. The Calendar may not see Tasks' own constants (local ADR 0056 §5), so it
+    /// keeps its own; a test pins the two equal.</summary>
+    public const string TasksSurfaceId = "tasks";
+
+    /// <summary>The query key the Tasks view opens an entry by; pinned equal to Tasks'
+    /// own as <see cref="TasksSurfaceId"/> is.</summary>
+    public const string EntryQueryKey = "entry";
 
     /// <summary>Unused: the Calendar accepts no query. Declared because the shell hands
     /// every surface one.</summary>
@@ -32,16 +81,23 @@
     [Parameter]
     public EventCallback OnClose { get; set; }
 
-    private CalendarTasksLayer? _part;
+    private ICalendarTasksLayer? _tasks;
     private ICalendarPlansLayer? _plans;
     private ICalendarEventsLayer? _events;
     private ICalendarCapacity? _capacity;
     private ICalendarViewPreferences? _preferences;
+    private ICalendarWindowScope? _scope;
+    private ISurfaceNavigator? _navigator;
 
     /// <summary>The choices this run keeps when the host composed no preferences.</summary>
     private CalendarRange _range = CalendarRange.Month;
+    private bool _tasksShown = true;
     private bool _plansShown;
     private bool _eventsShown;
+
+    /// <summary>The days the grid shows: the window the Tasks layer is read for. The
+    /// opening month or week until the grid reports what it drew.</summary>
+    private CalendarWindow _window = null!;
 
     /// <summary>The host's clock, or the system's: what "today" is for the layers' reads.</summary>
     private TimeProvider _clock = TimeProvider.System;
@@ -50,20 +106,38 @@
 
     private CalendarRange Range => _preferences?.Range ?? _range;
 
+    private bool TasksShown => _preferences?.TasksShown ?? _tasksShown;
+
     private bool PlansShown => _preferences?.PlansShown ?? _plansShown;
 
     private bool EventsShown => _preferences?.EventsShown ?? _eventsShown;
 
+    /// <summary>Whether there are tasks to show: a Tasks layer composed and read. False
+    /// offers no Show tasks box and keeps no hours.</summary>
+    private bool TasksAvailable => _tasks?.Available ?? false;
+
+    private Func<DateOnly, decimal?>? CapacityOn => _capacity is { } capacity ? day => capacity.HoursOn(day) : null;
+
     protected override void OnInitialized()
     {
-        _part = Services.GetService<CalendarTasksLayer>();
+        _tasks = Services.GetService<ICalendarTasksLayer>();
         _plans = Services.GetService<ICalendarPlansLayer>();
         _events = Services.GetService<ICalendarEventsLayer>();
         _capacity = Services.GetService<ICalendarCapacity>();
         _preferences = Services.GetService<ICalendarViewPreferences>();
+        _scope = Services.GetService<ICalendarWindowScope>();
+        _navigator = Services.GetService<ISurfaceNavigator>();
         _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
 
+        _window = OpeningWindow(Range, Today);
+
         // Arriving owes each layer a read, whatever the window read before it left.
+        if (_tasks is not null)
+        {
+            _tasks.Arrive();
+            _tasks.Changed += HandleLayerChanged;
+        }
+
         if (_plans is not null)
         {
             _plans.Arrive();
@@ -76,104 +150,180 @@
             _events.Changed += HandleLayerChanged;
         }
 
-        if (_capacity is not null) _capacity.Changed += HandleCapacityChanged;
+        if (_capacity is not null) _capacity.Changed += HandleRedraw;
+        if (_scope is not null) _scope.Changed += HandleRedraw;
     }
 
-    /// <summary>The layers are read on arriving, when a read is owed and on a new day —
-    /// never on every render, because a read of the plans gathers the backlog per plan.</summary>
+    /// <summary>The window the grid opens on for <paramref name="range"/>: the month
+    /// holding today, or the week holding it — what the grid itself opens on, so the
+    /// first read is the right one before the grid has reported.</summary>
+    private static CalendarWindow OpeningWindow(CalendarRange range, DateOnly today)
+    {
+        if (range == CalendarRange.Month) return CalendarMonth.Window(today);
+
+        var monday = CalendarMonth.MondayOnOrBefore(today);
+        return new CalendarWindow(monday, monday.AddDays(6));
+    }
+
+    /// <summary>The layers are read on arriving, when a read is owed, on a new day and
+    /// for a window the last read did not cover — never on every render, because a read
+    /// of the plans gathers the backlog per plan.</summary>
     protected override Task OnParametersSetAsync() => ReadLayersIfOwedAsync();
 
     /// <summary>The reads the layers are owed, if any: asked on every way the surface draws
-    /// again — its parameters, a press of its own and a layer's signal — because its own
-    /// redraw does not pass through its parameters, and a Calendar left open past midnight
-    /// must not keep yesterday's windows or events. Both start at once, so a slow plans
-    /// read — it gathers the backlog per plan — does not hold the events back.</summary>
+    /// again — its parameters, a press of its own, a move of the grid and a layer's signal —
+    /// because its own redraw does not pass through its parameters, and a Calendar left
+    /// open past midnight must not keep yesterday's windows or events. All start at once,
+    /// so a slow plans read does not hold the tasks or the events back. The tasks are read
+    /// while Show tasks is unticked too: the box is offered only while the layer answers,
+    /// so a layer never read would take the box away.</summary>
     private Task ReadLayersIfOwedAsync()
     {
         var today = Today;
         return Task.WhenAll(
+            _tasks?.ReadIfOwedAsync(today, _window) ?? Task.CompletedTask,
             _plans?.ReadIfOwedAsync(today) ?? Task.CompletedTask,
             _events?.ReadIfOwedAsync(today) ?? Task.CompletedTask);
     }
 
-    private Dictionary<string, object?> PartParameters() =>
-        new(StringComparer.Ordinal) { [CalendarTasksLayer.LayerParameter] = Inputs() };
+    /// <summary>The grid moved — a step, Today, or a switch of range — or drew for the
+    /// first time: the Tasks layer is read for the days now on screen when the last read
+    /// did not cover them.</summary>
+    private async Task OnShownChangedAsync(CalendarWindow window)
+    {
+        _window = window;
+        await ReadLayersIfOwedAsync();
+    }
 
-    /// <summary>What the part draws the Calendar's layers from: the plans and the events as
-    /// last read, in the calendar's own shapes — each window with its repositories so the
-    /// part can colour it — and the hours a day is set against.</summary>
-    private CalendarLayerInputs Inputs()
+    private bool InScope(IReadOnlyList<string> repositoryIds) => _scope?.InScope(repositoryIds) ?? true;
+
+    /// <summary>The repository mark a chip or an hours block wears: the shared repo-mark
+    /// classes of the first of its repositories the window colours, or none while the
+    /// colours are hidden.</summary>
+    private string? MarkFor(IReadOnlyList<string> repositoryIds) =>
+        _scope?.BandFor(repositoryIds) is { } band ? $"repo-mark repo-mark--{band}" : null;
+
+    /// <summary>The tasks as last read, narrowed to the window's scope — the Brain
+    /// included — and nothing else: the Tasks view's filter bar does not reach here
+    /// (local ADR 0056 §4).</summary>
+    private IReadOnlyList<CalendarTask> GridTasks()
+    {
+        if (_tasks is not { Available: true } tasks) return [];
+
+        return
+        [
+            .. tasks.Tasks.Tasks
+                .Where(task => InScope(task.RepositoryIds))
+                .Select(task => new CalendarTask(
+                    task.Id.ToString(),
+                    task.Title,
+                    task.DueOn,
+                    StateOf(task.Status),
+                    task.Repeats,
+                    MarkFor(task.RepositoryIds)))
+        ];
+    }
+
+    private static CalendarTaskState StateOf(CalendarTaskStatus status) => status switch
+    {
+        CalendarTaskStatus.Ready => CalendarTaskState.Ready,
+        CalendarTaskStatus.InProgress => CalendarTaskState.InProgress,
+        CalendarTaskStatus.Done => CalendarTaskState.Done,
+        _ => CalendarTaskState.Draft
+    };
+
+    /// <summary>The planned hours as last read — from dated and undated tasks alike —
+    /// narrowed to the window's scope as the chips are.</summary>
+    private IReadOnlyList<CalendarHoursBlock> HoursBlocks()
+    {
+        if (_tasks is not { Available: true } tasks) return [];
+
+        return
+        [
+            .. tasks.Tasks.Hours
+                .Where(block => InScope(block.RepositoryIds))
+                .Select(block => new CalendarHoursBlock(
+                    block.TaskId.ToString(),
+                    block.Title,
+                    block.On,
+                    block.Hours,
+                    MarkFor(block.RepositoryIds)))
+        ];
+    }
+
+    /// <summary>Each planned window as a bar, wearing the band colour of the first of its
+    /// repositories the window colours — neutral grey while the colours are hidden.</summary>
+    private IReadOnlyList<CalendarPlan> PlanBars()
     {
         var read = _plans?.Plans ?? CalendarPlansDto.Empty;
-
-        return new CalendarLayerInputs(
-            Range,
-            EventCallback.Factory.Create<CalendarRange>(this, SetRange),
-            new CalendarPlansInputs(
-                _plans?.Available ?? false,
-                PlansShown,
-                [
-                    .. read.Windows.Select(window => new CalendarPlanWindow(
-                        new CalendarPlan(
-                            window.Id.ToString("N"),
-                            window.Title,
-                            window.Tag,
-                            window.Start,
-                            window.End,
-                            window.DonePoints,
-                            window.TotalPoints),
-                        window.RepositoryAliases))
-                ],
-                [.. read.Milestones.Select(milestone => new CalendarMilestone(milestone.Id.ToString("N"), milestone.Title, milestone.On))],
-                [
-                    .. read.Shelf.Select(plan => new CalendarShelfPlan(
-                        plan.Tag,
-                        plan.Title,
-                        plan.TaskCount,
-                        plan.TotalEffort,
-                        plan.UnestimatedCount))
-                ],
-                EventCallback.Factory.Create<bool>(this, SetPlansShownAsync),
-                EventCallback.Factory.Create<CalendarPlanStart>(this, StartPlanAsync)),
-            _capacity is { } capacity ? day => capacity.HoursOn(day) : null,
-            EventsInputs());
+        return
+        [
+            .. read.Windows.Select(window => new CalendarPlan(
+                window.Id.ToString("N"),
+                window.Title,
+                window.Tag,
+                window.Start,
+                window.End,
+                window.DonePoints,
+                window.TotalPoints,
+                _scope?.BandFor(window.RepositoryAliases)))
+        ];
     }
 
-    /// <summary>The events as last read: each event as a bar and each key date as a
-    /// diamond, keyed by its place in the read — the port carries no event id, and the
-    /// Calendar opens and writes none.</summary>
-    private CalendarEventsInputs EventsInputs()
-    {
-        var read = _events?.Events ?? CalendarEventsDto.Off;
+    private IReadOnlyList<CalendarMilestone> Milestones() =>
+        [.. (_plans?.Plans ?? CalendarPlansDto.Empty).Milestones.Select(milestone => new CalendarMilestone(milestone.Id.ToString("N"), milestone.Title, milestone.On))];
 
-        return new CalendarEventsInputs(
-            _events?.Available ?? false,
-            EventsShown,
-            [
-                .. read.Events.Select((calendarEvent, index) => new CalendarEvent(
-                    string.Create(CultureInfo.InvariantCulture, $"e{index}"),
-                    calendarEvent.Title,
-                    calendarEvent.State,
-                    calendarEvent.Place,
-                    calendarEvent.Start,
-                    calendarEvent.End,
-                    calendarEvent.Tentative))
-            ],
-            [
-                .. read.KeyDates.Select((keyDate, index) => new CalendarKeyDate(
-                    string.Create(CultureInfo.InvariantCulture, $"k{index}"),
-                    keyDate.Label,
-                    keyDate.EventTitle,
-                    keyDate.On))
-            ],
-            EventCallback.Factory.Create<bool>(this, SetEventsShownAsync));
-    }
+    private IReadOnlyList<CalendarShelfPlan> ShelfPlans() =>
+    [
+        .. (_plans?.Plans ?? CalendarPlansDto.Empty).Shelf.Select(plan => new CalendarShelfPlan(
+            plan.Tag,
+            plan.Title,
+            plan.TaskCount,
+            plan.TotalEffort,
+            plan.UnestimatedCount))
+    ];
+
+    /// <summary>The events as last read, each as a bar keyed by its place in the read —
+    /// the port carries no event id, and the Calendar opens and writes none.</summary>
+    private IReadOnlyList<CalendarEvent> GridEvents() =>
+    [
+        .. (_events?.Events ?? CalendarEventsDto.Off).Events.Select((calendarEvent, index) => new CalendarEvent(
+            string.Create(CultureInfo.InvariantCulture, $"e{index}"),
+            calendarEvent.Title,
+            calendarEvent.State,
+            calendarEvent.Place,
+            calendarEvent.Start,
+            calendarEvent.End,
+            calendarEvent.Tentative))
+    ];
+
+    /// <summary>Each key date as a diamond on its day, keyed as the events are.</summary>
+    private IReadOnlyList<CalendarKeyDate> KeyDates() =>
+    [
+        .. (_events?.Events ?? CalendarEventsDto.Off).KeyDates.Select((keyDate, index) => new CalendarKeyDate(
+            string.Create(CultureInfo.InvariantCulture, $"k{index}"),
+            keyDate.Label,
+            keyDate.EventTitle,
+            keyDate.On))
+    ];
 
     private Task SetRange(CalendarRange range)
     {
         _range = range;
         _preferences?.SetRange(range);
         return ReadLayersIfOwedAsync();
+    }
+
+    /// <summary>Show tasks ticked or unticked: remembered on this device, and ticked
+    /// reads the tasks for the days on screen at once.</summary>
+    private async Task SetTasksShownAsync(bool shown)
+    {
+        if (_tasks is not { Offered: true } tasks) return;
+
+        _tasksShown = shown;
+        _preferences?.SetTasksShown(shown);
+        if (shown) await tasks.ReadAsync(Today, _window);
+        else await ReadLayersIfOwedAsync();
     }
 
     /// <summary>Show plans ticked or unticked: remembered on this device, and ticked reads
@@ -200,6 +350,38 @@
         else await ReadLayersIfOwedAsync();
     }
 
+    /// <summary>A chip pressed: the task opens in Tasks, through this window's navigator —
+    /// the window the Calendar is shown in, popped out or not (local ADR 0056 §5).</summary>
+    private void OpenTask(string taskId) =>
+        _navigator?.Show(
+            TasksSurfaceId,
+            new Dictionary<string, string>(StringComparer.Ordinal) { [EntryQueryKey] = taskId });
+
+    /// <summary>A chip dropped on another day: that day becomes its due date, written by
+    /// Tasks through the Tasks layer. The redraw comes from the layer's own signal; a
+    /// refusal is said in a toast and the chip stays where it was.</summary>
+    private async Task OnDueChangedAsync(CalendarDueChange change)
+    {
+        if (_tasks is null || !Guid.TryParse(change.TaskId, out var id)) return;
+
+        if (await _tasks.SetDueDateAsync(id, change.DueOn) is { } refusal)
+        {
+            Toasts.Publish(ToastMessage.Warning($"The due date could not be moved: {refusal}", DueRefusedTestId));
+        }
+    }
+
+    /// <summary>Hours set, changed or removed on a day: written to the task by Tasks
+    /// through the Tasks layer. A refusal is said in a toast.</summary>
+    private async Task OnHoursChangedAsync(CalendarHoursChange change)
+    {
+        if (_tasks is null || !Guid.TryParse(change.TaskId, out var id)) return;
+
+        if (await _tasks.SetPlannedHoursAsync(id, change.On, change.Hours) is { } refusal)
+        {
+            Toasts.Publish(ToastMessage.Warning($"The planned hours could not be saved: {refusal}", HoursRefusedTestId));
+        }
+    }
+
     /// <summary>A shelf plan dropped on a day: the roadmap places its window from there, by
     /// its own placement. A refusal is said in a toast; the plan stays on the shelf. The
     /// redraw comes from the plan's own change signal, which a stored window raises and a
@@ -216,9 +398,8 @@
         await ReadLayersIfOwedAsync();
     }
 
-    /// <summary>A layer said a read is owed — the plans changed, or a feature switched,
-    /// which is also what brings the Show events box in and out as the Events area is
-    /// switched.</summary>
+    /// <summary>A layer said a read is owed — its source changed, or a feature switched,
+    /// which is also what brings a Show box in and out as its area is switched.</summary>
     private void HandleLayerChanged() =>
         _ = InvokeAsync(async () =>
         {
@@ -226,12 +407,16 @@
             StateHasChanged();
         });
 
-    private void HandleCapacityChanged() => _ = InvokeAsync(StateHasChanged);
+    /// <summary>The working week, the window's scope or its colours moved: nothing to read,
+    /// only to draw again.</summary>
+    private void HandleRedraw() => _ = InvokeAsync(StateHasChanged);
 
     public void Dispose()
     {
+        if (_tasks is not null) _tasks.Changed -= HandleLayerChanged;
         if (_plans is not null) _plans.Changed -= HandleLayerChanged;
         if (_events is not null) _events.Changed -= HandleLayerChanged;
-        if (_capacity is not null) _capacity.Changed -= HandleCapacityChanged;
+        if (_capacity is not null) _capacity.Changed -= HandleRedraw;
+        if (_scope is not null) _scope.Changed -= HandleRedraw;
     }
 }

@@ -1,24 +1,29 @@
 using System.Globalization;
+using Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
+using Backlog.Modules.Calendar.UI;
+using Backlog.UI.Components.Tasks;
+using Bunit;
+using Microsoft.AspNetCore.Components;
 
-namespace Backlog.UI.Components.UnitTests;
+namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The month calendar: which days it lays out, how a task is drawn on its day,
-/// what folds behind "+N more", what waits in the tray, and what a press and a
-/// drop report back.
+/// The Calendar's grid (local ADR 0056 §1): which days it lays out, how a task is drawn
+/// on its day, what folds behind "+N more", what a press and a drop report back, which
+/// days it tells its host are on screen, and the Show tasks box.
 /// <para>
 /// The culture is pinned to en-US, whose own week starts on a Sunday, so the
 /// Monday-first grid is shown to be the calendar's choice and not the culture's.
 /// </para>
 /// </summary>
-public sealed class TaskCalendarTests : IDisposable
+public sealed class CalendarGridTests : IDisposable
 {
     private static readonly DateOnly Today = new(2026, 10, 6);
 
     private readonly CultureInfo _culture = CultureInfo.CurrentCulture;
     private readonly CultureInfo _uiCulture = CultureInfo.CurrentUICulture;
 
-    public TaskCalendarTests()
+    public CalendarGridTests()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
@@ -30,20 +35,20 @@ public sealed class TaskCalendarTests : IDisposable
         CultureInfo.CurrentUICulture = _uiCulture;
     }
 
-    private static IRenderedComponent<TaskCalendar> Render(
+    private static IRenderedComponent<CalendarGrid> Render(
         BunitContext context,
         IReadOnlyList<CalendarTask> tasks,
-        Action<ComponentParameterCollectionBuilder<TaskCalendar>>? configure = null)
+        Action<ComponentParameterCollectionBuilder<CalendarGrid>>? configure = null)
     {
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        return context.Render<TaskCalendar>(parameters =>
+        return context.Render<CalendarGrid>(parameters =>
         {
             parameters.Add(c => c.Tasks, tasks).Add(c => c.Today, Today).Add(c => c.TestId, "cal");
             configure?.Invoke(parameters);
         });
     }
 
-    private static string[] Days(IRenderedComponent<TaskCalendar> calendar) =>
+    private static string[] Days(IRenderedComponent<CalendarGrid> calendar) =>
         [.. calendar.FindAll("[data-calendar-day]").Select(day => day.GetAttribute("data-calendar-day")!)];
 
     [Theory]
@@ -76,11 +81,11 @@ public sealed class TaskCalendarTests : IDisposable
     }
 
     [Fact]
-    public void Days_outside_the_month_are_dimmed_weekends_shaded_and_today_ringed_with_the_my_day_count()
+    public void Days_outside_the_month_are_dimmed_weekends_shaded_and_today_ringed()
     {
         using var context = new BunitContext();
 
-        var calendar = Render(context, [], p => p.Add(c => c.MyDayCount, 3));
+        var calendar = Render(context, []);
 
         string Class(string day) => calendar.Find($"[data-calendar-day='{day}']").ClassName!;
 
@@ -95,8 +100,8 @@ public sealed class TaskCalendarTests : IDisposable
         var today = calendar.Find("[data-calendar-day='2026-10-06']");
         Assert.Contains("task-calendar__day--today", today.ClassName);
         Assert.Equal("date", today.GetAttribute("aria-current"));
-        Assert.Contains("My Day · 3", calendar.Find("[data-testid='cal-my-day']").TextContent);
-        Assert.Single(calendar.FindAll("[data-testid='cal-my-day']"));
+        // My Day is the Tasks view's; the grid carries no count of it (local ADR 0056 §4).
+        Assert.Empty(calendar.FindAll("[data-testid='cal-my-day']"));
 
         // The 1st says its month, so a row that crosses into the next one says where.
         Assert.Equal("Oct 1", calendar.Find("[data-testid='cal-day-2026-10-01-number']").TextContent);
@@ -135,7 +140,6 @@ public sealed class TaskCalendarTests : IDisposable
         [
             new("late", "Rotate the sync signing key", new DateOnly(2026, 10, 1), CalendarTaskState.Ready),
             new("finished", "Import plan dedupes by id", new DateOnly(2026, 10, 2), CalendarTaskState.Done),
-            new("shelved", "An archived idea", new DateOnly(2026, 10, 2), CalendarTaskState.Archived),
             new("due", "Due today", Today, CalendarTaskState.InProgress),
             new("ahead", "Due later", new DateOnly(2026, 10, 9), CalendarTaskState.Draft)
         ]);
@@ -149,9 +153,6 @@ public sealed class TaskCalendarTests : IDisposable
         Assert.Contains("task-calendar__chip--done", finished.ClassName);
         Assert.DoesNotContain("task-calendar__chip--overdue", finished.ClassName);
         Assert.NotNull(finished.QuerySelector(".task-calendar__dot--done"));
-
-        // Archived is not open, so it is never overdue either.
-        Assert.DoesNotContain("task-calendar__chip--overdue", calendar.Find("[data-testid='cal-chip-shelved']").ClassName);
 
         // Due today is not late yet.
         Assert.DoesNotContain("task-calendar__chip--overdue", calendar.Find("[data-testid='cal-chip-due']").ClassName);
@@ -188,29 +189,6 @@ public sealed class TaskCalendarTests : IDisposable
     }
 
     [Fact]
-    public void The_tray_lists_the_open_tasks_without_a_due_date_and_nothing_else()
-    {
-        using var context = new BunitContext();
-
-        var calendar = Render(context,
-        [
-            new("dated", "Has a date", Today, CalendarTaskState.Ready),
-            new("undated", "Persist the last view", null, CalendarTaskState.Ready, Effort: "1 pt"),
-            new("draft", "Explore swimlanes", null, CalendarTaskState.Draft),
-            new("done", "Finished without a date", null, CalendarTaskState.Done),
-            new("archived", "Archived without a date", null, CalendarTaskState.Archived)
-        ]);
-
-        var tray = calendar.Find("[data-testid='cal-tray']");
-        Assert.Contains("Tasks without a due date", tray.TextContent);
-        Assert.Equal("2", calendar.Find("[data-testid='cal-tray-count']").TextContent);
-        Assert.Equal(
-            ["undated", "draft"],
-            tray.QuerySelectorAll("[data-calendar-task]").Select(item => item.GetAttribute("data-calendar-task")));
-        Assert.Contains("1 pt", calendar.Find("[data-testid='cal-tray-undated']").TextContent);
-    }
-
-    [Fact]
     public void A_recurring_task_shows_on_its_due_date_only()
     {
         using var context = new BunitContext();
@@ -222,7 +200,7 @@ public sealed class TaskCalendarTests : IDisposable
     }
 
     [Fact]
-    public void Pressing_a_chip_or_a_tray_item_opens_that_task()
+    public void Pressing_a_chip_opens_that_task_and_no_chip_reads_selected()
     {
         using var context = new BunitContext();
         var opened = new List<string>();
@@ -230,16 +208,18 @@ public sealed class TaskCalendarTests : IDisposable
         var calendar = Render(context,
             [
                 new("chip", "On a day", Today, CalendarTaskState.Ready),
-                new("tray", "In the tray", null, CalendarTaskState.Ready)
+                new("other", "Another day", Today.AddDays(1), CalendarTaskState.Ready)
             ],
-            p => p.Add(c => c.OnOpen, (string id) => opened.Add(id)).Add(c => c.SelectedId, "chip"));
+            p => p.Add(c => c.OnOpen, (string id) => opened.Add(id)));
 
-        Assert.Equal("true", calendar.Find("[data-testid='cal-chip-chip']").GetAttribute("aria-current"));
+        // The grid keeps no selection: the task opens in Tasks (local ADR 0056 §5).
+        Assert.Null(calendar.Find("[data-testid='cal-chip-chip']").GetAttribute("aria-current"));
+        Assert.Empty(calendar.FindAll("[data-testid='cal-tray']"));
 
         calendar.Find("[data-testid='cal-chip-chip']").Click();
-        calendar.Find("[data-testid='cal-tray-tray']").Click();
+        calendar.Find("[data-testid='cal-chip-other']").Click();
 
-        Assert.Equal(["chip", "tray"], opened);
+        Assert.Equal(["chip", "other"], opened);
     }
 
     [Fact]
@@ -251,30 +231,30 @@ public sealed class TaskCalendarTests : IDisposable
         var calendar = Render(context,
             [
                 new("chip", "On a day", Today, CalendarTaskState.Ready),
-                new("tray", "In the tray", null, CalendarTaskState.Ready)
+                new("later", "Later on", new DateOnly(2026, 10, 9), CalendarTaskState.Ready)
             ],
             p => p.Add(c => c.OnDueChanged, (CalendarDueChange change) => changes.Add(change)));
 
-        await calendar.InvokeAsync(() => calendar.Instance.DropOnDay("tray", "2026-10-20"));
+        await calendar.InvokeAsync(() => calendar.Instance.DropOnDay("later", "2026-10-20"));
         await calendar.InvokeAsync(() => calendar.Instance.DropOnDay("chip", "2026-10-08"));
         await calendar.InvokeAsync(() => calendar.Instance.DropOnDay("chip", "2026-10-06"));
         await calendar.InvokeAsync(() => calendar.Instance.DropOnDay("nobody", "2026-10-08"));
         await calendar.InvokeAsync(() => calendar.Instance.DropOnDay("chip", "not a day"));
 
         Assert.Equal(
-            [new CalendarDueChange("tray", new DateOnly(2026, 10, 20)), new CalendarDueChange("chip", new DateOnly(2026, 10, 8))],
+            [new CalendarDueChange("later", new DateOnly(2026, 10, 20)), new CalendarDueChange("chip", new DateOnly(2026, 10, 8))],
             changes);
     }
 
     [Fact]
-    public void Every_chip_and_tray_item_is_a_drag_source_and_every_day_a_drop_target_for_the_script()
+    public void Every_chip_is_a_drag_source_and_every_day_a_drop_target_for_the_script()
     {
         using var context = new BunitContext();
 
         var calendar = Render(context,
         [
             new("chip", "On a day", Today, CalendarTaskState.Ready),
-            new("tray", "In the tray", null, CalendarTaskState.Ready)
+            new("later", "Later on", new DateOnly(2026, 10, 9), CalendarTaskState.Ready)
         ]);
 
         var owner = calendar.Find("section.task-calendar").GetAttribute("data-calendar-owner");
@@ -287,29 +267,6 @@ public sealed class TaskCalendarTests : IDisposable
     }
 
     [Fact]
-    public async Task Focusing_the_selected_task_aims_at_its_chip_and_opens_a_folded_day_first()
-    {
-        using var context = new BunitContext();
-        var day = new DateOnly(2026, 10, 16);
-
-        var calendar = Render(context,
-            [
-                new("a", "First", day, CalendarTaskState.Ready),
-                new("b", "Second", day, CalendarTaskState.Ready),
-                new("c", "Third, folded", day, CalendarTaskState.Ready)
-            ],
-            p => p.Add(c => c.SelectedId, "c"));
-
-        Assert.Empty(calendar.FindAll("[data-testid='cal-chip-c']"));
-
-        await calendar.InvokeAsync(calendar.Instance.FocusSelectedAsync);
-
-        var chip = calendar.Find("[data-testid='cal-chip-c']");
-        var focus = Assert.Single(context.JSInterop.Invocations, call => call.Identifier == "backlogFocus");
-        Assert.Equal(chip.Id, focus.Arguments[0]);
-    }
-
-    [Fact]
     public void The_repository_mark_is_the_hosts_and_is_drawn_only_when_given()
     {
         using var context = new BunitContext();
@@ -317,13 +274,11 @@ public sealed class TaskCalendarTests : IDisposable
         var calendar = Render(context,
         [
             new("marked", "Filed against backlog", Today, CalendarTaskState.Ready, CssClass: "repo-mark repo-mark--2"),
-            new("plain", "No colour handed in", Today, CalendarTaskState.Ready),
-            new("tray", "Undated and marked", null, CalendarTaskState.Ready, CssClass: "repo-mark repo-mark--4")
+            new("plain", "No colour handed in", Today, CalendarTaskState.Ready)
         ]);
 
         Assert.Contains("repo-mark--2", calendar.Find("[data-testid='cal-chip-marked']").ClassName);
         Assert.DoesNotContain("repo-mark", calendar.Find("[data-testid='cal-chip-plain']").ClassName);
-        Assert.Contains("repo-mark--4", calendar.Find("[data-testid='cal-tray-tray']").ClassName);
     }
 
     /// <summary>
@@ -359,10 +314,10 @@ public sealed class TaskCalendarTests : IDisposable
     // Today is Tuesday the 6th of October 2026, so today's week runs Monday the 5th to
     // Sunday the 11th.
 
-    private static string Heading(IRenderedComponent<TaskCalendar> calendar) =>
+    private static string Heading(IRenderedComponent<CalendarGrid> calendar) =>
         calendar.Find("[data-testid='cal-month']").TextContent.Trim();
 
-    private static string Pressed(IRenderedComponent<TaskCalendar> calendar, string part) =>
+    private static string Pressed(IRenderedComponent<CalendarGrid> calendar, string part) =>
         calendar.Find($"[data-testid='cal-range-{part}']").GetAttribute("aria-pressed")!;
 
     [Fact]
@@ -568,7 +523,7 @@ public sealed class TaskCalendarTests : IDisposable
         using var context = new BunitContext();
 
         var calendar = Render(context,
-            [new("sync", "Refactor sync", null, CalendarTaskState.Ready)],
+            [new("sync", "Refactor sync", new DateOnly(2026, 10, 30), CalendarTaskState.Ready)],
             p => p
                 .Add(c => c.Range, CalendarRange.Week)
                 .Add(c => c.PlansAvailable, true)
@@ -605,7 +560,7 @@ public sealed class TaskCalendarTests : IDisposable
         var changes = new List<CalendarDueChange>();
 
         var calendar = Render(context,
-            [new("undated", "Persist the last view", null, CalendarTaskState.Ready)],
+            [new("persist", "Persist the last view", Today, CalendarTaskState.Ready)],
             p => p
                 .Add(c => c.Range, CalendarRange.Week)
                 .Add(c => c.OnDueChanged, (CalendarDueChange change) => changes.Add(change)));
@@ -614,8 +569,69 @@ public sealed class TaskCalendarTests : IDisposable
         // it is a column nothing can be dropped on.
         Assert.Equal(7, calendar.FindAll("[data-calendar-day]").Count);
 
-        await calendar.InvokeAsync(() => calendar.Instance.DropOnDay("undated", "2026-10-09"));
+        await calendar.InvokeAsync(() => calendar.Instance.DropOnDay("persist", "2026-10-09"));
 
-        Assert.Equal([new CalendarDueChange("undated", new DateOnly(2026, 10, 9))], changes);
+        Assert.Equal([new CalendarDueChange("persist", new DateOnly(2026, 10, 9))], changes);
+    }
+
+    // --- The window and Show tasks (local ADR 0056 §1, §4) -----------------------
+
+    /// <summary>The host reads its layers for the days on screen, so the grid tells it of
+    /// them on its first render and after every move — and not again for a redraw that
+    /// moves nothing.</summary>
+    [Fact]
+    public void The_days_on_screen_are_reported_on_the_first_render_and_after_every_move()
+    {
+        using var context = new BunitContext();
+        var shown = new List<CalendarWindow>();
+
+        var calendar = Render(context, [], p => p.Add(c => c.ShownChanged, (CalendarWindow window) => shown.Add(window)));
+
+        Assert.Equal([new CalendarWindow(new DateOnly(2026, 9, 28), new DateOnly(2026, 11, 1))], shown);
+        Assert.Equal(CalendarMonth.Window(Today), calendar.Instance.ShownWindow);
+
+        calendar.Render();
+        Assert.Single(shown);
+
+        calendar.Find("[data-testid='cal-next']").Click();
+        calendar.Find("[data-testid='cal-range-week']").Click();
+
+        Assert.Equal(
+            [
+                new CalendarWindow(new DateOnly(2026, 9, 28), new DateOnly(2026, 11, 1)),
+                new CalendarWindow(new DateOnly(2026, 10, 26), new DateOnly(2026, 12, 6)),
+                new CalendarWindow(new DateOnly(2026, 10, 26), new DateOnly(2026, 11, 1))
+            ],
+            shown);
+    }
+
+    [Fact]
+    public void Show_tasks_is_offered_only_while_the_host_has_tasks_and_unticked_draws_no_chip_block_or_total()
+    {
+        using var context = new BunitContext();
+        var ticks = new List<bool>();
+        IReadOnlyList<CalendarTask> tasks = [new("sync", "Refactor sync", Today, CalendarTaskState.Ready)];
+        IReadOnlyList<CalendarHoursBlock> blocks = [new("sync", "Refactor sync", Today, 3m)];
+
+        var calendar = Render(context, tasks, p => p
+            .Add(c => c.HoursAvailable, true)
+            .Add(c => c.HoursBlocks, blocks));
+        Assert.Empty(calendar.FindAll("[data-testid='cal-show-tasks']"));
+        Assert.NotEmpty(calendar.FindAll("[data-testid='cal-chip-sync']"));
+
+        calendar.Render(p => p
+            .Add(c => c.TasksAvailable, true)
+            .Add(c => c.ShowTasksChanged, (bool shown) => ticks.Add(shown)));
+        var box = calendar.Find("[data-testid='cal-show-tasks'] input");
+        Assert.True(box.HasAttribute("checked"));
+
+        box.Change(false);
+        Assert.Equal([false], ticks);
+
+        calendar.Render(p => p.Add(c => c.ShowTasks, false));
+        Assert.Empty(calendar.FindAll("[data-testid='cal-chip-sync']"));
+        Assert.Empty(calendar.FindAll($"[data-testid='cal-block-sync-{Today:yyyy-MM-dd}']"));
+        Assert.Empty(calendar.FindAll($"[data-testid='cal-day-{Today:yyyy-MM-dd}-hours']"));
+        Assert.Empty(calendar.FindAll($"[data-testid='cal-day-{Today:yyyy-MM-dd}-add-hours']"));
     }
 }

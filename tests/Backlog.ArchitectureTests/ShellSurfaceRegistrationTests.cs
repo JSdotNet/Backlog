@@ -60,7 +60,6 @@ public partial class ShellSurfaceRegistrationTests
     [Theory]
     [InlineData("AddDevbookSurface(")]
     [InlineData("AddTasksSurfaces(")]
-    [InlineData("AddTasksCalendarLayer(")]
     [InlineData("AddCalendarSurface(")]
     [InlineData("AddRoadmapSurface(")]
     [InlineData("AddGoalsSurface(")]

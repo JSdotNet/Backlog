@@ -510,8 +510,9 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
-    /// The Calendar is its own module's view (local ADR 0055): one view-group surface with
-    /// id <c>calendar</c> at order 30 from Calendar.UI, the Tasks part it hosts, its Plans and
+    /// The Calendar is its own module's view (local ADR 0055, local ADR 0056): one view-group
+    /// surface with id <c>calendar</c> at order 30 from Calendar.UI, no Tasks part, the
+    /// window's scope, its Tasks port answered from Tasks, its Plans and
     /// working-week ports answered from Roadmap and its Events port answered from Events, all
     /// under the Calendar's namespace, one Plans layer and one Events layer per window, and its
     /// view choices over the shell's file.
@@ -529,7 +530,15 @@ public class WebHarnessHostTests
         Assert.Equal(30, calendar.Order);
         Assert.Equal("Backlog.Modules.Calendar.UI", calendar.Component.Assembly.GetName().Name);
 
-        Assert.Equal("TasksCalendarPart", services.GetRequiredService<Backlog.UI.Components.Calendar.CalendarTasksLayer>().Component.Name);
+        // No part: the Calendar draws its own grid, so Tasks offers nothing to host (local
+        // ADR 0056 §1), and the window's scope the grid is narrowed and coloured by is the
+        // shell's, one per window.
+        Assert.Null(Type.GetType("Backlog.UI.Components.Calendar.CalendarTasksLayer, Backlog.UI.Components"));
+        Assert.IsType<Backlog.Desktop.UI.Shell.ShellCalendarWindowScope>(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarWindowScope>());
+        Assert.NotSame(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarWindowScope>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarWindowScope>());
         Assert.IsType<Backlog.Infrastructure.FileSystem.Calendar.RoadmapCalendarPlans>(
             services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlans>());
         Assert.Same(
@@ -545,6 +554,18 @@ public class WebHarnessHostTests
         Assert.Same(
             services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>(),
             second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>());
+        // The Tasks layer's port over Tasks' ITaskItems, and its layer, one of each per
+        // window, as ITaskItems is (local ADR 0056 §2).
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Calendar.TasksCalendarTasks>(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarTasks>());
+        Assert.NotSame(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarTasks>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarTasks>());
+        var tasksLayer = services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarTasksLayer>();
+        Assert.True(tasksLayer.Offered);
+        Assert.NotSame(
+            tasksLayer,
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarTasksLayer>());
         var eventsLayer = services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEventsLayer>();
         Assert.True(eventsLayer.Offered);
         Assert.Same(eventsLayer, services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEventsLayer>());

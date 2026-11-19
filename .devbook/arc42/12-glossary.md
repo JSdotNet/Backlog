@@ -9,7 +9,7 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devb
 ## Terms
 
 ```meta
-related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/domain.md#meeting", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/domain/events/domain.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/domain/calendar/domain.md#calendar-layer", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md"]
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/domain.md#meeting", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/domain/capture/features.md#talk-note", ".devbook/domain/brain/domain.md#brain", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/domain/events/domain.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/domain/calendar/domain.md#calendar-layer", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md"]
 ```
 
 | Term | Definition |
@@ -58,7 +58,7 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/domain.
 - **Event Series:** it keeps only the link to its organiser's page. The pages Capture watches stay Capture's targets. See [Event Series](../domain/events/domain.md#event-series).
 - **Talk:** never a *session*, for the reason the Talk note entry gives. Talks are not modelled yet. See [Talk](../domain/events/domain.md#talk).
 - **Talk picks:** never an *agenda*, because Tasks has [Agenda Time](../domain/tasks/domain.md#agenda-time). See [Talk picks](../domain/events/domain.md#talk-picks).
-- **Calendar layer:** the Tasks layer is always drawn; **Show plans** and **Show events** switch the other two. A layer writes only back through its source, because the Calendar owns no data. The Calendar context owns the term ([Calendar Layer](../domain/calendar/domain.md#calendar-layer)), and local ADR 0055 decides it.
+- **Calendar layer:** **Show tasks**, **Show plans** and **Show events** switch the three layers, and each reaches the Calendar through a port the Calendar owns. A layer writes only back through its source, because the Calendar owns no data. The Calendar context owns the term ([Calendar Layer](../domain/calendar/domain.md#calendar-layer)). Local ADR 0055 decides it, and local ADR 0056 makes the Tasks layer a port with a choice of its own.
 
 ## Shared Data Types
 

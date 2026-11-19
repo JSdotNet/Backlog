@@ -925,7 +925,9 @@ An event bar is not a badge, so
 The fill says the event is settled, as today's ring says which day is today, and
 neither is followable.
 
-Review surface: storybook → *Task calendar* → **Calendar with events**.
+Review surface: the Calendar in the desktop web harness, with Show events ticked. Its
+grid is the Calendar module's, so it has no story (local
+[ADR 0056](../arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) §1).
 
 ### Chart roles
 
