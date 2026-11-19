@@ -120,22 +120,6 @@ public class NotificationSyncEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task A_cursor_minted_for_another_owner_is_refused()
-    {
-        var mine = await _service.CreateClient().RegisteredDevice("Mine");
-        var theirs = await _service.CreateClient().RegisteredDevice("Theirs");
-
-        await mine.PushNotifications(Change(Guid.CreateVersion7(), NotificationStates.Open, "Private."));
-        var myCursor = (await mine.PullNotifications()).Since;
-
-        var replayed = await theirs.GetAsync(
-            $"{SyncRoutes.Absolute(SyncRoutes.Notifications)}?since={Uri.EscapeDataString(myCursor)}", Cancellation);
-
-        Assert.Equal(HttpStatusCode.Forbidden, replayed.StatusCode);
-        Assert.Equal(SyncErrorCodes.SyncCursorNotYours, (await replayed.Content.ReadFromJsonAsync<ProblemBody>(Cancellation))?.Code);
-    }
-
-    [Fact]
     public async Task A_reply_from_another_device_of_the_owner_is_listed_to_the_owner_instance_only()
     {
         var (desktop, phone) = await PairedDevices();

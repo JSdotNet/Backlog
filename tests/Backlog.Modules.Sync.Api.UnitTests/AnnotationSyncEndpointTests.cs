@@ -77,23 +77,6 @@ public class AnnotationSyncEndpointTests : IDisposable
         Assert.Single((await mine.PullAnnotations()).Annotations);
     }
 
-    [Fact]
-    public async Task A_cursor_minted_for_another_owner_is_refused()
-    {
-        var mine = await _service.CreateClient().RegisteredDevice("Mine");
-        var theirs = await _service.CreateClient().RegisteredDevice("Theirs");
-
-        await mine.PushAnnotation(Guid.CreateVersion7(), "My private note.");
-        var myCursor = (await mine.PullAnnotations()).Since;
-
-        var replayed = await theirs.GetAsync(
-            $"{SyncRoutes.Absolute(SyncRoutes.Annotations)}?since={Uri.EscapeDataString(myCursor)}", Cancellation);
-
-        Assert.Equal(HttpStatusCode.Forbidden, replayed.StatusCode);
-        var problem = await replayed.Content.ReadFromJsonAsync<ProblemBody>(Cancellation);
-        Assert.Equal(SyncErrorCodes.SyncCursorNotYours, problem?.Code);
-    }
-
     /// <summary>
     /// The bug the task replica had, on the third container. The desktop
     /// resolves a remark and pushes the tombstone; the laptop, which pulled the

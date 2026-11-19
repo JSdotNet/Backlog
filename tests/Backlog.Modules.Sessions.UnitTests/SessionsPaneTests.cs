@@ -155,17 +155,28 @@ public sealed class SessionsPaneTests
 
     /// <summary>
     /// Grouping rearranges and never filters. The view is the control that removes
-    /// rows, so this holds the view still and moves only the grouping.
+    /// rows, so this holds the view still and moves only the grouping — over the
+    /// whole list and over one narrowed to an environment, since a second filter
+    /// beside Show must not give the grouping a way to look like it hides a row.
+    /// A narrowed list grouped by environment has one section, the environment it
+    /// was narrowed to, under the name the option had.
     /// </summary>
-    [Fact]
-    public void Grouping_moves_rows_and_removes_none()
+    [Theory]
+    [InlineData(null, 4, "4 sessions", null)]
+    [InlineData("tower", 3, "3 of 4 sessions", "DEV-TOWER")]
+    public void Grouping_moves_rows_and_removes_none(string? machine, int rows, string count, string? onlyMachineSection)
     {
         using var context = Context(Sample);
 
         var pane = context.Render<SessionsPane>();
 
         ShowAll(pane);
-        pane.WaitForAssertion(() => Assert.Equal(4, pane.FindAll("[data-testid='sessions-row']").Count));
+        if (machine is not null)
+        {
+            pane.Find("[data-testid='sessions-machine-filter'] select").Change(machine);
+        }
+
+        pane.WaitForAssertion(() => Assert.Equal(rows, pane.FindAll("[data-testid='sessions-row']").Count));
 
         foreach (var grouping in new[] { "repository", "machine", "when" })
         {
@@ -173,14 +184,27 @@ public sealed class SessionsPaneTests
 
             pane.WaitForAssertion(() =>
             {
-                Assert.Equal(4, pane.FindAll("[data-testid='sessions-row']").Count);
-                Assert.Equal("4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+                Assert.Equal(rows, pane.FindAll("[data-testid='sessions-row']").Count);
+                Assert.Equal(count, pane.Find("[data-testid='sessions-count']").TextContent.Trim());
             });
+        }
+
+        if (onlyMachineSection is not null)
+        {
+            GroupBy(pane, "machine");
+            pane.WaitForAssertion(() =>
+                Assert.Equal(onlyMachineSection, Assert.Single(pane.FindAll("[data-testid='sessions-group-name']")).TextContent.Trim()));
         }
     }
 
+    /// <summary>
+    /// What the pane opens on: grouped by When, the Live view, and every
+    /// environment. Nothing is narrowed by machine yet, so the two rows hidden are
+    /// the view's doing alone, and the count is the one Live over four has always
+    /// said.
+    /// </summary>
     [Fact]
-    public void When_is_the_grouping_the_pane_opens_in()
+    public void The_pane_opens_grouped_by_when_on_live_across_all_environments()
     {
         using var context = Context(Sample);
 
@@ -193,24 +217,16 @@ public sealed class SessionsPaneTests
                 ["When", "Plan", "Purpose", "Repository", "Machine"],
                 pane.FindAll("[data-testid='sessions-grouping-filter'] option").Select(option => option.TextContent.Trim()));
             Assert.Equal("Live now", Assert.Single(pane.FindAll("[data-testid='sessions-group-name']")).TextContent.Trim());
+
+            Assert.Equal("true", pane.Find("[data-testid='sessions-view-live']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", pane.Find("[data-testid='sessions-view-all']").GetAttribute("aria-pressed"));
+
+            AssertAllEnvironments(pane);
+            Assert.Equal("2 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
         });
     }
 
     // --- The view ---------------------------------------------------------
-
-    [Fact]
-    public void Live_is_the_view_the_pane_opens_in()
-    {
-        using var context = Context(Sample);
-
-        var pane = context.Render<SessionsPane>();
-
-        pane.WaitForAssertion(() =>
-        {
-            Assert.Equal("true", pane.Find("[data-testid='sessions-view-live']").GetAttribute("aria-pressed"));
-            Assert.Equal("false", pane.Find("[data-testid='sessions-view-all']").GetAttribute("aria-pressed"));
-        });
-    }
 
     /// <summary>
     /// Stalled is silence, not an ending. A session nobody has typed at for
@@ -403,23 +419,6 @@ public sealed class SessionsPaneTests
         });
     }
 
-    [Fact]
-    public void All_environments_is_where_the_pane_opens()
-    {
-        using var context = Context(Sample);
-
-        var pane = context.Render<SessionsPane>();
-
-        pane.WaitForAssertion(() =>
-        {
-            AssertAllEnvironments(pane);
-
-            // Nothing narrowed by machine yet: the two rows hidden are the view's
-            // doing alone, and the count is the one Live over four has always said.
-            Assert.Equal("2 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
-        });
-    }
-
     /// <summary>
     /// Narrowing to one machine keeps only its rows, and the badge names both
     /// numbers — the total is still the catalog's, because the reader's own
@@ -493,40 +492,6 @@ public sealed class SessionsPaneTests
             Assert.Equal(4, pane.FindAll("[data-testid='sessions-row']").Count);
             Assert.Equal("4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
         });
-    }
-
-    /// <summary>
-    /// Grouping still removes none, with the environment narrowed. The invariant the
-    /// count carries is that Group by never hides a row, and a second filter beside
-    /// Show must not give the grouping a way to look like it does.
-    /// </summary>
-    [Fact]
-    public void Grouping_moves_a_narrowed_lists_rows_and_removes_none()
-    {
-        using var context = Context(Sample);
-
-        var pane = context.Render<SessionsPane>();
-
-        ShowAll(pane);
-        pane.Find("[data-testid='sessions-machine-filter'] select").Change("tower");
-        pane.WaitForAssertion(() => Assert.Equal(3, pane.FindAll("[data-testid='sessions-row']").Count));
-
-        foreach (var grouping in new[] { "repository", "machine", "when" })
-        {
-            GroupBy(pane, grouping);
-
-            pane.WaitForAssertion(() =>
-            {
-                Assert.Equal(3, pane.FindAll("[data-testid='sessions-row']").Count);
-                Assert.Equal("3 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
-            });
-        }
-
-        // And the one section a narrowed list grouped by environment has is the
-        // environment it was narrowed to, under the name the option had.
-        GroupBy(pane, "machine");
-        pane.WaitForAssertion(() =>
-            Assert.Equal("DEV-TOWER", Assert.Single(pane.FindAll("[data-testid='sessions-group-name']")).TextContent.Trim()));
     }
 
     /// <summary>

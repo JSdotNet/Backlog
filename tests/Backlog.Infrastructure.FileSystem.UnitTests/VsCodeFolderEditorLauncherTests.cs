@@ -200,24 +200,30 @@ public sealed class VsCodeFolderEditorLauncherTests : IDisposable
         Assert.Contains("9009", error.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task Accepts_an_immediate_zero_exit_because_vs_code_forwards_to_a_running_instance()
+    /// <summary>
+    /// Two outcomes are a success: an immediate zero exit, because VS Code forwards
+    /// the folder to a running instance and quits, and a process still running when
+    /// the grace window closes.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Accepts_a_zero_exit_or_a_process_still_running_when_the_grace_window_closes(bool exited)
     {
+        var starts = 0;
         var launcher = new VsCodeFolderEditorLauncher(
             () => ToolsExecutable,
-            (_, _) => Task.FromResult(new VsCodeLaunchOutcome(Exited: true, ExitCode: 0)));
+            (_, _) =>
+            {
+                starts++;
+                return Task.FromResult(new VsCodeLaunchOutcome(Exited: exited, ExitCode: 0));
+            });
 
-        await launcher.OpenFolderAsync(TempDir(), TestContext.Current.CancellationToken);
-    }
+        var error = await Record.ExceptionAsync(
+            () => launcher.OpenFolderAsync(TempDir(), TestContext.Current.CancellationToken));
 
-    [Fact]
-    public async Task Accepts_a_process_that_is_still_running_when_the_grace_window_closes()
-    {
-        var launcher = new VsCodeFolderEditorLauncher(
-            () => ToolsExecutable,
-            (_, _) => Task.FromResult(new VsCodeLaunchOutcome(Exited: false, ExitCode: 0)));
-
-        await launcher.OpenFolderAsync(TempDir(), TestContext.Current.CancellationToken);
+        Assert.Null(error);
+        Assert.Equal(1, starts);
     }
 
     [Fact]

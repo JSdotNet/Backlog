@@ -97,4 +97,22 @@ public sealed class TitleHeadingTests
 
         Assert.Equal("# Buy milk\nand bread", result);
     }
+
+    /// <summary>
+    /// The prose-only sample in <c>samples/entries</c> is written without a heading,
+    /// and it gains one when it is saved. The samples' parse is checked in
+    /// <c>SampleEntryTests</c>; this one case needs the desktop state that saves.
+    /// </summary>
+    [Fact]
+    public void A_sample_written_without_a_heading_gains_one_when_it_is_saved()
+    {
+        var raw = File.ReadAllText(Path.Combine(RepositoryRoot.Directory("samples", "entries"), "prose-only.md"));
+
+        var normalized = TasksDesktopState.EnsureTitleHeading(raw);
+
+        Assert.StartsWith("# Ask whether the trial length", normalized);
+        Assert.Equal(
+            EntryTextParser.Parse(raw).Title,
+            EntryTextParser.Parse(normalized).Title);
+    }
 }
