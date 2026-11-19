@@ -6,9 +6,9 @@ namespace Backlog.Modules.Calendar.UI;
 
 /// <summary>
 /// Puts the Calendar in the shell as a view-group <see cref="ShellSurface"/> (local ADR
-/// 0043 §1, local ADR 0055): the view that hosts the Tasks layer as the part Tasks offers
-/// and hands it the layers the Calendar reads. Always offered, as Tasks is. Safe to call
-/// twice.
+/// 0043 §1, local ADR 0055): the view that draws its own grid from the layers it reads
+/// (local ADR 0056). Always offered, as Tasks is. The shell gives it a header option of
+/// its own after the Tasks | Board | Roadmap switch. Safe to call twice.
 /// </summary>
 public static class CalendarSurfaceRegistration
 {
@@ -16,8 +16,8 @@ public static class CalendarSurfaceRegistration
     /// file name — <c>lastView: calendar</c>, the name it always had.</summary>
     public const string SurfaceId = "calendar";
 
-    /// <summary>The view's place in the header: after the Board (20), before the
-    /// Roadmap.</summary>
+    /// <summary>The view's place among the views: after the Board (20), before the
+    /// Roadmap. The shell draws its option outside the view switch, right after it.</summary>
     public const int Order = 30;
 
     public static IServiceCollection AddCalendarSurface(this IServiceCollection services)

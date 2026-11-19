@@ -23,11 +23,15 @@
             <span class="capture-row__preview" data-testid="@PartTestId("preview")">@Preview</span>
         }
         <span class="capture-row__meta">
+            @* The kind's mark leads the line, as on every row in a list of kinds
+               (interaction-guidelines.md#task-rows): the glyph stands alone, and
+               its word is the tooltip and a visually-hidden span. *@
             @if (CaptureKinds.IsRecognised(Kind))
             {
-                <CaptureKindMarker Value="@Kind" />
-                <span>@CaptureKinds.Label(Kind!)</span>
-                <span aria-hidden="true">·</span>
+                <span class="capture-row__kind" title="@CaptureKinds.Label(Kind!)" data-testid="@PartTestId("kind")">
+                    <CaptureKindMarker Value="@Kind" />
+                    <span class="sr-only">@CaptureKinds.Label(Kind!)</span>
+                </span>
             }
             <span data-testid="@PartTestId("time")">@Time</span>
         </span>
@@ -93,7 +97,7 @@
     public string? CssClass { get; set; }
 
     /// <summary>The test id on the row. Its parts get <c>{TestId}-open</c>,
-    /// <c>-title</c>, <c>-preview</c>, <c>-time</c>, <c>-state</c> and <c>-retry</c>.</summary>
+    /// <c>-title</c>, <c>-preview</c>, <c>-kind</c>, <c>-time</c>, <c>-state</c> and <c>-retry</c>.</summary>
     [Parameter]
     public string? TestId { get; set; }
 

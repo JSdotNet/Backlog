@@ -112,18 +112,18 @@ public sealed class InboxItem
 
         // A note made on this desktop has a phone that has not heard of it yet.
         // One that arrived from the replica is already there.
-        NotePushPending = kind is ContentKind.Note && !replicaBacked;
+        NotePushPending = IsNote && !replicaBacked;
     }
 
     public Guid Id { get; }
 
-    /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/>,
+    /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/> and <see cref="ContentKind.Meeting"/>,
     /// whose title the person may change with <see cref="EditNote"/> — except that
     /// the phone may reword an open replica capture it still offers
     /// (<see cref="ApplyCaptureEdit"/>).</summary>
     public string Title { get; private set; }
 
-    /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/>,
+    /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/> and <see cref="ContentKind.Meeting"/>,
     /// as <see cref="Title"/> is, with the same exception.</summary>
     public string BodyMd { get; private set; }
 
@@ -227,8 +227,10 @@ public sealed class InboxItem
     /// </summary>
     public DateTimeOffset EditedAt { get; private set; }
 
-    /// <summary>A note: the one kind that syncs both ways with the phone.</summary>
-    public bool IsNote => Kind is ContentKind.Note;
+    /// <summary>A note or a meeting: the kinds that change after they are captured
+    /// and sync both ways with the phone. A meeting is a note in everything but its
+    /// kind (<c>.devbook/domain/inbox/domain.md#meeting</c>).</summary>
+    public bool IsNote => Kind is ContentKind.Note or ContentKind.Meeting;
 
     /// <summary>
     /// True between this desktop changing a live note and the replica taking the
@@ -767,7 +769,7 @@ public sealed class InboxItem
 
     /// <summary>
     /// Changes a note's title and body: the reader editing it on the desktop.
-    /// Only a <see cref="ContentKind.Note"/> changes after it is captured
+    /// Only a <see cref="ContentKind.Note"/> or a <see cref="ContentKind.Meeting"/> changes after it is captured
     /// (<c>.devbook/domain/inbox/domain.md#content-kind</c>), and only while it
     /// still syncs: an archived note has left the phone and is not edited back
     /// onto it. A routed note may be edited, because routing does not end its
@@ -864,7 +866,7 @@ public sealed class InboxItem
     /// pushes nothing back, so nothing is owed.
     /// </para>
     /// <para>
-    /// A note is refused: it syncs both ways through <see cref="ApplyNote"/>.
+    /// A note or a meeting is refused: each syncs both ways through <see cref="ApplyNote"/>.
     /// </para>
     /// </summary>
     public bool ApplyCaptureEdit(string title, string? bodyMd, DateTimeOffset editedAt)

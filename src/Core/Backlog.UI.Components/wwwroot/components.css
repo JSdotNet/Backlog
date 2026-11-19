@@ -10624,6 +10624,12 @@ select.field__input {
     box-shadow: var(--shadow-lg);
 }
 
+/* AlignEnd: the x the host passed is the menu's end edge, the opening button's
+   right, so a menu from a button at the window's end opens inward. */
+.context-menu--end {
+    transform: translateX(-100%);
+}
+
 /* PopoverButton: a trigger with a small panel of the host's controls under it
    (over it with OpenUpward), lined up with the trigger's start edge, or with its
    end edge (AlignEnd) so it opens inward from the end of a row. The
@@ -20800,6 +20806,10 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-size: var(--font-size-xs);
 }
 
+.capture-row__kind {
+    display: inline-flex;
+}
+
 .capture-row__state {
     flex: none;
 }
@@ -21925,12 +21935,26 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     pointer-events: none;
 }
 
-/* --- TaskCalendar ---------------------------------------------------------
-   The month of tasks placed by due date, with the tray of tasks without one.
+/* --- CalendarGrid ---------------------------------------------------------
+   The Calendar module's grid (Backlog.Modules.Calendar.UI), styled here as every
+   screen is; the task-calendar class names are the ones it always wore.
+   The month of tasks placed by due date, with the shelf of plans beside it.
    Every colour is a palette token or a mix of two: the day shades are the
    background stepped toward its neighbours, so the grid adds no hue of its own.
    The status dots differ in shape as well as colour — a hollow ring for a draft —
    so they still read apart without the colour. */
+
+/* The Calendar's own region (local ADR 0056 §1), in the workspace's main column where
+   the Tasks pane used to hold the grid. It owns the scrollbar, so a tall month scrolls
+   under the header, and it is what a drag's edge-scroll walks up to. */
+.calendar-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
 .task-calendar {
     display: flex;
     flex-direction: column;
@@ -22090,7 +22114,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     background: color-mix(in srgb, var(--color-primary) 12%, var(--color-background));
 }
 
-/* Wraps, so a narrow column puts today's My Day count under the number rather
+/* Wraps, so a narrow column puts the day's hours total under the number rather
    than over the next day. */
 .task-calendar__day-head {
     display: flex;
@@ -22125,17 +22149,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     background: var(--color-primary);
     color: var(--color-text-inverse);
     font-weight: var(--font-weight-semibold);
-}
-
-.task-calendar__my-day {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    max-width: 100%;
-    overflow: hidden;
-    color: var(--color-primary-light);
-    font-size: var(--font-size-xs);
-    white-space: nowrap;
 }
 
 .task-calendar__chip {
@@ -22187,11 +22200,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     text-decoration: line-through;
 }
 
-.task-calendar__chip--selected {
-    outline: var(--border-width) solid var(--color-border-strong);
-    outline-offset: calc(-1 * var(--border-width));
-}
-
 .task-calendar__chip:focus-visible,
 .task-calendar__more:focus-visible,
 .task-calendar__tray-item:focus-visible {
@@ -22236,11 +22244,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .task-calendar__dot--in-progress { background: var(--color-primary); }
 .task-calendar__dot--done { background: var(--color-success-text); }
 .task-calendar__dot--overdue { background: var(--color-error-text); }
-
-.task-calendar__dot--archived {
-    background: transparent;
-    box-shadow: inset 0 0 0 1.5px var(--color-text-disabled);
-}
 
 .task-calendar__tray {
     flex: 1 1 16rem;
@@ -22320,10 +22323,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     padding-left: calc(0.625rem + var(--border-width-4));
 }
 
-.task-calendar__tray-item--selected {
-    border-color: var(--color-border-strong);
-}
-
 .task-calendar__tray-text {
     flex: 1;
     min-width: 0;
@@ -22356,9 +22355,21 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     margin-left: auto;
 }
 
+/* Show tasks leads the layer boxes (local ADR 0056 §4): it takes the push to the end
+   of the bar, and the boxes after it sit a gap apart as Show events does after Show
+   plans. */
+.task-calendar__show-tasks {
+    margin-left: auto;
+}
+
+.task-calendar__show-tasks + .task-calendar__show-plans,
+.task-calendar__show-tasks + .task-calendar__show-events {
+    margin-left: var(--spacing-md);
+}
+
 /* Below the day head: the day's top padding, the head's height and the day's gap. A
-   head that wraps — today's My Day count on a narrow column — grows past that height,
-   so the head holds its count to one line while the week carries bars — plans or
+   head that wraps — the day's hours total on a narrow column — grows past that height,
+   so the head holds its total to one line while the week carries bars — plans or
    events. */
 .task-calendar__plans {
     position: absolute;
@@ -22540,12 +22551,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     background: transparent;
 }
 
-.task-calendar__tray-head--plans {
-    margin-top: var(--spacing-sm);
-    padding-top: var(--spacing-md);
-    border-top: var(--border-width) solid var(--color-background-raised);
-}
-
 /* A plan's tag is often one long word, so its card keeps the title to one line and
    puts the size under it rather than squeezing the two side by side. */
 .task-calendar__shelf-item {
@@ -22627,7 +22632,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     padding-left: calc(0.375rem + var(--border-width-4));
 }
 
-.task-calendar__block--selected,
 .task-calendar__block[aria-expanded='true'] {
     border-style: solid;
 }
@@ -25658,6 +25662,18 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-weight: var(--font-weight-semibold);
     line-height: var(--line-height-tight);
     overflow-wrap: anywhere;
+}
+
+.note-row__meta {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+}
+
+.note-row__kind {
+    display: inline-flex;
 }
 
 .note-row__when {

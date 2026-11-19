@@ -218,12 +218,13 @@ internal sealed class PhoneHarness
     /// kept the note, and <c>data-waiting</c> says whether sync has it yet.</summary>
     public ILocator NoteSave => Page.GetByTestId("note-editor-save");
 
-    /// <summary>Starts a note from the Notes tab and types it. The editor saves
-    /// on its own after a pause; the caller waits for that on <see cref="NoteSave"/>.</summary>
+    /// <summary>Starts a note with Note in the menu the Inbox's + opens while its quick field is empty, and types it. The editor
+    /// saves on its own after a pause; the caller waits for that on <see cref="NoteSave"/>.</summary>
     public async Task WriteNoteAsync(string title, string body)
     {
-        await GoToAsync("Notes");
-        await Interactive.ClickAsync(Page.GetByTestId("notes-new"), Page.GetByTestId("note-editor"));
+        await GoToAsync("Inbox");
+        await Interactive.ClickAsync(Page.GetByTestId("capture-submit"), Page.GetByTestId("inbox-new-menu-item-note"));
+        await Interactive.ClickAsync(Page.GetByTestId("inbox-new-menu-item-note"), Page.GetByTestId("note-editor"));
         await Interactive.FillAsync(Page.GetByTestId("note-editor-title").Locator("input"), title);
         await Interactive.FillAsync(Page.GetByTestId("note-editor-body").Locator("textarea"), body);
     }

@@ -4,7 +4,7 @@ namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
 /// The phone's Stand-up tab (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>):
-/// shown between Inbox and Notes only while goals are on — which the phone reads as holding
+/// shown after Inbox only while goals are on — which the phone reads as holding
 /// a stand-up context — and drawing the four blocks the desktop reads, by its rules, with the
 /// iteration switch re-reading them for this visit.
 /// </summary>
@@ -21,20 +21,20 @@ public sealed class StandupScreenTests
         var app = host.Open("");
 
         app.WaitForAssertion(() => Assert.Equal(2, tasks.Pulls));
-        Assert.Equal(["Today", "Inbox", "Notes"], app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent.Trim()));
+        Assert.Equal(["Today", "Inbox"], app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent.Trim()));
     }
 
     [Fact]
-    public void With_a_stand_up_context_the_tab_sits_between_inbox_and_notes()
+    public void With_a_stand_up_context_the_tab_sits_after_inbox()
     {
         using var host = ShellHost.Paired(clock: Clock(), tasks: StandupFixture.Service());
 
         var app = host.Open("");
 
         app.WaitForAssertion(() => Assert.Equal(
-            ["Today", "Inbox", "Stand-up", "Notes"],
+            ["Today", "Inbox", "Stand-up"],
             app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent.Trim())));
-        Assert.Equal(["", "inbox", "standup", "notes"], app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.GetAttribute("href")));
+        Assert.Equal(["", "inbox", "standup"], app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.GetAttribute("href")));
     }
 
     /// <summary>
@@ -48,9 +48,9 @@ public sealed class StandupScreenTests
 
         var app = host.Open("");
 
-        app.WaitForAssertion(() => Assert.Equal(4, app.FindAll("[data-testid='tab-bar'] a").Count));
+        app.WaitForAssertion(() => Assert.Equal(3, app.FindAll("[data-testid='tab-bar'] a").Count));
         Assert.Equal(
-            ["sun-icon", "inbox-icon", "target-icon", "sticky-note-icon"],
+            ["sun-icon", "inbox-icon", "target-icon"],
             app.FindAll("[data-testid='tab-bar'] a .tab-bar__icon svg").Select(glyph => glyph.GetAttribute("class")));
         Assert.All(
             app.FindAll("[data-testid='tab-bar'] a .tab-bar__icon svg"),
@@ -64,13 +64,13 @@ public sealed class StandupScreenTests
         tasks.State = InboxServiceState.Unreachable;
         using var host = ShellHost.Paired(clock: Clock(), tasks: tasks);
         var app = host.Open("");
-        app.WaitForAssertion(() => Assert.True(tasks.Pulls == 0 && app.FindAll("[data-testid='tab-bar'] a").Count == 3));
+        app.WaitForAssertion(() => Assert.True(tasks.Pulls == 0 && app.FindAll("[data-testid='tab-bar'] a").Count == 2));
 
         tasks.State = InboxServiceState.Answering;
         await app.InvokeAsync(() => host.Service<Backlog.Mobile.UI.Services.AppLifecycle>().Resume());
 
         app.WaitForAssertion(() => Assert.Equal(
-            ["Today", "Inbox", "Stand-up", "Notes"],
+            ["Today", "Inbox", "Stand-up"],
             app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent.Trim())));
     }
 

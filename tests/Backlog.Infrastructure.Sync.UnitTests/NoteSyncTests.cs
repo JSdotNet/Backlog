@@ -177,6 +177,41 @@ public sealed class NoteSyncTests
         Assert.Equal("capture", Assert.Single(sent, change => change.Id != id).Task.Type);
     }
 
+    /// <summary>A meeting travels as a note does — a <c>note</c> document — with its
+    /// kind beside the type, so the other side keeps it a meeting; a plain note's
+    /// document carries no kind, and reads as it did before meetings existed.</summary>
+    [Fact]
+    public void A_meeting_travels_as_a_note_document_that_names_its_kind()
+    {
+        var meeting = new InboxNoteDto(Guid.CreateVersion7(), "Weekly sync", null, "mobile", Noon, Noon, Kind: "meeting");
+        var note = new InboxNoteDto(Guid.CreateVersion7(), "Standup", null, "mobile", Noon, Noon);
+
+        var meetingChange = NoteReplicaDocuments.ToChange(meeting);
+        var noteChange = NoteReplicaDocuments.ToChange(note);
+
+        Assert.Equal("note", meetingChange.Task.Type);
+        Assert.Equal("meeting", meetingChange.Task.NoteKind);
+        Assert.Null(noteChange.Task.NoteKind);
+        Assert.Equal("meeting", NoteReplicaDocuments.ToNote(meetingChange).Kind);
+        Assert.Equal("note", NoteReplicaDocuments.ToNote(noteChange).Kind);
+    }
+
+    [Fact]
+    public async Task A_meetings_acknowledgement_goes_out_as_a_note_tombstone()
+    {
+        var outbox = new RecordingInboxOutbox();
+        var id = Guid.CreateVersion7();
+        outbox.Pending.Add(new InboxCaptureAckDto(id, "Weekly sync", Noon, Noon.AddHours(1), Kind: "meeting"));
+
+        using var fixture = Fixture.Create(new InMemoryTaskSyncStateStore(), notes: null, outbox);
+
+        await fixture.Session.PushAsync(Cancellation);
+
+        var sent = Assert.Single(Pushed(Assert.Single(fixture.Bodies)));
+        Assert.Equal("note", sent.Task.Type);
+        Assert.Equal(Noon.AddHours(1), sent.DeletedAt);
+    }
+
     private static IReadOnlyList<TaskChange> Pushed(string body) =>
         JsonSerializer.Deserialize<PushTasksRequest>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web))!.Tasks;
 

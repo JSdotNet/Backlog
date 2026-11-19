@@ -1,3 +1,4 @@
+using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
@@ -809,10 +810,10 @@ public sealed class TaskSyncSession
         return Result.Success(pushed);
     }
 
-    /// <summary>Whether an acknowledgement is a note's, whose tombstone is
-    /// written as a note document so the phone's Notes list drops it.</summary>
+    /// <summary>Whether an acknowledgement is a note's or a meeting's, whose
+    /// tombstone is written as a note document so the phone Inbox drops it.</summary>
     private static bool IsNoteAcknowledgement(InboxCaptureAckDto ack) =>
-        string.Equals(ack.Kind, NoteReplicaDocuments.NoteType, StringComparison.Ordinal);
+        InboxEnumMap.IsNoteKind(ack.Kind);
 
     private static TaskPayload AcknowledgementPayload(InboxCaptureAckDto ack) => new(
         ack.Title,

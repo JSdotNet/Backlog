@@ -1,6 +1,11 @@
 using System.Globalization;
+using Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
+using Backlog.Modules.Calendar.UI;
+using Backlog.UI.Components.Tasks;
+using Bunit;
+using Microsoft.AspNetCore.Components;
 
-namespace Backlog.UI.Components.UnitTests;
+namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The roadmap's plans on the month calendar: each window cut into its week rows and
@@ -11,14 +16,14 @@ namespace Backlog.UI.Components.UnitTests;
 /// the 5th, 12th, 19th and 26th of October.
 /// </para>
 /// </summary>
-public sealed class TaskCalendarPlansTests : IDisposable
+public sealed class CalendarGridPlansTests : IDisposable
 {
     private static readonly DateOnly Today = new(2026, 10, 6);
 
     private readonly CultureInfo _culture = CultureInfo.CurrentCulture;
     private readonly CultureInfo _uiCulture = CultureInfo.CurrentUICulture;
 
-    public TaskCalendarPlansTests()
+    public CalendarGridPlansTests()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
@@ -32,14 +37,14 @@ public sealed class TaskCalendarPlansTests : IDisposable
 
     private static DateOnly Oct(int day) => new(2026, 10, day);
 
-    private static IRenderedComponent<TaskCalendar> Render(
+    private static IRenderedComponent<CalendarGrid> Render(
         BunitContext context,
         IReadOnlyList<CalendarPlan>? plans = null,
-        Action<ComponentParameterCollectionBuilder<TaskCalendar>>? configure = null,
+        Action<ComponentParameterCollectionBuilder<CalendarGrid>>? configure = null,
         bool available = true)
     {
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        return context.Render<TaskCalendar>(parameters =>
+        return context.Render<CalendarGrid>(parameters =>
         {
             parameters
                 .Add(c => c.Tasks, [])
@@ -220,7 +225,7 @@ public sealed class TaskCalendarPlansTests : IDisposable
     // --- The shelf ----------------------------------------------------------
 
     [Fact]
-    public void The_shelf_lists_the_plans_without_a_window_as_drag_sources_under_the_tasks()
+    public void The_shelf_lists_the_plans_without_a_window_as_drag_sources_beside_the_grid()
     {
         using var context = new BunitContext();
 
@@ -230,9 +235,11 @@ public sealed class TaskCalendarPlansTests : IDisposable
             new CalendarShelfPlan("docs", "Docs", TaskCount: 1, TotalEffort: 2)
         ]));
 
-        var tray = calendar.Find("[data-testid='cal-tray']");
-        Assert.True(tray.InnerHtml.IndexOf("Tasks without a due date", StringComparison.Ordinal)
-                    < tray.InnerHtml.IndexOf("Plans without a window", StringComparison.Ordinal));
+        // The shelf is the aside's one section: undated tasks are not on the Calendar
+        // (local ADR 0056 §4).
+        var shelf = calendar.Find("[data-testid='cal-shelf']");
+        Assert.Contains("Plans without a window", shelf.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Tasks without a due date", calendar.Markup, StringComparison.Ordinal);
         Assert.Equal("2", calendar.Find("[data-testid='cal-shelf-count']").TextContent);
 
         var release = calendar.Find("[data-testid='cal-shelf-release-q4']");

@@ -1243,7 +1243,9 @@ Events where those areas are on. The phone Inbox is one list of two parts:
 | Every note and meeting, whichever device made it | Never: they sync both ways |
 
 Filter chips **All**, **Captures**, **Notes** and **Meetings** narrow the list.
-Every row shows its kind's mark and name. A note or meeting row also shows:
+Every row leads with its content kind's mark, the kind's name its tooltip and
+accessible text: a capture's kind is what it holds, such as Text or Link. A note
+or meeting row also shows:
 
 - the title;
 - when it last changed: the time for today, "Yesterday", the weekday
@@ -1254,10 +1256,11 @@ A search field narrows the list on the phone itself. A note stays when every
 word typed is in its title or its body. With nothing to show the list says how
 to start, and with no match it repeats the words searched for.
 
-The **+** menu offers **Note**, which opens an empty editor, and **Meeting**,
-which opens a new [meeting](domain.md#meeting) already recording. A tap on a note
-or meeting opens it in the same editor. Sharing from another app and the quick
-one-line field still make a capture.
+The Inbox has one **+**, beside the quick one-line field. With words in the
+field, **+** or Enter adds them as a capture. With the field empty, **+** opens a
+menu of **Note**, which opens an empty editor, and **Meeting**, which opens a
+new [meeting](domain.md#meeting) already recording. A tap on a note or meeting
+opens it in the same editor. Sharing from another app still makes a capture.
 
 The old `/notes` address opens the Inbox filtered to notes. `/notes/new` and
 `/notes/{id}` still open the editor.

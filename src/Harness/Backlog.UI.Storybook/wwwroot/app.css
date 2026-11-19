@@ -300,15 +300,6 @@ html, body {
     border: var(--border-width) dashed var(--color-border);
 }
 
-/* The calendar is a pane's content, so it gets a pane's room and its own scroll
-   at a width narrower than its grid. */
-.sb-calendar {
-    max-width: 100%;
-    overflow-x: auto;
-    border: var(--border-width) solid var(--color-background-raised);
-    border-radius: var(--border-radius-md);
-}
-
 /* A detail panel's width, for a section of the Tasks panel shown on its own. */
 .sb-panel {
     width: 26rem;

@@ -2,7 +2,7 @@ using System.Text.Json;
 
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.FileSystem;
-using Backlog.UI.Components.Tasks;
+using Backlog.Modules.Calendar.UI;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -62,11 +62,14 @@ public sealed class ShellCalendarViewPreferencesTests
         Assert.Equal(CalendarRange.Week, preferences.Range);
         Assert.True(preferences.PlansShown);
         Assert.True(preferences.EventsShown);
+        // No calendarTasksShown in the file: the tasks are drawn (local ADR 0056 §4).
+        Assert.True(preferences.TasksShown);
         Assert.Equal(before, ShellNavigationStoreTests.Written(file.Path));
 
         // Ticking a box already ticked writes nothing: the file stays the bytes it was.
         preferences.SetEventsShown(true);
         preferences.SetPlansShown(true);
+        preferences.SetTasksShown(true);
         Assert.Equal(before, ShellNavigationStoreTests.Written(file.Path));
     }
 

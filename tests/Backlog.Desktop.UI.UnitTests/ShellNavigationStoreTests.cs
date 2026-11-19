@@ -431,6 +431,54 @@ public sealed class ShellNavigationStoreTests
     }
 
     /// <summary>
+    /// The Calendar's Show tasks box (local ADR 0056 §4) is on until turned off, and its
+    /// key is written only while it is off — so a file from before the box, which carries
+    /// none, reads as on, and turning it back on takes the key out again. The other keys
+    /// are left as they were.
+    /// </summary>
+    [Fact]
+    public void Calendar_tasks_are_on_until_turned_off_and_only_off_writes_a_key()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.True(store.CalendarTasksShown);
+
+            store.SetCalendarPlansShown(true);
+            using (var on = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(on.RootElement.TryGetProperty("calendarTasksShown", out _));
+            }
+
+            store.SetCalendarTasksShown(false);
+            using (var off = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(off.RootElement.GetProperty("calendarTasksShown").GetBoolean());
+                Assert.True(off.RootElement.GetProperty("calendarPlansShown").GetBoolean());
+            }
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.False(restarted.CalendarTasksShown);
+            Assert.True(restarted.CalendarPlansShown);
+
+            restarted.SetCalendarTasksShown(true);
+            using (var removed = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(removed.RootElement.TryGetProperty("calendarTasksShown", out _));
+                Assert.True(removed.RootElement.GetProperty("calendarPlansShown").GetBoolean());
+            }
+
+            Assert.True(new ShellNavigationStore(path).CalendarTasksShown);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
     /// "Show events" and "Show plans" are two boxes: ticking one leaves the other as it was,
     /// in the file and after a restart.
     /// </summary>

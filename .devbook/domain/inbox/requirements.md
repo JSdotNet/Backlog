@@ -1801,13 +1801,13 @@ The system SHALL bring a note made on the phone into the desktop Inbox as an ite
 type: requirement
 ```
 
-The phone SHALL show in its Inbox, as one list, the captures it made that the desktop has not taken in and every note and meeting, each row with its kind's mark and name, and SHALL have no Notes tab.
+The phone SHALL show in its Inbox, as one list, the captures it made that the desktop has not taken in and every note and meeting, each row led by its content kind's mark with the kind's name as its tooltip and accessible text, and SHALL have no Notes tab.
 
 #### Scenario: Three kinds in one list
 
 - **Given** a capture the phone made that the desktop has not taken in, a note made on the desktop, and a meeting made on the phone
 - **When** the reader opens the phone Inbox
-- **Then** the list shows all three, marked Capture, Note and Meeting
+- **Then** the list shows all three: the capture marked by its content kind, such as Text or Link, the note marked Note and the meeting marked Meeting
 - **And** the tab bar holds no Notes tab
 
 #### Scenario: A capture the desktop took in
@@ -1842,19 +1842,19 @@ The phone SHALL offer the chips All, Captures, Notes and Meetings above its Inbo
 type: requirement
 ```
 
-The phone SHALL offer Note and Meeting in its Inbox's + menu, while sharing from another app and the quick one-line field go on making a capture.
+The phone SHALL have one + in its Inbox, beside the quick one-line field: with the field empty it offers Note and Meeting, and with words in the field it adds them as a capture, as Enter does. Sharing from another app goes on making a capture.
 
 #### Scenario: The menu
 
-- **Given** the phone Inbox is open
+- **Given** the phone Inbox is open and its quick field is empty
 - **When** the reader presses +
 - **Then** the menu offers Note and Meeting
 
 #### Scenario: The one-line field
 
 - **Given** the phone Inbox is open
-- **When** the reader types a line in the quick field and sends it
-- **Then** the list shows a new capture with its sync state
+- **When** the reader types a line in the quick field and presses + or Enter
+- **Then** the list shows one new capture with its sync state
 
 ### Requirement: The old Notes address opens the Inbox on notes
 

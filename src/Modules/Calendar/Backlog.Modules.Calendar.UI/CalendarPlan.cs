@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Backlog.UI.Components.Tasks;
+namespace Backlog.Modules.Calendar.UI;
 
 /// <summary>
 /// One plan's window as the month calendar draws it: a bar from its first day to its
@@ -35,9 +35,9 @@ public sealed record CalendarPlan(
 /// <summary>A milestone, drawn as a diamond chip on its day.</summary>
 public sealed record CalendarMilestone(string Id, string Title, DateOnly On);
 
-/// <summary>A plan with no window yet, waiting in the tray to be dropped on a day.</summary>
+/// <summary>A plan with no window yet, waiting on the grid's shelf to be dropped on a day.</summary>
 /// <param name="Tag">The plan tag, bare — what a drop reports.</param>
-/// <param name="Title">What the tray says.</param>
+/// <param name="Title">What the shelf says.</param>
 /// <param name="TaskCount">How many tasks it holds.</param>
 /// <param name="TotalEffort">The points those tasks registered.</param>
 /// <param name="UnestimatedCount">How many registered none.</param>

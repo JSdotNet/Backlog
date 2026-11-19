@@ -17,6 +17,7 @@
 @inject TimeProvider Clock
 @inject AppLifecycle Lifecycle
 @inject NoteRecordingSession Recording
+@inject NavigationManager Navigation
 @implements IDisposable
 
 @*
@@ -54,6 +55,10 @@
     recording is NoteRecordingSession's, not this page's: leaving the note does
     not stop it, the bar is back when the note opens again, and Stop attaches the
     file as "Recording · <duration>" through the note's own outbox path.
+
+    /notes/new?kind=meeting, Meeting in the Inbox's + menu, opens a new meeting
+    (.devbook/domain/inbox/domain.md#meeting): created at once and recorded into
+    straight away. A note recorded into later stays a note.
 *@
 
 <PageTitle>@(string.IsNullOrWhiteSpace(_draft.Title) ? "Note" : _draft.Title)</PageTitle>
@@ -64,7 +69,7 @@
                 Description="It may have been archived on the desktop, which stops it syncing here."
                 TestId="note-missing">
         <Action>
-            <a href="notes" data-testid="note-missing-back">Back to Notes</a>
+            <a href="inbox" data-testid="note-missing-back">Back to Inbox</a>
         </Action>
     </EmptyState>
 }
@@ -73,6 +78,7 @@ else
     <NoteEditor Title="@_draft.Title" TitleChanged="OnTitleChanged"
                 Body="@_draft.Body" BodyChanged="OnBodyChanged"
                 When="@When" State="_state" Waiting="@_waiting" OnBlur="FlushAsync"
+                BackHref="inbox" BackLabel="Inbox"
                 CssClass="note-page" TestId="note-editor">
         <Tools>
             @* One row of tiles pinned above the tab bar, each a glyph over a short
@@ -273,6 +279,14 @@ else
     [Parameter]
     public Guid? Id { get; set; }
 
+    /// <summary><c>meeting</c> on <c>/notes/new?kind=meeting</c>, the address of
+    /// Meeting in the Inbox's + menu: the page opens a new meeting with its recording
+    /// already running (.devbook/domain/inbox/features.md#meetings).</summary>
+    [SupplyParameterFromQuery(Name = "kind")]
+    public string? Kind { get; set; }
+
+    private bool OpensNewMeeting => Id is null && string.Equals(Kind, NoteFold.MeetingKind, StringComparison.Ordinal);
+
     private string? When => _row is { } row
         ? TimeZoneInfo.ConvertTime(row.UpdatedAt, Clock.LocalTimeZone).ToString("ddd d MMM · HH:mm", CultureInfo.InvariantCulture)
         : null;
@@ -323,9 +337,9 @@ else
 
     /// <summary>
     /// Loads the note the address names. A note this page has just created keeps
-    /// its draft: the address stays <c>/notes/new</c>, because replacing it from a
-    /// save would race the Back link whose blur set that save off. Turning to
-    /// another note first lands what is pending on this one.
+    /// its draft when <see cref="TakeAddressOf"/> replaces <c>/notes/new</c> with its
+    /// own address, since that names the row already held. Turning to another note
+    /// first lands what is pending on this one.
     /// </summary>
     protected override async Task OnParametersSetAsync()
     {
@@ -372,7 +386,83 @@ else
         _canTakePhoto = await Picker.CanTakePhotoAsync();
         _speechSupported = await Speech.IsSupportedAsync();
         _recordSupported = await Recording.IsSupportedAsync();
+
+        if (OpensNewMeeting && _row is null) await StartMeetingAsync();
+
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Once this page has created its note or meeting, the address it was opened on
+    /// (<c>notes/new</c>, or the meeting address) is replaced by <c>notes/{id}</c>, so
+    /// Back, or coming back to it, opens the same item rather than making a second one.
+    /// Only while this page is still the one on screen at that address: a save set off
+    /// by the Back link's blur finishes after the link has navigated, and must not pull
+    /// the person back into the editor. The page keeps its state across the replace,
+    /// because the new <see cref="Id"/> is the row it already holds.
+    /// </summary>
+    private void TakeAddressOf(Guid id)
+    {
+        if (_disposed) return;
+
+        var path = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (!path.StartsWith("notes/new", StringComparison.Ordinal)) return;
+
+        Navigation.NavigateTo($"notes/{id}", replace: true);
+    }
+
+    /// <summary>
+    /// Opens a new meeting: creates it at once, so the recording's files carry its id
+    /// and the Inbox lists it marked Meeting, then starts the recording, so the person
+    /// meets the recording controls and does not press Record a second time. A start
+    /// that fails says why beside the tools, and the meeting stays for its notes.
+    /// </summary>
+    private async Task StartMeetingAsync()
+    {
+        _recordStarting = true;
+        _recordError = null;
+
+        try
+        {
+            await _saveGate.WaitAsync();
+            try
+            {
+                if (_row is null)
+                {
+                    var created = await Notes.CreateMeetingAsync(_draft.Title);
+                    Load(created);
+                    _state = SaveState.Saved;
+                    RefreshWaiting();
+                    RefreshEvents();
+                    TakeAddressOf(created.Id);
+                }
+            }
+            finally
+            {
+                _saveGate.Release();
+            }
+
+            if (_recordSupported != true)
+            {
+                _recordError = "This phone cannot record, so the meeting is open without a recording.";
+            }
+            else if (Recording.NoteId is not null)
+            {
+                _recordError = "Another recording is running. Stop it to record this meeting.";
+            }
+            else if (!await Recording.StartAsync(_row!.Id))
+            {
+                _recordError = Recording.Error ?? "The recording did not start.";
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _recordError = $"Couldn't start the meeting: {ex.Message}";
+        }
+        finally
+        {
+            _recordStarting = false;
+        }
     }
 
     /// <summary>Leaving the page ends dictation — words the device heard still
@@ -660,7 +750,11 @@ else
             _error = null;
             _state = _dirty ? SaveState.Saving : SaveState.Saved;
             RefreshWaiting();
-            if (first) RefreshEvents();
+            if (first)
+            {
+                RefreshEvents();
+                TakeAddressOf(saved.Id);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -810,6 +904,7 @@ else
                 _row = created;
                 _state = SaveState.Saved;
                 RefreshWaiting();
+                TakeAddressOf(created.Id);
             }
 
             return _row.Id;

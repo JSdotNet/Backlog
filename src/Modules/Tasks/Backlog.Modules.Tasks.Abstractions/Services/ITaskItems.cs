@@ -159,6 +159,26 @@ public interface ITaskItems
             "entry.planned_hours_unavailable",
             "Planned hours cannot be kept here."));
 
+    /// <summary>Sets the day an entry is due on, or clears it for null. Answers the entry
+    /// as it now stands; only the due date moves.
+    /// <para>
+    /// The due date is a token in the text, so the pane writes it by saving the text; this
+    /// is for a caller that holds no text to rewrite — the Calendar moving a task to the
+    /// day it was dropped on (local ADR 0056 §2).
+    /// </para>
+    /// <para>
+    /// Implemented by default as a refusal, as <see cref="SetPlannedHoursAsync"/> is, so a
+    /// host or a test double that keeps no due-date command still composes; the module's
+    /// own port overrides it.
+    /// </para></summary>
+    Task<Result<TaskItemDto>> SetDueAsync(
+        Guid id,
+        DateOnly? dueOn,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<Result<TaskItemDto>>(Error.Validation(
+            "entry.due_unavailable",
+            "A due date cannot be set here."));
+
     /// <summary>Notes that an entry was actually used for something.</summary>
     Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default);
 

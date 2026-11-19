@@ -1,46 +1,43 @@
-namespace Backlog.UI.Components.Tasks;
+using global::Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
+
+namespace Backlog.Modules.Calendar.UI;
 
 /// <summary>
-/// One task as the month calendar places it: by its due date, or in the tray of
-/// tasks without one.
+/// One task as the Calendar's grid places it: on its due date.
 /// <para>
-/// A record of its own rather than a <see cref="TaskRow"/>, because the calendar
-/// needs three facts a row is not given — the due date as a date rather than as
-/// words, the lifecycle state behind the status dot, and the host's repository
-/// mark — and none of the row's metadata line. The host maps its entries onto
-/// this once, the way it maps them onto rows for the list.
+/// The grid's own shape, mapped by the Calendar surface from what its Tasks layer read
+/// (<c>CalendarTaskDto</c>): the due date, the lifecycle state behind the status dot, and
+/// the repository mark the window's scope gives it. A task with no due date is not on the
+/// Calendar — a due date is set in Tasks (local ADR 0056 §2).
 /// </para>
 /// </summary>
-/// <param name="Id">The host's id for the task; what a click and a drop report back.</param>
+/// <param name="Id">The task's id; what a click and a drop report back.</param>
 /// <param name="Title">What the chip says.</param>
-/// <param name="DueOn">The day it is due, or null — then it is in the tray while it is
-/// still open, and nowhere while it is finished.</param>
+/// <param name="DueOn">The day it is due.</param>
 /// <param name="State">Where it is in its lifecycle; the status dot says it.</param>
 /// <param name="Repeats">Whether it recurs. A recurring task is placed on its due
 /// date only — the next occurrence is written when this one is ticked off, so the
 /// calendar draws no series.</param>
-/// <param name="CssClass">The host's repository identity classes, or null. The host
-/// passes them only while its repository colours are showing, so the calendar never
+/// <param name="CssClass">The repository identity classes, or null. The surface passes
+/// them only while the window's repository colours are showing, so the grid never
 /// decides whether the colours are on.</param>
-/// <param name="Effort">The estimate as the tray says it — "3 pts" — or null.</param>
 public sealed record CalendarTask(
     string Id,
     string Title,
-    DateOnly? DueOn,
+    DateOnly DueOn,
     CalendarTaskState State = CalendarTaskState.Draft,
     bool Repeats = false,
-    string? CssClass = null,
-    string? Effort = null)
+    string? CssClass = null)
 {
     /// <summary>Finished: drawn struck through, and never overdue.</summary>
     public bool Done => State is CalendarTaskState.Done;
 
-    /// <summary>Still to do — neither finished nor archived. Only an open task is
-    /// overdue, and only an open one waits in the tray.</summary>
-    public bool Open => State is not (CalendarTaskState.Done or CalendarTaskState.Archived);
+    /// <summary>Still to do. Only an open task is overdue, and only an open one is
+    /// offered to a new block of hours.</summary>
+    public bool Open => !Done;
 
     /// <summary>Open and due before <paramref name="today"/>.</summary>
-    public bool IsOverdue(DateOnly today) => Open && DueOn is { } due && due < today;
+    public bool IsOverdue(DateOnly today) => Open && DueOn < today;
 }
 
 /// <summary>The lifecycle states the status dot distinguishes.</summary>
@@ -49,8 +46,7 @@ public enum CalendarTaskState
     Draft,
     Ready,
     InProgress,
-    Done,
-    Archived
+    Done
 }
 
 /// <summary>A task dropped on a day: give it that due date.</summary>
@@ -84,6 +80,14 @@ public static class CalendarMonth
         var weeks = new List<DateOnly>(6);
         for (var week = start; week <= last; week = week.AddDays(7)) weeks.Add(week);
         return weeks;
+    }
+
+    /// <summary>The days the Month range shows for <paramref name="month"/>: from the
+    /// Monday of its first week to the Sunday of its last.</summary>
+    public static CalendarWindow Window(DateOnly month)
+    {
+        var weeks = WeekStarts(month);
+        return new CalendarWindow(weeks[0], weeks[^1].AddDays(6));
     }
 
     /// <summary>The Monday on or before <paramref name="date"/>.</summary>

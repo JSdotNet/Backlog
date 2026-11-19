@@ -104,15 +104,19 @@ public sealed class CaptureEditTests
         Assert.Equal("Call the dentist", item.Title);
     }
 
-    /// <summary>A note syncs both ways through its own path
-    /// (<see cref="InboxItem.ApplyNote"/>), never this one.</summary>
-    [Fact]
-    public void A_note_is_refused()
+    /// <summary>A note and a meeting are edited by both sides and sync both ways
+    /// through their own path (<see cref="InboxItem.ApplyNote"/>), never this one —
+    /// a capture's edit must not write over either.</summary>
+    [Theory]
+    [InlineData(ContentKind.Note)]
+    [InlineData(ContentKind.Meeting)]
+    public void A_note_or_a_meeting_is_refused(ContentKind kind)
     {
         var note = InboxItem.FromCapture(
             Guid.CreateVersion7(), "Standup", new InboxSource("mobile", Person: null), sourceUrl: null,
-            ContentKind.Note, Items.Noon, Items.Noon);
+            kind, Items.Noon, Items.Noon);
 
         Assert.Throws<InvalidInboxTransitionException>(() => note.ApplyCaptureEdit("Reworded", null, Edited));
+        Assert.Equal("Standup", note.Title);
     }
 }

@@ -205,8 +205,9 @@
                         @Prose(item, "Only the title and the attachment were captured.")
                         break;
 
-                    case ContentKind.Note:
-                        @* A note is the one kind the reader may change after it is
+                    case ContentKind.Note or ContentKind.Meeting:
+                        @* A note, and a meeting which is a note started by recording,
+                           are the kinds the reader may change after they are
                            captured, and the change reaches the phone. Edited in
                            place rather than in a dialog: the note is what the
                            column is about. Not once archived, because an archived

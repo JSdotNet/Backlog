@@ -125,7 +125,7 @@ public sealed class ReceiveNoteCommandHandler(
             note.Title,
             new InboxSource(InboxEnumMap.NormalizeChannel(note.Channel), Person: null),
             sourceUrl: null,
-            ContentKind.Note,
+            KindOf(note),
             note.CapturedAt,
             clock.GetUtcNow(),
             string.IsNullOrWhiteSpace(note.BodyMd) ? null : note.BodyMd.Trim(),
@@ -151,6 +151,11 @@ public sealed class ReceiveNoteCommandHandler(
 
         return InboxIntakeOutcome.Received;
     }
+
+    /// <summary>The kind a new item takes from the document: a meeting when it says
+    /// so, a note otherwise — a note document never makes an item of any other kind.</summary>
+    private static ContentKind KindOf(InboxNoteDto note) =>
+        string.Equals(note.Kind, InboxEnumMap.MeetingKind, StringComparison.Ordinal) ? ContentKind.Meeting : ContentKind.Note;
 
     private async Task<InboxIntakeOutcome> WithdrawAsync(InboxItem existing, InboxNoteDto note, CancellationToken cancellationToken)
     {

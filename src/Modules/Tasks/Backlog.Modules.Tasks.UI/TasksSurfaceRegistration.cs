@@ -1,5 +1,4 @@
 using Backlog.SharedKernel;
-using Backlog.UI.Components.Calendar;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -9,8 +8,9 @@ namespace Backlog.Desktop.UI.Tasks;
 /// Puts the Tasks module's two views in the shell as view-group
 /// <see cref="ShellSurface"/>s (local ADR 0043 §1): Tasks and Board, the one task list
 /// read two ways. On the precedent of <c>AddDevbookSurface</c>. The Calendar is its own
-/// module's surface (local ADR 0055); Tasks offers it the Tasks layer as a part, through
-/// <see cref="AddTasksCalendarLayer"/>.
+/// module's surface and draws its own grid (local ADR 0056); it reads the tasks through
+/// its own port, which an adapter answers over Tasks' published <c>ITaskItems</c>, so
+/// Tasks registers nothing for it.
 /// </summary>
 /// <remarks>
 /// Always offered: Tasks is always on. Safe to call twice — a second call adds
@@ -50,20 +50,6 @@ public static class TasksSurfaceRegistration
             typeof(BoardSurface),
             QueryKeys: TasksSurfaceQuery.BoardKeys));
 
-        services.TryAddScoped<TasksViewWiring>();
-
-        return services;
-    }
-
-    /// <summary>
-    /// Offers the Calendar the Tasks layer as a part it hosts (local ADR 0055 §3), and the
-    /// window's <see cref="TasksViewWiring"/> it reads. Safe to call twice.
-    /// </summary>
-    public static IServiceCollection AddTasksCalendarLayer(this IServiceCollection services)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-
-        services.TryAddSingleton(new CalendarTasksLayer(typeof(TasksCalendarPart)));
         services.TryAddScoped<TasksViewWiring>();
 
         return services;

@@ -14,8 +14,9 @@ public static class CalendarModuleRegistration
     /// <summary>
     /// Registers the module. It owns no data, so it registers no store; its services are
     /// the layers' read policies, each Scoped — one per window: the Plans layer, as the
-    /// <see cref="ICalendarPlans"/> port it reads is, and the Events layer over
-    /// <see cref="ICalendarEvents"/>. Each port is optional: a host that composed none gets
+    /// <see cref="ICalendarPlans"/> port it reads is, the Events layer over
+    /// <see cref="ICalendarEvents"/>, and the Tasks layer over <see cref="ICalendarTasks"/>
+    /// (local ADR 0056 §2). Each port is optional: a host that composed none gets
     /// a layer that offers nothing. Safe to call twice.
     /// </summary>
     public static IServiceCollection AddCalendarModule(this IServiceCollection services)
@@ -27,6 +28,8 @@ public static class CalendarModuleRegistration
 
         services.TryAddScoped<ICalendarEventsLayer>(sp =>
             new CalendarEventsLayer(sp.GetService<ICalendarEvents>(), sp.GetService<IAppFeatureSettings>()));
+
+        services.TryAddScoped<ICalendarTasksLayer>(sp => new CalendarTasksLayer(sp.GetService<ICalendarTasks>()));
 
         return services;
     }

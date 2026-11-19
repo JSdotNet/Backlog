@@ -30,6 +30,10 @@ public sealed record NoteViewRow(
 
     public IReadOnlyList<AttachmentMetadata> Attachments => Note.Attachments ?? [];
 
+    /// <summary>A meeting rather than a plain note: its document names the meeting
+    /// kind. Fixed when the item is created; an edit or a recording never changes it.</summary>
+    public bool IsMeeting => string.Equals(Note.NoteKind, NoteFold.MeetingKind, StringComparison.Ordinal);
+
     /// <summary>Gone from the phone's list: the desktop archived or deleted it.</summary>
     public bool IsHidden => DeletedAt is not null;
 }
