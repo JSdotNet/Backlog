@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.FileSystem.Progress;
 
@@ -23,11 +24,10 @@ public sealed record IterationChoice(string Length, DateOnly? TwoWeekStart);
 /// </para>
 /// <para>
 /// <b>The file is also the document that travels</b> between a person's desktops, under
-/// the kind token <c>iteration-settings</c> (ADR 0036, §1). Every change writes an
-/// <c>updatedAt</c>, stamped past the one held, and that is the document's stamp. A copy
-/// from another device replaces the file whole at the stamp it arrived with, keeping any
-/// key this build does not know; an echo, an older copy and a copy that does not read as
-/// the settings leave it alone.
+/// the kind token <c>iteration-settings</c> (ADR 0036, §1), on the terms
+/// <see cref="StampedJsonFile"/> keeps: every change stamped past the one held, a copy
+/// from another device written whole at its own stamp; an echo, an older copy and a copy
+/// that does not read as the settings leave it alone.
 /// </para>
 /// <para>
 /// An earlier build seeded the file once at <see cref="FloorStamp"/> from the choice it
@@ -51,22 +51,11 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
     /// seeded copy, so never to be changed.</summary>
     public static readonly DateTimeOffset FloorStamp = DateTimeOffset.UnixEpoch;
 
-    private const string StampKey = "updatedAt";
     private const string LengthKey = "length";
     private const string TwoWeekStartKey = "twoWeekStart";
     private const string IsoDate = "yyyy-MM-dd";
 
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-
-    private readonly string _path;
-
-    /// <summary>What stamps a change. The system clock outside a test.</summary>
-    private readonly TimeProvider _time;
-
-    /// <summary>One writer at a time: a person's change on the renderer's thread and a
-    /// pulled copy on the sync loop's must not interleave between the stamp read and the
-    /// file write.</summary>
-    private readonly Lock _gate = new();
+    private readonly StampedJsonFile _file;
 
     /// <summary>The published choice and its stamp, as one reference so a reader on any
     /// thread sees both halves of the same version.</summary>
@@ -76,7 +65,7 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
 
     /// <summary>The per-user file.</summary>
     public IterationSettingsStore()
-        : this(DefaultPath)
+        : this(StampedJsonFile.DefaultPath(FileName))
     {
     }
 
@@ -86,24 +75,11 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
     /// <param name="time">What stamps a change; the system clock when null.</param>
     public IterationSettingsStore(string path, TimeProvider? time = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        _path = path;
-        _time = time ?? TimeProvider.System;
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-
-        _current = File.Exists(path) ? Read() : Held.Nothing;
+        _file = new StampedJsonFile(path, time);
+        _current = _file.Exists ? Read() : Held.Nothing;
     }
 
-    private static string DefaultPath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog",
-            FileName);
-
-    public string SettingsPath => _path;
+    public string SettingsPath => _file.Path;
 
     /// <summary>The choice held, or <c>null</c> when none was ever made — or the file
     /// cannot be read.</summary>
@@ -130,17 +106,17 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
         var choice = new IterationChoice(length, twoWeekStart);
         string? error = null;
 
-        lock (_gate)
+        lock (_file.Gate)
         {
             if (_current.Choice == choice) return null;
 
-            var stamp = Next(_current.UpdatedAt);
+            var stamp = _file.Next(_current.UpdatedAt);
             _current = new Held(choice, stamp);
 
             try
             {
                 // Over the file's own object, so a key a newer build added rides along.
-                Write(ReadObject() ?? [], choice, stamp);
+                Write(_file.ReadObject() ?? [], choice, stamp);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -154,64 +130,53 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
     }
 
     /// <summary>The file as stored and its stamp, or <c>null</c> when there is no file
-    /// or it is not a JSON object — nothing a device should ask the others to read.
-    /// Read from disk rather than from the published value, because the document is the
-    /// file's text, keys this build does not read included.</summary>
+    /// or it is not a JSON object.</summary>
     public Task<IterationSettingsCopyDto?> ReadAsync(CancellationToken cancellationToken = default)
     {
-        lock (_gate)
+        lock (_file.Gate)
         {
-            try
-            {
-                if (!File.Exists(_path)) return Task.FromResult<IterationSettingsCopyDto?>(null);
-
-                var content = File.ReadAllText(_path);
-                if (JsonNode.Parse(content) is not JsonObject document) return Task.FromResult<IterationSettingsCopyDto?>(null);
-
-                return Task.FromResult<IterationSettingsCopyDto?>(new IterationSettingsCopyDto(content, StampOf(document)));
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-            {
-                return Task.FromResult<IterationSettingsCopyDto?>(null);
-            }
+            return Task.FromResult(
+                _file.ReadStored() is { } stored ? new IterationSettingsCopyDto(stored.Content, stored.UpdatedAt) : null);
         }
     }
 
-    public Task<IterationSettingsReplicaOutcome> ApplyAsync(
+    public Task<ReplicaOutcome> ApplyAsync(
         IterationSettingsCopyDto inbound,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(inbound);
 
-        if (Parse(inbound.Content) is not { } document || ChoiceOf(document) is not { } choice)
+        if (StampedJsonFile.Parse(inbound.Content) is not { } document || ChoiceOf(document) is not { } choice)
         {
-            return Task.FromResult(IterationSettingsReplicaOutcome.Unreadable);
+            return Task.FromResult(ReplicaOutcome.Unreadable);
         }
 
         bool moved;
 
-        lock (_gate)
+        lock (_file.Gate)
         {
-            if (File.Exists(_path) && ReadObject() is { } held)
+            if (_file.Exists && _file.ReadObject() is { } held)
             {
-                var stamp = StampOf(held);
-                if (inbound.UpdatedAt < stamp) return Task.FromResult(IterationSettingsReplicaOutcome.Refused);
+                var stamp = _file.StampOf(held);
+                var settled = LastWriteWins.Weigh(inbound.UpdatedAt, stamp);
+
+                if (settled == ReplicaOutcome.Refused) return Task.FromResult(ReplicaOutcome.Refused);
 
                 // At the floor an equal stamp is another desktop's seeded value, and taking
                 // it is how two seeded desktops end on the one the feed holds. One that says
                 // what this device holds is its own seed coming back.
-                if (inbound.UpdatedAt == stamp && (stamp != FloorStamp || ChoiceOf(held) == choice))
+                if (settled == ReplicaOutcome.Echo && (stamp != FloorStamp || ChoiceOf(held) == choice))
                 {
-                    return Task.FromResult(IterationSettingsReplicaOutcome.Echo);
+                    return Task.FromResult(ReplicaOutcome.Echo);
                 }
             }
 
             // The one key this store owns the value of; everything else as it arrived.
-            document[StampKey] = FormatStamp(inbound.UpdatedAt);
+            StampedJsonFile.Stamp(document, inbound.UpdatedAt);
 
             try
             {
-                File.WriteAllText(_path, document.ToJsonString(JsonOptions));
+                _file.Write(document);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -226,18 +191,7 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
         // The screen only: a copy from the replica is not news to tell the replica.
         if (moved) Replaced?.Invoke();
 
-        return Task.FromResult(IterationSettingsReplicaOutcome.Taken);
-    }
-
-    /// <summary>
-    /// The stamp for a change: now, or one tick past the stamp held when that is not
-    /// already later — so a change made after taking a copy from a PC whose clock runs
-    /// ahead is still the later version, not one the replica refuses.
-    /// </summary>
-    private DateTimeOffset Next(DateTimeOffset? held)
-    {
-        var now = _time.GetUtcNow();
-        return held is { } previous && now <= previous ? previous.AddTicks(1) : now;
+        return Task.FromResult(ReplicaOutcome.Taken);
     }
 
     /// <summary>The file's choice, or none for a file that cannot be read: a corrupt
@@ -246,9 +200,9 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
     {
         try
         {
-            if (ReadObject() is not { } document) return Held.Nothing;
+            if (_file.ReadObject() is not { } document) return Held.Nothing;
 
-            return ChoiceOf(document) is { } choice ? new Held(choice, StampOf(document)) : new Held(null, StampOf(document));
+            return new Held(ChoiceOf(document), _file.StampOf(document));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -258,41 +212,13 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
 
     private void Write(JsonObject document, IterationChoice choice, DateTimeOffset stamp)
     {
-        document[StampKey] = FormatStamp(stamp);
+        StampedJsonFile.Stamp(document, stamp);
         document[LengthKey] = choice.Length;
 
         if (choice.TwoWeekStart is { } start) document[TwoWeekStartKey] = start.ToString(IsoDate, CultureInfo.InvariantCulture);
         else document.Remove(TwoWeekStartKey);
 
-        File.WriteAllText(_path, document.ToJsonString(JsonOptions));
-    }
-
-    /// <summary>The file as a JSON object, or <c>null</c> when it is missing, not JSON,
-    /// or not an object.</summary>
-    private JsonObject? ReadObject()
-    {
-        try
-        {
-            return File.Exists(_path) ? Parse(File.ReadAllText(_path)) : null;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
-
-    private static JsonObject? Parse(string? content)
-    {
-        if (string.IsNullOrWhiteSpace(content)) return null;
-
-        try
-        {
-            return JsonNode.Parse(content) as JsonObject;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
+        _file.Write(document);
     }
 
     /// <summary>The choice as the document spells it, or <c>null</c> — not the settings —
@@ -320,21 +246,6 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
                 ? new IterationChoice(length, start)
                 : null;
     }
-
-    /// <summary>The document's stamp, or the file's last-write time for one that has
-    /// none or an unreadable one — when it was last written is when it was last
-    /// set.</summary>
-    private DateTimeOffset StampOf(JsonObject document) =>
-        document.TryGetPropertyValue(StampKey, out var value)
-        && value is JsonValue stamp
-        && stamp.TryGetValue<string>(out var spelled)
-        && DateTimeOffset.TryParse(spelled, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
-            ? parsed
-            : new DateTimeOffset(File.GetLastWriteTimeUtc(_path), TimeSpan.Zero);
-
-    /// <summary>Round-trippable and invariant, so the stamp means the same instant on
-    /// another machine.</summary>
-    private static string FormatStamp(DateTimeOffset stamp) => stamp.ToString("O", CultureInfo.InvariantCulture);
 
     /// <summary>The published choice; <see cref="UpdatedAt"/> is <c>null</c> only while
     /// there is no file.</summary>

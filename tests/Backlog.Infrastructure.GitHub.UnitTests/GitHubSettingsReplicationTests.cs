@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -45,8 +46,8 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         Assert.Null(a.Store.SetRepositories(Parse(SpecManager)));
         Assert.Null(a.Store.SetRepositoryAccount("spec-manager", Work));
 
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Accounts));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Accounts));
 
         var choice = b.Store.Current.AccountForPath($"repos/{SpecManager}/issues");
         Assert.Equal(Work, choice.Login);
@@ -97,7 +98,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         Assert.Equal("github.com", (string?)entry["host"]);
         Assert.Equal("https://api.github.com", (string?)entry["apiEndpoint"]);
 
-        Assert.Equal(GitHubReplicaOutcome.Taken, await b.Replication.ApplyAsync(GitHubReplicaDocument.Accounts, copy, Cancellation));
+        Assert.Equal(ReplicaOutcome.Taken, await b.Replication.ApplyAsync(GitHubReplicaDocument.Accounts, copy, Cancellation));
 
         var account = Assert.Single(b.Store.Current.Accounts);
         Assert.Equal(Work, account.Login);
@@ -147,7 +148,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         a.Clock.Advance(TimeSpan.FromMinutes(5));
         Assert.Null(a.Store.SetAccounts([new GitHubAccount(Work) { DisplayName = "Innovadis", Host = "github.com" }]));
 
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Accounts));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Accounts));
 
         var account = Assert.Single(b.Store.Current.Accounts);
         Assert.Equal("Innovadis", account.DisplayName);
@@ -172,7 +173,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         Assert.Null(a.Store.SetRepositories(Parse(SpecManager)));
         Assert.Null(a.Store.SetRepositoryAccount("spec-manager", Work));
 
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
 
         var choice = b.Store.Current.AccountForPath($"repos/{SpecManager}/issues");
         Assert.True(choice.IsUnsatisfied);
@@ -225,7 +226,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         a.Clock.Advance(TimeSpan.FromMinutes(5));
         b.Clock.Advance(TimeSpan.FromMinutes(5));
         Assert.Null(a.Store.RemoveRepository("spec-manager"));
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
 
         Assert.Equal(["backlog"], b.Store.Current.Repositories.Select(r => r.Alias));
 
@@ -250,7 +251,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         a.Clock.Advance(TimeSpan.FromMinutes(5));
         b.Clock.Advance(TimeSpan.FromMinutes(5));
         Assert.Null(a.Store.RenameRepository("old", "JSdotNet/New", out _));
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
 
         var repository = Assert.Single(b.Store.Current.Repositories);
         Assert.Equal("JSdotNet/New", repository.FullName);
@@ -278,7 +279,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         a.Clock.Advance(TimeSpan.FromMinutes(5));
         b.Clock.Advance(TimeSpan.FromMinutes(5));
         Assert.Null(a.Store.SetRepositoryArchived("almanac", archived: true));
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
 
         Assert.True(b.Store.Current.Find("almanac")!.Archived);
         Assert.True(Device("b").Store.Current.Find("almanac")!.Archived);
@@ -287,7 +288,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         a.Clock.Advance(TimeSpan.FromMinutes(5));
         b.Clock.Advance(TimeSpan.FromMinutes(5));
         Assert.Null(a.Store.SetRepositoryArchived("almanac", archived: false));
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
 
         Assert.False(Device("b").Store.Current.Find("almanac")!.Archived);
     }
@@ -317,8 +318,8 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         Assert.Null(a.Store.SetAccounts([new GitHubAccount(Work)]));
         Assert.Null(a.Store.SetRepositories(Parse(SpecManager)));
 
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, fresh, GitHubReplicaDocument.Registry));
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, fresh, GitHubReplicaDocument.Accounts));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, fresh, GitHubReplicaDocument.Registry));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, fresh, GitHubReplicaDocument.Accounts));
 
         Assert.Equal(SpecManager, Assert.Single(fresh.Store.Current.Repositories).FullName);
         Assert.Equal(Work, Assert.Single(fresh.Store.Current.Accounts).Login);
@@ -350,8 +351,8 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         var changes = 0;
         b.Store.Changed += () => changes++;
 
-        Assert.Equal(GitHubReplicaOutcome.Refused, await b.Replication.ApplyAsync(document, older, Cancellation));
-        Assert.Equal(GitHubReplicaOutcome.Echo, await b.Replication.ApplyAsync(document, mine with { Content = older.Content }, Cancellation));
+        Assert.Equal(ReplicaOutcome.Refused, await b.Replication.ApplyAsync(document, older, Cancellation));
+        Assert.Equal(ReplicaOutcome.Echo, await b.Replication.ApplyAsync(document, mine with { Content = older.Content }, Cancellation));
 
         Assert.Equal(files, (File.ReadAllText(b.Store.RegistryPath), File.ReadAllText(b.Store.SettingsPath)));
         Assert.Equal(mine, await b.Replication.ReadAsync(document, Cancellation));
@@ -379,7 +380,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         var outcome = await b.Replication.ApplyAsync(
             document, new GitHubReplicaCopyDto(content, Morning.AddDays(1)), Cancellation);
 
-        Assert.Equal(GitHubReplicaOutcome.Unreadable, outcome);
+        Assert.Equal(ReplicaOutcome.Unreadable, outcome);
         Assert.Equal(files, (File.ReadAllText(b.Store.RegistryPath), File.ReadAllText(b.Store.SettingsPath)));
         Assert.Equal("Kept", Assert.Single(b.Store.Current.Accounts).DisplayName);
         Assert.Equal(SpecManager, Assert.Single(b.Store.Current.Repositories).FullName);
@@ -398,7 +399,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         File.WriteAllText(b.Store.RegistryPath, "{ this is not json");
         b = Device("b");
 
-        Assert.Equal(GitHubReplicaOutcome.Refused, await Carry(a, b, GitHubReplicaDocument.Registry));
+        Assert.Equal(ReplicaOutcome.Refused, await Carry(a, b, GitHubReplicaDocument.Registry));
         Assert.Equal("{ this is not json", File.ReadAllText(b.Store.RegistryPath));
         Assert.Null(await b.Replication.ReadAsync(GitHubReplicaDocument.Registry, Cancellation));
     }
@@ -426,7 +427,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         b.Clock.Advance(TimeSpan.FromMinutes(5));
         Assert.Null(a.Store.SetRepositoryColour("spec-manager", 4));
         Assert.Null(a.Store.SetDevbookSource("spec-manager", "docs", useLocalFolder: false));
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
 
         foreach (var store in new[] { b.Store, Device("b").Store })
         {
@@ -464,7 +465,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         a.Clock.Advance(TimeSpan.FromMinutes(5));
         Assert.Null(a.Store.SetAccounts([new GitHubAccount(Work) { DisplayName = "Work" }]));
 
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Accounts));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Accounts));
 
         var account = Assert.Single(b.Store.Current.Accounts);
         Assert.Equal(Work, account.Login);
@@ -551,7 +552,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         b.Store.Changed += () => reloaded++;
         b.Replication.Changed += () => announced++;
 
-        Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, document));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, document));
 
         Assert.True(reloaded > 0);
         Assert.Equal(0, announced);
@@ -636,7 +637,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         return new DeviceUnderTest(store, new GitHubSettingsReplication(store), clock);
     }
 
-    private static async Task<GitHubReplicaOutcome> Carry(DeviceUnderTest from, DeviceUnderTest to, GitHubReplicaDocument document)
+    private static async Task<ReplicaOutcome> Carry(DeviceUnderTest from, DeviceUnderTest to, GitHubReplicaDocument document)
     {
         var copy = await from.Replication.ReadAsync(document, Cancellation);
         Assert.NotNull(copy);

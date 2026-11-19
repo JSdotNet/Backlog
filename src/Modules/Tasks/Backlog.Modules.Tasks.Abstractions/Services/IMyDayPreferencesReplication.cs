@@ -1,29 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Modules.Tasks.Abstractions.Services;
-
-/// <summary>What <see cref="IMyDayPreferencesReplication.ApplyAsync"/> did with an
-/// inbound copy. Four answers rather than a bool, for the reason the roadmap's
-/// replication gives: the sync client counts the first as work applied, the last as a
-/// document this build could not read, and the two between as nothing to do.</summary>
-public enum MyDayPreferencesReplicaOutcome
-{
-    /// <summary>The copy was later than the local one, or there was none, and it
-    /// replaced it whole.</summary>
-    Taken,
-
-    /// <summary>The copy carries the stamp the local one already has: this device's
-    /// own push coming back, or a replayed page. Nothing was written.</summary>
-    Echo,
-
-    /// <summary>The copy is older than the local one and was refused, as the replica
-    /// refuses a stale push.</summary>
-    Refused,
-
-    /// <summary>The copy does not read as the preferences document. The local one was
-    /// left exactly as it was.</summary>
-    Unreadable,
-}
 
 /// <summary>
 /// The port the sync client hands the replicated My Day preferences to, and reads
@@ -62,7 +40,7 @@ public interface IMyDayPreferencesReplication
     /// and an older one is refused; neither writes anything. A copy that does not read
     /// as the preferences document leaves the local one as it was.
     /// </summary>
-    Task<MyDayPreferencesReplicaOutcome> ApplyAsync(
+    Task<ReplicaOutcome> ApplyAsync(
         MyDayPreferencesCopyDto inbound,
         CancellationToken cancellationToken = default);
 }

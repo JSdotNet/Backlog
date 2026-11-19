@@ -4,6 +4,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 using Bunit;
 
@@ -281,7 +282,7 @@ public sealed class SettingsAccountsTests
             GitHubReplicaDocument.Registry,
             registry! with { UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(1) },
             TestContext.Current.CancellationToken);
-        Assert.Equal(GitHubReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
 
         settings.Component.WaitForAssertion(() =>
         {

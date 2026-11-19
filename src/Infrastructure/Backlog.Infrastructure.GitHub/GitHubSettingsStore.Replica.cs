@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -74,7 +75,7 @@ public sealed partial class GitHubSettingsStore
     /// an equal stamp and refused on an older one, neither writing anything; and a
     /// later one taken, at its own stamp.
     /// </summary>
-    internal GitHubReplicaOutcome ApplyReplica(GitHubReplicaDocument document, GitHubReplicaCopyDto inbound)
+    internal ReplicaOutcome ApplyReplica(GitHubReplicaDocument document, GitHubReplicaCopyDto inbound)
     {
         ArgumentNullException.ThrowIfNull(inbound);
 
@@ -82,28 +83,24 @@ public sealed partial class GitHubSettingsStore
         {
             GitHubReplicaDocument.Registry => ApplyRegistry(inbound),
             GitHubReplicaDocument.Accounts => ApplyAccounts(inbound),
-            _ => GitHubReplicaOutcome.Unreadable,
+            _ => ReplicaOutcome.Unreadable,
         };
     }
 
     // --- The registry -------------------------------------------------------------
 
-    private GitHubReplicaOutcome ApplyRegistry(GitHubReplicaCopyDto inbound)
+    private ReplicaOutcome ApplyRegistry(GitHubReplicaCopyDto inbound)
     {
-        if (ParseRegistry(inbound.Content) is not { } document) return GitHubReplicaOutcome.Unreadable;
+        if (ParseRegistry(inbound.Content) is not { } document) return ReplicaOutcome.Unreadable;
 
         var local = LocalRegistryCopy();
 
         // A registry this device cannot read is never written over, the rule every
         // shared write here keeps; it is not weighed either, because it has no stamp
         // anybody could read.
-        if (local.Unreadable) return GitHubReplicaOutcome.Refused;
+        if (local.Unreadable) return ReplicaOutcome.Refused;
 
-        if (local.Copy is { } held)
-        {
-            if (inbound.UpdatedAt == held.UpdatedAt) return GitHubReplicaOutcome.Echo;
-            if (inbound.UpdatedAt < held.UpdatedAt) return GitHubReplicaOutcome.Refused;
-        }
+        if (LastWriteWins.Weigh(inbound.UpdatedAt, local.Copy?.UpdatedAt) is { } settled) return settled;
 
         // The one key this store owns the value of. Every other key is written as it
         // arrived, so one a newer build added survives until this build next saves.
@@ -118,7 +115,7 @@ public sealed partial class GitHubSettingsStore
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
         {
             // Nothing landed, so nothing was taken; the replica offers it again.
-            return GitHubReplicaOutcome.Refused;
+            return ReplicaOutcome.Refused;
         }
 
         // Re-composed from the file just written, so each repository's machine half
@@ -127,7 +124,7 @@ public sealed partial class GitHubSettingsStore
         Current = Load();
         Changed?.Invoke();
 
-        return GitHubReplicaOutcome.Taken;
+        return ReplicaOutcome.Taken;
     }
 
     /// <summary>The registry file as a copy, or null when there is no document; and
@@ -218,15 +215,11 @@ public sealed partial class GitHubSettingsStore
 
     // --- The accounts -------------------------------------------------------------
 
-    private GitHubReplicaOutcome ApplyAccounts(GitHubReplicaCopyDto inbound)
+    private ReplicaOutcome ApplyAccounts(GitHubReplicaCopyDto inbound)
     {
-        if (ParseAccounts(inbound.Content) is not { } entries) return GitHubReplicaOutcome.Unreadable;
+        if (ParseAccounts(inbound.Content) is not { } entries) return ReplicaOutcome.Unreadable;
 
-        if (_accountsStamp is { } held)
-        {
-            if (inbound.UpdatedAt == held) return GitHubReplicaOutcome.Echo;
-            if (inbound.UpdatedAt < held) return GitHubReplicaOutcome.Refused;
-        }
+        if (LastWriteWins.Weigh(inbound.UpdatedAt, _accountsStamp) is { } settled) return settled;
 
         var next = new List<GitHubAccount>();
 
@@ -267,7 +260,7 @@ public sealed partial class GitHubSettingsStore
             Accounts = accounts
         });
 
-        return GitHubReplicaOutcome.Taken;
+        return ReplicaOutcome.Taken;
     }
 
     /// <summary>The inbound text as an account list, or null when it is not one: a

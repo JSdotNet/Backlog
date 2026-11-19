@@ -9,7 +9,12 @@ namespace Backlog.Modules.Progress.Services;
 /// change to the sync loop, and <see cref="Abstractions.Services.IGoals.Changed"/>, the
 /// published notice every goal screen re-reads on, is held on it. A singleton, because the commands run in scopes of their own.
 /// </summary>
-public sealed class GoalSaved
+public sealed class GoalSaved : DocumentSaved;
+
+/// <summary>The notice a saved Progress document raises — <see cref="GoalSaved"/> for a goal,
+/// <see cref="ImpedimentSaved"/> for an impediment — and the one
+/// <see cref="WholeDocumentReplication{TCopy}"/> forwards a person's change from.</summary>
+public abstract class DocumentSaved
 {
     public event Action? Changed;
 

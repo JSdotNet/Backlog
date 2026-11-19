@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 
 using Backlog.Modules.Sync.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
@@ -155,7 +156,7 @@ public sealed class PullRequestLabelSettingsTests : IDisposable
 
         var outcome = await new GitHubSettingsReplication(b).ApplyAsync(GitHubReplicaDocument.Registry, copy, TestContext.Current.CancellationToken);
 
-        Assert.Equal(GitHubReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
         Assert.Equal(["frontend"], b.Current.Find("backlog")!.PullRequestLabels);
         Assert.Equal(["frontend"], Store("b").Current.Find("backlog")!.PullRequestLabels);
     }

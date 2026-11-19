@@ -1,6 +1,7 @@
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
@@ -22,7 +23,7 @@ internal sealed class RecordingRoadmapReplication : IRoadmapReplication
     public List<(RoadmapReplicaDocument Document, RoadmapReplicaCopyDto Copy)> Offered { get; } = [];
 
     /// <summary>What <see cref="ApplyAsync"/> answers. Taken by default.</summary>
-    public RoadmapReplicaOutcome Answer { get; set; } = RoadmapReplicaOutcome.Taken;
+    public ReplicaOutcome Answer { get; set; } = ReplicaOutcome.Taken;
 
     public void RaiseChanged() => Changed?.Invoke();
 
@@ -31,7 +32,7 @@ internal sealed class RecordingRoadmapReplication : IRoadmapReplication
         CancellationToken cancellationToken = default) =>
         Task.FromResult(Held.TryGetValue(document, out var copy) ? copy : null);
 
-    public Task<RoadmapReplicaOutcome> ApplyAsync(
+    public Task<ReplicaOutcome> ApplyAsync(
         RoadmapReplicaDocument document,
         RoadmapReplicaCopyDto inbound,
         CancellationToken cancellationToken = default)
