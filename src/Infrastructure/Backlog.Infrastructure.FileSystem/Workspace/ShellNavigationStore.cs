@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Backlog.SharedKernel;
@@ -129,9 +128,6 @@ public sealed class ShellNavigationStore
     /// <summary>The surface name the retired enum stored the Devbook under.</summary>
     private const string DevbookName = "Devbook";
 
-    /// <summary>The format <see cref="GoalsTwoWeekStart"/> is stored in.</summary>
-    private const string IsoDate = "yyyy-MM-dd";
-
     /// <summary>The file's name, in the head's own app-data folder.</summary>
     public const string FileName = "shell-navigation.json";
 
@@ -184,10 +180,6 @@ public sealed class ShellNavigationStore
         C4ZoomHintDismissed = dto?.C4ZoomHintDismissed ?? false;
         BrainHiddenShown = dto?.BrainHiddenShown ?? false;
         RoadmapArchiveOffered = dto?.RoadmapArchiveOffered ?? Empty;
-        GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
-        GoalsTwoWeekStart = DateOnly.TryParseExact(dto?.GoalsTwoWeekStart, IsoDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
-            ? start
-            : null;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -323,16 +315,6 @@ public sealed class ShellNavigationStore
     /// plan's project note to the archive (local ADR 0052 §5): each is offered once,
     /// whatever the person did with the offer. Empty until the first offer.</summary>
     public IReadOnlyList<string> RoadmapArchiveOffered { get; private set; }
-
-    /// <summary>The iteration length an earlier build kept per device, as the setting's
-    /// value — <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>; null until one was
-    /// chosen. Legacy: the choice now lives in <c>IterationSettingsStore</c>, which travels
-    /// between desktops (local ADR 0036, §5), and nothing reads this any more.</summary>
-    public string? GoalsIterationLength { get; private set; }
-
-    /// <summary>The day two-week iterations count from, stored as an ISO date; null until
-    /// two weeks was first chosen, and for a stored value that is no date.</summary>
-    public DateOnly? GoalsTwoWeekStart { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
@@ -627,11 +609,7 @@ public sealed class ShellNavigationStore
                 BrainHiddenShown = BrainHiddenShown ? true : null,
                 // Left out until the first offer. A stored name: never rename it
                 // without reading the old one.
-                RoadmapArchiveOffered = RoadmapArchiveOffered.Count == 0 ? null : [.. RoadmapArchiveOffered],
-                // Left out until chosen. Both keys are stored names: never rename them
-                // without reading the old ones.
-                GoalsIterationLength = GoalsIterationLength,
-                GoalsTwoWeekStart = GoalsTwoWeekStart?.ToString(IsoDate, CultureInfo.InvariantCulture)
+                RoadmapArchiveOffered = RoadmapArchiveOffered.Count == 0 ? null : [.. RoadmapArchiveOffered]
             }, JsonOptions);
 
     private ShellNavigationDto? Read()
@@ -736,15 +714,5 @@ public sealed class ShellNavigationStore
         /// <summary>Written as <c>roadmapArchiveOffered</c>, and only once a plan was offered.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RoadmapArchiveOffered { get; init; }
-
-        /// <summary>Written as <c>goalsIterationLength</c>: <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>.</summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? GoalsIterationLength { get; init; }
-
-        /// <summary>Written as <c>goalsTwoWeekStart</c>, an ISO date. A string rather than a
-        /// date, so a hand-edited value that is no date reads as none instead of failing
-        /// the whole file.</summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? GoalsTwoWeekStart { get; init; }
     }
 }

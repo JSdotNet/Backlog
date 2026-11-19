@@ -78,11 +78,6 @@ public sealed record RoadmapWindow
     /// so it is always safe to divide by.</summary>
     public int TotalDays => End.DayNumber - Start.DayNumber + 1;
 
-    /// <summary>Which day sits at a fraction of the window, 0 being the first day
-    /// and 1 the day after the last.</summary>
-    public DateOnly DateAt(double fraction) =>
-        Start.AddDays((int)Math.Round(fraction * TotalDays, MidpointRounding.AwayFromZero));
-
     public bool Contains(DateOnly date) => date >= Start && date <= End;
 
     /// <summary>

@@ -93,29 +93,20 @@ public sealed class StandUpSettingsTests : IDisposable
     }
 
     /// <summary>The length and start an earlier build wrote to the shell navigation file
-    /// still read, so the iteration settings can be seeded from them.</summary>
+    /// are dropped the next time the file is written: nothing reads them any more.</summary>
     [Fact]
-    public void A_stored_length_and_start_read_back()
+    public void A_stored_length_and_start_are_dropped_on_the_next_write()
     {
         Directory.CreateDirectory(_root);
         File.WriteAllText(ShellPath, """{ "goalsIterationLength": "two-weeks", "goalsTwoWeekStart": "2026-10-05" }""");
 
         var store = new ShellNavigationStore(ShellPath);
+        store.SetToolsTab("tools");
+        store.Flush();
 
-        Assert.Equal("two-weeks", store.GoalsIterationLength);
-        Assert.Equal(new DateOnly(2026, 10, 5), store.GoalsTwoWeekStart);
-    }
-
-    [Fact]
-    public void A_start_that_is_no_date_reads_as_none()
-    {
-        Directory.CreateDirectory(_root);
-        File.WriteAllText(ShellPath, """{ "goalsIterationLength": "week", "goalsTwoWeekStart": "the fifth" }""");
-
-        var store = new ShellNavigationStore(ShellPath);
-
-        Assert.Equal("week", store.GoalsIterationLength);
-        Assert.Null(store.GoalsTwoWeekStart);
+        var file = File.ReadAllText(ShellPath);
+        Assert.DoesNotContain("goalsIterationLength", file, StringComparison.Ordinal);
+        Assert.DoesNotContain("goalsTwoWeekStart", file, StringComparison.Ordinal);
     }
 
     /// <summary>Scenario "Reopening the app": the person chose 2 weeks, and it reads by 2 weeks again.</summary>

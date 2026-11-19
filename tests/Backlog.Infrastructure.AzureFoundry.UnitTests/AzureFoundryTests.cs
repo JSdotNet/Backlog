@@ -543,15 +543,6 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         Assert.Contains("empty answer", ex.Message);
     }
 
-    [Fact]
-    public async Task The_unavailable_client_refuses_a_plan_the_way_it_refuses_a_question()
-    {
-        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
-            new UnavailableAzureFoundryChatClient().DraftPlanAsync(PlanRequest(), TestContext.Current.CancellationToken));
-
-        Assert.Contains("not registered", ex.Message);
-    }
-
     private static AzureFoundryPlanRequest PlanRequest() => new(
         "Fix the login page",
         "The login page 500s on submit.",

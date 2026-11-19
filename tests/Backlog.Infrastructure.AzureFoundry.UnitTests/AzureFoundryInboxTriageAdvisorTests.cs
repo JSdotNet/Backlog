@@ -30,8 +30,10 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     public void Availability_follows_the_foundry_settings_the_drafter_reads()
     {
         var settings = new AzureFoundrySettingsStore(NewSettingsPath());
-        var advisor = new AzureFoundryInboxTriageAdvisor(new StubTriageClient(), settings);
-        var drafter = new AzureFoundryInboxPlanDrafter(new UnavailableAzureFoundryChatClient(), settings);
+        using var http = new HttpClient();
+        var chat = new AzureFoundryChatClient(http, settings);
+        var advisor = new AzureFoundryInboxTriageAdvisor(chat, settings);
+        var drafter = new AzureFoundryInboxPlanDrafter(chat, settings);
         Assert.False(advisor.IsAvailable);
 
         settings.SetConnection("https://foundry.example.com", "chat", "secret", "2024-10-21");
