@@ -333,7 +333,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
 
             ```meta
             status: accepted
-            kind: layer
+            type: layer
             ```
 
             Shared platform choices.
@@ -342,7 +342,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
 
             ```meta
             status: accepted
-            kind: runtime
+            type: runtime
             depends-on: [".arc42/03-context-and-scope.md"]
             ```
 

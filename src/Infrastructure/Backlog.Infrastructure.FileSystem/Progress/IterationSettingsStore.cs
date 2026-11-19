@@ -30,12 +30,9 @@ public sealed record IterationChoice(string Length, DateOnly? TwoWeekStart);
 /// the settings leave it alone.
 /// </para>
 /// <para>
-/// <b>The legacy value seeds it once.</b> An earlier build kept the choice per device in
-/// <see cref="ShellNavigationStore"/>. With no file yet and a length there, the store
-/// writes the file from it at <see cref="FloorStamp"/> (ADR 0036, §5): any copy a desktop
-/// stamped since wins over it, and two seeded desktops converge because, at the floor
-/// alone, an equal stamp carrying another choice is taken. After that the shell
-/// navigation file's two fields are only ever read, never written.
+/// An earlier build seeded the file once at <see cref="FloorStamp"/> from the choice it
+/// kept per device (ADR 0036, §5). Replicas still hold such copies, so two of them
+/// converge because, at the floor alone, an equal stamp carrying another choice is taken.
 /// </para>
 /// <para>
 /// Two events, for the reason <see cref="MyDayPreferencesStore"/> keeps two: the sync
@@ -49,7 +46,7 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
     /// <summary>The file's name. Persisted, so never to be renamed (ADR 0036).</summary>
     public const string FileName = "iteration-settings.json";
 
-    /// <summary>The stamp a legacy value is seeded at: the Unix epoch, earlier than any
+    /// <summary>The stamp a legacy value was seeded at: the Unix epoch, earlier than any
     /// change a person makes on this build. Persisted on every replica that holds a
     /// seeded copy, so never to be changed.</summary>
     public static readonly DateTimeOffset FloorStamp = DateTimeOffset.UnixEpoch;
@@ -77,20 +74,17 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
 
     private Action? _localChange;
 
-    /// <summary>The per-user file, seeded from <paramref name="legacy"/> when there is
-    /// none yet.</summary>
-    public IterationSettingsStore(ShellNavigationStore? legacy)
-        : this(DefaultPath, legacy)
+    /// <summary>The per-user file.</summary>
+    public IterationSettingsStore()
+        : this(DefaultPath)
     {
     }
 
     /// <summary>Names the file separately from the per-user location — the only way to
     /// give a test, or the web harness that scopes its settings to its content root, a
     /// store that does not fight over the real per-user file.</summary>
-    /// <param name="legacy">Where an earlier build kept the choice, read once to seed a
-    /// file that is not there yet; null where there is nothing to seed from.</param>
     /// <param name="time">What stamps a change; the system clock when null.</param>
-    public IterationSettingsStore(string path, ShellNavigationStore? legacy = null, TimeProvider? time = null)
+    public IterationSettingsStore(string path, TimeProvider? time = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
@@ -100,7 +94,7 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
 
-        _current = File.Exists(path) ? Read() : Seed(legacy);
+        _current = File.Exists(path) ? Read() : Held.Nothing;
     }
 
     private static string DefaultPath =>
@@ -260,30 +254,6 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
         {
             return Held.Nothing;
         }
-    }
-
-    /// <summary>Writes the file from what an earlier build kept per device, at
-    /// <see cref="FloorStamp"/>, when that build kept a length; no choice otherwise. The
-    /// length is written as the setting's own value, so a member name an older file
-    /// carried reads the same on every desktop.</summary>
-    private Held Seed(ShellNavigationStore? legacy)
-    {
-        if (legacy?.GoalsIterationLength is not { } length) return Held.Nothing;
-
-        var choice = new IterationChoice(
-            IterationSettings.ToStored(IterationSettings.Parse(length)),
-            legacy.GoalsTwoWeekStart);
-
-        try
-        {
-            Write([], choice, FloorStamp);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Read as seeded for this session; the next start seeds again.
-        }
-
-        return new Held(choice, FloorStamp);
     }
 
     private void Write(JsonObject document, IterationChoice choice, DateTimeOffset stamp)

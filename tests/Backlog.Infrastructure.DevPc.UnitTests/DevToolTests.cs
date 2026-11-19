@@ -158,7 +158,7 @@ public class DevToolTests
     public async Task Default_paths_prefer_local_repo_tools_catalog()
     {
         var root = CreateTempToolConfigRoot();
-        var catalogPath = Path.Combine(root, ".tools", "copilot-tools.json");
+        var catalogPath = Path.Combine(root, ".tools", "ai-tools.json");
         await File.WriteAllTextAsync(catalogPath, """{ "plugins": [], "mcpServers": [] }""", TestContext.Current.CancellationToken);
         var nestedStartPath = Path.Combine(root, "src", "App", "Backlog.Desktop", "bin", "Debug");
         Directory.CreateDirectory(nestedStartPath);
@@ -166,11 +166,6 @@ public class DevToolTests
         var paths = DevToolConfigurationPaths.CreateDefault("dev-pc", nestedStartPath);
 
         Assert.Equal(catalogPath, paths.CatalogPath);
-
-        // The per-PC file is resolved on its own, not by copying the catalog's
-        // name: a machine can carry a catalog under the old name and have never
-        // written an override, and the override it writes next belongs under the
-        // name this version uses.
         Assert.Equal(Path.Combine(root, ".tools", "dev-pc", "ai-tools.json"), paths.PcConfigPath);
     }
 
@@ -186,62 +181,6 @@ public class DevToolTests
 
         Assert.Equal(Path.Combine(storageRoot, ".tools", "ai-tools.json"), paths.CatalogPath);
         Assert.Equal(Path.Combine(storageRoot, ".tools", "dev-pc", "ai-tools.json"), paths.PcConfigPath);
-    }
-
-    /// <summary>
-    /// The catalog was renamed when it stopped being only about Copilot. The
-    /// machines that have one keep it in a synced folder, so an upgrade that only
-    /// looked for the new name would show every one of them the "no catalog yet"
-    /// empty state beside the catalog they already had.
-    /// </summary>
-    [Fact]
-    public async Task A_catalog_still_under_the_old_name_is_found()
-    {
-        var root = CreateTempToolConfigRoot();
-        var legacyCatalog = Path.Combine(root, ".tools", "copilot-tools.json");
-        var legacyPcConfig = Path.Combine(root, ".tools", "dev-pc", "copilot-tools.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(legacyPcConfig)!);
-        await File.WriteAllTextAsync(legacyCatalog, """{ "plugins": [], "mcpServers": [] }""", TestContext.Current.CancellationToken);
-        await File.WriteAllTextAsync(legacyPcConfig, """{ "plugins": [] }""", TestContext.Current.CancellationToken);
-
-        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
-
-        Assert.Equal(legacyCatalog, paths.CatalogPath);
-        Assert.Equal(legacyPcConfig, paths.PcConfigPath);
-        Assert.True(DevToolConfiguration.CatalogExists(paths));
-    }
-
-    /// <summary>A machine mid-rename has both files. The one the rename produced
-    /// is the one that is read — otherwise the rename would appear to have done
-    /// nothing.</summary>
-    [Fact]
-    public async Task The_new_name_wins_when_both_are_on_disk()
-    {
-        var root = CreateTempToolConfigRoot();
-        await File.WriteAllTextAsync(Path.Combine(root, ".tools", "copilot-tools.json"), """{ "plugins": [] }""", TestContext.Current.CancellationToken);
-        await File.WriteAllTextAsync(Path.Combine(root, ".tools", "ai-tools.json"), """{ "plugins": [] }""", TestContext.Current.CancellationToken);
-
-        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
-
-        Assert.Equal(Path.Combine(root, ".tools", "ai-tools.json"), paths.CatalogPath);
-    }
-
-    /// <summary>The walk that finds a repository's catalog stops on either name.
-    /// A repository nobody has renamed yet is still a repository with a catalog in
-    /// it, and walking past it would land on whichever ancestor happened to have
-    /// one.</summary>
-    [Fact]
-    public async Task The_root_walk_stops_on_a_catalog_under_the_old_name()
-    {
-        var root = CreateTempToolConfigRoot();
-        var legacyCatalog = Path.Combine(root, ".tools", "copilot-tools.json");
-        await File.WriteAllTextAsync(legacyCatalog, """{ "plugins": [], "mcpServers": [] }""", TestContext.Current.CancellationToken);
-        var nestedStartPath = Path.Combine(root, "src", "App", "Backlog.Desktop", "bin", "Debug");
-        Directory.CreateDirectory(nestedStartPath);
-
-        var paths = DevToolConfigurationPaths.CreateDefault("dev-pc", nestedStartPath);
-
-        Assert.Equal(legacyCatalog, paths.CatalogPath);
     }
 
     /// <summary>Creating one always writes the new name: a machine with no catalog

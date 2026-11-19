@@ -16,19 +16,10 @@ namespace Backlog.Infrastructure.FileSystem;
 /// so removing the chosen reset and moving the choice off it is one write, and one store
 /// raises one <see cref="Changed"/>.
 /// </para>
-/// <para>
-/// A file written before there could be more than one reset — <c>{ "day", "time" }</c> at
-/// the root — reads as one chosen reset with id <c>default</c>, and is left as it was
-/// until the first change writes the new shape over it.
-/// </para>
 /// </remarks>
 public sealed class UsageResetSettingsStore : IUsageResetSettings
 {
     private const int MaxNameLength = NamedUsageReset.MaxNameLength;
-
-    private const string LegacyId = "default";
-
-    private const string LegacyName = "Weekly reset";
 
     private const string SaveFailed = "Changed, but the weekly reset couldn't be saved for next time.";
 
@@ -266,16 +257,8 @@ public sealed class UsageResetSettingsStore : IUsageResetSettings
 
             if (root.ValueKind != JsonValueKind.Object) return State.Empty;
 
-            if (Property(root, "resets") is { } list)
-            {
-                return list.ValueKind == JsonValueKind.Array
-                    ? new State(ReadEntries(list), StringOf(root, "selected"))
-                    : State.Empty;
-            }
-
-            // The shape a single-reset version wrote.
-            return ReadReset(root) is { } legacy
-                ? new State([new NamedUsageReset(LegacyId, LegacyName, legacy)], LegacyId)
+            return Property(root, "resets") is { ValueKind: JsonValueKind.Array } list
+                ? new State(ReadEntries(list), StringOf(root, "selected"))
                 : State.Empty;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)

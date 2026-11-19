@@ -64,20 +64,8 @@ public sealed record MetadataRecord
     public IReadOnlyList<string> Alternatives { get; init; } = [];
 
     /// <summary>
-    /// The <c>kind</c> field as the file wrote it: <c>tech/</c>'s old spelling of
-    /// <see cref="Type"/>.
-    ///
-    /// <para>Kept so a caller that has always read it still compiles and still
-    /// sees what the file says, and so the row it has always drawn is still drawn.
-    /// It is not the field a surface should ask "what kind of thing is this?" —
-    /// <see cref="Type"/> is, and it already falls back to this value.</para>
-    /// </summary>
-    public string? Kind { get; init; }
-
-    /// <summary>
     /// What kind of thing this chapter or file <em>is</em> — <c>aggregate</c>,
-    /// <c>library</c>, <c>context</c> — read from <c>type</c>, or from the legacy
-    /// <c>kind</c> when the block writes only that.
+    /// <c>library</c>, <c>context</c> — read from <c>type</c>.
     ///
     /// <para>One field, several vocabularies: <c>domain/</c>, <c>tech/</c> and
     /// <c>ai/</c> each define their own, and <c>arc42/</c> and <c>design/</c>
@@ -89,19 +77,6 @@ public sealed record MetadataRecord
     /// <see langword="null"/>.</para>
     /// </summary>
     public string? Type { get; init; }
-
-    /// <summary>
-    /// Whether <see cref="Type"/> came from the legacy <c>kind</c> spelling rather
-    /// than from <c>type</c>.
-    ///
-    /// <para>The convention still parses the old name so a repository is not broken
-    /// by a sync, and reports it so it gets renamed. This is how the report finds
-    /// out — see <c>DevbookMetadataFindings</c>. It also decides which row is
-    /// drawn: a value that came from <c>kind</c> keeps the classification chip the
-    /// <c>kind</c> row has always been, rather than being drawn a second time as a
-    /// <c>type</c> row.</para>
-    /// </summary>
-    public bool TypeReadFromKind { get; init; }
 
     /// <summary>The pinned version of a <c>.tech</c> entry, as authored.</summary>
     public string? Version { get; init; }
@@ -236,13 +211,7 @@ public sealed record MetadataRecord
             : this with
             {
                 BeforeMark = this,
-                Type = null,
-                TypeReadFromKind = false,
-
-                // A value that came from `kind` was drawn as the kind chip, so
-                // that is the row the mark replaces. A `kind` written beside a
-                // `type` is a second statement and keeps its own row.
-                Kind = TypeReadFromKind ? null : Kind
+                Type = null
             };
 
     /// <summary>
@@ -271,7 +240,6 @@ public sealed record MetadataRecord
         && string.IsNullOrWhiteSpace(Issue)
         && Aliases.Count == 0
         && Alternatives.Count == 0
-        && string.IsNullOrWhiteSpace(Kind)
         && string.IsNullOrWhiteSpace(Version)
         && Effort is null
         && Roadmap.Count == 0

@@ -199,18 +199,6 @@ public sealed class DashboardSettingsTests
             section.Component.FindAll("[data-testid='usage-reset-remove-button']").Select(button => button.GetAttribute("aria-label")));
     }
 
-    /// <summary>A file a single-reset version wrote opens as one row the person can
-    /// rename.</summary>
-    [Fact]
-    public void A_reset_saved_before_names_opens_as_one_named_row()
-    {
-        using var section = RenderSection("""{ "day": "Monday", "time": "14:00" }""");
-
-        Assert.Equal("Weekly reset", section.Component.Find("[data-testid='usage-reset-name']").GetAttribute("value"));
-        Assert.Equal("14:00", section.Component.Find("[data-testid='usage-reset-time']").GetAttribute("value"));
-        Assert.Contains("Weeks run from Monday 14:00", section.Component.Find("[data-testid='usage-reset-status']").TextContent, StringComparison.Ordinal);
-    }
-
     [Fact]
     public void The_section_says_where_the_reset_is_kept()
     {

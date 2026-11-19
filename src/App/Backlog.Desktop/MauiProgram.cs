@@ -119,9 +119,8 @@ public static class MauiProgram
             PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(sp.GetRequiredService<WorkingHoursSettingsStore>()),
             // %LOCALAPPDATA%\Backlog\my-day-preferences.json, beside the pace (local ADR 0032).
             MyDayPreferences = _ => new MyDayPreferencesStore(),
-            // %LOCALAPPDATA%\Backlog\iteration-settings.json, seeded once from the shell
-            // navigation file an earlier build kept the choice in (local ADR 0036).
-            IterationSettings = sp => new IterationSettingsStore(sp.GetRequiredService<ShellNavigationStore>()),
+            // %LOCALAPPDATA%\Backlog\iteration-settings.json (local ADR 0036).
+            IterationSettings = _ => new IterationSettingsStore(),
             // The head's own app-data folder, like the log and the per-machine files:
             // a Debug head restoring and writing the installed app's last surface
             // would move the installed app's windows about.

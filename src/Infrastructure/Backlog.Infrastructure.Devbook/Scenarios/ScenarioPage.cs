@@ -25,11 +25,6 @@ public sealed record ScenariosFile(
 {
     /// <summary>The journeys: the <c>##</c> chapters typed <c>scenario</c>.</summary>
     public IReadOnlyList<ScenarioJourney> Scenarios => [.. Journeys.Where(journey => journey.IsScenario)];
-
-    /// <summary>Whether the whole file is typed <c>scenario</c> — a journey page of the
-    /// contract before devbook's 32, which the <c>032-scenarios-md</c> migration folds
-    /// into its context's <c>scenarios.md</c>. Such a page holds no journey.</summary>
-    public bool LegacyPage => Meta.TryGetValue("type", out var type) && string.Equals(type.Scalar, "scenario", StringComparison.Ordinal);
 }
 
 /// <summary>
@@ -111,10 +106,6 @@ public static partial class ScenarioPageParser
     /// <summary>Where a repository keeps its profiles and data sets. A journey's runs
     /// live beside its scenarios file instead (<see cref="ScenarioJourney.RunFolder"/>).</summary>
     public const string ScenarioFolder = ".devbook/scenarios";
-
-    /// <summary>The classic layout's scenario folder, which spec-manager's
-    /// <c>.test</c> tooling keeps its data sets in.</summary>
-    public const string LegacyScenarioFolder = ".domain/_tests";
 
     private static readonly string[] StepKeywords = ["Given", "When", "Then", "And"];
 

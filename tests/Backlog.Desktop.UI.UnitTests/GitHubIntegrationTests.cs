@@ -113,14 +113,15 @@ public sealed class GitHubSettingsTests
 
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            Directory.CreateDirectory(Path.Combine(Path.GetDirectoryName(path)!, "config"));
+            File.WriteAllText(
+                Path.Combine(Path.GetDirectoryName(path)!, "config", "repos.json"),
+                """{ "repositories": [ { "id": "JSdotNet/Backlog", "alias": "backlog" } ] }""");
             File.WriteAllText(path, """
             {
               "repositories": [
                 {
-                  "alias": "backlog",
-                  "owner": "JSdotNet",
-                  "name": "Backlog",
+                  "id": "JSdotNet/Backlog",
                   "devbookFolders": [
                     { "key": ".arc42", "enabled": true, "path": ".arc42" }
                   ]
@@ -428,7 +429,6 @@ public sealed class GitHubSettingsTests
         {
             var store = new GitHubSettingsStore(path);
             Assert.Empty(store.Current.Repositories);
-            Assert.Null(store.Current.Token);
             Assert.False(store.Current.HasRepositoryToken);
         }
         finally
