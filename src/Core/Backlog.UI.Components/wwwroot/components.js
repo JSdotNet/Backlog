@@ -98,7 +98,7 @@
     // opened out of the atlas, a Brain note's chip or an entry — brought to the
     // top of the reading it is in. A rendered heading carries no id, so it is
     // found by its text, slugged by GitHub's rule as the devbook generator spells
-    // it (DevbookMarkdown.Slugify), the type mark a heading may lead with left
+    // it (HeadingAnchor.Of), the type mark a heading may lead with left
     // out: the anchor as written, then the anchor slugged too, so one typed as
     // the heading reads still lands — the reference resolver's order. The
     // generator slugs the source, so a heading holding a link slugs its target

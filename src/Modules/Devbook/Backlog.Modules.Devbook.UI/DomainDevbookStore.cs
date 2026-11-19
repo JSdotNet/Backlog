@@ -5,6 +5,7 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel.Devbook;
 using Backlog.UI.Components.Devbook;
 using Backlog.SharedKernel.Markdown;
+using Backlog.SharedKernel.Metadata;
 
 namespace Backlog.Desktop.UI.Devbook;
 
@@ -283,7 +284,7 @@ public sealed class DomainDevbookStore : IDisposable
     }
 
     /// <summary>A block value as its entries: <c>[a, b]</c>, <c>a, b</c> — the
-    /// flattened shape <see cref="ReadMeta"/> leaves a list in — or one plain
+    /// flattened shape <see cref="MetadataFence.Flat"/> leaves a list in — or one plain
     /// value.</summary>
     private static IEnumerable<string> ListValues(string value) =>
         value.Trim().Trim('[', ']')
@@ -397,7 +398,12 @@ public sealed class DomainDevbookStore : IDisposable
             {
                 title = match.Groups[2].Value.Trim();
                 i++;
-                metadata = ReadMeta(lines, ref i);
+                if (MetadataFence.At(lines, i) is { } titleFence)
+                {
+                    metadata = titleFence.Flat();
+                    i = titleFence.End;
+                }
+
                 break;
             }
             i++;
@@ -468,7 +474,9 @@ public sealed class DomainDevbookStore : IDisposable
         var title = heading.Success ? heading.Groups[2].Value.Trim() : "Section";
         var level = heading.Success ? heading.Groups[1].Value.Length : 2;
         var index = start + 1;
-        var metadata = ReadMeta(lines, ref index);
+        var fence = MetadataFence.At(lines, index);
+        var metadata = fence?.Flat() ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (fence is not null) index = Math.Min(fence.End, end);
         var body = lines[index..end].ToList();
         var diagrams = new List<DomainDevbookDiagram>();
         CollectDiagrams(body, title, diagrams);
@@ -478,41 +486,6 @@ public sealed class DomainDevbookStore : IDisposable
         return new DomainDevbookSection(title, level, Status(metadata), metadata, Excerpt(readable), diagrams, [.. links], $"{documentPath}#{Slug(title)}");
     }
 
-
-    private static Dictionary<string, string> ReadMeta(string[] lines, ref int index)
-    {
-        while (index < lines.Length && string.IsNullOrWhiteSpace(lines[index])) index++;
-        if (index >= lines.Length || !string.Equals(lines[index].Trim(), "```meta", StringComparison.OrdinalIgnoreCase)) return [];
-        index++;
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        string? currentKey = null;
-        while (index < lines.Length && !lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal))
-        {
-            var rawLine = lines[index];
-            var line = rawLine.Trim();
-            var sep = line.IndexOf(':');
-            if (sep > 0 && !line.StartsWith("-", StringComparison.Ordinal))
-            {
-                currentKey = line[..sep].Trim();
-                result[currentKey] = line[(sep + 1)..].Trim();
-            }
-            else if (currentKey is not null && line.StartsWith("- ", StringComparison.Ordinal))
-            {
-                result[currentKey] = AppendMetadataValue(result[currentKey], line[2..].Trim());
-            }
-            else if (currentKey is not null && char.IsWhiteSpace(rawLine.FirstOrDefault()) && line.Length > 0)
-            {
-                result[currentKey] = AppendMetadataValue(result[currentKey], line);
-            }
-            index++;
-        }
-        if (index < lines.Length) index++;
-        while (index < lines.Length && string.IsNullOrWhiteSpace(lines[index])) index++;
-        return result;
-    }
-
-    private static string AppendMetadataValue(string existing, string next) =>
-        string.IsNullOrWhiteSpace(existing) ? next : $"{existing}, {next}";
 
     /// <summary>
     /// The <c>mermaid</c> fences in a run of lines, as diagrams.

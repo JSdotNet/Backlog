@@ -1,5 +1,6 @@
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel.Devbook;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Infrastructure.Devbook.Documents;
 
@@ -114,7 +115,7 @@ public static class DevbookChapterHeadings
             // The GitHub rule the devbook checker resolves a reference by first —
             // `## Node.js` is `nodejs` — then the looser hyphenated one a hand-written
             // anchor sometimes uses, `node-js`.
-            headings.TryAdd(Building.DevbookMarkdown.Slugify(heading), heading);
+            headings.TryAdd(HeadingAnchor.Of(heading), heading);
             headings.TryAdd(HyphenatedSlug(heading), heading);
         }
 

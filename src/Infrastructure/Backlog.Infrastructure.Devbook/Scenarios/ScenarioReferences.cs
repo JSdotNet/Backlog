@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 
+using Backlog.SharedKernel.Markdown;
+
 namespace Backlog.Infrastructure.Devbook.Scenarios;
 
 /// <summary>
@@ -66,7 +68,7 @@ public static partial class ScenarioReferences
     {
         if (string.IsNullOrWhiteSpace(anchor)) return null;
 
-        var slugged = ScenarioPageParser.Slugify(anchor);
+        var slugged = HeadingAnchor.Of(anchor);
         return items.FirstOrDefault(item => string.Equals(anchorOf(item), anchor, StringComparison.Ordinal))
             ?? items.FirstOrDefault(item => string.Equals(anchorOf(item), anchor, StringComparison.OrdinalIgnoreCase))
             ?? items.FirstOrDefault(item => string.Equals(anchorOf(item), slugged, StringComparison.Ordinal));
@@ -108,7 +110,7 @@ public static partial class ScenarioReferences
             {
                 var headingLevel = heading.Groups[1].Value.Length;
                 if (inside && headingLevel <= level) break;
-                if (!inside && SameAnchor(ScenarioPageParser.Slugify(heading.Groups[2].Value), anchor))
+                if (!inside && SameAnchor(HeadingAnchor.Of(heading.Groups[2].Value), anchor))
                 {
                     inside = true;
                     level = headingLevel;
@@ -190,7 +192,7 @@ public static partial class ScenarioReferences
 
     private static bool SameAnchor(string slug, string anchor) =>
         string.Equals(slug, anchor, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(slug, ScenarioPageParser.Slugify(anchor), StringComparison.Ordinal);
+        || string.Equals(slug, HeadingAnchor.Of(anchor), StringComparison.Ordinal);
 
     [GeneratedRegex(@"\r?\n")]
     private static partial Regex LineBreak();

@@ -2,6 +2,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
+using Backlog.Infrastructure.Devbook.Building;
+using Backlog.SharedKernel.Markdown;
+
 namespace Backlog.Infrastructure.Devbook.Fingerprints;
 
 /// <summary>One file of a change's <c>devbook-delta/</c>, by the devbook file it
@@ -76,7 +79,7 @@ public static partial class DevbookFingerprint
         }
         else
         {
-            var wanted = Slugify(slug);
+            var wanted = HeadingAnchor.Of(slug);
             if (chapters.FirstOrDefault(chapter => chapter.Slug == wanted) is not { } chapter) return null;
             line = chapter.Line;
         }
@@ -174,11 +177,11 @@ public static partial class DevbookFingerprint
             end = next.Line - 1;
         }
 
-        var heading = start < lines.Length ? HeadingText().Match(lines[start]) : Match.Empty;
+        var heading = start < lines.Length ? DevbookMarkdown.Heading().Match(lines[start]) : Match.Empty;
 
         return string.Join(
             '\n',
-            new[] { heading.Success ? heading.Groups[1].Value : string.Empty, HashedText(lines, start + 1, end, dropMeta: true) }
+            new[] { heading.Success ? heading.Groups[2].Value : string.Empty, HashedText(lines, start + 1, end, dropMeta: true) }
                 .Where(part => part.Length > 0));
     }
 
@@ -220,7 +223,7 @@ public static partial class DevbookFingerprint
 
         return string.Join(
             '\n',
-            kept.Select(entry => Trim(JsWhitespace().Replace(entry, " "))).Where(entry => entry.Length > 0));
+            kept.Select(DevbookMarkdown.CollapseWhitespace).Where(entry => entry.Length > 0));
     }
 
     /// <summary>A demo's text as a fingerprint reads it: CRLF and CR turned to LF,
@@ -264,171 +267,29 @@ public static partial class DevbookFingerprint
 
     /// <summary>Split on <c>\r?\n</c>, as <c>metadata.mjs</c> splits: a lone
     /// <c>\r</c> is no break.</summary>
-    private static string[] Lines(string markdown) => LineBreak().Split(markdown);
+    private static string[] Lines(string markdown) => DevbookMarkdown.Lines(markdown);
 
     /// <summary>
     /// Every heading outside a fence, with its slug and the demo references in its
-    /// <c>meta</c> block. <c>parseDocument</c> in <c>metadata.mjs</c>: a line
-    /// starting <c>```</c> or <c>~~~</c> opens a fence whatever its info string,
-    /// and the next such line of the same character, at least as long, closes it.
+    /// <c>meta</c> block: <c>parseDocument</c> in <c>metadata.mjs</c>, which is
+    /// <see cref="DevbookMarkdown.Parse"/> — the builder's port of the same function.
     /// </summary>
-    private static List<Chapter> Parse(string markdown)
-    {
-        var lines = Lines(markdown);
-        var chapters = new List<Chapter>();
-        string? fence = null;
+    private static List<Chapter> Parse(string markdown) =>
+        [.. DevbookMarkdown.Parse(markdown).Chapters.Select(chapter => new Chapter(
+            chapter.Level,
+            chapter.Slug,
+            chapter.Line,
+            [.. DevbookMarkdown.AsList(chapter.Meta?.GetValueOrDefault("demo")), .. DevbookMarkdown.AsList(chapter.Meta?.GetValueOrDefault("playthrough"))]))];
 
-        for (var i = 0; i < lines.Length; i++)
-        {
-            var marker = FenceMarker().Match(lines[i]);
-
-            if (fence is not null)
-            {
-                if (marker.Success && marker.Groups[1].Value[0] == fence[0] && marker.Groups[1].Value.Length >= fence.Length) fence = null;
-                continue;
-            }
-
-            if (marker.Success)
-            {
-                fence = marker.Groups[1].Value;
-                continue;
-            }
-
-            var heading = Heading().Match(lines[i]);
-            if (!heading.Success) continue;
-
-            chapters.Add(new Chapter(
-                heading.Groups[1].Value.Length,
-                Slugify(Trim(heading.Groups[2].Value)),
-                i + 1,
-                MetaDemos(lines, i + 1)));
-        }
-
-        return chapters;
-    }
-
-    /// <summary>The <c>demo</c> and <c>playthrough</c> references of the
-    /// <c>meta</c> block that is the first non-blank line under a heading, in that
-    /// order; none when there is no such block.</summary>
-    private static IReadOnlyList<string> MetaDemos(string[] lines, int from)
-    {
-        var j = from;
-        while (j < lines.Length && Trim(lines[j]).Length == 0) j++;
-
-        if (j >= lines.Length || !MetaOpener().IsMatch(Trim(lines[j]))) return [];
-
-        var fields = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
-        for (var k = j + 1; k < lines.Length && Trim(lines[k]) != "```"; k++)
-        {
-            var colon = lines[k].IndexOf(':', StringComparison.Ordinal);
-            if (Trim(lines[k]).Length == 0 || colon == -1) continue;
-
-            fields[Trim(lines[k][..colon])] = Scalar(lines[k][(colon + 1)..]);
-        }
-
-        return [.. fields.GetValueOrDefault("demo", []), .. fields.GetValueOrDefault("playthrough", [])];
-    }
-
-    /// <summary>A meta value as a list: <c>[a, "b"]</c> is its entries, quotes
-    /// stripped and a comma inside quotes kept; anything else is one entry; empty
-    /// and <c>null</c> are none.</summary>
-    private static IReadOnlyList<string> Scalar(string raw)
-    {
-        var value = Trim(raw);
-        if (value.Length == 0 || value == "null") return [];
-
-        if (!(value.StartsWith('[') && value.EndsWith(']'))) return [StripQuotes(value)];
-
-        var inner = Trim(value[1..^1]);
-        if (inner.Length == 0) return [];
-
-        var entries = new List<string>();
-        var current = new StringBuilder();
-        char? quote = null;
-
-        foreach (var c in inner)
-        {
-            if (quote is not null)
-            {
-                if (c == quote) quote = null;
-            }
-            else if (c is '"' or '\'')
-            {
-                if (Trim(current.ToString()).Length == 0) quote = c;
-            }
-            else if (c == ',')
-            {
-                entries.Add(current.ToString());
-                current.Clear();
-                continue;
-            }
-
-            current.Append(c);
-        }
-
-        entries.Add(current.ToString());
-
-        return [.. entries.Select(entry => StripQuotes(Trim(entry))).Where(entry => entry.Length > 0)];
-    }
-
-    private static string StripQuotes(string value) =>
-        value.Length >= 2 && ((value[0] == '"' && value[^1] == '"') || (value[0] == '\'' && value[^1] == '\''))
-            ? value[1..^1]
-            : value;
-
-    /// <summary>JavaScript's <c>String.prototype.trim</c>: the characters of
-    /// <see cref="SpaceCharacters"/>, which <see cref="string.Trim()"/> does not
-    /// use.</summary>
-    private static string Trim(string value) => value.Trim(JsSpace);
-
-    private static readonly char[] JsSpace = ['\t', '\n', '\v', '\f', '\r', ' ', '\u00a0', '\u1680', '\u2000', '\u2001', '\u2002', '\u2003', '\u2004', '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200a', '\u2028', '\u2029', '\u202f', '\u205f', '\u3000', '\ufeff'];
-
-    /// <summary>GitHub's anchor: lower-cased, trimmed, everything but letters,
-    /// digits, underscores, whitespace and hyphens dropped, and each whitespace
-    /// character a hyphen — runs are not collapsed.</summary>
-    private static string Slugify(string text) =>
-        JsWhitespaceOne().Replace(SlugStrip().Replace(Trim(text.ToLowerInvariant()), string.Empty), "-");
+    /// <summary>JavaScript's <c>String.prototype.trim</c>.</summary>
+    private static string Trim(string value) => DevbookMarkdown.JsTrim(value);
 
     private sealed record Chapter(int Level, string Slug, int Line, IReadOnlyList<string> Demos);
 
-    /// <summary>The characters of JavaScript's <c>\s</c>, which is not .NET's: it
-    /// has U+FEFF and not U+0085. Every whitespace test here uses them, so a line
-    /// reads as <c>metadata.mjs</c> reads it.</summary>
-    private const string SpaceCharacters = @"\t\n\v\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff";
+    private const string Space = "[" + DevbookMarkdown.JsWhitespaceClass + "]";
 
-    private const string Space = "[" + SpaceCharacters + "]";
-
-    [GeneratedRegex(@"\r?\n")]
-    private static partial Regex LineBreak();
-
-    [GeneratedRegex("^" + Space + "*(`{3,}|~{3,})")]
-    private static partial Regex FenceMarker();
-
-    // JavaScript's '.' stops at CR, LINE SEPARATOR and PARAGRAPH SEPARATOR as well
-    // as LF, and its '$' without the m flag is the end of the input; .NET's '$' also
-    // matches before a final LF. Spelled out so a heading reads as metadata.mjs
-    // reads it.
-    [GeneratedRegex("^(#{1,6})" + Space + @"+([^\n\r\u2028\u2029]*)\z")]
-    private static partial Regex Heading();
-
-    [GeneratedRegex("^#{1,6}" + Space + @"+([^\n\r\u2028\u2029]*)\z")]
-    private static partial Regex HeadingText();
-
-    [GeneratedRegex("^" + Space + "*(`{3,}|~{3,})" + Space + "*([^`~" + SpaceCharacters + "]*)" + Space + @"*\z")]
+    [GeneratedRegex("^" + Space + "*(`{3,}|~{3,})" + Space + "*([^`~" + DevbookMarkdown.JsWhitespaceClass + "]*)" + Space + @"*\z")]
     private static partial Regex FenceOpener();
-
-    [GeneratedRegex("^```meta" + Space + @"*\z")]
-    private static partial Regex MetaOpener();
-
-    [GeneratedRegex(Space + "+")]
-    private static partial Regex JsWhitespace();
-
-    [GeneratedRegex(Space)]
-    private static partial Regex JsWhitespaceOne();
-
-    [GeneratedRegex(@"[^\p{L}\p{N}_" + SpaceCharacters + "-]")]
-    private static partial Regex SlugStrip();
-
     [GeneratedRegex(@"<!--\s*template:begin\b[^>]*?-->[\s\S]*?(?:<!--\s*template:end\b[^>]*?-->|\z)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex TemplateRegion();
 }

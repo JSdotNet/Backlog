@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Infrastructure.Sessions.UnitTests;
 
@@ -113,7 +114,7 @@ public sealed class DevbookSyncVerdictStoreTests : IDisposable
     [InlineData("What a run cost, reported by the session itself", "what-a-run-cost-reported-by-the-session-itself")]
     [InlineData("C4 / Containers", "c4--containers")]
     public void A_heading_is_addressed_by_the_anchor_the_devbook_tools_give_it(string heading, string anchor) =>
-        Assert.Equal(anchor, DevbookSyncChapters.AnchorOf(heading));
+        Assert.Equal(anchor, HeadingAnchor.Of(heading));
 
     private static DevbookSyncVerdict Verdict(string path, string anchor, string verdict, string runId) =>
         new(

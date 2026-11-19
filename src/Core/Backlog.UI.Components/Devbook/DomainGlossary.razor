@@ -130,7 +130,7 @@
                                     @if (rules.Count > 0)
                                     {
                                         var shown = _rulesShown.Contains(entry.Reference);
-                                        var listId = $"{_id}-rules-{DomainUnits.Slug(entry.Reference)}";
+                                        var listId = $"{_id}-rules-{HeadingAnchor.Of(entry.Reference)}";
                                         <AppButton Variant="ButtonVariant.None"
                                                    BaseClass="domain-glossary__rules"
                                                    TestId="domain-glossary-rules"

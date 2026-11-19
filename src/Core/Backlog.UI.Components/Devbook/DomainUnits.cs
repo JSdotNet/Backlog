@@ -1,6 +1,9 @@
 using System.Text;
 using System.Text.RegularExpressions;
 
+using Backlog.SharedKernel.Markdown;
+using Backlog.SharedKernel.Metadata;
+
 namespace Backlog.UI.Components.Devbook;
 
 /// <summary>
@@ -220,7 +223,9 @@ public static partial class DomainUnits
         // before the first `##` belongs to no chapter, so it stays in the lead with
         // its heading line rather than vanish.
         var leadStart = titleAt >= 0 ? headings[titleAt].Line + 1 : 0;
-        var meta = titleAt >= 0 ? ReadMeta(lines, ref leadStart) : [];
+        var titleMeta = titleAt >= 0 ? MetadataFence.At(lines, leadStart) : null;
+        if (titleMeta is not null) leadStart = titleMeta.End;
+        var meta = titleMeta?.Flat() ?? [];
         var next = headings.FirstOrDefault(h => h.Line >= leadStart && h.Level <= 2);
         var leadEnd = next.Text is null ? lines.Length : next.Line;
         var lead = new StringBuilder();
@@ -404,11 +409,6 @@ public static partial class DomainUnits
         return Whitespace().Replace(text, " ").Trim();
     }
 
-    /// <summary>GitHub's anchor for a heading: lower case, everything but letters,
-    /// digits, underscores, spaces and hyphens dropped, each space a hyphen.</summary>
-    public static string Slug(string heading) =>
-        NotSlug().Replace(heading.Trim().ToLowerInvariant(), string.Empty).Replace(' ', '-');
-
     private static IReadOnlyList<DomainChapter> Build(string[] lines, List<(int Line, int Level, string Text)> headings, int from, int to, int level)
     {
         var chapters = new List<DomainChapter>();
@@ -431,7 +431,9 @@ public static partial class DomainUnits
     {
         var (line, level, text) = headings[h];
         var bodyStart = line + 1;
-        var meta = ReadMeta(lines, ref bodyStart);
+        var fence = MetadataFence.At(lines, bodyStart);
+        if (fence is not null) bodyStart = fence.End;
+        var meta = fence?.Flat() ?? [];
 
         // The chapters one level down, wherever they sit — a `####` directly under
         // a `##` counts as one level down too, so nothing is dropped.
@@ -457,7 +459,7 @@ public static partial class DomainUnits
 
         return new DomainChapter(
             text,
-            Slug(text),
+            HeadingAnchor.Of(text),
             level,
             meta.GetValueOrDefault("type") is { Length: > 0 } type ? type : null,
             List(meta.GetValueOrDefault("related")),
@@ -480,24 +482,6 @@ public static partial class DomainUnits
         meta.GetValueOrDefault("rating") is { Length: > 0 } rating ? rating
         : meta.GetValueOrDefault("status") is { Length: > 0 } status ? status
         : null;
-
-    private static Dictionary<string, string> ReadMeta(string[] lines, ref int index)
-    {
-        var at = index;
-        while (at < lines.Length && string.IsNullOrWhiteSpace(lines[at])) at++;
-        if (at >= lines.Length || !string.Equals(lines[at].Trim(), "```meta", StringComparison.OrdinalIgnoreCase)) return [];
-
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        at++;
-        while (at < lines.Length && !lines[at].TrimStart().StartsWith("```", StringComparison.Ordinal))
-        {
-            var colon = lines[at].IndexOf(':');
-            if (colon > 0) result[lines[at][..colon].Trim()] = lines[at][(colon + 1)..].Trim();
-            at++;
-        }
-        index = Math.Min(at + 1, lines.Length);
-        return result;
-    }
 
     internal static IReadOnlyList<string> List(string? value)
     {
@@ -780,9 +764,6 @@ public static partial class DomainUnits
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Whitespace();
-
-    [GeneratedRegex(@"[^\p{L}\p{N}_\- ]")]
-    private static partial Regex NotSlug();
 
     [GeneratedRegex(@"^\s*(?:[-*+]|\d+[.)])\s+")]
     private static partial Regex ListMarker();

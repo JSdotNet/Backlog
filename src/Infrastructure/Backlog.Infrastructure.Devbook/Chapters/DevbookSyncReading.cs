@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Devbook.Building;
 using Backlog.SharedKernel.Devbook;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Infrastructure.Devbook.Chapters;
 
@@ -97,13 +98,13 @@ public sealed class DevbookSyncReading
 
     /// <summary>
     /// The <c>#slug</c> a chapter's direction address carries: <c>units.mjs</c>'s,
-    /// the generator's <c>slugify</c> ported as <see cref="DevbookMarkdown.Slugify"/>,
+    /// the generator's <c>slugify</c> ported as <see cref="HeadingAnchor"/>,
     /// so the map and the sweeps name a unit with one id. Not
     /// <see cref="DevbookHeadingDocument.Slug"/>, which keeps finding the heading a
     /// record names but spells some headings differently — an apostrophe, an
     /// underscore.
     /// </summary>
-    internal static string AddressSlug(string title) => DevbookMarkdown.Slugify(DevbookMarkdown.JsTrim(title));
+    internal static string AddressSlug(string title) => HeadingAnchor.Of(DevbookMarkdown.JsTrim(title));
 
     /// <summary>The state of the block at <paramref name="level"/> with heading
     /// text <paramref name="heading"/>, or null for one that is no sync level or

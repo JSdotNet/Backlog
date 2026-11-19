@@ -1,7 +1,9 @@
 using System.Text.RegularExpressions;
 
 using Backlog.Infrastructure.Devbook;
+using Backlog.Infrastructure.Devbook.Documents;
 using Backlog.SharedKernel.Markdown;
+using Backlog.SharedKernel.Metadata;
 
 using Backlog.Modules.Devbook.Abstractions;
 
@@ -545,171 +547,109 @@ public sealed record DevbookTableBlock(IReadOnlyList<IReadOnlyList<MdInline>> Ro
 
 public sealed record DevbookDividerBlock : DevbookBlock;
 
-public static class DevbookMarkdownParser
+/// <summary>
+/// Reads an arc42 chapter into the panel's model: the blocks, every heading with the
+/// <c>meta</c> fence under it, the diagrams, and a decision record's history.
+/// <para>
+/// The Markdown is read by <see cref="MarkdownPreview.ParseDocument"/>, the shared
+/// block parser, and mapped onto <see cref="DevbookBlock"/>; a <c>meta</c> fence by
+/// <see cref="MetadataReader"/>. Fences follow CommonMark, so a devbook
+/// <c>annotation</c> note quoting a code sample is one block, and a heading inside a
+/// fence is the fence's.
+/// </para>
+/// </summary>
+public static partial class DevbookMarkdownParser
 {
-    private static readonly Regex HeadingRegex = new(@"^(#{1,6})[ \t]+(.+)$", RegexOptions.Compiled);
-    private static readonly Regex UnorderedRegex = new(@"^[ \t]*[-*][ \t]+(.+)$", RegexOptions.Compiled);
-    private static readonly Regex OrderedRegex = new(@"^[ \t]*\d+[.)][ \t]+(.+)$", RegexOptions.Compiled);
+    [GeneratedRegex(@"^(#{1,6})[ \t]+(.+)$")]
+    private static partial Regex HeadingRegex();
 
     public static DevbookDocument Parse(string path, string markdown)
     {
-        var lines = markdown.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var text = DevbookMarkdownBlocks.Normalize(markdown);
+        var lines = text.Split('\n');
+        var parsed = MarkdownPreview.ParseDocument(text);
         var blocks = new List<DevbookBlock>();
         var headings = new List<DevbookHeadingSummary>();
-        var paragraph = new List<string>();
-        var listItems = new List<IReadOnlyList<MdInline>>();
-        bool? orderedList = null;
         var title = Path.GetFileNameWithoutExtension(path);
         var documentMeta = DevbookMeta.Empty;
         var diagramCount = 0;
         string? section = null;
         var history = new List<DevbookHistoryRow>();
 
-        void FlushParagraph()
+        for (var index = 0; index < parsed.Count; index++)
         {
-            if (paragraph.Count == 0) return;
-            blocks.Add(new DevbookParagraphBlock(MarkdownPreview.ParseInlines(string.Join(" ", paragraph))));
-            paragraph.Clear();
-        }
-
-        void FlushList()
-        {
-            if (listItems.Count == 0) return;
-            blocks.Add(new DevbookListBlock(orderedList ?? false, [.. listItems]));
-            listItems.Clear();
-            orderedList = null;
-        }
-
-        void FlushAll()
-        {
-            FlushParagraph();
-            FlushList();
-        }
-
-        for (var index = 0; index < lines.Length; index++)
-        {
-            var line = lines[index].TrimEnd();
-            var trimmed = line.TrimStart();
-
-            // CommonMark's fence, not "starts with three backticks": a devbook
-            // `annotation` note quoting a code sample is opened with four so the
-            // sample can sit inside it, and closing at the first inner ``` spilled
-            // the rest of the note into the chapter as prose. The note itself
-            // stays a code record here and DevbookMarkdownView draws it as one.
-            if (MarkdownFence.Open(trimmed) is { } fence)
+            switch (parsed[index])
             {
-                FlushAll();
-                var language = fence.Language;
-                var code = new List<string>();
-                index++;
-                while (index < lines.Length && !fence.IsClosedBy(lines[index]))
+                case MdHeading heading:
                 {
-                    code.Add(lines[index]);
-                    index++;
+                    var level = heading.Level;
+                    var headingText = DevbookMarkdownBlocks.HeadingText(lines, heading);
+                    var next = index + 1;
+                    var metadata = DevbookMarkdownBlocks.TakeMeta(parsed, ref next) is { } record ? ToMeta(record) : DevbookMeta.Empty;
+                    index = next - 1;
+
+                    if (level == 1)
+                    {
+                        title = headingText;
+                        documentMeta = metadata;
+                    }
+
+                    if (level <= 2) section = level == 2 ? headingText : null;
+
+                    blocks.Add(new DevbookHeadingBlock(level, headingText, metadata));
+                    headings.Add(new DevbookHeadingSummary(level, headingText, metadata));
+                    break;
                 }
 
-                var text = string.Join('\n', code);
-                if (IsDiagramLanguage(language))
-                {
+                case MdCode code when IsDiagramLanguage(code.Language):
                     diagramCount++;
-                    blocks.Add(new DevbookDiagramBlock(language, text, DiagramTitle(text, diagramCount)));
-                }
-                else
+                    blocks.Add(new DevbookDiagramBlock(code.Language, code.Text, DiagramTitle(code.Text, diagramCount)));
+                    break;
+
+                // A devbook `annotation` note stays a code record, and
+                // DevbookMarkdownView draws it as one.
+                case MdCode code:
+                    blocks.Add(new DevbookCodeBlock(code.Language, code.Text));
+                    break;
+
+                case MdTable table:
                 {
-                    blocks.Add(new DevbookCodeBlock(language, text));
+                    var tableLines = DevbookMarkdownBlocks.SourceLines(lines, table.Source)
+                        .Where((_, row) => row != 1)
+                        .Select(line => line.Trim())
+                        .ToList();
+                    blocks.Add(new DevbookTableBlock([.. tableLines.Select(ParseTableRow)]));
+
+                    if (history.Count == 0 && string.Equals(section, "History", StringComparison.OrdinalIgnoreCase))
+                    {
+                        history.AddRange(HistoryRows(tableLines));
+                    }
+
+                    break;
                 }
 
-                continue;
+                case MdParagraph paragraph:
+                    blocks.Add(new DevbookParagraphBlock(paragraph.Content));
+                    break;
+
+                case MdQuote quote:
+                    blocks.Add(new DevbookQuoteBlock(quote.Content));
+                    break;
+
+                case MdList list:
+                    blocks.Add(new DevbookListBlock(list.Ordered, DevbookMarkdownBlocks.FlatItems(list)));
+                    break;
+
+                case MdFootnotes notes:
+                    blocks.Add(new DevbookListBlock(true, DevbookMarkdownBlocks.NoteItems(notes)));
+                    break;
+
+                case MdDivider:
+                    blocks.Add(new DevbookDividerBlock());
+                    break;
             }
-
-            if (trimmed.Length == 0)
-            {
-                FlushAll();
-                continue;
-            }
-
-            var heading = HeadingRegex.Match(trimmed);
-            if (heading.Success)
-            {
-                FlushAll();
-                var level = heading.Groups[1].Value.Length;
-                var text = heading.Groups[2].Value.Trim();
-                var (metadata, nextIndex) = ReadMetadata(lines, index + 1);
-                index = nextIndex;
-
-                if (level == 1)
-                {
-                    title = text;
-                    documentMeta = metadata;
-                }
-
-                if (level <= 2) section = level == 2 ? text : null;
-
-                blocks.Add(new DevbookHeadingBlock(level, text, metadata));
-                headings.Add(new DevbookHeadingSummary(level, text, metadata));
-                continue;
-            }
-
-            if (IsTableStart(lines, index))
-            {
-                FlushAll();
-                var tableLines = new List<string>();
-                while (index < lines.Length && IsTableLine(lines[index]))
-                {
-                    var row = lines[index].Trim();
-                    if (!IsTableSeparator(row)) tableLines.Add(row);
-                    index++;
-                }
-
-                index--;
-                blocks.Add(new DevbookTableBlock([.. tableLines.Select(ParseTableRow)]));
-
-                if (history.Count == 0 && string.Equals(section, "History", StringComparison.OrdinalIgnoreCase))
-                {
-                    history.AddRange(HistoryRows(tableLines));
-                }
-                continue;
-            }
-
-            if (trimmed.StartsWith("> ", StringComparison.Ordinal))
-            {
-                FlushAll();
-                blocks.Add(new DevbookQuoteBlock(MarkdownPreview.ParseInlines(trimmed[2..])));
-                continue;
-            }
-
-            if (trimmed is "---" or "***" or "___")
-            {
-                FlushAll();
-                blocks.Add(new DevbookDividerBlock());
-                continue;
-            }
-
-            var unordered = UnorderedRegex.Match(line);
-            if (unordered.Success)
-            {
-                FlushParagraph();
-                if (orderedList is true) FlushList();
-                orderedList = false;
-                listItems.Add(MarkdownPreview.ParseInlines(unordered.Groups[1].Value));
-                continue;
-            }
-
-            var ordered = OrderedRegex.Match(line);
-            if (ordered.Success)
-            {
-                FlushParagraph();
-                if (orderedList is false) FlushList();
-                orderedList = true;
-                listItems.Add(MarkdownPreview.ParseInlines(ordered.Groups[1].Value));
-                continue;
-            }
-
-            FlushList();
-            paragraph.Add(trimmed);
         }
 
-        FlushAll();
         return new DevbookDocument(path, title, documentMeta, blocks, headings, diagramCount) { History = history };
     }
 
@@ -749,96 +689,34 @@ public static class DevbookMarkdownParser
         if (row.StartsWith('|')) row = row[1..];
         if (row.EndsWith('|') && !row.EndsWith(@"\|", StringComparison.Ordinal)) row = row[..^1];
 
-        return [.. UnescapedPipe.Split(row).Select(cell => cell.Replace(@"\|", "|", StringComparison.Ordinal).Trim())];
+        return [.. UnescapedPipe().Split(row).Select(cell => cell.Replace(@"\|", "|", StringComparison.Ordinal).Trim())];
     }
 
-    private static readonly Regex UnescapedPipe = new(@"(?<!\\)\|", RegexOptions.Compiled);
-
-    private static (DevbookMeta Metadata, int NextIndex) ReadMetadata(string[] lines, int startIndex)
-    {
-        var index = startIndex;
-        while (index < lines.Length && string.IsNullOrWhiteSpace(lines[index])) index++;
-
-        if (index >= lines.Length || !string.Equals(lines[index].Trim(), "```meta", StringComparison.Ordinal))
-        {
-            return (DevbookMeta.Empty, startIndex - 1);
-        }
-
-        var metaLines = new List<string>();
-        index++;
-        while (index < lines.Length && !lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal))
-        {
-            metaLines.Add(lines[index].Trim());
-            index++;
-        }
-
-        return (ParseMetadata(metaLines), index);
-    }
+    [GeneratedRegex(@"(?<!\\)\|")]
+    private static partial Regex UnescapedPipe();
 
     /// <summary>
-    /// The fields of one <c>meta</c> fence, its lines already trimmed.
-    /// <para>
-    /// The list fields take both YAML forms the convention writes — an inline
-    /// <c>[a, b]</c> and a block of <c>- a</c> lines under the key — and a key is
-    /// matched with its colon, so <c>c4-touches:</c> is never read as <c>c4:</c>.
-    /// </para>
+    /// The panel's fields from one <c>meta</c> fence, as <see cref="MetadataReader"/>
+    /// reads it. <c>related</c> keeps every entry as written — the addresses first,
+    /// then any the reader could not address — and the C4 fields, which the shared
+    /// record does not model, come from its <see cref="MetadataRecord.Extra"/>.
     /// </summary>
-    private static DevbookMeta ParseMetadata(IEnumerable<string> lines)
+    private static DevbookMeta ToMeta(MetadataRecord record)
     {
-        string? status = null;
-        string? severity = null;
-        var lists = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["related"] = [],
-            ["c4"] = [],
-            ["c4-touches"] = [],
-            ["code"] = [],
-        };
-        List<string>? reading = null;
+        static IReadOnlyList<string> Extra(MetadataRecord record, string key) =>
+            record.Extra.TryGetValue(key, out var values) ? values : [];
 
-        foreach (var line in lines)
-        {
-            if (reading is not null && line.StartsWith("- ", StringComparison.Ordinal))
-            {
-                reading.Add(Unquote(line[2..]));
-                continue;
-            }
-
-            reading = null;
-            var colon = line.IndexOf(':', StringComparison.Ordinal);
-            if (colon <= 0) continue;
-
-            var key = line[..colon].Trim();
-            var value = line[(colon + 1)..].Trim();
-
-            if (string.Equals(key, "status", StringComparison.OrdinalIgnoreCase))
-            {
-                status = Unquote(value);
-            }
-            else if (string.Equals(key, "severity", StringComparison.OrdinalIgnoreCase))
-            {
-                severity = Unquote(value);
-            }
-            else if (lists.TryGetValue(key, out var list))
-            {
-                list.AddRange(ParseInlineList(value));
-                reading = list;
-            }
-        }
-
-        static IReadOnlyList<string> Distinct(List<string> values) =>
+        static IReadOnlyList<string> Distinct(IEnumerable<string> values) =>
             values.Where(value => value.Length > 0).Distinct(StringComparer.Ordinal).ToList();
 
-        return new DevbookMeta(status, Distinct(lists["related"]))
+        return new DevbookMeta(record.Status, Distinct([.. record.Related.Select(reference => reference.Raw), .. Extra(record, "related")]))
         {
-            C4 = Distinct(lists["c4"]),
-            C4Touches = Distinct(lists["c4-touches"]),
-            Code = Distinct(lists["code"]),
-            Severity = string.IsNullOrEmpty(severity) ? null : severity,
+            C4 = Distinct(Extra(record, "c4")),
+            C4Touches = Distinct(Extra(record, "c4-touches")),
+            Code = Distinct(Extra(record, "code")),
+            Severity = Extra(record, "severity") is [var severity, ..] && severity.Length > 0 ? severity : null,
         };
     }
-
-    private static string Unquote(string value) => value.Trim().Trim('"', '\'');
 
     /// <summary>
     /// Every heading of a document with the <c>meta</c> fence under it, and nothing
@@ -849,12 +727,12 @@ public static class DevbookMarkdownParser
     /// </summary>
     public static IReadOnlyList<DevbookHeadingSummary> ReadHeadings(string markdown)
     {
-        var lines = markdown.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var lines = DevbookMarkdownBlocks.Normalize(markdown).Split('\n');
         var headings = new List<DevbookHeadingSummary>();
 
         for (var index = 0; index < lines.Length; index++)
         {
-            var trimmed = lines[index].TrimEnd().TrimStart();
+            var trimmed = lines[index].Trim();
 
             if (MarkdownFence.Open(trimmed) is { } fence)
             {
@@ -865,29 +743,20 @@ public static class DevbookMarkdownParser
                 continue;
             }
 
-            var heading = HeadingRegex.Match(trimmed);
+            var heading = HeadingRegex().Match(trimmed);
             if (!heading.Success) continue;
 
-            var (metadata, nextIndex) = ReadMetadata(lines, index + 1);
-            index = nextIndex;
+            var metadata = DevbookMeta.Empty;
+            if (MetadataFence.At(lines, index + 1) is { } meta)
+            {
+                metadata = ToMeta(meta.Record);
+                index = meta.End - 1;
+            }
+
             headings.Add(new DevbookHeadingSummary(heading.Groups[1].Value.Length, heading.Groups[2].Value.Trim(), metadata));
         }
 
         return headings;
-    }
-
-    private static IEnumerable<string> ParseInlineList(string value)
-    {
-        if (!value.StartsWith('[') || !value.EndsWith(']'))
-        {
-            if (!string.IsNullOrWhiteSpace(value)) yield return value.Trim('"', '\'');
-            yield break;
-        }
-
-        foreach (var item in value[1..^1].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-        {
-            yield return Unquote(item);
-        }
     }
 
     private static bool IsDiagramLanguage(string language) =>
@@ -900,19 +769,6 @@ public static class DevbookMarkdownParser
         return title is null ? $"Architecture diagram {number}" : title["title ".Length..].Trim();
     }
 
-    private static bool IsTableStart(string[] lines, int index) =>
-        index + 1 < lines.Length && IsTableLine(lines[index]) && IsTableSeparator(lines[index + 1].Trim());
-
-    private static bool IsTableLine(string line) => line.Trim().StartsWith('|') && line.Trim().EndsWith('|');
-
-    private static bool IsTableSeparator(string line)
-    {
-        var cleaned = line.Trim().Trim('|').Replace(" ", string.Empty);
-        return cleaned.Length > 0 && cleaned.Split('|').All(cell => cell.Length >= 3 && cell.All(c => c is '-' or ':'));
-    }
-
     private static IReadOnlyList<MdInline> ParseTableRow(string line) =>
         MarkdownPreview.ParseInlines(string.Join(" | ", line.Trim().Trim('|').Split('|', StringSplitOptions.TrimEntries)));
 }
-
-

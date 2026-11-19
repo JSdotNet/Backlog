@@ -199,7 +199,7 @@
     /// tab with that event picked (<see cref="Diagrams.DomainModelTabs"/>).</summary>
     private DevbookReference? EventReference(DomainFlowEvent raised)
     {
-        var anchor = DomainUnits.Slug(raised.Name);
+        var anchor = HeadingAnchor.Of(raised.Name);
         if (!string.IsNullOrWhiteSpace(ModelPath)) return DevbookReference.Parse($"{DomainUnits.PathOf(ModelPath)}#{anchor}");
         if (string.IsNullOrWhiteSpace(DocumentPath)) return null;
         var path = DocumentPath.Replace('\\', '/');

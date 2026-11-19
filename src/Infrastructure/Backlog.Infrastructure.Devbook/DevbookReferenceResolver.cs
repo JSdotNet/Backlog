@@ -5,6 +5,7 @@ using Backlog.Infrastructure.Devbook.Scenarios;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Infrastructure.Devbook;
 
@@ -15,7 +16,7 @@ namespace Backlog.Infrastructure.Devbook;
 /// <para><b>Why here.</b> The port is Tasks' and the devbook is Devbook's, and a
 /// Tasks screen may ask only its own module. This project already reads both the
 /// database and the folder port, and the slug a heading is addressed by
-/// (<see cref="DevbookMarkdown.Slugify"/>) is the generator's rule ported here —
+/// (<see cref="HeadingAnchor"/>) is the generator's rule ported here —
 /// a second copy anywhere else would be a second opinion about which anchor a
 /// heading has.</para>
 ///
@@ -536,7 +537,7 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
     /// </summary>
     private static Heading? FindHeading(IReadOnlyList<Heading> headings, string anchor)
     {
-        var slugged = DevbookMarkdown.Slugify(anchor);
+        var slugged = HeadingAnchor.Of(anchor);
 
         return headings.FirstOrDefault(heading => string.Equals(heading.Slug, anchor, StringComparison.Ordinal))
             ?? headings.FirstOrDefault(heading => string.Equals(heading.Slug, anchor, StringComparison.OrdinalIgnoreCase))
