@@ -455,6 +455,8 @@ public sealed class SettingsRepositoryRenameTests
         public Task<Result> UngroupAsync(Guid groupId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task EnsureDefaultOrganizerAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> RetryAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Result> RetryTranscriptionAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<byte[]>> ReadAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> OpenAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }

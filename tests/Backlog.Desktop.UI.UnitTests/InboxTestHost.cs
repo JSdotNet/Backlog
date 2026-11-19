@@ -1220,6 +1220,23 @@ internal sealed class FakeInboxItems : IInboxItems
         return updated.IsFailure || error is null ? updated : Result.Failure(error.Value);
     }
 
+    /// <summary>The recordings a transcription Retry was pressed for, in order.</summary>
+    public List<Guid> TranscriptionRetries { get; } = [];
+
+    /// <summary>Forgets the recording's failure, as the module's Retry does once it has
+    /// cleared the record and queued the note.</summary>
+    public Task<Result> RetryTranscriptionAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default)
+    {
+        TranscriptionRetries.Add(attachmentId);
+
+        return Update(id, item => item with
+        {
+            Attachments = [.. item.Attachments.Select(attachment => attachment.Id != attachmentId
+                ? attachment
+                : attachment with { TranscriptionFailure = null })],
+        });
+    }
+
     public Task<Result<byte[]>> ReadAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
         Task.FromResult(AttachmentReadErrors.TryGetValue(attachmentId, out var error)
             ? Result.Failure<byte[]>(error)

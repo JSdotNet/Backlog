@@ -1318,6 +1318,28 @@ public sealed class InboxDesktopState : IDisposable
         await ReloadAsync();
     }
 
+    /// <summary>Sends a recording whose transcription failed three times to transcription
+    /// again (local ADR 0049 §6), then reloads so its row drops the failure. The busy state
+    /// is the download Retry's: one Retry runs at a time, whichever it is.</summary>
+    public async Task RetryTranscriptionAsync(Guid attachmentId)
+    {
+        if (SelectedItem is not { } item || RetryingAttachmentId is not null) return;
+
+        RetryingAttachmentId = attachmentId;
+        Changed?.Invoke();
+
+        try
+        {
+            Report(await _inbox.RetryTranscriptionAsync(item.Id, attachmentId));
+        }
+        finally
+        {
+            RetryingAttachmentId = null;
+        }
+
+        await ReloadAsync();
+    }
+
     /// <summary>Puts the selected item aside until <paramref name="until"/>, or
     /// with no date until the reader returns it; on a deferred item it changes
     /// the date. The item stays selected: it leaves the queue's rows, and the

@@ -184,6 +184,7 @@ public sealed class BatchTests
             ungroup: null!,
             ensureDefaultOrganizer: null!,
             retryAttachment: null!,
+            retryTranscription: null!,
             readAttachment: null!,
             openAttachment: null!,
             suggest: null!,

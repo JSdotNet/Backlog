@@ -3,7 +3,9 @@ using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.DomainModels;
 using Backlog.Modules.Inbox.Features.ListPendingNotes;
+using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.ReceiveNote;
+using Backlog.Modules.Inbox.Features.RetryTranscription;
 using Backlog.Modules.Inbox.Features.TranscribeRecordings;
 using Backlog.Modules.Inbox.Services;
 using Backlog.SharedKernel.Results;
@@ -53,7 +55,7 @@ public sealed class TranscribeRecordingsTests
     }
 
     [Fact]
-    public async Task The_audio_sent_is_the_file_as_it_lies_with_its_type()
+    public async Task The_transcriber_is_handed_the_downloaded_file_with_its_type()
     {
         var (note, recording) = NoteWithRecording();
 
@@ -76,7 +78,7 @@ public sealed class TranscribeRecordingsTests
     }
 
     [Fact]
-    public async Task A_failed_transcription_leaves_the_body_and_the_file_and_records_nothing()
+    public async Task A_failed_transcription_leaves_the_body_and_the_file_and_counts_an_attempt()
     {
         var (note, recording) = NoteWithRecording(body: "Agenda.");
         _transcriber.Answer = InboxErrors.TranscriptionFailed("Part 1 of 1 could not be transcribed.");
@@ -89,17 +91,65 @@ public sealed class TranscribeRecordingsTests
         Assert.Contains(kept.Attachments, attachment => attachment.Id == recording.Id);
         Assert.False(kept.NotePushPending);
         Assert.Empty(_records.Saved);
+
+        var failure = await _records.FindFailureAsync(recording.Sha256, Cancellation);
+        Assert.Equal(new InboxTranscriptionFailureDto(recording.Sha256, note.Id, recording.Id, 1, "Part 1 of 1 could not be transcribed.", Now), failure);
     }
 
     [Fact]
-    public async Task A_failed_write_records_nothing_so_the_next_start_tries_again()
+    public async Task A_failed_save_marks_nothing_done_and_counts_an_attempt_so_the_next_start_tries_again()
     {
-        var (note, _) = NoteWithRecording();
+        var (note, recording) = NoteWithRecording();
         _store.FailOnSave = 1;
 
-        await Assert.ThrowsAsync<IOException>(() => Handle(note.Id));
+        Assert.Equal(0, await Handle(note.Id));
 
         Assert.Empty(_records.Saved);
+        var failure = await _records.FindFailureAsync(recording.Sha256, Cancellation);
+        Assert.Equal(1, failure?.Attempts);
+        Assert.Equal(TranscribeRecordingsCommandHandler.SaveFailedReason, failure?.Reason);
+    }
+
+    [Fact]
+    public async Task A_transcriber_that_throws_counts_an_attempt_with_a_fixed_reason_and_never_its_message()
+    {
+        var (note, recording) = NoteWithRecording(body: "Agenda.");
+        _transcriber.Throw = new HttpRequestException("Foundry said: the launch code is 0000");
+
+        Assert.Equal(0, await Handle(note.Id));
+
+        var failure = await _records.FindFailureAsync(recording.Sha256, Cancellation);
+        Assert.Equal(1, failure?.Attempts);
+        Assert.Equal(TranscribeRecordingsCommandHandler.TranscriberFailedReason, failure?.Reason);
+        Assert.DoesNotContain("launch code", failure!.Reason, StringComparison.Ordinal);
+        Assert.Equal("Agenda.", _store.Items[note.Id].BodyMd);
+    }
+
+    [Fact]
+    public async Task A_cancelled_take_up_counts_no_attempt()
+    {
+        var (note, recording) = NoteWithRecording();
+        using var cancellation = new CancellationTokenSource();
+        _transcriber.WhileTranscribing = cancellation.Cancel;
+        _transcriber.Throw = new OperationCanceledException(cancellation.Token);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            new TranscribeRecordingsCommandHandler(_store, new FakeTimeProvider(Now), _records, _transcriber, _files)
+                .Handle(new TranscribeRecordingsCommand(note.Id), cancellation.Token));
+
+        Assert.Null(await _records.FindFailureAsync(recording.Sha256, Cancellation));
+    }
+
+    [Fact]
+    public async Task A_downloaded_file_that_cannot_be_read_counts_an_attempt()
+    {
+        var (note, recording) = NoteWithRecording();
+        _files.Files.Clear();
+
+        Assert.Equal(0, await Handle(note.Id));
+
+        Assert.Empty(_transcriber.Sent);
+        Assert.Equal(TranscribeRecordingsCommandHandler.UnreadableReason, (await _records.FindFailureAsync(recording.Sha256, Cancellation))?.Reason);
     }
 
     [Fact]
@@ -112,6 +162,110 @@ public sealed class TranscribeRecordingsTests
 
         Assert.Empty(_transcriber.Sent);
         Assert.Contains(_store.Items[note.Id].Attachments, attachment => attachment.Id == recording.Id);
+        Assert.Empty(await _records.ListFailuresAsync(Cancellation));
+    }
+
+    [Fact]
+    public async Task A_picked_audio_file_is_neither_sent_nor_removed()
+    {
+        var (note, _) = NoteWithRecording(downloaded: false);
+        var picked = new TestFile(Guid.CreateVersion7(), "standup.m4a", "audio/mp4", [0, 0, 0, 0x18, (byte)'f', (byte)'t', (byte)'y', (byte)'p']);
+        note.RecordAttachments([Attachment(picked)]);
+        note.MarkAttachmentDownloaded(picked.Id, Path(note, picked), Now);
+        _files.Files[Path(note, picked)] = picked.Bytes;
+
+        Assert.Equal(0, await Handle(note.Id));
+
+        Assert.Empty(_transcriber.Sent);
+        Assert.Contains(_store.Items[note.Id].Attachments, attachment => attachment.Id == picked.Id);
+        Assert.Empty(await _records.ListFailuresAsync(Cancellation));
+    }
+
+    [Fact]
+    public async Task The_third_failure_leaves_the_recording_waiting_for_retry_and_the_next_take_up_sends_nothing()
+    {
+        var (note, recording) = NoteWithRecording(body: "Agenda.");
+        _transcriber.Answer = InboxErrors.TranscriptionFailed("Part 1 of 1 could not be transcribed.");
+
+        for (var attempt = 0; attempt < InboxTranscriptionFailureDto.MaxAttempts; attempt++) await Handle(note.Id);
+        Assert.True((await _records.FindFailureAsync(recording.Sha256, Cancellation))!.WaitsForRetry);
+
+        Assert.Equal(0, await Handle(note.Id));
+
+        Assert.Equal(InboxTranscriptionFailureDto.MaxAttempts, _transcriber.Sent.Count);
+        Assert.Equal(3, (await _records.FindFailureAsync(recording.Sha256, Cancellation))!.Attempts);
+        Assert.Equal("Agenda.", _store.Items[note.Id].BodyMd);
+    }
+
+    [Fact]
+    public async Task A_recording_waiting_for_retry_holds_back_the_files_after_it()
+    {
+        var (note, first) = NoteWithRecording();
+        var second = Recording(seed: 2, name: "Recording · part 2 · 3:00");
+        note.RecordAttachments([Attachment(second)]);
+        note.MarkAttachmentDownloaded(second.Id, Path(note, second), Now);
+        _files.Files[Path(note, second)] = second.Bytes;
+        _records.SeedFailure(first.Sha256, note.Id, first.Id, attempts: 3);
+
+        Assert.Equal(0, await Handle(note.Id));
+
+        Assert.Empty(_transcriber.Sent);
+        Assert.Equal(2, _store.Items[note.Id].Attachments.Count);
+    }
+
+    [Fact]
+    public async Task Retry_forgets_the_failures_and_queues_the_note_so_a_success_writes_it()
+    {
+        var (note, recording) = NoteWithRecording();
+        _records.SeedFailure(recording.Sha256, note.Id, recording.Id, attempts: 3);
+        var queue = new FakeQueue();
+
+        var retried = await new RetryTranscriptionCommandHandler(_store, _records, queue)
+            .Handle(new RetryTranscriptionCommand(note.Id, recording.Id), Cancellation);
+
+        Assert.True(retried.IsSuccess);
+        Assert.Equal([note.Id], queue.Requested);
+        Assert.Null(await _records.FindFailureAsync(recording.Sha256, Cancellation));
+
+        Assert.Equal(1, await Handle(note.Id));
+        Assert.DoesNotContain(_store.Items[note.Id].Attachments, attachment => attachment.Id == recording.Id);
+    }
+
+    [Fact]
+    public async Task A_success_after_a_failure_forgets_the_failure()
+    {
+        var (note, recording) = NoteWithRecording();
+        _records.SeedFailure(recording.Sha256, note.Id, recording.Id, attempts: 2);
+
+        Assert.Equal(1, await Handle(note.Id));
+
+        Assert.Null(await _records.FindFailureAsync(recording.Sha256, Cancellation));
+    }
+
+    [Fact]
+    public async Task Retry_on_a_file_the_note_does_not_hold_is_refused()
+    {
+        var (note, _) = NoteWithRecording();
+
+        var retried = await new RetryTranscriptionCommandHandler(_store, _records, new FakeQueue())
+            .Handle(new RetryTranscriptionCommand(note.Id, Guid.CreateVersion7()), Cancellation);
+
+        Assert.Equal(InboxErrors.AttachmentNotFound, retried.Error);
+    }
+
+    [Fact]
+    public async Task The_snapshot_carries_the_failure_of_a_recording_waiting_for_retry_only()
+    {
+        var (note, recording) = NoteWithRecording();
+        var (other, early) = NoteWithRecording(seed: 7);
+        _records.SeedFailure(recording.Sha256, note.Id, recording.Id, attempts: 3);
+        _records.SeedFailure(early.Sha256, other.Id, early.Id, attempts: 1);
+
+        var snapshot = await new GetInboxQueryHandler(_store, _store, _records).Handle(new GetInboxQuery(), Cancellation);
+
+        var row = snapshot.Items.Single(item => item.Id == note.Id).Attachments.Single();
+        Assert.Equal(3, row.TranscriptionFailure?.Attempts);
+        Assert.Null(snapshot.Items.Single(item => item.Id == other.Id).Attachments.Single().TranscriptionFailure);
     }
 
     [Fact]
@@ -175,7 +329,7 @@ public sealed class TranscribeRecordingsTests
     public async Task A_rolled_over_recordings_second_file_appends_as_part_2()
     {
         var (note, first) = NoteWithRecording();
-        var second = Recording(seed: 2, name: "Recording_p2.aac");
+        var second = Recording(seed: 2, name: "Recording · part 2 · 3:00");
         note.RecordAttachments([Attachment(second)]);
         note.MarkAttachmentDownloaded(second.Id, Path(note, second), Now);
         _files.Files[Path(note, second)] = second.Bytes;
@@ -194,7 +348,7 @@ public sealed class TranscribeRecordingsTests
     public async Task A_first_file_that_fails_holds_back_the_second_so_the_parts_keep_their_order()
     {
         var (note, first) = NoteWithRecording();
-        var second = Recording(seed: 2, name: "Recording_p2.aac");
+        var second = Recording(seed: 2, name: "Recording · part 2 · 3:00");
         note.RecordAttachments([Attachment(second)]);
         note.MarkAttachmentDownloaded(second.Id, Path(note, second), Now);
         _files.Files[Path(note, second)] = second.Bytes;
@@ -267,13 +421,25 @@ public sealed class TranscribeRecordingsTests
     [InlineData("audio/webm", false)]
     [InlineData("image/jpeg", false)]
     public void Only_the_recording_types_are_recordings(string contentType, bool isRecording) =>
-        Assert.Equal(isRecording, InboxAttachment.Named(Guid.CreateVersion7(), "f", contentType, 1, new string('a', 64)).IsRecording);
+        Assert.Equal(isRecording, InboxAttachment.Named(Guid.CreateVersion7(), "Recording · 0:12", contentType, 1, new string('a', 64)).IsRecording);
+
+    [Theory]
+    [InlineData("Recording · 12:34", true)]
+    [InlineData("Recording · part 2 · 1:02:03", true)]
+    [InlineData("Recording (interrupted)", true)]
+    [InlineData("standup.m4a", false)]
+    [InlineData("Recording", false)]
+    [InlineData("Recording.aac", false)]
+    [InlineData("recording · 12:34", false)]
+    [InlineData("Recording - 12:34", false)]
+    public void Only_the_names_the_recorder_gives_are_recordings(string name, bool isRecording) =>
+        Assert.Equal(isRecording, InboxAttachment.Named(Guid.CreateVersion7(), name, "audio/aac", 1, new string('a', 64)).IsRecording);
 
     private async Task<int> Handle(Guid noteId) =>
         (await new TranscribeRecordingsCommandHandler(_store, new FakeTimeProvider(Now), _records, _transcriber, _files)
             .Handle(new TranscribeRecordingsCommand(noteId), Cancellation)).Value;
 
-    private (InboxItem Note, TestFile Recording) NoteWithRecording(string? body = null, bool downloaded = true)
+    private (InboxItem Note, TestFile Recording) NoteWithRecording(string? body = null, bool downloaded = true, int seed = 1)
     {
         var note = InboxItem.FromCapture(
             Guid.CreateVersion7(),
@@ -287,7 +453,7 @@ public sealed class TranscribeRecordingsTests
             replicaBacked: true);
         note.StampEdited(Items.Noon);
 
-        var recording = Recording();
+        var recording = Recording(seed);
         note.RecordAttachments([Attachment(recording)]);
         if (downloaded)
         {
@@ -301,7 +467,8 @@ public sealed class TranscribeRecordingsTests
 
     private string Path(InboxItem note, TestFile file) => _files.PathFor(note.Id, file.Name);
 
-    private static TestFile Recording(int seed = 1, string name = "Recording.aac") =>
+    /// <summary>A recording the app made, by the recorder's name (local ADR 0049 §1).</summary>
+    private static TestFile Recording(int seed = 1, string name = "Recording · 12:34") =>
         new(Guid.CreateVersion7(), name, "audio/aac", [0xFF, 0xF1, 0x60, 0x40, (byte)seed, 0x1F, 0xFC]);
 
     private static InboxAttachment Attachment(TestFile file) =>
@@ -316,13 +483,15 @@ public sealed class TranscribeRecordingsTests
 
         public Action? WhileTranscribing { get; set; }
 
+        public Exception? Throw { get; set; }
+
         public List<InboxRecordingDto> Sent { get; } = [];
 
         public Task<Result<InboxRecordingTranscriptDto>> TranscribeAsync(InboxRecordingDto recording, CancellationToken cancellationToken = default)
         {
             Sent.Add(recording);
             WhileTranscribing?.Invoke();
-            return Task.FromResult(Answer);
+            return Throw is null ? Task.FromResult(Answer) : Task.FromException<Result<InboxRecordingTranscriptDto>>(Throw);
         }
     }
 
@@ -344,6 +513,31 @@ public sealed class TranscribeRecordingsTests
             _records[record.Sha256] = record;
             return Task.CompletedTask;
         }
+
+        private readonly Dictionary<string, InboxTranscriptionFailureDto> _failures = [];
+
+        public void SeedFailure(string sha256, Guid noteId, Guid attachmentId, int attempts) =>
+            _failures[sha256] = new(sha256, noteId, attachmentId, attempts, "Earlier.", Now);
+
+        public Task<InboxTranscriptionFailureDto?> FindFailureAsync(string sha256, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_failures.GetValueOrDefault(sha256));
+
+        public Task<InboxTranscriptionFailureDto> RecordFailureAsync(
+            string sha256, Guid noteId, Guid attachmentId, string reason, DateTimeOffset failedAt, CancellationToken cancellationToken = default)
+        {
+            var failure = new InboxTranscriptionFailureDto(sha256, noteId, attachmentId, (_failures.GetValueOrDefault(sha256)?.Attempts ?? 0) + 1, reason, failedAt);
+            _failures[sha256] = failure;
+            return Task.FromResult(failure);
+        }
+
+        public Task ClearFailureAsync(string sha256, CancellationToken cancellationToken = default)
+        {
+            _failures.Remove(sha256);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<InboxTranscriptionFailureDto>> ListFailuresAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<InboxTranscriptionFailureDto>>([.. _failures.Values]);
     }
 
     private sealed class FakeQueue : IInboxRecordingQueue

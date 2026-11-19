@@ -14,16 +14,19 @@ namespace Backlog.Modules.Inbox.Features.TranscribeRecordings;
 public sealed record TranscribeRecordingsCommand(Guid NoteId);
 
 /// <summary>
-/// A note's recordings, from download to removal (local ADR 0049): each recording whose
-/// sha256 this desktop has not transcribed is sent, once downloaded, to the transcriber;
-/// the note is read again after it answers, <c>## Transcript</c> and <c>## Summary</c> are
-/// appended to that body, the recording is taken off the note in the same save, and the
-/// sha256 is recorded with the sections written.
+/// A note's recordings, from download to removal (local ADR 0049): each recording the app
+/// made whose sha256 this desktop has not transcribed is sent, once downloaded, to the
+/// transcriber; the note is read again after it answers, <c>## Transcript</c> and
+/// <c>## Summary</c> are appended to that body, the recording is taken off the note in the
+/// same save, and the sha256 is recorded with the sections written.
 /// <para>
-/// <b>Never on failure.</b> A refused part, a failed summary, a file that cannot be read,
-/// or Foundry not configured leaves the body and the file as they were and records
-/// nothing, so the next request — the next pull, the next start — tries again and the
-/// recording still plays.
+/// <b>Never on failure, and at most three times.</b> A refused part, a failed summary, a
+/// file that cannot be read, or a save that fails leaves the body and the file as they were,
+/// marks nothing done, and counts a failed attempt with its reason, so the next request —
+/// the next pull, the next start — tries again and the recording still plays. A file with
+/// <see cref="InboxTranscriptionFailureDto.MaxAttempts"/> failed attempts is not sent again
+/// until a person presses Retry. Foundry not configured sends nothing and counts nothing.
+/// A success forgets the failures.
 /// </para>
 /// <para>
 /// <b>A recording already transcribed is repaired, not sent.</b> A phone edit made on the
@@ -34,9 +37,9 @@ public sealed record TranscribeRecordingsCommand(Guid NoteId);
 /// <para>
 /// One recording at a time, in the note's order, so a rolled-over recording's parts append
 /// in order: the second file to be written gets <c>## Transcript (part 2)</c>, and a file
-/// that cannot be written yet holds back the files after it. Answers how
-/// many recordings it wrote or repaired; it never fails, because the worker that calls it
-/// has nobody to tell.
+/// that cannot be written yet — failed now, or waiting for Retry — holds back the files
+/// after it. Answers how many recordings it wrote or repaired; it never fails, because the
+/// worker that calls it has nobody to tell.
 /// </para>
 /// </summary>
 public sealed partial class TranscribeRecordingsCommandHandler(
@@ -48,6 +51,15 @@ public sealed partial class TranscribeRecordingsCommandHandler(
     ILogger<TranscribeRecordingsCommandHandler>? logger = null)
     : ICommandHandler<TranscribeRecordingsCommand, Result<int>>
 {
+    /// <summary>The reason kept when the file is marked downloaded but cannot be read.</summary>
+    internal const string UnreadableReason = "The recording could not be read from this machine.";
+
+    /// <summary>The reason kept when the note could not be saved with its sections.</summary>
+    internal const string SaveFailedReason = "The note could not be saved with its transcript.";
+
+    /// <summary>The reason kept when the transcriber threw rather than answering.</summary>
+    internal const string TranscriberFailedReason = "The transcription stopped with an unexpected error.";
+
     private readonly ILogger _logger = logger ?? NullLogger<TranscribeRecordingsCommandHandler>.Instance;
 
     public async Task<Result<int>> Handle(TranscribeRecordingsCommand command, CancellationToken cancellationToken = default)
@@ -70,6 +82,14 @@ public sealed partial class TranscribeRecordingsCommandHandler(
                 continue;
             }
 
+            // A file that failed three times waits for Retry, and like any file not written it
+            // holds back the ones after it.
+            if (await records.FindFailureAsync(recording.Sha256, cancellationToken).ConfigureAwait(false) is { WaitsForRetry: true })
+            {
+                LogWaiting(_logger, recording.Id, command.NoteId);
+                break;
+            }
+
             // Stop at the first new recording that is not written: a later file of a rolled-over
             // recording written before it would take its part number, and its audio would be
             // gone before the order could be put right.
@@ -82,19 +102,36 @@ public sealed partial class TranscribeRecordingsCommandHandler(
 
     private async Task<bool> TranscribeAsync(Guid noteId, InboxAttachment recording, IInboxTranscriptionRecords records, CancellationToken cancellationToken)
     {
+        // Not configured, or not on this machine yet: nothing was tried, so nothing is counted.
         if (transcriber is not { IsAvailable: true } || files is null || !recording.IsDownloaded) return false;
 
         var audio = await files.ReadAsync(recording.LocalPath!, cancellationToken).ConfigureAwait(false);
         if (audio is null)
         {
             LogUnreadable(_logger, recording.Id, noteId);
+            await FailAsync(records, noteId, recording, UnreadableReason, cancellationToken).ConfigureAwait(false);
             return false;
         }
 
-        var answer = await transcriber.TranscribeAsync(new InboxRecordingDto(audio, recording.ContentType), cancellationToken).ConfigureAwait(false);
+        Result<InboxRecordingTranscriptDto> answer;
+        try
+        {
+            answer = await transcriber.TranscribeAsync(new InboxRecordingDto(audio, recording.ContentType), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception failure) when (!cancellationToken.IsCancellationRequested)
+        {
+            // The contract says a failure comes back as a result; one that is thrown still
+            // counts, or a transcriber that keeps throwing would be sent the file for ever. Its
+            // message is not kept: it may be Foundry's, and Foundry's words may quote the audio.
+            LogThrew(_logger, failure, recording.Id, noteId);
+            await FailAsync(records, noteId, recording, TranscriberFailedReason, cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
         if (answer.IsFailure)
         {
             LogFailed(_logger, recording.Id, noteId, answer.Error.Code);
+            await FailAsync(records, noteId, recording, answer.Error.Message, cancellationToken).ConfigureAwait(false);
             return false;
         }
 
@@ -104,14 +141,33 @@ public sealed partial class TranscribeRecordingsCommandHandler(
         if (current is null || current.Attachments.All(attachment => attachment.Id != recording.Id)) return false;
 
         var sections = Sections(current.BodyMd, answer.Value);
-        if (!await WriteAsync(current, recording.Id, sections, cancellationToken).ConfigureAwait(false)) return false;
+        try
+        {
+            if (!await WriteAsync(current, recording.Id, sections, cancellationToken).ConfigureAwait(false)) return false;
+        }
+        catch (Exception failure) when (!cancellationToken.IsCancellationRequested)
+        {
+            // The store's own exception says nothing a person can act on in the row; the log
+            // keeps it, and the attempt is counted like any other failure.
+            LogSaveFailed(_logger, failure, recording.Id, noteId);
+            await FailAsync(records, noteId, recording, SaveFailedReason, cancellationToken).ConfigureAwait(false);
+            return false;
+        }
 
         await records.SaveAsync(
             new InboxTranscriptionRecordDto(recording.Sha256, noteId, recording.Id, sections, clock.GetUtcNow()),
             cancellationToken).ConfigureAwait(false);
+        await records.ClearFailureAsync(recording.Sha256, cancellationToken).ConfigureAwait(false);
 
         LogWritten(_logger, recording.Id, noteId);
         return true;
+    }
+
+    private async Task FailAsync(IInboxTranscriptionRecords records, Guid noteId, InboxAttachment recording, string reason, CancellationToken cancellationToken)
+    {
+        var failure = await records.RecordFailureAsync(recording.Sha256, noteId, recording.Id, reason, clock.GetUtcNow(), cancellationToken)
+            .ConfigureAwait(false);
+        if (failure.WaitsForRetry) LogGaveUp(_logger, recording.Id, noteId, failure.Attempts);
     }
 
     private async Task<bool> WriteAsync(Guid noteId, Guid recordingId, string sections, CancellationToken cancellationToken)
@@ -147,6 +203,18 @@ public sealed partial class TranscribeRecordingsCommandHandler(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not transcribe recording {AttachmentId} of note {NoteId} ({Code}); it stays on the note and is tried again.")]
     private static partial void LogFailed(ILogger logger, Guid attachmentId, Guid noteId, string code);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The transcriber threw on recording {AttachmentId} of note {NoteId}; it counts as a failed attempt.")]
+    private static partial void LogThrew(ILogger logger, Exception exception, Guid attachmentId, Guid noteId);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Recording {AttachmentId} of note {NoteId} is marked downloaded but could not be read.")]
     private static partial void LogUnreadable(ILogger logger, Guid attachmentId, Guid noteId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not save note {NoteId} with the transcript of recording {AttachmentId}; it is tried again.")]
+    private static partial void LogSaveFailed(ILogger logger, Exception exception, Guid attachmentId, Guid noteId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Recording {AttachmentId} of note {NoteId} failed {Attempts} times; it waits for Retry.")]
+    private static partial void LogGaveUp(ILogger logger, Guid attachmentId, Guid noteId, int attempts);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Recording {AttachmentId} of note {NoteId} waits for Retry; it and the files after it are not sent.")]
+    private static partial void LogWaiting(ILogger logger, Guid attachmentId, Guid noteId);
 }

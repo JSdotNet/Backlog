@@ -31,6 +31,7 @@ using Backlog.Modules.Inbox.Features.Related;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
 using Backlog.Modules.Inbox.Features.RetryAttachment;
+using Backlog.Modules.Inbox.Features.RetryTranscription;
 using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
 using Backlog.Modules.Inbox.Features.RestoreItem;
@@ -134,6 +135,7 @@ public static class InboxModuleRegistration
         // IInboxAttachmentSource — so a head without them still builds, and the
         // handlers answer inbox.attachment.unavailable.
         services.AddScoped<ICommandHandler<RetryAttachmentCommand, Result>, RetryAttachmentCommandHandler>();
+        services.AddScoped<ICommandHandler<RetryTranscriptionCommand, Result>, RetryTranscriptionCommandHandler>();
         services.AddScoped<IQueryHandler<ReadAttachmentQuery, Result<byte[]>>, ReadAttachmentQueryHandler>();
         services.AddScoped<ICommandHandler<OpenAttachmentCommand, Result>, OpenAttachmentCommandHandler>();
 

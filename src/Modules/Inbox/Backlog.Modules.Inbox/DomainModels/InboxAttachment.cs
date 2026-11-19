@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Backlog.Modules.Inbox.DomainModels;
 
@@ -19,7 +20,7 @@ namespace Backlog.Modules.Inbox.DomainModels;
 /// <see cref="InboxItem.MarkAttachmentFailed"/>.
 /// </para>
 /// </summary>
-public sealed record InboxAttachment
+public sealed partial record InboxAttachment
 {
     private InboxAttachment(
         Guid id,
@@ -75,9 +76,27 @@ public sealed record InboxAttachment
     /// the kind detector ask of a file.</summary>
     public bool IsImage => ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Whether this is a meeting recording: one of the audio types local ADR 0048
-    /// lets a note carry. Only these are transcribed (local ADR 0049 §1).</summary>
-    public bool IsRecording => ContentType.Trim().ToLowerInvariant() is "audio/aac" or "audio/mp4" or "audio/x-m4a";
+    /// <summary>Whether this is a meeting recording the app made: one of the audio types local
+    /// ADR 0048 lets a note carry, under a name the recorder gives. Only these are transcribed
+    /// and removed (local ADR 0049 §1); an audio file a person picks keeps its own name, so it
+    /// stays on the note unsent.</summary>
+    public bool IsRecording =>
+        ContentType.Trim().ToLowerInvariant() is "audio/aac" or "audio/mp4" or "audio/x-m4a"
+        && IsRecorderName(Name);
+
+    /// <summary>The recorder's names, restated from <c>RecordingNames</c> in
+    /// <c>src/App/Backlog.Mobile.UI/Recordings/RecordingNames.cs</c>, which this module cannot
+    /// reference: exactly "Recording (interrupted)", "Recording · 12:34" for a first part, or
+    /// "Recording · part 2 · 1:02:03" after it — a middle dot with a space each side, and the
+    /// duration as <c>RecordingBar.FormatElapsed</c> writes it, m:ss under an hour and h:mm:ss
+    /// from one. A change there is a change here; <c>RecorderNamesAreRecordingsTests</c> in the
+    /// desktop UI tests, which reach both, fails when the two part.</summary>
+    internal static bool IsRecorderName(string name) => RecorderName().IsMatch(name);
+
+    [GeneratedRegex(
+        @"^Recording (\(interrupted\)|· (part ([2-9]|[1-9][0-9]+) · )?([1-5]?[0-9]:[0-5][0-9]|[1-9][0-9]*:[0-5][0-9]:[0-5][0-9]))\z",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex RecorderName();
 
     /// <summary>
     /// The file as a capture names it, waiting for its first fetch. Refuses what

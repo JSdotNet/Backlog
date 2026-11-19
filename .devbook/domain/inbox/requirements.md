@@ -1904,7 +1904,7 @@ The phone SHALL save a recording whose note was deleted on the desktop while it 
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_pulled_note_with_a_recording_is_handed_to_the_queue, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.The_audio_sent_is_the_file_as_it_lies_with_its_type, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_sha256_already_transcribed_is_never_sent_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_recording_not_yet_downloaded_and_a_photo_are_not_sent, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.An_archived_note_is_not_written]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_pulled_note_with_a_recording_is_handed_to_the_queue, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.The_transcriber_is_handed_the_downloaded_file_with_its_type, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_sha256_already_transcribed_is_never_sent_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_recording_not_yet_downloaded_and_a_photo_are_not_sent, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.An_archived_note_is_not_written, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_picked_audio_file_is_neither_sent_nor_removed, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Only_the_names_the_recorder_gives_are_recordings, unit:dotnet:Backlog.Desktop.UI.UnitTests.RecorderNamesAreRecordingsTests.Every_part_name_the_recorder_gives_is_a_recording, unit:dotnet:Backlog.Desktop.UI.UnitTests.RecorderNamesAreRecordingsTests.The_interrupted_name_is_a_recording]
 ```
 
 The desktop SHALL send each downloaded recording the app made, on a note that is not archived, to transcription with no press, and never send a file whose sha256 it has already transcribed.
@@ -1943,6 +1943,7 @@ The desktop SHALL send each downloaded recording the app made, on a note that is
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.Mp4DemuxerTests.A_plain_m4a_over_five_minutes_is_cut_at_the_mark_with_its_offsets, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.Mp4DemuxerTests.A_fragmented_m4a_from_a_browser_is_cut_into_parts_with_its_offsets, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.Mp4DemuxerTests.A_plain_m4a_in_several_chunks_keeps_every_frame_byte_for_byte, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxRecordingTranscriberTests.A_long_m4a_recording_goes_out_in_five_minute_parts_with_their_offsets]
 ```
 
 The desktop SHALL transcribe an M4A recording of any length in parts of at most 5 minutes, as it does an AAC one.
@@ -1991,7 +1992,7 @@ The desktop SHALL write a note's recordings in the note's order, the second unde
 
 #### Scenario: Two files of one meeting
 
-- **Given** a note holding "Recording" and "Recording · part 2", both downloaded
+- **Given** a note holding "Recording · 47:12" and "Recording · part 2 · 12:03", both downloaded
 - **When** the desktop transcribes them
 - **Then** the body holds `## Transcript` and `## Summary`, then `## Transcript (part 2)` and `## Summary (part 2)`
 - **And** neither file is left on the note
@@ -2022,7 +2023,7 @@ The desktop SHALL remove a recording from its note in the same save that appends
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_transcription_leaves_the_body_and_the_file_and_records_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_write_records_nothing_so_the_next_start_tries_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Nothing_is_sent_while_foundry_is_not_configured]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_transcription_leaves_the_body_and_the_file_and_counts_an_attempt, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_save_marks_nothing_done_and_counts_an_attempt_so_the_next_start_tries_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_downloaded_file_that_cannot_be_read_counts_an_attempt, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_transcriber_that_throws_counts_an_attempt_with_a_fixed_reason_and_never_its_message, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Nothing_is_sent_while_foundry_is_not_configured, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.FileInboxTranscriptionRecordsTests.A_failure_counts_its_attempts_keeps_the_last_reason_and_survives_a_restart, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.FileInboxTranscriptionRecordsTests.A_corrupt_failure_file_is_set_aside_and_counting_starts_again]
 ```
 
 When a recording cannot be transcribed or its sections cannot be saved, the desktop SHALL leave the note's body and the file as they were, count a failed attempt for its sha256, and try it again on the note's next pull or the next start until three attempts have failed.
@@ -2050,6 +2051,7 @@ When a recording cannot be transcribed or its sections cannot be saved, the desk
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.The_third_failure_leaves_the_recording_waiting_for_retry_and_the_next_take_up_sends_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_recording_waiting_for_retry_holds_back_the_files_after_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Retry_forgets_the_failures_and_queues_the_note_so_a_success_writes_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_success_after_a_failure_forgets_the_failure, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.The_snapshot_carries_the_failure_of_a_recording_waiting_for_retry_only, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_recording_whose_transcription_failed_three_times_says_why_and_retries, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxRecordingTranscriberTests.A_refused_part_says_what_a_person_can_fix]
 ```
 
 After a recording's third failed attempt, the desktop SHALL stop sending it, show on the note's recording row that transcription failed with the last reason, and send it again only after the reader presses Retry.

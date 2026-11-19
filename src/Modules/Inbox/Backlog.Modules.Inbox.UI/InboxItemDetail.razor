@@ -895,7 +895,8 @@
     /// <summary>One row per file that is not drawn as a thumbnail: its name and
     /// size, Open when it is on this machine, and Retry with the reason when its
     /// download failed. A file still waiting for its first fetch says so. A
-    /// recording on this machine plays in its row, under its name.</summary>
+    /// recording on this machine plays in its row, under its name, and one whose
+    /// transcription failed three times says why and offers Retry.</summary>
     private RenderFragment FileRows(InboxItemDto item) => @<text>
         @{ var files = item.Attachments.Where(attachment => !InboxDesktopState.ShowsAsThumbnail(attachment)).ToList(); }
         @if (files.Count > 0)
@@ -922,6 +923,21 @@
                                              CssClass="inbox-pane__file-player"
                                              TestId="@($"inbox-attachment-player-{file.Id:N}")"
                                              MissingTestId="@($"inbox-attachment-player-missing-{file.Id:N}")" />
+                            }
+                            @if (file.TranscriptionFailure is { } failure)
+                            {
+                                @* Three failed attempts: the file is not sent again until this
+                                   Retry (local ADR 0049 §6). The download Retry's markup. *@
+                                <AppButton Size="ButtonSize.Small"
+                                           Busy="@(State.RetryingAttachmentId == file.Id)"
+                                           BusyLabel="Retrying"
+                                           Disabled="@(State.RetryingAttachmentId is not null)"
+                                           OnClick="() => State.RetryTranscriptionAsync(file.Id)"
+                                           TestId="@($"inbox-attachment-transcription-retry-{file.Id:N}")">Retry</AppButton>
+                                <Alert BaseClass="inbox-pane__file-error"
+                                       Role="status"
+                                       Message="@($"Transcription failed: {failure.Reason}")"
+                                       TestId="@($"inbox-attachment-transcription-error-{file.Id:N}")" />
                             }
                         }
                         else if (file.LastError is { } error)

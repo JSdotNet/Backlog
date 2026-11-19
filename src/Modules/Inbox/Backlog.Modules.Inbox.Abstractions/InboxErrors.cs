@@ -142,6 +142,12 @@ public static class InboxErrors
         "inbox.transcription.failed",
         detail);
 
+    /// <summary>Retry on a recording in a host that keeps no transcription records or runs no
+    /// transcription step, so there is nothing to send it again.</summary>
+    public static readonly Error TranscriptionUnavailable = Error.Validation(
+        "inbox.transcription.unavailable",
+        "Recordings are not transcribed in this app.");
+
     /// <summary>No triage advisor, or one that says it cannot run. Every AI
     /// surface is hidden in this case (local ADR 0023 §4), so the message is
     /// for a log or a test rather than the pane.</summary>

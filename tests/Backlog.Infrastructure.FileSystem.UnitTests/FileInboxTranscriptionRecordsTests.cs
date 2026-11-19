@@ -55,6 +55,83 @@ public sealed class FileInboxTranscriptionRecordsTests : IDisposable
         Assert.Equal("{ not json", await File.ReadAllTextAsync(path, Cancellation));
     }
 
+    [Fact]
+    public async Task A_failure_counts_its_attempts_keeps_the_last_reason_and_survives_a_restart()
+    {
+        var sha = new string('E', 64);
+        var note = Guid.CreateVersion7();
+        var file = Guid.CreateVersion7();
+
+        await Records().RecordFailureAsync(sha, note, file, "first", DateTimeOffset.UnixEpoch, Cancellation);
+        var second = await Records().RecordFailureAsync(sha, note, file, "second", DateTimeOffset.UnixEpoch.AddHours(1), Cancellation);
+
+        Assert.Equal(2, second.Attempts);
+        var found = await Records().FindFailureAsync(sha.ToLowerInvariant(), Cancellation);
+        Assert.Equal(new InboxTranscriptionFailureDto(sha.ToLowerInvariant(), note, file, 2, "second", DateTimeOffset.UnixEpoch.AddHours(1)), found);
+        Assert.False(found!.WaitsForRetry);
+        Assert.True((await Records().RecordFailureAsync(sha, note, file, "third", DateTimeOffset.UnixEpoch, Cancellation)).WaitsForRetry);
+    }
+
+    [Fact]
+    public async Task A_cleared_failure_is_gone_and_the_others_are_listed()
+    {
+        var records = Records();
+        await records.RecordFailureAsync(new string('1', 64), Guid.CreateVersion7(), Guid.CreateVersion7(), "one", DateTimeOffset.UnixEpoch, Cancellation);
+        await records.RecordFailureAsync(new string('2', 64), Guid.CreateVersion7(), Guid.CreateVersion7(), "two", DateTimeOffset.UnixEpoch, Cancellation);
+
+        await records.ClearFailureAsync(new string('1', 64), Cancellation);
+
+        Assert.Null(await records.FindFailureAsync(new string('1', 64), Cancellation));
+        Assert.Equal(["two"], (await Records().ListFailuresAsync(Cancellation)).Select(failure => failure.Reason));
+    }
+
+    [Fact]
+    public async Task Failures_live_beside_the_done_records_and_leave_their_file_as_it_was()
+    {
+        var sha = new string('f', 64);
+        await Records().SaveAsync(Record(sha, "kept"), Cancellation);
+        var done = await File.ReadAllTextAsync(Path.Combine(_folder, FileInboxTranscriptionRecords.FileName), Cancellation);
+
+        await Records().RecordFailureAsync(new string('9', 64), Guid.CreateVersion7(), Guid.CreateVersion7(), "x", DateTimeOffset.UnixEpoch, Cancellation);
+
+        Assert.Equal(done, await File.ReadAllTextAsync(Path.Combine(_folder, FileInboxTranscriptionRecords.FileName), Cancellation));
+        Assert.True(File.Exists(Path.Combine(_folder, FileInboxTranscriptionRecords.FailuresFileName)));
+        Assert.Equal("kept", (await Records().FindAsync(sha, Cancellation))?.SectionsMd);
+    }
+
+    [Fact]
+    public async Task A_corrupt_failure_file_is_set_aside_and_counting_starts_again()
+    {
+        Directory.CreateDirectory(_folder);
+        var path = Path.Combine(_folder, FileInboxTranscriptionRecords.FailuresFileName);
+        await File.WriteAllTextAsync(path, "{ not json", Cancellation);
+        var sha = new string('7', 64);
+
+        var failure = await Records().RecordFailureAsync(sha, Guid.CreateVersion7(), Guid.CreateVersion7(), "x", DateTimeOffset.UnixEpoch, Cancellation);
+
+        Assert.Equal(1, failure.Attempts);
+        Assert.Equal(1, (await Records().FindFailureAsync(sha, Cancellation))?.Attempts);
+        var aside = Assert.Single(Directory.GetFiles(_folder, FileInboxTranscriptionRecords.FailuresFileName + ".corrupt-*"));
+        Assert.Equal("{ not json", await File.ReadAllTextAsync(aside, Cancellation));
+    }
+
+    [Fact]
+    public async Task Writes_leave_no_temporary_file_behind()
+    {
+        await Records().SaveAsync(Record(new string('3', 64), "x"), Cancellation);
+        await Records().RecordFailureAsync(new string('4', 64), Guid.CreateVersion7(), Guid.CreateVersion7(), "x", DateTimeOffset.UnixEpoch, Cancellation);
+
+        Assert.Empty(Directory.GetFiles(_folder, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task No_failure_file_lists_and_finds_nothing()
+    {
+        Assert.Empty(await Records().ListFailuresAsync(Cancellation));
+        Assert.Null(await Records().FindFailureAsync(new string('a', 64), Cancellation));
+        await Records().ClearFailureAsync(new string('a', 64), Cancellation);
+    }
+
     private FileInboxTranscriptionRecords Records() => new(() => _folder);
 
     private static InboxTranscriptionRecordDto Record(string sha, string sections) =>

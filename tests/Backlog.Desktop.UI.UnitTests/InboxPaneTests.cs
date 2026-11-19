@@ -2,6 +2,7 @@ using AngleSharp.Dom;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
+using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.UI;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
@@ -747,6 +748,34 @@ public sealed class InboxPaneTests
         Assert.Equal("Play Recording · 47:12", player.GetAttribute("aria-label"));
         Assert.NotNull(pane.Find($"[data-testid='inbox-attachment-row-{recording.Id:N}']")
             .QuerySelector($"[data-testid='inbox-attachment-open-{recording.Id:N}']"));
+    }
+
+    [Fact]
+    public async Task A_recording_whose_transcription_failed_three_times_says_why_and_retries()
+    {
+        using var harness = Harness.Create();
+        harness.Context.JSInterop.Setup<string?>("backlogAudio.open", _ => true).SetResult("blob:recording");
+        var failure = new InboxTranscriptionFailureDto(new string('a', 64), Guid.NewGuid(), Guid.NewGuid(), 3,
+            "Part 1 of 2 could not be transcribed: Foundry refused the API key.", DateTimeOffset.UnixEpoch);
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: true, LastError: null)
+        {
+            TranscriptionFailure = failure,
+        };
+        var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile", bodyMd: "Agenda.");
+        harness.Inbox.SeedAttachments(item.Id, recording);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        Assert.Equal(
+            "Transcription failed: Part 1 of 2 could not be transcribed: Foundry refused the API key.",
+            pane.Find($"[data-testid='inbox-attachment-transcription-error-{recording.Id:N}']").TextContent.Trim());
+
+        await pane.Find($"[data-testid='inbox-attachment-transcription-retry-{recording.Id:N}']").ClickAsync(new());
+
+        Assert.Equal([recording.Id], harness.Inbox.TranscriptionRetries);
+        pane.WaitForAssertion(() =>
+            Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-transcription-error-{recording.Id:N}']")));
     }
 
     [Fact]

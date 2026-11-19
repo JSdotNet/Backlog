@@ -1,4 +1,5 @@
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
+using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.DomainModels;
 
 namespace Backlog.Modules.Inbox.Services;
@@ -11,7 +12,10 @@ namespace Backlog.Modules.Inbox.Services;
 /// </summary>
 internal static class InboxMapper
 {
-    public static InboxItemDto ToDto(this InboxItem item) => new(
+    /// <summary>The item as callers hold it. <paramref name="transcriptionFailures"/>, by
+    /// sha256, are the recordings waiting for Retry; the snapshot the pane draws passes them,
+    /// so a recording row can say its transcription failed.</summary>
+    public static InboxItemDto ToDto(this InboxItem item, IReadOnlyDictionary<string, InboxTranscriptionFailureDto>? transcriptionFailures = null) => new(
         item.Id,
         item.Title,
         item.BodyMd,
@@ -41,6 +45,9 @@ internal static class InboxMapper
             attachment.LastError)
         {
             LocalPath = attachment.IsDownloaded ? attachment.LocalPath : null,
+            TranscriptionFailure = attachment.IsRecording && transcriptionFailures?.GetValueOrDefault(attachment.Sha256) is { WaitsForRetry: true } failure
+                ? failure
+                : null,
         })],
         DuplicateOf = item.DuplicateOf,
         DuplicateOfTask = item.DuplicateOfTask,

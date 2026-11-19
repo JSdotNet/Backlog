@@ -334,6 +334,11 @@ public interface IInboxItems
     /// answered, so the row shows the new reason.</summary>
     Task<Result> RetryAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default);
 
+    /// <summary>Sends a recording to transcription again — the act behind Retry on a
+    /// recording row whose transcription failed three times (local ADR 0049 §6). Its failed
+    /// attempts are forgotten and the note is taken up again in the background.</summary>
+    Task<Result> RetryTranscriptionAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default);
+
     /// <summary>The bytes of one downloaded file — what a thumbnail is drawn
     /// from. Fails with <c>inbox.attachment.not_downloaded</c> for a file that
     /// is not on this machine.</summary>

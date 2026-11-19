@@ -1,6 +1,3 @@
-using System.Buffers.Binary;
-using System.Text;
-
 namespace Backlog.Infrastructure.AzureFoundry;
 
 /// <summary>One part of a recording, remuxed: an M4A file and where it starts in the
@@ -19,6 +16,10 @@ public sealed record RemuxedPart(byte[] M4a, TimeSpan Offset);
 /// recording wrote is sent. Bytes that are not a frame — a torn tail, junk before the first
 /// sync word — are skipped.
 /// </para>
+/// <para>
+/// The cut and the M4A writer are <see cref="M4aParts"/>, which <see cref="Mp4Demuxer"/>
+/// shares for a recording that is already MP4.
+/// </para>
 /// </summary>
 public static class AdtsRemuxer
 {
@@ -33,7 +34,7 @@ public static class AdtsRemuxer
         [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
 
     /// <summary>Whether <paramref name="stream"/> opens with an ADTS sync word — the test a
-    /// caller uses to tell a stream to remux from a container to send as it is.</summary>
+    /// caller uses to tell a stream to remux from a container.</summary>
     public static bool LooksLikeAdts(ReadOnlySpan<byte> stream) =>
         stream.Length >= 2 && stream[0] == 0xFF && (stream[1] & 0xF6) == 0xF0;
 
@@ -46,20 +47,24 @@ public static class AdtsRemuxer
         var frames = ReadFrames(adts, out var config);
         if (frames.Count == 0 || config is null) return [];
 
-        var length = partLength ?? DefaultPartLength;
-        var framesPerPart = (int)Math.Floor(length.TotalSeconds * config.SampleRate / (config.BlocksPerFrame * SamplesPerBlock));
-        if (framesPerPart < 1) throw new ArgumentOutOfRangeException(nameof(partLength), "A part must hold at least one frame.");
+        // The movie timescale is the sample rate, so each frame lasts its samples.
+        var track = new AacTrack(
+            AudioSpecificConfig(config),
+            config.SampleRate,
+            config.Channels,
+            config.SampleRate,
+            frames,
+            Enumerable.Repeat((uint)(config.BlocksPerFrame * SamplesPerBlock), frames.Count).ToArray());
 
-        var parts = new List<RemuxedPart>();
-        for (var first = 0; first < frames.Count; first += framesPerPart)
-        {
-            var count = Math.Min(framesPerPart, frames.Count - first);
-            var offset = TimeSpan.FromSeconds((double)first * config.BlocksPerFrame * SamplesPerBlock / config.SampleRate);
-            parts.Add(new RemuxedPart(WriteM4a(adts, frames, first, count, config), offset));
-        }
-
-        return parts;
+        return M4aParts.Cut(adts, track, partLength ?? DefaultPartLength);
     }
+
+    /// <summary>The two-byte AudioSpecificConfig rebuilt from the ADTS header.</summary>
+    private static byte[] AudioSpecificConfig(AdtsConfig config) =>
+    [
+        (byte)((config.ObjectType << 3) | (config.RateIndex >> 1)),
+        (byte)(((config.RateIndex & 0x01) << 7) | (config.Channels << 3)),
+    ];
 
     /// <summary>The raw AAC payload of every whole frame, by position in the stream, and the
     /// stream's configuration from its first frame.</summary>
@@ -102,151 +107,6 @@ public static class AdtsRemuxer
 
         return frames;
     }
-
-    private static byte[] WriteM4a(ReadOnlySpan<byte> adts, List<Range> frames, int first, int count, AdtsConfig config)
-    {
-        var sizes = new int[count];
-        var payload = 0;
-        for (var i = 0; i < count; i++)
-        {
-            sizes[i] = frames[first + i].GetOffsetAndLength(adts.Length).Length;
-            payload += sizes[i];
-        }
-
-        var samplesPerFrame = config.BlocksPerFrame * SamplesPerBlock;
-        var duration = (long)count * samplesPerFrame;
-
-        var ftyp = Box("ftyp", Ascii("M4A "), U32(0), Ascii("M4A "), Ascii("mp42"), Ascii("isom"));
-
-        // The moov box is written once with a placeholder chunk offset to learn its size, then
-        // again with the real one; its size does not depend on the offset's value.
-        byte[] Moov(uint chunkOffset) => Box("moov",
-            Mvhd(config.SampleRate, duration),
-            Box("trak",
-                Tkhd(duration),
-                Box("mdia",
-                    Mdhd(config.SampleRate, duration),
-                    FullBox("hdlr", 0, 0, U32(0), Ascii("soun"), U32(0), U32(0), U32(0), Encoding.ASCII.GetBytes("SoundHandler\0")),
-                    Box("minf",
-                        FullBox("smhd", 0, 0, U16(0), U16(0)),
-                        Box("dinf", FullBox("dref", 0, 0, U32(1), FullBox("url ", 0, 1))),
-                        Box("stbl",
-                            FullBox("stsd", 0, 0, U32(1), Mp4a(config)),
-                            FullBox("stts", 0, 0, U32(1), U32((uint)count), U32((uint)samplesPerFrame)),
-                            FullBox("stsc", 0, 0, U32(1), U32(1), U32((uint)count), U32(1)),
-                            FullBox("stsz", 0, 0, U32(0), U32((uint)count), Concat(sizes.Select(size => U32((uint)size)))),
-                            FullBox("stco", 0, 0, U32(1), U32(chunkOffset)))))));
-
-        var moovLength = Moov(0).Length;
-        var mdatHeader = 8;
-        var moov = Moov((uint)(ftyp.Length + moovLength + mdatHeader));
-
-        var file = new byte[ftyp.Length + moov.Length + mdatHeader + payload];
-        var at = 0;
-        ftyp.CopyTo(file, at);
-        at += ftyp.Length;
-        moov.CopyTo(file, at);
-        at += moov.Length;
-        BinaryPrimitives.WriteUInt32BigEndian(file.AsSpan(at), (uint)(mdatHeader + payload));
-        Encoding.ASCII.GetBytes("mdat").CopyTo(file, at + 4);
-        at += mdatHeader;
-
-        for (var i = 0; i < count; i++)
-        {
-            var frame = adts[frames[first + i]];
-            frame.CopyTo(file.AsSpan(at));
-            at += frame.Length;
-        }
-
-        return file;
-    }
-
-    private static byte[] Mvhd(int timescale, long duration) => FullBox("mvhd", 0, 0,
-        U32(0), U32(0), U32((uint)timescale), U32((uint)duration),
-        U32(0x00010000), U16(0x0100), U16(0), U32(0), U32(0),
-        Matrix(), new byte[24], U32(2));
-
-    // The movie timescale is the sample rate, so the track's duration is in samples too.
-    private static byte[] Tkhd(long duration) =>FullBox("tkhd", 0, 0x000003,
-        U32(0), U32(0), U32(1), U32(0), U32((uint)duration),
-        U32(0), U32(0), U16(0), U16(0), U16(0x0100), U16(0),
-        Matrix(), U32(0), U32(0));
-
-    private static byte[] Mdhd(int timescale, long duration) => FullBox("mdhd", 0, 0,
-        U32(0), U32(0), U32((uint)timescale), U32((uint)duration),
-        U16(0x55C4), // "und": no language is claimed for the audio.
-        U16(0));
-
-    private static byte[] Mp4a(AdtsConfig config) => Box("mp4a",
-        new byte[6], U16(1),           // reserved, data reference index
-        U32(0), U32(0),                // reserved
-        U16((ushort)config.Channels), U16(16), U16(0), U16(0),
-        U32((uint)config.SampleRate << 16),
-        Esds(config));
-
-    /// <summary>The elementary stream descriptor: MPEG-4 audio, and the two-byte
-    /// AudioSpecificConfig rebuilt from the ADTS header.</summary>
-    private static byte[] Esds(AdtsConfig config)
-    {
-        var audioSpecificConfig = new[]
-        {
-            (byte)((config.ObjectType << 3) | (config.RateIndex >> 1)),
-            (byte)(((config.RateIndex & 0x01) << 7) | (config.Channels << 3)),
-        };
-
-        var decoderSpecific = Descriptor(0x05, audioSpecificConfig);
-        var decoderConfig = Descriptor(0x04, Concat(
-        [
-            [0x40, 0x15], // MPEG-4 audio; audio stream, upstream 0, reserved 1
-            [0, 0, 0],    // buffer size
-            U32(0), U32(0),
-            decoderSpecific,
-        ]));
-        var slConfig = Descriptor(0x06, [0x02]);
-        var es = Descriptor(0x03, Concat([U16(1), [0], decoderConfig, slConfig]));
-
-        return FullBox("esds", 0, 0, es);
-    }
-
-    private static byte[] Descriptor(byte tag, byte[] body) => Concat([[tag, (byte)body.Length], body]);
-
-    private static byte[] Matrix() => Concat(
-    [
-        U32(0x00010000), U32(0), U32(0),
-        U32(0), U32(0x00010000), U32(0),
-        U32(0), U32(0), U32(0x40000000),
-    ]);
-
-    private static byte[] Box(string type, params byte[][] content)
-    {
-        var body = Concat(content);
-        var box = new byte[8 + body.Length];
-        BinaryPrimitives.WriteUInt32BigEndian(box, (uint)box.Length);
-        Encoding.ASCII.GetBytes(type).CopyTo(box, 4);
-        body.CopyTo(box, 8);
-        return box;
-    }
-
-    private static byte[] FullBox(string type, byte version, int flags, params byte[][] content) =>
-        Box(type, Concat([[version, (byte)(flags >> 16), (byte)(flags >> 8), (byte)flags], .. content]));
-
-    private static byte[] U32(uint value)
-    {
-        var bytes = new byte[4];
-        BinaryPrimitives.WriteUInt32BigEndian(bytes, value);
-        return bytes;
-    }
-
-    private static byte[] U16(ushort value)
-    {
-        var bytes = new byte[2];
-        BinaryPrimitives.WriteUInt16BigEndian(bytes, value);
-        return bytes;
-    }
-
-    private static byte[] Ascii(string value) => Encoding.ASCII.GetBytes(value);
-
-    private static byte[] Concat(IEnumerable<byte[]> parts) => parts.SelectMany(part => part).ToArray();
 
     /// <summary>What every frame of the stream shares, read from its first header.</summary>
     internal sealed record AdtsConfig(int ObjectType, int RateIndex, int SampleRate, int Channels, int BlocksPerFrame);

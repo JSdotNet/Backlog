@@ -30,6 +30,11 @@ public sealed record InboxAttachmentDto(
     /// <summary>Where the downloaded file sits on this machine; null until it is downloaded.</summary>
     public string? LocalPath { get; init; }
 
+    /// <summary>For a recording whose transcription failed
+    /// <see cref="Services.InboxTranscriptionFailureDto.MaxAttempts"/> times and now waits for
+    /// Retry, the last failure — its reason and when (local ADR 0049 §6); null otherwise.</summary>
+    public Services.InboxTranscriptionFailureDto? TranscriptionFailure { get; init; }
+
     /// <summary>A sound file — a meeting recording from the phone (local ADR 0048).</summary>
     public bool IsAudio => ContentType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase);
 }
