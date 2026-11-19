@@ -29,12 +29,9 @@ namespace Backlog.UI.Components.UnitTests;
 /// normalised away: both are new on every render and neither is this view's.</para>
 ///
 /// <para>The captured header has been moved once since, deliberately: the
-/// language badge is now inside a <c>diagram-view__badges</c> span, because a
-/// diagram drawn from a generated Archify artifact carries a second badge naming
-/// the renderer and the two have to sit together. The badge itself is untouched —
-/// same class, same <c>data-testid</c>, same text — and the wrapper is
-/// unconditional, so a diagram with no artifact renders it holding only the
-/// language. Recorded here because this suite exists to make markup movement
+/// language badge is inside a <c>diagram-view__badges</c> span, which once also
+/// held a renderer switch. The badge itself is untouched — same class, same
+/// <c>data-testid</c>, same text — and the wrapper holds only the language. Recorded here because this suite exists to make markup movement
 /// visible, and a test named for what has always rendered should say when the
 /// answer changed and why.</para>
 /// </summary>

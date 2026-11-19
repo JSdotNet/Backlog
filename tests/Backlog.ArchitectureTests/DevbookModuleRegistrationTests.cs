@@ -46,8 +46,6 @@ public sealed partial class DevbookModuleRegistrationTests
         "InstructionSourceDiscovery",
         "DevbookMenu",
         "DevbookCopilotCli",
-        "IDiagramArtifactSource",
-        "ArchifyDiagramArtifacts",
         "DevbookScope",
         "DevbookUpdateService",
         "DevbookSourceSelection",

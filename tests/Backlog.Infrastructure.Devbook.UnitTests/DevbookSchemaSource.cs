@@ -14,9 +14,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// there fails a test here, and <c>DevbookSchemaContractTests</c> pins the
 /// embedded copy to the same text.</para>
 ///
-/// <para>This is the same pairing <c>DiagramSourceHash.Normalize</c> and
-/// <c>normalizeDiagramSource</c> already have, and it exists for the same reason:
-/// the failure it prevents is invisible from inside either language.</para>
+/// <para>The failure it prevents is invisible from inside either language.</para>
 /// </summary>
 internal static class DevbookSchemaSource
 {

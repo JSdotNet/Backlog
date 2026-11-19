@@ -3,11 +3,10 @@
 
 @*
     A click demo — a devbook's self-contained HTML picture of what a person sees —
-    in a frame built the way DiagramView frames an Archify artifact: the document
-    as srcdoc, a stage around the frame that goes full screen, and the way back out
-    inside it. Two things differ, both from devbook's demo address contract
-    (devbook.demo.address@1). The sandbox is allow-scripts and nothing else, and
-    the document goes in as it is: no theme pin, no stylesheet laid over it,
+    in a frame: the document as srcdoc, a stage around the frame that goes full
+    screen, and the way back out inside it. Both rules below come from devbook's
+    demo address contract (devbook.demo.address@1). The sandbox is allow-scripts
+    and nothing else, and the document goes in as it is: no theme pin, no stylesheet laid over it,
     because a demo shows the product the way the product looks, not the way this
     pane happens to be themed.
 *@
@@ -174,14 +173,13 @@
         }
     }
 
-    /// <summary>The Archify frame's full screen, on this frame's stage. A refusal
-    /// is swallowed for the reason DiagramView gives: the demo is still usable in
-    /// the chapter.</summary>
+    /// <summary>Full screen, on this frame's stage. A refusal is swallowed: the
+    /// demo is still usable in the chapter.</summary>
     private async Task ToggleFullscreenAsync()
     {
         try
         {
-            await Js.InvokeVoidAsync("backlogDiagrams.toggleArtifactFullscreen", _stage);
+            await Js.InvokeVoidAsync("backlogDiagrams.toggleFullscreen", _stage);
         }
         catch (Exception exception) when (exception is JSException or JSDisconnectedException)
         {

@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 
 using Backlog.Infrastructure.Devbook.Building;
 using Backlog.Modules.Devbook.Abstractions;
@@ -17,9 +16,8 @@ namespace Backlog.Infrastructure.Devbook;
 /// <para>It fills every table the schema in <c>tools/devbook/devbook-schema.sql</c>
 /// defines, with the rows <c>tools/devbook/build-database.mjs</c> writes for the
 /// same corpus: the reference graph, the resolved reading outline for every scope,
-/// each chapter's verbatim text, prose and hashes, the full-text index, the
-/// Archify artifact index, and the click demos with what pairs each one with a
-/// page. The embedding table is filled afterwards by
+/// each chapter's verbatim text, prose and hashes, the full-text index, and the
+/// click demos with what pairs each one with a page. The embedding table is filled afterwards by
 /// <see cref="DevbookChapterEmbeddings"/>, not here; a rebuild carries over the
 /// vectors the database it replaces already held for text that did not change, so
 /// an edit never re-embeds the corpus. Built fresh, the table is empty, as it is
@@ -27,7 +25,7 @@ namespace Backlog.Infrastructure.Devbook;
 /// <c>DevbookBuilderParityTests</c> on this repository's own corpus.</para>
 ///
 /// <para>What it does not do is validate. <c>problem</c> holds what the build
-/// could not use — an unreadable Archify index, a directory with no root
+/// could not use — a demo that pairs with no page, a directory with no root
 /// document — and not the convention's metadata rules, which stay the devbook
 /// checker's to report where somebody can fix them.</para>
 ///
@@ -45,8 +43,7 @@ public static class DevbookDatabaseBuilder
 
     /// <summary>
     /// The <c>meta</c> key holding a fingerprint of every input the build read —
-    /// each Markdown file, Archify index and demo, by path, size and
-    /// modification time. <see cref="IsCurrent"/> recomputes it from a directory
+    /// each Markdown file and demo, by path, size and modification time. <see cref="IsCurrent"/> recomputes it from a directory
     /// walk and a <c>stat</c> per file, without opening one.
     /// </summary>
     public const string InputsKey = "inputs";
@@ -166,7 +163,6 @@ public static class DevbookDatabaseBuilder
 
         cancellationToken.ThrowIfCancellationRequested();
         var linkedDemos = InsertChapters(connection, transaction, root, layout, cancellationToken);
-        InsertArchify(connection, transaction, root, layout, problems);
         InsertDemos(connection, transaction, root, layout, linkedDemos, problems);
         var carriedModel = carrying ? CarryEmbeddings(connection, transaction) : null;
 
@@ -463,80 +459,10 @@ public static class DevbookDatabaseBuilder
         }
     }
 
-    private static void InsertArchify(SqliteConnection connection, SqliteTransaction transaction, string root, DevbookBuildLayout layout, List<DevbookBuildProblem> problems)
-    {
-        using var insert = Command(connection, transaction, """
-            INSERT INTO archify_artifact (chapter_path, fence_hash, ordinal, type, quality, kind, spec_path, artifact_path, checks_passed, check_count)
-            VALUES ($chapter, $fence, $ordinal, $type, $quality, $kind, $spec, $artifact, $passed, $count)
-            """);
-
-        foreach (var folder in layout.Folders)
-        {
-            foreach (var indexPath in DevbookBuildFiles.ArchifyIndexes(root, folder, layout.Profile.ReadsCloudPlaceholders))
-            {
-                var artifactDirectory = indexPath[..indexPath.LastIndexOf('/')];
-                var chapterDirectory = artifactDirectory[..artifactDirectory.LastIndexOf('/')];
-
-                JsonDocument document;
-                try
-                {
-                    document = JsonDocument.Parse(DevbookBuildFiles.ReadText(root, indexPath));
-                }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
-                {
-                    problems.Add(new DevbookBuildProblem(folder, "warning", indexPath,
-                        $"{indexPath} is not readable JSON; its artifacts are absent from the database and their chapters fall back to mermaid."));
-                    continue;
-                }
-
-                using (document)
-                {
-                    if (document.RootElement.ValueKind != JsonValueKind.Object
-                        || !document.RootElement.TryGetProperty("entries", out var entries)
-                        || entries.ValueKind != JsonValueKind.Object)
-                    {
-                        continue;
-                    }
-
-                    foreach (var property in entries.EnumerateObject())
-                    {
-                        var entry = property.Value;
-                        if (entry.ValueKind != JsonValueKind.Object || String(entry, "chapter") is not { } chapter)
-                        {
-                            problems.Add(new DevbookBuildProblem(folder, "warning", indexPath,
-                                $"{indexPath} entry \"{property.Name}\" names no chapter; re-run tools/diagrams/archify-artifacts.mjs."));
-                            continue;
-                        }
-
-                        Bind(insert,
-                            ("$chapter", $"{chapterDirectory}/{chapter}"), ("$fence", property.Name),
-                            ("$ordinal", Number(entry, "ordinal") ?? 0L), ("$type", String(entry, "type")),
-                            ("$quality", String(entry, "quality")), ("$kind", String(entry, "kind")),
-                            ("$spec", String(entry, "spec") is { Length: > 0 } spec ? $"{artifactDirectory}/{spec}" : null),
-                            ("$artifact", String(entry, "artifact") is { Length: > 0 } artifact ? $"{artifactDirectory}/{artifact}" : null),
-                            ("$passed", Number(entry, "checksPassed")), ("$count", Number(entry, "checkCount")));
-                        insert.ExecuteNonQuery();
-                    }
-                }
-            }
-        }
-
-        static string? String(JsonElement element, string name) =>
-            element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
-
-        // An integral number binds as an integer, as node:sqlite binds one, so the
-        // column holds 3 and not 3.0.
-        static object? Number(JsonElement element, string name)
-        {
-            if (!element.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Number) return null;
-            return value.TryGetInt64(out var integer) ? integer : value.GetDouble();
-        }
-    }
-
     /// <summary>
     /// A fingerprint of every input a build reads: each Markdown file and each
-    /// Archify index and each demo, by path, size and modification time — one directory walk
-    /// and a <c>stat</c> per file. The reading order is derived from those names
+    /// demo, by path, size and modification time — one directory walk and a
+    /// <c>stat</c> per file. The reading order is derived from those names
     /// and files (local ADR 0016), so a rename or an added file is already here;
     /// a stray <c>_reading-order.json</c> is not an input and touching one
     /// rebuilds nothing.
@@ -566,7 +492,6 @@ public static class DevbookDatabaseBuilder
         foreach (var folder in layout.Folders)
         {
             inputs.AddRange(DevbookBuildFiles.Markdown(root, folder, skipGenerated: false, layout.Profile.ReadsCloudPlaceholders));
-            inputs.AddRange(DevbookBuildFiles.ArchifyIndexes(root, folder, layout.Profile.ReadsCloudPlaceholders));
             inputs.AddRange(DevbookBuildFiles.Demos(root, folder, layout.Profile.ReadsCloudPlaceholders));
         }
 

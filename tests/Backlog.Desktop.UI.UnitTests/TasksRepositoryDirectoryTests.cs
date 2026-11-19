@@ -46,14 +46,14 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
     [Fact]
     public void An_archived_repository_is_still_offered_and_resolved_marked_archived()
     {
-        var store = StoreWith("JSdotNet/Backlog\nJSdotNet/Archify");
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        var store = StoreWith("JSdotNet/Backlog\nJSdotNet/Almanac");
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
         var directory = new SettingsRepositoryDirectory(store);
 
         Assert.Equal([false, true], directory.Repositories.Select(r => r.IsArchived));
-        Assert.True(directory.Resolve("JSdotNet/Archify")!.IsArchived);
+        Assert.True(directory.Resolve("JSdotNet/Almanac")!.IsArchived);
         Assert.False(directory.Resolve("backlog")!.IsArchived);
-        Assert.True(directory.Register("archify").Value.IsArchived);
+        Assert.True(directory.Register("almanac").Value.IsArchived);
     }
 
     /// <summary>A plan writes a name however its author felt like writing it, and

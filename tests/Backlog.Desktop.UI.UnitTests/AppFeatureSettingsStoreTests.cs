@@ -73,7 +73,6 @@ public sealed class AppFeatureSettingsStoreTests
                 // Product areas
                 AppFeatures.InboxPane,
                 Backlog.Modules.Progress.Abstractions.ProgressFeatures.WeeklyReview,
-                DevbookFeatures.ArchifyDiagrams,
                 DevbookFeatures.LobesAtlas,
                 DevbookFeatures.Search,
                 DevbookFeatures.SemanticSearch,
@@ -112,14 +111,11 @@ public sealed class AppFeatureSettingsStoreTests
     }
 
     /// <summary>Maturity and the default switch are two decisions, and graduating
-    /// a feature is meant to be one of them at a time. Archify diagrams were judged
-    /// finished on 2026-09-16 and lost their badge, but stay opt-in until somebody
-    /// decides otherwise; Sync moved one step, from not usable to worth
-    /// trying. Pinned so that the next
+    /// a feature is meant to be one of them at a time. Sync moved one step, from
+    /// not usable to worth trying, and stays opt-in. Pinned so that the next
     /// graduation is a deliberate edit here too, not a side effect of tidying the
     /// catalog.</summary>
     [Theory]
-    [InlineData(DevbookFeatures.ArchifyDiagrams, AppFeatureStatus.Released, false)]
     [InlineData(SyncFeatures.Sync, AppFeatureStatus.Beta, false)]
     public void Graduated_features_keep_their_maturity_and_default_apart(string key, AppFeatureStatus status, bool enabledByDefault)
     {
@@ -299,9 +295,9 @@ public sealed class AppFeatureSettingsStoreTests
 
     /// <summary>
     /// The C4 switches are retired: the architecture surface is always on, the only
-    /// reading of the C4 model (local ADR 0046). A file written while
-    /// <c>"c4-diagrams"</c> or <c>"c4-zoom"</c> was on still loads, the choices beside
-    /// them keep, and the next save carries neither retired key.
+    /// reading of the C4 model (local ADR 0046). So is <c>"archify-diagrams"</c>, with
+    /// Archify itself (local ADR 0057). A file written while any of them was on still
+    /// loads, the choices beside them keep, and the next save carries no retired key.
     /// </summary>
     [Fact]
     public void Stored_c4_switch_choices_are_dropped_on_the_next_save()
@@ -313,17 +309,18 @@ public sealed class AppFeatureSettingsStoreTests
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new
             {
-                enabledFeatures = new[] { "c4-diagrams", "c4-zoom", "archify-diagrams" }
+                enabledFeatures = new[] { "c4-diagrams", "c4-zoom", "archify-diagrams", DevbookFeatures.LobesAtlas }
             }));
 
             var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.Equal([DevbookFeatures.ArchifyDiagrams], store.Current.EnabledFeatures);
+            Assert.Equal([DevbookFeatures.LobesAtlas], store.Current.EnabledFeatures);
 
             store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
 
             var saved = File.ReadAllText(path);
-            Assert.Contains("archify-diagrams", saved);
+            Assert.Contains(DevbookFeatures.LobesAtlas, saved);
+            Assert.DoesNotContain("archify-diagrams", saved);
             Assert.DoesNotContain("c4-diagrams", saved);
             Assert.DoesNotContain("c4-zoom", saved);
         }

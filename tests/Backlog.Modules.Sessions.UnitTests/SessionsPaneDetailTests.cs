@@ -803,7 +803,7 @@ public sealed class SessionsPaneDetailTests
                 Stages = [new DeliveryRunStage("Implement", "done", 60_000, 1)]
             };
 
-        using var context = Context([], [Finished("a", "flow-code", "JSdotNet/Backlog", 1), Finished("b", "flow-spec", "JSdotNet/Archify", 2), Finished("c", "flow-spec", "JSdotNet/Archify", 3)]);
+        using var context = Context([], [Finished("a", "flow-code", "JSdotNet/Backlog", 1), Finished("b", "flow-spec", "JSdotNet/Almanac", 2), Finished("c", "flow-spec", "JSdotNet/Almanac", 3)]);
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Noon));
 
@@ -812,7 +812,7 @@ public sealed class SessionsPaneDetailTests
             .Add(p => p.RepositoryAlias, repository => repository?.ToLowerInvariant() switch
             {
                 "jsdotnet/backlog" => "backlog",
-                "jsdotnet/archify" => "archify",
+                "jsdotnet/almanac" => "almanac",
                 _ => null
             }));
 

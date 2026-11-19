@@ -295,7 +295,7 @@ public sealed class C4ElementInspectionTests
 
                 ## Remediation options
 
-                ### Option A — fetch `_archify` lazily per diagram (preferred before local ADR 0034)
+                ### Option A — fetch the renders lazily per diagram (preferred before local ADR 0034)
 
                 Text.
 

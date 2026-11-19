@@ -159,8 +159,7 @@ public static class C4Exploration
     /// <para>
     /// Only a view that actually exists is offered. c4hero picks a level and frames
     /// it; this reader cannot invent a view the workspace does not declare, and
-    /// offering a drill-in that opens nothing would be worse than offering none —
-    /// which is the same rule the Archify affordance follows.
+    /// offering a drill-in that opens nothing would be worse than offering none.
     /// </para>
     /// </summary>
     public static string? DrillViewKey(C4Workspace workspace, string elementId, string? fromViewKey = null)

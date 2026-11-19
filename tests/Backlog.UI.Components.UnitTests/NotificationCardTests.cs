@@ -39,7 +39,7 @@ public sealed class NotificationCardTests
     }
 
     [Fact]
-    public void The_body_is_markdown_and_a_mermaid_fence_draws_through_DiagramView_without_Archify()
+    public void The_body_is_markdown_and_a_mermaid_fence_draws_through_DiagramView()
     {
         using var context = Context();
 
@@ -48,8 +48,6 @@ public sealed class NotificationCardTests
         var body = card.Find("[data-testid='notification-card-body']");
         Assert.Contains("3 tables changed.", body.TextContent);
         Assert.NotNull(body.QuerySelector("[data-testid='diagram-view']"));
-        Assert.Null(body.QuerySelector("[data-testid='diagram-view-artifact']"));
-        Assert.Null(body.QuerySelector("[data-testid='diagram-view-renderers']"));
     }
 
     [Fact]

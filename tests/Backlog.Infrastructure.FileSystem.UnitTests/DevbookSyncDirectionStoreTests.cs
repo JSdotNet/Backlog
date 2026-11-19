@@ -19,7 +19,7 @@ public sealed class DevbookSyncDirectionStoreTests : IDisposable
     private const string Inbox = "domain/inbox/context.md";
     private const string TaskUnit = "domain/tasks/domain.md#task";
 
-    private static readonly DevbookSubject Debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-archify.md");
+    private static readonly DevbookSubject Debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md");
 
     private readonly string _root = Path.Combine(
         Path.GetTempPath(),

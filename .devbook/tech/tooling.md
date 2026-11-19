@@ -377,7 +377,7 @@ flowchart LR
   holds:
   - the reference graph and the resolved reading outline;
   - every chapter's text and hashes, with its count of open review notes;
-  - the FTS5 index, the Archify artifact rows, and an empty embedding table.
+  - the FTS5 index, the click demos, and an empty embedding table.
 
   `node tools/devbook/build-database.mjs` builds the same tables from the
   command line. `--check` builds to a temporary file and deletes it, and

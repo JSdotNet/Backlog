@@ -65,7 +65,7 @@ nunit-*.xml
 # Publish profiles (Visual Studio writes them under Properties/PublishProfiles/)
 *.pubxml
 
-# npm dependencies (tools/archify, src/App/Backlog.Ide.VsCode)
+# npm dependencies (src/App/Backlog.Ide.VsCode)
 node_modules/
 
 # Scratch space for work in progress: QA evidence, notes, throwaway artifacts.
@@ -100,26 +100,6 @@ node_modules/
 # Local Android developer signing material created by build/Install-AndroidApp.ps1.
 # Never commit a keystore or its password; release signing comes from repo secrets.
 build/.local/
-
-# The vendored Archify CLI. `[Bb]in/` above is a .NET build-output rule and it
-# swallowed `tools/archify/bin/` when Archify was vendored, so the four
-# entrypoints it holds were never committed — including the `archify.mjs` that
-# `tools/diagrams/archify-artifacts.mjs` spawns to render every diagram artifact.
-# Regeneration failed with MODULE_NOT_FOUND on any fresh clone while `scan` and
-# `verify`, which never shell out, both reported green. The negation names the
-# directory rather than its contents because git does not look inside an excluded
-# directory, so `!tools/archify/bin/**` on its own would keep it invisible.
-!tools/archify/bin/
-
-# Generated Archify renders (local ADR 0034). Each is a self-contained page of
-# roughly 700 KB derived from the specification beside it; committed, they were
-# more than half the tracked tree and every regeneration rewrote megabytes of
-# history. The app draws them on demand into its own storage, so only the
-# specifications and `_archify/index.json` are committed. `render` still leaves a
-# local preview beside the specification, and `render-examples.mjs` writes the
-# example renders; both stay on the machine that made them.
-**/_archify/*.html
-tools/archify/examples/*.html
 
 # azd environment state (azure.yaml, infra/sync/). Holds the resolved
 # subscription, resource group and every provisioning output for a named

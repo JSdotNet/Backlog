@@ -717,7 +717,6 @@ public class DevbookBuilderParityTests : IDisposable
                 ("edge", "id, type, source, target"),
                 ("outline_entry", "id"),
                 ("chapter", "id"),
-                ("archify_artifact", "chapter_path, fence_hash, ordinal"),
                 ("demo", "path"),
                 ("demo_link", "chapter_path, line, ordinal"),
                 ("chapter_embedding", "content_hash")

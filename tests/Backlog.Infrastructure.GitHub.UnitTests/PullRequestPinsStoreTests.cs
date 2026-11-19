@@ -55,12 +55,12 @@ public sealed class PullRequestPinsStoreTests : IDisposable
     {
         var store = Store();
         store.Pin("JSdotNet/Backlog", 712);
-        store.Pin("JSdotNet/Archify", 3);
+        store.Pin("JSdotNet/Almanac", 3);
 
         store.Unpin("jsdotnet/backlog", 712);
 
         Assert.False(store.IsPinned("JSdotNet/Backlog", 712));
-        Assert.Equal([new PullRequestPin("JSdotNet/Archify", 3)], Store().Pins);
+        Assert.Equal([new PullRequestPin("JSdotNet/Almanac", 3)], Store().Pins);
     }
 
     [Fact]

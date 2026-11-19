@@ -181,7 +181,7 @@ builder.Services.AddTaskConnector<HarnessTaskConnector>();
 // The Devbook - its adapters and AddDevbookModule - is in the composition above
 // since issue #738. The two things this harness did differently arrive through
 // its options there: the domain store is scoped with the rest of a circuit's
-// state, and the Copilot offers and Archify artifacts take the unavailable
+// state, and the Copilot offers take the unavailable
 // launcher, so pressing one says this host cannot start a CLI.
 
 // The same MCP server the desktop head serves, on the Kestrel pipeline this

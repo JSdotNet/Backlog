@@ -125,7 +125,7 @@ public sealed class DeliveryRunReaderTests : IDisposable
     [Fact]
     public async Task An_address_stated_only_in_the_summary_is_still_a_reference()
     {
-        GivenRun("orch-dashboard", "archify-animation-loop-ac8a3c-8e0887e5", "run.json", SummaryOnlyRun);
+        GivenRun("orch-dashboard", "almanac-animation-loop-ac8a3c-8e0887e5", "run.json", SummaryOnlyRun);
 
         var run = Assert.Single((await ReadAsync()).Runs);
         var reference = Assert.Single(run.References);
@@ -1181,7 +1181,7 @@ public sealed class DeliveryRunReaderTests : IDisposable
         {
           "id": "run-summary",
           "skillId": "orch-feature",
-          "title": "Archify animation loop",
+          "title": "Almanac animation loop",
           "status": "done",
           "changeKind": "new-functionality",
           "phaseDoneCounts": { "Summary": 1 },

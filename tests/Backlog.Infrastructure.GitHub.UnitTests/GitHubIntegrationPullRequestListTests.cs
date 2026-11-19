@@ -16,7 +16,7 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-pull-request-list-tests", Guid.NewGuid().ToString("n"));
 
     private static readonly GitHubRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
-    private static readonly GitHubRepositoryRef Archify = new("archify", "JSdotNet", "Archify");
+    private static readonly GitHubRepositoryRef Almanac = new("almanac", "JSdotNet", "Almanac");
     private static readonly GitHubRepositoryRef Broken = new("broken", "octo", "broken");
 
     private static readonly GitHubOpenPullRequest Pull = new(
@@ -53,12 +53,12 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
     {
         var transport = new RoutingTransport()
             .Returns("graphql#JSdotNet/Backlog", List(Node(1, "2026-10-01T08:00:00Z")))
-            .Returns("graphql#JSdotNet/Archify", List(Node(2, "2026-10-01T10:00:00Z")));
+            .Returns("graphql#JSdotNet/Almanac", List(Node(2, "2026-10-01T10:00:00Z")));
 
-        var listing = await Integration(transport).ListOpenPullRequestsAsync([Backlog, Archify], TestContext.Current.CancellationToken);
+        var listing = await Integration(transport).ListOpenPullRequestsAsync([Backlog, Almanac], TestContext.Current.CancellationToken);
 
         Assert.Equal([2, 1], listing.PullRequests.Select(pull => pull.Number));
-        Assert.Equal(["JSdotNet/Archify", "JSdotNet/Backlog"], listing.PullRequests.Select(pull => pull.RepositoryFullName));
+        Assert.Equal(["JSdotNet/Almanac", "JSdotNet/Backlog"], listing.PullRequests.Select(pull => pull.RepositoryFullName));
         Assert.Empty(listing.Failures);
     }
 
@@ -86,9 +86,9 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         var transport = new RoutingTransport()
             .Returns("graphql#JSdotNet/Backlog", List(Node(1, "2026-10-01T08:00:00Z")))
             .Refuses("graphql#octo/broken", "gh: Could not resolve to a Repository with the name 'octo/broken'.")
-            .Returns("graphql#JSdotNet/Archify", List(Node(2, "2026-10-01T10:00:00Z")));
+            .Returns("graphql#JSdotNet/Almanac", List(Node(2, "2026-10-01T10:00:00Z")));
 
-        var listing = await Integration(transport).ListOpenPullRequestsAsync([Backlog, Broken, Archify], TestContext.Current.CancellationToken);
+        var listing = await Integration(transport).ListOpenPullRequestsAsync([Backlog, Broken, Almanac], TestContext.Current.CancellationToken);
 
         Assert.Equal([2, 1], listing.PullRequests.Select(pull => pull.Number));
 
@@ -118,12 +118,12 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
     {
         var transport = new RoutingTransport()
             .Returns("graphql#JSdotNet/Backlog", MergedList(Merged(1, "2026-10-01T08:00:00Z"), Merged(3, "2026-09-30T08:00:00Z")))
-            .Returns("graphql#JSdotNet/Archify", MergedList(Merged(2, "2026-10-01T10:00:00Z")));
+            .Returns("graphql#JSdotNet/Almanac", MergedList(Merged(2, "2026-10-01T10:00:00Z")));
 
-        var listing = await Integration(transport).ListMergedPullRequestsAsync([Backlog, Archify], TestContext.Current.CancellationToken);
+        var listing = await Integration(transport).ListMergedPullRequestsAsync([Backlog, Almanac], TestContext.Current.CancellationToken);
 
         Assert.Equal([2, 1, 3], listing.PullRequests.Select(pull => pull.Number));
-        Assert.Equal(["JSdotNet/Archify", "JSdotNet/Backlog", "JSdotNet/Backlog"], listing.PullRequests.Select(pull => pull.RepositoryFullName));
+        Assert.Equal(["JSdotNet/Almanac", "JSdotNet/Backlog", "JSdotNet/Backlog"], listing.PullRequests.Select(pull => pull.RepositoryFullName));
         Assert.Empty(listing.Failures);
     }
 
@@ -133,9 +133,9 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         var transport = new RoutingTransport()
             .Returns("graphql#JSdotNet/Backlog", MergedList(Merged(1, "2026-10-01T08:00:00Z")))
             .Refuses("graphql#octo/broken", "gh: Could not resolve to a Repository with the name 'octo/broken'.")
-            .Returns("graphql#JSdotNet/Archify", MergedList(Merged(2, "2026-10-01T10:00:00Z")));
+            .Returns("graphql#JSdotNet/Almanac", MergedList(Merged(2, "2026-10-01T10:00:00Z")));
 
-        var listing = await Integration(transport).ListMergedPullRequestsAsync([Backlog, Broken, Archify], TestContext.Current.CancellationToken);
+        var listing = await Integration(transport).ListMergedPullRequestsAsync([Backlog, Broken, Almanac], TestContext.Current.CancellationToken);
 
         Assert.Equal([2, 1], listing.PullRequests.Select(pull => pull.Number));
 
@@ -179,9 +179,9 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
             .ToArray();
         var transport = new RoutingTransport()
             .ReturnsInTurn("graphql#JSdotNet/Backlog", busy)
-            .Returns("graphql#JSdotNet/Archify", MergedList(Merged(100, "2026-10-01T10:00:00Z")));
+            .Returns("graphql#JSdotNet/Almanac", MergedList(Merged(100, "2026-10-01T10:00:00Z")));
 
-        var listing = await Integration(transport).ListMergedPullRequestsAsync([Backlog, Archify], TestContext.Current.CancellationToken);
+        var listing = await Integration(transport).ListMergedPullRequestsAsync([Backlog, Almanac], TestContext.Current.CancellationToken);
 
         Assert.Equal(["JSdotNet/Backlog"], listing.Truncated);
         Assert.Equal(GitHubClient.MergedPageCap + 1, listing.PullRequests.Count);
@@ -460,10 +460,10 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
     {
         var transport = new RoutingTransport()
             .Returns("graphql#JSdotNet/Backlog", Pinned(("p1", PinnedNode(1, "OPEN", "2026-10-01T08:00:00Z")), ("p3", PinnedNode(3, "MERGED", "2026-10-01T11:00:00Z"))))
-            .Returns("graphql#JSdotNet/Archify", Pinned(("p2", PinnedNode(2, "CLOSED", "2026-10-01T10:00:00Z"))));
+            .Returns("graphql#JSdotNet/Almanac", Pinned(("p2", PinnedNode(2, "CLOSED", "2026-10-01T10:00:00Z"))));
 
         var listing = await Integration(transport).ListPinnedPullRequestsAsync(
-            [new PullRequestPin("JSdotNet/Backlog", 1), new PullRequestPin("JSdotNet/Archify", 2), new PullRequestPin("jsdotnet/backlog", 3)],
+            [new PullRequestPin("JSdotNet/Backlog", 1), new PullRequestPin("JSdotNet/Almanac", 2), new PullRequestPin("jsdotnet/backlog", 3)],
             TestContext.Current.CancellationToken);
 
         Assert.Equal(2, transport.Bodies.Count(body => body!.Contains("pullRequest(number:", StringComparison.Ordinal)));
@@ -531,13 +531,13 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
     {
         var transport = new RoutingTransport()
             .Returns("graphql#JSdotNet/Backlog", List(Node(1, "2026-10-01T08:00:00Z")))
-            .Refuses("graphql#JSdotNet/Archify", "gh: Could not resolve to a Repository with the name 'JSdotNet/Archify'.");
+            .Refuses("graphql#JSdotNet/Almanac", "gh: Could not resolve to a Repository with the name 'JSdotNet/Almanac'.");
 
-        var listing = await ArchivingIntegration(transport).ListOpenPullRequestsAsync([Backlog, Archify], TestContext.Current.CancellationToken);
+        var listing = await ArchivingIntegration(transport).ListOpenPullRequestsAsync([Backlog, Almanac], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, Assert.Single(listing.PullRequests).Number);
         Assert.Empty(listing.Failures);
-        Assert.DoesNotContain(transport.Paths, path => path.Contains("Archify", StringComparison.Ordinal));
+        Assert.DoesNotContain(transport.Paths, path => path.Contains("Almanac", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -545,14 +545,14 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
     {
         var transport = new RoutingTransport()
             .Returns("graphql#JSdotNet/Backlog", MergedList(Merged(1, "2026-10-01T08:00:00Z")))
-            .Refuses("graphql#JSdotNet/Archify", "gh: Could not resolve to a Repository with the name 'JSdotNet/Archify'.");
+            .Refuses("graphql#JSdotNet/Almanac", "gh: Could not resolve to a Repository with the name 'JSdotNet/Almanac'.");
 
-        var listing = await ArchivingIntegration(transport).ListMergedPullRequestsAsync([Backlog, Archify], TestContext.Current.CancellationToken);
+        var listing = await ArchivingIntegration(transport).ListMergedPullRequestsAsync([Backlog, Almanac], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, Assert.Single(listing.PullRequests).Number);
         Assert.Empty(listing.Failures);
         Assert.Empty(listing.Truncated);
-        Assert.DoesNotContain(transport.Paths, path => path.Contains("Archify", StringComparison.Ordinal));
+        Assert.DoesNotContain(transport.Paths, path => path.Contains("Almanac", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -560,15 +560,15 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
     {
         var transport = new RoutingTransport()
             .Returns("graphql#JSdotNet/Backlog", Pinned(("p1", PinnedNode(1, "OPEN", "2026-10-01T08:00:00Z"))))
-            .Refuses("graphql#JSdotNet/Archify", "gh: Could not resolve to a Repository with the name 'JSdotNet/Archify'.");
+            .Refuses("graphql#JSdotNet/Almanac", "gh: Could not resolve to a Repository with the name 'JSdotNet/Almanac'.");
 
         var listing = await ArchivingIntegration(transport).ListPinnedPullRequestsAsync(
-            [new PullRequestPin("JSdotNet/Backlog", 1), new PullRequestPin("jsdotnet/archify", 2)],
+            [new PullRequestPin("JSdotNet/Backlog", 1), new PullRequestPin("jsdotnet/almanac", 2)],
             TestContext.Current.CancellationToken);
 
         Assert.Equal(1, Assert.Single(listing.PullRequests).Number);
         Assert.Empty(listing.Failures);
-        Assert.DoesNotContain(transport.Paths, path => path.Contains("Archify", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(transport.Paths, path => path.Contains("Almanac", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>The integration answers which repositories it reads: the configured ones
@@ -578,16 +578,16 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
     {
         var integration = ArchivingIntegration(new RoutingTransport());
 
-        Assert.Equal(["backlog", "archify"], integration.Repositories.Select(r => r.Alias));
+        Assert.Equal(["backlog", "almanac"], integration.Repositories.Select(r => r.Alias));
         Assert.Equal(["backlog"], integration.ActiveRepositories.Select(r => r.Alias));
     }
 
-    /// <summary>Backlog and Archify configured, Archify archived.</summary>
+    /// <summary>Backlog and Almanac configured, Almanac archived.</summary>
     private GitHubIntegration ArchivingIntegration(RoutingTransport transport)
     {
         var integration = Integration(transport);
-        Assert.Null(integration.Settings.SetRepositories([Backlog, Archify]));
-        Assert.Null(integration.Settings.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(integration.Settings.SetRepositories([Backlog, Almanac]));
+        Assert.Null(integration.Settings.SetRepositoryArchived("almanac", archived: true));
         return integration;
     }
 

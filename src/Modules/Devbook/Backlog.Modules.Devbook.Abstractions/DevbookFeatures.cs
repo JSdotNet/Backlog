@@ -10,17 +10,6 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// </summary>
 public static class DevbookFeatures
 {
-    /// <summary>Draw a chapter diagram from its generated Archify artifact where
-    /// one exists, instead of rendering the mermaid.
-    /// <para>
-    /// A devbook key rather than a shell one, by the same rule as its
-    /// neighbours: what it switches is how a devbook chapter's diagrams are
-    /// drawn, so it belongs with the context the chapters are of. The Shell only
-    /// contributes the catalog row that names and describes it, and the adapter
-    /// that answers it lives with the panels that render the chapters.
-    /// </para></summary>
-    public const string ArchifyDiagrams = "archify-diagrams";
-
     /// <summary>Search the knowledge areas by the words their chapters use.
     /// <para>
     /// A devbook key by the same rule as its neighbours: what it switches on is
