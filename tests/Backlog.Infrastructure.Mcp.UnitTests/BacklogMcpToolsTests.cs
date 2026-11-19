@@ -131,27 +131,26 @@ public class BacklogMcpToolsTests
 
     /// <summary>
     /// One check per group, each group behind the flag of the area it belongs to
-    /// (local ADR 0012 §7). Six groups over four bounded contexts, and the
-    /// roadmap is one of them: it has a key of its own and a person switching it
-    /// off has switched off the thing that tool reads.
+    /// (local ADR 0012 §7) — or behind none, for an area no switch turns off: the
+    /// backlog, the roadmap and the devbook are permanent.
     /// </summary>
     [Fact]
     public void Each_group_reads_the_feature_key_its_area_owns()
     {
-        Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Work.FeatureKey);
-        Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Tracker.FeatureKey);
-        Assert.Equal(RoadmapFeatures.Roadmap, BacklogMcpTools.Roadmap.FeatureKey);
-        Assert.Equal(DevbookFeatures.RepositoryDevbook, BacklogMcpTools.Devbook.FeatureKey);
-        Assert.Equal(DevbookFeatures.RepositoryDevbook, DecisionTools.Group.FeatureKey);
-        Assert.Equal(DevbookFeatures.RepositoryDevbook, SyncDirectionTools.Group.FeatureKey);
+        Assert.Null(BacklogMcpTools.Work.FeatureKey);
+        Assert.Null(BacklogMcpTools.Tracker.FeatureKey);
+        Assert.Null(BacklogMcpTools.Roadmap.FeatureKey);
+        Assert.Null(BacklogMcpTools.Devbook.FeatureKey);
+        Assert.Null(DecisionTools.Group.FeatureKey);
+        Assert.Null(SyncDirectionTools.Group.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Usage.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Schedules.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Loops.FeatureKey);
-        // Progress has no switch: its impediment and goal tools ride the always-on Tasks key.
-        Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Impediments.FeatureKey);
-        Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Goals.FeatureKey);
+        // Progress has no switch: its impediment and goal tools are always listed.
+        Assert.Null(BacklogMcpTools.Impediments.FeatureKey);
+        Assert.Null(BacklogMcpTools.Goals.FeatureKey);
         // The dispatcher tools have the queue's own key, off by default (local ADR 0038 §5).
         Assert.Equal(SessionFeatures.SessionRequests, BacklogMcpTools.SessionRequests.FeatureKey);
         Assert.Equal(NotificationsFeatures.Notifications, BacklogMcpTools.Notifications.FeatureKey);
@@ -160,82 +159,56 @@ public class BacklogMcpToolsTests
     }
 
     /// <summary>
-    /// Three keys are read by several groups each, and that is the decision rather
-    /// than a duplicate to be cleaned up.
+    /// One key is read by several groups, and that is the decision rather than a
+    /// duplicate to be cleaned up.
     /// <para>
-    /// This used to assert that every group's key was distinct, which read §7's
-    /// "one check per group" as "one group per key". They are different
-    /// requirements. A group is the unit the check is applied at, so that a class
-    /// cannot half-appear in <c>tools/list</c>; a key is the switchable
-    /// <em>area</em>. Reading the backlog and moving it are one area — somebody
-    /// switching Tasks off means "no backlog tools", not "no backlog tools except
-    /// the ones that write" — while being two descriptions of what a tool class
-    /// is for, which is what a model reads.
+    /// §7 asks for one check per group, not one group per key. Reading what agents
+    /// left on this machine and recording what a flow is doing on it now are one
+    /// area, drawn in one pane, behind one switch: somebody switching sessions off
+    /// means "Backlog is not where I watch my agents work", which does not stop at
+    /// the reads. The usage tool reads the same runs and sessions, apart from the
+    /// surface so the flow driving a run is never handed its measured figures, and
+    /// <c>check_in</c> rides the same key (local ADR 0051 §6).
     /// </para>
     /// <para>
-    /// The sessions key is the second and the same argument: reading what
-    /// agents left on this machine and recording what a flow is doing on it now
-    /// are one area, drawn in one pane, behind one switch. Somebody switching
-    /// sessions off means "Backlog is not where I watch my agents work", which
-    /// does not stop at the reads. The usage tool is the third group on it: it reads
-    /// the same runs and sessions, apart from the surface so the flow driving a run
-    /// is never handed its measured figures. <c>check_in</c> is the fourth: local ADR 0051
-    /// §6 puts the loop sessions behind the sessions key, with no key of their own.
-    /// </para>
-    /// <para>
-    /// The devbook key is the third, on the same argument: reading a chapter,
-    /// keeping the workflow state of the records in it (<c>devbook.decision@1</c>)
-    /// and reading which way its sync units are levelled are one area. Somebody
-    /// switching the devbook off has switched off the records and the units these
-    /// are about as much as the chapters the first group reads.
-    /// </para>
-    /// <para>
-    /// No key crosses a bounded context but one: the Tasks key also gates Progress's
-    /// impediment and goal tools, because Progress has no switch of its own — goals are
-    /// always on (local ADR 0035 §10) — and the Tasks key cannot be turned off either. The
-    /// keys the groups name are seven: the session request queue's dispatcher tools
-    /// have <c>session-requests</c> to themselves, and the notification tools
-    /// <c>notifications</c>, and the Inbox tools the Inbox pane's <c>inbox-pane</c>.
+    /// The groups of an area no switch turns off carry no key at all: the backlog,
+    /// the roadmap and the devbook are permanent, Progress has no switch of its own
+    /// (local ADR 0035 §10), and <c>open_window</c> is ungated (local ADR 0043 §7).
     /// </para>
     /// </summary>
     [Fact]
     public void Groups_share_a_key_only_where_they_are_one_area()
     {
-        // The one ungated group has no key to share: open_window is behind no flag.
-        Assert.Equal([BacklogMcpTools.Windows], BacklogMcpTools.Groups.Where(group => group.FeatureKey is null));
+        Assert.Equal(
+            [
+                BacklogMcpTools.Work,
+                BacklogMcpTools.Tracker,
+                BacklogMcpTools.Roadmap,
+                BacklogMcpTools.Devbook,
+                DecisionTools.Group,
+                SyncDirectionTools.Group,
+                BacklogMcpTools.Impediments,
+                BacklogMcpTools.Goals,
+                BacklogMcpTools.Windows
+            ],
+            BacklogMcpTools.Groups.Where(group => group.FeatureKey is null));
 
         var byKey = BacklogMcpTools.Groups
             .Where(group => group.FeatureKey is not null)
             .GroupBy(group => group.FeatureKey!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
 
-        Assert.Equal(7, byKey.Count);
-
-        // The impediment and goal tools are Progress's, which has no switch of its own:
-        // goals are always on, so they ride the Tasks key, which cannot be turned off either.
-        Assert.Equal(
-            [BacklogMcpTools.Work, BacklogMcpTools.Tracker, BacklogMcpTools.Impediments, BacklogMcpTools.Goals],
-            byKey[TasksFeatures.Tasks]);
+        Assert.Equal(4, byKey.Count);
 
         Assert.Equal(
             [BacklogMcpTools.Sessions, BacklogMcpTools.Surface, BacklogMcpTools.Usage, BacklogMcpTools.Schedules, BacklogMcpTools.Loops],
             byKey[SessionFeatures.Sessions]);
 
-        // The devbook's three: the chapters and notes, the subjects' workflow
-        // state, and the sync direction map — one area switched off together,
-        // three ports and so three classes.
-        Assert.Equal(
-            [BacklogMcpTools.Devbook, DecisionTools.Group, SyncDirectionTools.Group],
-            byKey[DevbookFeatures.RepositoryDevbook]);
-
-        // Every other key is one group's. Named as the sets above rather than
-        // asserted as "a few may share", so adding another group to a key is a
-        // failing test that asks for the reason to be written down here — which
-        // is the whole of what this assertion is for.
+        // Every other key is one group's. Named rather than asserted as "a few may
+        // share", so adding another group to a key is a failing test that asks for
+        // the reason to be written down here.
         Assert.All(
-            byKey.Where(pair => pair.Key != TasksFeatures.Tasks
-                && pair.Key != SessionFeatures.Sessions
-                && pair.Key != DevbookFeatures.RepositoryDevbook),
+            byKey.Where(pair => pair.Key != SessionFeatures.Sessions),
             pair => Assert.Single(pair.Value));
 
         // And two groups are two classes, which is what keeps the registration
@@ -496,44 +469,37 @@ public class BacklogMcpToolsTests
 
         Assert.All(BacklogMcpTools.ToolNames, name => Assert.True(BacklogMcpTools.IsExposed(name, features)));
 
-        features.SetEnabled(TasksFeatures.Tasks, enabled: false);
+        features.SetEnabled(SessionFeatures.Sessions, enabled: false);
 
-        // Both task groups go, and they go together: the key names the area, so
-        // switching the backlog off takes reading it and moving it at once.
-        // Leaving the tracker operations listed would offer a session six tools
-        // for a pane the person has switched off.
+        // Every group on the key goes, and they go together: the key names the area.
+        var gated = BacklogMcpTools.Groups.Where(group => group.FeatureKey == SessionFeatures.Sessions).ToList();
         Assert.All(
-            BacklogMcpTools.Work.ToolNames.Concat(BacklogMcpTools.Tracker.ToolNames),
+            gated.SelectMany(group => group.ToolNames),
             name => Assert.False(BacklogMcpTools.IsExposed(name, features)));
 
         // And only the groups that read that key go.
         Assert.All(
-            BacklogMcpTools.Groups
-                .Where(group => group.FeatureKey != TasksFeatures.Tasks)
-                .SelectMany(group => group.ToolNames),
+            BacklogMcpTools.Groups.Except(gated).SelectMany(group => group.ToolNames),
             name => Assert.True(BacklogMcpTools.IsExposed(name, features)));
     }
 
-    /// <summary>
-    /// The roadmap answers to the roadmap's own switch and not the backlog's.
-    /// It rode with the task tools once, which meant switching the roadmap off
-    /// left its tool listed and switching the backlog off took the roadmap with
-    /// it — two ways for the gate to say something nobody meant.
-    /// </summary>
+    /// <summary>The backlog, the roadmap and the devbook are permanent: their
+    /// groups carry no key, so no switch takes their tools out of the list.</summary>
     [Fact]
-    public void The_roadmap_tool_follows_the_roadmap_switch_and_not_the_backlog()
+    public void The_permanent_areas_stay_listed_whatever_is_switched_off()
     {
         var features = Everything();
+        foreach (var key in BacklogMcpTools.Groups.Select(group => group.FeatureKey).OfType<string>().Distinct())
+        {
+            features.SetEnabled(key, enabled: false);
+        }
 
-        features.SetEnabled(RoadmapFeatures.Roadmap, enabled: false);
-
-        Assert.False(BacklogMcpTools.IsExposed(RoadmapTools.GetRoadmap, features));
-        Assert.All(BacklogMcpTools.Work.ToolNames, name => Assert.True(BacklogMcpTools.IsExposed(name, features)));
-
-        features.SetEnabled(RoadmapFeatures.Roadmap, enabled: true);
-        features.SetEnabled(TasksFeatures.Tasks, enabled: false);
-
-        Assert.True(BacklogMcpTools.IsExposed(RoadmapTools.GetRoadmap, features));
+        Assert.All(
+            BacklogMcpTools.Work.ToolNames
+                .Concat(BacklogMcpTools.Tracker.ToolNames)
+                .Concat(BacklogMcpTools.Roadmap.ToolNames)
+                .Concat(BacklogMcpTools.Devbook.ToolNames),
+            name => Assert.True(BacklogMcpTools.IsExposed(name, features)));
     }
 
     /// <summary>A name this library does not publish is left alone: a host may
@@ -544,7 +510,7 @@ public class BacklogMcpToolsTests
     {
         var features = Everything();
 
-        features.SetEnabled(TasksFeatures.Tasks, enabled: false);
+        features.SetEnabled(SessionFeatures.Sessions, enabled: false);
 
         Assert.True(BacklogMcpTools.IsExposed("somebody_elses_tool", features));
         Assert.True(BacklogMcpTools.IsCallable("somebody_elses_tool", features));
@@ -556,8 +522,8 @@ public class BacklogMcpToolsTests
     /// <para>
     /// <see cref="BacklogMcpTools.IsExposed"/> answers <c>true</c> for a name it
     /// does not recognise, which is what keeps another host's tools on the same
-    /// server. Matched ordinally, <c>list_ENTRIES</c> is such a name — so a
-    /// dispatcher that ever routed it to <c>list_entries</c> would be routing a
+    /// server. Matched ordinally, <c>list_SESSIONS</c> is such a name — so a
+    /// dispatcher that ever routed it to <c>list_sessions</c> would be routing a
     /// call the gate had waved through as somebody else's. The list filter keeps
     /// the ordinal comparison, because a published name is exact.
     /// </para>
@@ -567,12 +533,12 @@ public class BacklogMcpToolsTests
     {
         var features = Everything();
 
-        features.SetEnabled(TasksFeatures.Tasks, enabled: false);
+        features.SetEnabled(SessionFeatures.Sessions, enabled: false);
 
-        var shouted = WorkTools.ListEntries.ToUpperInvariant();
-        var mixed = "List_Entries";
+        var shouted = SessionTools.ListSessions.ToUpperInvariant();
+        var mixed = char.ToUpperInvariant(SessionTools.ListSessions[0]) + SessionTools.ListSessions[1..];
 
-        Assert.False(BacklogMcpTools.IsCallable(WorkTools.ListEntries, features));
+        Assert.False(BacklogMcpTools.IsCallable(SessionTools.ListSessions, features));
         Assert.False(BacklogMcpTools.IsCallable(shouted, features));
         Assert.False(BacklogMcpTools.IsCallable(mixed, features));
 
@@ -583,7 +549,7 @@ public class BacklogMcpToolsTests
 
         // And with the group on, the call path allows them again — this is a
         // gate, not a second refusal of its own.
-        features.SetEnabled(TasksFeatures.Tasks, enabled: true);
+        features.SetEnabled(SessionFeatures.Sessions, enabled: true);
 
         Assert.True(BacklogMcpTools.IsCallable(shouted, features));
     }

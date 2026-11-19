@@ -186,7 +186,6 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
         }]));
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        Assert.Null(features.SetEnabled(DevbookFeatures.RepositoryDevbook, true));
         Assert.Null(features.SetEnabled(DevbookFeatures.Editing, editing));
         Assert.Null(features.SetEnabled(DevbookFeatures.Status, status));
 

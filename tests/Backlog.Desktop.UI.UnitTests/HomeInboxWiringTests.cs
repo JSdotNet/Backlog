@@ -487,13 +487,9 @@ public sealed class HomeInboxWiringTests
         if (startOnRoadmap) shellNavigation.SetLastView("Roadmap");
 
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, true);
-        _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, startOnRoadmap);
-        _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, false);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, false);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, false);
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
-        _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
         _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());

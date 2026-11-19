@@ -171,11 +171,10 @@ settles the spellings.
 A saved item's dialog has up to two buttons beside the Tag field:
 
 - a copy button, which copies the tag with its sigil, as the Tasks filter bar's plan
-  chip does. It shows while the [`copy-entries`](../tasks/context.md#copy-entries)
-  flag is on, which it is by default;
+  chip does;
 - the plan's [queue icon](../sessions/features.md#start-a-session-from-an-entry),
   which shows while [`session-requests`](../sessions/context.md#session-requests)
-  is on, and stays when `copy-entries` is off.
+  is on.
 
 A new item, or one without a tag, has no copy button.
 

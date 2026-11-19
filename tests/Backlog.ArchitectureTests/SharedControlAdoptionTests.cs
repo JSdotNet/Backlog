@@ -171,11 +171,6 @@ public class SharedControlAdoptionTests
     /// <item><c>devbook-folder__status</c> — the same screen and the same
     /// answer; it is a status line in the settings devbook-folder rows, with a
     /// <c>data-folder-state</c> attribute that no component takes yet.</item>
-    /// <item><c>feature-flag__status</c> — the words "Always available" inside a
-    /// <c>Toggle</c>'s own <c>LabelSuffix</c> slot. Not a status line: it says the
-    /// switch beside it cannot be turned off, and it is markup landing in a
-    /// component's slot rather than an element claiming to be a component. The
-    /// same distinction <see cref="WornAs"/> draws for a BEM child.</item>
     /// <item><c>chip__count</c> — the count trailing a filter chip's label, inside
     /// the <c>ToggleButton</c> or <c>AppButton</c> that draws the chip. A
     /// <c>Badge</c> is a thing beside a title; this is part of a control's own
@@ -191,7 +186,6 @@ public class SharedControlAdoptionTests
     private static readonly string[] AllowedAppFeedbackClasses =
     [
         "chip__count",
-        "feature-flag__status",
         "devbook-folder__status",
         "setting__status"
     ];

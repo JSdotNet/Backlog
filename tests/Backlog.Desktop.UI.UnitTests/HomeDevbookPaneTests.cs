@@ -143,10 +143,8 @@ public sealed class HomeDevbookPaneTests
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
 
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, true);
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
-        _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
         _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");

@@ -28,7 +28,7 @@ public sealed class FeatureStatusIndicatorTests
         Assert.Equal(string.Empty, AppFeatureStatusBadge.Slug(AppFeatureStatus.Released));
         Assert.Null(AppFeatureStatusBadge.Title(AppFeatureStatus.Released));
 
-        var released = Assert.Single(AppFeatures.All, feature => feature.Key == TasksFeatures.Tasks);
+        var released = Assert.Single(AppFeatures.All, feature => feature.Key == DevbookFeatures.Editing);
         Assert.Equal(AppFeatureStatus.Released, released.Status);
         Assert.Equal(string.Empty, AppFeatureStatusBadge.Slug(released.Status));
     }
@@ -63,17 +63,17 @@ public sealed class FeatureStatusIndicatorTests
     {
         using var features = NewFeatureStore();
 
-        // Repository knowledge rather than GitHub integration: the latter moved to
+        // Devbook editing rather than GitHub integration: the latter moved to
         // Dev when the catalog was regrouped, and a test that quietly follows a
         // status change is testing nothing.
-        _ = features.Store.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
+        _ = features.Store.SetEnabled(DevbookFeatures.Editing, true);
 
         Assert.Equal(
             AppFeatureStatus.Released,
-            Assert.Single(AppFeatures.All, f => f.Key == DevbookFeatures.RepositoryDevbook).Status);
+            Assert.Single(AppFeatures.All, f => f.Key == DevbookFeatures.Editing).Status);
         Assert.Equal(
             string.Empty,
-            AppFeatureStatusBadge.SlugFor(AppFeatures.All, features.Store, DevbookFeatures.RepositoryDevbook));
+            AppFeatureStatusBadge.SlugFor(AppFeatures.All, features.Store, DevbookFeatures.Editing));
     }
 
     /// <summary>A decoration fails quietly. <c>IsEnabled</c> throws for a key no

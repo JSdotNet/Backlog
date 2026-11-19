@@ -3,25 +3,13 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// <summary>
 /// The feature keys Devbook owns.
 /// <para>
-/// <see cref="RepositoryDevbook"/> is read by this context's own scope service
-/// and by the Shell that decides whether to offer the pane at all. It names
-/// something about the devbook rather than about the screen asking, so it sits
-/// here and the Shell reads it across — the direction that works, because
-/// nothing below the Shell may read the Shell.
+/// Each key names something about the devbook rather than about the screen
+/// asking, so it sits here and the Shell reads it across — the direction that
+/// works, because nothing below the Shell may read the Shell.
 /// </para>
 /// </summary>
 public static class DevbookFeatures
 {
-    /// <summary>Show the Devbook side pane and its design, architecture, domain,
-    /// technology, AI adoption and instruction sections.
-    /// <para>
-    /// One switch where there were two: <c>devbook-sections</c> gated the sections
-    /// and this key the pane, and neither meant anything without the other — a pane
-    /// with its sections off offered nothing to read. The catalog names the former
-    /// key, so a choice made under it carries over.
-    /// </para></summary>
-    public const string RepositoryDevbook = "repository-devbook";
-
     /// <summary>Draw a chapter diagram from its generated Archify artifact where
     /// one exists, instead of rendering the mermaid.
     /// <para>
@@ -86,8 +74,7 @@ public static class DevbookFeatures
     /// the unit is (local ADR 0047), instead of the Domain area as it reads today.
     /// <para>
     /// A devbook key by the same rule as its neighbours. Only the Domain area reads
-    /// it: the other areas, and <see cref="RepositoryDevbook"/> that offers the pane
-    /// at all, do not. It ships off while the plan <c>+devbook-domain-view</c> builds
+    /// it: the other areas do not. It ships off while the plan <c>+devbook-domain-view</c> builds
     /// the view, and is retired when the old Domain view is removed.
     /// </para></summary>
     public const string DomainView = "devbook-domain-view";

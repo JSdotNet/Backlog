@@ -96,17 +96,6 @@ public sealed class AppErrorBoundaryTests
     }
 
     [Fact]
-    public void Report_issue_is_withheld_when_feedback_reporting_is_off()
-    {
-        using var host = Open(feedbackReporting: false);
-
-        host.Layout.Find("[data-testid='page-throw']").Click();
-
-        Assert.NotNull(host.Layout.Find("[data-testid='app-error-retry']"));
-        Assert.Empty(host.Layout.FindAll("[data-testid='app-error-report']"));
-    }
-
-    [Fact]
     public void Go_to_Home_leaves_the_failed_route_and_renders_the_page_again()
     {
         using var host = Open();
@@ -121,7 +110,7 @@ public sealed class AppErrorBoundaryTests
         Assert.Empty(host.Layout.FindAll("[data-testid='app-error-state']"));
     }
 
-    private static LayoutHost Open(bool throwOnRender = false, bool feedbackReporting = true)
+    private static LayoutHost Open(bool throwOnRender = false)
     {
         var context = new BunitContext();
 
@@ -132,7 +121,6 @@ public sealed class AppErrorBoundaryTests
         var root = Path.Combine(Path.GetTempPath(), "backlog-error-boundary", Guid.NewGuid().ToString("n"));
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
-        _ = features.SetEnabled(AppFeatures.FeedbackReporting, feedbackReporting);
 
         context.Services.AddSingleton<IAppUpdateService>(new UnsupportedAppUpdateService(currentVersion: "1.2.3"));
         context.Services.AddSingleton<IAppFeatureSettings>(features);

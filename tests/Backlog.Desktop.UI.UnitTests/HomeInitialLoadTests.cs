@@ -137,10 +137,8 @@ public sealed class HomeInitialLoadTests
         foreach (var feature in new[]
                  {
                      AppFeatures.InboxPane,
-                     DevbookFeatures.RepositoryDevbook,
                      DevPcFeatures.SystemTools,
                      AppFeatures.AiAssistant,
-                     AppFeatures.FeedbackReporting,
                      TasksFeatures.GitHubIntegration
                  })
         {

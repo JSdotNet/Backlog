@@ -39,7 +39,6 @@ public static class CalendarCrossContextAdapterRegistration
                 sp.GetRequiredService<IRoadmapItemRollup>(),
                 sp.GetRequiredService<IPlanningVelocity>(),
                 sp.GetRequiredService<IImportedPlanSource>(),
-                sp.GetService<IAppFeatureSettings>(),
                 sp.GetService<IRoadmapWorkChanges>(),
                 sp.GetService<IPlanningPace>()));
 

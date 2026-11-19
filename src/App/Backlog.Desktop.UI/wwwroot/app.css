@@ -775,9 +775,8 @@ h1, h2, h3 {
 
 /*
    The pressed plan's queue icon (local ADR 0038 §2): a third segment of the pair,
-   after the copy, or straight after the chip with the copy-entries switch off. It
-   wears the copy segment's class, so it takes the same fill, border, hairline and
-   hover, and the copy, when there, hands it the pair's rounded end. Like the
+   after the copy. It wears the copy segment's class, so it takes the same fill,
+   border, hairline and hover, and the copy hands it the pair's rounded end. Like the
    copy it stays inside the strip's one-row clip, which cuts anything taller than a
    chip, so its target is the segment itself.
 
@@ -3422,7 +3421,7 @@ h1, h2, h3 {
    row, tighter. Asked of the settings frame's width, as its own phone rules are. */
 @container settings-frame (width < 50.25rem) {
     .feature-board__tiles {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: var(--spacing-xs);
     }
 
@@ -3433,12 +3432,6 @@ h1, h2, h3 {
     .feature-board__tiles .metric-tile__value {
         font-size: var(--font-size-xl);
     }
-}
-
-/* The always-available tile holds names rather than a count, and a list of
-   names has to wrap where a number never does. */
-.feature-board__names .metric-tile__value {
-    overflow-wrap: anywhere;
 }
 
 /* The filter's chips are pills, and the chosen one is filled. Three classes so
@@ -3481,19 +3474,6 @@ h1, h2, h3 {
     border-top: var(--border-width) solid color-mix(in srgb, var(--color-border) 60%, transparent);
     border-radius: 0;
     background: none;
-}
-
-/* A locked row is told by its "Always available" mark, not by a tint, so its
-   name reads as every other row's name does. */
-.feature-flags > .feature-flag--locked {
-    color: var(--color-text-primary);
-}
-
-.feature-flags .feature-flag__status {
-    margin-left: var(--spacing-xs);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: 400;
 }
 
 /* The note the usage-metrics flag brings with it sits directly under that

@@ -131,18 +131,3 @@ related: [".devbook/domain/productivity/features.md#ai-vendor-usage-import"]
 With the `usage-metrics` flag on, Claude and GitHub Copilot usage is read from their organization APIs as evidence for the productivity figures. Both sources are organization-scoped, which is why it ships off: Claude needs an API key an organization admin can use, and GitHub needs organization-owner access. The flag is marked `DEV`.
 
 The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the import is released and the credentials, not the switch, decide whether it runs.
-
-## Dashboard
-
-```meta
-type: feature-flag
-key: dashboard
-default: on
-related: [".devbook/domain/productivity/features.md#personal-productivity-dashboard"]
-```
-
-With the `dashboard` flag on, the reader can open from the app chrome the full-screen dashboard of their productivity and what their assistants cost. [Six tabs and what each answers](features.md#six-tabs-and-what-each-answers) says what its tabs hold and how its controls narrow them.
-
-It is on by default and marked `DEV`. The key is `DashboardFeatures.Dashboard` in the Dashboard module. Its string is the one `MonitoringFeatures` used, so a dashboard someone switched off stays off.
-
-The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the dashboard leaves `DEV`.

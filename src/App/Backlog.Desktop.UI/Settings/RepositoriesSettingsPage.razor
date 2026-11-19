@@ -115,14 +115,7 @@
             @* Razor drops the line break before a code block, so the space
                between the two sentences has to be written out. *@
             @(" ")
-            @if (AdditionalRepositoriesEnabled)
-            {
-                <span>Type <code>@("@" + DefaultRepository.Alias)</code> on an entry to assign it to <code>@DefaultRepository.FullName</code>.</span>
-            }
-            else
-            {
-                <span>The first configured repository is used for the single-repository backlog experience.</span>
-            }
+            <span>Type <code>@("@" + DefaultRepository.Alias)</code> on an entry to assign it to <code>@DefaultRepository.FullName</code>.</span>
         </span>
     }
 </p>
@@ -874,8 +867,6 @@
         new("GitHub account"),
         new("Actions", "repo-table__edit-heading"),
     ];
-
-    private bool AdditionalRepositoriesEnabled => Features.IsEnabled(TasksFeatures.AdditionalRepositories);
 
     private string RepositoryInputLabel => "Repositories";
 

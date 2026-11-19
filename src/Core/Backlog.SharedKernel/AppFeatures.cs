@@ -75,29 +75,14 @@ public enum AppFeatureGroup
 /// already the one list, and a second list pairing keys with headings would be a
 /// second thing to keep in step.
 /// </para>
-/// <para>
-/// <paramref name="FormerKeys"/> is for the two cases the rule "a key never
-/// changes" cannot cover: a feature that has genuinely become a different
-/// feature, such as three switches folding into one, and a context rename,
-/// where the key carried the context's old name and keeping it would have the
-/// settings file contradict every other name in the product. The key is a persisted
-/// value — it sits in the reader's settings file as a member of the enabled
-/// or disabled set — so a rename on its own would silently undo whatever
-/// they had chosen. Naming the former keys here lets the store read a choice
-/// made under any of them as a choice about this feature, and write it back
-/// under the current key. The list is read and never written: once the file
-/// has been saved again the old names are gone from it.
-/// </para>
 /// </summary>
 public sealed record AppFeatureDefinition(
     string Key,
     string Name,
     string Description,
-    bool AlwaysEnabled = false,
     bool EnabledByDefault = true,
     AppFeatureStatus Status = AppFeatureStatus.Released,
-    AppFeatureGroup Group = AppFeatureGroup.Domain,
-    IReadOnlyList<string>? FormerKeys = null);
+    AppFeatureGroup Group = AppFeatureGroup.Domain);
 
 /// <summary>
 /// Which features have been switched away from their default. Two sets rather
@@ -163,11 +148,4 @@ public static class AppFeatureKeys
     /// <summary>Tasks starts the CLI from an entry and Devbook
     /// starts it from a devbook chapter. Two contexts, one key.</summary>
     public const string CopilotCli = "copilot-cli";
-
-    /// <summary>Copy an entry's text, or a plan's tag, to the clipboard: Tasks
-    /// offers it on a row, a board card, the open entry and the pressed plan chip,
-    /// and Roadmap in the planned-work dialog. On by default; the queue icon beside
-    /// each copy is meant to replace it, and switching this off leaves that icon
-    /// alone. Two contexts, one key.</summary>
-    public const string CopyEntries = "copy-entries";
 }

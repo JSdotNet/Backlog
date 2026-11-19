@@ -28,17 +28,12 @@ namespace Backlog.Infrastructure.FileSystem.Dashboard;
 /// therefore says nothing about where it reaches, so every such item is gathered, and the
 /// whole plan is projected so each is read after its predecessors.
 /// </para>
-/// <para>
-/// With the roadmap switched off nothing is read at all: a plan somebody turned off is
-/// not one the dashboard should keep reading behind their back.
-/// </para>
 /// </summary>
 public sealed class RoadmapPlanProgressSource(
     IRoadmapPlanning planning,
     IRoadmapItemRollup rollups,
     IPlanningPace pace,
     IPlanningVelocity velocity,
-    IAppFeatureSettings features,
     TimeProvider? clock = null) : IPlanProgressSource
 {
     public async Task<PlanReading> ReadAsync(
@@ -48,8 +43,6 @@ public sealed class RoadmapPlanProgressSource(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(repositoryAliases);
-
-        if (!features.IsEnabled(RoadmapFeatures.Roadmap)) return PlanReading.Off;
 
         var plan = await planning.GetPlanAsync(cancellationToken).ConfigureAwait(false);
         var candidates = MayReach(plan.Items, from, to);

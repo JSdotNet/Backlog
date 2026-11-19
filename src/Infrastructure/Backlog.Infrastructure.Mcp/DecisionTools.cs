@@ -86,13 +86,10 @@ public sealed class DecisionTools(
     internal const string BrainCode = "brain.no_workflow_state";
 
     /// <summary>
-    /// This class as a switchable group, behind <c>repository-devbook</c> — the key
-    /// <see cref="BacklogMcpTools.Devbook"/> reads.
+    /// This class as a group, always listed as <see cref="BacklogMcpTools.Devbook"/>
+    /// is: the Devbook is not switchable.
     /// <para>
-    /// <b>The shared key is the decision.</b> Local ADR 0012 §7 asks for one check
-    /// per group, each behind its area's key, and these are the Devbook's: somebody
-    /// switching the devbook off has switched off the records whose state these
-    /// set as much as the chapters the other group reads. A group of its own
+    /// A group of its own
     /// rather than seven more tools on <see cref="DevbookTools"/> because they are
     /// another contract — that class reads chapters and a reader's notes, these
     /// answer <c>devbook.decision@1</c>, whose names and shapes are devbook's.
@@ -104,7 +101,7 @@ public sealed class DecisionTools(
     /// </para>
     /// </summary>
     internal static BacklogMcpTools.McpToolGroup Group { get; } = new(
-        DevbookFeatures.RepositoryDevbook,
+        FeatureKey: null,
         typeof(DecisionTools),
         [GetState, SetState, Approve, Accept, ListNotes, PostNote, ResolveNote]);
 

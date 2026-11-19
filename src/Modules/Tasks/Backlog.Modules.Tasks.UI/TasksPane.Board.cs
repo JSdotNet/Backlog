@@ -201,10 +201,8 @@ public partial class TasksPane
     /// and the value its repository pickers hold. The first of its repositories offered
     /// right now, so an archived one hidden by show archived never gets a column or a
     /// picker value no option holds, and a task that also names an active one sits under
-    /// that one (local ADR 0029, §3). Without the additional-repositories feature, the
-    /// default.</summary>
-    private GitHubRepositoryRef? OfferedRepositoryFor(EntryRow row) =>
-        AdditionalRepositoriesEnabled ? State.ShownRepositoryFor(row) : GitHub.DefaultRepository;
+    /// that one (local ADR 0029, §3).</summary>
+    private GitHubRepositoryRef? OfferedRepositoryFor(EntryRow row) => State.ShownRepositoryFor(row);
 
     private static IEnumerable<string> PlanTags(EntryRow row) => row.PreviewTags.Where(TagText.IsPlan);
 

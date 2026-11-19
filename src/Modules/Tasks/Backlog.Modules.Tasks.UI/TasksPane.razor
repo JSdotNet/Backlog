@@ -438,20 +438,16 @@
                                                           PressedChanged="_ => OnTagFilterPressed(tag.Value)">
                                                 @tag.Label<span class="chip__count">@tag.OpenCount</span>
                                             </ToggleButton>
-                                            @if (CopyEnabled)
-                                            {
-                                                <CopyButton Text="@plan"
-                                                            Label="@($"Copy {plan}")"
-                                                            CssClass="filter-bar__plan-copy"
-                                                            ButtonBaseClass="filter-bar__plan-copy-button"
-                                                            StatusCssClass="sr-only"
-                                                            TestId="tag-filter-copy-plan"
-                                                            ButtonTestId="tag-filter-copy-plan-button"
-                                                            StatusTestId="tag-filter-copy-plan-status" />
-                                            }
+                                            <CopyButton Text="@plan"
+                                                        Label="@($"Copy {plan}")"
+                                                        CssClass="filter-bar__plan-copy"
+                                                        ButtonBaseClass="filter-bar__plan-copy-button"
+                                                        StatusCssClass="sr-only"
+                                                        TestId="tag-filter-copy-plan"
+                                                        ButtonTestId="tag-filter-copy-plan-button"
+                                                        StatusTestId="tag-filter-copy-plan-status" />
 
-                                            @* The plan's queue icon beside its copy (or the
-                                               chip, with the copy-entries switch off), or the
+                                            @* The plan's queue icon beside its copy, or the
                                                wait it is on — see RenderPlanSession. Inside
                                                the pair, so the strip keeps or clips them
                                                with the chip and components.js reserves the
@@ -613,7 +609,7 @@
                            pasted from the list. *@
                         <TaskBoard @ref="_board"
                                    Columns="@BoardColumns()"
-                                   AllowCopy="@CopyEnabled"
+                                   AllowCopy="true"
                                    CardCopyValue="@EntryCopyText"
                                    Draggable="@(BoardGrouping == TaskBoardGrouping.Status)"
                                    DropRuleFor="@BoardDropRule"
@@ -716,7 +712,7 @@
                                       OnTagSelected="OnRowTagSelected"
                                       OnContextMenu="OnEntryContextMenu"
                                       GroupCompleted="true"
-                                      AllowCopy="@CopyEnabled"
+                                      AllowCopy="true"
                                       RowCopyValue="@EntryCopyText"
                                       RowCssClass="@RepositoryMark"
                                       AriaLabel="Tasks"
@@ -1437,8 +1433,7 @@
             : $"Queue a session for the +{offer.Tag} plan";
 
     /// <summary>
-    /// The pressed plan's queue icon, fused to its copy as a third segment (to the chip
-    /// itself while <see cref="AppFeatureKeys.CopyEntries"/> is off), or the
+    /// The pressed plan's queue icon, fused to its copy as a third segment, or the
     /// waiting chip — with Cancel while no dispatcher has picked the request up — once
     /// a request is open; nothing while the action is not offered. The roadmap item
     /// dialog's plan icon on the same terms: disabled with the reason in the tooltip and
@@ -2363,29 +2358,11 @@
             }
         };
 
-    private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(TasksFeatures.AdditionalRepositories);
-
-    /// <summary>Whether entries and the pressed plan offer their copy. Off, the queue
-    /// icon beside it is the only hand-off left; it is not gated here.</summary>
-    private bool CopyEnabled => IsFeatureEnabled(AppFeatureKeys.CopyEntries);
-
     /// <summary>The repositories an entry may be filed against: the ones the scope
-    /// offers, so an archived repository only while show archived is on. Without the
-    /// additional-repositories feature there is only ever the default one, the
-    /// first active repository (local ADR 0029).</summary>
-    private IReadOnlyList<GitHubRepositoryRef> DevbookRepositories
-    {
-        get
-        {
-            if (AdditionalRepositoriesEnabled) return State.Repositories;
+    /// offers, so an archived repository only while show archived is on.</summary>
+    private IReadOnlyList<GitHubRepositoryRef> DevbookRepositories => State.Repositories;
 
-            var repository = GitHub.DefaultRepository;
-            return repository is null ? [] : [repository];
-        }
-    }
-
-    private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
-        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.DefaultRepository;
+    private GitHubRepositoryRef? RepositoryFor(EntryRow row) => State.RepositoryFor(row);
 
     /// <summary>The repository picker's options. An archived one, offered while show
     /// archived is on, says so in its label: a native list draws no hint.</summary>
@@ -2624,8 +2601,7 @@
             @if (DevbookRepositories.Count > 0)
             {
                 @* The same list, the same resolve and the same write the panel's
-                   picker uses, so the additional-repositories feature is honoured
-                   here by construction rather than by a second reading of it. *@
+                   picker uses, so the two cannot disagree. *@
                 <RepositorySelector CurrentValue="@(OfferedRepositoryFor(row)?.Alias ?? string.Empty)"
                                     Options="@RepositoryOptions()"
                                     Label="@($"Change repository of {title}")"
@@ -4029,7 +4005,7 @@
                        OnRename="title => State.RenameEntryAsync(row, title)"
                        OnRenamePreview="text => OnEntryTitlePreview(row, text)"
                        OnTabBackward="MoveFocusToListAsync"
-                       AllowCopy="@CopyEnabled"
+                       AllowCopy="true"
                        CopyValue="@(EntryCopyText(row) ?? DetailTitle(row))"
                        CopyDisabledReason="@(row.IsPreviewBlocked ? BlockedCopyReason : null)"
                        Source="@State.LinkedSources.ToTaskSource(row.SourceRef)"

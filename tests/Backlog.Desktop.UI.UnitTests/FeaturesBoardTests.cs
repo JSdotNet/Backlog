@@ -43,24 +43,17 @@ public sealed class FeaturesBoardTests
     }
 
     [Fact]
-    public void The_tiles_show_the_on_count_the_unfinished_count_and_the_always_available_names()
+    public void The_tiles_show_the_on_count_and_the_unfinished_count()
     {
         AppFeatureSettingsStore? store = null;
         using var context = FeatureStatusIndicatorTests.RenderSettings(features => store = features);
         var (on, unfinishedOn) = Counts(store!);
 
         var tiles = context.Component.Find("[data-testid='feature-tiles']");
-        Assert.Equal(3, tiles.QuerySelectorAll(".metric-tile").Length);
+        Assert.Equal(2, tiles.QuerySelectorAll(".metric-tile").Length);
 
         AssertTile(context, "feature-tile-on", "Turned on", on.ToString(), $"of {AppFeatures.All.Count}");
         AssertTile(context, "feature-tile-unfinished", "Unfinished and on", unfinishedOn.ToString(), "in development or beta");
-        AssertTile(
-            context,
-            "feature-tile-always",
-            "Always available",
-            string.Join(", ", AppFeatures.All.Where(f => f.AlwaysEnabled).Select(f => f.Name)),
-            null);
-        Assert.Contains("Tasks", Tile(context, "feature-tile-always").QuerySelector(".metric-tile__value")!.TextContent);
     }
 
     [Fact]
@@ -155,25 +148,6 @@ public sealed class FeaturesBoardTests
                 $"{on} of {section.Features.Count} on",
                 card.QuerySelector(".settings-card__action [data-testid='feature-card-count']")!.TextContent.Trim());
         }
-    }
-
-    [Fact]
-    public void A_locked_feature_says_it_is_always_available_on_its_name_line()
-    {
-        using var context = FeatureStatusIndicatorTests.RenderSettings();
-
-        var row = Row(context, TasksFeatures.Tasks);
-
-        Assert.Contains("feature-flag--locked", row.ClassList);
-        Assert.Equal("Always available", row.QuerySelector(".toggle__label-row .feature-flag__status")!.TextContent.Trim());
-
-        var locked = Switch(context, TasksFeatures.Tasks);
-        Assert.True(locked.HasAttribute("disabled"));
-        Assert.Equal("true", locked.GetAttribute("aria-checked"));
-
-        // A disabled switch ignores the press: the feature stays on.
-        locked.Click();
-        Assert.Equal("true", Switch(context, TasksFeatures.Tasks).GetAttribute("aria-checked"));
     }
 
     /// <summary>Every row is Toggle's switch shape — a real <c>button</c>, so

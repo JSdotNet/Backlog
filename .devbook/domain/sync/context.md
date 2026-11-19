@@ -90,9 +90,8 @@ it on lets the device:
 A session record travels as metadata only: it never carries a prompt, a
 transcript, a working folder or a title (local ADR 0005 §Session records).
 
-It replaces three flags, `device-pairing`, `task-sync` and `session-sync`. The
-catalog entry names them as former keys, so a settings file written while any of
-them was on comes up with this one on. They were split so a person could pair
+It replaced three flags, `device-pairing`, `task-sync` and `session-sync`, whose
+keys the app no longer reads. They were split so a person could pair
 devices without their tasks leaving the machine. In practice the question is
 only whether this machine takes part in sync.
 

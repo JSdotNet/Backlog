@@ -820,46 +820,6 @@ public sealed class HomeRepositoryScopeTests
         });
     }
 
-    /// <summary>
-    /// The badges are read whatever the Devbook's flag says. With the flag off a
-    /// press says so on a toast, and neither opens nor remembers the Devbook: the
-    /// flag coming back later does not put the reader in it unasked.
-    /// </summary>
-    [Fact]
-    public async Task A_brain_badge_with_the_devbook_switched_off_says_so_and_opens_nothing()
-    {
-        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
-        var component = Render(harness);
-        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
-        var shellNavigation = harness.Context.Services.GetRequiredService<ShellNavigationStore>();
-        var toasts = harness.Context.Services.GetRequiredService<ToastChannel>();
-
-        Chips(component)[0].Click();
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
-        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']")));
-        var tasks = component.FindComponent<TasksPane>();
-
-        await component.InvokeAsync(() =>
-            tasks.Instance.OnOpenBrainNote.InvokeAsync(new Backlog.UI.Components.Brain.BrainNoteLink("work/plan.md", "Plan")));
-
-        component.WaitForAssertion(() =>
-        {
-            var toast = Assert.Single(toasts.Visible);
-            Assert.Equal("tasks-devbook-unavailable", toast.TestId);
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-        });
-        Assert.NotEqual("devbook", shellNavigation.LastSurface);
-
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-        });
-    }
-
     [Fact]
     public async Task An_entrys_devbook_reference_gives_the_devbook_the_screen_on_that_repository()
     {
@@ -2020,16 +1980,12 @@ public sealed class HomeRepositoryScopeTests
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
 
-        // The three surfaces under test are on; everything that would put extra
+        // The switchable surfaces under test are on; everything that would put extra
         // chrome or a network call in the way is off.
-        _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, true);
-        _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
-        _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
         _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
 
         var (repositories, errors) = GitHubSettings.ParseText(

@@ -13,9 +13,7 @@ namespace Backlog.Desktop.UI.Devbook.Extensions;
 /// On the precedent of <c>AddInboxSettings</c>: whether a host's shell carries the
 /// Devbook is the host's decision, and the shell knows the surface only as the
 /// <see cref="ShellSurface"/> this adds — it never names
-/// <see cref="DevbookSurface"/>. Offered behind
-/// <see cref="DevbookFeatures.RepositoryDevbook"/>, the flag the Devbook option has
-/// always gated on, so the catalog hides it wherever the flag is off.
+/// <see cref="DevbookSurface"/>. Always offered: no flag gates it.
 /// </para>
 /// <para>
 /// Safe to call twice: a second call adds nothing, so a host that composes the
@@ -45,7 +43,7 @@ public static class DevbookSurfaceRegistration
             ShellSurfaceGroup.Takeover,
             Order,
             typeof(DevbookSurface),
-            DevbookFeatures.RepositoryDevbook,
+            null,
             DevbookSurfaceQuery.Keys));
 
         // Per window, as the window's view state is: which press each window's

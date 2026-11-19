@@ -8,21 +8,6 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class AppFeatureSettingsStoreTests
 {
     /// <summary>
-    /// The Tasks feature key is still the string "backlog".
-    /// <para>
-    /// The constant was renamed with the bounded context, but the value is a persisted
-    /// key: it is written into features.json as a member of the disabled/enabled sets.
-    /// Renaming the string would orphan whatever the reader had already toggled — their
-    /// settings would not error, they would just stop applying.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void The_tasks_feature_key_keeps_the_value_it_was_stored_under()
-    {
-        Assert.Equal("backlog", TasksFeatures.Tasks);
-    }
-
-    /// <summary>
     /// A choice stored under <c>"pull-requests"</c> before the key moved from Sessions to
     /// Repository Management (local ADR 0042) still decides the pull requests pane after
     /// it: the string is the persisted value, and the move kept it.
@@ -54,27 +39,6 @@ public sealed class AppFeatureSettingsStoreTests
     }
 
     [Fact]
-    public void Tasks_cannot_be_disabled()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
-
-            var message = store.SetEnabled(TasksFeatures.Tasks, enabled: false);
-
-            Assert.True(store.IsEnabled(TasksFeatures.Tasks));
-            Assert.Contains("always available", message);
-            Assert.Empty(store.Current.DisabledFeatures);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    [Fact]
     public void Disabled_features_survive_a_restart()
     {
         var path = NewSettingsPath();
@@ -84,14 +48,11 @@ public sealed class AppFeatureSettingsStoreTests
             var store = new AppFeatureSettingsStore(AppFeatures.All, path);
             store.SetEnabled(TasksFeatures.GitHubIntegration, enabled: false);
             store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
-            store.SetEnabled(TasksFeatures.AdditionalRepositories, enabled: false);
 
             var restarted = new AppFeatureSettingsStore(AppFeatures.All, path);
 
             Assert.False(restarted.IsEnabled(TasksFeatures.GitHubIntegration));
             Assert.False(restarted.IsEnabled(AppFeatureKeys.CopilotCli));
-            Assert.False(restarted.IsEnabled(TasksFeatures.AdditionalRepositories));
-            Assert.True(restarted.IsEnabled(TasksFeatures.Tasks));
         }
         finally
         {
@@ -110,11 +71,8 @@ public sealed class AppFeatureSettingsStoreTests
         Assert.Equal(
             [
                 // Product areas
-                TasksFeatures.Tasks,
                 AppFeatures.InboxPane,
                 Backlog.Modules.Progress.Abstractions.ProgressFeatures.WeeklyReview,
-                RoadmapFeatures.Roadmap,
-                DevbookFeatures.RepositoryDevbook,
                 DevbookFeatures.ArchifyDiagrams,
                 DevbookFeatures.LobesAtlas,
                 DevbookFeatures.Search,
@@ -126,17 +84,13 @@ public sealed class AppFeatureSettingsStoreTests
                 SessionFeatures.Sessions,
                 RepositoryManagementFeatures.PullRequests,
                 SessionFeatures.SessionRequests,
-                DashboardFeatures.Dashboard,
                 SyncFeatures.Sync,
                 Backlog.Modules.Notifications.Abstractions.NotificationsFeatures.Notifications,
                 Backlog.Modules.Events.Abstractions.EventsFeatures.Events,
 
                 // Cross-cutting
-                TasksFeatures.AdditionalRepositories,
                 TasksFeatures.GitHubIntegration,
-                AppFeatures.FeedbackReporting,
                 AppFeatureKeys.CopilotCli,
-                AppFeatureKeys.CopyEntries,
                 AppFeatures.AiAssistant,
                 AppFeatures.UsageMetrics
             ],
@@ -161,12 +115,10 @@ public sealed class AppFeatureSettingsStoreTests
     /// a feature is meant to be one of them at a time. Archify diagrams were judged
     /// finished on 2026-09-16 and lost their badge, but stay opt-in until somebody
     /// decides otherwise; Sync moved one step, from not usable to worth
-    /// trying. The Dashboard was released on 2026-10-15 and stays on by default; its
-    /// Devbook and Cost tabs carry the DEV flag on their own. Pinned so that the next
+    /// trying. Pinned so that the next
     /// graduation is a deliberate edit here too, not a side effect of tidying the
     /// catalog.</summary>
     [Theory]
-    [InlineData(DashboardFeatures.Dashboard, AppFeatureStatus.Released, true)]
     [InlineData(DevbookFeatures.ArchifyDiagrams, AppFeatureStatus.Released, false)]
     [InlineData(SyncFeatures.Sync, AppFeatureStatus.Beta, false)]
     public void Graduated_features_keep_their_maturity_and_default_apart(string key, AppFeatureStatus status, bool enabledByDefault)
@@ -317,7 +269,7 @@ public sealed class AppFeatureSettingsStoreTests
     }
 
     [Fact]
-    public void Unknown_and_always_enabled_keys_are_ignored_when_loaded()
+    public void Unknown_keys_are_ignored_when_loaded()
     {
         var path = NewSettingsPath();
 
@@ -328,7 +280,6 @@ public sealed class AppFeatureSettingsStoreTests
             {
                 disabledFeatures = new[]
                 {
-                    TasksFeatures.Tasks,
                     TasksFeatures.GitHubIntegration,
                     "retired-feature",
                     "updates",
@@ -338,40 +289,7 @@ public sealed class AppFeatureSettingsStoreTests
 
             var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.True(store.IsEnabled(TasksFeatures.Tasks));
             Assert.Equal([TasksFeatures.GitHubIntegration], store.Current.DisabledFeatures);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>
-    /// A feature whose key had to change still remembers what the reader chose
-    /// under the old one. Sync used to be three opt-in switches - device pairing,
-    /// task sync, session sync - and a file written while any of them was on
-    /// must come up with Sync on, or the rename would silently switch off the
-    /// very thing the person had asked for. The catalog names the former keys;
-    /// the store knows nothing about Sync itself.
-    /// </summary>
-    [Theory]
-    [InlineData("device-pairing")]
-    [InlineData("task-sync")]
-    [InlineData("session-sync")]
-    public void A_feature_stays_on_when_it_was_switched_on_under_a_former_key(string formerKey)
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(new { enabledFeatures = new[] { formerKey } }));
-
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
-
-            Assert.True(store.IsEnabled(SyncFeatures.Sync));
-            Assert.Equal([SyncFeatures.Sync], store.Current.EnabledFeatures);
         }
         finally
         {
@@ -402,7 +320,7 @@ public sealed class AppFeatureSettingsStoreTests
 
             Assert.Equal([DevbookFeatures.ArchifyDiagrams], store.Current.EnabledFeatures);
 
-            store.SetEnabled(AppFeatures.FeedbackReporting, enabled: false);
+            store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
 
             var saved = File.ReadAllText(path);
             Assert.Contains("archify-diagrams", saved);
@@ -415,137 +333,37 @@ public sealed class AppFeatureSettingsStoreTests
         }
     }
 
-    /// <summary>The former key is a way in, not a second name: once the choice
-    /// has been read it is kept under the current key and the old one is not
-    /// written back, and switching the feature off afterwards clears it for good
-    /// rather than leaving the old key behind to switch it on again at the next
-    /// start.</summary>
-    [Fact]
-    public void A_former_key_is_rewritten_under_the_current_one_on_the_next_save()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(new { enabledFeatures = new[] { "task-sync" } }));
-
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
-            store.SetEnabled(SyncFeatures.Sync, enabled: false);
-
-            var restarted = new AppFeatureSettingsStore(AppFeatures.All, path);
-
-            Assert.False(restarted.IsEnabled(SyncFeatures.Sync));
-            Assert.DoesNotContain("task-sync", File.ReadAllText(path));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>An opt-out feature reads its former key from the disabled set, the
-    /// same way round.</summary>
-    [Fact]
-    public void An_opt_out_feature_stays_off_when_it_was_switched_off_under_a_former_key()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(new { disabledFeatures = new[] { "old-key" } }));
-
-            IReadOnlyList<AppFeatureDefinition> catalog =
-            [
-                new("new-key", "Renamed", "An opt-out feature that changed its key.", FormerKeys: ["old-key"])
-            ];
-
-            var store = new AppFeatureSettingsStore(catalog, path);
-
-            Assert.False(store.IsEnabled("new-key"));
-            Assert.Equal(["new-key"], store.Current.DisabledFeatures);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
     /// <summary>
-    /// The Devbook context was called Knowledge, and four of its feature keys
-    /// carried that name into the reader's settings file. A file written before
-    /// the rename must read as the same choices — the pane somebody switched off
-    /// stays off, the search they switched on stays on — and the next save must
-    /// carry only the current keys.
+    /// The always-on switches are retired: the roadmap, the Devbook, the dashboard,
+    /// additional repositories, feedback reporting and the copy button are permanent,
+    /// and the backlog never was switchable. A file that switched any of them off
+    /// still loads, the choice beside them keeps, and the next save carries none of
+    /// the retired keys.
     /// </summary>
     [Fact]
-    public void The_devbook_features_read_the_keys_they_were_stored_under_before_the_rename()
+    public void Stored_choices_for_retired_switches_are_dropped_on_the_next_save()
     {
         var path = NewSettingsPath();
+        string[] retired =
+            ["roadmap", "repository-devbook", "dashboard", "additional-repositories", "feedback-reporting", "copy-entries", "backlog"];
 
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new
             {
-                disabledFeatures = new[] { "repository-knowledge", "knowledge-sections" },
-                enabledFeatures = new[] { "knowledge-search", "knowledge-semantic-search" }
+                disabledFeatures = retired.Append(TasksFeatures.GitHubIntegration).ToArray()
             }));
 
             var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.False(store.IsEnabled(DevbookFeatures.RepositoryDevbook));
-            Assert.True(store.IsEnabled(DevbookFeatures.Search));
-            Assert.True(store.IsEnabled(DevbookFeatures.SemanticSearch));
+            Assert.Equal([TasksFeatures.GitHubIntegration], store.Current.DisabledFeatures);
 
-            store.SetEnabled(DevbookFeatures.RepositoryDevbook, enabled: false);
+            store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
 
-            var saved = File.ReadAllText(path);
-            Assert.Contains("repository-devbook", saved);
-            Assert.Contains("devbook-search", saved);
-            Assert.Contains("devbook-semantic-search", saved);
-            Assert.DoesNotContain("knowledge", saved);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>
-    /// Devbook sections folded into Devbook: the pane and its sections were two
-    /// switches that only ever meant something together. Somebody who had turned
-    /// either one off had no Devbook to read, so a file that disabled the sections
-    /// alone — under either name they had — reads as Devbook off, and the next
-    /// save carries only the one key.
-    /// </summary>
-    [Theory]
-    [InlineData("devbook-sections")]
-    [InlineData("knowledge-sections")]
-    public void Turning_off_the_former_sections_switch_reads_as_devbook_off(string formerKey)
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(new
-            {
-                disabledFeatures = new[] { formerKey },
-                enabledFeatures = Array.Empty<string>()
-            }));
-
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
-
-            Assert.False(store.IsEnabled(DevbookFeatures.RepositoryDevbook));
-            Assert.DoesNotContain(AppFeatures.All, feature => feature.Name == "Devbook sections");
-
-            store.SetEnabled(AppFeatures.FeedbackReporting, enabled: false);
-
-            var saved = File.ReadAllText(path);
-            Assert.Contains("repository-devbook", saved);
-            Assert.DoesNotContain("sections", saved);
+            var saved = JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(path))
+                .GetProperty("disabledFeatures").EnumerateArray().Select(key => key.GetString()).ToList();
+            Assert.Equal([AppFeatureKeys.CopilotCli, TasksFeatures.GitHubIntegration], saved);
         }
         finally
         {

@@ -83,7 +83,6 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
 
         // Search on as well, so its absence on the Brain is the pane's choice and
         // not the flag's.

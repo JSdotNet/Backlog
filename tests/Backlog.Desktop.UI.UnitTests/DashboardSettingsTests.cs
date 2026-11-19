@@ -213,9 +213,9 @@ public sealed class DashboardSettingsTests
     // --- On the settings screen ---------------------------------------------------
 
     [Fact]
-    public void With_the_dashboard_on_the_settings_screen_offers_its_page_first_among_the_product_areas()
+    public void The_settings_screen_offers_the_dashboard_page_first_among_the_product_areas()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
 
         var tabs = Tabs(settings.Component);
         Assert.Equal(["Dashboard", "Working week", "Inbox"], tabs[^3..]);
@@ -231,7 +231,7 @@ public sealed class DashboardSettingsTests
     [Fact]
     public void The_dashboard_page_supplies_its_headline()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
 
         OpenTab(settings.Component, "Dashboard");
 
@@ -257,20 +257,9 @@ public sealed class DashboardSettingsTests
     }
 
     [Fact]
-    public void With_the_dashboard_off_the_settings_screen_marks_the_dashboard_page_Off_and_keeps_the_working_week()
-    {
-        using var settings = RenderSettings(dashboard: false);
-
-        var tabs = Tabs(settings.Component);
-        Assert.Equal(["Dashboard", "Working week", "Inbox"], tabs[^3..]);
-        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "dashboard"));
-        Assert.NotEqual("Off", SettingsMenu.Badge(settings.Component, "working-week"));
-    }
-
-    [Fact]
     public void The_storage_tab_no_longer_carries_the_usage_reset()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
 
         OpenTab(settings.Component, "Storage & backup");
 
@@ -401,7 +390,7 @@ public sealed class DashboardSettingsTests
         return new SectionRenderContext(root, context, context.Render<DashboardSettings>(), usageReset, spendBudgets);
     }
 
-    private static SettingsRenderContext RenderSettings(bool dashboard)
+    private static SettingsRenderContext RenderSettings()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-dashboard-settings-tests", Guid.NewGuid().ToString("n"));
 
@@ -411,7 +400,6 @@ public sealed class DashboardSettingsTests
         _ = features.SetEnabled(AppFeatures.AiAssistant, false);
         _ = features.SetEnabled(AppFeatures.UsageMetrics, false);
         _ = features.SetEnabled(AppFeatures.InboxPane, true);
-        _ = features.SetEnabled(DashboardFeatures.Dashboard, dashboard);
 
         var githubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"), () => Path.Combine(root, "workspace"));
         var usageReset = new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json"));
