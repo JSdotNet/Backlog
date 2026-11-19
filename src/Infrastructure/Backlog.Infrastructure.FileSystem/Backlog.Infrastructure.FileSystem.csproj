@@ -118,6 +118,7 @@
          the way the Claude and Azure Foundry adapters do: it is internal to the GitHub
          adapter, and one copy of the rule is the point. -->
     <Compile Include="..\Backlog.Infrastructure.GitHub\SecretEnvelope.cs" Link="SecretEnvelope.cs" />
+    <Compile Include="..\Backlog.Infrastructure.GitHub\UserDpapi.cs" Link="UserDpapi.cs" />
   </ItemGroup>
 
 </Project>

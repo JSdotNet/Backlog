@@ -22,14 +22,14 @@ public sealed class InboxZeroTests : IDisposable
 
     private static readonly DateOnly Today = DateOnly.FromDateTime(Now.Date);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-zero-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-zero-tests");
     private readonly BunitContext _context = new();
     private readonly FakeInboxItems _inbox;
 
     public InboxZeroTests()
     {
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
-        _context.Services.AddSingleton(new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        _context.Services.AddSingleton(new GitHubSettingsStore(_temp.Combine("github.json")));
         var clock = new FakeTimeProvider(Now);
         clock.SetLocalTimeZone(TimeZoneInfo.Utc);
         _context.Services.AddSingleton<TimeProvider>(clock);
@@ -238,13 +238,6 @@ public sealed class InboxZeroTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 }

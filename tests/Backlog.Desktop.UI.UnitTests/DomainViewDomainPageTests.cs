@@ -8,7 +8,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DomainViewDomainPageTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-domain-view-domain-page", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-domain-view-domain-page");
 
     private const string Domain = """
         # Ordering
@@ -155,13 +155,13 @@ public sealed class DomainViewDomainPageTests : IDisposable
 
     private DomainViewDomainRead ReadWith(string mapTitle, string selected, (string Name, string Text)[] contents)
     {
-        var folder = Path.Combine(_root, ".domain", "ordering");
+        var folder = _temp.Combine(".domain", "ordering");
         Directory.CreateDirectory(folder);
         foreach (var (name, text) in contents) File.WriteAllText(Path.Combine(folder, name), text);
         var files = contents.Select(content => content.Name).ToArray();
 
         var documents = files.Select(file => Document($".domain/ordering/{file}", DomainDevbookStore.KindFromFile(file))).ToList();
-        var view = new DomainDevbookView("JSdotNet/Backlog", _root, Path.Combine(_root, ".domain"), null,
+        var view = new DomainDevbookView("JSdotNet/Backlog", _temp.Path, _temp.Combine(".domain"), null,
             Document(".domain/context-map.md", DomainDevbookDocumentKind.ContextMap) with { Title = mapTitle },
             [new DomainDevbookContext("ordering", "Ordering", "none", documents)]);
 
@@ -171,10 +171,5 @@ public sealed class DomainViewDomainPageTests : IDisposable
     private static DomainDevbookDocument Document(string path, DomainDevbookDocumentKind kind) =>
         new(path, Path.GetFileName(path), kind, "none", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), string.Empty, [], [], []);
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 }

@@ -28,7 +28,7 @@ public sealed class FeatureStatusIndicatorTests
         Assert.Equal(string.Empty, AppFeatureStatusBadge.Slug(AppFeatureStatus.Released));
         Assert.Null(AppFeatureStatusBadge.Title(AppFeatureStatus.Released));
 
-        var released = Assert.Single(AppFeatures.All, feature => feature.Key == TasksFeatures.Tasks);
+        var released = Assert.Single(AppFeatures.All, feature => feature.Key == DevbookFeatures.Editing);
         Assert.Equal(AppFeatureStatus.Released, released.Status);
         Assert.Equal(string.Empty, AppFeatureStatusBadge.Slug(released.Status));
     }
@@ -63,17 +63,17 @@ public sealed class FeatureStatusIndicatorTests
     {
         using var features = NewFeatureStore();
 
-        // Repository knowledge rather than GitHub integration: the latter moved to
+        // Devbook editing rather than GitHub integration: the latter moved to
         // Dev when the catalog was regrouped, and a test that quietly follows a
         // status change is testing nothing.
-        _ = features.Store.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
+        _ = features.Store.SetEnabled(DevbookFeatures.Editing, true);
 
         Assert.Equal(
             AppFeatureStatus.Released,
-            Assert.Single(AppFeatures.All, f => f.Key == DevbookFeatures.RepositoryDevbook).Status);
+            Assert.Single(AppFeatures.All, f => f.Key == DevbookFeatures.Editing).Status);
         Assert.Equal(
             string.Empty,
-            AppFeatureStatusBadge.SlugFor(AppFeatures.All, features.Store, DevbookFeatures.RepositoryDevbook));
+            AppFeatureStatusBadge.SlugFor(AppFeatures.All, features.Store, DevbookFeatures.Editing));
     }
 
     /// <summary>A decoration fails quietly. <c>IsEnabled</c> throws for a key no
@@ -161,14 +161,15 @@ public sealed class FeatureStatusIndicatorTests
 
     private static FeatureStore NewFeatureStore()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-feature-status-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-feature-status-tests");
 
-        return new FeatureStore(root, new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json")));
+        return new FeatureStore(temp, new AppFeatureSettingsStore(AppFeatures.All, temp.Combine("features.json")));
     }
 
     internal static SettingsRenderContext RenderSettings(Action<AppFeatureSettingsStore>? configureFeatures = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-feature-status-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-feature-status-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -195,34 +196,25 @@ public sealed class FeatureStatusIndicatorTests
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>());
+        return new SettingsRenderContext(temp, context, context.Render<Settings>());
     }
 
-    private sealed record FeatureStore(string Root, AppFeatureSettingsStore Store) : IDisposable
+    private sealed record FeatureStore(TemporaryDirectory Temp, AppFeatureSettingsStore Store) : IDisposable
     {
-        public void Dispose() => DeleteRoot(Root);
+        public void Dispose() => Temp.Dispose();
     }
 
     internal sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteRoot(Root);
-        }
-    }
-
-    private static void DeleteRoot(string root)
-    {
-        try
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-        catch (IOException)
-        {
+            Temp.Dispose();
         }
     }
 }

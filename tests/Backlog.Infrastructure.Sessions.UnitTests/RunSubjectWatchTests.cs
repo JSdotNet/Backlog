@@ -18,7 +18,8 @@ public sealed class RunSubjectWatchTests : IDisposable
     private static readonly DateTimeOffset Noon = new(2026, 11, 5, 12, 0, 0, TimeSpan.Zero);
     private static readonly string[] Stages = ["Implement", "Personal Validation", "Create Pull Request"];
 
-    private readonly string _home = Path.Combine(Path.GetTempPath(), "backlog-run-subject-watch-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-run-subject-watch-tests");
+    private string _home => _temp.Path;
     private readonly RecordingNotifications _notifications = new();
     private readonly FakeTimeProvider _clock = new(Noon);
     private readonly SwitchablePullRequests _pulls = new();
@@ -141,16 +142,13 @@ public sealed class RunSubjectWatchTests : IDisposable
         Assert.Empty(_notifications.Closed);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     private RunSubjectWatch Watch(OpenQuestions open) =>
         new(() => open, Probe(), () => _notifications, _clock);
 
     private SessionSubjectProbe Probe() =>
-        new(new NoSessions(), new LocalDeliveryRunSource(_home, "machine", "Workshop PC"), _pulls, _clock);
+        new(new StubSessionSource(), new LocalDeliveryRunSource(_home, "machine", "Workshop PC"), _pulls, _clock);
 
     /// <summary>A run at Personal Validation that recorded its pull request on the stage
     /// before.</summary>
@@ -237,14 +235,5 @@ public sealed class RunSubjectWatchTests : IDisposable
 
             return Fails is { } failure ? Task.FromException<SessionPullRequestState?>(failure) : Task.FromResult(State);
         }
-    }
-
-    private sealed class NoSessions : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog([], [], 0));
     }
 }

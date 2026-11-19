@@ -108,7 +108,8 @@ public sealed class HomeInitialLoadTests
         bool gitHubOn = false,
         int? linkPullRequest = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-home-initial-load", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-home-initial-load");
+        var root = temp.Path;
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
 
         // Written through the real use case, so the store is left exactly as the
@@ -137,10 +138,8 @@ public sealed class HomeInitialLoadTests
         foreach (var feature in new[]
                  {
                      AppFeatures.InboxPane,
-                     DevbookFeatures.RepositoryDevbook,
                      DevPcFeatures.SystemTools,
                      AppFeatures.AiAssistant,
-                     AppFeatures.FeedbackReporting,
                      TasksFeatures.GitHubIntegration
                  })
         {
@@ -224,12 +223,13 @@ public sealed class HomeInitialLoadTests
         // module, the same terms as the Tasks state above.
         _ = InboxTestHost.AddInboxState(context.Services);
 
-        return new Harness(root, context);
+        return new Harness(temp, context);
     }
 
     /// <summary>Counts the pull request reads — the read by number Repository
     /// Management's source sends, and the one over REST it falls back to — and answers
     /// each like a GitHub that cannot find it: the count is the whole question here.</summary>
+    // Differs from StubGitHubClient: counts the pull request reads and answers each as not found.
     private sealed class CountingGitHubClient : IGitHubClient
     {
         private int _statusReads;
@@ -280,20 +280,13 @@ public sealed class HomeInitialLoadTests
         public Result<TasksRepositoryRef> Register(string name) => new TasksRepositoryRef(name, name, name);
     }
 
-    private sealed record Harness(string Root, BunitContext Context) : IDisposable
+    private sealed record Harness(TemporaryDirectory Temp, BunitContext Context) : IDisposable
     {
         public void Dispose()
         {
             Context.Dispose();
-            TestDatabases.Release(Root);
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            TestDatabases.Release(Temp.Path);
+            Temp.Dispose();
         }
     }
 }

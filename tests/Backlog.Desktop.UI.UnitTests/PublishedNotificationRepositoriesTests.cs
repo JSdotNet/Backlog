@@ -157,6 +157,7 @@ public sealed class PublishedNotificationRepositoriesTests
     }
 
     /// <summary>The backlog as a list; only the read the push makes is answered.</summary>
+    // Differs from RecordingTaskItems: answers a fixed list and refuses every write.
     private sealed class ListedTaskItems(IReadOnlyList<TaskItemDto> tasks) : ITaskItems
     {
         public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult(tasks);

@@ -1,5 +1,6 @@
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
@@ -22,7 +23,7 @@ internal sealed class RecordingGitHubSettingsReplication : IGitHubSettingsReplic
     public List<(GitHubReplicaDocument Document, GitHubReplicaCopyDto Copy)> Offered { get; } = [];
 
     /// <summary>What <see cref="ApplyAsync"/> answers. Taken by default.</summary>
-    public GitHubReplicaOutcome Answer { get; set; } = GitHubReplicaOutcome.Taken;
+    public ReplicaOutcome Answer { get; set; } = ReplicaOutcome.Taken;
 
     public void RaiseChanged() => Changed?.Invoke();
 
@@ -35,7 +36,7 @@ internal sealed class RecordingGitHubSettingsReplication : IGitHubSettingsReplic
         CancellationToken cancellationToken = default) =>
         Task.FromResult(Held.TryGetValue(document, out var copy) ? copy : null);
 
-    public Task<GitHubReplicaOutcome> ApplyAsync(
+    public Task<ReplicaOutcome> ApplyAsync(
         GitHubReplicaDocument document,
         GitHubReplicaCopyDto inbound,
         CancellationToken cancellationToken = default)

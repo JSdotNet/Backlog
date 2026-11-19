@@ -137,7 +137,7 @@ public class WebHarnessHostTests
     /// with scopes validated, now that <c>AddDevbookModule</c> registers them through the
     /// shared composition — and the two choices that were this harness's own survive the
     /// move. The domain store is one per circuit, so two visitors never share a reader's
-    /// state; and the Devbook offers and the Archify artifacts sit over a launcher that
+    /// state; and the Devbook offers sit over a launcher that
     /// says it cannot start a CLI here rather than starting one.
     /// </summary>
     [Fact]
@@ -156,8 +156,6 @@ public class WebHarnessHostTests
             first.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Devbook.DomainDevbookStore>(),
             second.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Devbook.DomainDevbookStore>());
 
-        Assert.IsType<Backlog.Desktop.UI.Devbook.ArchifyDiagramArtifacts>(
-            harness.Services.GetRequiredService<Backlog.UI.Components.Diagrams.IDiagramArtifactSource>());
         Assert.IsType<Backlog.Infrastructure.Copilot.UnavailableCopilotCliLauncher>(
             harness.Services.GetRequiredService<Backlog.Infrastructure.Copilot.ICopilotCliLauncher>());
 

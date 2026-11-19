@@ -24,7 +24,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookPaneSectionReferenceTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task A_reference_in_a_design_chapter_opens_the_chapter_it_names()
@@ -260,13 +260,14 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
     /// until this completes; the panels read their folders as usual.</param>
     private Harness CreateHarness(Task? menuLoad = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-section-references", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-devbook-section-references");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".design"));
         Directory.CreateDirectory(Path.Combine(root, ".ai"));
         Directory.CreateDirectory(Path.Combine(root, ".tech"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
         Directory.CreateDirectory(Path.Combine(root, ".github", "instructions"));
-        _roots.Add(root);
 
         // The links go in `color-scheme.md`, because that is the chapter the pane
         // opens the section on: the menu reads the design folder in the
@@ -333,7 +334,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
 
             ```meta
             status: accepted
-            kind: layer
+            type: layer
             ```
 
             Shared platform choices.
@@ -342,7 +343,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
 
             ```meta
             status: accepted
-            kind: runtime
+            type: runtime
             depends-on: [".arc42/03-context-and-scope.md"]
             ```
 
@@ -363,7 +364,6 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
@@ -410,10 +410,9 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            temp.Dispose();
         }
     }
 
@@ -430,6 +429,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
     /// <summary>The folder source as the menu sees it, with every listing held
     /// until <paramref name="release"/> completes. Listing is the one call the menu
     /// awaits, so this holds the menu and nothing else.</summary>
+    // Differs from StubFolderSource: wraps another source and holds every listing until released.
     private sealed class HeldListingSource(IDevbookFolderSource inner, Task release) : IDevbookFolderSource
     {
         public event Action? Changed

@@ -21,7 +21,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookPaneDomainViewFlagTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public void The_switch_ships_off()
@@ -198,10 +198,11 @@ public sealed class DevbookPaneDomainViewFlagTests : IDisposable
 
     private Harness CreateHarness(bool domainView)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-domain-view-flag", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-domain-view-flag");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts and what joins them.\n");
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), "# Domain: Tasks\n\n```meta\nstatus: draft\n```\n\nWhat the tasks context is.\n\n## Task\n\n```meta\ntype: aggregate\n```\n\nA piece of work.\n\n## Planning\n\n```meta\ntype: domain-service\n```\n\nPlans the work.\n");
@@ -213,7 +214,6 @@ public sealed class DevbookPaneDomainViewFlagTests : IDisposable
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         if (domainView) _ = features.SetEnabled(DevbookFeatures.DomainView, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -253,11 +253,7 @@ public sealed class DevbookPaneDomainViewFlagTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private sealed record Harness(BunitContext Context, string RepositoryAlias, IAppFeatureSettings Features) : IAsyncDisposable

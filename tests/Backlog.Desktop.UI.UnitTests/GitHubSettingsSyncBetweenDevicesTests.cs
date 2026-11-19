@@ -31,8 +31,7 @@ public sealed class GitHubSettingsSyncBetweenDevicesTests : IDisposable
     private const string Work = "j-schepers_innobv";
     private const string SpecManager = "innovadis-dev/spec-manager";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(), "github-settings-sync-devices-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("github-settings-sync-devices");
 
     private readonly FakeTaskReplica _replica = new();
 
@@ -41,9 +40,7 @@ public sealed class GitHubSettingsSyncBetweenDevicesTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 
     /// <summary>Verification 1 and 2: A adds the work account with a pasted token and
@@ -159,7 +156,7 @@ public sealed class GitHubSettingsSyncBetweenDevicesTests : IDisposable
     }
 
     private DesktopDevice Device(string name) =>
-        new(Path.Combine(_root, name), _replica, DeviceIds.GetOrAdd(name, _ => Guid.NewGuid()));
+        new(_temp.Combine(name),_replica, DeviceIds.GetOrAdd(name, _ => Guid.NewGuid()));
 
     private System.Collections.Concurrent.ConcurrentDictionary<string, Guid> DeviceIds { get; } = new();
 

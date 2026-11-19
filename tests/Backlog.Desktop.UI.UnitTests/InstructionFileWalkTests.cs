@@ -12,7 +12,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class InstructionFileWalkTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-instruction-walk-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-instruction-walk-tests");
+
+    private string _root => _temp.Path;
 
     [Fact]
     public void The_walk_turns_back_at_build_output_dependencies_and_version_control()
@@ -91,8 +93,5 @@ public sealed class InstructionFileWalkTests : IDisposable
         File.WriteAllText(fullPath, "# " + relativePath);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

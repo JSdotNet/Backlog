@@ -15,16 +15,14 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public class DevbookCorpusProfileTests : IDisposable
 {
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-corpus-profile", Guid.NewGuid().ToString("N"));
-
-    public DevbookCorpusProfileTests() => Directory.CreateDirectory(_scratch);
+    private readonly TemporaryDirectory _temp = new("backlog-corpus-profile");
 
     [Fact]
     public void A_repository_fingerprint_has_no_tag_line()
     {
         Write(".devbook/arc42/05.md", "# Building blocks\n");
 
-        var lines = InputsText(_scratch, DevbookCorpusProfile.Repository);
+        var lines = InputsText(_temp.Path, DevbookCorpusProfile.Repository);
 
         Assert.Equal(DevbookDatabaseSchema.Version.ToString(CultureInfo.InvariantCulture), lines[0]);
         Assert.StartsWith(".devbook/arc42/05.md\t", lines[1], StringComparison.Ordinal);
@@ -36,7 +34,7 @@ public class DevbookCorpusProfileTests : IDisposable
         Write("a/one.md", "# One\n");
         Write("b/two.md", "# Two\n");
 
-        var lines = InputsText(_scratch, new TaggedProfile());
+        var lines = InputsText(_temp.Path, new TaggedProfile());
 
         Assert.Equal("x\ta,b", lines[1]);
         Assert.StartsWith("a/one.md\t", lines[2], StringComparison.Ordinal);
@@ -49,7 +47,7 @@ public class DevbookCorpusProfileTests : IDisposable
         Write("b/two.md", "# Two\n");
         Write("RULES.md", "# Rules\n");
 
-        var lines = InputsText(_scratch, new TaggedProfile());
+        var lines = InputsText(_temp.Path, new TaggedProfile());
 
         Assert.StartsWith("RULES.md\t", lines[^1], StringComparison.Ordinal);
     }
@@ -61,7 +59,7 @@ public class DevbookCorpusProfileTests : IDisposable
         Write("work/standup.md", "# Standup\n");
         Write("design/palette.md", "# Palette\n");
 
-        var lines = InputsText(_scratch, BrainCorpusProfile.Instance);
+        var lines = InputsText(_temp.Path, BrainCorpusProfile.Instance);
 
         Assert.Equal("brain\twork,design", lines[1]);
         Assert.StartsWith("design/palette.md\t", lines[2], StringComparison.Ordinal);
@@ -74,8 +72,8 @@ public class DevbookCorpusProfileTests : IDisposable
     public void Registering_a_profiles_root_again_replaces_the_first()
     {
         var profile = new TaggedProfile();
-        var first = Path.Combine(_scratch, "first");
-        var second = Path.Combine(_scratch, "second");
+        var first = _temp.Combine("first");
+        var second = _temp.Combine("second");
 
         DevbookDatabaseLocation.RegisterCorpus(profile, first);
         DevbookDatabaseLocation.RegisterCorpus(profile, second);
@@ -93,22 +91,14 @@ public class DevbookCorpusProfileTests : IDisposable
     [Fact]
     public void An_unregistered_root_reads_as_a_repository()
     {
-        Assert.Same(DevbookCorpusProfile.Repository, DevbookDatabaseLocation.ProfileFor(Path.Combine(_scratch, "nowhere")));
+        Assert.Same(DevbookCorpusProfile.Repository, DevbookDatabaseLocation.ProfileFor(_temp.Combine("nowhere")));
         Assert.Same(DevbookCorpusProfile.Repository, DevbookDatabaseLocation.ProfileFor(null));
         Assert.False(DevbookDatabaseLocation.IsRegisteredRoot(null));
     }
 
     public void Dispose()
     {
-        try
-        {
-            Directory.Delete(_scratch, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A scratch folder left behind costs disk, not correctness.
-        }
-
+        _temp.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -117,7 +107,7 @@ public class DevbookCorpusProfileTests : IDisposable
 
     private void Write(string relativePath, string text)
     {
-        var path = Path.Combine(_scratch, relativePath);
+        var path = _temp.Combine(relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, text);
     }

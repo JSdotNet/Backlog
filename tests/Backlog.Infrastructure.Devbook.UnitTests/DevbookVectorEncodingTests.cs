@@ -14,9 +14,8 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// <para>So the layout is written down beside the table in
 /// <c>tools/devbook/devbook-schema.mjs</c> — <c>dimensions</c> IEEE-754
 /// singles, little-endian, packed, no header — this class names that file, and
-/// that file names this class. The same pairing <c>normalizeDiagramSource</c> and
-/// <c>DiagramSourceHash</c> already have, for the same reason: the failure is
-/// invisible from inside either language.</para>
+/// that file names this class, because the failure is invisible from inside
+/// either language.</para>
 /// </summary>
 public sealed class DevbookVectorEncodingTests
 {

@@ -24,8 +24,14 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 /// the two would have tested neither.
 /// </para>
 /// </summary>
-public sealed class SessionSyncWorkerTests
+public sealed class SessionSyncWorkerTests : CredentialGatedSyncWorkerTests
 {
+    private protected override IGateFixture CreateUnpaired() => Fixture.Create(featureOn: true, paired: false);
+
+    private protected override TimeSpan FirstCycleDelay => SessionSyncWorker.FirstCycleDelay;
+
+    private protected override DeviceCredential PairedCredential => Paired;
+
     private static readonly DateTimeOffset Noon = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
 
     private static readonly DeviceCredential Paired = new(
@@ -84,25 +90,6 @@ public sealed class SessionSyncWorkerTests
 
         _ = fixture.Features.SetEnabled(SyncFeatures.Sync, false);
         fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
-
-        Assert.Equal(1, fixture.SessionsResolved);
-    }
-
-    /// <summary>An unpaired device has no owner to replicate under, so there is
-    /// nothing a cycle could ask for.</summary>
-    [Fact]
-    public async Task No_cycle_runs_until_a_device_credential_is_stored()
-    {
-        using var fixture = Fixture.Create(featureOn: true, paired: false);
-
-        fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
-
-        Assert.Equal(0, fixture.SessionsResolved);
-
-        var first = fixture.NextCycle();
-        fixture.Credentials.Save(Paired);
-        fixture.Clock.Advance(SessionSyncWorker.FirstCycleDelay);
-        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, fixture.SessionsResolved);
     }
@@ -294,7 +281,7 @@ public sealed class SessionSyncWorkerTests
         Assert.Null(fixture.State.Current.PullCursor);
     }
 
-    private sealed class Fixture : IDisposable
+    private sealed class Fixture : IGateFixture
     {
         /// <summary>How long a test waits for work it has already caused before
         /// calling it a hang. Generous, because it is a bound and not a measurement:
@@ -453,7 +440,7 @@ public sealed class SessionSyncWorkerTests
 
             return new SessionSyncSession(
                 new SessionSyncClient(_http),
-                new StubAgentSessionSource(_sessions),
+                new StubSessionSource(_sessions),
                 new StubSessionRepositoryAliases(),
                 State,
                 new InMemoryReplicatedSessionStore(),

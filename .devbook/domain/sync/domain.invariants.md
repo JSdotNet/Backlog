@@ -122,7 +122,7 @@ related: [.devbook/domain/sync/domain.md#shared-value-objects]
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.SyncCursorCodecTests.A_cursor_minted_for_another_owner_is_refused_by_its_own_code, unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.SyncCursorCodecTests.A_payload_rewritten_to_another_owner_is_malformed, unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.DevbookSubjectSyncEndpointTests.A_cursor_minted_for_another_owner_is_refused]
+tests: [unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.SyncCursorCodecTests.A_cursor_minted_for_another_owner_is_refused_by_its_own_code, unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.SyncCursorCodecTests.A_payload_rewritten_to_another_owner_is_malformed, unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.SyncCursorOwnerEndpointTests.A_cursor_minted_for_another_owner_is_refused]
 ```
 
 A replica cursor names the owner it was minted for, and a cursor naming another owner than the caller's is refused (`sync.cursor_not_yours`).

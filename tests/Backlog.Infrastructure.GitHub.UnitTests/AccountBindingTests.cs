@@ -25,9 +25,7 @@ public sealed class AccountBindingTests : IDisposable
     private const string RegistryUnreadable =
         "The repository registry couldn't be read, so repositories can't be changed right now.";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "account-binding-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("account-binding-tests");
 
     // --- The highest-value test in the change ---------------------------------
 
@@ -97,7 +95,7 @@ public sealed class AccountBindingTests : IDisposable
         Assert.Null(store.SetRepositoryAccount("backlog", "JSdotNet"));
 
         Assert.Null(store.SetRepositoryColour("backlog", 4));
-        Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
+        Assert.Null(store.SetCloneDirectory("backlog", _temp.Combine("clone")));
         Assert.Null(store.SetRepositoryToken("backlog", "ghp_repository"));
         Assert.Null(store.SetApiEndpoint("https://ghe.example.internal/api/v3"));
         Assert.Null(store.SetShowRepositoryColours(true));
@@ -247,47 +245,6 @@ public sealed class AccountBindingTests : IDisposable
         Assert.True(store.Current.AccountForPath("repos/JSdotNet/Backlog").IsDefault);
     }
 
-    /// <summary>And a per-user file written before accounts existed reads as no
-    /// accounts, losing none of what it did state.</summary>
-    [Fact]
-    public void A_settings_file_from_before_accounts_loses_nothing_and_reads_as_no_accounts()
-    {
-        WriteLocalFile(
-            """
-            {
-              "repositories": [
-                {
-                  "alias": "backlog",
-                  "owner": "JSdotNet",
-                  "name": "Backlog",
-                  "cloneDirectory": "/tmp/backlog-clone",
-                  "token": "ghp_secret",
-                  "colour": 3,
-                  "devbookFolders": [ { "key": ".domain", "enabled": false, "path": "/tmp/domain" } ]
-                }
-              ],
-              "apiEndpoint": "https://ghe.example.internal/api/v3"
-            }
-            """);
-
-        var store = Store();
-
-        Assert.Empty(store.Current.Accounts);
-
-        var repository = Assert.Single(store.Current.Repositories);
-        Assert.Equal("backlog", repository.Alias);
-        Assert.Equal("JSdotNet/Backlog", repository.FullName);
-        Assert.Equal(3, repository.Colour);
-        Assert.Equal("ghp_secret", repository.Token);
-        Assert.Equal("/tmp/backlog-clone", repository.CloneDirectory);
-        Assert.Null(repository.Account);
-        Assert.Equal("https://ghe.example.internal/api/v3", store.Current.ApiEndpoint);
-
-        var domain = repository.DevbookFolders.Single(f => f.Key == ".domain");
-        Assert.False(domain.Enabled);
-        Assert.Equal("/tmp/domain", domain.Path);
-    }
-
     /// <summary>
     /// Idempotent by construction, which is the discipline every settings document
     /// in this repository follows and the reason none of them carries a version
@@ -311,32 +268,6 @@ public sealed class AccountBindingTests : IDisposable
 
         Assert.Equal(registry, File.ReadAllText(store.RegistryPath));
         Assert.Equal(local, File.ReadAllText(store.SettingsPath));
-    }
-
-    /// <summary>The carry-over from a legacy per-user file still works, and now
-    /// carries the binding through the registry row it writes.</summary>
-    [Fact]
-    public void A_carried_over_repository_can_be_bound_and_stays_bound()
-    {
-        WriteLocalFile(
-            """
-            {
-              "repositories": [
-                { "alias": "backlog", "owner": "JSdotNet", "name": "Backlog", "token": "ghp_secret", "colour": 3 }
-              ],
-              "apiEndpoint": "https://api.github.com"
-            }
-            """);
-
-        var store = Store();
-        Assert.Null(store.SetAccounts([Account("JSdotNet")]));
-        Assert.Null(store.SetRepositoryAccount("backlog", "JSdotNet"));
-
-        var reopened = Store();
-        var repository = Assert.Single(reopened.Current.Repositories);
-        Assert.Equal("JSdotNet", repository.Account);
-        Assert.Equal(3, repository.Colour);
-        Assert.Equal("ghp_secret", repository.Token);
     }
 
     // --- The mutators ---------------------------------------------------------
@@ -389,20 +320,12 @@ public sealed class AccountBindingTests : IDisposable
     [Fact]
     public void Binding_while_the_registry_is_unreadable_is_refused()
     {
-        WriteLocalFile(
-            """
-            {
-              "repositories": [ { "alias": "backlog", "owner": "JSdotNet", "name": "Backlog" } ],
-              "apiEndpoint": "https://api.github.com"
-            }
-            """);
         WriteRegistryFile("{ this is not json");
 
         var store = Store();
         Assert.Null(store.SetAccounts([Account("JSdotNet")]));
 
         Assert.Equal(RegistryUnreadable, store.SetRepositoryAccount("backlog", "JSdotNet"));
-        Assert.Null(store.Current.Find("backlog")!.Account);
 
         // Every repository correctly reads as unbound and falls back to the
         // default: degrade, do not fail.
@@ -545,9 +468,9 @@ public sealed class AccountBindingTests : IDisposable
 
     // --- Helpers --------------------------------------------------------------
 
-    private string WorkspaceRoot => Path.Combine(_root, "workspace");
+    private string WorkspaceRoot => _temp.Combine("workspace");
 
-    private string LocalPath(string install = "install-1") => Path.Combine(_root, install, "github.json");
+    private string LocalPath(string install = "install-1") => _temp.Combine(install, "github.json");
 
     private GitHubSettingsStore Store(string install = "install-1") => new(LocalPath(install), () => WorkspaceRoot);
 
@@ -573,8 +496,5 @@ public sealed class AccountBindingTests : IDisposable
         File.WriteAllText(path, json);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

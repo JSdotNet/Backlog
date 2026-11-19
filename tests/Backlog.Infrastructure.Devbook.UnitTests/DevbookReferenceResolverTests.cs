@@ -48,7 +48,7 @@ public sealed class DevbookReferenceResolverTests : IDisposable
         The whole.
         """;
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-devbook-references", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-references");
 
     public DevbookReferenceResolverTests()
     {
@@ -196,7 +196,7 @@ public sealed class DevbookReferenceResolverTests : IDisposable
     {
         BuildDatabase();
 
-        var resolver = new DevbookReferenceResolver(new FolderSource(_root, disabled: ".arc42"));
+        var resolver = new DevbookReferenceResolver(new FolderSource(_temp.Path, disabled: ".arc42"));
         var answers = await resolver.ResolveAsync(Alias, [BuildingBlocksPage], TestContext.Current.CancellationToken);
 
         Assert.Equal(DevbookReferenceState.OutsideDevbook, Assert.Single(answers).State);
@@ -292,7 +292,7 @@ public sealed class DevbookReferenceResolverTests : IDisposable
     [Fact]
     public async Task Without_a_database_or_a_readable_folder_a_reference_is_unverified()
     {
-        var resolver = new DevbookReferenceResolver(new FolderSource(_root, available: false));
+        var resolver = new DevbookReferenceResolver(new FolderSource(_temp.Path, available: false));
 
         var answers = await resolver.ResolveAsync(Alias, [$"{TasksPage}#task-item"], TestContext.Current.CancellationToken);
 
@@ -366,7 +366,7 @@ public sealed class DevbookReferenceResolverTests : IDisposable
     {
         BuildDatabase();
 
-        var resolver = new DevbookReferenceResolver(new FolderSource(_root, disabled: ".arc42"));
+        var resolver = new DevbookReferenceResolver(new FolderSource(_temp.Path, disabled: ".arc42"));
         var targets = await resolver.ListTargetsAsync(Alias, TestContext.Current.CancellationToken);
 
         Assert.NotEmpty(targets);
@@ -392,7 +392,7 @@ public sealed class DevbookReferenceResolverTests : IDisposable
     public async Task Listing_targets_does_its_work_off_the_caller_s_context()
     {
         BuildDatabase();
-        var source = new FolderSource(_root);
+        var source = new FolderSource(_temp.Path);
 
         var targets = await OnMarkedContext(() => new DevbookReferenceResolver(source).ListTargetsAsync(Alias, TestContext.Current.CancellationToken));
 
@@ -405,7 +405,7 @@ public sealed class DevbookReferenceResolverTests : IDisposable
     public async Task Resolving_does_its_work_off_the_caller_s_context()
     {
         BuildDatabase();
-        var source = new FolderSource(_root);
+        var source = new FolderSource(_temp.Path);
 
         var answers = await OnMarkedContext(() => new DevbookReferenceResolver(source).ResolveAsync(Alias, [$"{TasksPage}#task-item"], TestContext.Current.CancellationToken));
 
@@ -431,7 +431,7 @@ public sealed class DevbookReferenceResolverTests : IDisposable
     public void The_database_answers_every_page_s_headings_at_once()
     {
         BuildDatabase();
-        var location = DevbookDatabaseLocation.ForRepositoryRoot(_root);
+        var location = DevbookDatabaseLocation.ForRepositoryRoot(_temp.Path);
         Assert.NotNull(location);
 
         using var database = DevbookDatabase.TryOpen(location);
@@ -522,7 +522,7 @@ public sealed class DevbookReferenceResolverTests : IDisposable
     private string CurrentSignature() =>
         ScenarioSignature.OfJourney(
             Assert.Single(ScenarioPageParser.ParseFile(ScenarioMarkdown, ScenarioPagePath).Scenarios),
-            _root,
+            _temp.Path,
             ScenarioPageParser.ScenarioFolder);
 
     private void WriteRun(string signature, string first, string second, string journey = JourneyAddress) =>
@@ -773,19 +773,19 @@ public sealed class DevbookReferenceResolverTests : IDisposable
 
     // --- plumbing -------------------------------------------------------------
 
-    private DevbookReferenceResolver Resolver() => new(new FolderSource(_root));
+    private DevbookReferenceResolver Resolver() => new(new FolderSource(_temp.Path));
 
     private async Task<ResolvedDevbookReference> ResolveOne(string reference) =>
         Assert.Single(await Resolver().ResolveAsync(Alias, [reference], TestContext.Current.CancellationToken));
 
     private void BuildDatabase()
     {
-        var target = DevbookDatabaseLocation.ForRepositoryRoot(_root);
+        var target = DevbookDatabaseLocation.ForRepositoryRoot(_temp.Path);
         Assert.NotNull(target);
-        Assert.True(DevbookDatabaseBuilder.Build(_root, target, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(_temp.Path, target, TestContext.Current.CancellationToken));
     }
 
-    private string FullPath(string relative) => Path.Combine(_root, relative.Replace('/', Path.DirectorySeparatorChar));
+    private string FullPath(string relative) => _temp.Combine(relative.Replace('/', Path.DirectorySeparatorChar));
 
     private void Write(string relative, string text)
     {
@@ -797,19 +797,13 @@ public sealed class DevbookReferenceResolverTests : IDisposable
     public void Dispose()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
-        {
-            // A temp folder that outlives the run is not a test failure.
-        }
+        _temp.Dispose();
     }
 
     /// <summary>One repository's folders on disk, resolved the way the product
     /// resolves an unconfigured folder: the devbook default, then the legacy root
     /// folder.</summary>
+    // Differs from StubFolderSource: resolves the default then legacy folder and records each sync context.
     private sealed class FolderSource(string root, bool available = true, string? disabled = null) : IDevbookFolderSource
     {
         /// <summary>The synchronization context each call into the port ran on.</summary>

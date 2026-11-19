@@ -22,13 +22,6 @@ namespace Backlog.ArchitectureTests;
 /// does exactly that — a class-scoped rule would have missed the field the defect
 /// was reported against.</para>
 ///
-/// <para>On the elements and not on <c>:root</c>, which is the obvious place for a
-/// product with one theme. <c>ArchifyArtifactFrameTests</c> is why not: the artifact
-/// frame is a transparent iframe whose document is pinned to <c>color-scheme:
-/// normal</c>, and a browser paints an opaque canvas behind any frame whose scheme
-/// differs from its embedder's. A root-level <c>dark</c> would put a slab behind
-/// every diagram to fix a clock.</para>
-///
 /// <para>Asserted against the stylesheet because the defect is entirely in what the
 /// stylesheet does with markup that is already correct; bUnit renders the
 /// <c>type="time"</c> attribute faithfully and brings no layout engine to draw the
@@ -59,31 +52,6 @@ public class NativeControlSchemeTests
             + $"{Declaration(rule.Body, "color-scheme") ?? "nothing"}. It has to be `dark`: that is the "
             + "one theme the product has, and the platform draws the control's own chrome in whichever "
             + "scheme the element declares.");
-    }
-
-    /// <summary>
-    /// And nowhere above them.
-    ///
-    /// <para>A <c>color-scheme</c> on the document root would reach the controls
-    /// too, and also reach every iframe — including the Archify artifact frame,
-    /// which is transparent only while its scheme matches the page's. The frame
-    /// pins itself to <c>normal</c> for that reason, so the page has to stay
-    /// undeclared.</para>
-    /// </summary>
-    [Fact]
-    public void The_document_root_declares_no_scheme_of_its_own()
-    {
-        var declaring = Rules()
-            .Where(rule => Selectors(rule.Selector).Any(selector => selector is ":root" or "html" or "body"))
-            .Where(rule => Declaration(rule.Body, "color-scheme") is not null)
-            .Select(rule => rule.Selector)
-            .ToList();
-
-        Assert.True(
-            declaring.Count == 0,
-            "These rules declare color-scheme on the document root: " + string.Join("; ", declaring)
-            + ". The Archify artifact frame is transparent only while its `normal` scheme matches its "
-            + "embedder's, so the scheme is stated on the controls that need it and not on the page.");
     }
 
     private sealed record CssRule(string Selector, string Body);

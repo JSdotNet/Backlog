@@ -253,19 +253,4 @@ public static class DashboardFormat
     /// </para>
     /// </summary>
     public static string Hour(int hour) => hour.ToString("00", CultureInfo.InvariantCulture);
-
-    /// <summary>
-    /// The hour a column heading names, or null when the string is not one this class
-    /// wrote.
-    /// <para>
-    /// The counterpart to <see cref="Hour"/> and deliberately beside it. A grid that
-    /// matches its cells on a label has to read that label back to say anything about the
-    /// hour behind it, and a second place that knew the format would be a second place to
-    /// change when the format does.
-    /// </para>
-    /// </summary>
-    public static int? HourOf(string? label) =>
-        int.TryParse(label, NumberStyles.None, CultureInfo.InvariantCulture, out var hour) && hour is >= 0 and <= 23
-            ? hour
-            : null;
 }

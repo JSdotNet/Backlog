@@ -19,13 +19,11 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public class DevbookSourceSettingsTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "devbook-source-settings-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("devbook-source-settings-tests");
 
-    private string WorkspaceRoot => Path.Combine(_root, "workspace");
+    private string WorkspaceRoot => _temp.Combine("workspace");
 
-    private string LocalPath(string install = "install-1") => Path.Combine(_root, install, "github.json");
+    private string LocalPath(string install = "install-1") => _temp.Combine(install, "github.json");
 
     private GitHubSettingsStore Store(string install = "install-1") => new(LocalPath(install), () => WorkspaceRoot);
 
@@ -33,7 +31,7 @@ public class DevbookSourceSettingsTests : IDisposable
 
     private GitHubSettingsStore Configured(out string clone, string install = "install-1")
     {
-        clone = Path.Combine(_root, "clone");
+        clone = _temp.Combine("clone");
         Directory.CreateDirectory(clone);
 
         var store = Store(install);
@@ -220,65 +218,6 @@ public class DevbookSourceSettingsTests : IDisposable
 
     // --- Files written before the context was renamed -------------------------
 
-    /// <summary>
-    /// The JSON keys are the C# property names, so renaming the context renamed
-    /// the keys, and a per-user file written under the old names must still read
-    /// as the choices it recorded. The old names are read once and dropped: after
-    /// the next save the file carries only the current names.
-    /// </summary>
-    [Fact]
-    public void A_local_file_written_under_the_knowledge_names_reads_as_the_same_choices_and_is_rewritten()
-    {
-        WriteRegistryFile("""
-            { "repositories": [ { "id": "JSdotNet/Backlog", "alias": "backlog" } ] }
-            """);
-        WriteLocalFile("""
-            {
-              "repositories": [
-                {
-                  "id": "JSdotNet/Backlog",
-                  "useLocalKnowledgeFolder": false,
-                  "knowledgeFolders": [ { "key": ".design", "enabled": false, "path": null } ]
-                }
-              ]
-            }
-            """);
-
-        var store = Store();
-        var repository = store.Current.Find("backlog");
-
-        Assert.NotNull(repository);
-        Assert.False(repository.UseLocalDevbookFolder);
-        Assert.False(repository.DevbookFolders.Single(f => f.Key == ".design").Enabled);
-
-        Assert.Null(store.SetShowRepositoryColours(true));
-
-        var local = File.ReadAllText(LocalPath());
-        Assert.Contains("\"useLocalDevbookFolder\": false", local, StringComparison.Ordinal);
-        Assert.Contains("\"devbookFolders\"", local, StringComparison.Ordinal);
-        Assert.DoesNotContain("useLocalKnowledgeFolder", local, StringComparison.Ordinal);
-        Assert.DoesNotContain("knowledgeFolders", local, StringComparison.Ordinal);
-    }
-
-    /// <summary>The registry is the synced half, so it is the file most likely to
-    /// have been written by an install that still used the old name.</summary>
-    [Fact]
-    public void A_registry_written_under_the_knowledge_name_reads_its_branch_and_is_rewritten()
-    {
-        WriteRegistryFile("""
-            { "repositories": [ { "id": "JSdotNet/Backlog", "alias": "backlog", "knowledgeBranch": "release/2.0" } ] }
-            """);
-
-        var store = Store();
-        Assert.Equal("release/2.0", store.Current.Find("backlog")!.DevbookBranch);
-
-        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
-
-        var registry = File.ReadAllText(store.RegistryPath);
-        Assert.Contains("\"devbookBranch\": \"release/2.0\"", registry, StringComparison.Ordinal);
-        Assert.DoesNotContain("knowledgeBranch", registry, StringComparison.Ordinal);
-    }
-
     /// <summary>A row carrying both names — one install wrote it before the rename
     /// and another after — keeps the newer answer.</summary>
     [Fact]
@@ -318,14 +257,7 @@ public class DevbookSourceSettingsTests : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-
+        _temp.Dispose();
         GC.SuppressFinalize(this);
     }
 }

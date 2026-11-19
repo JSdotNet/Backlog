@@ -24,11 +24,10 @@ Register the repositories the product works with:
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/repository-management/context.md#additional-repositories
 related: [.devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/devbook/features.md#repository-devbook-areas]
 ```
 
-Maintain the [registry](domain.md#repository-registry) of repositories the app acts on. Each registered repository carries a short [alias](domain.md#repository-alias), its owner and name, and an optional local clone directory. The alias is the name the rest of the product uses: a task files itself against a repository by naming that alias. Registering more than one repository is itself opt-in, so a single-repository setup stays uncluttered. While it is off, every entry belongs to the first repository in the registry.
+Maintain the [registry](domain.md#repository-registry) of repositories the app acts on. Each registered repository carries a short [alias](domain.md#repository-alias), its owner and name, and an optional local clone directory. The alias is the name the rest of the product uses: a task files itself against a repository by naming that alias.
 
 The working set is read as one list, under a sentence counting the repositories and how many carry a devbook. A row per repository names:
 

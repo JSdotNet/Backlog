@@ -23,9 +23,7 @@ public sealed class DevbookBranchReviewTests : IDisposable
     private const string WasBefore = "# Design\n\nThe same words.\n";
     private const string NewAfter = "# Design\n\nThe same words, and more.\n";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "devbook-branch-review-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("devbook-branch-review-tests");
 
     private readonly StubBranchCatalog _catalog = new()
     {
@@ -42,8 +40,6 @@ public sealed class DevbookBranchReviewTests : IDisposable
 
     public DevbookBranchReviewTests()
     {
-        Directory.CreateDirectory(_root);
-
         _comparison.Comparison = new GitHubComparison(
             "base0",
             AheadBy: 2,
@@ -89,29 +85,20 @@ public sealed class DevbookBranchReviewTests : IDisposable
         _trees.Blobs["new-after"] = NewAfter;
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     private GitHubSettingsStore Settings(string? branch = "feature", bool local = false, List<DevbookFolderSetting>? folders = null)
     {
-        var store = new GitHubSettingsStore(Path.Combine(_root, "github.json"), () => Path.Combine(_root, "workspace"));
+        var store = new GitHubSettingsStore(_temp.Combine("github.json"), () => _temp.Combine("workspace"));
         var repository = new GitHubRepositoryRef(Alias, "JSdotNet", "Backlog");
         if (folders is not null) repository = repository with { DevbookFolders = folders };
         Assert.Null(store.SetRepositories([repository]));
 
         if (local)
         {
-            var clone = Path.Combine(_root, "clone");
+            var clone = _temp.Combine("clone");
             Directory.CreateDirectory(clone);
             Assert.Null(store.SetCloneDirectory(Alias, clone));
         }

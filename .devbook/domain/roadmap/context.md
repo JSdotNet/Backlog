@@ -33,32 +33,6 @@ answers, and the registered effort a plan totals but never owns, which lives on
 the Tasks and [Devbook](../devbook/domain.md#shared-value-objects) chapters an item
 gathers. The model itself is in [domain.md](domain.md).
 
-## Roadmap view
-
-```meta
-type: feature-flag
-key: roadmap
-default: on
-related: [".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#5-roadmap-is-no-longer-a-takeover"]
-```
-
-Turning it on offers the Roadmap in the Home shell's view switch, beside Tasks.
-The plan is drawn on a graduated axis as the main view (local ADR 0022).
-Switching it off withdraws the roadmap everywhere else too, behind this key and
-no other:
-
-- the dashboard's plan-progress part reads nothing;
-- the calendar shows no roadmap plans and refuses to place a plan from its shelf;
-- the `get_roadmap` tool leaves the MCP endpoint.
-
-A view remembered as the Roadmap opens on Tasks while the flag is off. The flag
-is on by default and released, so the settings screen shows it with no `DEV`
-mark. The key is `RoadmapFeatures.Roadmap` in the Roadmap module, so a reader
-below the shell can ask whether the roadmap is on without referencing the UI.
-The settings screen lists it as "Roadmap view" from the catalog in
-`AppFeatures.cs`, and keeps the choice in `features.json` beside the app's other
-per-device choices. The flag is not retired: it keeps the plan out of view.
-
 ## Story points a week
 
 ```meta

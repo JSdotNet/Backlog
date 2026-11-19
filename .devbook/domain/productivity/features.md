@@ -129,7 +129,6 @@ This is kept as an idea rather than a plan. It measures only work that flows thr
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/productivity/context.md#dashboard
 setting: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/productivity/context.md#weekly-usage-reset, .devbook/domain/productivity/context.md#monthly-spend-budget]
 related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards, .devbook/domain/productivity/requirements.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
@@ -515,7 +514,6 @@ The issues are read from each repository's list of open issues labelled `devbook
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/productivity/context.md#dashboard
 related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#5-placed_by_import-and-what-a-re-import-may-touch]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.An_item_in_two_repositories_says_the_pace_of_each_part_it_was_projected_at, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_finished_bar_ends_where_its_work_landed_not_at_its_planned_end, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewBoardTests.The_points_tile_counts_overdue_items_as_behind_as_their_chips_do]
 ```
@@ -565,7 +563,7 @@ An unestimated task counts nothing here, because the part reports it as unestima
 
 ```meta
 type: sub-feature
-feature-flag: [.devbook/domain/productivity/context.md#dashboard, .devbook/domain/tasks/context.md#ai-assistant]
+feature-flag: .devbook/domain/tasks/context.md#ai-assistant
 related: [.devbook/domain/tasks/features.md#ai-assistance-over-the-visible-backlog, .devbook/domain/productivity/requirements.md#asking-ai-about-a-part, .devbook/arc42/05-building-block-view.md#desktop-app]
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPartFrameTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardAiContentSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part]
 ```

@@ -14,9 +14,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// there fails a test here, and <c>DevbookSchemaContractTests</c> pins the
 /// embedded copy to the same text.</para>
 ///
-/// <para>This is the same pairing <c>DiagramSourceHash.Normalize</c> and
-/// <c>normalizeDiagramSource</c> already have, and it exists for the same reason:
-/// the failure it prevents is invisible from inside either language.</para>
+/// <para>The failure it prevents is invisible from inside either language.</para>
 /// </summary>
 internal static class DevbookSchemaSource
 {
@@ -111,10 +109,10 @@ internal static class DevbookSchemaSource
 /// deleted when the test that made them is done.</summary>
 internal sealed class TemporaryDatabase : IDisposable
 {
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-db");
+
     public TemporaryDatabase()
     {
-        RootDirectory = Path.Combine(Path.GetTempPath(), "backlog-devbook-db", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(RootDirectory);
         DatabaseFile = DevbookDatabaseLocation.ForRepositoryRoot(RootDirectory)
             ?? throw new InvalidOperationException("The test storage folder is not configured.");
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(DatabaseFile)!);
@@ -122,7 +120,7 @@ internal sealed class TemporaryDatabase : IDisposable
 
     /// <summary>The repository root, so a test can hand a consumer a knowledge
     /// folder path the way the app does.</summary>
-    public string RootDirectory { get; }
+    public string RootDirectory => _temp.Path;
 
     /// <summary>The database itself, where the resolver says this root's is:
     /// under the suite's storage folder, never inside the root (local ADR 0015).</summary>
@@ -142,10 +140,12 @@ internal sealed class TemporaryDatabase : IDisposable
 
     public void Dispose()
     {
+        DevbookSchemaSource.ReleasePools(DatabaseFile);
+        _temp.Dispose();
+
+        // The database sits in the suite's shared storage folder, not in the root.
         try
         {
-            DevbookSchemaSource.ReleasePools(DatabaseFile);
-            if (Directory.Exists(RootDirectory)) Directory.Delete(RootDirectory, recursive: true);
             var databaseFolder = System.IO.Path.GetDirectoryName(DatabaseFile);
             if (databaseFolder is not null && Directory.Exists(databaseFolder)) Directory.Delete(databaseFolder, recursive: true);
         }

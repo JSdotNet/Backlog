@@ -192,8 +192,11 @@ public sealed class InboxWaitingForTests
 
     private sealed class Harness : IDisposable
     {
-        private Harness(BunitContext context, FakeInboxItems inbox)
+        private readonly TemporaryDirectory _temp;
+
+        private Harness(TemporaryDirectory temp, BunitContext context, FakeInboxItems inbox)
         {
+            _temp = temp;
             Context = context;
             Inbox = inbox;
         }
@@ -208,14 +211,15 @@ public sealed class InboxWaitingForTests
 
         public static Harness Create()
         {
+            var temp = new TemporaryDirectory("backlog-inbox-waiting-for-tests");
             var context = new BunitContext();
             context.JSInterop.Mode = JSRuntimeMode.Loose;
             context.Services.AddSingleton(new Backlog.Infrastructure.GitHub.GitHubSettingsStore(
-                Path.Combine(Path.GetTempPath(), "backlog-inbox-waiting-for-tests", Guid.NewGuid().ToString("n"), "github.json")));
+                temp.Combine("github.json")));
             TasksTestHost.AddToastChannel(context.Services);
             var inbox = InboxTestHost.AddInboxState(context.Services);
 
-            return new Harness(context, inbox);
+            return new Harness(temp, context, inbox);
         }
 
         public IReadOnlyList<InboxItemDto> SeedNewestFirst(params string[] titles) =>
@@ -232,6 +236,10 @@ public sealed class InboxWaitingForTests
             return pane;
         }
 
-        public void Dispose() => Context.Dispose();
+        public void Dispose()
+        {
+            Context.Dispose();
+            _temp.Dispose();
+        }
     }
 }

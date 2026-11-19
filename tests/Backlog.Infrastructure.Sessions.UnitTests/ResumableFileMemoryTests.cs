@@ -18,10 +18,8 @@ public sealed class ResumableFileMemoryTests : IDisposable
     private static readonly DateTimeOffset Now = new(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
     private static readonly DateTime AnHourAgo = Now.UtcDateTime.AddHours(-1);
 
-    private readonly string _folder = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-resumable-file-memory-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-resumable-file-memory-tests");
+    private string _folder => _temp.Path;
 
     private readonly Dictionary<(string Path, long Length, DateTimeOffset WrittenAt), Lines> _disk = [];
     private int _opens;
@@ -135,16 +133,7 @@ public sealed class ResumableFileMemoryTests : IDisposable
         File.SetLastWriteTimeUtc(path, writtenUtc);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_folder)) Directory.Delete(_folder, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>What a read of the file answers: every line it holds.</summary>
     private sealed record Lines(IReadOnlyList<string> All);

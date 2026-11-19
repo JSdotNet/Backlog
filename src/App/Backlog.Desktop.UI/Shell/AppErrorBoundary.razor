@@ -4,7 +4,6 @@
 @inject ILogger<AppErrorBoundary> Logger
 @inject NavigationManager Navigation
 @inject IAppUpdateService Updates
-@inject IAppFeatureSettings Features
 @inject FeedbackReportChannel Reports
 
 @*
@@ -59,10 +58,7 @@ else
             </DescriptionContent>
             <Action>
                 <AppButton Variant="ButtonVariant.Primary" TestId="app-error-retry" OnClick="Recover">Try again</AppButton>
-                @if (Features.IsEnabled(AppFeatures.FeedbackReporting))
-                {
-                    <AppButton Variant="ButtonVariant.Secondary" TestId="app-error-report" OnClick="ReportIssue">Report issue</AppButton>
-                }
+                <AppButton Variant="ButtonVariant.Secondary" TestId="app-error-report" OnClick="ReportIssue">Report issue</AppButton>
                 <AppButton Variant="ButtonVariant.Ghost" TestId="app-error-home" OnClick="GoHome">Go to Home</AppButton>
             </Action>
         </EmptyState>

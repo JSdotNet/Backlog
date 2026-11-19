@@ -21,7 +21,8 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
 {
     private static readonly DateTimeOffset Morning = new(2026, 9, 29, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "roadmap-replica-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("roadmap-replica-tests");
+    private string _root => _temp.Path;
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -215,7 +216,6 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

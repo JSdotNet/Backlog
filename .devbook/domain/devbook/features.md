@@ -42,7 +42,6 @@ header's scope and the task filter alone.
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
@@ -67,7 +66,6 @@ ADR 0022, amendment of 2026-10-15).
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
@@ -419,7 +417,6 @@ working tree somebody may be editing in.
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/design/typography-and-layout.md#iconography]
 ```
 
@@ -472,7 +469,6 @@ entries.
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 depends-on: [.devbook/domain/devbook/features.md#choosing-where-the-devbook-is-read-from]
 related: [.devbook/domain/devbook/requirements.md#reviewing-what-a-branch-changed, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md]
 ```
@@ -698,7 +694,6 @@ mark, the `identified` rung.
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 depends-on: [.devbook/domain/devbook/features.md#repository-devbook-areas]
 related: [.devbook/domain/devbook/requirements.md#technology-view, .devbook/tech/technology-graph.md#graph, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md#how-a-reader-degrades]
 ```

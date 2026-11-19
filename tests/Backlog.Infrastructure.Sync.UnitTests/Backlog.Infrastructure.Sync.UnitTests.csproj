@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <Compile Include="..\Shared\TestDoubles\RecordingNotifications.cs" Link="Shared\TestDoubles\RecordingNotifications.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubSessionSource.cs" Link="Shared\TestDoubles\StubSessionSource.cs" />
   </ItemGroup>
 
 </Project>

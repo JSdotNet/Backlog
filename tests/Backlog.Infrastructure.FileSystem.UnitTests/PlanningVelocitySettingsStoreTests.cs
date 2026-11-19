@@ -18,23 +18,15 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class PlanningVelocitySettingsStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "planning-velocity-settings-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("planning-velocity-settings-store-tests");
 
-    public PlanningVelocitySettingsStoreTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     public void Dispose()
     {
         GC.SuppressFinalize(this);
 
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 
     private string SettingsFile => Path.Combine(_root, "planning-velocity.json");

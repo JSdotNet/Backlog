@@ -17,23 +17,12 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 [SupportedOSPlatform("windows")]
 public sealed class DpapiDeviceCredentialStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-device-credential-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-device-credential-tests");
+    private string _root => _temp.Path;
 
     private string CredentialPath => Path.Combine(_root, "device-credential.json");
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void The_credential_survives_a_restart_and_is_never_written_in_the_clear()
@@ -175,11 +164,13 @@ public sealed class DpapiDeviceCredentialStoreTests : IDisposable
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        var store = new DpapiDeviceCredentialStore(CredentialPath);
+        var folder = _temp.Combine("unwritten");
+        var credentialPath = Path.Combine(folder, "device-credential.json");
+        var store = new DpapiDeviceCredentialStore(credentialPath);
 
         Assert.Null(store.Current);
-        Assert.Equal(CredentialPath, store.StorePath);
-        Assert.True(Directory.Exists(_root), "The store creates its folder rather than failing on first save.");
+        Assert.Equal(credentialPath, store.StorePath);
+        Assert.True(Directory.Exists(folder), "The store creates its folder rather than failing on first save.");
     }
 
     /// <summary>

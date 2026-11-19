@@ -53,9 +53,9 @@ public sealed class GitHubRegistrationTests
     [Fact]
     public void Both_probes_are_the_transport_every_client_sends_through()
     {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-github-registration", Guid.NewGuid().ToString("N"), "github.settings.json");
+        using var temp = new TemporaryDirectory("backlog-github-registration");
         var services = new ServiceCollection();
-        services.AddSingleton(new GitHubSettingsStore(path));
+        services.AddSingleton(new GitHubSettingsStore(temp.Combine("github.settings.json")));
         services.AddGitHub();
 
         using var provider = services.BuildServiceProvider();

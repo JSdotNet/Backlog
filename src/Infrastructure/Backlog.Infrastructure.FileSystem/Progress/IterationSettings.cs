@@ -1,5 +1,6 @@
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.FileSystem.Progress;
 
@@ -50,7 +51,7 @@ public sealed class IterationSettings : IIterationSettings
         {
             Length = length,
             TwoWeekStart = length == IterationLength.TwoWeeks && current.TwoWeekStart is null
-                ? Iterations.MondayOf(today)
+                ? CalendarWeek.MondayOf(today)
                 : current.TwoWeekStart
         });
     }

@@ -48,8 +48,7 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
 {
     private static readonly Guid Owner = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(), "roadmap-sync-devices-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("roadmap-sync-devices");
 
     private readonly FakeTaskReplica _replica = new();
 
@@ -58,9 +57,7 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 
     /// <summary>ADR 0018 Verification 1: A saves a plan and syncs; B syncs and loads
@@ -329,7 +326,7 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
     }
 
     private DesktopDevice Device(string name) =>
-        new(Path.Combine(_root, name), _replica, Guid.NewGuid());
+        new(_temp.Combine(name), _replica, Guid.NewGuid());
 
     /// <summary>
     /// One desktop: its own storage root, pace file and sync state, composed through

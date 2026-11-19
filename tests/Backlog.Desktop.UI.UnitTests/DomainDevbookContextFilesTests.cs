@@ -24,7 +24,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DomainDevbookContextFilesTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>The <c>context.md</c> template, filled in.</summary>
     private const string ContextFile = """
@@ -586,17 +586,16 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "domain-devbook-context-files", Guid.NewGuid().ToString("n"));
-        Directory.CreateDirectory(path);
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("domain-devbook-context-files");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     public void Dispose()
     {
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            temp.Dispose();
         }
     }
 }

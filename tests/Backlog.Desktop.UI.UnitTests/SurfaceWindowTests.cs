@@ -228,11 +228,12 @@ public sealed class SurfaceWindowTests
     [Fact]
     public async Task An_inbox_capture_made_outside_the_window_reloads_its_inbox()
     {
+        using var temp = new TemporaryDirectory("backlog-surface-window-tests");
         using var host = await CreateHostAsync();
         var signal = new InboxChangeSignal();
         host.Pane.Context.Services.AddSingleton<IInboxChangeSignal>(signal);
         host.Pane.Context.Services.AddSingleton(new Backlog.Infrastructure.GitHub.GitHubSettingsStore(
-            Path.Combine(Path.GetTempPath(), "backlog-surface-window-tests", Guid.NewGuid().ToString("n"), "github.json")));
+            temp.Combine("github.json")));
         var fake = InboxTestHost.AddInboxState(host.Pane.Context.Services);
 
         var window = host.Render("rows");
@@ -330,10 +331,10 @@ public sealed class SurfaceWindowTests
 
     private const string PoppedFolder = @"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825";
 
-    private static (PoppedSessionSource Sessions, PoppedRunSource Runs) AddSessions(Host host, IDeliveryRunChangeSignal signal, IReadOnlyList<DeliveryRun> runs)
+    private static (StubSessionSource Sessions, PoppedRunSource Runs) AddSessions(Host host, IDeliveryRunChangeSignal signal, IReadOnlyList<DeliveryRun> runs)
     {
         var now = DateTimeOffset.UtcNow;
-        var sessions = new PoppedSessionSource(
+        var sessions = new StubSessionSource(
         [
             new AgentSession(
                 Id: "5905cf2d",
@@ -388,23 +389,6 @@ public sealed class SurfaceWindowTests
 
     private static string?[] RunIds(IRenderedComponent<SurfaceWindow> window) =>
         [.. window.FindAll("[data-testid='sessions-run-card'] [data-testid='sessions-run']").Select(line => line.GetAttribute("data-run-id"))];
-
-    private sealed class PoppedSessionSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
-    {
-        private int _reads;
-
-        public int Reads => Volatile.Read(ref _reads);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
-        {
-            Interlocked.Increment(ref _reads);
-
-            return Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
-        }
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-    }
 
     private sealed class PoppedRunSource(IReadOnlyList<DeliveryRun> runs) : IDeliveryRunSource
     {

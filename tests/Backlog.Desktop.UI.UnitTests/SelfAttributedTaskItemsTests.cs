@@ -30,6 +30,7 @@ public sealed class SelfAttributedTaskItemsTests
 
     /// <summary>Records what the due-date write was asked for and whether the pane's mark
     /// was set while it ran. Every other member is out of this test's reach.</summary>
+    // Differs from RecordingTaskItems: records the due-date write and whether the pane's mark was set during it; every other member throws.
     private sealed class DueRecordingTaskItems(AsyncLocal<bool> mark) : ITaskItems
     {
         public (Guid Id, DateOnly? DueOn, bool Marked)? Asked { get; private set; }

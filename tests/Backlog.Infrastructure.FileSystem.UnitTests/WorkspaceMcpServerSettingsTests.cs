@@ -19,11 +19,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class WorkspaceMcpServerSettingsTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "workspace-mcp-settings-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("workspace-mcp-settings-tests");
 
-    public WorkspaceMcpServerSettingsTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string SettingsFile => Path.Combine(_root, "settings.json");
 
@@ -239,13 +237,6 @@ public class WorkspaceMcpServerSettingsTests : IDisposable
     {
         GC.SuppressFinalize(this);
 
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp folder the runner could not remove is not a failed test.
-        }
+        _temp.Dispose();
     }
 }

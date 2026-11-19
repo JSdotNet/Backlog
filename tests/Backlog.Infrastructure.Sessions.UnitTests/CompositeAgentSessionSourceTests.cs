@@ -270,6 +270,7 @@ public sealed class CompositeAgentSessionSourceTests
             null,
             AgentSessionOrigin.Local);
 
+    // Differs from StubSessionSource: answers a whole catalog as given, capped or not.
     private sealed class StubSource(AgentSessionCatalog catalog) : IAgentSessionSource
     {
         public List<AgentSessionQuery> Queries { get; } = [];

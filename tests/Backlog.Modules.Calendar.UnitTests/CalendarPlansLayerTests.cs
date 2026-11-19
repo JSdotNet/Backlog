@@ -22,7 +22,7 @@ public sealed class CalendarPlansLayerTests
     [Fact]
     public async Task Without_a_port_nothing_is_offered_read_or_started()
     {
-        using var layer = new CalendarPlansLayer(null, null);
+        using var layer = new CalendarPlansLayer(null);
 
         Assert.False(layer.Offered);
         Assert.False(layer.Available);
@@ -35,7 +35,7 @@ public sealed class CalendarPlansLayerTests
     public async Task The_first_read_is_owed_and_the_same_day_reads_once()
     {
         var port = new FakePlans();
-        using var layer = new CalendarPlansLayer(port, null);
+        using var layer = new CalendarPlansLayer(port);
 
         await layer.ReadIfOwedAsync(Today, Ct);
         await layer.ReadIfOwedAsync(Today, Ct);
@@ -49,7 +49,7 @@ public sealed class CalendarPlansLayerTests
     public async Task A_new_day_reads_again()
     {
         var port = new FakePlans();
-        using var layer = new CalendarPlansLayer(port, null);
+        using var layer = new CalendarPlansLayer(port);
         await layer.ReadIfOwedAsync(Today, Ct);
 
         await layer.ReadIfOwedAsync(Today.AddDays(1), Ct);
@@ -61,7 +61,7 @@ public sealed class CalendarPlansLayerTests
     public async Task Arriving_reads_again_whatever_was_read_before()
     {
         var port = new FakePlans();
-        using var layer = new CalendarPlansLayer(port, null);
+        using var layer = new CalendarPlansLayer(port);
         await layer.ReadIfOwedAsync(Today, Ct);
 
         layer.Arrive();
@@ -74,29 +74,12 @@ public sealed class CalendarPlansLayerTests
     public async Task A_change_from_the_port_owes_a_read_and_says_so()
     {
         var port = new FakePlans();
-        using var layer = new CalendarPlansLayer(port, null);
+        using var layer = new CalendarPlansLayer(port);
         await layer.ReadIfOwedAsync(Today, Ct);
         var said = 0;
         layer.Changed += () => said++;
 
         port.RaiseChanged();
-
-        Assert.Equal(1, said);
-        await layer.ReadIfOwedAsync(Today, Ct);
-        Assert.Equal(2, port.Reads);
-    }
-
-    [Fact]
-    public async Task A_feature_switch_owes_a_read_and_says_so()
-    {
-        var port = new FakePlans();
-        var features = new FakeFeatures();
-        using var layer = new CalendarPlansLayer(port, features);
-        await layer.ReadIfOwedAsync(Today, Ct);
-        var said = 0;
-        layer.Changed += () => said++;
-
-        features.SetEnabled("roadmap", false);
 
         Assert.Equal(1, said);
         await layer.ReadIfOwedAsync(Today, Ct);
@@ -109,7 +92,7 @@ public sealed class CalendarPlansLayerTests
     public async Task A_read_that_fails_leaves_the_plans_empty_and_still_available()
     {
         var port = new FakePlans();
-        using var layer = new CalendarPlansLayer(port, null);
+        using var layer = new CalendarPlansLayer(port);
         await layer.ReadIfOwedAsync(Today, Ct);
 
         port.Failure = new IOException("The roadmap could not be read.");
@@ -123,7 +106,7 @@ public sealed class CalendarPlansLayerTests
     public async Task A_cancelled_read_is_not_swallowed()
     {
         var port = new FakePlans { Failure = new OperationCanceledException() };
-        using var layer = new CalendarPlansLayer(port, null);
+        using var layer = new CalendarPlansLayer(port);
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => layer.ReadAsync(Today, Ct));
     }
@@ -132,7 +115,7 @@ public sealed class CalendarPlansLayerTests
     public async Task A_start_passes_the_tag_and_day_and_answers_the_refusal()
     {
         var port = new FakePlans { Refusal = "+alpha is no longer waiting on the shelf." };
-        using var layer = new CalendarPlansLayer(port, null);
+        using var layer = new CalendarPlansLayer(port);
 
         var refusal = await layer.StartAsync("alpha", Today.AddDays(3), Ct);
 
@@ -144,13 +127,11 @@ public sealed class CalendarPlansLayerTests
     public void Disposing_stops_listening()
     {
         var port = new FakePlans();
-        var features = new FakeFeatures();
-        var layer = new CalendarPlansLayer(port, features);
+        var layer = new CalendarPlansLayer(port);
 
         layer.Dispose();
 
         Assert.Equal(0, port.Listeners);
-        Assert.Equal(0, features.Listeners);
     }
 
     /// <summary>One layer per window, as the port it reads is: Scoped, resolved through a
@@ -217,24 +198,5 @@ public sealed class CalendarPlansLayerTests
         }
 
         public void RaiseChanged() => Changed?.Invoke();
-    }
-
-    private sealed class FakeFeatures : IAppFeatureSettings
-    {
-        public event Action? Changed;
-
-        public AppFeatureSettings Current { get; } = new();
-
-        public string SettingsPath => "features.json";
-
-        public int Listeners => Changed?.GetInvocationList().Length ?? 0;
-
-        public bool IsEnabled(string key) => true;
-
-        public string? SetEnabled(string key, bool enabled)
-        {
-            Changed?.Invoke();
-            return null;
-        }
     }
 }

@@ -97,6 +97,8 @@ found. `spend-cache` holds Claude Code days and Copilot months that are over.
 established. Each is keyed per author, login, actor or file, so a second identity
 never reads the first's. None may sit under the workspace root: a per-machine cache carried by a file-sync product is the hazard `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` removes.
 
+The per-device JSON files sit in one of two folders under `%LOCALAPPDATA%`, which `AppDataPaths` in `Backlog.SharedKernel` names. `Backlog` is shared by every build, so a Debug head reads the same settings as the installed app. `Backlog.Debug` in a Debug build, and `Backlog` in a Release one, holds the files a Debug head must never share, such as the workspace pointer, the device identity, the feature flags and the logs. A settings store reads and writes its file through `JsonFileStore<T>`. A missing, locked or corrupt file reads as the store's default. A refused write keeps the change for the session and returns the store's own message. An empty document deletes the file. Stores in projects that do not reference the shared kernel keep their own copy of this code.
+
 - **Nine containers in the cloud.** Seven are replicas, all partitioned on `/ownerId`:
   - `tasks`
   - `sessions`
@@ -317,12 +319,12 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
   outside every repository, so nothing about it is committed or needs ignoring,
   and a repository the app reads is left as it was found. It is per path, so two
   worktrees of one repository, and a branch snapshot, each get their own.
-- **The authored half stays text.** The hand-written Archify specifications and
-  the Structurizr C4 workspace are committed and reviewed in diffs. The workspace is
-  `workspace.dsl` in the arc42 folder, with any files it includes from its `c4/` folder.
+- **The authored half stays text.** The Structurizr C4 workspace is committed and
+  reviewed in diffs. It is `workspace.dsl` in the arc42 folder, with any files it
+  includes from its `c4/` folder.
   Only what a generator produces goes into the database.
-  - The rendered Archify pages are not committed at all. The app draws them on demand
-    from the specifications into `_archify-renders/` beside `_databases/` (local ADR 0034).
+  - Diagrams are mermaid fences in the chapters. Archify is retired (local ADR 0057),
+    so no specification or rendered page sits beside them.
   - The reading order is not authored either. Both writers derive it the way the
     devbook generator does, from `index: root`, the folder's convention root and the
     numbers in filenames (local ADR 0016).
@@ -504,16 +506,19 @@ related: [".devbook/arc42/04-solution-strategy.md", ".devbook/domain/devbook/fea
 
 - **Optional capabilities are switchable per installation.** Each of these can be turned
   on:
-  - repository knowledge;
   - the individual knowledge areas;
-  - additional repositories;
   - system tools;
   - GitHub integration;
-  - feedback reporting;
   - Copilot CLI;
   - AI assistance.
 
-  Core backlog editing is always available and is never switchable.
+- **A finished capability is permanent, not a switch.** Core backlog editing, the
+  Devbook, the roadmap, the dashboard, additional repositories, feedback reporting
+  and copying an entry have no switch. A flag is retired once its feature is
+  finished: its key, its catalog row and every check of it go together.
+- **A key is a persisted value and is never renamed.** The store reads no former
+  keys. A key the catalog no longer defines is ignored on load and left out of the
+  next save, so a retired flag disappears from a settings file on its own.
 - **Disabled is the default.** The stored setting records only what has been switched
   *on*, so a capability added later stays out of the way until it is deliberately
   chosen.

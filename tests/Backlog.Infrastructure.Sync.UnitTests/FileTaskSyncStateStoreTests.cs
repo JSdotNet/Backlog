@@ -11,8 +11,8 @@ public sealed class FileTaskSyncStateStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(), "backlog-task-sync-state-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-task-sync-state-tests");
+    private string _root => _temp.Path;
 
     [Fact]
     public void A_saved_state_is_read_back_by_the_next_run()
@@ -178,14 +178,5 @@ public sealed class FileTaskSyncStateStoreTests : IDisposable
         Assert.Contains("cursor-1", File.ReadAllText(path), StringComparison.Ordinal);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

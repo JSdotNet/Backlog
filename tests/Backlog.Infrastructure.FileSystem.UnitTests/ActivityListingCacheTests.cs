@@ -11,9 +11,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class ActivityListingCacheTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "activity-listing-cache-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("activity-listing-cache-tests");
+
+    private string _root => _temp.Path;
 
     private static readonly GitHubRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
 
@@ -22,8 +22,6 @@ public class ActivityListingCacheTests : IDisposable
     private static readonly DateTimeOffset June = new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
 
     private static readonly DateTimeOffset August = new(2026, 8, 19, 12, 0, 0, TimeSpan.Zero);
-
-    public ActivityListingCacheTests() => Directory.CreateDirectory(_root);
 
     private ActivityListingCache Cache() => new(() => _root);
 
@@ -187,13 +185,6 @@ public class ActivityListingCacheTests : IDisposable
     {
         GC.SuppressFinalize(this);
 
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp folder left behind is not a failed test.
-        }
+        _temp.Dispose();
     }
 }

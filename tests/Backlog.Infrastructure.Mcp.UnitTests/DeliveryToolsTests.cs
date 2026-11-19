@@ -23,9 +23,9 @@ public class DeliveryToolsTests
 
     public DeliveryToolsTests()
     {
-        var sessions = new FixedSessionSource(
-            FixedSessionSource.Claude("cli-1", "local_1"),
-            FixedSessionSource.Claude("cli-gone", "local_9", archived: true));
+        var sessions = new StubSessionSource(
+            StubSessionSource.Claude("cli-1", "local_1"),
+            StubSessionSource.Claude("cli-gone", "local_9", archived: true));
         _tools = new SessionRequestTools(new InMemorySessionRequestStore(_clock), _clock, _questions, sessions);
     }
 
@@ -220,9 +220,9 @@ public class DeliveryToolsTests
     [Fact]
     public async Task The_session_list_names_each_sessions_desktop_id_beside_its_waiting_state()
     {
-        var waiting = FixedSessionSource.Claude("cli-1", "local_1", state: AgentSessionState.Waiting);
-        var working = FixedSessionSource.Claude("cli-2", "local_2", state: AgentSessionState.Running);
-        var tools = new SessionTools(new FixedSessionSource(waiting, working), new FakeRepositoryDirectory());
+        var waiting = StubSessionSource.Claude("cli-1", "local_1", state: AgentSessionState.Waiting);
+        var working = StubSessionSource.Claude("cli-2", "local_2", state: AgentSessionState.Running);
+        var tools = new SessionTools(new StubSessionSource(waiting, working), new FakeRepositoryDirectory());
 
         var answer = await tools.ListSessionsAsync(cancellationToken: Ct);
 

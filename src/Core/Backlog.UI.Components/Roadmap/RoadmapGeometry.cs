@@ -155,18 +155,7 @@ public sealed record RoadmapGeometry(
 
     public double RowCenter(int rowIndex) => rowIndex * RowHeightRem + RowHeightRem / 2;
 
-    /// <summary>Where a bar's top edge sits inside its row, centred.</summary>
-    public double BarTop(int rowIndex) => RowTop(rowIndex) + (RowHeightRem - BarHeightRem) / 2;
-
     public double TrackHeightRem(int rowCount) => rowCount * RowHeightRem;
-
-    /// <summary>
-    /// How many whole weeks a horizontal drag of <paramref name="deltaRem"/>
-    /// amounts to. The browser reports pixels; this is the only place they stop
-    /// being pixels.
-    /// </summary>
-    public int WeekStepsFor(double deltaRem) =>
-        (int)Math.Round(deltaRem / WeekWidthRem, MidpointRounding.AwayFromZero);
 
     /// <summary>
     /// The dependency arrow between two points, as an SVG path.

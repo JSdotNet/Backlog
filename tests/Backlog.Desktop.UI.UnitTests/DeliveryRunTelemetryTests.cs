@@ -24,18 +24,15 @@ public sealed class DeliveryRunTelemetryTests : IDisposable
 
     private static readonly string[] Stages = ["Scope Discovery", "Implementation", "Summary"];
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-delivery-telemetry-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-delivery-telemetry-tests");
 
     private readonly FakeTimeProvider _clock = new(new DateTimeOffset(2026, 9, 23, 10, 0, 0, TimeSpan.Zero));
 
-    private string Home => Path.Combine(_root, "home");
+    private string Home => _temp.Combine("home");
 
-    private string Worktree => Path.Combine(_root, "worktree");
+    private string Worktree => _temp.Combine("worktree");
 
-    private string Transcript => Path.Combine(_root, "transcripts", $"{Session}.jsonl");
+    private string Transcript => _temp.Combine("transcripts", $"{Session}.jsonl");
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -149,7 +146,7 @@ public sealed class DeliveryRunTelemetryTests : IDisposable
         Append(Transcript, Assistant("msg-1", input: 100, output: 10, cacheRead: 1_000, cacheWrite: 50));
         Append(Transcript, Assistant("msg-2", input: 200, output: 20, cacheRead: 2_000, cacheWrite: 0));
 
-        var subAgent = Path.Combine(_root, "transcripts", Session, "subagents", "agent-1.jsonl");
+        var subAgent = _temp.Combine("transcripts", Session, "subagents", "agent-1.jsonl");
         Directory.CreateDirectory(Path.GetDirectoryName(subAgent)!);
         Append(subAgent, Assistant("msg-sub", input: 7, output: 3, model: "claude-sonnet-5"));
 
@@ -309,7 +306,7 @@ public sealed class DeliveryRunTelemetryTests : IDisposable
 
         await telemetry.RecordAsync(JsonDocument.Parse("[]").RootElement, Ct);
         await telemetry.RecordAsync(JsonDocument.Parse("""{"hook_event_name": 7}""").RootElement, Ct);
-        await telemetry.RecordAsync(Event("Stop", transcript: Path.Combine(_root, "missing.jsonl")), Ct);
+        await telemetry.RecordAsync(Event("Stop", transcript: _temp.Combine("missing.jsonl")), Ct);
 
         Assert.Null(Document(runId)["insights"]);
     }
@@ -376,16 +373,7 @@ public sealed class DeliveryRunTelemetryTests : IDisposable
     private static Task<int> AcceptWithPrompts(string body, IDeliveryRunTelemetry sink, SessionPrompts prompts) =>
         BacklogTelemetryEndpoint.AcceptAsync(new MemoryStream(Encoding.UTF8.GetBytes(body)), null, sink, prompts, Ct);
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static Task<int> Accept(string body, IDeliveryRunTelemetry sink) =>
         BacklogTelemetryEndpoint.AcceptAsync(new MemoryStream(Encoding.UTF8.GetBytes(body)), null, sink, Ct);

@@ -22,7 +22,7 @@ public sealed class DevbookBrainAtlasTests : IDisposable
 
     private const string TwoAreas = "# Conventions\n\n## Areas\n\n| Area | Folder |\n|---|---|\n| Projects | projects |\n| Work | work |\n";
 
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-brain-atlas-tests", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-brain-atlas-tests");
 
     // ----- Reading -------------------------------------------------------------
 
@@ -291,7 +291,7 @@ public sealed class DevbookBrainAtlasTests : IDisposable
         new BrainRepoLinkResolver(new FixedFolders(aliases)).Resolve;
 
     private string DatabaseFor(string brainRoot) =>
-        DevbookDatabaseLocation.PathFor(Path.Combine(_scratch, "devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), brainRoot)!;
+        DevbookDatabaseLocation.PathFor(_temp.Combine("devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), brainRoot)!;
 
     private void BuildDatabase(string brainRoot)
     {
@@ -302,7 +302,7 @@ public sealed class DevbookBrainAtlasTests : IDisposable
 
     private string WriteBrain()
     {
-        var root = Path.Combine(_scratch, "Brain" + Guid.NewGuid().ToString("N")[..6]);
+        var root = _temp.Combine("Brain" + Guid.NewGuid().ToString("N")[..6]);
         Write(root, BrainConventions.FileName, TwoAreas);
         Write(root, "projects/plan.md", $$"""
             # Plan
@@ -328,18 +328,10 @@ public sealed class DevbookBrainAtlasTests : IDisposable
         File.WriteAllText(path, text);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_scratch)) Directory.Delete(_scratch, recursive: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>The repositories configured on this machine, by alias.</summary>
+    // Differs from StubFolderSource: answers the repository aliases configured on the machine.
     private sealed class FixedFolders(params string[] aliases) : IDevbookFolderSource
     {
         public event Action? Changed { add { } remove { } }

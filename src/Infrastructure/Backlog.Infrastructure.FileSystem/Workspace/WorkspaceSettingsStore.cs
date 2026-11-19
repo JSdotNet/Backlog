@@ -5,6 +5,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel.Storage;
 using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.FileSystem;
@@ -54,20 +55,14 @@ public sealed class WorkspaceSettingsStore
     /// running the app — or the desktop web harness Aspire drives for the same
     /// purpose — always lands in a private, isolated workspace instead of quietly
     /// sharing whatever real backlog is configured on that machine.</summary>
-#if DEBUG
-    public const string DefaultAppDataFolderName = "Backlog.Debug";
-#else
-    public const string DefaultAppDataFolderName = "Backlog";
-#endif
+    public const string DefaultAppDataFolderName = AppDataPaths.HeadFolderName;
 
     /// <summary>The per-user folder <see cref="DefaultAppDataFolderName"/> names
     /// under LocalApplicationData. Where a host composes the per-machine files
     /// whose stores cannot see this one — the sync credential, the sync URL,
     /// each replica's progress — so a Debug head never reads the installed
     /// app's.</summary>
-    public static string DefaultAppDataDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        DefaultAppDataFolderName);
+    public static string DefaultAppDataDirectory => AppDataPaths.Head();
 
     public WorkspaceSettingsStore()
         : this(null)
@@ -77,11 +72,11 @@ public sealed class WorkspaceSettingsStore
     public WorkspaceSettingsStore(string? appDataDirectory)
         : this(
             string.IsNullOrWhiteSpace(appDataDirectory)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), DefaultAppDataFolderName)
+                ? DefaultAppDataDirectory
                 : appDataDirectory,
             Path.Combine(
                 string.IsNullOrWhiteSpace(appDataDirectory)
-                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), DefaultAppDataFolderName)
+                    ? DefaultAppDataDirectory
                     : appDataDirectory,
                 "settings.json"))
     {

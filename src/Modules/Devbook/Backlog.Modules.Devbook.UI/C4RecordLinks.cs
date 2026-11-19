@@ -1,3 +1,4 @@
+using Backlog.SharedKernel.C4;
 using Backlog.UI.Components.Diagrams.C4;
 
 namespace Backlog.Desktop.UI.Devbook;

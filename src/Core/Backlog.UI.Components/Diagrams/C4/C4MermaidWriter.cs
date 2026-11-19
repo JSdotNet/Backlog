@@ -1,5 +1,7 @@
 using System.Text;
 
+using Backlog.SharedKernel.C4;
+
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>

@@ -9,9 +9,7 @@ namespace Backlog.Infrastructure.Brain.UnitTests;
 /// </summary>
 public class BrainCorpusProfileTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-brain-profile", Guid.NewGuid().ToString("N"));
-
-    public BrainCorpusProfileTests() => Directory.CreateDirectory(_root);
+    private readonly TemporaryDirectory _temp = new("backlog-brain-profile");
 
     [Fact]
     public void A_file_node_gets_its_folder_as_its_para()
@@ -108,7 +106,7 @@ public class BrainCorpusProfileTests : IDisposable
         Write("design/palette.md", "# Palette\n");
         Write("archive/old.md", "# Old\n");
 
-        Assert.Equal(["work", "design", "archive"], BrainCorpusProfile.Instance.Folders(_root));
+        Assert.Equal(["work", "design", "archive"], BrainCorpusProfile.Instance.Folders(_temp.Path));
     }
 
     [Fact]
@@ -119,7 +117,7 @@ public class BrainCorpusProfileTests : IDisposable
         Write("_templates/note.md", "# Template\n");
         Write(".obsidian/workspace.md", "# Workspace\n");
 
-        Assert.Equal(["work"], BrainCorpusProfile.Instance.Folders(_root));
+        Assert.Equal(["work"], BrainCorpusProfile.Instance.Folders(_temp.Path));
     }
 
     [Fact]
@@ -128,13 +126,13 @@ public class BrainCorpusProfileTests : IDisposable
         Write("CONVENTIONS.md", "# Conventions\n\n## Areas\n\n- `work`\n- `journal`\n");
         Write("work/standup.md", "# Standup\n");
 
-        Assert.Equal(["work"], BrainCorpusProfile.Instance.Folders(_root));
+        Assert.Equal(["work"], BrainCorpusProfile.Instance.Folders(_temp.Path));
     }
 
     [Fact]
     public void Its_extra_input_is_the_conventions_file_and_its_tag_is_brain()
     {
-        Assert.Equal(["CONVENTIONS.md"], BrainCorpusProfile.Instance.ExtraInputs(_root));
+        Assert.Equal(["CONVENTIONS.md"], BrainCorpusProfile.Instance.ExtraInputs(_temp.Path));
         Assert.Equal("brain", BrainCorpusProfile.Instance.FingerprintTag);
         Assert.True(BrainCorpusProfile.Instance.ReadsCloudPlaceholders);
         Assert.True(BrainCorpusProfile.Instance.ReadsCrossCorpusLinks);
@@ -143,21 +141,13 @@ public class BrainCorpusProfileTests : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A scratch folder left behind costs disk, not correctness.
-        }
-
+        _temp.Dispose();
         GC.SuppressFinalize(this);
     }
 
     private void Write(string relativePath, string text)
     {
-        var path = Path.Combine(_root, relativePath);
+        var path = _temp.Combine(relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, text);
     }

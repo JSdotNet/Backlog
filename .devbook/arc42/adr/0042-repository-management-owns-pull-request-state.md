@@ -1,7 +1,7 @@
 # ADR 0042: Repository Management owns pull-request state, and every reader goes through its one contract
 
 ```meta
-date: 2026-11-02
+date: 2026-11-19
 related: [".devbook/domain/repository-management/context.md", ".devbook/domain/repository-management/features.md#pull-request-readiness", ".devbook/domain/repository-management/features.md#one-verdict-per-pull-request", ".devbook/domain/repository-management/features.md#github-integration", ".devbook/domain/repository-management/requirements.md#archiving-a-repository", ".devbook/domain/context-map.md", ".devbook/domain/sessions/context.md", ".devbook/domain/tasks/dependencies.md", ".devbook/domain/progress/dependencies.md", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md", ".devbook/arc42/adr/guidelines/0009-feature-slices-module-structure.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/12-glossary.md#terms", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/tdr/0004-the-side-panel-reads-sessions-outside-ilinkedsessionstates.md"]
 ```
 
@@ -50,7 +50,7 @@ flag, `pull-requests`, is declared on `SessionFeatures`
 | 1 | `PullRequestVerdict` | the pane's own list read | the pane and the session cards |
 | 2 | `WorkInProgressReader` | `GitHubIntegration.ReadLinkedPullRequestsAsync`, one `GitHubLinkedPullRequestCache` | a task's side panel |
 | 3 | `GitHubGoalPullRequests` | `GitHubIntegration.ReadLinkedPullRequestStatusesAsync`, a second `GitHubLinkedPullRequestCache` | Progress, as `IGoalPullRequestReader` |
-| 4 | `TasksDesktopState` | `ListLinkedPullRequestsAsync` (~4754), `ReadPullRequestStatusAsync` and `ReadPullRequestAsync` (~5158–5191) | the task row's badge, the merge offer and the prompt entry's auto-Done |
+| 4 | `TasksDesktopState` | `ListLinkedPullRequestsAsync` (~4754), `ReadPullRequestStatusAsync` (deleted on 2026-11-19, when only tests used it) and `ReadPullRequestAsync` (~5158–5191) | the task row's badge, the merge offer and the prompt entry's auto-Done |
 | 5 | `IPullRequestStateMemory` | `Infrastructure.FileSystem/Workspace/PullRequestStateMemory.cs` | Tasks' merged and closed outcomes across a restart |
 
 Each reading maps GitHub's answer on its own. The task row maps its own badge
@@ -435,6 +435,7 @@ The test classes sit in `Backlog.ArchitectureTests`, `Backlog.Desktop.UI.UnitTes
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-19 | Context's reader 4 marks `TasksDesktopState.ReadPullRequestStatusAsync` as deleted. Only tests called it, and PR #1911 removed it. The decision is unchanged. | Plan `codebase-pruning` step 3 deleted the member, and step 17 brought this record level with the code. |
 | 2026-11-03 | §2's table gains Review requested, which PR #1637 added to the status (`ViewerReviewRequested`, carried to Progress as `GoalPullRequestDto.ReviewRequested`) so a row can say "your review". | The status grew a field after acceptance, and §2 is the list the domain chapter points at. |
 | 2026-11-02 | Accepted at the code gate of PR #1617, which merged that day. Status, Decision, §1, §3, §4, §5, §9, Consequences and Verification now describe the built code, and Verification names the tests behind each item. Two Consequences bullets are done and removed: the stale code comments, and chapter 05 and `workspace.dsl` gaining the module. The follow-up links TDR 0004. | The devbook still called the record proposed and not built after PR #1617 merged, and named the types the build retired. |
 | 2026-11-02 | §3 notes that a merged pull request read back from the settled store, `settled-pull-requests`, carries no checks or approvals. `PullRequestStatus.Settled` sets none of them and marks `StatusRead` false; `SettledFactTests.A_merged_pull_request_reads_merged_after_a_restart_with_github_out_of_reach` asserts it. | §3 persists only the end state, and a reader has to know that a settled pull request's empty checks are not GitHub's word. |

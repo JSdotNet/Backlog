@@ -128,7 +128,7 @@ else if (_read?.Problem is { } problem)
             var hash = reference.IndexOf('#');
             var anchor = hash < 0 ? null : reference[(hash + 1)..].ToLowerInvariant();
             var named = anchor is not null && events.Contains(anchor) ? anchor
-                : events.Contains(DomainUnits.Slug(name.Name)) ? DomainUnits.Slug(name.Name)
+                : events.Contains(HeadingAnchor.Of(name.Name)) ? HeadingAnchor.Of(name.Name)
                 : null;
             if (named is not null) return DevbookReference.Parse($"{model}#{named}");
         }
@@ -181,14 +181,14 @@ else if (_read?.Problem is { } problem)
     }
 
     /// <summary>The slug of every <c>domain-event</c> chapter's heading in a
-    /// context's domain files — <see cref="DomainUnits.Slug"/> of its title, the
+    /// context's domain files — <see cref="HeadingAnchor.Of"/> of its title, the
     /// one rule <see cref="DomainModelTabs.For"/> matches an event by.</summary>
     private static IReadOnlySet<string> EventSlugs(DomainDevbookView view, DomainDevbookContext context) =>
         context.Documents
             .Where(d => d.Kind == DomainDevbookDocumentKind.Domain)
             .SelectMany(d => DomainUnits.Parse(DomainDevbookStore.ReadText(view, d), d.Path).AllChapters())
             .Where(chapter => chapter.Type == "domain-event")
-            .Select(chapter => DomainUnits.Slug(chapter.Title))
+            .Select(chapter => HeadingAnchor.Of(chapter.Title))
             .Where(slug => slug.Length > 0)
             .ToHashSet(StringComparer.Ordinal);
 

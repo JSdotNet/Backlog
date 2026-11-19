@@ -713,7 +713,7 @@ related: [.devbook/domain/sessions/domain.md#session-view]
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.Filtering_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionEnvironmentTests.Narrowing_then_viewing_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_a_narrowed_lists_rows_and_removes_none, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_purpose_narrows_the_list_and_each_option_counts_its_rows, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_plan_tag_beside_the_row_narrows_the_list_to_its_plan]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.Filtering_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionEnvironmentTests.Narrowing_then_viewing_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_rows_and_removes_none, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_purpose_narrows_the_list_and_each_option_counts_its_rows, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_plan_tag_beside_the_row_narrows_the_list_to_its_plan]
 ```
 
 Every narrowing of the session list is applied before the list is grouped, never after, so an environment with nothing left in it loses its section rather than keeping an empty one.

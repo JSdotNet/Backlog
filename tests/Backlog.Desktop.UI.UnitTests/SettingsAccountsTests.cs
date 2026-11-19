@@ -4,6 +4,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 using Bunit;
 
@@ -281,7 +282,7 @@ public sealed class SettingsAccountsTests
             GitHubReplicaDocument.Registry,
             registry! with { UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(1) },
             TestContext.Current.CancellationToken);
-        Assert.Equal(GitHubReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
 
         settings.Component.WaitForAssertion(() =>
         {
@@ -794,7 +795,8 @@ public sealed class SettingsAccountsTests
         IGitHubAccountProbe? accountProbe = null,
         IGhCliAccountSource? cliSource = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-accounts-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-accounts-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -822,8 +824,8 @@ public sealed class SettingsAccountsTests
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(
             githubSettings,
-            new NoGitHub(),
-            new NoProbe(),
+            new StubGitHubClient(),
+            new StubProbe(),
             cliSource ?? new StubCliAccounts(cliAccounts ?? []),
             accountProbe));
         context.Services.AddSingleton<FeedbackReporter>();
@@ -831,7 +833,7 @@ public sealed class SettingsAccountsTests
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), githubSettings);
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), githubSettings);
     }
 
     /// <summary>The <c>gh</c> CLI without the subprocess. It answers with whatever
@@ -853,63 +855,18 @@ public sealed class SettingsAccountsTests
         }
     }
 
-    /// <summary>Nothing here reaches GitHub — which account a call would leave as is
-    /// a local choice, not a fact fetched from it.</summary>
-    private sealed class NoGitHub : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task<GitHubIssue> CreateIssueAsync(
-            GitHubRepositoryRef repository,
-            string title,
-            string? body,
-            IEnumerable<string>? labels = null,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(
-            GitHubRepositoryRef repository,
-            int number,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(
-            GitHubRepositoryRef repository,
-            string path,
-            string branch,
-            byte[] content,
-            string commitMessage,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
-
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         GitHubSettingsStore GitHub) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

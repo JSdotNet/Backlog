@@ -131,22 +131,4 @@ public sealed class SessionDevbookAnnotationStoreTests
                     ? folder with { Path = match.Path }
                     : folder)
         ]);
-
-    private sealed class StubFolderSource(IReadOnlyList<DevbookFolderSetting> folders) : IDevbookFolderSource
-    {
-        public event Action? Changed
-        {
-            add { }
-            remove { }
-        }
-
-        public void NotifyContentChanged()
-        {
-        }
-
-        public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => folders;
-
-        public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null) =>
-            DevbookFolderLocation.Unavailable(key, "Nothing here asks where the folder is.");
-    }
 }

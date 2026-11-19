@@ -1,13 +1,17 @@
 using System.Text;
 using System.Text.RegularExpressions;
 
+using Backlog.SharedKernel.Markdown;
+using Backlog.SharedKernel.Metadata;
+
 namespace Backlog.Infrastructure.Devbook.Building;
 
 /// <summary>
 /// The devbook generator's Markdown parse, ported: headings, the <c>meta</c>
-/// block under each, and the slug a heading is addressed by.
+/// block under each, and the slug a heading is addressed by
+/// (<see cref="HeadingAnchor"/>, shared with every other reader).
 ///
-/// <para>A port of <c>parseDocument</c>, <c>parseMetaBody</c> and <c>slugify</c>
+/// <para>A port of <c>parseDocument</c> and <c>parseMetaBody</c>
 /// in the devbook plugin's <c>metadata.mjs</c>, which is what
 /// <c>tools/devbook/build-database.mjs</c> imports. Local ADR 0015 made the app
 /// the writer and accepted a second implementation of this parse; what keeps the
@@ -28,33 +32,37 @@ internal static partial class DevbookMarkdown
     /// <summary>JavaScript's <c>\s</c> and <c>String.prototype.trim</c> set: the
     /// ECMAScript WhiteSpace and LineTerminator characters. It differs from .NET's
     /// in both directions — U+FEFF is in it, U+0085 is not.</summary>
-    internal const string JsWhitespaceClass = "\\t\\n\\v\\f\\r \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff";
+    internal const string JsWhitespaceClass = EcmaScriptWhitespace.CharacterClass;
 
     [GeneratedRegex("\\r?\\n")]
     private static partial Regex LineBreak();
 
     /// <summary>JavaScript's <c>.</c> stops at every line terminator and .NET's
     /// only at <c>\n</c>, so the text is spelled out: a line holding a CR, U+2028
-    /// or U+2029 is no heading to the generator.</summary>
+    /// or U+2029 is no heading to the generator. Group 1 is the markers, group 2
+    /// the text as written.</summary>
     [GeneratedRegex("^(#{1,6})[" + JsWhitespaceClass + "]+([^\\n\\r\\u2028\\u2029]*)\\z")]
-    private static partial Regex Heading();
+    internal static partial Regex Heading();
 
     /// <summary>The generator's fence marker: any indentation, and a closing
     /// marker may carry text after it.</summary>
     [GeneratedRegex("^[" + JsWhitespaceClass + "]*(`{3,}|~{3,})")]
     internal static partial Regex FenceMarker();
 
-    [GeneratedRegex("^```meta[" + JsWhitespaceClass + "]*$")]
-    private static partial Regex MetaFence();
-
-    [GeneratedRegex("[^\\p{L}\\p{N}_" + JsWhitespaceClass + "-]")]
-    private static partial Regex NotSlugCharacter();
-
-    [GeneratedRegex("[" + JsWhitespaceClass + "]")]
-    private static partial Regex JsWhitespace();
+    [GeneratedRegex("[" + JsWhitespaceClass + "]+")]
+    private static partial Regex JsWhitespaceRun();
 
     /// <summary>Splits a document into lines the way <c>split(/\r?\n/)</c> does.</summary>
     public static string[] Lines(string markdown) => LineBreak().Split(markdown);
+
+    /// <summary>Whether a line opens the <c>meta</c> block the generator reads
+    /// under a heading: the line, trimmed as JavaScript trims, is exactly
+    /// <c>```meta</c> (<see cref="MetadataFence.IsGeneratorOpener"/>).</summary>
+    internal static bool IsMetaFence(string line) => MetadataFence.IsGeneratorOpener(JsTrim(line));
+
+    /// <summary>Every run of JavaScript whitespace in <paramref name="line"/> as one
+    /// space, and the result trimmed: <c>replace(/\s+/g, ' ').trim()</c>.</summary>
+    internal static string CollapseWhitespace(string line) => JsTrim(JsWhitespaceRun().Replace(line, " "));
 
     /// <summary>
     /// Every heading of every level, each with the <c>meta</c> block that follows
@@ -94,13 +102,13 @@ internal static partial class DevbookMarkdown
 
             var level = heading.Groups[1].Length;
             var text = JsTrim(heading.Groups[2].Value);
-            var slug = Slugify(text);
+            var slug = HeadingAnchor.Of(text);
 
             var j = i + 1;
             while (j < lines.Length && JsTrim(lines[j]).Length == 0) j++;
 
             Dictionary<string, object?>? meta = null;
-            if (j < lines.Length && MetaFence().IsMatch(JsTrim(lines[j])))
+            if (j < lines.Length && IsMetaFence(lines[j]))
             {
                 var body = new List<string>();
                 var k = j + 1;
@@ -131,7 +139,7 @@ internal static partial class DevbookMarkdown
     /// One <c>key: value</c> per line; a value is <see langword="null"/>, a
     /// string, or — written <c>[a, b]</c> — a list of strings. A later key wins.
     /// </summary>
-    private static Dictionary<string, object?> ParseMetaBody(IEnumerable<string> lines)
+    internal static Dictionary<string, object?> ParseMetaBody(IEnumerable<string> lines)
     {
         var result = new Dictionary<string, object?>(StringComparer.Ordinal);
 
@@ -249,33 +257,10 @@ internal static partial class DevbookMarkdown
             ? value[1..^1]
             : value;
 
-    /// <summary>
-    /// GitHub's anchor rule as the generator spells it: lower-case, trim, drop
-    /// everything but letters, digits, underscores, whitespace and hyphens, then
-    /// turn each remaining whitespace character into a hyphen — without
-    /// collapsing runs.
-    /// </summary>
-    public static string Slugify(string text)
-    {
-        var lowered = JsTrim(text.ToLowerInvariant());
-        var kept = NotSlugCharacter().Replace(lowered, string.Empty);
-        return JsWhitespace().Replace(kept, "-");
-    }
-
     /// <summary><c>String.prototype.trim</c>.</summary>
-    public static string JsTrim(string value)
-    {
-        var start = 0;
-        var end = value.Length;
-        while (start < end && IsJsWhitespace(value[start])) start++;
-        while (end > start && IsJsWhitespace(value[end - 1])) end--;
-        return start == 0 && end == value.Length ? value : value[start..end];
-    }
+    public static string JsTrim(string value) => EcmaScriptWhitespace.Trim(value);
 
-    internal static bool IsJsWhitespace(char c) =>
-        (int)c is 0x09 or 0x0a or 0x0b or 0x0c or 0x0d or 0x20 or 0xa0 or 0x1680
-            or (>= 0x2000 and <= 0x200a)
-            or 0x2028 or 0x2029 or 0x202f or 0x205f or 0x3000 or 0xfeff;
+    internal static bool IsJsWhitespace(char c) => EcmaScriptWhitespace.Is(c);
 
     /// <summary>A metadata value as a list, the way <c>asList</c> reads it.</summary>
     public static IReadOnlyList<string> AsList(object? value) =>
@@ -286,11 +271,6 @@ internal static partial class DevbookMarkdown
             string single => [single],
             _ => [Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty]
         };
-
-    /// <summary>A metadata value as the single string a column holds, or
-    /// <see langword="null"/> for a list: a list in a scalar column is a
-    /// malformed block, and the checker is what reports it.</summary>
-    public static string? AsScalar(object? value) => value as string;
 
     /// <summary>Lower-case hexadecimal SHA-256 of <paramref name="text"/>'s UTF-8
     /// bytes, as <c>createHash('sha256').update(text, 'utf8')</c> gives it.</summary>

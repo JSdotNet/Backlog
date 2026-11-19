@@ -19,7 +19,7 @@ public sealed class PullRequestListTests
     private readonly CountingPullRequestSource _github = new();
 
     private IPullRequests Module() =>
-        new PullRequests(_github, new FakeRegisteredRepositories(BacklogRepository, ArchifyRepository), new InMemorySettledStore(), _clock);
+        new PullRequests(_github, new FakeRegisteredRepositories(BacklogRepository, AlmanacRepository), new InMemorySettledStore(), _clock);
 
     [Fact]
     public async Task An_open_row_answers_a_read_of_its_number_with_no_second_call()
@@ -57,13 +57,13 @@ public sealed class PullRequestListTests
     [Fact]
     public async Task Every_active_repository_is_listed_with_the_newest_update_first()
     {
-        _github.Holds(Pull(5), Pull(1, repository: ArchifyRepository));
+        _github.Holds(Pull(5), Pull(1, repository: AlmanacRepository));
         var module = Module();
 
         var listing = await module.ListOpenAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal([1, 5], listing.PullRequests.Select(pull => pull.Number));
-        Assert.Equal([$"list {ArchifyRepository}", $"list {BacklogRepository}"], _github.Calls.Order());
+        Assert.Equal([$"list {AlmanacRepository}", $"list {BacklogRepository}"], _github.Calls.Order());
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public sealed class PullRequestListTests
     [Fact]
     public async Task A_listing_names_the_repositories_it_holds_whole()
     {
-        _github.Holds(Pull(1), Pull(2, repository: ArchifyRepository)).Caps(ArchifyRepository);
+        _github.Holds(Pull(1), Pull(2, repository: AlmanacRepository)).Caps(AlmanacRepository);
         var module = Module();
 
         var listing = await module.ListOpenAsync(cancellationToken: TestContext.Current.CancellationToken);
@@ -110,7 +110,7 @@ public sealed class PullRequestListTests
     [Fact]
     public async Task A_repository_that_refused_is_its_own_failure_and_the_others_still_come_back()
     {
-        _github.Holds(Pull(1, repository: ArchifyRepository)).Refuses(BacklogRepository, "Could not resolve to a Repository.");
+        _github.Holds(Pull(1, repository: AlmanacRepository)).Refuses(BacklogRepository, "Could not resolve to a Repository.");
         var module = Module();
 
         var listing = await module.ListOpenAsync(cancellationToken: TestContext.Current.CancellationToken);

@@ -161,7 +161,7 @@
     {
         if (range == CalendarRange.Month) return CalendarMonth.Window(today);
 
-        var monday = CalendarMonth.MondayOnOrBefore(today);
+        var monday = CalendarWeek.MondayOf(today);
         return new CalendarWindow(monday, monday.AddDays(6));
     }
 

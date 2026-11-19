@@ -1017,18 +1017,20 @@ public class TrackerToolsTests
         Assert.DoesNotContain(sources, name => name.Contains("Delete", StringComparison.Ordinal));
     }
 
-    /// <summary>The whole group behind one key, and the key is the backlog's.
-    /// Switching Tasks off takes the operations with the reads.</summary>
+    /// <summary>The whole group behind no key: the backlog is permanent, so no
+    /// switch takes the operations out of the list.</summary>
     [Fact]
-    public void Every_tracker_tool_is_gated_on_the_tasks_key()
+    public void Every_tracker_tool_is_always_listed()
     {
+        Assert.Null(BacklogMcpTools.Tracker.FeatureKey);
+
         var features = new FakeAppFeatureSettings([.. BacklogMcpTools.Groups.Select(group => group.FeatureKey).OfType<string>().Distinct(StringComparer.Ordinal)]);
+        foreach (var key in BacklogMcpTools.Groups.Select(group => group.FeatureKey).OfType<string>().Distinct(StringComparer.Ordinal))
+        {
+            features.SetEnabled(key, enabled: false);
+        }
 
         Assert.All(BacklogMcpTools.Tracker.ToolNames, name => Assert.True(BacklogMcpTools.IsExposed(name, features)));
-
-        features.SetEnabled(TasksFeatures.Tasks, enabled: false);
-
-        Assert.All(BacklogMcpTools.Tracker.ToolNames, name => Assert.False(BacklogMcpTools.IsExposed(name, features)));
     }
 
     /// <summary>
@@ -1056,6 +1058,7 @@ public class TrackerToolsTests
 
 /// <summary>A session request queue that records what <c>link_session</c> told it and
 /// answers nothing else.</summary>
+// Differs from InMemorySessionRequestStore: records only what link_session told it.
 internal sealed class RecordingSessionRequestStore : ISessionRequestStore
 {
     public List<(Guid EntryId, IReadOnlyCollection<string> PlanTags, string SessionId)> Links { get; } = [];

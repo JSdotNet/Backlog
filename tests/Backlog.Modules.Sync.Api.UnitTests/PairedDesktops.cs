@@ -30,7 +30,7 @@ internal sealed class PairedDesktops : IDisposable
     public static readonly DateTimeOffset Morning = new(2026, 10, 17, 9, 0, 0, TimeSpan.Zero);
 
     private readonly SyncServiceFactory _service = new();
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "desktop-sync-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("desktop-sync");
     private readonly List<Desktop> _desktops = [];
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
@@ -52,9 +52,9 @@ internal sealed class PairedDesktops : IDisposable
         var laptop = (await paired.Content.ReadFromJsonAsync<DeviceRegistrationResponse>(Cancellation))!;
         bHttp.Bearing(await bHttp.DeviceToken(laptop));
 
-        var a = new Desktop(Path.Combine(_root, "a"), aHttp,
+        var a = new Desktop(_temp.Combine("a"), aHttp,
             new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential!));
-        var b = new Desktop(Path.Combine(_root, "b"), bHttp,
+        var b = new Desktop(_temp.Combine("b"), bHttp,
             new DeviceCredential(laptop.OwnerId, laptop.DeviceId, "Laptop", laptop.Credential!));
         _desktops.Add(a);
         _desktops.Add(b);
@@ -66,11 +66,7 @@ internal sealed class PairedDesktops : IDisposable
     {
         foreach (var desktop in _desktops) desktop.Dispose();
         _service.Dispose();
-
-        if (Directory.Exists(_root))
-        {
-            try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-        }
+        _temp.Dispose();
     }
 
     /// <summary>One desktop: its own <c>backlog.db</c> and sync state, the Progress module

@@ -91,16 +91,16 @@ public sealed class RepositoryManagementGoalPullRequestsTests
     {
         var contract = new InMemoryPullRequests()
             .Holds(Pull(7, PullRequestState.Merged) with { MergedAt = Noon })
-            .Holds(Pull(8) with { RepositoryFullName = "JSdotNet/Archify" });
-        var reader = new RepositoryManagementGoalPullRequests(() => contract, () => new ArchivedRepositories("jsdotnet/archify"));
+            .Holds(Pull(8) with { RepositoryFullName = "JSdotNet/Almanac" });
+        var reader = new RepositoryManagementGoalPullRequests(() => contract, () => new ArchivedRepositories("jsdotnet/almanac"));
 
-        var answer = await reader.ReadAsync([new(Backlog, "7"), new("JSdotNet/Archify", "8")], TestContext.Current.CancellationToken);
+        var answer = await reader.ReadAsync([new(Backlog, "7"), new("JSdotNet/Almanac", "8")], TestContext.Current.CancellationToken);
 
         Assert.Equal(
             [(LinkedPullRequestState.Merged, false), (LinkedPullRequestState.Open, true)],
             answer.Select(pull => (pull.State, pull.InArchivedRepository)));
         Assert.False(Assert.Single(await new RepositoryManagementGoalPullRequests(() => contract)
-            .ReadAsync([new("JSdotNet/Archify", "8")], TestContext.Current.CancellationToken)).InArchivedRepository);
+            .ReadAsync([new("JSdotNet/Almanac", "8")], TestContext.Current.CancellationToken)).InArchivedRepository);
     }
 
     /// <summary>A repository that answers, but holds no pull request with the number —
@@ -264,10 +264,10 @@ public sealed class RepositoryManagementGoalPullRequestsTests
     [Fact]
     public async Task An_archived_repositorys_open_pull_request_does_not_ask_for_the_viewers_review()
     {
-        var contract = new InMemoryPullRequests().Holds(Pull(8) with { RepositoryFullName = "JSdotNet/Archify", ViewerReviewRequested = true });
-        var reader = new RepositoryManagementGoalPullRequests(() => contract, () => new ArchivedRepositories("jsdotnet/archify"));
+        var contract = new InMemoryPullRequests().Holds(Pull(8) with { RepositoryFullName = "JSdotNet/Almanac", ViewerReviewRequested = true });
+        var reader = new RepositoryManagementGoalPullRequests(() => contract, () => new ArchivedRepositories("jsdotnet/almanac"));
 
-        var answer = Assert.Single(await reader.ReadAsync([new("JSdotNet/Archify", "8")], TestContext.Current.CancellationToken));
+        var answer = Assert.Single(await reader.ReadAsync([new("JSdotNet/Almanac", "8")], TestContext.Current.CancellationToken));
 
         Assert.Equal((LinkedPullRequestState.Open, true, false), (answer.State, answer.InArchivedRepository, answer.ReviewRequested));
     }

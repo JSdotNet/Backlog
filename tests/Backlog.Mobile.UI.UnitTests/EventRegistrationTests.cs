@@ -13,12 +13,9 @@ namespace Backlog.Mobile.UI.UnitTests;
 /// page calls, and the outbox kind that sends its requests.</summary>
 public sealed class EventRegistrationTests : IDisposable
 {
-    private readonly string _folder = Path.Combine(Path.GetTempPath(), $"event-registration-{Guid.NewGuid():N}");
+    private readonly TemporaryDirectory _temp = new("event-registration");
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_folder)) Directory.Delete(_folder, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void The_device_outbox_composes_the_event_view_the_attach_service_and_their_outbox_kind()
@@ -26,7 +23,7 @@ public sealed class EventRegistrationTests : IDisposable
         var services = new ServiceCollection();
         services.AddSingleton(TestCloudSync.Client(_ => new HttpResponseMessage(HttpStatusCode.NotFound)));
         services.AddSingleton<IDeviceCredentialStore>(TestDevices.Paired());
-        services.AddDeviceOutbox(Path.Combine(_folder, "backlog-mobile.db"));
+        services.AddDeviceOutbox(_temp.Combine("backlog-mobile.db"));
 
         using var provider = services.BuildServiceProvider();
 

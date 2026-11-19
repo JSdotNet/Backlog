@@ -2,16 +2,23 @@
 
 ```meta
 date: 2026-09-16
-related: [".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0034-archify-renders-are-generated-on-demand-not-committed.md", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
+related: [".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0034-archify-renders-are-generated-on-demand-not-committed.md", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/arc42/adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md"]
 severity: medium
 c4: [backlog.desktop.devbook]
 ```
 
 ## Status
 
-**Identified** — 2026-09-16. Not planned; no owner assigned beyond the repository
-owner. Remediation window: before branch-sourced repositories are the common way
-a workspace reads a repository it does not build (see *Severity*).
+**Resolved** — 2026-11-19, by retiring the feature (local ADR 0057). Identified
+2026-09-16; never planned.
+
+> **Resolved 2026-11-19: Archify is retired (local ADR 0057).** The app draws every
+> chapter diagram with Mermaid, from a branch snapshot and a clone alike, and the
+> artifact lookup, the renderer and the `archify-diagrams` flag leave the code. With
+> no artifact to show, there is nothing a branch reader misses, so none of the
+> options below is built. The `_archify` exclusion in `DevbookFolderSource` keeps
+> another repository's Archify files out of the snapshot, which is now what it is
+> for. The record stays as the history of the debt.
 
 TDR lifecycle: identified → planned → in-progress → resolved.
 

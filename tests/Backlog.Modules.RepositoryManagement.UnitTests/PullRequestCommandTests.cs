@@ -21,7 +21,7 @@ public sealed class PullRequestCommandTests
     private readonly CountingPullRequestSource _github = new();
 
     private IPullRequests Module() =>
-        new PullRequests(_github, new FakeRegisteredRepositories(BacklogRepository, ArchifyRepository), new InMemorySettledStore(), _clock);
+        new PullRequests(_github, new FakeRegisteredRepositories(BacklogRepository, AlmanacRepository), new InMemorySettledStore(), _clock);
 
     public static TheoryData<string, string> Commands => new()
     {
@@ -37,7 +37,7 @@ public sealed class PullRequestCommandTests
     [MemberData(nameof(Commands))]
     public async Task Each_command_acts_once_reads_its_repository_again_once_and_says_what_changed(string command, string act)
     {
-        _github.Holds(Pull(4), Pull(6, repository: ArchifyRepository));
+        _github.Holds(Pull(4), Pull(6, repository: AlmanacRepository));
         var module = Module();
         await module.ListOpenAsync(cancellationToken: TestContext.Current.CancellationToken);
         var before = _github.Calls.Count;
@@ -50,7 +50,7 @@ public sealed class PullRequestCommandTests
         var calls = _github.Calls.Skip(before).ToList();
         Assert.Equal($"{act} {BacklogRepository}#4", calls[0]);
         Assert.Equal(1, calls.Count(call => call == $"list {BacklogRepository}"));
-        Assert.DoesNotContain(calls, call => call.Contains(ArchifyRepository, StringComparison.Ordinal));
+        Assert.DoesNotContain(calls, call => call.Contains(AlmanacRepository, StringComparison.Ordinal));
         var changed = Assert.Single(changes);
         Assert.Equal([BacklogRepository], changed.Repositories);
         Assert.Equal([Ref(4)], changed.PullRequests);

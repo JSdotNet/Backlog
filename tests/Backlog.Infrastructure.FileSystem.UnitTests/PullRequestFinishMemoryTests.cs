@@ -13,20 +13,11 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class PullRequestFinishMemoryTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "pull-request-finish-memory-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("pull-request-finish-memory-tests");
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    private string _root => _temp.Combine("data");
+
+    public void Dispose() => _temp.Dispose();
 
     private PullRequestFinishMemory Memory() => new(() => _root);
 

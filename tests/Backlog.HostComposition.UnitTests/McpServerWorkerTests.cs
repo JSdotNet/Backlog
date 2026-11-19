@@ -34,7 +34,7 @@ public sealed class McpServerWorkerTests : IDisposable
 {
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "mcp-worker-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("mcp-worker-tests");
 
     private readonly GatedProvider _services = new(new ServiceCollection().BuildServiceProvider());
 
@@ -227,7 +227,7 @@ public sealed class McpServerWorkerTests : IDisposable
     public async Task The_logs_route_refuses_a_missing_wrong_or_retired_token_and_stores_the_telemetry_grant_s_export()
     {
         var store = new RecordingRequestStore();
-        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
         var tokens = new McpGrantTokens(grants, TimeProvider.System);
         var services = new GatedProvider(new ServiceCollection()
             .AddSingleton<IClaudeApiRequestStore>(store)
@@ -412,7 +412,7 @@ public sealed class McpServerWorkerTests : IDisposable
     [Fact]
     public async Task The_retired_token_never_trips_the_bearer_limit()
     {
-        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
         var tokens = new McpGrantTokens(grants, TimeProvider.System);
         var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
         var settings = Settings(FreePort(), """{ "mcpServer": { "token": "retired-shared" } }""");
@@ -532,7 +532,7 @@ public sealed class McpServerWorkerTests : IDisposable
     public async Task The_schedule_run_report_refuses_a_missing_wrong_or_unscoped_token_and_records_under_the_delivery_grant()
     {
         var register = new InMemoryScheduleRegister();
-        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
         var tokens = new McpGrantTokens(grants, TimeProvider.System);
         var services = new GatedProvider(new ServiceCollection()
             .AddSingleton<IScheduleRegister>(register)
@@ -678,7 +678,7 @@ public sealed class McpServerWorkerTests : IDisposable
     [Fact]
     public async Task A_grant_token_reaches_what_its_scopes_do_until_its_grant_is_revoked()
     {
-        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
         var tokens = new McpGrantTokens(grants, TimeProvider.System);
         var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
         var settings = Settings(FreePort());
@@ -726,7 +726,7 @@ public sealed class McpServerWorkerTests : IDisposable
     [Fact]
     public async Task Forged_grant_tokens_count_towards_the_lockout_and_a_revoked_one_does_not()
     {
-        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
         var tokens = new McpGrantTokens(grants, TimeProvider.System);
         var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
         var settings = EscapeHatchSettings(FreePort());
@@ -740,7 +740,7 @@ public sealed class McpServerWorkerTests : IDisposable
         grants.Revoke(grant.Id);
 
         // Signed by another listener's key: well-formed, never signed here.
-        var otherGrants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var otherGrants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
         var forged = new McpGrantTokens(otherGrants, TimeProvider.System).Mint(otherGrants.Create("x", [], "jobsc").Id).Token!.Value;
 
         for (var i = 0; i < McpBearerLimiter.MaxFailures; i++)
@@ -774,7 +774,7 @@ public sealed class McpServerWorkerTests : IDisposable
     [Fact]
     public async Task A_grant_store_that_cannot_be_read_refuses_with_401_not_500()
     {
-        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
         var store = new FailableMcpGrantStore(grants);
         var tokens = new McpGrantTokens(store, TimeProvider.System);
         var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
@@ -803,7 +803,7 @@ public sealed class McpServerWorkerTests : IDisposable
         await ListeningAsync(worker, settings.McpServerPort);
 
         using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
-        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
         var token = new McpGrantTokens(grants, TimeProvider.System).Mint(grants.Create("x", [], "jobsc").Id).Token!.Value;
 
         using var response = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", token), TestContext.Current.CancellationToken);
@@ -870,14 +870,7 @@ public sealed class McpServerWorkerTests : IDisposable
     public void Dispose()
     {
         _services.Open();
-
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 
     /// <summary>What the escape hatch's environment variable holds in a test's own environment.</summary>
@@ -889,7 +882,7 @@ public sealed class McpServerWorkerTests : IDisposable
     /// switches the escape hatch on.</summary>
     private WorkspaceSettingsStore Settings(int port, string? settingsJson = null)
     {
-        var folder = Path.Combine(_root, "store-" + Guid.NewGuid().ToString("N"));
+        var folder = _temp.Combine("store-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         if (settingsJson is not null) File.WriteAllText(Path.Combine(folder, "settings.json"), settingsJson);
 

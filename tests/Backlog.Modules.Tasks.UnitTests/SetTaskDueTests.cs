@@ -117,6 +117,7 @@ public sealed class SetTaskDueTests
         public int GetHashCode(TaskItemDto obj) => obj.Id.GetHashCode();
     }
 
+    // Differs from RecordingTaskItems: answers an empty list and throws on every write.
     private sealed class ListOnlyTaskItems : ITaskItems
     {
         public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>

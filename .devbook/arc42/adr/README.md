@@ -60,7 +60,7 @@ between inherited ADRs 0005 and 0009.
 - **[0031 — GitHub calls resolve their account per repository, and a token taken from the GitHub CLI is never stored](0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md)** *(proposed, built in PR #493; ADR 0021 syncs the accounts it resolves)*
 - **[0032 — The My Day preferences ride the task feed as one whole document, and the phone folds it](0032-my-day-preferences-ride-the-task-feed.md)** *(accepted, not yet built; follows 0018 and 0021)*
 - **[0033 — The Dashboard sends its figures to Foundry, whichever part was pressed](0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md)** *(accepted, built in PR #1316; widens what Ask AI sends, beside 0023)*
-- **[0034 — Archify renders are generated on demand into app storage, not committed](0034-archify-renders-are-generated-on-demand-not-committed.md)** *(proposed, built; amends 0004 and 0008, changes the remediation of TDR 0001)*
+- **[0034 — Archify renders are generated on demand into app storage, not committed](0034-archify-renders-are-generated-on-demand-not-committed.md)** *(proposed, built; amends 0004 and 0008, changes the remediation of TDR 0001; superseded by 0057)*
 - **[0035 — Goals and impediments replace sprints](0035-goals-and-impediments-replace-sprints.md)** *(accepted, built in PR #1389; supersedes the sprint parts of 0022 §2 and 0028; §2, §8 and §9 amended by 0037; §7's GitHub edge amended by 0042; amended in place on 2026-10-29: an impediment holds back tasks, pull requests and plans and reads as ready to resolve, and a blocked task raises none)*
 - **[0036 — The iteration settings ride the task feed as one whole document](0036-the-iteration-settings-ride-the-task-feed.md)** *(accepted, built; refines 0035 §3, follows 0032)*
 - **[0037 — A session attaches to a goal as its own item](0037-a-session-attaches-to-a-goal-as-its-own-item.md)** *(proposed, not yet built; amends 0035 §2, §8 and §9)*
@@ -83,6 +83,7 @@ between inherited ADRs 0005 and 0009.
 - **[0054 — Clarify outcomes follow GTD, and each item has one home](0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md)** *(proposed, built; amends 0026 §2 and §3, adds a tool to 0012's Inbox group)*
 - **[0055 — Calendar is a surface of its own that reads layers](0055-calendar-is-a-surface-of-its-own-that-reads-layers.md)** *(proposed, all three layers built; supersedes 0022 §1 for the Calendar; §2, §3, §6 and one Rejected bullet superseded by 0056, §4 amended by it)*
 - **[0056 — The Calendar owns its grid, and Tasks is one layer](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md)** *(accepted, built; supersedes 0055 §2, §3, §6 in part, amends 0055 §4 and 0022 §2)*
+- **[0057 — Archify is retired, and Mermaid draws every chapter diagram](0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md)** *(proposed, built by pull request #1913; supersedes 0034, resolves TDR 0001)*
 - **[0058 — Agents and devices authenticate by grant and key, the owner by GitHub sign-in](0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md)** *(proposed, not yet built; amends 0012 §1, 0043 §7 and 0044 §6, retires 0030 §6's exception, applies guideline 0013 to the MCP surface)*
 
 ## Inherited decisions

@@ -37,8 +37,6 @@ public sealed partial class ModuleUiIoTests
         // design/ai document provider with the sync reader and writer in its
         // fourth; the later slices move the rest.
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/Arc42Devbook.cs",
-        // Also starts the Archify CLI through Process.
-        "src/Modules/Devbook/Backlog.Modules.Devbook.UI/ArchifyDiagramArtifacts.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/C4Devbook.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DevbookAtlas.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DevbookFolderOpenService.cs",
@@ -129,8 +127,8 @@ public sealed partial class ModuleUiIoTests
     [InlineData("using var stream = new FileStream(path, FileMode.Open);")]
     [InlineData("var watcher = new FileSystemWatcher(root);")]
     [InlineData("using System.IO.Enumeration;")]
-    [InlineData("Process.Start(\"archify\");")]
-    [InlineData("var start = new ProcessStartInfo\n{\n    FileName = \"archify\"\n};")]
+    [InlineData("Process.Start(\"node\");")]
+    [InlineData("var start = new ProcessStartInfo\n{\n    FileName = \"node\"\n};")]
     [InlineData("var p = new System.Diagnostics.Process();")]
     public void The_io_pattern_catches_each_api_the_rule_names(string source)
     {

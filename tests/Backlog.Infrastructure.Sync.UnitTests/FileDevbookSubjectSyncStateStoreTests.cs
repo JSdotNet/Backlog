@@ -9,8 +9,8 @@ public sealed class FileDevbookSubjectSyncStateStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(), "backlog-devbook-subject-sync-state-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-subject-sync-state-tests");
+    private string _root => _temp.Path;
 
     [Fact]
     public void A_saved_state_is_read_back_by_the_next_run()
@@ -49,14 +49,5 @@ public sealed class FileDevbookSubjectSyncStateStoreTests : IDisposable
         Assert.Null(store.Current.PullCursor);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

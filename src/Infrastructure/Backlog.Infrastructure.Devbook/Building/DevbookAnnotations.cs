@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 
+using Backlog.SharedKernel.Markdown;
+
 namespace Backlog.Infrastructure.Devbook.Building;
 
 /// <summary>
@@ -76,7 +78,7 @@ internal static partial class DevbookAnnotations
             var heading = Heading().Match(lines[i]);
             if (heading.Success)
             {
-                slug = DevbookMarkdown.Slugify(DevbookMarkdown.JsTrim(heading.Groups[2].Value));
+                slug = HeadingAnchor.Of(DevbookMarkdown.JsTrim(heading.Groups[2].Value));
                 i++;
                 continue;
             }

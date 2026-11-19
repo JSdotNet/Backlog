@@ -373,6 +373,7 @@ public sealed class TasksCalendarTasksTests
     /// <summary>The Tasks port as the adapter sees it: a list to read, and the two writes it
     /// makes, recorded. A refusal, when set, answers both writes. A saved list of blocks is
     /// kept, so the next read sees it; a read gate, when set, holds every read until it opens.</summary>
+    // Differs from RecordingTaskItems: holds a task list, records the due and planned-hours writes, and can refuse them or gate every read.
     private sealed class FakeTaskItems(params TaskItemDto[] tasks) : ITaskItems
     {
         private readonly List<TaskItemDto> _tasks = [.. tasks];

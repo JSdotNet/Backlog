@@ -1,4 +1,3 @@
-using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -6,8 +5,7 @@ namespace Backlog.Modules.Roadmap.UI;
 
 /// <summary>
 /// Puts the Roadmap in the shell as a view-group <see cref="ShellSurface"/> (local ADR
-/// 0043 §1), offered behind <see cref="RoadmapFeatures.Roadmap"/>, the flag its view
-/// option has always gated on. On the precedent of <c>AddDevbookSurface</c>; safe to
+/// 0043 §1), always offered. On the precedent of <c>AddDevbookSurface</c>; safe to
 /// call twice.
 /// </summary>
 public static class RoadmapSurfaceRegistration
@@ -31,7 +29,7 @@ public static class RoadmapSurfaceRegistration
             ShellSurfaceGroup.View,
             Order,
             typeof(RoadmapSurface),
-            RoadmapFeatures.Roadmap,
+            null,
             RoadmapSurfaceQuery.Keys));
 
         return services;

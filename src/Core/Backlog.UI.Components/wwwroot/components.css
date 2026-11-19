@@ -8499,21 +8499,9 @@ button.task-panel__check:focus-visible {
     font-family: var(--font-family-mono);
 }
 
-/* Which renderer drew the picture, next to what the fence is written in — and,
-   where there are two to choose between, the control that chooses. Not mono: it
-   names a tool rather than quoting a language, and the difference in face is what
-   keeps it from reading as one thing with the language beside it. */
-/* Two badges side by side, spaced like the badges they sit beside. It was a
-   segmented pill first — one background with the inner corners squared off — and
-   that made it the loudest thing in a header whose whole job is to be quiet. A
-   badge is already the vocabulary for "a small fact about this block"; which
-   renderer drew the picture is exactly that, and being able to press it does not
-   make it a different kind of thing. */
-.diagram-view__renderers {
-    display: inline-flex;
-    gap: var(--spacing-xs);
-}
-
+/* A badge-shaped button — a click demo's places. A badge is already the
+   vocabulary for "a small fact about this block", and being able to press it
+   does not make it a different kind of thing. */
 /* Everything else is .language-badge's. Only what a button adds over a span is
    taken back off. */
 .diagram-view__renderer {
@@ -8540,58 +8528,20 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-primary);
 }
 
-/* An Archify artifact is a whole document with its own layout, so it gets height
-   rather than the width-fitting a drawn SVG gets. No frame, matching
-   .diagram-view__rendered: the artifact paints its own background and a border
-   here would draw a box around a box.
-
-   The height here is only the opening bid. What an artifact is actually worth is
-   a function of how wide this frame turns out to be — one drawing is 1440x700 and
-   another is 1392x3496 — so the document measures itself and components.js writes
-   the answer back as an inline height. This is what it looks like until that
-   arrives, and what it stays at if the frame never reports: `height` rather than
-   `min-height` precisely so the measured value can go under it as well as over,
-   and a small diagram is not left sitting in 28rem of empty panel.
-
-   Transparent, and it takes both sides to be so: components.js clears the
-   artifact's own background inside the frame, and this clears the background the
-   frame element itself paints behind that. Either one left opaque and the diagram
-   still sits on a navy card in the middle of a chapter. */
-.diagram-view__artifact {
-    display: block;
-    width: 100%;
-    height: 28rem;
-    border: 0;
-    border-radius: var(--border-radius-md);
-    background: transparent;
-}
-
-/* Scenery in a chapter and the screen itself in fullscreen. The stage exists
-   for one reason: fullscreen is requested on it rather than on the frame, because
-   only the element in the top layer and its descendants are painted, and an
-   artifact frame is sandboxed into an opaque origin and can carry nothing of
-   ours. Wrapping the frame is what gives the way back out somewhere to live.
-
-   A positioning context and nothing else while it is in the chapter — the frame
-   is still the whole of what a reader sees there, at the height it measured for
-   itself. */
+/* Scenery in a chapter and the screen itself in fullscreen. Fullscreen is
+   requested on the stage rather than on the frame, because only the element in
+   the top layer and its descendants are painted, and a frame sandboxed into an
+   opaque origin can carry nothing of ours. Wrapping the frame is what gives the
+   way back out somewhere to live. */
 .diagram-view__stage {
     position: relative;
     display: block;
 }
 
 /* On the screen it is the app's own surface rather than the browser's black
-   backdrop, and the frame takes all of it: the measured inline height has just
-   been removed by components.js, and the 28rem opening bid above would otherwise
-   leave a fullscreen diagram sitting in a letterbox. The radius goes with it —
-   there is no card here to round off, only screen. */
+   backdrop. */
 .diagram-view__stage:fullscreen {
     background: var(--color-background);
-}
-
-.diagram-view__stage:fullscreen .diagram-view__artifact {
-    height: 100%;
-    border-radius: 0;
 }
 
 /* The way out. Off screen in a chapter, where the header already carries the
@@ -8605,18 +8555,8 @@ button.task-panel__check:focus-visible {
     display: none;
 }
 
-/* Bottom left, which is the one corner the artifact does not use. Its own
-   chrome is fixed in the other three — the title top left, `Classic | Live |
-   Export` top right, and the zoom and lens controls bottom right — and this
-   started out over the toolbar, where it did not merely look crowded: being
-   above the frame, it won the hit test and made Export unreachable for as long
-   as the diagram was full screen. That is the same menu `allow-downloads` was
-   granted for.
-
-   A raised surface and a shadow because it is laid over a drawing rather than
-   sat on a panel. The button's own background is transparent, and a transparent
-   control over a diagram is exactly as findable as the one this whole change
-   exists to provide. */
+/* Bottom left, on a raised surface and a shadow because it is laid over the
+   frame rather than sat on a panel. */
 .diagram-view__stage:fullscreen .diagram-view__exit {
     display: inline-flex;
     position: absolute;
@@ -8627,11 +8567,10 @@ button.task-panel__check:focus-visible {
     box-shadow: var(--shadow-md);
 }
 
-/* A click demo's frame. Unlike an artifact it does not measure itself: a demo is
-   an application with its own scrolling, so it gets a screen's worth of height and
-   keeps it. The background is the demo's own — it is a picture of the product and
-   paints itself — and the frame is bordered because, unlike a drawing, it is a
-   working surface whose edge a reader needs to see. */
+/* A click demo's frame. A demo is an application with its own scrolling, so it
+   gets a screen's worth of height and keeps it. The background is the demo's own
+   — it is a picture of the product and paints itself — and the frame is bordered
+   because it is a working surface whose edge a reader needs to see. */
 .demo-view__frame {
     display: block;
     width: 100%;
@@ -8653,25 +8592,6 @@ button.task-panel__check:focus-visible {
 }
 
 .demo-view__path {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-/* The offers, under the diagram rather than in the header: they are about what
-   is missing, which is not something to read before the picture. */
-.diagram-view__footer {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
-}
-
-/* An explanation, not a failure — the diagram above is correct and current, and
-   the notice only says why it is the mermaid one. Secondary text rather than the
-   error colouring .app-error-message carries. */
-.diagram-view__notice {
-    flex-basis: 100%;
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
@@ -9769,10 +9689,7 @@ button.tag-chip__label {
    fields showed a near-black clock on a near-black field. Every rule below sets
    the field's own surface and text; none of them can reach the glyph.
 
-   On the elements rather than on `:root`, which is where a one-theme product
-   would naturally say it: the Archify artifact frame is a transparent iframe
-   pinned to `normal` (see renderArtifact in components.js), and a browser paints
-   an opaque canvas behind any frame whose scheme differs from its embedder's.
+   On the elements rather than on `:root`.
    By element rather than by class for the reason `select option` gives — a host
    may replace `field__input` outright, and the settings screen does.
 */

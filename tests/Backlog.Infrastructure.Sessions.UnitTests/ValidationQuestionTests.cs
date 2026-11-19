@@ -26,7 +26,8 @@ public sealed class ValidationQuestionTests : IDisposable
     private static readonly DateTimeOffset Noon = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
     private static readonly DeliveryStageLink[] AppLink = [new("App", "http://localhost:5000", "The running application")];
 
-    private readonly string _home = Path.Combine(Path.GetTempPath(), "backlog-validation-question-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-validation-question-tests");
+    private string _home => _temp.Path;
     private readonly RecordingNotifications _notifications = new();
     private readonly FakeTaskFollowUps _followUps = new();
 
@@ -960,10 +961,7 @@ public sealed class ValidationQuestionTests : IDisposable
         Assert.Null((await File(two))["validationQuestion"]);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     private LocalDeliverySurfaceLifecycle Surface(
         ISessionRepositoryResolver? repositories = null,

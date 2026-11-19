@@ -31,9 +31,9 @@ public sealed class PrivateFenceTests : IDisposable
 
     private static readonly TasksRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
 
-    private readonly DirectoryInfo _root = Directory.CreateTempSubdirectory("backlog-mcp-fences");
+    private readonly TemporaryDirectory _root = new("backlog-mcp-fences");
 
-    public void Dispose() => _root.Delete(recursive: true);
+    public void Dispose() => _root.Dispose();
 
     /// <summary>
     /// A note whose <c>body:</c> quotes a fenced code sample, written the way
@@ -136,7 +136,7 @@ public sealed class PrivateFenceTests : IDisposable
 
     private async Task<ChapterPayload> Read(string chapter, bool review = false)
     {
-        var folder = Directory.CreateDirectory(Path.Combine(_root.FullName, ".arc42", "adr"));
+        var folder = Directory.CreateDirectory(Path.Combine(_root.Path, ".arc42", "adr"));
 
         await File.WriteAllTextAsync(
             Path.Combine(folder.FullName, "0012-mcp.md"),
@@ -144,7 +144,7 @@ public sealed class PrivateFenceTests : IDisposable
             TestContext.Current.CancellationToken);
 
         var tools = new DevbookTools(
-            new FakeDevbookFolderSource(_root.FullName, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
+            new FakeDevbookFolderSource(_root.Path, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
             new FakeDevbookAnnotationStore(),
             new FakeRepositoryDirectory([Backlog]));
 

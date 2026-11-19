@@ -17,7 +17,7 @@ public sealed class DevbookSubjectRulesTests
     private static readonly DateTimeOffset Tuesday = Monday.AddDays(1);
 
     private static readonly DevbookSubject Change = DevbookSubject.Proposal("pay-by-card");
-    private static readonly DevbookSubject Debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-archify.md");
+    private static readonly DevbookSubject Debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md");
     private static readonly DevbookSubject Record = DevbookSubject.Decision(".devbook/arc42/adr/0044-subject-state.md", 1607);
 
     [Fact]

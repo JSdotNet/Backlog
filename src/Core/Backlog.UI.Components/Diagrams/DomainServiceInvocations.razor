@@ -85,7 +85,7 @@
                                     @for (var i = 0; i < reliances.Count; i++)
                                     {
                                         var reliance = reliances[i];
-                                        var key = $"{_headingId}-{DomainUnits.Slug(service.Title)}-{i}";
+                                        var key = $"{_headingId}-{HeadingAnchor.Of(service.Title)}-{i}";
                                         var shown = _rulesShown.Contains(key);
                                         <AppButton Variant="ButtonVariant.None"
                                                    BaseClass="domain-model__rules"

@@ -13,17 +13,7 @@ public enum ClaudeUsageBucket
 /// keeping the pair together stops callers from passing them the wrong way
 /// round.
 /// </summary>
-public sealed record ClaudeUsageWindow(DateTimeOffset StartingAt, DateTimeOffset EndingAt)
-{
-    /// <summary>The last <paramref name="days"/> whole days ending now.</summary>
-    public static ClaudeUsageWindow LastDays(int days, DateTimeOffset? now = null)
-    {
-        if (days <= 0) throw new ArgumentOutOfRangeException(nameof(days), "A usage window covers at least one day.");
-
-        var end = now ?? DateTimeOffset.UtcNow;
-        return new ClaudeUsageWindow(end.AddDays(-days), end);
-    }
-}
+public sealed record ClaudeUsageWindow(DateTimeOffset StartingAt, DateTimeOffset EndingAt);
 
 /// <summary>
 /// Token counts for one bucket and one grouping. <see cref="InputTokens"/> is

@@ -3319,11 +3319,6 @@ public sealed class InboxDesktopState : IDisposable
             apply: items => _inbox.AssignRepositoriesAsync(Ids(items), chosen));
     }
 
-    /// <summary>Routes every picked item to the backlog as one batch — one plan,
-    /// tagged <c>+inbox-batch-…</c>. An item already decided is refused here and
-    /// named, as the tag and repository acts do; the rest go together.</summary>
-    public Task<InboxBulkOutcome> BulkRouteToBacklogAsync() => RouteBatchAsync(SelectedItems, listId: null);
-
     /// <summary>The open list's items still open to a decision — what "Move
     /// list to backlog" would route. Empty for the unfiled inbox and the
     /// Deferred slice, which are not lists.</summary>

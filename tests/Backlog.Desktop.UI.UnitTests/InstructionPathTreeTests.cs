@@ -4,7 +4,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class InstructionPathTreeTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-path-tree-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-path-tree-tests");
+
+    private string _root => _temp.Path;
 
     [Fact]
     public void Reads_folders_before_files_each_in_name_order()
@@ -103,14 +105,5 @@ public sealed class InstructionPathTreeTests : IDisposable
         File.WriteAllText(full, content);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

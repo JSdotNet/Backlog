@@ -176,6 +176,7 @@ public class ScheduleToolsTests
         Assert.Equal(0, register.Recorded);
     }
 
+    // Differs from StubSessionSource: throws, the way a locked session store does.
     private sealed class FailingSessions : IAgentSessionSource
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>

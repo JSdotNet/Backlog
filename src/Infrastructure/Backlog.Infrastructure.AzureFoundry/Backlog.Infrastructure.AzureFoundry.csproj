@@ -37,6 +37,7 @@
          Compiled in from the GitHub adapter rather than referenced, so this adapter
          stays free of GitHub's dependencies and the copy cannot drift. -->
     <Compile Include="..\Backlog.Infrastructure.GitHub\SecretEnvelope.cs" Link="SecretEnvelope.cs" />
+    <Compile Include="..\Backlog.Infrastructure.GitHub\UserDpapi.cs" Link="UserDpapi.cs" />
   </ItemGroup>
 
 </Project>

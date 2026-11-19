@@ -469,6 +469,7 @@ public sealed class McpServerAgentsCardTests
 
     /// <summary>The grants in memory, numbered ids, versions raised the way the file store
     /// raises them, and every call throwing <see cref="Failure"/> while it is set.</summary>
+    // Differs from FailableMcpGrantStore: keeps its own grants in memory with numbered ids, counts revokes and subscribers, and wraps no inner store.
     private sealed class FakeGrantStore : IMcpGrantStore
     {
         private readonly List<McpGrant> _grants = [];

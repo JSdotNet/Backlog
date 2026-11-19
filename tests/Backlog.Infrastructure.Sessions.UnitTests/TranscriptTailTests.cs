@@ -16,10 +16,8 @@ namespace Backlog.Infrastructure.Sessions.UnitTests;
 /// </summary>
 public sealed class TranscriptTailTests : IDisposable
 {
-    private readonly string _folder = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-transcript-tail-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-transcript-tail-tests");
+    private string _folder => _temp.Path;
 
     private string PathOf(string name) => Path.Combine(_folder, name);
 
@@ -289,14 +287,5 @@ public sealed class TranscriptTailTests : IDisposable
         File.SetCreationTimeUtc(path, created);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_folder)) Directory.Delete(_folder, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

@@ -170,7 +170,8 @@ public sealed class SettingsInboxRoutingRulesTests
 
     private static SectionRenderContext RenderSection(bool inboxPane = true, bool withRules = true, string? existing = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-routing-rules-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-routing-rules-tests");
+        var root = temp.Path;
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(AppFeatures.InboxPane, inboxPane);
@@ -182,12 +183,13 @@ public sealed class SettingsInboxRoutingRulesTests
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         if (withRules) context.Services.AddSingleton<IInboxRoutingRules>(rules);
 
-        return new SectionRenderContext(root, context, context.Render<InboxSettings>(), rules);
+        return new SectionRenderContext(temp, context, context.Render<InboxSettings>(), rules);
     }
 
     private static SettingsRenderContext RenderSettings(bool registerSection)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-routing-rules-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-routing-rules-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -214,7 +216,7 @@ public sealed class SettingsInboxRoutingRulesTests
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
-        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
@@ -222,47 +224,11 @@ public sealed class SettingsInboxRoutingRulesTests
         context.Services.AddSingleton<IInboxRoutingRules>(rules);
         if (registerSection) context.Services.AddInboxSettings();
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), rules);
-    }
-
-    private sealed class NoGitHub : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
-
-    private static void DeleteQuietly(string root)
-    {
-        try
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), rules);
     }
 
     private sealed record SectionRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<InboxSettings> Component,
         InboxRoutingRulesStore Rules) : IDisposable
@@ -270,12 +236,12 @@ public sealed class SettingsInboxRoutingRulesTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         InboxRoutingRulesStore Rules) : IDisposable
@@ -283,7 +249,7 @@ public sealed class SettingsInboxRoutingRulesTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 }

@@ -51,16 +51,16 @@ public sealed class DevbookToolsTests : IDisposable
 
     private static readonly TasksRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
 
-    private readonly DirectoryInfo _root = Directory.CreateTempSubdirectory("backlog-mcp-tests");
+    private readonly TemporaryDirectory _root = new("backlog-mcp-tests");
 
     public DevbookToolsTests()
     {
-        var folder = Directory.CreateDirectory(Path.Combine(_root.FullName, ".arc42", "adr"));
+        var folder = Directory.CreateDirectory(Path.Combine(_root.Path, ".arc42", "adr"));
 
         File.WriteAllText(Path.Combine(folder.FullName, "0012-mcp.md"), Chapter);
     }
 
-    public void Dispose() => _root.Delete(recursive: true);
+    public void Dispose() => _root.Dispose();
 
     /// <summary>Only the enabled folders are listed, each with the availability
     /// the resolution decided — a folder that is not on this machine says so in
@@ -237,7 +237,7 @@ public sealed class DevbookToolsTests : IDisposable
         var note = Notes.Note(Backlog.Alias, filedUnder, blockIndex: 1, body: "Filed on the other machine.");
 
         var relocated = Arc42 with { Path = "docs/arch" };
-        var folders = new FakeDevbookFolderSource(_root.FullName, relocated, Domain);
+        var folders = new FakeDevbookFolderSource(_root.Path, relocated, Domain);
         var store = new FakeDevbookAnnotationStore(note) { Folders = folders.Folders(Backlog.Alias) };
         var tools = new DevbookTools(folders, store, new FakeRepositoryDirectory([Backlog]));
 
@@ -283,7 +283,7 @@ public sealed class DevbookToolsTests : IDisposable
         var note = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Still true?");
         var store = new FakeDevbookAnnotationStore(note);
         var tools = new DevbookTools(
-            new FakeDevbookFolderSource(_root.FullName, Arc42, Domain),
+            new FakeDevbookFolderSource(_root.Path, Arc42, Domain),
             store,
             new FakeRepositoryDirectory([Backlog with { IsArchived = true }]));
 
@@ -302,7 +302,7 @@ public sealed class DevbookToolsTests : IDisposable
         var question = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Who owns this?") with { Kind = DevbookAnnotationKind.Question };
         var onBranch = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Branch only.") with { Branch = "feature/x" };
         var tools = new DevbookTools(
-            new FakeDevbookFolderSource(_root.FullName, Arc42, Domain),
+            new FakeDevbookFolderSource(_root.Path, Arc42, Domain),
             new FakeDevbookAnnotationStore(question, onBranch),
             new FakeRepositoryDirectory([Backlog]));
 
@@ -322,7 +322,7 @@ public sealed class DevbookToolsTests : IDisposable
     {
         var onDefault = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Default only.");
         var onBranch = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Left on the branch.") with { Branch = "feature/x" };
-        var folders = new FakeDevbookFolderSource(_root.FullName, Arc42, Domain) { Branch = "feature/x" };
+        var folders = new FakeDevbookFolderSource(_root.Path, Arc42, Domain) { Branch = "feature/x" };
         var tools = new DevbookTools(
             folders,
             new FakeDevbookAnnotationStore(onDefault, onBranch),
@@ -417,7 +417,7 @@ public sealed class DevbookToolsTests : IDisposable
     public async Task An_unknown_repository_never_reaches_a_folder()
     {
         var directory = new FakeRepositoryDirectory([Backlog]);
-        var folders = new FakeDevbookFolderSource(_root.FullName, Arc42, Domain);
+        var folders = new FakeDevbookFolderSource(_root.Path, Arc42, Domain);
         var tools = new DevbookTools(folders, new FakeDevbookAnnotationStore(), directory);
 
         await Assert.ThrowsAsync<McpException>(() => tools.ReadKnowledgeChapterAsync(
@@ -437,7 +437,7 @@ public sealed class DevbookToolsTests : IDisposable
         params DevbookAnnotation[] annotations)
     {
         folders = new FakeDevbookFolderSource(
-            _root.FullName,
+            _root.Path,
             Arc42,
             Domain,
             new DevbookFolderSetting(".tech", "Technology", ".tech") { Enabled = false });

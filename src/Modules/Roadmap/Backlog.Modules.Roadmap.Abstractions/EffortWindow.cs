@@ -95,14 +95,6 @@ public static class EffortWindow
         return end.DayNumber > latest ? DateOnly.FromDayNumber((int)latest) : end;
     }
 
-    /// <summary>The last day of a window from <paramref name="start"/> that needs
-    /// <paramref name="needed"/> working time.</summary>
-    public static DateOnly EndAfter(DateOnly start, TimeSpan needed, WorkingHours week)
-    {
-        ArgumentNullException.ThrowIfNull(week);
-        return week.LastDayOf(start, needed);
-    }
-
     /// <summary>Whether <paramref name="item"/>'s end is derived when it is read — the
     /// import placed it by its effort, and nobody has placed it since.</summary>
     public static bool IsDerived(RoadmapItemDto item)

@@ -25,7 +25,7 @@ public sealed class QuestionRelayDeviceTests
 
     private readonly FakeTimeProvider _clock = new(Noon);
     private readonly RecordingNotifications _notifications = new();
-    private readonly InMemoryWaitingQuestionStore _store = new();
+    private readonly HeldWaitingQuestions _store = new();
     private readonly FixedDevices _devices = new();
     private readonly RecordingAuditLog _audit = new();
     private readonly QuestionRelay _relay;

@@ -29,7 +29,8 @@ public sealed class WorkspaceCachesRegistrationTests
     [InlineData(typeof(ISettledPullRequestStore), typeof(SettledPullRequestStore))]
     public void Every_cache_is_a_singleton_answered_from_the_workspace_store(Type port, Type implementation)
     {
-        var appData = Path.Combine(Path.GetTempPath(), "backlog-workspace-caches", Guid.NewGuid().ToString("N"));
+        using var temp = new TemporaryDirectory("backlog-workspace-caches");
+        var appData = temp.Path;
         var services = new ServiceCollection();
         services.AddSingleton(new WorkspaceSettingsStore(appData, Path.Combine(appData, "settings.json"), _ => null));
         services.AddWorkspaceCaches();

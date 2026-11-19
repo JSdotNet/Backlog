@@ -1,7 +1,7 @@
 # ADR 0015: The devbook database lives in the app's storage, one per repository path, and the app builds it
 
 ```meta
-date: 2026-09-25
+date: 2026-11-19
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/tech/tooling.md#devbook-database-writer", ".devbook/domain/devbook/features.md#a-devbook-that-stays-current"]
 c4: [backlog.desktop.devbook]
 c4-touches: [backlog.mobile, backlog.ide]
@@ -102,7 +102,8 @@ the devbook generator does, resolves the committed `_reading-order.json` files
 into the outline (since local ADR 0016, derives the outline the way the
 generator's `outline.mjs` does instead), slices chapter text into `text` and `search_text`, hashes it,
 fills the FTS5 index, and copies each `_archify/index.json` into rows — every
-table ADR 0004 names, with the same columns and the same values.
+table ADR 0004 names, with the same columns and the same values. *(Amended
+2026-11-19: the Archify rows are gone. See the History row of that date.)*
 
 Since schema 5 it also indexes the click demos. It records each `*.demo.html`
 under an adopted folder in `demo`, with the page its name pairs it with, and
@@ -118,7 +119,7 @@ reader keeps opening read-only: the builder creates the file, the reader never
 does, and "absent" stays a state of its own.
 
 **Validation is not ported.** The builder records in `problem` only what it could
-not read — a file, an `_archify/index.json` — and not the convention's metadata
+not read — a file — and not the convention's metadata
 rules. A broken reference or a status off a folder's ladder remains the devbook
 checker's to report, in a terminal and in CI, which is where somebody can fix it.
 
@@ -218,5 +219,6 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-19 | The builder no longer copies `_archify/index.json` into rows. Local ADR 0057 retires Archify, and pull request #1913 deleted its code. Schema 7 drops the `archify_artifact` table from the C# builder, the reader and the Node writer, and the parity test compares one table fewer. The scan still skips an `_archify` folder. | [Local ADR 0057](0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md): nothing reads an artifact row now that Mermaid draws every chapter diagram. |
 | 2026-09-25 | The devbook database lives in the app's storage, one per repository path, and the app builds it in C#. | A build output inside a repository stays inside it, and nothing built the database where the app needed it. |
 | 2026-08-27 | ADR 0004: the database sits beside the folders in `_meta/`, ignored by git, and the Node generator is its only writer. | One writer kept a second implementation of the parse from existing. |

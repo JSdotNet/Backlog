@@ -10,11 +10,9 @@ namespace Backlog.Infrastructure;
 /// <para>
 /// The envelope is on the value rather than on the file, so the files stay
 /// legible JSON and only the secret becomes <c>dpapi:</c> followed by the base64
-/// of a <see cref="ProtectedData"/> envelope under
-/// <see cref="DataProtectionScope.CurrentUser"/> — the envelope
-/// <c>DpapiDeviceCredentialStore</c> uses for the sync credential, and for the same
-/// reason: another account on the machine, or the file copied to another machine,
-/// opens nothing.
+/// of a <see cref="UserDpapi"/> envelope — the seal <c>DpapiDeviceCredentialStore</c>
+/// uses for the sync credential, and for the same reason: another account on the
+/// machine, or the file copied to another machine, opens nothing.
 /// </para>
 /// <para>
 /// A value without the prefix is plaintext an earlier release wrote. It is read as
@@ -32,7 +30,8 @@ namespace Backlog.Infrastructure;
 /// <remarks>
 /// One copy for every settings adapter, compiled into the Claude, Azure Foundry and
 /// file-system adapters as a linked <c>Compile</c> item the way <c>IsoTimestamps</c> is —
-/// the last for the MCP grant secrets in <c>mcp-grants.json</c> (local ADR 0058 §3).
+/// the last for the MCP grant secrets in <c>mcp-grants.json</c> (local ADR 0058 §3) —
+/// beside the <see cref="UserDpapi"/> it seals with.
 /// </remarks>
 internal static class SecretEnvelope
 {
@@ -50,8 +49,7 @@ internal static class SecretEnvelope
 
         try
         {
-            return Prefix + Convert.ToBase64String(
-                ProtectedData.Protect(plaintext, optionalEntropy: null, DataProtectionScope.CurrentUser));
+            return Prefix + UserDpapi.Seal(plaintext);
         }
         finally
         {
@@ -81,10 +79,7 @@ internal static class SecretEnvelope
 
         try
         {
-            var plaintext = ProtectedData.Unprotect(
-                Convert.FromBase64String(stored[Prefix.Length..]),
-                optionalEntropy: null,
-                DataProtectionScope.CurrentUser);
+            var plaintext = UserDpapi.Open(stored[Prefix.Length..]);
 
             var secret = Encoding.UTF8.GetString(plaintext);
             Array.Clear(plaintext);

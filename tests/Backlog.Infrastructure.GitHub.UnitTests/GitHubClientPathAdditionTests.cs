@@ -160,25 +160,10 @@ public sealed class GitHubClientPathAdditionTests
     [Fact]
     public async Task A_client_that_cannot_read_history_answers_not_read()
     {
-        IGitHubClient client = new NoHistoryClient();
+        IGitHubClient client = new StubGitHubClient();
 
         var read = await client.FindPathAdditionAsync(Repository, Path, TestContext.Current.CancellationToken);
 
         Assert.False(read.IsRead);
-    }
-
-    private sealed class NoHistoryClient : IGitHubClient
-    {
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
     }
 }

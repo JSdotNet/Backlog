@@ -7,33 +7,21 @@ namespace Backlog.Infrastructure.Brain.UnitTests;
 /// </summary>
 public sealed class BrainRoadmapProjectNotesTests : IDisposable
 {
-    private readonly string _brain = Path.Combine(Path.GetTempPath(), "brain-project-notes-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("brain-project-notes-tests");
 
-    public BrainRoadmapProjectNotesTests() => Directory.CreateDirectory(_brain);
-
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_brain, recursive: true);
-        }
-        catch (IOException)
-        {
-            // Left for the OS to clear.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private BrainRoadmapProjectNotes Notes()
     {
-        var source = new BrainFolderSource(() => _brain);
+        var source = new BrainFolderSource(() => _temp.Path);
         return new BrainRoadmapProjectNotes(source, new BrainNoteLinkWriter(source));
     }
 
     private string Note(string relativePath, string text)
     {
-        var path = Path.Combine([_brain, .. relativePath.Split('/')]);
+        var path = _temp.Combine(relativePath.Split('/'));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, text);
         return path;
@@ -54,7 +42,7 @@ public sealed class BrainRoadmapProjectNotesTests : IDisposable
     [Fact]
     public void A_Brain_with_no_archive_area_is_never_offered_the_move()
     {
-        File.WriteAllText(Path.Combine(_brain, "CONVENTIONS.md"), "## Areas\n\n| Area | Folder |\n|---|---|\n| Projects | projects |\n| Areas | areas |\n");
+        File.WriteAllText(_temp.Combine("CONVENTIONS.md"), "## Areas\n\n| Area | Folder |\n|---|---|\n| Projects | projects |\n| Areas | areas |\n");
 
         Assert.False(Notes().CanArchive("projects/house.md"));
     }
@@ -62,7 +50,7 @@ public sealed class BrainRoadmapProjectNotesTests : IDisposable
     [Fact]
     public void The_projects_area_is_the_one_the_conventions_name()
     {
-        File.WriteAllText(Path.Combine(_brain, "CONVENTIONS.md"), "## Areas\n\n| Area | Folder |\n|---|---|\n| Projects | work |\n| Archive | done |\n");
+        File.WriteAllText(_temp.Combine("CONVENTIONS.md"), "## Areas\n\n| Area | Folder |\n|---|---|\n| Projects | work |\n| Archive | done |\n");
 
         var notes = Notes();
 
@@ -81,7 +69,7 @@ public sealed class BrainRoadmapProjectNotesTests : IDisposable
         Assert.True(move.Moved);
         Assert.Equal("archive/house.md", move.NewPath);
         Assert.False(File.Exists(source));
-        Assert.Equal(before, await File.ReadAllBytesAsync(Path.Combine(_brain, "archive", "house.md"), Ct));
+        Assert.Equal(before, await File.ReadAllBytesAsync(_temp.Combine("archive", "house.md"), Ct));
     }
 
     [Fact]
@@ -94,6 +82,6 @@ public sealed class BrainRoadmapProjectNotesTests : IDisposable
 
         Assert.False(move.Moved);
         Assert.Contains("taken", move.Error, StringComparison.Ordinal);
-        Assert.True(File.Exists(Path.Combine(_brain, "projects", "house.md")));
+        Assert.True(File.Exists(_temp.Combine("projects", "house.md")));
     }
 }

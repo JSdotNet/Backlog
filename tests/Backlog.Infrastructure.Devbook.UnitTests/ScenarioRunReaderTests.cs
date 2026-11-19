@@ -255,7 +255,6 @@ public sealed class ScenarioRunReaderTests
             "# Place an order\n\n```meta\ntype: scenario\n```\n\n## The cart is filled\n- **Given** an empty cart\n",
             ".devbook/domain/shop/place-an-order.md");
 
-        Assert.True(file.LegacyPage);
         Assert.Empty(file.Scenarios);
     }
 

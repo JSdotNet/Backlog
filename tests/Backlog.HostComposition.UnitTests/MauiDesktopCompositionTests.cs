@@ -21,7 +21,6 @@ using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.UI.Components.Diagrams;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -51,22 +50,9 @@ namespace Backlog.HostComposition.UnitTests;
 /// </summary>
 public sealed class MauiDesktopCompositionTests : IDisposable
 {
-    private readonly string _appData = Path.Combine(
-        Path.GetTempPath(), "backlog-maui-composition", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-maui-composition");
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_appData, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>
     /// Every registration the head makes can be constructed. This is the check that
@@ -451,7 +437,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             .SetLength(Backlog.Modules.Progress.Abstractions.IterationLength.TwoWeeks, new DateOnly(2026, 10, 21));
 
         Assert.Equal(new IterationChoice("two-weeks", new DateOnly(2026, 10, 19)), store.Choice);
-        Assert.Equal(Path.Combine(_appData, IterationSettingsStore.FileName), store.SettingsPath);
+        Assert.Equal(_temp.Combine(IterationSettingsStore.FileName), store.SettingsPath);
     }
 
     /// <summary>
@@ -519,7 +505,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         // still applies it.
         var store = provider.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.IHeldAttachmentRequestStore>();
         Assert.Equal(change.Id, Assert.Single(store.ReadAll()).Id);
-        Assert.True(File.Exists(Path.Combine(_appData, "held-attachment-requests.json")));
+        Assert.True(File.Exists(_temp.Combine("held-attachment-requests.json")));
 
         Assert.Null(features.SetEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events, true));
         var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync([record], ct);
@@ -645,7 +631,6 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Same(
             provider.GetRequiredService<IDevbookSubjectStateStore>(),
             provider.GetRequiredService<IDevbookSyncDirectionStore>());
-        Assert.IsType<ArchifyDiagramArtifacts>(provider.GetRequiredService<IDiagramArtifactSource>());
         Assert.IsType<ProcessCopilotCliLauncher>(provider.GetRequiredService<ICopilotCliLauncher>());
     }
 
@@ -671,7 +656,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.IsType<DevbookFolderSource>(provider.GetRequiredService<IDevbookFolderSource>());
         Assert.Single(provider.GetServices<IDevbookFolderSource>());
 
-        var folder = Path.Combine(_appData, "Brain");
+        var folder = _temp.Combine("Brain");
         Assert.Null(provider.GetRequiredService<IBrainSettings>().TrySetBrainFolder(folder));
         Assert.Equal(folder, brain.BrainRoot);
 
@@ -698,7 +683,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         });
 
     [SupportedOSPlatform("windows")]
-    private IServiceCollection BuildMauiShapedServices() => MauiShapedServices(_appData);
+    private IServiceCollection BuildMauiShapedServices() => MauiShapedServices(_temp.Path);
 
     /// <summary>The MAUI head's container as <c>MauiProgram</c> composes it, every
     /// per-user file under <paramref name="appData"/>; shared with
@@ -732,7 +717,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
                 sp.GetRequiredService<WorkingHoursSettingsStore>()),
             MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(appData, MyDayPreferencesStore.FileName)),
             IterationSettings = sp => new IterationSettingsStore(
-                Path.Combine(appData, IterationSettingsStore.FileName), sp.GetRequiredService<ShellNavigationStore>()),
+                Path.Combine(appData, IterationSettingsStore.FileName)),
             ShellNavigation = _ => new ShellNavigationStore(Path.Combine(appData, ShellNavigationStore.FileName)),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(appData, "capture-sources.json")),
             CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(appData, "capture-runs.json")),

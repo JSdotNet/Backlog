@@ -2405,7 +2405,7 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
-        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var outcome = await pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         Assert.Equal(1, outcome.Changed);
         Assert.Equal(decided.Id, Assert.Single(outcome.Failures).Id);
@@ -2428,7 +2428,7 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
-        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var outcome = await pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         Assert.Equal(0, outcome.Changed);
         Assert.Equal(2, outcome.Failures.Count);
@@ -2495,7 +2495,7 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
-        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var outcome = await pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         Assert.Equal(1, outcome.Changed);
         Assert.NotNull(harness.Inbox.Find(items[0].Id)!.Routing);
@@ -2523,7 +2523,7 @@ public sealed class InboxPaneTests
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
 
         harness.Inbox.BeforeRoute = () => release.Task;
-        var batch = pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var batch = pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         pane.WaitForAssertion(() => Assert.True(pane.Find("[data-testid='inbox-move-to-backlog']").HasAttribute("disabled")));
         // Not awaited before the release: were the guard missing, the route
@@ -2553,7 +2553,7 @@ public sealed class InboxPaneTests
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
 
         pane.WaitForAssertion(() => Assert.True(pane.Find("[data-testid='inbox-bulk-backlog']").HasAttribute("disabled")));
-        var batch = pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var batch = pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
         var batches = harness.Inbox.BatchRoutes.Count;
 
         release.SetResult();
@@ -3418,11 +3418,11 @@ public sealed class InboxPaneTests
 
     private sealed class Harness : IDisposable
     {
-        private readonly string _root;
+        private readonly TemporaryDirectory _temp;
 
-        private Harness(string root, BunitContext context, FakeInboxItems inbox, GitHubSettingsStore gitHub, ToastChannel toasts)
+        private Harness(TemporaryDirectory temp, BunitContext context, FakeInboxItems inbox, GitHubSettingsStore gitHub, ToastChannel toasts)
         {
-            _root = root;
+            _temp = temp;
             Context = context;
             Inbox = inbox;
             GitHub = gitHub;
@@ -3443,8 +3443,8 @@ public sealed class InboxPaneTests
         /// is what the state reads "now" from; the system clock when null.</summary>
         public static Harness Create(TimeProvider? clock = null)
         {
-            var root = Path.Combine(Path.GetTempPath(), "backlog-inbox-pane-tests", Guid.NewGuid().ToString("n"));
-            var gitHub = new GitHubSettingsStore(Path.Combine(root, "github.json"));
+            var temp = new TemporaryDirectory("backlog-inbox-pane-tests");
+            var gitHub = new GitHubSettingsStore(temp.Combine("github.json"));
 
             var context = new BunitContext();
             // The split pane, the side menu's focus moves and the menus all
@@ -3455,7 +3455,7 @@ public sealed class InboxPaneTests
             TasksTestHost.AddToastChannel(context.Services);
             var inbox = InboxTestHost.AddInboxState(context.Services);
 
-            return new Harness(root, context, inbox, gitHub, context.Services.GetRequiredService<ToastChannel>());
+            return new Harness(temp, context, inbox, gitHub, context.Services.GetRequiredService<ToastChannel>());
         }
 
         /// <summary>Renders the pane the way the shell shows it: initialised, so
@@ -3474,14 +3474,7 @@ public sealed class InboxPaneTests
         public void Dispose()
         {
             Context.Dispose();
-
-            try
-            {
-                if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            _temp.Dispose();
         }
     }
 }

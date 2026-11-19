@@ -1,4 +1,5 @@
 using global::Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
+using global::Backlog.SharedKernel;
 
 namespace Backlog.Modules.Calendar.UI;
 
@@ -75,7 +76,7 @@ public static class CalendarMonth
     {
         var first = FirstOf(month);
         var last = first.AddMonths(1).AddDays(-1);
-        var start = MondayOnOrBefore(first);
+        var start = CalendarWeek.MondayOf(first);
 
         var weeks = new List<DateOnly>(6);
         for (var week = start; week <= last; week = week.AddDays(7)) weeks.Add(week);
@@ -90,10 +91,6 @@ public static class CalendarMonth
         return new CalendarWindow(weeks[0], weeks[^1].AddDays(6));
     }
 
-    /// <summary>The Monday on or before <paramref name="date"/>.</summary>
-    public static DateOnly MondayOnOrBefore(DateOnly date) =>
-        date.AddDays(-(((int)date.DayOfWeek + 6) % 7));
-
     /// <summary>
     /// The Monday of the week the Week range opens on from <paramref name="month"/>:
     /// the week holding <paramref name="today"/> when today is in that month, else the
@@ -102,7 +99,7 @@ public static class CalendarMonth
     public static DateOnly OpeningWeek(DateOnly month, DateOnly today)
     {
         var first = FirstOf(month);
-        return FirstOf(today) == first ? MondayOnOrBefore(today) : MondayOnOrBefore(first);
+        return FirstOf(today) == first ? CalendarWeek.MondayOf(today) : CalendarWeek.MondayOf(first);
     }
 
     /// <summary>
@@ -111,5 +108,5 @@ public static class CalendarMonth
     /// week that spans two months lands in the one holding most of its days.
     /// </summary>
     public static DateOnly MonthOfWeek(DateOnly weekStart) =>
-        FirstOf(MondayOnOrBefore(weekStart).AddDays(3));
+        FirstOf(CalendarWeek.MondayOf(weekStart).AddDays(3));
 }

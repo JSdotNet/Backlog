@@ -25,24 +25,9 @@ namespace Backlog.Infrastructure.Mcp;
 /// looking at.
 /// </para>
 /// <para>
-/// <b>One group, the same feature key.</b> These are registered as their own
-/// <see cref="BacklogMcpTools.McpToolGroup"/> carrying
-/// <see cref="TasksFeatures.Tasks"/>, which <see cref="BacklogMcpTools.Work"/>
-/// also carries. Local ADR 0012 §7 asks for one feature check per group, not one
-/// group per key: a key names an <em>area</em>, and reading the backlog and
-/// moving it are one area. See the group's own doc for why the split is by class
-/// and not by flag.
-/// </para>
-/// <para>
-/// <b>That key cannot currently answer no, and saying so is the point.</b>
-/// <c>AppFeatures</c> declares <see cref="TasksFeatures.Tasks"/>
-/// <c>AlwaysEnabled</c> — the settings screen draws its checkbox ticked and
-/// disabled, and the store refuses to clear it — so today the check in front of
-/// these tools always passes. The group carries the key regardless: §7 asks the
-/// question per group, and a group that asked nothing would be the one place the
-/// rule is not applied. Whether the backlog itself should
-/// become switchable is a question about the Tasks area rather than about these
-/// tools, and it is not settled here.
+/// <b>Their own group, behind no key.</b> These are registered as their own
+/// <see cref="BacklogMcpTools.McpToolGroup"/>, always listed as
+/// <see cref="BacklogMcpTools.Work"/> is: the backlog is not switchable.
 /// </para>
 /// <para>
 /// <b>There is no delete tool, and its absence is a decision.</b>

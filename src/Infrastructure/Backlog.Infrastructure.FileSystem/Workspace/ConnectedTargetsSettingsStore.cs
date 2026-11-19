@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -35,11 +36,7 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
     private List<ConnectedTarget> _targets;
 
     public ConnectedTargetsSettingsStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "connected-targets.json"))
+        : this(AppDataPaths.Shared("connected-targets.json"))
     {
     }
 

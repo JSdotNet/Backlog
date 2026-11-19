@@ -17,20 +17,11 @@ public sealed class SettledPullRequestStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Merged = new(2026, 10, 26, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "settled-pull-request-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("settled-pull-request-store-tests");
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    private string _root => _temp.Combine("data");
+
+    public void Dispose() => _temp.Dispose();
 
     private SettledPullRequestStore Store() => new(() => _root);
 
@@ -46,11 +37,11 @@ public sealed class SettledPullRequestStoreTests : IDisposable
     public void What_was_kept_comes_back_after_a_restart()
     {
         Store().Keep(Settled(1482));
-        Store().Keep(Settled(7, "JSdotNet/Archify"));
+        Store().Keep(Settled(7, "JSdotNet/Almanac"));
 
         var read = Store().ReadAll().OrderBy(pull => pull.Number).ToList();
 
-        Assert.Equal([("JSdotNet/Archify", 7), ("JSdotNet/Backlog", 1482)], read.Select(pull => (pull.RepositoryFullName, pull.Number)));
+        Assert.Equal([("JSdotNet/Almanac", 7), ("JSdotNet/Backlog", 1482)], read.Select(pull => (pull.RepositoryFullName, pull.Number)));
         var pull = read[1];
         Assert.Equal(
             (Merged, "plan/lobes-atlas", "main", "Pull request 1482", "https://github.com/JSdotNet/Backlog/pull/1482", "octocat", "feature-1482"),

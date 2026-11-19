@@ -239,13 +239,6 @@ public sealed class GoalAttachment : IEquatable<GoalAttachment>
             _ => ProgressErrors.AttachmentKindNotAllowed(kind),
         };
 
-    /// <summary>Whether this pull request attachment names the pull request
-    /// <paramref name="repository"/> <paramref name="number"/>, as a task records it.</summary>
-    public bool IsPullRequest(string? repository, string? number) =>
-        Kind == GoalAttachmentKind.PullRequest
-        && string.Equals(Repository, repository?.Trim(), StringComparison.OrdinalIgnoreCase)
-        && string.Equals(Number?.ToString(System.Globalization.CultureInfo.InvariantCulture), number?.Trim().TrimStart('#'), StringComparison.Ordinal);
-
     public bool Equals(GoalAttachment? other) =>
         other is not null
         && Kind == other.Kind

@@ -2,6 +2,7 @@ using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Replication;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Modules.Progress.UnitTests;
@@ -43,12 +44,12 @@ public sealed class GoalReplicationTests : IDisposable
         var id = Guid.NewGuid();
         var first = Copy(id, "Customers get paid faster", Morning);
 
-        Assert.Equal(GoalReplicaOutcome.Taken, await Replication.ApplyAsync(first, Cancellation));
-        Assert.Equal(GoalReplicaOutcome.Echo, await Replication.ApplyAsync(first, Cancellation));
-        Assert.Equal(GoalReplicaOutcome.Refused, await Replication.ApplyAsync(Copy(id, "Older", Morning.AddMinutes(-1)), Cancellation));
+        Assert.Equal(ReplicaOutcome.Taken, await Replication.ApplyAsync(first, Cancellation));
+        Assert.Equal(ReplicaOutcome.Echo, await Replication.ApplyAsync(first, Cancellation));
+        Assert.Equal(ReplicaOutcome.Refused, await Replication.ApplyAsync(Copy(id, "Older", Morning.AddMinutes(-1)), Cancellation));
 
         var later = Copy(id, "Paid in a day", Morning.AddMinutes(5));
-        Assert.Equal(GoalReplicaOutcome.Taken, await Replication.ApplyAsync(later, Cancellation));
+        Assert.Equal(ReplicaOutcome.Taken, await Replication.ApplyAsync(later, Cancellation));
 
         Assert.Equal(later, Assert.Single(await Replication.ReadAllAsync(Cancellation)));
     }
@@ -62,7 +63,7 @@ public sealed class GoalReplicationTests : IDisposable
 
         var outcome = await Replication.ApplyAsync(new GoalReplicaCopyDto(id, "x", "{not json", Morning.AddHours(1)), Cancellation);
 
-        Assert.Equal(GoalReplicaOutcome.Unreadable, outcome);
+        Assert.Equal(ReplicaOutcome.Unreadable, outcome);
         Assert.Equal(held, Assert.Single(_store.Rows));
     }
 
@@ -94,7 +95,7 @@ public sealed class GoalReplicationTests : IDisposable
         var replication = provider.GetRequiredService<IGoalReplication>();
 
         Assert.Empty(await replication.ReadAllAsync(Cancellation));
-        Assert.Equal(GoalReplicaOutcome.Unreadable, await replication.ApplyAsync(Copy(Guid.NewGuid(), "G", Morning), Cancellation));
+        Assert.Equal(ReplicaOutcome.Unreadable, await replication.ApplyAsync(Copy(Guid.NewGuid(), "G", Morning), Cancellation));
     }
 
     public void Dispose() => _provider.Dispose();

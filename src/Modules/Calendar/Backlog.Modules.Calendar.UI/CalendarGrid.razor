@@ -810,7 +810,7 @@
     private void ShowToday()
     {
         _month = CalendarMonth.FirstOf(Today);
-        _week = CalendarMonth.MondayOnOrBefore(Today);
+        _week = global::Backlog.SharedKernel.CalendarWeek.MondayOf(Today);
         _expandedDay = null;
     }
 

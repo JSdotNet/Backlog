@@ -225,13 +225,4 @@ public sealed class LinkedWorkSectionTests
             Additions = 10,
             Deletions = 2
         };
-
-    private sealed class StubSessionSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
-    }
 }

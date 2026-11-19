@@ -24,7 +24,7 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
     [Fact]
     public async Task A_raise_shows_a_new_run_and_a_stage_change_without_reading_the_sessions_again()
     {
-        var sessions = new CountingSessionSource([Live]);
+        var sessions = new StubSessionSource([Live]);
         var runs = new ChangingRunSource([InProgress("run-1", "in_progress", "pending")]);
         var signal = new DeliveryRunChangeSignal();
         using var context = Context(sessions, runs, signal);
@@ -63,7 +63,7 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
     [Fact]
     public async Task A_burst_of_raises_while_a_run_read_is_out_folds_into_one_follow_up_read()
     {
-        var sessions = new CountingSessionSource([Live]);
+        var sessions = new StubSessionSource([Live]);
         var runs = new ChangingRunSource([InProgress("run-1", "in_progress", "pending")]);
         var signal = new DeliveryRunChangeSignal();
         using var context = Context(sessions, runs, signal);
@@ -105,7 +105,7 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
     {
         var other = Live with { Id = "a1b2c3d4", Title = "quiet-lake-123456", WorkingFolder = @"D:\Repos\Backlog\.claude\worktrees\quiet-lake-123456", LastActivityAt = Noon.AddMinutes(-1) };
         var earlier = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-40));
-        var sessions = new CountingSessionSource([other, Live]);
+        var sessions = new StubSessionSource([other, Live]);
         var runs = new ChangingRunSource([earlier, InProgress("run-2", "in_progress", "pending")]);
         var signal = new DeliveryRunChangeSignal();
         using var context = Context(sessions, runs, signal);
@@ -150,7 +150,7 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
     [Fact]
     public async Task A_raise_after_the_pane_is_gone_reads_nothing()
     {
-        var sessions = new CountingSessionSource([Live]);
+        var sessions = new StubSessionSource([Live]);
         var runs = new ChangingRunSource([InProgress("run-1", "in_progress", "pending")]);
         var signal = new DeliveryRunChangeSignal();
         using var context = Context(sessions, runs, signal);
@@ -170,7 +170,7 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
     [Fact]
     public void A_pane_whose_host_composed_no_signal_reads_once_as_before()
     {
-        var sessions = new CountingSessionSource([Live]);
+        var sessions = new StubSessionSource([Live]);
         var runs = new ChangingRunSource([InProgress("run-1", "in_progress", "pending")]);
         using var context = Context(sessions, runs, signal: null);
 
@@ -193,7 +193,7 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
 
         // Finished, so the rows sort by when they were last active alone: a live
         // session keeps the top of the list whatever a run does.
-        var sessions = new CountingSessionSource([Live with { State = AgentSessionState.Finished }]);
+        var sessions = new StubSessionSource([Live with { State = AgentSessionState.Finished }]);
         var runs = new ChangingRunSource([InProgress("run-1", "in_progress", "pending")]);
         var signal = new DeliveryRunChangeSignal();
         using var context = Context(sessions, runs, signal);
@@ -266,7 +266,7 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
     public async Task A_raise_during_a_refresh_leaves_an_unpressed_panel_on_the_refreshs_first_row()
     {
         var elsewhere = DeliveryRunWorktrees.KeyOf(@"D:\Repos\Backlog\.claude\worktrees\quiet-lake-123456")!;
-        var sessions = new CountingSessionSource([Live with { State = AgentSessionState.Finished }]);
+        var sessions = new StubSessionSource([Live with { State = AgentSessionState.Finished }]);
         var runs = new ChangingRunSource([InProgress("run-1", "in_progress", "pending")]);
         var signal = new DeliveryRunChangeSignal();
         using var context = Context(sessions, runs, signal);
@@ -323,10 +323,10 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
 
     /// <summary>A finished session on screen, pressed or not, then a raise that lands a
     /// run-only row above it; the panel is still on the session.</summary>
-    private async Task<(IRenderedComponent<SessionsPane> Pane, CountingSessionSource Sessions, string LiveKey)> PinnedAboveAsync(bool press)
+    private async Task<(IRenderedComponent<SessionsPane> Pane, StubSessionSource Sessions, string LiveKey)> PinnedAboveAsync(bool press)
     {
         var elsewhere = DeliveryRunWorktrees.KeyOf(@"D:\Repos\Backlog\.claude\worktrees\quiet-lake-123456")!;
-        var sessions = new CountingSessionSource([Live with { State = AgentSessionState.Finished }]);
+        var sessions = new StubSessionSource([Live with { State = AgentSessionState.Finished }]);
         var runs = new ChangingRunSource([InProgress("run-1", "in_progress", "pending")]);
         var signal = new DeliveryRunChangeSignal();
         var context = Context(sessions, runs, signal);
@@ -378,7 +378,7 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
     [Fact]
     public async Task Refresh_pressed_during_a_run_read_becomes_a_full_read_after_it()
     {
-        var sessions = new CountingSessionSource([Live]);
+        var sessions = new StubSessionSource([Live]);
         var runs = new ChangingRunSource([InProgress("run-1", "in_progress", "pending")]);
         var signal = new DeliveryRunChangeSignal();
         using var context = Context(sessions, runs, signal);
@@ -411,7 +411,7 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
     [Fact]
     public async Task Raises_during_a_refresh_fold_into_one_run_read_after_it()
     {
-        var sessions = new CountingSessionSource([Live]);
+        var sessions = new StubSessionSource([Live]);
         var runs = new ChangingRunSource([InProgress("run-1", "in_progress", "pending")]);
         var signal = new DeliveryRunChangeSignal();
         using var context = Context(sessions, runs, signal);
@@ -476,7 +476,7 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
             ]
         };
 
-    private static BunitContext Context(CountingSessionSource sessions, ChangingRunSource runs, IDeliveryRunChangeSignal? signal)
+    private static BunitContext Context(StubSessionSource sessions, ChangingRunSource runs, IDeliveryRunChangeSignal? signal)
     {
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -501,23 +501,6 @@ public sealed class SessionsPaneRunRefreshTests : IDisposable
         State: AgentSessionState.Running,
         TurnCount: 12,
         Origin: AgentSessionOrigin.Local);
-
-    private sealed class CountingSessionSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
-    {
-        private int _reads;
-
-        public int Reads => Volatile.Read(ref _reads);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
-        {
-            Interlocked.Increment(ref _reads);
-
-            return Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
-        }
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-    }
 
     /// <summary>A run source whose answer the test changes between reads, which
     /// counts them, and which can hold a read open until released.</summary>

@@ -163,9 +163,14 @@ public class BlobAttachmentStoreTests
     [Fact]
     public async Task Deleting_a_missing_blob_is_not_an_error()
     {
-        var store = new BlobAttachmentStore(new FakeBlobContainer());
+        var container = new FakeBlobContainer();
+        var store = new BlobAttachmentStore(container);
 
-        await store.Delete(Owner, AttachmentId, TestContext.Current.CancellationToken);
+        var error = await Record.ExceptionAsync(
+            () => store.Delete(Owner, AttachmentId, TestContext.Current.CancellationToken));
+
+        Assert.Null(error);
+        Assert.Empty(container.BlobNames);
     }
 
     [Fact]

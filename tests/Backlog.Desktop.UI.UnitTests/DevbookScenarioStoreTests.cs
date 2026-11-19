@@ -17,7 +17,7 @@ public sealed class DevbookScenarioStoreTests : IDisposable
 
     private const string RunFolder = ".domain/orders/scenarios/place-an-order";
 
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task Journeys_in_a_scenarios_file_are_found_without_a_register()
@@ -198,23 +198,16 @@ public sealed class DevbookScenarioStoreTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "devbook-scenario-store-tests", Guid.NewGuid().ToString("n"));
-        Directory.CreateDirectory(path);
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("devbook-scenario-store-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     public void Dispose()
     {
-        foreach (var dir in _tempDirs)
+        foreach (var temp in _temps)
         {
-            try
-            {
-                Directory.Delete(dir, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            temp.Dispose();
         }
     }
 }

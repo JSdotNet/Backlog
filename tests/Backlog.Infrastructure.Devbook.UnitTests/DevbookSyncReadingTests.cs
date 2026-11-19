@@ -42,7 +42,7 @@ public sealed class DevbookSyncReadingTests : IDisposable
         ```
         """;
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-devbook-sync-reading-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-sync-reading-tests");
 
     private static Func<string, string?> Map(params (string Address, string Direction)[] stated)
     {
@@ -55,7 +55,7 @@ public sealed class DevbookSyncReadingTests : IDisposable
     {
         Write("orders/domain.md", Orders);
 
-        var reading = DevbookSyncReading.Read(_root, DevbookFolder.Domain, "orders/domain.md", Map());
+        var reading = DevbookSyncReading.Read(_temp.Path, DevbookFolder.Domain, "orders/domain.md", Map());
 
         Assert.Equal("orders/domain.md#order-line", reading.ItemPath("orders/domain.md", DevbookMetadataLevel.Chapter, "Order Line"));
         Assert.Equal("orders/domain.md", reading.ItemPath("orders/domain.md", DevbookMetadataLevel.Chapter, "Orders"));
@@ -76,7 +76,7 @@ public sealed class DevbookSyncReadingTests : IDisposable
         Write("orders/domain.md", Orders);
         var asked = new List<string>();
 
-        DevbookSyncReading.Read(_root, DevbookFolder.Domain, ".devbook/domain/orders/domain.md", address =>
+        DevbookSyncReading.Read(_temp.Path, DevbookFolder.Domain, ".devbook/domain/orders/domain.md", address =>
         {
             asked.Add(address);
             return null;
@@ -103,7 +103,7 @@ public sealed class DevbookSyncReadingTests : IDisposable
         Write("orders/domain.md", "# Orders\n\n```meta\ntype: domain\n```\n\n## Customer's order\n\n```meta\ntype: aggregate\n```\n\n## user_id\n\n```meta\ntype: domain-service\n```\n");
         var asked = new List<string>();
 
-        var reading = DevbookSyncReading.Read(_root, DevbookFolder.Domain, "orders/domain.md", address =>
+        var reading = DevbookSyncReading.Read(_temp.Path, DevbookFolder.Domain, "orders/domain.md", address =>
         {
             asked.Add(address);
             return address == "domain/orders/domain.md#customers-order" ? "push" : null;
@@ -121,7 +121,7 @@ public sealed class DevbookSyncReadingTests : IDisposable
     {
         Write("orders/domain.md", Orders);
 
-        var unit = DevbookSyncReading.Read(_root, DevbookFolder.Domain, "orders/domain.md", Map())
+        var unit = DevbookSyncReading.Read(_temp.Path, DevbookFolder.Domain, "orders/domain.md", Map())
             .Describe(DevbookMetadataLevel.Chapter, "Order");
 
         Assert.NotNull(unit);
@@ -135,7 +135,7 @@ public sealed class DevbookSyncReadingTests : IDisposable
         Write("orders/domain.md", Orders);
 
         var reading = DevbookSyncReading.Read(
-            _root,
+            _temp.Path,
             DevbookFolder.Domain,
             ".devbook/domain/orders/domain.md",
             Map(("domain/context-map.md", "report"), ("domain/orders/context.md", "push")));
@@ -162,12 +162,12 @@ public sealed class DevbookSyncReadingTests : IDisposable
     {
         Write("orders/domain.md", Orders);
 
-        var fromPage = DevbookSyncReading.Read(_root, DevbookFolder.Domain, "orders/domain.md", Map(("domain/orders/domain.md", "off"), ("domain/orders/context.md", "push")))
+        var fromPage = DevbookSyncReading.Read(_temp.Path, DevbookFolder.Domain, "orders/domain.md", Map(("domain/orders/domain.md", "off"), ("domain/orders/context.md", "push")))
             .Describe(DevbookMetadataLevel.Chapter, "Order");
         Assert.Equal(new DevbookSyncDirection("off", DevbookSyncLevel.Page), fromPage!.Effective);
 
         var fromUnit = DevbookSyncReading.Read(
-                _root,
+                _temp.Path,
                 DevbookFolder.Domain,
                 "orders/domain.md",
                 Map(("domain/orders/domain.md", "off"), ("domain/orders/context.md", "push"), ("domain/orders/domain.md#order", "pull")))
@@ -181,7 +181,7 @@ public sealed class DevbookSyncReadingTests : IDisposable
     {
         Write("orders/domain.md", Orders);
 
-        var unit = DevbookSyncReading.Read(_root, DevbookFolder.Domain, "orders/domain.md", Map(("domain/orders/context.md", "pushh")))
+        var unit = DevbookSyncReading.Read(_temp.Path, DevbookFolder.Domain, "orders/domain.md", Map(("domain/orders/context.md", "pushh")))
             .Describe(DevbookMetadataLevel.Chapter, "Order");
 
         Assert.Equal(new DevbookSyncDirection("report", null), unit!.Effective);
@@ -196,29 +196,24 @@ public sealed class DevbookSyncReadingTests : IDisposable
         Write("building-blocks/README.md", "# Building Blocks\n\n```meta\nindex: root\n```\n");
         var map = Map(("arc42/05-building-block-view.md", "pull"));
 
-        var block = DevbookSyncReading.Read(_root, DevbookFolder.Arc42, ".devbook/arc42/building-blocks/sync.md", map)
+        var block = DevbookSyncReading.Read(_temp.Path, DevbookFolder.Arc42, ".devbook/arc42/building-blocks/sync.md", map)
             .Describe(DevbookMetadataLevel.File, null);
         Assert.Equal(DevbookSyncLevel.Unit, block!.Level);
         Assert.Equal(new DevbookSyncDirection("pull", DevbookSyncLevel.Folder), block.Effective);
 
         // The file view reports a file's title as a chapter heading; it is still
         // the file's own block.
-        Assert.Equal(block, DevbookSyncReading.Read(_root, DevbookFolder.Arc42, "building-blocks/sync.md", map).Describe(DevbookMetadataLevel.Chapter, "Sync"));
+        Assert.Equal(block, DevbookSyncReading.Read(_temp.Path, DevbookFolder.Arc42, "building-blocks/sync.md", map).Describe(DevbookMetadataLevel.Chapter, "Sync"));
 
         // The directory's entry point is no building block.
-        Assert.Null(DevbookSyncReading.Read(_root, DevbookFolder.Arc42, "building-blocks/README.md", map).Describe(DevbookMetadataLevel.File, null));
+        Assert.Null(DevbookSyncReading.Read(_temp.Path, DevbookFolder.Arc42, "building-blocks/README.md", map).Describe(DevbookMetadataLevel.File, null));
     }
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private void Write(string relative, string content)
     {
-        var path = Path.Combine(_root, relative.Replace('/', Path.DirectorySeparatorChar));
+        var path = _temp.Combine(relative.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, content.Replace("\r\n", "\n", StringComparison.Ordinal));
     }

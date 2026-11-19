@@ -19,15 +19,16 @@ internal sealed class BrainScenario : IAsyncDisposable
     private readonly IPlaywright _playwright;
     private readonly IBrowser _browser;
     private readonly string _remembered;
+    private readonly TemporaryDirectory _folder;
 
-    private BrainScenario(IPlaywright playwright, IBrowser browser, AspireAppHost appHost, DesktopHarness desktop, string remembered, string folder, Evidence evidence, string token)
+    private BrainScenario(IPlaywright playwright, IBrowser browser, AspireAppHost appHost, DesktopHarness desktop, string remembered, TemporaryDirectory folder, Evidence evidence, string token)
     {
         _playwright = playwright;
         _browser = browser;
         AppHost = appHost;
         Desktop = desktop;
         _remembered = remembered;
-        Folder = folder;
+        _folder = folder;
         Evidence = evidence;
         Token = token;
     }
@@ -38,7 +39,7 @@ internal sealed class BrainScenario : IAsyncDisposable
     public DesktopHarness Desktop { get; private set; }
 
     /// <summary>The scenario's Brain folder, created empty.</summary>
-    public string Folder { get; }
+    public string Folder => _folder.Path;
 
     public Evidence Evidence { get; }
 
@@ -56,8 +57,7 @@ internal sealed class BrainScenario : IAsyncDisposable
         await appHost.WaitHealthyAsync(DesktopHarness.Resource, TimeSpan.FromMinutes(10), cancellationToken);
 
         var token = DateTime.Now.ToString("MMdd-HHmmss", CultureInfo.InvariantCulture);
-        var folder = Path.Combine(Path.GetTempPath(), "backlog-e2e-brain", $"{scenario}-{token}-{Guid.NewGuid().ToString("n")[..8]}");
-        Directory.CreateDirectory(folder);
+        var folder = new TemporaryDirectory($"backlog-e2e-brain-{scenario}-{token}");
 
         var playwright = await Playwright.CreateAsync();
         var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
@@ -68,7 +68,7 @@ internal sealed class BrainScenario : IAsyncDisposable
 
         var desktop = await DesktopHarness.OpenAsync(browser, appHost, cancellationToken);
         var remembered = await desktop.BrainFolderAsync();
-        TestContext.Current.SendDiagnosticMessage($"Brain folder before the run: '{remembered}'; this scenario's: {folder}");
+        TestContext.Current.SendDiagnosticMessage($"Brain folder before the run: '{remembered}'; this scenario's: {folder.Path}");
 
         return new BrainScenario(playwright, browser, appHost, desktop, remembered, folder, Evidence.For($"brain-{scenario}"), token);
     }
@@ -120,13 +120,6 @@ internal sealed class BrainScenario : IAsyncDisposable
         await _browser.DisposeAsync();
         _playwright.Dispose();
 
-        try
-        {
-            Directory.Delete(Folder, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // The watch may still hold it a moment; it is under the temp folder.
-        }
+        _folder.Dispose();
     }
 }

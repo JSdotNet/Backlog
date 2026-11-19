@@ -28,12 +28,13 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
 {
+    private readonly TemporaryDirectory _temp = new("roadmap-tests");
     private readonly string _dir;
     private readonly SqliteRoadmapPlanRepository _plans;
 
     public SqliteRoadmapPlanRepositoryTests()
     {
-        _dir = Path.Combine(Path.GetTempPath(), "roadmap-tests-" + Guid.NewGuid().ToString("N"));
+        _dir = _temp.Path;
         _plans = new SqliteRoadmapPlanRepository(_dir);
     }
 
@@ -634,7 +635,8 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     [Fact]
     public async Task PointingTheRootedRepositoryAtAnotherFolder_MovesToThatPlan()
     {
-        var second = Path.Combine(Path.GetTempPath(), "roadmap-tests-" + Guid.NewGuid().ToString("N"));
+        using var secondTemp = new TemporaryDirectory("roadmap-tests");
+        var second = secondTemp.Path;
         var root = _dir;
         var rooted = new RootedSqliteRoadmapPlanRepository(() => root);
 
@@ -653,7 +655,6 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         finally
         {
             SqliteConnection.ClearAllPools();
-            if (Directory.Exists(second)) Directory.Delete(second, recursive: true);
         }
     }
 
@@ -757,7 +758,6 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         // suite over.
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_dir)) return;
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

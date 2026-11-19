@@ -1,5 +1,6 @@
 using Backlog.Modules.Devbook.Abstractions;
 using Microsoft.AspNetCore.Components;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Desktop.UI.Devbook;
 
@@ -46,7 +47,7 @@ internal static class DevbookSyncAdornment
 
         return (title, level) =>
         {
-            var anchor = DevbookSyncChapters.AnchorOf(title);
+            var anchor = HeadingAnchor.Of(title);
 
             if (!byAnchor.TryGetValue(anchor, out var own) && !(level == 1 && byAnchor.TryGetValue(string.Empty, out own)))
             {

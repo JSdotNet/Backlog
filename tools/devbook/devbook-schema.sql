@@ -1,6 +1,6 @@
 -- devbook-schema.sql - the DDL of the generated devbook database, as one text.
 --
--- schema-version: 6
+-- schema-version: 7
 --
 -- One file read by both writers: tools/devbook/devbook-schema.mjs loads it for
 -- the Node writer, and Backlog.Infrastructure.Devbook embeds it for the app's own
@@ -92,19 +92,6 @@ CREATE TABLE chapter_embedding (
     vector       BLOB NOT NULL
 );
 
-CREATE TABLE archify_artifact (
-    chapter_path  TEXT NOT NULL,
-    fence_hash    TEXT NOT NULL,
-    ordinal       INTEGER NOT NULL,
-    type          TEXT,
-    quality       TEXT,
-    kind          TEXT,
-    spec_path     TEXT,
-    artifact_path TEXT,
-    checks_passed INTEGER,
-    check_count   INTEGER
-);
-
 CREATE TABLE demo (
     path      TEXT PRIMARY KEY,
     folder    TEXT,
@@ -136,7 +123,6 @@ CREATE INDEX edge_source ON edge (source);
 CREATE INDEX edge_target ON edge (target);
 CREATE INDEX outline_entry_scope ON outline_entry (scope, parent_id, ordinal);
 CREATE INDEX chapter_path ON chapter (path);
-CREATE INDEX archify_artifact_fence ON archify_artifact (fence_hash);
 CREATE INDEX demo_page ON demo (page_path);
 CREATE INDEX demo_link_chapter ON demo_link (chapter_path);
 CREATE INDEX demo_link_demo ON demo_link (demo_path);

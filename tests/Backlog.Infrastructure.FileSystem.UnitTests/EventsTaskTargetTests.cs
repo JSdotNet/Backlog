@@ -240,6 +240,7 @@ public sealed class EventsTaskTargetTests
     }
 
     /// <summary>The Tasks facade at the boundary: what it was asked to save, and the entries it holds.</summary>
+    // Differs from RecordingTaskItems: holds entries, applies updates and records create-if-absent.
     private sealed class RecordingTasks(int existing) : ITaskItems
     {
         private readonly List<TaskItemDto> _held = [.. Enumerable.Range(0, existing).Select(i => Entry(Guid.NewGuid(), $"Existing {i}", EntryStatus.Ready))];

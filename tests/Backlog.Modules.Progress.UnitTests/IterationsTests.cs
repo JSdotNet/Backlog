@@ -174,11 +174,4 @@ public sealed class IterationsTests
 
         Assert.Equal(expected, Iterations.Capacity(18m, next, Week));
     }
-
-    [Fact]
-    public void Monday_of_reads_the_Monday_of_the_week()
-    {
-        Assert.Equal(Oct(12), Iterations.MondayOf(Oct(18)));
-        Assert.Equal(Oct(19), Iterations.MondayOf(Oct(19)));
-    }
 }

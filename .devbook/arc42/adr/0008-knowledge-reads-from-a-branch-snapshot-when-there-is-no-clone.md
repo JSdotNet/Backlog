@@ -9,6 +9,15 @@ c4: [backlog.desktop.devbook, github]
 
 Proposed.
 
+> **Amended 2026-11-19: no Archify artifact is drawn from a clone or a branch.**
+> *(Proposed with local ADR 0057.)* Local ADR 0057 retires Archify, and pull
+> request #1913 deleted its code. Every diagram is drawn from its mermaid fence,
+> on a branch snapshot as on a clone, so nothing reads an `_archify/` folder. The
+> 2026-10-15 amendment below is history, and TDR 0001 is resolved. The lazy
+> snapshot still leaves `_archify/` out of an area. Another repository may still
+> carry one, and ADR 0057 §4 keeps it unlisted. See
+> `0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md`.
+
 > **Amended 2026-10-30: a subject's workflow state is set on a snapshot too.**
 > *(Proposed with local ADR 0044.)* The rule below that a branch offers no
 > status selector still holds for every chapter's own `status`, which no panel

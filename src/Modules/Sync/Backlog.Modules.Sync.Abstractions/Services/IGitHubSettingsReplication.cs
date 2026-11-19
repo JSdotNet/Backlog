@@ -1,4 +1,5 @@
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Modules.Sync.Abstractions.Services;
 
@@ -10,30 +11,6 @@ public enum GitHubReplicaDocument
 {
     Registry,
     Accounts,
-}
-
-/// <summary>What <see cref="IGitHubSettingsReplication.ApplyAsync"/> did with an
-/// inbound copy. The four answers the roadmap's port gives (local ADR 0018), for
-/// the same reason: the sync client counts the first as work applied, the last as a
-/// document this build could not read, and the two between as nothing to do.</summary>
-public enum GitHubReplicaOutcome
-{
-    /// <summary>The copy was later than the local one, or there was none, and it
-    /// replaced it.</summary>
-    Taken,
-
-    /// <summary>The copy carries the stamp the local one already has: this
-    /// device's own push coming back, or a replayed page. Nothing was
-    /// written.</summary>
-    Echo,
-
-    /// <summary>The copy is older than the local one, or the local one cannot be
-    /// read and so cannot be weighed against it. Nothing was written.</summary>
-    Refused,
-
-    /// <summary>The copy does not read as the document it claims to be. The local
-    /// one was left exactly as it was.</summary>
-    Unreadable,
 }
 
 /// <summary>
@@ -80,7 +57,7 @@ public interface IGitHubSettingsReplication
     /// echo and an older one is refused, neither writing anything. A copy that does
     /// not read as the document it claims to be leaves the local one as it was.
     /// </summary>
-    Task<GitHubReplicaOutcome> ApplyAsync(
+    Task<ReplicaOutcome> ApplyAsync(
         GitHubReplicaDocument document,
         GitHubReplicaCopyDto inbound,
         CancellationToken cancellationToken = default);

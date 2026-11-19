@@ -33,24 +33,6 @@ public static class DevToolRefresh
     private const string FetchedHead = "FETCH_HEAD";
 
     /// <summary>
-    /// Claude's plugins, in the order they have to be read.
-    ///
-    /// <para>The marketplace listing first because it names what there is to
-    /// refresh, then one pull per marketplace, and only then the question every
-    /// Claude row's Installed column is answered from. Asked in any other order
-    /// it is a question about the last refresh somebody else happened to
-    /// run.</para>
-    /// </summary>
-    public static IReadOnlyList<DevToolCommandSpec> ClaudePlugins(string cli, IEnumerable<string> marketplaces) =>
-    [
-        DevToolCommands.ClaudeMarketplaceList(cli),
-        .. marketplaces
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => DevToolCommands.ClaudeMarketplaceUpdate(cli, name.Trim())),
-        DevToolCommands.ClaudePluginList(cli)
-    ];
-
-    /// <summary>
     /// The machine's winget inventory, in the order it has to be read.
     ///
     /// <para>The source index is updated before either listing, because both of

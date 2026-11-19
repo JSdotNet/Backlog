@@ -7,8 +7,10 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// The AI-credit usage report, and the two-endpoint fallback that decides where a
 /// person's Copilot spend is actually recorded.
 /// </summary>
-public class GitHubBillingClientTests
+public class GitHubBillingClientTests : IDisposable
 {
+    private readonly TemporaryDirectory _temp = new("backlog-billing-tests");
+
     private const string OneModel = """
         {
           "usageItems": [
@@ -366,7 +368,7 @@ public class GitHubBillingClientTests
         Assert.NotNull(months.TryRead("j-schepers_innobv", 2026, 8));
     }
 
-    private static GitHubBillingClient Client(RoutingTransport transport, IAiCreditUsageCache months, DateTimeOffset now) =>
+    private GitHubBillingClient Client(RoutingTransport transport, IAiCreditUsageCache months, DateTimeOffset now) =>
         new(transport, new StubIdentity("jsdotnet"), Settings("JSdotNet/Backlog"), months, new FakeTimeProvider(now));
 
     /// <summary>The month cache, in memory: what is pinned here is the client's use
@@ -384,12 +386,18 @@ public class GitHubBillingClientTests
         public void Forget() => _entries.Clear();
     }
 
-    private static GitHubBillingClient Client(RoutingTransport transport, string? repositories = "JSdotNet/Backlog") =>
+    public void Dispose()
+    {
+        _temp.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    private GitHubBillingClient Client(RoutingTransport transport, string? repositories = "JSdotNet/Backlog") =>
         new(transport, new StubIdentity("jsdotnet"), Settings(repositories));
 
-    private static GitHubSettingsStore Settings(string? repositories, IReadOnlyList<string>? accounts = null)
+    private GitHubSettingsStore Settings(string? repositories, IReadOnlyList<string>? accounts = null)
     {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-billing-tests", Guid.NewGuid().ToString("N"), "github.json");
+        var path = _temp.Combine(Guid.NewGuid().ToString("N"), "github.json");
         var store = new GitHubSettingsStore(path);
 
         if (accounts is { Count: > 0 })

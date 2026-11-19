@@ -758,9 +758,7 @@ Line order, top to bottom:
   *Links in a title* above.
 - **Copy on the card:** the button copies exactly what the task's row copies, and
   is refused the same way on a task marked blocked. Its slot stops the press, the
-  click and the key as the badge slot does, and a drag never starts from it. With
-  the `copy-entries` flag off (`.devbook/domain/tasks/context.md#copy-entries`)
-  neither the row nor the card carries the button.
+  click and the key as the badge slot does, and a drag never starts from it.
 - **Badges are not the card:** following a badge, usually a link, is not opening
   the card. Their slot works as the row's badge slot does, and a tag the host is
   listening to stops them the same way.

@@ -15,11 +15,7 @@ public sealed class DevbookBranchOverviewTests : IDisposable
 
     private static readonly GitHubBranchHead DefaultHead = new("main", "sha-main");
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "devbook-branch-overview-tests-" + Guid.NewGuid().ToString("N"));
-
-    public DevbookBranchOverviewTests() => Directory.CreateDirectory(_root);
+    private readonly TemporaryDirectory _temp = new("devbook-branch-overview-tests");
 
     // --- Loading once ----------------------------------------------------------
 
@@ -402,13 +398,13 @@ public sealed class DevbookBranchOverviewTests : IDisposable
         List<DevbookFolderSetting>? folders = null,
         TimeSpan? loadTimeout = null)
     {
-        var store = new GitHubSettingsStore(Path.Combine(_root, "github.json"), () => Path.Combine(_root, "workspace"));
+        var store = new GitHubSettingsStore(_temp.Combine("github.json"), () => _temp.Combine("workspace"));
         var repository = new GitHubRepositoryRef(Alias, "JSdotNet", "Backlog") { DevbookFolders = folders ?? DevbookFolderSetting.Defaults() };
         Assert.Null(store.SetRepositories([repository]));
 
         if (withClone)
         {
-            var clone = Path.Combine(_root, "clone");
+            var clone = _temp.Combine("clone");
             Directory.CreateDirectory(clone);
             Assert.Null(store.SetCloneDirectory(Alias, clone));
         }
@@ -436,16 +432,7 @@ public sealed class DevbookBranchOverviewTests : IDisposable
         ScriptedBranchComparisons Comparisons,
         ScriptedGitRepositoryService Git);
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }
 
 /// <summary>

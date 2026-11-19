@@ -19,16 +19,10 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
 
     private static readonly DateTimeOffset Now = new(2026, 10, 15, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-pull-request-source-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-pull-request-source-tests");
     private readonly StubClient _client = new();
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task A_read_by_number_asks_github_about_at_most_twenty_five_numbers_a_query()
@@ -212,20 +206,19 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
         var settings = Settings();
         var registry = new GitHubRegisteredRepositories(settings);
 
-        Assert.Null(settings.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(settings.SetRepositoryArchived("almanac", archived: true));
 
         Assert.True(registry.IsConfigured);
         Assert.Equal([Repository], registry.Active);
-        Assert.True(registry.IsArchived(" jsdotnet/archify "));
+        Assert.True(registry.IsArchived(" jsdotnet/almanac "));
         Assert.False(registry.IsArchived(Repository));
         Assert.False(registry.IsArchived("someone/elsewhere"));
     }
 
     private GitHubSettingsStore Settings()
     {
-        Directory.CreateDirectory(_root);
-        var settings = new GitHubSettingsStore(Path.Combine(_root, Guid.NewGuid().ToString("n"), "github.json"));
-        Assert.Null(settings.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"), new GitHubRepositoryRef("archify", "JSdotNet", "Archify")]));
+        var settings = new GitHubSettingsStore(_temp.Combine(Guid.NewGuid().ToString("n"), "github.json"));
+        Assert.Null(settings.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"), new GitHubRepositoryRef("almanac", "JSdotNet", "Almanac")]));
         return settings;
     }
 
@@ -258,6 +251,7 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
 
     /// <summary>GitHub as far as the pull-request reads and acts go: what each read finds,
     /// what it refuses, and every act in order.</summary>
+    // Differs from StubGitHubClient: answers the pull request reads and records every act.
     private sealed class StubClient : IGitHubClient
     {
         private readonly List<GitHubOpenPullRequest> _found = [];

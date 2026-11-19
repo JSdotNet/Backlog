@@ -476,7 +476,7 @@ public class ModuleBoundaryTests
     ///
     /// <para>The rules above let a <c>.UI</c> project take an adapter; none of them asks
     /// whether it <em>is</em> one, and for a while this one was — the transcript
-    /// readers, the delivery-run stores and the Archify runner sat in
+    /// readers and the delivery-run stores sat in
     /// <c>Backlog.Modules.Sessions.UI/Adapters</c>. They are
     /// <c>Backlog.Infrastructure.Sessions</c> now, composed by the two hosts. This pins
     /// both halves: the folder is gone and no file in the screen project opens a file or

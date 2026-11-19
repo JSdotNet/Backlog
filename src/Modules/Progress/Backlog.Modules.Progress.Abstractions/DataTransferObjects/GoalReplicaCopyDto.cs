@@ -10,4 +10,4 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// <param name="Title">What the goal is called, for the sync log.</param>
 /// <param name="Content">The goal exactly as it is stored.</param>
 /// <param name="UpdatedAt">When it was last written — the stamp last-write-wins is decided on.</param>
-public sealed record GoalReplicaCopyDto(Guid Id, string Title, string Content, DateTimeOffset UpdatedAt);
+public sealed record GoalReplicaCopyDto(Guid Id, string Title, string Content, DateTimeOffset UpdatedAt) : IWholeDocumentCopy;

@@ -272,7 +272,7 @@ public sealed class EventScreenTests
         Assert.Contains("Techorama 2026", app.Find("[data-testid='note-event-pending']").TextContent, StringComparison.Ordinal);
         var entry = Assert.Single(host.Outbox.Entries);
         Assert.Equal(EventAttachmentRequestOutboxKind.Token, entry.Kind);
-        Assert.Equal(techorama.Id, host.Service<EventNoteAttachments>().PendingEventFor(keynote.Id));
+        Assert.Equal(techorama.Id, host.Service<EventNoteAttachments>().PendingFor(keynote.Id)?.EventId);
 
         // Delivered: the phone still says it was sent while the desktop has not pushed the event back.
         tasks.State = InboxServiceState.Answering;
@@ -479,7 +479,7 @@ public sealed class EventScreenTests
         await attaching;
 
         Assert.DoesNotContain(host.Outbox.Entries, entry => entry.Kind == EventAttachmentRequestOutboxKind.Token);
-        Assert.Null(host.Service<EventNoteAttachments>().PendingEventFor(hallway.Id));
+        Assert.Null(host.Service<EventNoteAttachments>().PendingFor(hallway.Id)?.EventId);
     }
 
     private static TaskChange Note(string title, DateTimeOffset at) =>

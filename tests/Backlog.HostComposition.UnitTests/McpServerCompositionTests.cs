@@ -155,13 +155,10 @@ public class McpServerCompositionTests
             BacklogMcpTools.Groups,
             group =>
             {
-                // The groups no flag gates — open_window, local ADR 0043 §7, and
-                // request_access and the granting tools, local ADR 0058 §5 — have no key to ask about.
-                if (ReferenceEquals(group, BacklogMcpTools.Windows) || ReferenceEquals(group, AccessTools.Group) || ReferenceEquals(group, GrantTools.Group))
-                {
-                    Assert.Null(group.FeatureKey);
-                    return;
-                }
+                // A group no flag gates — open_window (local ADR 0043 §7), request_access
+                // and the granting tools (local ADR 0058 §5), and the permanent areas: the
+                // backlog, the roadmap, the devbook, Progress — has no key to ask about.
+                if (group.FeatureKey is null) return;
 
                 Assert.False(string.IsNullOrWhiteSpace(group.FeatureKey));
 
@@ -169,7 +166,7 @@ public class McpServerCompositionTests
                 // being asserted is that asking does not throw, not which answer
                 // comes back — the answer is whatever this machine's settings
                 // file says, and a test that demanded one would fail for whoever
-                // had switched the roadmap off. Written as a statement so it
+                // had switched a feature off. Written as a statement so it
                 // cannot be read as an assertion whose result was dropped, which
                 // is what `group => features.IsEnabled(group.FeatureKey)` was:
                 // Assert.All binds an Action<T> and discards a bool silently.

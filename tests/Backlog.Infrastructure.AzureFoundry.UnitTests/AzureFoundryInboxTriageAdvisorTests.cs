@@ -20,18 +20,9 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     private static readonly Guid TaskId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid ListId = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-triage");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     // --- Availability -------------------------------------------------------------
 
@@ -39,8 +30,10 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     public void Availability_follows_the_foundry_settings_the_drafter_reads()
     {
         var settings = new AzureFoundrySettingsStore(NewSettingsPath());
-        var advisor = new AzureFoundryInboxTriageAdvisor(new StubTriageClient(), settings);
-        var drafter = new AzureFoundryInboxPlanDrafter(new UnavailableAzureFoundryChatClient(), settings);
+        using var http = new HttpClient();
+        var chat = new AzureFoundryChatClient(http, settings);
+        var advisor = new AzureFoundryInboxTriageAdvisor(chat, settings);
+        var drafter = new AzureFoundryInboxPlanDrafter(chat, settings);
         Assert.False(advisor.IsAvailable);
 
         settings.SetConnection("https://foundry.example.com", "chat", "secret", "2024-10-21");
@@ -421,12 +414,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
         ["acme/web", "acme/api"],
         [new InboxTriageListDto(ListId, "Reading")]);
 
-    private string NewSettingsPath()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-triage", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        return path;
-    }
+    private string NewSettingsPath() => _temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json");
 
     private sealed class StubTriageClient : IAzureFoundryTriageClient
     {

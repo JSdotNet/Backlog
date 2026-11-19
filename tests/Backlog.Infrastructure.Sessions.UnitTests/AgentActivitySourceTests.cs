@@ -35,10 +35,8 @@ public sealed class AgentActivitySourceTests : IDisposable
 
     private const string MachineId = "6b8e6f0c-1a4f-4a2e-9f4b-6a2c0f5d3a71";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-agent-activity-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-agent-activity-tests");
+    private string _root => _temp.Path;
 
     private string ClaudeHome => Path.Combine(_root, ".claude");
 
@@ -1683,16 +1681,7 @@ public sealed class AgentActivitySourceTests : IDisposable
         folder.SetAccessControl(security);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>
     /// The cache, in memory and counting. Not a stand-in for the disk half — that has

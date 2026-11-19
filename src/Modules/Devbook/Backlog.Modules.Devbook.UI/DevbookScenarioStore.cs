@@ -147,7 +147,7 @@ public sealed class DevbookScenarioStore
                 .ToList();
             if (journeys.Count == 0) return DevbookScenarioCatalog.Empty with { FromRegister = register is not null };
 
-            var scenarioFolder = ScenarioFolderOf(tree, repositoryRoot);
+            const string scenarioFolder = ScenarioPageParser.ScenarioFolder;
             var fromBranch = location.Source is DevbookSourceKind.Branch;
 
             // A branch holds the runs and the data sets nowhere until they are asked
@@ -205,16 +205,6 @@ public sealed class DevbookScenarioStore
     /// the journey.</summary>
     private static string RunFolderOf(string repositoryRoot, ScenarioJourney journey) =>
         Path.Combine(repositoryRoot, journey.RunFolder.Replace('/', Path.DirectorySeparatorChar));
-
-    /// <summary>The scenario folder the data sets are in: <c>.devbook/scenarios</c>, or
-    /// the classic layout's <c>.domain/_tests</c> when only that one exists.</summary>
-    private static string ScenarioFolderOf(IDevbookFileTree tree, string repositoryRoot)
-    {
-        if (tree.DirectoryExists(Path.Combine(repositoryRoot, ScenarioPageParser.ScenarioFolder))) return ScenarioPageParser.ScenarioFolder;
-        return tree.DirectoryExists(Path.Combine(repositoryRoot, ScenarioPageParser.LegacyScenarioFolder))
-            ? ScenarioPageParser.LegacyScenarioFolder
-            : ScenarioPageParser.ScenarioFolder;
-    }
 
     /// <summary>A register path as a full path, or null when it does not land inside
     /// the domain folder — a register is committed text, and a path out of the folder

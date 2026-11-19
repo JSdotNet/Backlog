@@ -35,8 +35,6 @@ internal static class DevbookCorpus
     /// generator never writes.</summary>
     public const string ChapterSearchText = "Inbox\n\nQuick capture never blocks on a decision.";
 
-    public const string FenceHash = "5f2b7c1d9e0a4b6c8d3e1f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c";
-
     /// <summary>The hash of <see cref="ChapterText"/>, computed the way the writer
     /// computes it, so the round-trip asserts a real value rather than a token.</summary>
     public static string ContentHash { get; } = Sha256(ChapterText);
@@ -167,17 +165,6 @@ internal static class DevbookCorpus
             ("$hash", ContentHash),
             ("$model", seeded.EmbeddingModel),
             ("$vector", new byte[] { 1, 2, 3 }));
-
-        Run(
-            connection,
-            """
-            INSERT INTO archify_artifact (chapter_path, fence_hash, ordinal, type, quality, kind, spec_path, artifact_path, checks_passed, check_count)
-            VALUES ($path, $hash, 3, 'architecture', 'showcase', 'flowchart',
-                    '.domain/inbox/_archify/domain.3.architecture.json',
-                    '.domain/inbox/_archify/domain.3.architecture.html', 9, 9)
-            """,
-            ("$path", ChapterPath),
-            ("$hash", FenceHash));
 
         Run(
             connection,

@@ -29,7 +29,7 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
 {
     private readonly SyncServiceFactory _service = new();
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "phone-task-edits-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("phone-task-edits");
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -39,7 +39,7 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
 
         // Best effort: the desktop's pooled connection may still hold its file,
         // and clearing every pool would reach into tests running beside this one.
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 
     [Fact]
@@ -274,13 +274,13 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
         phoneHttp.Bearing(await phoneHttp.DeviceToken(
             (await paired.Content.ReadFromJsonAsync<DeviceRegistrationResponse>(Cancellation))!));
 
-        var desktopRoot = Path.Combine(_root, "desktop");
+        var desktopRoot = _temp.Combine("desktop");
         Directory.CreateDirectory(desktopRoot);
         var tasks = new SqliteTaskRepository(desktopRoot);
         var credential = new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential!);
         var session = Session(desktopHttp, tasks, credential, Path.Combine(desktopRoot, "sync-state.json"));
 
-        var phoneDatabase = Path.Combine(_root, "phone", "device.db");
+        var phoneDatabase = _temp.Combine("phone", "device.db");
         var sync = new CloudSyncClient(phoneHttp);
         var outbox = new DeviceOutbox(new SqliteDeviceStore(phoneDatabase), [new TaskOutboxKind(sync)], TimeProvider.System);
         var view = new TaskViewProjection(new SqliteTaskViewStore(phoneDatabase), outbox, sync, TimeProvider.System);
@@ -302,7 +302,7 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
         var registration = (await paired.Content.ReadFromJsonAsync<DeviceRegistrationResponse>(Cancellation))!;
         http.Bearing(await http.DeviceToken(registration));
 
-        var root = Path.Combine(_root, "laptop");
+        var root = _temp.Combine("laptop");
         Directory.CreateDirectory(root);
         var tasks = new SqliteTaskRepository(root);
         var credential = new DeviceCredential(registration.OwnerId, registration.DeviceId, "Laptop", registration.Credential!);
@@ -317,7 +317,7 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
             devices.Clients[0],
             devices.DesktopTasks,
             devices.DesktopCredential,
-            Path.Combine(_root, "replay-" + Guid.NewGuid().ToString("N") + ".json"));
+            _temp.Combine("replay-" + Guid.NewGuid().ToString("N") + ".json"));
 
     private static TaskSyncSession Session(HttpClient http, SqliteTaskRepository tasks, DeviceCredential credential, string statePath) =>
         new(

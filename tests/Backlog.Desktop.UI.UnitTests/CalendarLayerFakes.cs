@@ -222,14 +222,9 @@ internal sealed class FakeCalendarViewPreferences : ICalendarViewPreferences
 /// <summary>A shell navigation file path of its own, removed again afterwards.</summary>
 internal sealed class TempShellNavigationFile : IDisposable
 {
-    private readonly string _directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "backlog-calendar-plans-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-calendar-plans-tests");
 
-    public TempShellNavigationFile() => Directory.CreateDirectory(_directory);
+    public string Path => _temp.Combine("shell-navigation.json");
 
-    public string Path => System.IO.Path.Combine(_directory, "shell-navigation.json");
-
-    public void Dispose()
-    {
-        try { Directory.Delete(_directory, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 }

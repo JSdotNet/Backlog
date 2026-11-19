@@ -89,12 +89,13 @@ public class AgentSessionAssistantSessionSourceTests
     [Fact]
     public async Task What_could_not_be_read_and_what_was_left_out_travel_with_the_sessions()
     {
-        var catalog = new AgentSessionCatalog(
-            [Session("one", AgentSessionKind.Claude, AgentSessionState.Finished)],
-            ["Copilot"],
-            Discovered: 842);
+        var sessions = new StubSessionSource(Session("one", AgentSessionKind.Claude, AgentSessionState.Finished))
+        {
+            Unreadable = ["Copilot"],
+            Discovered = 842
+        };
 
-        var report = await new AgentSessionAssistantSessionSource(new StubAgentSessionSource(catalog))
+        var report = await new AgentSessionAssistantSessionSource(sessions)
             .GetSessionsAsync(Noon.AddDays(-84), TestContext.Current.CancellationToken);
 
         Assert.True(report.Capped);
@@ -111,7 +112,7 @@ public class AgentSessionAssistantSessionSourceTests
     [Fact]
     public async Task The_sessions_context_is_asked_since_the_horizon_and_not_for_its_inventory()
     {
-        var stub = new StubAgentSessionSource(AgentSessionCatalog.Empty);
+        var stub = new StubSessionSource();
         var horizon = Noon.AddDays(-84);
 
         _ = await new AgentSessionAssistantSessionSource(stub).GetSessionsAsync(horizon, TestContext.Current.CancellationToken);
@@ -203,7 +204,7 @@ public class AgentSessionAssistantSessionSourceTests
     }
 
     private static AgentSessionAssistantSessionSource Source(params AgentSession[] sessions) =>
-        new(new StubAgentSessionSource(new AgentSessionCatalog(sessions, [], sessions.Length)));
+        new(new StubSessionSource(sessions));
 
     private static AgentSession Session(string id, AgentSessionKind kind, AgentSessionState state, int? turns = null) =>
         new(
@@ -224,19 +225,4 @@ public class AgentSessionAssistantSessionSourceTests
             // nothing of, because no figure on the dashboard reads it.
             TurnCount: turns,
             Origin: AgentSessionOrigin.Local);
-
-    private sealed class StubAgentSessionSource(AgentSessionCatalog catalog) : IAgentSessionSource
-    {
-        public List<AgentSessionQuery> Queries { get; } = [];
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
-        {
-            Queries.Add(query);
-
-            return Task.FromResult(catalog);
-        }
-    }
 }

@@ -15,12 +15,12 @@ public sealed class DevbookOutlineConventionTests : IDisposable
 {
     private const string StrayOrder = """{ "version": 1, "directories": { ".": { "order": [".devbook/ai", ".devbook/arc42"] } } }""";
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-outline-convention", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-outline-convention");
     private readonly string _database;
 
     public DevbookOutlineConventionTests()
     {
-        _database = Path.Combine(_root, "out", "devbook.db");
+        _database = _temp.Combine("out", "devbook.db");
 
         Write(".devbook/_reading-order.json", StrayOrder);
 
@@ -62,7 +62,7 @@ public sealed class DevbookOutlineConventionTests : IDisposable
         Write(".devbook/ai/adoption-map.md", "# Adoption Map\n");
         Write(".devbook/ai/01-plan.md", "# Plan\n");
 
-        Assert.True(DevbookDatabaseBuilder.Build(_root, _database, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(_temp.Path, _database, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -189,7 +189,7 @@ public sealed class DevbookOutlineConventionTests : IDisposable
 
     private void Write(string relativePath, string text)
     {
-        var path = Path.Combine(_root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        var path = _temp.Combine(relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, text);
     }
@@ -197,13 +197,6 @@ public sealed class DevbookOutlineConventionTests : IDisposable
     public void Dispose()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // A temp folder that outlives the run is not a test failure.
-        }
+        _temp.Dispose();
     }
 }

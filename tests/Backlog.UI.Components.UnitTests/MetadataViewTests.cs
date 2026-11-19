@@ -28,7 +28,6 @@ public sealed class MetadataViewTests
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("""
                 status: adopted
-                kind: format
                 version: "10.0"
                 related: [".tech/technology-graph.md"]
                 depends-on: [".tech/shared.md#markdown"]
@@ -38,7 +37,7 @@ public sealed class MetadataViewTests
         // No `status` row. The status is on the headline now, and a record that
         // showed it in both places would be stating it twice.
         Assert.Equal(
-            ["related", "depends-on", "alternatives", "kind", "version"],
+            ["related", "depends-on", "alternatives", "version"],
             view.FindAll("dt").Select(label => label.TextContent));
     }
 
@@ -518,10 +517,10 @@ public sealed class MetadataViewTests
     }
 
     [Fact]
-    public void Kind_and_version_keep_their_names_for_a_screen_reader_and_hide_them_on_screen()
+    public void Version_keeps_its_name_for_a_screen_reader_and_hides_it_on_screen()
     {
-        // The value says which field it is — a classification chip, a v-prefixed
-        // version — so the visible label was restating it. Hidden and not dropped: a
+        // The value says which field it is — a v-prefixed version — so the visible
+        // label was restating it. Hidden and not dropped: a
         // value read out with no field name is worse to hear than a name nobody
         // needed to see.
         using var context = new BunitContext();
@@ -529,22 +528,20 @@ public sealed class MetadataViewTests
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("""
                 related: [".tech/shared.md"]
-                kind: framework
                 version: "10.0"
                 """))
             .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         Assert.Equal(
-            ["kind", "version"],
+            ["version"],
             view.FindAll("dt.sr-only").Select(label => label.TextContent));
 
         // Every other row keeps the name, because every other row still needs it.
         Assert.Equal(["related"], view.FindAll("dt:not(.sr-only)").Select(label => label.TextContent));
 
         // The modifier is what lets the stylesheet give the value the column back.
-        Assert.Equal(2, view.FindAll("div.devbook-fields__row--bare").Count);
+        Assert.Single(view.FindAll("div.devbook-fields__row--bare"));
 
-        Assert.Equal("framework", view.Find(".badge--kind").TextContent);
         Assert.Equal("v10.0", view.Find("code.devbook-value").TextContent);
     }
 

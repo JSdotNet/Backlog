@@ -33,8 +33,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
 {
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
-    private readonly string _appData = Path.Combine(
-        Path.GetTempPath(), "backlog-surface-window-pages", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-surface-window-pages");
 
     private ServiceProvider? _provider;
 
@@ -533,17 +532,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     public void Dispose()
     {
         _provider?.Dispose();
-
-        try
-        {
-            Directory.Delete(_appData, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
+        _temp.Dispose();
     }
 
     /// <summary>Presses until the page's circuit answers: a press before it is
@@ -563,7 +552,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     [SupportedOSPlatform("windows")]
     private async Task<Listener> StartAsync(TimeProvider? clock = null)
     {
-        var services = MauiDesktopCompositionTests.MauiShapedServices(_appData);
+        var services = MauiDesktopCompositionTests.MauiShapedServices(_temp.Path);
         if (clock is not null)
         {
             Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.Replace(
@@ -571,12 +560,12 @@ public sealed class SurfaceWindowPagesTests : IDisposable
                 ServiceDescriptor.Singleton(new WindowLinkTokens(clock)));
         }
 
-        services.AddSingleton(new ShellSurface("probe","Probe", ShellSurfaceGroup.Takeover, 900, typeof(ProbeSurface), QueryKeys: ["keep"]));
+        services.AddSingleton(new ShellSurface("probe", "Probe", ShellSurfaceGroup.Takeover, 900, typeof(ProbeSurface), QueryKeys: ["keep"]));
         services.AddSingleton(new ShellSurface("probe-target", "Probe target", ShellSurfaceGroup.Takeover, 901, typeof(ProbeTargetSurface)));
         services.AddSingleton<ProbeSingleton>();
         // The grants the listener validates bearer tokens against (local ADR 0058 §3): the
         // shared token they replaced is retired, so a test's token is one minted here.
-        var grants = new FileMcpGrantStore(Path.Combine(_appData, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
         services.AddSingleton<Backlog.SharedKernel.Mcp.IMcpGrantStore>(grants);
         services.AddSingleton(new McpGrantTokens(grants, TimeProvider.System));
         services.AddSingleton(new DesktopServiceRegistrations([.. services]));

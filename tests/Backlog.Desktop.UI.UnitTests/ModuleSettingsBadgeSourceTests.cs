@@ -29,26 +29,19 @@ public sealed class ModuleSettingsBadgeSourceTests
     [Fact]
     public void Inbox_counts_its_routing_rules_and_follows_them()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-badge-tests", Guid.NewGuid().ToString("n"));
+        using var temp = new TemporaryDirectory("backlog-badge-tests");
 
-        try
-        {
-            var rules = new InboxRoutingRulesStore(Path.Combine(root, "inbox-routing-rules.json"));
-            var source = new InboxRoutingRulesBadgeSource(rules);
-            var raised = 0;
-            source.Changed += () => raised++;
+        var rules = new InboxRoutingRulesStore(temp.Combine("inbox-routing-rules.json"));
+        var source = new InboxRoutingRulesBadgeSource(rules);
+        var raised = 0;
+        source.Changed += () => raised++;
 
-            Assert.Equal("0", source.Badge);
+        Assert.Equal("0", source.Badge);
 
-            Assert.Null(rules.SetRules("#bug => JSdotNet/Bugs\n#docs => JSdotNet/Docs"));
+        Assert.Null(rules.SetRules("#bug => JSdotNet/Bugs\n#docs => JSdotNet/Docs"));
 
-            Assert.Equal("2", source.Badge);
-            Assert.True(raised > 0);
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal("2", source.Badge);
+        Assert.True(raised > 0);
     }
 
     [Fact]

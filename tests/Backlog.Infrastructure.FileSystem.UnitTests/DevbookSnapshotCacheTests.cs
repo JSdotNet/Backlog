@@ -16,15 +16,13 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class DevbookSnapshotCacheTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "devbook-snapshot-cache-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("devbook-snapshot-cache-tests");
+
+    private string _root => _temp.Path;
 
     private static readonly GitHubRepositoryRef Repository = new("backlog", "JSdotNet", "Backlog");
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
-
-    public DevbookSnapshotCacheTests() => Directory.CreateDirectory(_root);
 
     private DevbookSnapshotCache Cache(StubTreeClient trees, StubBranchCatalog branches) =>
         new(() => _root, trees, branches);
@@ -557,13 +555,7 @@ public class DevbookSnapshotCacheTests : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
 
         GC.SuppressFinalize(this);
     }

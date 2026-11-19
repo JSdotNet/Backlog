@@ -24,7 +24,7 @@ public sealed class DevbookChapterWriteTests : IDisposable
     private const string Layered =
         "# Frontend\n\n```meta\nstatus: active\n```\n\nLayer prose.\n\n## Blazor Hybrid\n\n```meta\nstatus: draft\n```\n\nNode prose.\n";
 
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
     private readonly DevbookChapterWriter _writer = new();
 
     [Fact]
@@ -544,10 +544,7 @@ public sealed class DevbookChapterWriteTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
-        {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     /// <summary>The baseline as the editing surface takes it: read out of the
@@ -574,9 +571,8 @@ public sealed class DevbookChapterWriteTests : IDisposable
 
     private string TempDir()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "devbook-chapter-write-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        _tempDirs.Add(dir);
-        return dir;
+        var temp = new TemporaryDirectory("devbook-chapter-write-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 }

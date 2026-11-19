@@ -29,18 +29,5 @@ public interface IImpedimentRepository
 /// Where the replicated impediments are kept, read and written as stored text rather than
 /// as the aggregate — the arrangement <see cref="IGoalReplicaStore"/> has for a goal.
 /// </summary>
-public interface IImpedimentReplicaStore
-{
-    /// <summary>Every stored impediment and its stamp, in the order they were raised.</summary>
-    Task<IReadOnlyList<ImpedimentReplicaCopyDto>> ReadAllAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>One stored impediment and its stamp, or null when this device holds none
-    /// with that id.</summary>
-    Task<ImpedimentReplicaCopyDto?> ReadAsync(Guid id, CancellationToken cancellationToken = default);
-
-    /// <summary>Replaces the stored impediment with <paramref name="copy"/>'s text,
-    /// verbatim, at its stamp — or adds it. Answers false and writes nothing when the text
-    /// does not read as an impediment, or names another one than
-    /// <see cref="ImpedimentReplicaCopyDto.Id"/>.</summary>
-    Task<bool> TryWriteAsync(ImpedimentReplicaCopyDto copy, CancellationToken cancellationToken = default);
-}
+/// <remarks>Impediments are read in the order they were raised.</remarks>
+public interface IImpedimentReplicaStore : IWholeDocumentReplicaStore<ImpedimentReplicaCopyDto>;

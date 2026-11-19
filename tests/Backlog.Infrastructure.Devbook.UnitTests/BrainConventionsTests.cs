@@ -12,7 +12,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// </summary>
 public class BrainConventionsTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-brain-conventions", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-brain-conventions");
 
     [Fact]
     public void A_table_declares_the_areas_in_its_order()
@@ -148,19 +148,17 @@ public class BrainConventionsTests : IDisposable
     [Fact]
     public void A_brain_without_conventions_reads_as_para()
     {
-        Directory.CreateDirectory(_root);
 
-        Assert.Same(BrainConventions.Para, BrainConventions.Read(_root));
+        Assert.Same(BrainConventions.Para, BrainConventions.Read(_temp.Path));
         Assert.Same(BrainConventions.Para, BrainConventions.Read(null));
     }
 
     [Fact]
     public void A_brain_s_conventions_file_is_read_from_its_root()
     {
-        Directory.CreateDirectory(_root);
-        File.WriteAllText(Path.Combine(_root, BrainConventions.FileName), "## Areas\n\n- Work — `work`\n- Home — `home`\n");
+        File.WriteAllText(_temp.Combine(BrainConventions.FileName), "## Areas\n\n- Work — `work`\n- Home — `home`\n");
 
-        Assert.Equal(["work", "home"], BrainConventions.Read(_root).Select(area => area.Folder));
+        Assert.Equal(["work", "home"], BrainConventions.Read(_temp.Path).Select(area => area.Folder));
     }
 
     [Fact]
@@ -324,12 +322,12 @@ public class BrainConventionsTests : IDisposable
         File.WriteAllText(Write("upper/NOTE.MD"), "# Upper\n");
         File.WriteAllText(Write("_templates/meeting.md"), "# Meeting\n");
         File.WriteAllText(Write(".obsidian/workspace.md"), "# Workspace\n");
-        Directory.CreateDirectory(Path.Combine(_root, "empty"));
+        Directory.CreateDirectory(_temp.Combine("empty"));
         File.WriteAllText(Write("README.md"), "# Brain\n");
 
         Assert.Equal(
             [new BrainArea("Inbox", "_inbox", 1), new BrainArea("Meetings", "Meetings", 2)],
-            BrainConventions.Read(_root));
+            BrainConventions.Read(_temp.Path));
     }
 
     /// <summary>The probe asks the folder's listing, never a note: a note nobody
@@ -343,7 +341,7 @@ public class BrainConventionsTests : IDisposable
 
         using (new FileStream(note, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
         {
-            Assert.Equal(["locked"], BrainConventions.Read(_root).Select(area => area.Folder).Except(BrainConventions.Para.Select(area => area.Folder)));
+            Assert.Equal(["locked"], BrainConventions.Read(_temp.Path).Select(area => area.Folder).Except(BrainConventions.Para.Select(area => area.Folder)));
         }
     }
 
@@ -362,29 +360,20 @@ public class BrainConventionsTests : IDisposable
     {
         File.WriteAllText(Write(BrainConventions.FileName), "## Areas\n\n- `_inbox`\n\n## Ignore\n\n- `_templates`\n- `gone`\n");
         File.WriteAllText(Write("_templates/meeting.md"), "# Meeting\n");
-        Directory.CreateDirectory(Path.Combine(_root, ".obsidian"));
-        Directory.CreateDirectory(Path.Combine(_root, "work"));
+        Directory.CreateDirectory(_temp.Combine(".obsidian"));
+        Directory.CreateDirectory(_temp.Combine("work"));
 
-        Assert.Equal([".obsidian", "_templates"], BrainConventions.Hidden(_root).Select(area => area.Folder));
+        Assert.Equal([".obsidian", "_templates"], BrainConventions.Hidden(_temp.Path).Select(area => area.Folder));
         Assert.Empty(BrainConventions.Hidden(null));
-        Assert.Empty(BrainConventions.Hidden(Path.Combine(_root, "absent")));
+        Assert.Empty(BrainConventions.Hidden(_temp.Combine("absent")));
     }
 
     private string Write(string relativePath)
     {
-        var path = Path.Combine(_root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        var path = _temp.Combine(relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         return path;
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (DirectoryNotFoundException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

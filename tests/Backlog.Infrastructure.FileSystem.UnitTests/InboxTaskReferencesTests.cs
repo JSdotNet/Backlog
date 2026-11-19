@@ -128,6 +128,7 @@ public sealed class InboxTaskReferencesTests
 
     /// <summary>The Tasks facade with a fixed list and nothing else: the
     /// adapter only ever reads.</summary>
+    // Differs from RecordingTaskItems: answers a fixed list and refuses every write.
     private sealed class ListingTaskItems(TaskItemDto[] entries) : ITaskItems
     {
         public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>

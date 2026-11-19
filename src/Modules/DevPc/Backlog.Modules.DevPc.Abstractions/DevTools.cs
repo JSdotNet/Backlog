@@ -1087,15 +1087,6 @@ public sealed record DevToolConfigurationPaths(string CatalogPath, string PcConf
     /// name had become a lie about its contents.</summary>
     public const string CatalogFileName = "ai-tools.json";
 
-    /// <summary>What it used to be called.
-    ///
-    /// <para>Read, never written. The catalog lives in a synced folder that several
-    /// machines share and that a person hand-edits, so an upgrade that only looked
-    /// for the new name would present every one of those machines with the
-    /// "no catalog yet" empty state and a create button pointed at a path beside
-    /// the catalog they already had.</para></summary>
-    public const string LegacyCatalogFileName = "copilot-tools.json";
-
     /// <summary>What the record of the last tool run is called. It sits in the
     /// per-PC folder beside that machine's tool choices, because which tools this
     /// machine last updated is as much this machine's business as which ones it
@@ -1132,8 +1123,8 @@ public sealed record DevToolConfigurationPaths(string CatalogPath, string PcConf
         var toolFolder = Path.Combine(expandedRoot, ToolFolderName);
 
         return new DevToolConfigurationPaths(
-            ResolveCatalogFile(toolFolder),
-            ResolveCatalogFile(Path.Combine(toolFolder, pcName)));
+            Path.Combine(toolFolder, CatalogFileName),
+            Path.Combine(toolFolder, pcName, CatalogFileName));
     }
 
     public static DevToolConfigurationPaths FromCatalogPath(string catalogPath, string? machineName = null)
@@ -1144,29 +1135,7 @@ public sealed record DevToolConfigurationPaths(string CatalogPath, string PcConf
 
         return new DevToolConfigurationPaths(
             expandedCatalog,
-            ResolveCatalogFile(Path.Combine(toolRoot, pcName)));
-    }
-
-    /// <summary>
-    /// Which of the two names a folder's catalog actually goes by.
-    ///
-    /// <para>The new name wins whenever it is on disk, and the legacy one is only
-    /// answered with when it is the only one there — so a machine mid-rename, with
-    /// both files present, reads the one the rename produced rather than the one it
-    /// left behind. A folder with neither answers with the new name, which is what
-    /// the create button then writes.</para>
-    /// </summary>
-    private static string ResolveCatalogFile(string folder)
-    {
-        var current = Path.Combine(folder, CatalogFileName);
-        if (File.Exists(current))
-        {
-            return current;
-        }
-
-        var legacy = Path.Combine(folder, LegacyCatalogFileName);
-
-        return File.Exists(legacy) ? legacy : current;
+            Path.Combine(toolRoot, pcName, CatalogFileName));
     }
 
     private static string? FindCatalogRoot(string startPath)
@@ -1177,11 +1146,7 @@ public sealed record DevToolConfigurationPaths(string CatalogPath, string PcConf
 
         while (directory is not null)
         {
-            // Either name stops the walk. A repository that has not been renamed
-            // yet is still a repository with a catalog in it, and walking past it
-            // would land on whichever ancestor happened to have one.
-            if (File.Exists(Path.Combine(directory.FullName, ToolFolderName, CatalogFileName))
-                || File.Exists(Path.Combine(directory.FullName, ToolFolderName, LegacyCatalogFileName)))
+            if (File.Exists(Path.Combine(directory.FullName, ToolFolderName, CatalogFileName)))
             {
                 return directory.FullName;
             }

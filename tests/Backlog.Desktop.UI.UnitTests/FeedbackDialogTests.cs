@@ -192,14 +192,13 @@ public sealed class FeedbackDialogTests
             context.JSInterop.Setup<GitHubFeedbackScreenshot>("backlogCaptureScreenshot").SetResult(capture);
         }
 
-        var root = Path.Combine(Path.GetTempPath(), "backlog-feedback-dialog", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-feedback-dialog");
 
-        var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
-        _ = features.SetEnabled(AppFeatures.FeedbackReporting, true);
+        var features = new AppFeatureSettingsStore(AppFeatures.All, temp.Combine("features.json"));
 
         var client = new RecordingGitHubClient();
         var gitHub = new GitHubIntegration(
-            new GitHubSettingsStore(Path.Combine(root, "github.json")),
+            new GitHubSettingsStore(temp.Combine("github.json")),
             client,
             new StubProbe());
 
@@ -211,29 +210,23 @@ public sealed class FeedbackDialogTests
         var footer = context.Render<AppFooter>();
         footer.Find("[data-testid='feedback-button']").Click();
 
-        return new DialogHost(context, footer, client, root);
+        return new DialogHost(context, footer, client, temp);
     }
 
     private sealed record DialogHost(
         BunitContext Context,
         IRenderedComponent<AppFooter> Dialog,
         RecordingGitHubClient Client,
-        string Root) : IDisposable
+        TemporaryDirectory Temp) : IDisposable
     {
         public void Dispose()
         {
             Context.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 
+    // Differs from StubGitHubClient: creates the issue and uploads the file, recording both.
     private sealed class RecordingGitHubClient : IGitHubClient
     {
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>

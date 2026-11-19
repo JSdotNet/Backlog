@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using Backlog.SharedKernel.Markdown;
+using Backlog.SharedKernel.Metadata;
 using Backlog.UI.Components.Devbook;
 using Backlog.UI.Components.Markdown;
 
@@ -151,7 +153,7 @@ public static partial class DomainChapterContracts
             if (chapter.Level < 2) continue;
 
             var lines = chapter.Text.Split('\n').Skip(1).ToList();
-            var meta = ReadMeta(lines);
+            var meta = MetadataFence.At(lines, 0)?.Flat() ?? [];
             if (!meta.TryGetValue("type", out var type)) continue;
 
             var body = WithoutFences(lines);
@@ -168,7 +170,7 @@ public static partial class DomainChapterContracts
                 folder,
                 file,
                 chapter.Title,
-                $"{source.Path}#{Slug(chapter.Title)}",
+                $"{source.Path}#{HeadingAnchor.Of(chapter.Title)}",
                 type.Trim().ToLowerInvariant(),
                 (meta.GetValueOrDefault("rating") ?? meta.GetValueOrDefault("status"))?.Trim() is { Length: > 0 } status ? status : "draft",
                 meta.TryGetValue("related", out var related) ? List(related) : [],
@@ -198,7 +200,7 @@ public static partial class DomainChapterContracts
             var target = chapters.FirstOrDefault(c => CanRaise(c)
                 && string.Equals(c.File, linkFile, StringComparison.OrdinalIgnoreCase)
                 && (linkFolder is null || string.Equals(c.Folder, linkFolder, StringComparison.OrdinalIgnoreCase))
-                && string.Equals(Slug(c.Title), anchor, StringComparison.OrdinalIgnoreCase));
+                && string.Equals(HeadingAnchor.Of(c.Title), anchor, StringComparison.OrdinalIgnoreCase));
             if (target is not null && !raisers.Contains(target)) raisers.Add(target);
         }
 
@@ -309,22 +311,6 @@ public static partial class DomainChapterContracts
         return (match.Success ? match.Value : paragraph).Trim();
     }
 
-    private static Dictionary<string, string> ReadMeta(List<string> lines)
-    {
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var index = 0;
-        while (index < lines.Count && lines[index].Trim().Length == 0) index++;
-        if (index >= lines.Count || !string.Equals(lines[index].Trim(), "```meta", StringComparison.OrdinalIgnoreCase)) return result;
-
-        for (index++; index < lines.Count && lines[index].Trim() != "```"; index++)
-        {
-            var colon = lines[index].IndexOf(':');
-            if (colon > 0) result.TryAdd(lines[index][..colon].Trim(), lines[index][(colon + 1)..].Trim());
-        }
-
-        return result;
-    }
-
     /// <summary>The body without its <c>meta</c> and <c>annotation</c> fences: the
     /// one is the chapter's record, the other a review note, and neither is prose.</summary>
     private static List<string> WithoutFences(List<string> lines)
@@ -368,15 +354,6 @@ public static partial class DomainChapterContracts
         var trimmed = path.Replace('\\', '/');
         var slash = trimmed.LastIndexOf('/');
         return slash < 0 ? trimmed : trimmed[(slash + 1)..];
-    }
-
-    /// <summary>A heading's anchor as the devbook writes one: lower case, words
-    /// joined by hyphens, punctuation dropped.</summary>
-    internal static string Slug(string title)
-    {
-        var lower = title.Trim().ToLowerInvariant();
-        var kept = new string([.. lower.Where(ch => char.IsLetterOrDigit(ch) || ch is ' ' or '-' or '_')]);
-        return Regex.Replace(kept, @"\s", "-");
     }
 
     internal static string Compact(string value) => new([.. value.Where(char.IsLetterOrDigit)]);

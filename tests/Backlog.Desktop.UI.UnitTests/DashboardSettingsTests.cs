@@ -199,18 +199,6 @@ public sealed class DashboardSettingsTests
             section.Component.FindAll("[data-testid='usage-reset-remove-button']").Select(button => button.GetAttribute("aria-label")));
     }
 
-    /// <summary>A file a single-reset version wrote opens as one row the person can
-    /// rename.</summary>
-    [Fact]
-    public void A_reset_saved_before_names_opens_as_one_named_row()
-    {
-        using var section = RenderSection("""{ "day": "Monday", "time": "14:00" }""");
-
-        Assert.Equal("Weekly reset", section.Component.Find("[data-testid='usage-reset-name']").GetAttribute("value"));
-        Assert.Equal("14:00", section.Component.Find("[data-testid='usage-reset-time']").GetAttribute("value"));
-        Assert.Contains("Weeks run from Monday 14:00", section.Component.Find("[data-testid='usage-reset-status']").TextContent, StringComparison.Ordinal);
-    }
-
     [Fact]
     public void The_section_says_where_the_reset_is_kept()
     {
@@ -225,9 +213,9 @@ public sealed class DashboardSettingsTests
     // --- On the settings screen ---------------------------------------------------
 
     [Fact]
-    public void With_the_dashboard_on_the_settings_screen_offers_its_page_first_among_the_product_areas()
+    public void The_settings_screen_offers_the_dashboard_page_first_among_the_product_areas()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
 
         var tabs = Tabs(settings.Component);
         Assert.Equal(["Dashboard", "Working week", "Inbox"], tabs[^3..]);
@@ -243,7 +231,7 @@ public sealed class DashboardSettingsTests
     [Fact]
     public void The_dashboard_page_supplies_its_headline()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
 
         OpenTab(settings.Component, "Dashboard");
 
@@ -269,20 +257,9 @@ public sealed class DashboardSettingsTests
     }
 
     [Fact]
-    public void With_the_dashboard_off_the_settings_screen_marks_the_dashboard_page_Off_and_keeps_the_working_week()
-    {
-        using var settings = RenderSettings(dashboard: false);
-
-        var tabs = Tabs(settings.Component);
-        Assert.Equal(["Dashboard", "Working week", "Inbox"], tabs[^3..]);
-        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "dashboard"));
-        Assert.NotEqual("Off", SettingsMenu.Badge(settings.Component, "working-week"));
-    }
-
-    [Fact]
     public void The_storage_tab_no_longer_carries_the_usage_reset()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
 
         OpenTab(settings.Component, "Storage & backup");
 
@@ -393,7 +370,8 @@ public sealed class DashboardSettingsTests
 
     private static SectionRenderContext RenderSection(string? usageResetFile = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-dashboard-settings-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-dashboard-settings-tests");
+        var root = temp.Path;
         var usageResetPath = Path.Combine(root, "usage-reset", "usage-reset.json");
 
         if (usageResetFile is not null)
@@ -410,12 +388,13 @@ public sealed class DashboardSettingsTests
         context.Services.AddSingleton<IUsageResetSettings>(usageReset);
         context.Services.AddSingleton<ISpendBudgetSettings>(spendBudgets);
 
-        return new SectionRenderContext(root, context, context.Render<DashboardSettings>(), usageReset, spendBudgets);
+        return new SectionRenderContext(temp, context, context.Render<DashboardSettings>(), usageReset, spendBudgets);
     }
 
-    private static SettingsRenderContext RenderSettings(bool dashboard)
+    private static SettingsRenderContext RenderSettings()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-dashboard-settings-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-dashboard-settings-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -423,7 +402,6 @@ public sealed class DashboardSettingsTests
         _ = features.SetEnabled(AppFeatures.AiAssistant, false);
         _ = features.SetEnabled(AppFeatures.UsageMetrics, false);
         _ = features.SetEnabled(AppFeatures.InboxPane, true);
-        _ = features.SetEnabled(DashboardFeatures.Dashboard, dashboard);
 
         var githubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"), () => Path.Combine(root, "workspace"));
         var usageReset = new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json"));
@@ -439,7 +417,7 @@ public sealed class DashboardSettingsTests
             new SpendBudgetSettingsStore(Path.Combine(root, "spend-budgets", "spend-budgets.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
-        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
@@ -449,47 +427,11 @@ public sealed class DashboardSettingsTests
         context.Services.AddInboxSettings();
         context.Services.AddDashboardSettings();
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), usageReset);
-    }
-
-    private sealed class NoGitHub : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
-
-    private static void DeleteQuietly(string root)
-    {
-        try
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), usageReset);
     }
 
     private sealed record SectionRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<DashboardSettings> Component,
         UsageResetSettingsStore UsageReset,
@@ -498,12 +440,12 @@ public sealed class DashboardSettingsTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         UsageResetSettingsStore UsageReset) : IDisposable
@@ -511,7 +453,7 @@ public sealed class DashboardSettingsTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 }

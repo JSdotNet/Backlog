@@ -22,9 +22,9 @@ public sealed class BrainReviewToolTests : IDisposable
 {
     private static readonly TasksRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
 
-    private readonly DirectoryInfo _root = Directory.CreateTempSubdirectory("backlog-mcp-brain-reviews");
+    private readonly TemporaryDirectory _root = new("backlog-mcp-brain-reviews");
 
-    public void Dispose() => _root.Delete(recursive: true);
+    public void Dispose() => _root.Dispose();
 
     [Fact]
     public async Task It_answers_the_due_notes_and_the_warnings_for_today()
@@ -32,7 +32,7 @@ public sealed class BrainReviewToolTests : IDisposable
         var reviews = new FakeReviews(new BrainReviewsDue(
             [new BrainReviewNote("areas/health.md", "Health", new DateOnly(2026, 11, 1))],
             [new BrainReviewWarning("areas/words.md", "Words", "next week")]));
-        var tools = Tools(reviews, _root.FullName);
+        var tools = Tools(reviews, _root.Path);
 
         var answer = await tools.ListBrainReviewsAsync(cancellationToken: TestContext.Current.CancellationToken);
 
@@ -49,7 +49,7 @@ public sealed class BrainReviewToolTests : IDisposable
     public async Task A_day_the_call_names_is_the_one_asked()
     {
         var reviews = new FakeReviews(BrainReviewsDue.None);
-        var tools = Tools(reviews, _root.FullName);
+        var tools = Tools(reviews, _root.Path);
 
         var answer = await tools.ListBrainReviewsAsync("2026-12-01", TestContext.Current.CancellationToken);
 
@@ -63,7 +63,7 @@ public sealed class BrainReviewToolTests : IDisposable
     public async Task A_day_that_is_no_date_is_refused_in_words()
     {
         var reviews = new FakeReviews(BrainReviewsDue.None);
-        var tools = Tools(reviews, _root.FullName);
+        var tools = Tools(reviews, _root.Path);
 
         var failure = await Assert.ThrowsAsync<McpException>(() => tools.ListBrainReviewsAsync("tomorrow", TestContext.Current.CancellationToken));
 
@@ -76,7 +76,7 @@ public sealed class BrainReviewToolTests : IDisposable
     {
         var unset = Tools(new FakeReviews(BrainReviewsDue.None), brainFolder: null);
         var none = new DevbookTools(
-            new FakeDevbookFolderSource(_root.FullName, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
+            new FakeDevbookFolderSource(_root.Path, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
             new FakeDevbookAnnotationStore(),
             new FakeRepositoryDirectory([Backlog]));
 
@@ -93,7 +93,7 @@ public sealed class BrainReviewToolTests : IDisposable
         var planId = Guid.NewGuid();
         var tools = Tools(
             new FakeReviews(BrainReviewsDue.None),
-            _root.FullName,
+            _root.Path,
             new FakeProjectNotes([new FinishedProjectNote(planId, "House move", "projects/house.md", "House")]));
 
         var answer = await tools.ListBrainReviewsAsync(cancellationToken: TestContext.Current.CancellationToken);
@@ -104,7 +104,7 @@ public sealed class BrainReviewToolTests : IDisposable
     [Fact]
     public async Task A_host_with_no_roadmap_lists_nothing_to_archive()
     {
-        var answer = await Tools(new FakeReviews(BrainReviewsDue.None), _root.FullName)
+        var answer = await Tools(new FakeReviews(BrainReviewsDue.None), _root.Path)
             .ListBrainReviewsAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Empty(answer.ToArchive ?? []);
@@ -115,7 +115,7 @@ public sealed class BrainReviewToolTests : IDisposable
         var brain = new BrainFolderSource(() => brainFolder);
 
         return new DevbookTools(
-            new FakeDevbookFolderSource(_root.FullName, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
+            new FakeDevbookFolderSource(_root.Path, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
             new FakeDevbookAnnotationStore(),
             new FakeRepositoryDirectory([Backlog]),
             brain,

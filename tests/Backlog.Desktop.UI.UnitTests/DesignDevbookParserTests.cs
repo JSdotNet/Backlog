@@ -6,7 +6,7 @@ public sealed class DesignDevbookParserTests
     [Fact]
     public void Parses_design_metadata_sections_tokens_and_diagrams()
     {
-        using var folder = new TemporaryFolder();
+        using var folder = new TemporaryDirectory("backlog-design-parser-tests");
         var path = Path.Combine(folder.Path, "color-scheme.md");
         File.WriteAllText(path, """
 # Color scheme
@@ -60,7 +60,7 @@ graph TD
     [Fact]
     public void A_heading_that_carries_no_block_states_no_status()
     {
-        using var folder = new TemporaryFolder();
+        using var folder = new TemporaryDirectory("backlog-design-parser-tests");
         var path = Path.Combine(folder.Path, "typography-and-layout.md");
         File.WriteAllText(path, """
 # Typography and layout
@@ -79,7 +79,7 @@ The record is drawn against its subject.
     [Fact]
     public void Keeps_level_two_headings_as_knowledge_sections()
     {
-        using var folder = new TemporaryFolder();
+        using var folder = new TemporaryDirectory("backlog-design-parser-tests");
         var path = Path.Combine(folder.Path, "design-principles.md");
         File.WriteAllText(path, """
 # Design principles
@@ -105,7 +105,7 @@ Markdown remains canonical behind the rich text editor.
     [Fact]
     public void A_wrapped_bullet_keeps_its_continuation_lines()
     {
-        using var folder = new TemporaryFolder();
+        using var folder = new TemporaryDirectory("backlog-design-parser-tests");
         var path = Path.Combine(folder.Path, "01-plan.md");
         File.WriteAllText(path, """
 # Plan
@@ -144,23 +144,5 @@ Closing words.
     // fence left to read and nothing here to assert. What survived the move is
     // library-level and lives where it belongs: MetadataReaderTests pins that
     // `order` is recognised and dropped rather than surfacing as an unknown field.
-
-    private sealed class TemporaryFolder : IDisposable
-    {
-        public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-
-        public TemporaryFolder()
-        {
-            Directory.CreateDirectory(Path);
-        }
-
-        public void Dispose()
-        {
-            if (Directory.Exists(Path))
-            {
-                Directory.Delete(Path, recursive: true);
-            }
-        }
-    }
 }
 

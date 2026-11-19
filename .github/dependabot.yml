@@ -65,5 +65,3 @@ updates:
       - enhancement
     open-pull-requests-limit: 5
 
-  # tools/archify is vendored verbatim from upstream (tools/archify/UPSTREAM.md); its
-  # dependencies move by re-vendoring, so it has no npm entry here.

@@ -25,21 +25,15 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 [SupportedOSPlatform("windows")]
 public sealed class GitHubCredentialsAtRestTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "github-credentials-at-rest-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("github-credentials-at-rest-tests");
 
-    private string WorkspaceRoot => Path.Combine(_root, "workspace");
+    private string WorkspaceRoot => _temp.Combine("workspace");
 
-    private string LocalPath => Path.Combine(_root, "install-1", "github.json");
+    private string LocalPath => _temp.Combine("install-1", "github.json");
 
     private GitHubSettingsStore Store(TimeProvider? clock = null) => new(LocalPath, () => WorkspaceRoot, clock);
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void An_account_token_is_not_in_the_file_and_a_restart_reads_it_back()
@@ -66,7 +60,7 @@ public sealed class GitHubCredentialsAtRestTests : IDisposable
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        var clone = Path.Combine(_root, "clone");
+        var clone = _temp.Combine("clone");
 
         var store = Store();
         Assert.Null(store.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")]));
@@ -121,29 +115,6 @@ public sealed class GitHubCredentialsAtRestTests : IDisposable
         var reopened = Store();
         Assert.Equal("ghp_legacy_repository", reopened.Current.Find("backlog")!.Token);
         Assert.Equal("ghp_legacy_account", Assert.Single(reopened.Current.Accounts).Token);
-    }
-
-    /// <summary>The oldest shape of all: one global token, which every repository
-    /// inherits. It still reaches the repositories, and it is not left in the
-    /// clear.</summary>
-    [Fact]
-    public void The_legacy_global_token_still_reaches_the_repositories_and_is_not_left_in_the_clear()
-    {
-        if (!OperatingSystem.IsWindows()) return;
-
-        WriteLocalFile("""
-            {
-              "repositories": [ { "alias": "backlog", "owner": "JSdotNet", "name": "Backlog" } ],
-              "token": "ghp_legacy_global",
-              "apiEndpoint": "https://api.github.com"
-            }
-            """);
-
-        var store = Store();
-
-        Assert.Equal("ghp_legacy_global", store.Current.Find("backlog")!.Token);
-        Assert.DoesNotContain("ghp_legacy_global", File.ReadAllText(LocalPath), StringComparison.Ordinal);
-        Assert.Equal("ghp_legacy_global", Store().Current.Find("backlog")!.Token);
     }
 
     /// <summary>

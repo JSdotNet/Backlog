@@ -12,24 +12,19 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookLayoutTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-devbook-layout-tests", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-layout-tests");
 
-    public DevbookLayoutTests() => Directory.CreateDirectory(_root);
-
-    public void Dispose()
-    {
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void An_unconfigured_folder_resolves_under_devbook()
     {
-        Directory.CreateDirectory(Path.Combine(_root, ".devbook", "arc42"));
+        Directory.CreateDirectory(_temp.Combine(".devbook", "arc42"));
 
         var location = Source().Resolve(".arc42", "backlog");
 
         Assert.True(location.Available);
-        Assert.Equal(Path.Combine(_root, ".devbook", "arc42"), location.FullPath);
+        Assert.Equal(_temp.Combine(".devbook", "arc42"), location.FullPath);
         Assert.Null(location.Folder!.ResolvedPath);
         Assert.Equal(".devbook/arc42", location.Folder.EffectivePath);
     }
@@ -37,23 +32,23 @@ public sealed class DevbookLayoutTests : IDisposable
     [Fact]
     public void The_devbook_folder_wins_when_both_layouts_are_present()
     {
-        Directory.CreateDirectory(Path.Combine(_root, ".devbook", "arc42"));
-        Directory.CreateDirectory(Path.Combine(_root, ".arc42"));
+        Directory.CreateDirectory(_temp.Combine(".devbook", "arc42"));
+        Directory.CreateDirectory(_temp.Combine(".arc42"));
 
         var location = Source().Resolve(".arc42", "backlog");
 
-        Assert.Equal(Path.Combine(_root, ".devbook", "arc42"), location.FullPath);
+        Assert.Equal(_temp.Combine(".devbook", "arc42"), location.FullPath);
     }
 
     [Fact]
     public void A_repository_on_the_root_layout_falls_back_to_the_legacy_folder()
     {
-        Directory.CreateDirectory(Path.Combine(_root, ".arc42"));
+        Directory.CreateDirectory(_temp.Combine(".arc42"));
 
         var location = Source().Resolve(".arc42", "backlog");
 
         Assert.True(location.Available);
-        Assert.Equal(Path.Combine(_root, ".arc42"), location.FullPath);
+        Assert.Equal(_temp.Combine(".arc42"), location.FullPath);
         Assert.Equal(".arc42", location.Folder!.ResolvedPath);
         Assert.Equal(".arc42", location.Folder.EffectivePath);
     }
@@ -64,27 +59,27 @@ public sealed class DevbookLayoutTests : IDisposable
         var location = Source().Resolve(".arc42", "backlog");
 
         Assert.False(location.Available);
-        Assert.Contains(Path.Combine(_root, ".devbook", "arc42"), location.Message, StringComparison.Ordinal);
-        Assert.Contains(Path.Combine(_root, ".arc42"), location.Message, StringComparison.Ordinal);
+        Assert.Contains(_temp.Combine(".devbook", "arc42"), location.Message, StringComparison.Ordinal);
+        Assert.Contains(_temp.Combine(".arc42"), location.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void An_override_is_not_second_guessed_by_the_fallback()
     {
-        Directory.CreateDirectory(Path.Combine(_root, ".arc42"));
+        Directory.CreateDirectory(_temp.Combine(".arc42"));
         var settings = Settings();
         settings.SetDevbookFolder("backlog", ".arc42", enabled: true, path: "docs/arch");
 
         var location = new DevbookFolderSource(settings).Resolve(".arc42", "backlog");
 
         Assert.False(location.Available);
-        Assert.DoesNotContain(Path.Combine(_root, ".arc42") + " ", location.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_temp.Combine(".arc42") + " ", location.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Architecture_under_devbook_counts_decision_records()
     {
-        var arc42 = Path.Combine(_root, ".devbook", "arc42");
+        var arc42 = _temp.Combine(".devbook", "arc42");
         Directory.CreateDirectory(Path.Combine(arc42, "adr"));
         File.WriteAllText(Path.Combine(arc42, "adr", "0001-use-sqlite.md"), """
             # Use SQLite
@@ -128,21 +123,21 @@ public sealed class DevbookLayoutTests : IDisposable
     [Fact]
     public void The_database_is_keyed_to_the_repository_root_above_devbook()
     {
-        var arc42 = Path.Combine(_root, ".devbook", "arc42");
+        var arc42 = _temp.Combine(".devbook", "arc42");
         Directory.CreateDirectory(arc42);
 
-        Assert.Equal(DevbookDatabaseLocation.ForRepositoryRoot(_root), DevbookDatabaseLocation.ForDevbookFolder(arc42));
+        Assert.Equal(DevbookDatabaseLocation.ForRepositoryRoot(_temp.Path), DevbookDatabaseLocation.ForDevbookFolder(arc42));
     }
 
     private DevbookFolderSource Source() => new(Settings());
 
     private GitHubSettingsStore Settings()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
         settings.SetRepositories(repositories);
-        settings.SetCloneDirectory("backlog", _root);
+        settings.SetCloneDirectory("backlog", _temp.Path);
         return settings;
     }
 }

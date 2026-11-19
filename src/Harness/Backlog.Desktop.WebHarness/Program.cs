@@ -118,10 +118,8 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     // Under the content root, never %LOCALAPPDATA%: that folder is shared by every
     // worktree's harness and by the installed app.
     MyDayPreferences = _ => CreateLocalDevelopmentMyDayPreferencesStore(builder.Environment.ContentRootPath),
-    // Under the content root for the same reason, seeded from this harness's own shell
-    // navigation file.
-    IterationSettings = sp => CreateLocalDevelopmentIterationSettingsStore(
-        builder.Environment.ContentRootPath, sp.GetRequiredService<ShellNavigationStore>()),
+    // Under the content root for the same reason.
+    IterationSettings = _ => CreateLocalDevelopmentIterationSettingsStore(builder.Environment.ContentRootPath),
     ShellNavigation = _ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath),
     CaptureSourceSettings = _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath),
     CaptureRunLog = _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath),
@@ -195,7 +193,7 @@ builder.Services.AddTaskConnector<HarnessTaskConnector>();
 // The Devbook - its adapters and AddDevbookModule - is in the composition above
 // since issue #738. The two things this harness did differently arrive through
 // its options there: the domain store is scoped with the rest of a circuit's
-// state, and the Copilot offers and Archify artifacts take the unavailable
+// state, and the Copilot offers take the unavailable
 // launcher, so pressing one says this host cannot start a CLI.
 
 // The same MCP server the desktop head serves, on the Kestrel pipeline this
@@ -650,7 +648,7 @@ static MyDayPreferencesStore CreateLocalDevelopmentMyDayPreferencesStore(string 
     return new MyDayPreferencesStore(settingsPath);
 }
 
-static IterationSettingsStore CreateLocalDevelopmentIterationSettingsStore(string contentRootPath, ShellNavigationStore legacy)
+static IterationSettingsStore CreateLocalDevelopmentIterationSettingsStore(string contentRootPath)
 {
     var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_ITERATION_SETTINGS_PATH");
     if (string.IsNullOrWhiteSpace(settingsPath))
@@ -658,7 +656,7 @@ static IterationSettingsStore CreateLocalDevelopmentIterationSettingsStore(strin
         settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "iteration-settings.settings.json");
     }
 
-    return new IterationSettingsStore(settingsPath, legacy);
+    return new IterationSettingsStore(settingsPath);
 }
 
 static CaptureSourcesSettingsStore CreateLocalDevelopmentCaptureSourcesSettingsStore(string contentRootPath)

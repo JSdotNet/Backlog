@@ -19,22 +19,7 @@ Outside it:
 | When planned work happens and in which order | [Roadmap Planning](../roadmap/domain.md#roadmap-item) |
 | The knowledge a task links to | [Brain](../brain/domain.md#knowledge-note) |
 
-The settings screen lists each feature flag below, except Task backlog, from the feature catalog in `AppFeatures.cs`. A person's choice is kept in `features.json` beside the app's other per-device choices.
-
-## Task backlog
-
-```meta
-type: feature-flag
-key: backlog
-default: on
-related: [".devbook/domain/tasks/features.md#task-creation"]
-```
-
-- **Does:** Create and edit tasks, filter and reorder them, and store them.
-- **Default:** Always enabled, and the catalog offers no switch.
-- **Why:** The app without it is not this app.
-- **Retired:** Never, and the key is never renamed.
-- **Why:** The key is a persisted value, which is also why this stays a chapter. `"backlog"` is written into `features.json` and outlives this context's name, Tasks.
+The settings screen lists each feature flag below from the feature catalog in `AppFeatures.cs`. A person's choice is kept in `features.json` beside the app's other per-device choices.
 
 ## GitHub integration
 
@@ -65,22 +50,6 @@ related: [".devbook/domain/tasks/features.md#hand-off-to-copilot-cli"]
 - **Retired:** When the hand-off leaves `DEV`.
 - **Key:** In the shared kernel's `AppFeatureKeys` rather than in either context.
 - **Why:** Two contexts read this one key.
-
-## Copy entries
-
-```meta
-type: feature-flag
-key: copy-entries
-default: on
-related: [".devbook/domain/tasks/features.md#copy-as-a-runnable-paste", ".devbook/domain/roadmap/features.md#tagging-planned-work", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry"]
-```
-
-- **On:** Shows the copy-to-clipboard button on a task's row, a board card, the open entry and the pressed plan chip, and beside the Tag field of a planned item's dialog on the roadmap.
-- **Off:** Those buttons are hidden, and the [queue icon](../sessions/features.md#start-a-session-from-an-entry) beside each is untouched.
-- **Default:** On, and listed under Cross-cutting.
-- **Retired:** With the copy, once queueing a session does the copy's job.
-- **Key:** In the shared kernel's `AppFeatureKeys` as `CopyEntries`.
-- **Why:** Tasks and Roadmap read this one key. It is recorded here because four of its five places are Tasks'.
 
 ## AI assistant
 

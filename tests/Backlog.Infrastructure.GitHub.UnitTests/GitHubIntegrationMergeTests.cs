@@ -18,7 +18,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class GitHubIntegrationMergeTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-merge-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-merge-tests");
 
     private static readonly GitHubPullRequestStatus Pull = new(
         708,
@@ -30,13 +30,7 @@ public sealed class GitHubIntegrationMergeTests : IDisposable
         MergeReady: false,
         GitHubMergeMethod.Squash);
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Enabling_auto_merge_sends_the_pull_requests_node_and_the_repositorys_method()
@@ -49,26 +43,6 @@ public sealed class GitHubIntegrationMergeTests : IDisposable
         using var body = JsonDocument.Parse(transport.Bodies[0]!);
         Assert.Equal("PR_kwDOabc", body.RootElement.GetProperty("variables").GetProperty("id").GetString());
         Assert.Equal("SQUASH", body.RootElement.GetProperty("variables").GetProperty("method").GetString());
-    }
-
-    [Fact]
-    public async Task Reading_a_status_goes_to_the_repository_the_link_names()
-    {
-        var transport = new RoutingTransport().Returns(
-            "graphql",
-            """
-            { "data": { "repository": {
-                "mergeCommitAllowed": true, "squashMergeAllowed": false, "rebaseMergeAllowed": false,
-                "pullRequest": { "id": "PR_x", "number": 12, "state": "OPEN", "isDraft": false,
-                                 "mergeStateStatus": "CLEAN", "autoMergeRequest": null,
-                                 "commits": { "nodes": [] } } } } }
-            """);
-
-        var status = await Integration(transport).ReadPullRequestStatusAsync("octo/demo", 12, TestContext.Current.CancellationToken);
-
-        Assert.Equal("graphql#octo/demo", Assert.Single(transport.Paths));
-        Assert.Equal("octo/demo", status.RepositoryFullName);
-        Assert.True(status.MergeReady);
     }
 
     [Fact]
@@ -220,20 +194,9 @@ public sealed class GitHubIntegrationMergeTests : IDisposable
 
     private GitHubIntegration Integration(RoutingTransport transport)
     {
-        Directory.CreateDirectory(_root);
         return new GitHubIntegration(
-            new GitHubSettingsStore(Path.Combine(_root, "github.json")),
+            new GitHubSettingsStore(_temp.Combine("github.json")),
             new GitHubClient(transport),
-            new NoProbe());
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
-        }
+            new StubProbe(new GitHubConnection(true, "Connected.")));
     }
 }

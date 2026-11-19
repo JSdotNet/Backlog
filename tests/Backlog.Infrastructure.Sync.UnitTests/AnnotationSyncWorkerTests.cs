@@ -13,8 +13,14 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 /// <see cref="SessionSyncWorkerTests"/> asks of the second, because the
 /// mechanism is a copy and a copy that drifted would drift silently.
 /// </summary>
-public sealed class AnnotationSyncWorkerTests
+public sealed class AnnotationSyncWorkerTests : CredentialGatedSyncWorkerTests
 {
+    private protected override IGateFixture CreateUnpaired() => Fixture.Create(featureOn: true, paired: false);
+
+    private protected override TimeSpan FirstCycleDelay => AnnotationSyncWorker.FirstCycleDelay;
+
+    private protected override DeviceCredential PairedCredential => Paired;
+
     private static readonly DateTimeOffset Noon = new(2026, 9, 16, 12, 0, 0, TimeSpan.Zero);
 
     private static readonly DeviceCredential Paired = new(
@@ -47,23 +53,6 @@ public sealed class AnnotationSyncWorkerTests
         Assert.Equal(1, fixture.SessionsResolved);
         Assert.NotNull(fixture.Worker.LastSummary);
         Assert.Null(fixture.Worker.LastError);
-    }
-
-    [Fact]
-    public async Task No_cycle_runs_until_a_device_credential_is_stored()
-    {
-        using var fixture = Fixture.Create(featureOn: true, paired: false);
-
-        fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
-
-        Assert.Equal(0, fixture.SessionsResolved);
-
-        var first = fixture.NextCycle();
-        fixture.Credentials.Save(Paired);
-        fixture.Clock.Advance(AnnotationSyncWorker.FirstCycleDelay);
-        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, fixture.SessionsResolved);
     }
 
     [Fact]
@@ -195,7 +184,7 @@ public sealed class AnnotationSyncWorkerTests
         Assert.Null(fixture.State.Current.PullCursor);
     }
 
-    private sealed class Fixture : IDisposable
+    private sealed class Fixture : IGateFixture
     {
         public static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 

@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+using Backlog.SharedKernel.Markdown;
+
 namespace Backlog.Infrastructure.Devbook.Scenarios;
 
 /// <summary>
@@ -111,7 +113,7 @@ public static class ScenarioRunReader
                 var title = Text(part, "title") ?? string.Empty;
                 parts.Add(new ScenarioRunPart(
                     title,
-                    Text(part, "anchor") ?? ScenarioPageParser.Slugify(title),
+                    Text(part, "anchor") ?? HeadingAnchor.Of(title),
                     Text(part, "outcome") switch
                     {
                         "passed" => ScenarioOutcome.Passed,
@@ -156,7 +158,7 @@ public static class ScenarioRunReader
             {
                 if (scenario.ValueKind != JsonValueKind.Object) continue;
                 var title = Text(scenario, "titel") ?? string.Empty;
-                var slug = Text(scenario, "slug") ?? ScenarioPageParser.Slugify(title);
+                var slug = Text(scenario, "slug") ?? HeadingAnchor.Of(title);
                 parts.Add(new ScenarioRunPart(
                     title,
                     slug,

@@ -402,21 +402,12 @@ public sealed class ClaudeSpendSourceTests
 
     private sealed class TemporaryClaudeStore : IDisposable
     {
-        private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-claude-spend-tests", Guid.NewGuid().ToString("N"));
+        private readonly TemporaryDirectory _temp = new("backlog-claude-spend-tests");
 
-        public TemporaryClaudeStore() => Store = new ClaudeSettingsStore(Path.Combine(_root, "claude.json"));
+        public TemporaryClaudeStore() => Store = new ClaudeSettingsStore(_temp.Combine("claude.json"));
 
         public ClaudeSettingsStore Store { get; }
 
-        public void Dispose()
-        {
-            try
-            {
-                if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
-        }
+        public void Dispose() => _temp.Dispose();
     }
 }

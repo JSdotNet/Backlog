@@ -302,9 +302,6 @@
                                       OnClick="() => ShowView(RoadmapViewId)">
                             <ChartGanttIcon />
                             <span class="header-nav-label header-nav-label--tier-4">Roadmap</span>
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
-                                                Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
-                                                TestId="roadmap-feature-status" />
                         </ToggleButton>)
                     }
                 </ButtonGroup>
@@ -447,9 +444,6 @@
                                       PressedChanged="ToggleDashboard">
                             <LayoutDashboardIcon />
                             <span class="header-nav-label header-nav-label--tier-1">Dashboard</span>
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(DashboardFeatures.Dashboard)"
-                                                Title="@FeatureStatusTitle(DashboardFeatures.Dashboard)"
-                                                TestId="dashboard-feature-status" />
                         </ToggleButton>)
                     }
 
@@ -1083,7 +1077,6 @@
         {
             DevbookSurfaceId => DevbookPaneOptionVisible,
             NotificationsSurfaceId => _notificationCentreComposed,
-            // The atlas maps what the Devbook reads, so the Devbook's flag gates it too.
             AtlasSurfaceId => Devbook.LobesAtlasOffered,
             _ => true,
         };
@@ -1122,8 +1115,8 @@
     /// been switched off.</summary>
     private bool WorkspaceVisible => TakeoverOnScreen is null;
 
-    /// <summary>Whether the header offers the Lobes atlas: its flag and Devbook's
-    /// are on, and its module registered it.</summary>
+    /// <summary>Whether the header offers the Lobes atlas: its flag is on, and its
+    /// module registered it.</summary>
     private bool AtlasOffered => TakeoverOffered(AtlasSurfaceId);
 
     /// <summary>Whether the Lobes atlas has the screen.</summary>
@@ -1758,7 +1751,6 @@
     /// </summary>
     private string? DevbookSwitchRepositoryAlias =>
         _brainFolders is not null
-        && IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
         && State.BrainInScope
         && BrainScope.Repositories(State.SelectedRepositoryAliases) is [var first, ..]
             ? first
@@ -1783,8 +1775,8 @@
     /// the chapter to Devbook, and the shell is the one place holding both. Opened
     /// over the view, which waits underneath — the Devbook option or Escape goes
     /// back to the list the reader pressed it from.
-    /// A repository with no devbook to show, or the Devbook switched off, is said out
-    /// loud rather than opening an empty Devbook.
+    /// A repository with no devbook to show is said out loud rather than opening an
+    /// empty Devbook.
     /// </para>
     /// </summary>
     private Task OpenDevbookReferenceAsync(DevbookReferenceRequest request)
@@ -1819,8 +1811,8 @@
     /// filter: the request holds only while the scope it was asked under stands. The
     /// pane's <c>Brain | repo</c> switch gives way to it, because the reader just
     /// chose — else a chapter of the anchor repository would leave the pane on the
-    /// Brain. A Devbook switched off, or with nothing of that alias to show, is said
-    /// out loud with <paramref name="unavailable"/> rather than opening an empty one.
+    /// Brain. A Devbook with nothing of that alias to show is said out loud with
+    /// <paramref name="unavailable"/> rather than opening an empty one.
     /// </para>
     /// </summary>
     private Task OpenDevbookOnAsync(string alias, string? reference, string unavailable)
@@ -1828,8 +1820,7 @@
         var brain = BrainScope.Is(alias);
         if (!brain) alias = ConfiguredAlias(alias);
 
-        if (!IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
-            || (brain ? _brainFolders is null : Devbook.VisibleAreas(alias).Count == 0))
+        if (brain ? _brainFolders is null : Devbook.VisibleAreas(alias).Count == 0)
         {
             Toasts.Publish(ToastMessage.Warning(unavailable, DevbookUnavailableTestId));
             return Task.CompletedTask;
@@ -2868,7 +2859,7 @@
     /// </summary>
     private Task OpenBrainNoteAsync(string path)
     {
-        // The badges are read whatever the Devbook's flag says, so a press can come
+        // The badges are read whether or not a Brain is composed, so a press can come
         // while there is no Devbook to open it in: said out loud, as an entry's
         // reference says it, rather than a press that does nothing.
         return OpenDevbookOnAsync(BrainScope.Value, path, "The Devbook is not available here, so this Brain note cannot be opened.");

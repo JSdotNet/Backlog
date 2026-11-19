@@ -274,7 +274,7 @@ public class SyncClientRegistrationTests
         var services = new ServiceCollection();
         services.AddSingleton<IDeviceCredentialStore>(new InMemoryDeviceCredentialStore());
         services.AddSingleton<IAppFeatureSettings>(new StubFeatureSettings(enabled: true));
-        services.AddSingleton<IAgentSessionSource>(new StubAgentSessionSource());
+        services.AddSingleton<IAgentSessionSource>(new StubSessionSource());
         services.AddSyncClient(SyncAddress);
         services.AddSessionSyncClient(SyncAddress);
 
@@ -315,7 +315,7 @@ public class SyncClientRegistrationTests
         using var provider = Build(SessionHost());
 
         // The host's own registration is what an unkeyed ask still answers with.
-        Assert.IsType<StubAgentSessionSource>(provider.GetRequiredService<IAgentSessionSource>());
+        Assert.IsType<StubSessionSource>(provider.GetRequiredService<IAgentSessionSource>());
 
         // And the replicated one is there beside it, for a composite to collect.
         var keyed = provider.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey).ToList();
@@ -537,7 +537,7 @@ public class SyncClientRegistrationTests
         var services = new ServiceCollection();
         services.AddSingleton<IDeviceCredentialStore>(new InMemoryDeviceCredentialStore());
         services.AddSingleton<IAppFeatureSettings>(new StubFeatureSettings(enabled: true));
-        services.AddSingleton<IAgentSessionSource>(new StubAgentSessionSource());
+        services.AddSingleton<IAgentSessionSource>(new StubSessionSource());
         services.AddSingleton<ISessionSyncStateStore>(new InMemorySessionSyncStateStore());
         services.AddSingleton<IReplicatedSessionStore>(new InMemoryReplicatedSessionStore());
         services.AddSyncClient(SyncAddress);

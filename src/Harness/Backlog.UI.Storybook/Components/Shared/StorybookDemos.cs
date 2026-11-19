@@ -24,8 +24,8 @@ internal static class StorybookDemos
 
     public static string Sample => Html.Value;
 
-    /// <summary>Fails loudly, for the reason <see cref="StorybookDiagramArtifacts"/>
-    /// gives: a lost embed is a csproj fault, not a component one.</summary>
+    /// <summary>Fails loudly rather than rendering an empty story:
+    /// a lost embed is a csproj fault, not a component one.</summary>
     private static string Read()
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName)

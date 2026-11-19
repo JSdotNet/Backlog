@@ -8,9 +8,9 @@ public class ClaudeSettingsStoreTests
     [Fact]
     public void A_missing_settings_file_reads_as_one_unconfigured_account()
     {
-        using var directory = new TemporaryDirectory();
+        using var directory = new TemporaryDirectory("backlog-claude");
 
-        var store = new ClaudeSettingsStore(directory.File("claude.json"));
+        var store = new ClaudeSettingsStore(directory.Combine("claude.json"));
 
         var account = Assert.Single(store.Current.Accounts);
         Assert.False(store.Current.IsConfigured);
@@ -23,8 +23,8 @@ public class ClaudeSettingsStoreTests
     [Fact]
     public void A_saved_key_survives_a_restart()
     {
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var path = directory.Combine("claude.json");
 
         var store = new ClaudeSettingsStore(path);
         store.SetAdminApiKey(store.Current.Accounts[0].Id, "  sk-ant-admin01-example  ");
@@ -34,47 +34,6 @@ public class ClaudeSettingsStoreTests
         var account = Assert.Single(reopened.Current.Accounts);
         Assert.Equal("sk-ant-admin01-example", account.AdminApiKey);
         Assert.True(account.LooksLikeAdminKey);
-    }
-
-    /// <summary>
-    /// The file this store wrote before accounts existed was one flat object. It has
-    /// to read as one account with nothing lost — a key somebody pasted months ago
-    /// must not vanish because the file grew a list — and the first save moves it to
-    /// the new shape for good.
-    /// </summary>
-    [Fact]
-    public void A_flat_settings_file_from_before_accounts_reads_as_one_account_and_is_rewritten_as_a_list()
-    {
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
-        File.WriteAllText(path, """
-            {
-              "adminApiKey": "sk-ant-admin01-legacy",
-              "workspaceId": "wrkspc_legacy",
-              "actor": "person@example.com",
-              "apiVersion": "2023-06-01",
-              "apiEndpoint": "https://claude.example.internal"
-            }
-            """);
-
-        var store = new ClaudeSettingsStore(path);
-
-        var account = Assert.Single(store.Current.Accounts);
-        Assert.Equal("sk-ant-admin01-legacy", account.AdminApiKey);
-        Assert.Equal("wrkspc_legacy", account.WorkspaceId);
-        Assert.Equal("person@example.com", account.Actor);
-        Assert.Equal("https://claude.example.internal", account.ApiEndpoint);
-
-        store.SetDisplayName(account.Id, "work");
-
-        using var written = JsonDocument.Parse(File.ReadAllText(path));
-        Assert.True(written.RootElement.TryGetProperty("accounts", out var accounts));
-        Assert.Equal(1, accounts.GetArrayLength());
-        Assert.False(written.RootElement.TryGetProperty("adminApiKey", out _));
-
-        var reopened = Assert.Single(new ClaudeSettingsStore(path).Current.Accounts);
-        Assert.Equal("sk-ant-admin01-legacy", reopened.AdminApiKey);
-        Assert.Equal("work", reopened.DisplayName);
     }
 
     // --- The key at rest (local ADR 0030) ----------------------------------------
@@ -90,8 +49,8 @@ public class ClaudeSettingsStoreTests
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var path = directory.Combine("claude.json");
 
         var store = new ClaudeSettingsStore(path);
         var id = store.Current.Accounts[0].Id;
@@ -115,8 +74,8 @@ public class ClaudeSettingsStoreTests
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var path = directory.Combine("claude.json");
         File.WriteAllText(path, """
             {
               "accounts": [
@@ -140,27 +99,6 @@ public class ClaudeSettingsStoreTests
         Assert.Equal("sk-ant-admin01-plaintext", reopened.AdminApiKey);
     }
 
-    /// <summary>The oldest shape: the flat file from before accounts. Its key is
-    /// sealed on first read as well, which also moves the file to the list
-    /// shape.</summary>
-    [Fact]
-    public void A_flat_settings_files_plaintext_key_is_sealed_on_first_read()
-    {
-        if (!OperatingSystem.IsWindows()) return;
-
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
-        File.WriteAllText(path, """
-            { "adminApiKey": "sk-ant-admin01-flat", "actor": "person@example.com" }
-            """);
-
-        var store = new ClaudeSettingsStore(path);
-
-        Assert.Equal("sk-ant-admin01-flat", Assert.Single(store.Current.Accounts).AdminApiKey);
-        Assert.DoesNotContain("sk-ant-admin01-flat", File.ReadAllText(path), StringComparison.Ordinal);
-        Assert.Equal("sk-ant-admin01-flat", Assert.Single(new ClaudeSettingsStore(path).Current.Accounts).AdminApiKey);
-    }
-
     /// <summary>An envelope this Windows user cannot open (corrupt, or sealed
     /// under another profile or on another machine) reads as no key, and the rest
     /// of the account still loads. Entering the key again in Settings is the
@@ -173,8 +111,8 @@ public class ClaudeSettingsStoreTests
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var path = directory.Combine("claude.json");
         File.WriteAllText(path, $$"""
             {
               "accounts": [
@@ -194,8 +132,8 @@ public class ClaudeSettingsStoreTests
     [Fact]
     public void Two_accounts_keep_their_own_keys_endpoints_and_actors_across_a_restart()
     {
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var path = directory.Combine("claude.json");
 
         var store = new ClaudeSettingsStore(path);
         var personal = store.Current.Accounts[0].Id;
@@ -226,8 +164,8 @@ public class ClaudeSettingsStoreTests
     [Fact]
     public void Removing_an_account_forgets_its_key_and_removing_the_last_leaves_a_blank_one()
     {
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var path = directory.Combine("claude.json");
 
         var store = new ClaudeSettingsStore(path);
         var first = store.Current.Accounts[0].Id;
@@ -252,8 +190,8 @@ public class ClaudeSettingsStoreTests
     [Fact]
     public void A_custom_api_endpoint_is_normalized_and_survives_a_restart()
     {
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var path = directory.Combine("claude.json");
 
         var store = new ClaudeSettingsStore(path);
         store.SetApiEndpoint(store.Current.Accounts[0].Id, " https://claude.example.internal/v1/ ");
@@ -266,8 +204,8 @@ public class ClaudeSettingsStoreTests
     [Fact]
     public void Setting_a_workspace_leaves_the_key_alone()
     {
-        using var directory = new TemporaryDirectory();
-        var store = new ClaudeSettingsStore(directory.File("claude.json"));
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var store = new ClaudeSettingsStore(directory.Combine("claude.json"));
         var id = store.Current.Accounts[0].Id;
 
         store.SetAdminApiKey(id, "sk-ant-admin01-example");
@@ -280,8 +218,8 @@ public class ClaudeSettingsStoreTests
     [Fact]
     public void Clearing_the_key_leaves_nothing_behind_on_disk()
     {
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var path = directory.Combine("claude.json");
 
         var store = new ClaudeSettingsStore(path);
         var id = store.Current.Accounts[0].Id;
@@ -295,8 +233,8 @@ public class ClaudeSettingsStoreTests
     [Fact]
     public void A_corrupt_settings_file_never_stops_the_app_from_opening()
     {
-        using var directory = new TemporaryDirectory();
-        var path = directory.File("claude.json");
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var path = directory.Combine("claude.json");
         File.WriteAllText(path, "{ not json at all");
 
         var store = new ClaudeSettingsStore(path);
@@ -308,8 +246,8 @@ public class ClaudeSettingsStoreTests
     [Fact]
     public void Changing_the_settings_tells_whoever_is_listening()
     {
-        using var directory = new TemporaryDirectory();
-        var store = new ClaudeSettingsStore(directory.File("claude.json"));
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var store = new ClaudeSettingsStore(directory.Combine("claude.json"));
 
         var changes = 0;
         store.Changed += () => changes++;

@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class InboxDesktopStateTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-state-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-state-tests");
 
     /// <summary>
     /// A rename applied on another install reaches this one as a record in the
@@ -26,7 +26,7 @@ public sealed class InboxDesktopStateTests : IDisposable
     public async Task Starting_replays_the_registry_rename_record_over_the_inbox()
     {
         var inbox = new FakeInboxItems();
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")]));
         Assert.Null(settings.RenameRepository("backlog", "JSdotNet/Backlog-2", out _));
         Assert.Null(settings.RenameRepository("backlog", "Someone/Backlog-3", out _));
@@ -47,7 +47,7 @@ public sealed class InboxDesktopStateTests : IDisposable
     [Fact]
     public void The_repository_picker_offers_an_archived_repository_only_while_show_archived_is_on()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories(
         [
             new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
@@ -79,7 +79,7 @@ public sealed class InboxDesktopStateTests : IDisposable
     {
         using var showArchived = new ShowArchivedRepositories(store: null);
         var state = new InboxDesktopState(
-            new FakeInboxItems(), new GitHubSettingsStore(Path.Combine(_root, "github.json")), showArchived: showArchived);
+            new FakeInboxItems(), new GitHubSettingsStore(_temp.Combine("github.json")), showArchived: showArchived);
         var announced = 0;
         state.Changed += () => announced++;
 
@@ -107,7 +107,7 @@ public sealed class InboxDesktopStateTests : IDisposable
     {
         var signal = new Backlog.Modules.Inbox.Services.InboxChangeSignal();
         var state = new InboxDesktopState(
-            new FakeInboxItems(), new GitHubSettingsStore(Path.Combine(_root, "github.json")), writesElsewhere: signal);
+            new FakeInboxItems(), new GitHubSettingsStore(_temp.Combine("github.json")), writesElsewhere: signal);
         var announced = 0;
         state.WrittenElsewhere += () => announced++;
 
@@ -127,7 +127,7 @@ public sealed class InboxDesktopStateTests : IDisposable
     public async Task An_older_reload_that_finishes_after_a_newer_one_is_ignored()
     {
         var inbox = new FakeInboxItems();
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")));
 
         // Each read waits on its own gate, so the test decides which finishes
         // first — the second one, here, as a fast read overtaking a slow one.
@@ -171,7 +171,7 @@ public sealed class InboxDesktopStateTests : IDisposable
     public async Task Reloads_that_finish_in_order_each_land()
     {
         var inbox = new FakeInboxItems();
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")));
 
         await state.ReloadAsync();
         Assert.Empty(state.Items);
@@ -194,7 +194,7 @@ public sealed class InboxDesktopStateTests : IDisposable
         var inbox = new FakeInboxItems();
         var picked = inbox.Seed("Picked in the queue");
         inbox.Seed("Put aside", status: Backlog.Modules.Inbox.Abstractions.InboxStatus.Deferred);
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")));
         await state.ReloadAsync();
 
         state.TogglePicked(picked.Id, picked: true, range: false);
@@ -217,7 +217,7 @@ public sealed class InboxDesktopStateTests : IDisposable
         var filed = inbox.Seed("Keynote: Aspire in production", kind: Backlog.Modules.Inbox.Abstractions.ContentKind.Note, listId: talks.Id);
         var deferred = inbox.Seed("Put aside", status: Backlog.Modules.Inbox.Abstractions.InboxStatus.Deferred);
         var unfiled = inbox.Seed("In the inbox");
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")));
         await state.ReloadAsync();
 
         Assert.True(state.OpenItem(filed.Id));
@@ -247,7 +247,7 @@ public sealed class InboxDesktopStateTests : IDisposable
         var inbox = new FakeInboxItems();
         inbox.Seed("Tagged here", tags: ["sync", "Deploy"]);
         var backlog = new FakeBacklogTagSource(["infra", "deploy"]);
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")), backlogTags: backlog);
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")), backlogTags: backlog);
 
         await state.ReloadAsync();
 
@@ -262,7 +262,7 @@ public sealed class InboxDesktopStateTests : IDisposable
     {
         var inbox = new FakeInboxItems();
         var backlog = new FakeBacklogTagSource(["infra"]);
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")), backlogTags: backlog);
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")), backlogTags: backlog);
 
         await state.ReloadAsync();
         Assert.Equal(["infra"], state.TagOptions.Select(option => option.Value));
@@ -277,7 +277,7 @@ public sealed class InboxDesktopStateTests : IDisposable
     {
         var inbox = new FakeInboxItems();
         inbox.Seed("Tagged here", tags: ["sync"]);
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")));
 
         await state.ReloadAsync();
 
@@ -293,7 +293,7 @@ public sealed class InboxDesktopStateTests : IDisposable
         var inbox = new FakeInboxItems();
         var first = inbox.Seed("Read the design doc");
         var second = inbox.Seed("Buy milk");
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")));
         await state.ReloadAsync();
 
         state.SelectItem(first.Id);
@@ -328,7 +328,7 @@ public sealed class InboxDesktopStateTests : IDisposable
         var other = inbox.Seed("Buy milk", capturedAt: inbox.Now);
         await inbox.ArchiveAsDuplicateAsync(direct.Id, kept.Id, TestContext.Current.CancellationToken);
         await inbox.ArchiveAsDuplicateAsync(chained.Id, direct.Id, TestContext.Current.CancellationToken);
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")));
         await state.ReloadAsync();
 
         state.SelectItem(kept.Id);
@@ -350,7 +350,7 @@ public sealed class InboxDesktopStateTests : IDisposable
         var selected = inbox.Seed("Scroll jumps to top", capturedAt: inbox.Now.AddMinutes(-2));
         var other = inbox.Seed("Read the post", capturedAt: inbox.Now.AddMinutes(-1));
         var task = Guid.CreateVersion7();
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")));
         await state.ReloadAsync();
         state.SelectItem(selected.Id);
 
@@ -377,14 +377,5 @@ public sealed class InboxDesktopStateTests : IDisposable
             Task.FromResult(Tags);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

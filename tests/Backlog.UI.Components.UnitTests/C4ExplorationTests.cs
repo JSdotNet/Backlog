@@ -161,8 +161,7 @@ public sealed class C4ExplorationTests
 
     /// <summary>
     /// Only a view that exists is offered. This reader cannot invent one the workspace
-    /// never declared, and an affordance that opens nothing is worse than none — the
-    /// same rule the Archify button follows.
+    /// never declared, and an affordance that opens nothing is worse than none.
     /// </summary>
     [Fact]
     public void A_container_with_no_component_view_drills_nowhere()

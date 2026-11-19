@@ -7,7 +7,7 @@ namespace Backlog.ArchitectureTests;
 /// the TypeScript VS Code extension were never analysed (issue #749). These rules
 /// keep all three languages in the matrix, keep the C# scan free of a build — a
 /// MAUI workload install on the scan runner is what <c>build-mode: none</c>
-/// avoids — and keep the generated Archify renders out of the JavaScript results.
+/// avoids.
 /// </summary>
 /// <remarks>
 /// The workflow is read as text: this project takes no package references, and
@@ -17,14 +17,9 @@ public class CodeQlCoverageTests
 {
     private static readonly string[] Workflow = [".github", "workflows", "codeql.yml"];
 
-    private static readonly string[] Config = [".github", "codeql", "codeql-config.yml"];
-
     private const string ConfigPath = ".github/codeql/codeql-config.yml";
 
     private static readonly string[] Languages = ["actions", "csharp", "javascript-typescript"];
-
-    private static readonly string[] IgnoredRenders =
-        [".devbook/**/_archify/*.html", "tools/archify/examples/*.html"];
 
     private static readonly Regex MatrixLanguage =
         new(@"^\s*-\s*language:\s*(?<language>\S+)\s*$", RegexOptions.Multiline);
@@ -73,17 +68,5 @@ public class CodeQlCoverageTests
 
         Assert.Contains("name: Analyze (${{ matrix.language }})", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("name: Analyze (actions)", workflow, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void The_config_ignores_the_generated_archify_renders()
-    {
-        var config = File.ReadAllText(RepositoryRoot.File(Config));
-
-        Assert.Contains("paths-ignore:", config, StringComparison.Ordinal);
-        foreach (var glob in IgnoredRenders)
-        {
-            Assert.Contains($"- '{glob}'", config, StringComparison.Ordinal);
-        }
     }
 }

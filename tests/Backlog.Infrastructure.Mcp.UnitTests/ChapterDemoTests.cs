@@ -33,11 +33,11 @@ public sealed class ChapterDemoTests : IDisposable
 
     private static readonly TasksRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
 
-    private readonly DirectoryInfo _root = Directory.CreateTempSubdirectory("backlog-mcp-demos");
+    private readonly TemporaryDirectory _root = new("backlog-mcp-demos");
 
     public ChapterDemoTests()
     {
-        var context = Directory.CreateDirectory(Path.Combine(_root.FullName, ".domain", "ordering"));
+        var context = Directory.CreateDirectory(Path.Combine(_root.Path, ".domain", "ordering"));
 
         File.WriteAllText(Path.Combine(context.FullName, "context.md"), "# Ordering\n");
         File.WriteAllText(Path.Combine(context.FullName, "features.md"), Features);
@@ -47,7 +47,7 @@ public sealed class ChapterDemoTests : IDisposable
         File.WriteAllText(Path.Combine(context.FullName, "flows.demo.html"), Html);
     }
 
-    public void Dispose() => _root.Delete(recursive: true);
+    public void Dispose() => _root.Dispose();
 
     [Fact]
     public async Task A_page_lists_its_demos_by_name_then_by_field_in_document_order()
@@ -110,7 +110,7 @@ public sealed class ChapterDemoTests : IDisposable
 
     private DevbookTools Tools() =>
         new(
-            new FakeDevbookFolderSource(_root.FullName, new DevbookFolderSetting(".domain", "Domain", ".domain")),
+            new FakeDevbookFolderSource(_root.Path, new DevbookFolderSetting(".domain", "Domain", ".domain")),
             new FakeDevbookAnnotationStore(),
             new FakeRepositoryDirectory([Backlog]));
 }

@@ -22,10 +22,9 @@ namespace Backlog.UI.Components.UnitTests;
 ///
 /// <para>
 /// Six fields were redrawn in the round that followed, on the owner's review of the
-/// storybook, and this is where that shows. <c>kind</c> is a classification chip
-/// and <c>version</c> takes a <c>v</c>; both now hide their label rather than
-/// printing it, so their rows carry <c>--bare</c> and their <c>dt</c> carries
-/// <c>sr-only</c>. <c>aliases</c> is a superscript badge per name.
+/// storybook, and this is where that shows. <c>version</c> takes a <c>v</c> and
+/// hides its label rather than printing it, so its row carries <c>--bare</c> and its
+/// <c>dt</c> carries <c>sr-only</c>. <c>aliases</c> is a superscript badge per name.
 /// <c>feature-flag</c> is badges in the feature family rather than tag chips.
 /// </para>
 ///
@@ -116,7 +115,6 @@ public sealed class MetadataViewMarkupTests
     /// <c>related</c> entry that will not parse.</summary>
     private const string EveryShape = """
         status: adopted
-        kind: framework
         version: "10.0"
         effort: 5
         issue: JSdotNet/Backlog#118
@@ -159,8 +157,6 @@ public sealed class MetadataViewMarkupTests
                     <dd class="devbook-fields__value"><span class="badge badge--alias" title="alias: TaskItem">TaskItem</span><span class="badge badge--alias" title="alias: backlog_entry_id">backlog_entry_id</span></dd></div>
                 <div class="devbook-fields__row"><dt class="devbook-fields__label">alternatives</dt>
                     <dd class="devbook-fields__value"><code class="devbook-value">Azure Functions</code><code class="devbook-value">Controller-based ASP.NET Core</code></dd></div>
-                <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">kind</dt>
-                    <dd class="devbook-fields__value"><span class="badge badge--kind" title="kind: framework">framework</span></dd></div>
                 <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">version</dt>
                     <dd class="devbook-fields__value"><code class="devbook-value" title="version: 10.0">v10.0</code></dd></div>
                 <div class="devbook-fields__row"><dt class="devbook-fields__label">feature-flag</dt>
@@ -182,8 +178,6 @@ public sealed class MetadataViewMarkupTests
                     <dd class="devbook-fields__value"><span class="badge badge--alias" title="alias: TaskItem">TaskItem</span><span class="badge badge--alias" title="alias: backlog_entry_id">backlog_entry_id</span></dd></div>
                 <div class="devbook-fields__row"><dt class="devbook-fields__label">alternatives</dt>
                     <dd class="devbook-fields__value"><code class="devbook-value">Azure Functions</code><code class="devbook-value">Controller-based ASP.NET Core</code></dd></div>
-                <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">kind</dt>
-                    <dd class="devbook-fields__value"><span class="badge badge--kind" title="kind: framework">framework</span></dd></div>
                 <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">version</dt>
                     <dd class="devbook-fields__value"><code class="devbook-value" title="version: 10.0">v10.0</code></dd></div>
                 <div class="devbook-fields__row"><dt class="devbook-fields__label">feature-flag</dt>
@@ -197,7 +191,6 @@ public sealed class MetadataViewMarkupTests
     private const string FeatureFlagMarkup = """
 <div class="devbook-record" role="group" aria-label="Devbook metadata"><div class="devbook-record__headline"><label class="status-editor badge badge--status badge--status-ready"><span class="sr-only">Change status</span>
     <select class="status-editor__select" value="ready" aria-label="Change status" title="Change status" blazor:onchange="ID"><option value="draft">draft</option><option value="ready" selected>ready</option><option value="in-progress">in-progress</option><option value="done">done</option><option value="blocked">blocked</option></select></label></div><dl class="devbook-fields">
-                
                 
                 
                 

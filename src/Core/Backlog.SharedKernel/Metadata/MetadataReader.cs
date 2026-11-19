@@ -51,7 +51,7 @@ public static class MetadataReader
     private static readonly HashSet<string> KnownFields = new(
         [
             "status", "related", "depends-on", "implements", "issue",
-            "order", "aliases", "alternatives", "type", "kind", "version",
+            "order", "aliases", "alternatives", "type", "version",
             "effort", "roadmap", "feature-flag", "tests", "number", "index",
             "date", "deployment", "sync", "rating", "change",
             .. DevbookSchema.StateFields
@@ -115,25 +115,17 @@ public static class MetadataReader
             if (rejected.Count > 0) extra[field] = rejected;
         }
 
-        // `type` is the field; `kind` is how `tech/` used to spell it, and the
-        // convention still parses the old name so a repository is not broken by a
-        // sync. Read here in that order, and marked, so the report can say which.
-        var type = Scalar(fields, "type");
-        var kind = Scalar(fields, DevbookSchema.LegacyTechTypeField);
-
         return new MetadataRecord
         {
             Status = Scalar(fields, "status"),
             Rating = Scalar(fields, "rating"),
-            Type = type ?? kind,
-            TypeReadFromKind = type is null && kind is not null,
+            Type = Scalar(fields, "type"),
             Related = references.GetValueOrDefault("related", []),
             DependsOn = references.GetValueOrDefault("depends-on", []),
             Implements = references.GetValueOrDefault("implements", []),
             Issue = Scalar(fields, "issue"),
             Aliases = fields.GetValueOrDefault("aliases", []),
             Alternatives = fields.GetValueOrDefault("alternatives", []),
-            Kind = kind,
             Version = Scalar(fields, "version"),
             Effort = ParseEffort(Scalar(fields, "effort")),
             Roadmap = fields.GetValueOrDefault("roadmap", []),

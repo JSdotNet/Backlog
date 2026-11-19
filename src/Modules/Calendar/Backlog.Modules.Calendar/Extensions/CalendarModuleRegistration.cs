@@ -24,7 +24,7 @@ public static class CalendarModuleRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddScoped<ICalendarPlansLayer>(sp =>
-            new CalendarPlansLayer(sp.GetService<ICalendarPlans>(), sp.GetService<IAppFeatureSettings>()));
+            new CalendarPlansLayer(sp.GetService<ICalendarPlans>()));
 
         services.TryAddScoped<ICalendarEventsLayer>(sp =>
             new CalendarEventsLayer(sp.GetService<ICalendarEvents>(), sp.GetService<IAppFeatureSettings>()));

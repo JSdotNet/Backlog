@@ -16,7 +16,7 @@ namespace Backlog.HostComposition.UnitTests;
 /// </summary>
 public sealed class DesktopMcpEndpointSourceTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "mcp-source-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("mcp-source-tests");
 
     private readonly IServiceProvider _services = new ServiceCollection().BuildServiceProvider();
 
@@ -89,20 +89,11 @@ public sealed class DesktopMcpEndpointSourceTests : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private WorkspaceSettingsStore Settings(int port)
     {
-        var settings = new WorkspaceSettingsStore(Path.Combine(_root, "store-" + Guid.NewGuid().ToString("N")));
+        var settings = new WorkspaceSettingsStore(_temp.Combine("store-" + Guid.NewGuid().ToString("N")));
         Assert.Null(settings.SetMcpServerPort(port));
         return settings;
     }

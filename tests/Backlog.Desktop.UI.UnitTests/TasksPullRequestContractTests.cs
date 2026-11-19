@@ -27,7 +27,7 @@ public sealed class TasksPullRequestContractTests : IDisposable
 
     private static readonly DateTimeOffset Noon = new(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
     public void Dispose()
@@ -37,10 +37,10 @@ public sealed class TasksPullRequestContractTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(dir.Path);
+            dir.Dispose();
         }
     }
 
@@ -102,8 +102,9 @@ public sealed class TasksPullRequestContractTests : IDisposable
 
     private async Task<World> ComposeAsync()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-pr-contract", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("backlog-pr-contract");
+        _tempDirs.Add(temp);
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(root));

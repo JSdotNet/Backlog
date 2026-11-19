@@ -88,4 +88,4 @@ public sealed record RaiseImpedimentRequest(string? Title, IReadOnlyList<HeldBac
 /// <param name="Title">What the impediment is called, for the sync log.</param>
 /// <param name="Content">The impediment exactly as it is stored.</param>
 /// <param name="UpdatedAt">When it was last written — the stamp last-write-wins is decided on.</param>
-public sealed record ImpedimentReplicaCopyDto(Guid Id, string Title, string Content, DateTimeOffset UpdatedAt);
+public sealed record ImpedimentReplicaCopyDto(Guid Id, string Title, string Content, DateTimeOffset UpdatedAt) : IWholeDocumentCopy;

@@ -16,7 +16,8 @@ public sealed class SqliteClaudeApiRequestStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 10, 7, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-sqlite-api-requests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-sqlite-api-requests");
+    private string _root => _temp.Path;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -129,7 +130,6 @@ public sealed class SqliteClaudeApiRequestStoreTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

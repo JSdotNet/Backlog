@@ -1356,7 +1356,8 @@ public sealed class SettingsDevicesTests
         IDeviceKeyStore? keys = null,
         bool keyBound = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devices-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-devices-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -1514,7 +1515,7 @@ public sealed class SettingsDevicesTests
 
         var component = testContext.Render<Settings>();
         return new SettingsRenderContext(
-            root, testContext, component, credentials, service, http, syncState, tokens, tokenServices, syncSettings, pairingClientsResolved)
+            temp, testContext, component, credentials, service, http, syncState, tokens, tokenServices, syncSettings, pairingClientsResolved)
         {
             SessionSyncState = sessionSyncState
         };
@@ -1526,7 +1527,7 @@ public sealed class SettingsDevicesTests
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         InMemoryDeviceCredentialStore Credentials,
@@ -1546,14 +1547,7 @@ public sealed class SettingsDevicesTests
             Http.Dispose();
             Tokens?.Dispose();
             TokenServices?.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 
@@ -1648,6 +1642,7 @@ public sealed class SettingsDevicesTests
 
     /// <summary>One task, stamped now, so a push has exactly one thing to
     /// send and the reported count is a number a test can name.</summary>
+    // Differs from InMemoryTaskRepository: holds one task stamped now, so a push sends exactly one.
     private sealed class OneTaskRepository : ITaskRepository
     {
         private readonly Dictionary<Guid, TaskItem> _tasks;
@@ -1768,6 +1763,7 @@ public sealed class SettingsDevicesTests
 
     /// <summary>One local session, active now, so a push has exactly one record
     /// to send and the reported count is a number a test can name.</summary>
+    // Differs from StubSessionSource: builds its one session at each reading, so it is always active now.
     private sealed class OneSessionSource : IAgentSessionSource
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>

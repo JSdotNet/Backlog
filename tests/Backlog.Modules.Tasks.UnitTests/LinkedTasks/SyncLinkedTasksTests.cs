@@ -246,7 +246,7 @@ public sealed class SyncLinkedTasksTests
         }
 
         // A chapter the person adds below the body is still a chapter.
-        Assert.Equal(1, EntryTextParser.CountSubItems(EntryTextParser.AppendSubItem(raw, "A real step")));
+        Assert.Equal(1, EntryTextParser.CountSubItems(raw.TrimEnd('\n') + "\n\n## A real step"));
     }
 
     [Fact]

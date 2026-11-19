@@ -370,6 +370,7 @@ public class LoopToolsTests
     }
 
     /// <summary>A session request queue whose database cannot be read.</summary>
+    // Differs from InMemorySessionRequestStore: every read throws, as an unreadable database does.
     private sealed class UnreadableRequests : ISessionRequestStore
     {
         private static IOException Locked => new("database is locked");
@@ -400,6 +401,7 @@ public class LoopToolsTests
     }
 
     /// <summary>A question relay store whose database cannot be read.</summary>
+    // Differs from HeldWaitingQuestions: every read throws, as an unreadable database does.
     private sealed class UnreadableQuestions : IWaitingQuestionStore
     {
         private static IOException Locked => new("database is locked");

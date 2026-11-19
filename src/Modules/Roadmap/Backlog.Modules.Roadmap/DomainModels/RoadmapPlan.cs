@@ -449,15 +449,6 @@ public sealed class RoadmapPlan
         return Result.Success(milestone);
     }
 
-    public Result<Milestone> MoveMilestone(Guid milestoneId, DateOnly on)
-    {
-        var milestone = FindMilestone(milestoneId);
-        if (milestone is null) return Result.Failure<Milestone>(RoadmapErrors.NodeNotFound(milestoneId));
-
-        milestone.MoveTo(on);
-        return Result.Success(milestone);
-    }
-
     public Result RemoveMilestone(Guid milestoneId)
     {
         var milestone = FindMilestone(milestoneId);

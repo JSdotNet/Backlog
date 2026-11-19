@@ -163,8 +163,8 @@ public sealed class AppFooterSyncTests
     public async Task Sync_now_also_runs_the_knowledge_event_loop()
     {
         using var context = Context(withSync: true);
-        var root = Path.Combine(Path.GetTempPath(), "backlog-footer-sync", Guid.NewGuid().ToString("n"));
-        using var cleanup = new DeletesFolder(root);
+        using var temp = new TemporaryDirectory("backlog-footer-sync");
+        var root = temp.Path;
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
         _ = features.SetEnabled(SyncFeatures.Sync, true);
         _ = features.SetEnabled(EventsFeatures.Events, true);
@@ -192,14 +192,6 @@ public sealed class AppFooterSyncTests
         // when this loop finishes, and bUnit re-checks only on a render.
         await sessions.FirstResolve.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         Assert.Equal(1, sessions.Resolved);
-    }
-
-    private sealed class DeletesFolder(string root) : IDisposable
-    {
-        public void Dispose()
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
     }
 
     /// <summary>A host that composed the loop and no exchange: the loop asks for its session,
@@ -258,8 +250,8 @@ public sealed class AppFooterSyncTests
         context.Services.AddSingleton(new FeedbackReporter(
             new GitHubIntegration(
                 new GitHubSettingsStore(Path.Combine(root, "github.json")),
-                new SilentGitHubClient(),
-                new SilentProbe())));
+                new StubGitHubClient(),
+                new StubProbe())));
         context.Services.AddSingleton<FeedbackReportChannel>();
 
         // The one task this machine has to send, shared with the wire so the
@@ -372,6 +364,7 @@ public sealed class AppFooterSyncTests
     /// <summary>One task, stamped now, so a push has exactly one thing to send —
     /// and so the echo of it on the pulled page is held rather than applied,
     /// because the merge finds the same document, same stamp, already here.</summary>
+    // Differs from InMemoryTaskRepository: holds one task the test stamped, so a pull's echo of it is held.
     private sealed class OneTaskRepository(TaskItem mine) : ITaskRepository
     {
         private readonly Dictionary<Guid, TaskItem> _tasks = new() { [mine.Id] = mine };
@@ -404,31 +397,6 @@ public sealed class AppFooterSyncTests
                 return Task.FromResult<IReadOnlyList<TaskItem>>(
                     [.. _tasks.Values.Where(task => task.UpdatedAt > since).OrderBy(task => task.UpdatedAt)]);
             }
-        }
-    }
-
-    private sealed class SilentGitHubClient : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class SilentProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not configured."));
-
-        public void Invalidate()
-        {
         }
     }
 }

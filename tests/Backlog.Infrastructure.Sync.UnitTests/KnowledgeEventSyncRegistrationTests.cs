@@ -16,8 +16,8 @@ public class KnowledgeEventSyncRegistrationTests : IDisposable
 {
     private static readonly Uri SyncAddress = new("https://sync.example");
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(), "backlog-knowledge-event-sync-registration-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-knowledge-event-sync-registration-tests");
+    private string _root => _temp.Path;
 
     private static ServiceProvider Build(IServiceCollection services) =>
         services.BuildServiceProvider(new ServiceProviderOptions
@@ -96,14 +96,5 @@ public class KnowledgeEventSyncRegistrationTests : IDisposable
         Assert.Equal(DateTimeOffset.MinValue, new FileKnowledgeEventSyncStateStore(path).Current.PushWatermark);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

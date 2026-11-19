@@ -190,6 +190,7 @@ public sealed class McpScopePoliciesTests
         }
     }
 
+    // Differs from FailableMcpGrantStore: answers one fixed grant and throws on every write.
     private sealed class OneGrant(McpGrant grant) : IMcpGrantStore
     {
         public event Action? Changed { add { } remove { } }

@@ -61,8 +61,7 @@ public sealed class DpapiDeviceKeyStore : IDeviceKeyStore, IDisposable
                 return null;
             }
 
-            pkcs8 = ProtectedData.Unprotect(
-                Convert.FromBase64String(File.ReadAllText(_path)), optionalEntropy: null, DataProtectionScope.CurrentUser);
+            pkcs8 = UserDpapi.Open(File.ReadAllText(_path));
             key.ImportPkcs8PrivateKey(pkcs8, out _);
             return key;
         }
@@ -88,10 +87,9 @@ public sealed class DpapiDeviceKeyStore : IDeviceKeyStore, IDisposable
             var directory = Path.GetDirectoryName(_path);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
 
-            var envelope = ProtectedData.Protect(pkcs8, optionalEntropy: null, DataProtectionScope.CurrentUser);
             // Written beside the file and moved over it, so a crash mid-write leaves the
             // old key or the new one, never half of either.
-            File.WriteAllText(temporary, Convert.ToBase64String(envelope));
+            File.WriteAllText(temporary, UserDpapi.Seal(pkcs8));
             File.Move(temporary, _path, overwrite: true);
             return key;
         }

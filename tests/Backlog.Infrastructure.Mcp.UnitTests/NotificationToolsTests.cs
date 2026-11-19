@@ -467,6 +467,7 @@ public sealed class NotificationToolsTests
 
 /// <summary>Notifications' ports, recording what a tool asked of them, over an in-memory set of
 /// notifications a test seeds.</summary>
+// Differs from RecordingNotifications: also answers statuses, over notifications a test seeds.
 internal sealed class FakeNotifications : INotifications, INotificationStatuses
 {
     private readonly Dictionary<Guid, NotificationStatus> _statuses = [];

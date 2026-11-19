@@ -654,13 +654,6 @@ public sealed class TaskItem
     public static bool IsTransitionAllowed(EntryStatus from, EntryStatus to) =>
         EntryStatusFlow.IsAllowed(from, to);
 
-    /// <summary>The statuses this entry may move to right now, excluding its
-    /// current one. Callers use this to explain a refusal rather than just
-    /// swallow it. The published spelling of
-    /// <see cref="EntryStatusFlow.NextFrom"/>.</summary>
-    public static IReadOnlyList<EntryStatus> NextStatusesFrom(EntryStatus from) =>
-        EntryStatusFlow.NextFrom(from);
-
     /// <summary>Returns true if the entry may currently transition to <paramref name="target"/>.</summary>
     public bool CanChangeStatusTo(EntryStatus target) => IsTransitionAllowed(Status, target);
 
@@ -794,19 +787,6 @@ public sealed class TaskItem
         var subItem = FindSubItem(subItemId);
         subItem.Title = title;
         subItem.Notes = notes;
-        Touch();
-    }
-
-    /// <summary>Moves a sub-item to a new zero-based position, reindexing the rest.</summary>
-    public void ReorderSubItem(Guid subItemId, int newIndex)
-    {
-        var subItem = FindSubItem(subItemId);
-        if (newIndex < 0 || newIndex >= _subItems.Count)
-            throw new ArgumentOutOfRangeException(nameof(newIndex));
-
-        _subItems.Remove(subItem);
-        _subItems.Insert(newIndex, subItem);
-        Reindex();
         Touch();
     }
 

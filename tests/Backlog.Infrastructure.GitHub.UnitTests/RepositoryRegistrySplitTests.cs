@@ -28,13 +28,11 @@ public class RepositoryRegistrySplitTests : IDisposable
 
     private const string SaveFailed = "Changed, but the choice couldn't be saved for next time.";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "repository-registry-split-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("repository-registry-split-tests");
 
-    private string WorkspaceRoot => Path.Combine(_root, "workspace");
+    private string WorkspaceRoot => _temp.Combine("workspace");
 
-    private string LocalPath(string install = "install-1") => Path.Combine(_root, install, "github.json");
+    private string LocalPath(string install = "install-1") => _temp.Combine(install, "github.json");
 
     private GitHubSettingsStore Store(string install = "install-1", TimeProvider? clock = null) =>
         new(LocalPath(install), () => WorkspaceRoot, clock);
@@ -50,7 +48,7 @@ public class RepositoryRegistrySplitTests : IDisposable
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
         Assert.Null(store.SetRepositoryColour("backlog", 3));
         Assert.Null(store.SetRepositoryToken("backlog", "ghp_secret"));
-        Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
+        Assert.Null(store.SetCloneDirectory("backlog", _temp.Combine("clone")));
 
         var registry = File.ReadAllText(store.RegistryPath);
         Assert.Contains("\"id\": \"JSdotNet/Backlog\"", registry, StringComparison.Ordinal);
@@ -86,7 +84,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     [Fact]
     public void A_clone_directory_survives_the_alias_being_renamed()
     {
-        var clone = Path.Combine(_root, "clone");
+        var clone = _temp.Combine("clone");
 
         var store = Store();
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
@@ -117,7 +115,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     [Fact]
     public void Renaming_a_repository_carries_everything_and_records_the_move()
     {
-        var clone = Path.Combine(_root, "clone");
+        var clone = _temp.Combine("clone");
         var clock = new FakeTimeProvider(new DateTimeOffset(2026, 9, 18, 10, 0, 0, TimeSpan.Zero));
 
         var store = Store(clock: clock);
@@ -200,7 +198,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     [Fact]
     public void A_rename_onto_a_configured_repository_merges_into_it()
     {
-        var clone = Path.Combine(_root, "finance");
+        var clone = _temp.Combine("finance");
 
         var store = Store();
         Assert.Null(store.SetRepositories(
@@ -324,7 +322,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     {
         var store = Store();
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
-        Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
+        Assert.Null(store.SetCloneDirectory("backlog", _temp.Combine("clone")));
 
         var (repositories, errors) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog-renamed");
         Assert.Empty(errors);
@@ -343,8 +341,8 @@ public class RepositoryRegistrySplitTests : IDisposable
     [Fact]
     public void Swapping_two_aliases_relabels_and_each_row_keeps_its_own_clone()
     {
-        var backlogClone = Path.Combine(_root, "backlog");
-        var docsClone = Path.Combine(_root, "docs");
+        var backlogClone = _temp.Combine("backlog");
+        var docsClone = _temp.Combine("docs");
 
         var store = Store();
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("docs", "Docs")]));
@@ -433,29 +431,26 @@ public class RepositoryRegistrySplitTests : IDisposable
 
     /// <summary>
     /// A corrupt shared file must never stop the app from opening — the rule the
-    /// local file has always followed. What it may not do is read as an empty
-    /// list: that would look like somebody had cleared their repositories, and
-    /// the next write would make it true. So an un-migrated install opens on its
-    /// legacy fields and every write that would touch the shared file is refused
-    /// with the honest reason.
+    /// local file has always followed. Every write that would touch the shared
+    /// file is refused with the honest reason, because the list it would act on
+    /// is exactly the file that could not be read.
     /// </summary>
     [Fact]
     public void A_corrupt_registry_still_opens_the_app_and_refuses_repository_writes()
     {
-        WriteLegacyLocalFile();
         WriteRegistryFile("{ this is not json");
 
         var store = Store();
 
         Assert.Equal(RegistryUnreadable, store.RegistryError);
-        Assert.Equal("backlog", Assert.Single(store.Current.Repositories).Alias);
+        Assert.Empty(store.Current.Repositories);
 
         Assert.Equal(RegistryUnreadable, store.SetRepositories([Repository("other", "Other")]));
         Assert.Equal(RegistryUnreadable, store.SetRepositoryColour("backlog", 2));
         Assert.Equal(RegistryUnreadable, store.RemoveRepository("backlog"));
 
         // Refused, not applied-and-reported: the in-memory list is untouched.
-        Assert.Equal("backlog", Assert.Single(store.Current.Repositories).Alias);
+        Assert.Empty(store.Current.Repositories);
 
         // And nothing wrote over the file that could not be read, so whatever it
         // holds is still there to be repaired by hand.
@@ -534,95 +529,6 @@ public class RepositoryRegistrySplitTests : IDisposable
 
     // --- Carry-over -----------------------------------------------------------
 
-    [Fact]
-    public void A_legacy_github_json_carries_over_once_and_the_local_file_is_reduced()
-    {
-        WriteLegacyLocalFile();
-
-        var store = Store();
-
-        var registry = File.ReadAllText(store.RegistryPath);
-        Assert.Contains("\"id\": \"JSdotNet/Backlog\"", registry, StringComparison.Ordinal);
-        Assert.Contains("\"alias\": \"backlog\"", registry, StringComparison.Ordinal);
-        Assert.Contains("\"colour\": 3", registry, StringComparison.Ordinal);
-
-        // The reduced write follows the successful shared one, so the identity is
-        // stated in one file rather than two.
-        var local = File.ReadAllText(store.SettingsPath);
-        Assert.Contains("\"id\": \"JSdotNet/Backlog\"", local, StringComparison.Ordinal);
-        if (OperatingSystem.IsWindows()) Assert.DoesNotContain("ghp_secret", local, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"alias\"", local, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"owner\"", local, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"colour\"", local, StringComparison.Ordinal);
-
-        // And nothing was lost on the way through.
-        var repository = Assert.Single(store.Current.Repositories);
-        Assert.Equal("backlog", repository.Alias);
-        Assert.Equal("JSdotNet/Backlog", repository.FullName);
-        Assert.Equal(3, repository.Colour);
-        Assert.Equal("ghp_secret", repository.Token);
-        Assert.Equal("/tmp/backlog-clone", repository.CloneDirectory);
-    }
-
-    /// <summary>
-    /// Gap-filling only. Install #2's stale legacy file contributes the repository
-    /// install #1 never had, and says nothing about the one it already holds — not
-    /// its alias, not its hue, not its position. Anything else and the second
-    /// machine to start would quietly overwrite the first machine's choices.
-    /// </summary>
-    [Fact]
-    public void A_carry_over_only_adds_ids_the_registry_does_not_have()
-    {
-        WriteRegistryFile("""
-            {
-              "repositories": [ { "id": "JSdotNet/Backlog", "alias": "bl", "colour": 2 } ]
-            }
-            """);
-        WriteLocalFile(
-            """
-            {
-              "repositories": [
-                { "alias": "backlog", "owner": "JSdotNet", "name": "Backlog", "colour": 5 },
-                { "alias": "docs", "owner": "JSdotNet", "name": "Docs" }
-              ],
-              "apiEndpoint": "https://api.github.com"
-            }
-            """);
-
-        var store = Store();
-
-        Assert.Equal(["bl", "docs"], store.Current.Repositories.Select(r => r.Alias));
-        Assert.Equal(2, store.Current.Find("bl")!.Colour);
-        Assert.Equal("JSdotNet/Docs", store.Current.Find("docs")!.FullName);
-    }
-
-    /// <summary>
-    /// The bounded hazard the reduced write closes. A repository deliberately
-    /// removed and then resurrected by the very file that was migrated a moment
-    /// ago would make "remove" mean nothing across a restart.
-    /// </summary>
-    [Fact]
-    public void A_second_start_carries_nothing_over()
-    {
-        WriteLocalFile(
-            """
-            {
-              "repositories": [
-                { "alias": "backlog", "owner": "JSdotNet", "name": "Backlog" },
-                { "alias": "docs", "owner": "JSdotNet", "name": "Docs", "token": "ghp_docs" }
-              ],
-              "apiEndpoint": "https://api.github.com"
-            }
-            """);
-
-        var first = Store();
-        Assert.Equal(["backlog", "docs"], first.Current.Repositories.Select(r => r.Alias));
-        Assert.Null(first.RemoveRepository("docs"));
-
-        var second = Store();
-        Assert.Equal(["backlog"], second.Current.Repositories.Select(r => r.Alias));
-    }
-
     // --- Reading the registry -------------------------------------------------
 
     /// <summary>The same tolerance the local file has always had for a row
@@ -681,7 +587,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     [Fact]
     public void Moving_the_workspace_root_reloads_the_registry()
     {
-        var root = Path.Combine(_root, "workspace-one");
+        var root = _temp.Combine("workspace-one");
         var store = new GitHubSettingsStore(LocalPath(), () => root);
 
         // Deliberately nothing machine-local, so this install has no overlay row
@@ -689,7 +595,7 @@ public class RepositoryRegistrySplitTests : IDisposable
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
         Assert.Equal(["backlog"], store.Current.Repositories.Select(r => r.Alias));
 
-        var moved = Path.Combine(_root, "workspace-two");
+        var moved = _temp.Combine("workspace-two");
         Directory.CreateDirectory(Path.Combine(moved, "config"));
         File.WriteAllText(
             Path.Combine(moved, "config", "repos.json"),
@@ -710,26 +616,6 @@ public class RepositoryRegistrySplitTests : IDisposable
 
     // --- Helpers --------------------------------------------------------------
 
-    /// <summary>A per-user file exactly as a build from before the split left it:
-    /// identity and machine half in one row, and no registry anywhere.</summary>
-    private void WriteLegacyLocalFile() =>
-        WriteLocalFile(
-            """
-            {
-              "repositories": [
-                {
-                  "alias": "backlog",
-                  "owner": "JSdotNet",
-                  "name": "Backlog",
-                  "cloneDirectory": "/tmp/backlog-clone",
-                  "token": "ghp_secret",
-                  "colour": 3
-                }
-              ],
-              "apiEndpoint": "https://api.github.com"
-            }
-            """);
-
     private void WriteLocalFile(string json)
     {
         var path = LocalPath();
@@ -746,7 +632,7 @@ public class RepositoryRegistrySplitTests : IDisposable
 
     public void Dispose()
     {
+        _temp.Dispose();
         GC.SuppressFinalize(this);
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
     }
 }

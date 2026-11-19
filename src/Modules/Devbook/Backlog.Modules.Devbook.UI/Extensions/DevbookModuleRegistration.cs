@@ -1,10 +1,8 @@
 using Backlog.Infrastructure.Copilot;
-using Backlog.Infrastructure.Devbook.Archify;
 using Backlog.Infrastructure.Devbook.Code;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel;
-using Backlog.UI.Components.Diagrams;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.Devbook.Extensions;
@@ -34,9 +32,8 @@ public static class DevbookModuleRegistration
 {
     /// <param name="services">The container to register into.</param>
     /// <param name="copilotCliLauncher">The launcher the Devbook's "open in Copilot
-    /// CLI" offers and the Archify artifact generator start through. A head on the
-    /// person's machine starts the CLI; a host that may not start a process passes
-    /// one that says so when pressed.</param>
+    /// CLI" offers start through. A head on the person's machine starts the CLI; a
+    /// host that may not start a process passes one that says so when pressed.</param>
     /// <param name="domainStoreLifetime">How long one <see cref="DomainDevbookStore"/>
     /// lives: the window's lifetime. Scoped in a host with a window or a circuit per
     /// reader, as both desktop heads are, so two readers never share one store's
@@ -56,20 +53,6 @@ public static class DevbookModuleRegistration
         services.AddSingleton<InstructionSourceDiscovery>();
         services.AddSingleton<DevbookMenu>();
         services.AddSingleton(sp => new DevbookCopilotCli(copilotCliLauncher(sp)));
-        // The shared diagram component asks for this optionally, so registering it
-        // is what switches Archify artifacts on for the app at all. Everything it
-        // answers — the flag, which clone the chapters came from, whether a CLI can
-        // be started — is the host's to know, which is why the library only asks.
-        // The renders are drawn on demand from the committed specifications, into
-        // the devbook cache folder beside the databases (local ADR 0034), with the
-        // clone's own generator or the one bundled beside the app.
-        services.AddSingleton(_ => ArchifyArtifactRenderer.ForApplication());
-        services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramArtifacts(
-            sp.GetRequiredService<IAppFeatureSettings>(),
-            sp.GetRequiredService<IDevbookFolderSource>(),
-            sp.GetRequiredService<GitHubSettingsStore>(),
-            copilotCliLauncher(sp),
-            sp.GetRequiredService<ArchifyArtifactRenderer>()));
         services.AddSingleton<DevbookScope>();
         // The Lobes atlas's one read, IDevbookLobesSource, is the personal
         // devbook's to register (local ADR 0040 §2); the takeover resolves it, so

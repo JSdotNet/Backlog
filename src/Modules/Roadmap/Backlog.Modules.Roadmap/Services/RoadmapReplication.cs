@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Modules.Roadmap.Services;
 
@@ -76,14 +77,14 @@ internal sealed class RoadmapReplication : IRoadmapReplication
             ? await store.ReadAsync(cancellationToken).ConfigureAwait(false)
             : null;
 
-    public async Task<RoadmapReplicaOutcome> ApplyAsync(
+    public async Task<ReplicaOutcome> ApplyAsync(
         RoadmapReplicaDocument document,
         RoadmapReplicaCopyDto inbound,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(inbound);
 
-        if (!_stores.TryGetValue(document, out var store)) return RoadmapReplicaOutcome.Unreadable;
+        if (!_stores.TryGetValue(document, out var store)) return ReplicaOutcome.Unreadable;
 
         _applying.Value++;
         try
@@ -93,7 +94,7 @@ internal sealed class RoadmapReplication : IRoadmapReplication
             // The roadmap redraws on the plan's own notice. Raised for the pace too:
             // bar lengths are divided by it, and the band reads it on every load. Raised
             // once the gate is let go, so nothing that hears it waits on this pull.
-            if (outcome == RoadmapReplicaOutcome.Taken) _planChanges.Raise();
+            if (outcome == ReplicaOutcome.Taken) _planChanges.Raise();
 
             return outcome;
         }
@@ -116,7 +117,7 @@ internal sealed class RoadmapReplication : IRoadmapReplication
     /// before it enters — so the wait cannot close a circle.
     /// </para>
     /// </summary>
-    private async Task<RoadmapReplicaOutcome> WriteAsync(
+    private async Task<ReplicaOutcome> WriteAsync(
         RoadmapReplicaDocument document,
         IRoadmapReplicaStore store,
         RoadmapReplicaCopyDto inbound,
@@ -128,15 +129,11 @@ internal sealed class RoadmapReplication : IRoadmapReplication
 
         var local = await store.ReadAsync(cancellationToken).ConfigureAwait(false);
 
-        if (local is not null)
-        {
-            if (inbound.UpdatedAt == local.UpdatedAt) return RoadmapReplicaOutcome.Echo;
-            if (inbound.UpdatedAt < local.UpdatedAt) return RoadmapReplicaOutcome.Refused;
-        }
+        if (LastWriteWins.Weigh(inbound.UpdatedAt, local?.UpdatedAt) is { } settled) return settled;
 
         return await store.TryWriteAsync(inbound, cancellationToken).ConfigureAwait(false)
-            ? RoadmapReplicaOutcome.Taken
-            : RoadmapReplicaOutcome.Unreadable;
+            ? ReplicaOutcome.Taken
+            : ReplicaOutcome.Unreadable;
     }
 
     private void OnLocalChange()

@@ -10,9 +10,9 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// </summary>
 public sealed class InstructionDocumentReadTests : IDisposable
 {
-    private readonly string _folder = Path.Combine(Path.GetTempPath(), "backlog-instruction-read-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-instruction-read-tests");
 
-    private string Root => Path.Combine(_folder, "repository");
+    private string Root => _temp.Combine("repository");
 
     [Fact]
     public void Reads_a_file_under_an_agent_folder()
@@ -61,7 +61,7 @@ public sealed class InstructionDocumentReadTests : IDisposable
     {
         Write("src/Program.cs", "// program");
         Write("README.md", "# Read me");
-        File.WriteAllText(Path.Combine(_folder, "outside.md"), "# Outside");
+        File.WriteAllText(_temp.Combine("outside.md"), "# Outside");
 
         Assert.Null(InstructionSourceDiscovery.ReadDocument(Root, selectedPath));
     }
@@ -84,14 +84,5 @@ public sealed class InstructionDocumentReadTests : IDisposable
         File.WriteAllText(full, content);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_folder)) Directory.Delete(_folder, recursive: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

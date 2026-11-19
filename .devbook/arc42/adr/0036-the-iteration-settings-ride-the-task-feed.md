@@ -161,6 +161,9 @@ the file from it, length and anchor, at a fixed floor stamp: the Unix epoch.
 After seeding, the store no longer writes `ShellNavigationStore`'s two fields.
 When the old fields are removed is the implementer's question, not this record's.
 
+*(Amended 2026-11-19: the seeding is removed, and the floor-stamp convergence
+stays. See the [Amendment](#amendment).)*
+
 ### 6. An upgraded desktop replays the feed once
 
 ```meta
@@ -244,6 +247,23 @@ Neutral:
 - **A separate phone pull.** The phone already has the iteration through
   `stand-up-context`, and a second cursor would page the feed twice, as ADR 0032
   rejected for its document.
+
+## Amendment
+
+```meta
+```
+
+**2026-11-19: the legacy value no longer seeds the file.** Every install has run
+v0.1.149 or later, so every desktop has already seeded its
+`iteration-settings.json` from `ShellNavigationStore`. Pull request #1910 deleted
+the seed. `IterationSettingsStore` no longer takes a `ShellNavigationStore`, and a
+desktop with no file now sends nothing, as §4 says for a device that never set it.
+The diagram's dashed edge from the legacy value no longer runs.
+
+The floor-stamp rule of §5 stays. Feed replicas still hold copies that earlier
+builds seeded at the Unix epoch, and two of them still converge on the copy the
+feed holds. Verification item 5 now holds that convergence only. The rest of
+the decision is unchanged.
 
 ## Verification
 

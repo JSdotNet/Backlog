@@ -14,10 +14,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// join from a component to the AI usage chapters that depend on its
 /// <c>.devbook/tech/ai-development.md</c> entry.
 /// </summary>
-public sealed class DevbookStackStampsTests : IDisposable
+public sealed class DevbookStackStampsTests
 {
-    private readonly List<string> _roots = [];
-
     /// <summary>
     /// The expected values are read from the repository's own
     /// <c>.devbook/config.json</c> here, independently of the reader, so a
@@ -114,11 +112,9 @@ public sealed class DevbookStackStampsTests : IDisposable
     [Fact]
     public void A_repository_with_no_configuration_reads_as_none()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-stack-stamps-tests", Guid.NewGuid().ToString("n"));
-        Directory.CreateDirectory(root);
-        _roots.Add(root);
+        using var temp = new TemporaryDirectory("backlog-stack-stamps-tests");
 
-        Assert.Null(DevbookStackStamps.Read(root));
+        Assert.Null(DevbookStackStamps.Read(temp.Path));
         Assert.Null(DevbookStackStamps.Read(null));
         Assert.Null(DevbookStackStamps.Load(null, ".ai", "backlog"));
     }
@@ -179,15 +175,6 @@ public sealed class DevbookStackStampsTests : IDisposable
     [Fact]
     public void A_chapter_link_is_not_a_folder() =>
         Assert.False(DevbookChapterLink.From(".devbook/arc42/01-introduction-and-goals.md")!.IsFolder);
-
-    public void Dispose()
-    {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
-    }
 
     internal static DocumentDevbookFile File(string name, params DocumentDevbookSection[] sections) =>
         new(name, name, string.Empty, MetadataRecord.Empty, sections);

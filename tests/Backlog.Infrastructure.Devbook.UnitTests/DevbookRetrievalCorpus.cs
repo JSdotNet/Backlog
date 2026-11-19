@@ -127,8 +127,7 @@ internal static class DevbookRetrievalCorpus
     ///
     /// <para>Written here rather than taken from the reader, so the round-trip
     /// asserts an agreement instead of asserting that one implementation is
-    /// self-consistent. This is the same pairing <c>normalizeDiagramSource</c> and
-    /// <c>DiagramSourceHash</c> have, and it is why the layout is written down in
+    /// self-consistent. It is why the layout is written down in
     /// <c>tools/devbook/devbook-schema.mjs</c> beside the table.</para>
     /// </summary>
     public static byte[] Encode(params float[] vector)
@@ -184,6 +183,7 @@ internal static class DevbookRetrievalCorpus
 /// to answer the same shape — including the case that matters here, a folder that
 /// resolves to somewhere with no database above it.</para>
 /// </summary>
+// Differs from StubFolderSource: resolves one folder key against one directory.
 internal sealed class StubDevbookFolderSource(string? rootDirectory, string folderKey = ".domain") : IDevbookFolderSource
 {
     public event Action? Changed

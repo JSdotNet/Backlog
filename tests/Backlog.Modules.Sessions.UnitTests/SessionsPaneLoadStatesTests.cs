@@ -169,9 +169,10 @@ public sealed class SessionsPaneLoadStatesTests
 
         // The keeper answers on the pool and the pane asks for its read back on the
         // dispatcher, which no render reports while the Refresh is held — so wait for
-        // the keeper, then give the continuation its turn before the Refresh lands.
+        // the keeper, then for its continuation to have queued a read behind the held
+        // Refresh, which no markup shows either.
         Assert.True(SpinWait.SpinUntil(() => keeper.Everything > 0, TimeSpan.FromSeconds(5)));
-        Thread.Sleep(200);
+        Assert.True(SpinWait.SpinUntil(() => ReadQueued(pane.Instance), TimeSpan.FromSeconds(5)));
         Assert.Equal(2, sessions.Reads);
 
         gate.SetResult();
@@ -212,6 +213,13 @@ public sealed class SessionsPaneLoadStatesTests
         });
     }
 
+    /// <summary>Whether the pane has a read queued behind the one in flight — its
+    /// private <c>_readAgain</c>, the one trace the queued read leaves before it runs.</summary>
+    private static bool ReadQueued(SessionsPane pane) =>
+        (bool)(typeof(SessionsPane).GetField("_readAgain", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("SessionsPane no longer has a _readAgain field; this wait needs the queued-read flag it renamed."))
+            .GetValue(pane)!;
+
     private static BunitContext Context(IAgentSessionSource sessions, IDeliveryRunSource runs)
     {
         var context = new BunitContext();
@@ -237,6 +245,7 @@ public sealed class SessionsPaneLoadStatesTests
             Origin: AgentSessionOrigin.Local);
 
     /// <summary>A source whose first read has not come back.</summary>
+    // Differs from StubSessionSource: its first reading answers only when the test completes it.
     private sealed class PendingSessionSource : IAgentSessionSource
     {
         private readonly TaskCompletionSource<AgentSessionCatalog> _answer = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -252,6 +261,7 @@ public sealed class SessionsPaneLoadStatesTests
 
     /// <summary>A source that cannot read Copilot's folder for its first
     /// <c>unreadableReads</c> reads, and reads it cleanly after.</summary>
+    // Differs from StubSessionSource: cannot read Copilot's folder for its first few readings.
     private sealed class FlakySessionSource(int unreadableReads) : IAgentSessionSource
     {
         public int Reads { get; private set; }
@@ -269,6 +279,7 @@ public sealed class SessionsPaneLoadStatesTests
     }
 
     /// <summary>A source that answers at once until told to hold its next read.</summary>
+    // Differs from StubSessionSource: can hold its next reading until the test releases it.
     private sealed class GatedSessionSource : IAgentSessionSource
     {
         private TaskCompletionSource? _gate;

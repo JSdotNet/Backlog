@@ -1,6 +1,7 @@
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Dashboard.Services;
 
@@ -32,7 +33,7 @@ internal sealed class HoursWorkedInsights(IHoursWorkedSource source, TimeProvide
         ArgumentNullException.ThrowIfNull(scope);
 
         var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
-        var first = MondayOf(today.AddDays(-7 * scope.Weeks));
+        var first = CalendarWeek.MondayOf(today.AddDays(-7 * scope.Weeks));
 
         IReadOnlyList<HoursWorkedDay>? read;
         try
@@ -58,7 +59,7 @@ internal sealed class HoursWorkedInsights(IHoursWorkedSource source, TimeProvide
             .ToList();
 
         var weeks = days
-            .GroupBy(day => MondayOf(day.From))
+            .GroupBy(day => CalendarWeek.MondayOf(day.From))
             .Select(week => new HoursWorkedPeriod(
                 week.Key,
                 week.Max(day => day.Through),
@@ -69,8 +70,6 @@ internal sealed class HoursWorkedInsights(IHoursWorkedSource source, TimeProvide
 
         return InsightResult<HoursWorkedInsight>.Ready(new HoursWorkedInsight(days, weeks));
     }
-
-    private static DateOnly MondayOf(DateOnly date) => date.AddDays(-(((int)date.DayOfWeek + 6) % 7));
 
     private static TimeSpan Sum(IEnumerable<HoursWorkedPeriod> days, Func<HoursWorkedPeriod, TimeSpan> of) =>
         TimeSpan.FromTicks(days.Sum(day => of(day).Ticks));
