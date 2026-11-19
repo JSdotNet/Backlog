@@ -184,6 +184,7 @@ internal static class DevbookRetrievalCorpus
 /// to answer the same shape — including the case that matters here, a folder that
 /// resolves to somewhere with no database above it.</para>
 /// </summary>
+// Differs from StubFolderSource: resolves one folder key against one directory.
 internal sealed class StubDevbookFolderSource(string? rootDirectory, string folderKey = ".domain") : IDevbookFolderSource
 {
     public event Action? Changed

@@ -253,6 +253,7 @@ internal sealed class TestBrainSettings(string? folder) : IBrainSettings
 }
 
 /// <summary>The repository devbook source, counting every question it is asked.</summary>
+// Differs from StubFolderSource: wraps another source and counts every question.
 internal sealed class RecordingRepositoryFolders(IDevbookFolderSource inner) : IDevbookFolderSource
 {
     private int _calls;

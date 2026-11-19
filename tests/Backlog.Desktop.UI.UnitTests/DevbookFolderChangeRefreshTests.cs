@@ -633,6 +633,7 @@ status: approved
 /// counts how many handlers are attached to <c>Changed</c> — the one thing a
 /// leaked subscription can be observed by from outside the panel.
 /// </summary>
+// Differs from StubFolderSource: wraps another source and counts the Changed subscribers.
 file sealed class CountingDevbookFolderSource(IDevbookFolderSource inner) : IDevbookFolderSource
 {
     public event Action? Changed

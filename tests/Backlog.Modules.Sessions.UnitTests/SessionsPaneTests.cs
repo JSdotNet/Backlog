@@ -586,7 +586,7 @@ public sealed class SessionsPaneTests
     [Fact]
     public void A_refresh_that_loses_the_chosen_environment_widens_back_out()
     {
-        var source = new ChangingSessionSource(Sample);
+        var source = new StubSessionSource(Sample);
         using var context = Context(source);
 
         var pane = context.Render<SessionsPane>();
@@ -675,7 +675,7 @@ public sealed class SessionsPaneTests
     [Fact]
     public void Refreshing_asks_the_port_again()
     {
-        var source = new StubSessionSource(Sample, [], Sample.Count);
+        var source = new StubSessionSource(Sample);
         using var context = Context(source);
 
         var pane = context.Render<SessionsPane>();
@@ -1981,6 +1981,7 @@ public sealed class SessionsPaneTests
 
     /// <summary>A source that answers one catalog as it is, for the facts the other
     /// stubs do not carry.</summary>
+    // Differs from StubSessionSource: answers a whole catalog as given, open-beyond-cap count included.
     private sealed class CatalogSource(AgentSessionCatalog catalog) : IAgentSessionSource
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
@@ -2022,7 +2023,7 @@ public sealed class SessionsPaneTests
         IReadOnlyList<AgentSession> sessions,
         IReadOnlyList<string>? unreadable = null,
         int? discovered = null) =>
-        Context(new StubSessionSource(sessions, unreadable ?? [], discovered ?? sessions.Count));
+        Context(new StubSessionSource(sessions) { Unreadable = unreadable ?? [], Discovered = discovered });
 
     private static BunitContext Context(IAgentSessionSource source)
     {
@@ -2141,35 +2142,4 @@ public sealed class SessionsPaneTests
             State: state,
             TurnCount: 9,
             Origin: AgentSessionOrigin.Replicated);
-
-    private sealed class StubSessionSource(
-        IReadOnlyList<AgentSession> sessions,
-        IReadOnlyList<string> unreadable,
-        int discovered) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        internal int Reads { get; private set; }
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
-        {
-            Reads++;
-
-            return Task.FromResult(new AgentSessionCatalog(sessions, unreadable, discovered));
-        }
-    }
-
-    /// <summary>A source whose answer can change between reads, for the one test
-    /// about what a refresh does to a choice the new reading no longer offers.</summary>
-    private sealed class ChangingSessionSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        internal IReadOnlyList<AgentSession> Sessions { get; set; } = sessions;
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(Sessions, [], Sessions.Count));
-    }
 }

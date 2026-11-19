@@ -822,8 +822,8 @@ public sealed class SettingsAccountsTests
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(
             githubSettings,
-            new NoGitHub(),
-            new NoProbe(),
+            new StubGitHubClient(),
+            new StubProbe(),
             cliSource ?? new StubCliAccounts(cliAccounts ?? []),
             accountProbe));
         context.Services.AddSingleton<FeedbackReporter>();
@@ -847,46 +847,6 @@ public sealed class SettingsAccountsTests
             string? host = null,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<string?>(null);
-
-        public void Invalidate()
-        {
-        }
-    }
-
-    /// <summary>Nothing here reaches GitHub — which account a call would leave as is
-    /// a local choice, not a fact fetched from it.</summary>
-    private sealed class NoGitHub : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task<GitHubIssue> CreateIssueAsync(
-            GitHubRepositoryRef repository,
-            string title,
-            string? body,
-            IEnumerable<string>? labels = null,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(
-            GitHubRepositoryRef repository,
-            int number,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(
-            GitHubRepositoryRef repository,
-            string path,
-            string branch,
-            byte[] content,
-            string commitMessage,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
 
         public void Invalidate()
         {

@@ -448,48 +448,4 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
     {
         public void Dispose() => Context.Dispose();
     }
-
-    /// <summary>Resolves every area against one root and stamps the source on
-    /// it — the stub <see cref="DevbookReadOnlyBranchTests"/> uses, for the reason
-    /// given there: the panels are under test, not the resolution. The source can
-    /// be changed and the change announced, which is what a switch in the pane's
-    /// selector comes down to once the settings store has republished it.</summary>
-    private sealed class StubFolderSource(string root, DevbookSourceKind source) : IDevbookFolderSource
-    {
-        public DevbookSourceKind Source { get; set; } = source;
-
-        /// <summary>Whether the repository is archived, stamped on every location
-        /// the way the real source stamps it.</summary>
-        public bool Archived { get; set; }
-
-        /// <summary>The named branch a snapshot was read from, stamped on every
-        /// location the way the real source stamps it; null for the default
-        /// branch.</summary>
-        public string? Branch { get; set; }
-
-        public event Action? Changed;
-
-        public void RaiseChanged() => Changed?.Invoke();
-
-        public void NotifyContentChanged() => Changed?.Invoke();
-
-        public string StorageDirectory => root;
-
-        public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => DevbookFolderSetting.Defaults();
-
-        public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null)
-        {
-            var folder = DevbookFolderSetting.Defaults()
-                .First(setting => string.Equals(setting.Key, key, StringComparison.OrdinalIgnoreCase));
-            // The fixtures sit in the root layout, which the real source reaches
-            // through its fallback to the legacy folder.
-            folder = folder with { ResolvedPath = folder.LegacyRelativePath };
-
-            var full = Path.Combine(root, folder.EffectivePath);
-
-            return Directory.Exists(full)
-                ? new DevbookFolderLocation(key, true, null, "JSdotNet/Backlog", folder, full, root, "JSdotNet/Backlog", "backlog", Source, RepositoryArchived: Archived, Branch: Branch)
-                : DevbookFolderLocation.Unavailable(key, $"No {key}.", source: Source, repositoryArchived: Archived) with { Branch = Branch };
-        }
-    }
 }

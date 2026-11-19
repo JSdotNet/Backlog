@@ -145,6 +145,7 @@ public sealed class GitHubDriftIssueSourceTests : IDisposable
 
     /// <summary>Answers the labelled listing per repository name; every other member keeps
     /// its default body, which refuses.</summary>
+    // Differs from StubGitHubClient: answers the labelled issue listing per repository.
     private sealed class ScriptedClient : Dictionary<string, GitHubSearchedIssue[]>, IGitHubClient
     {
         public Dictionary<string, string> Failing { get; } = [];

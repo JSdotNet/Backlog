@@ -408,6 +408,7 @@ public sealed class NotificationsSettingsTests : IDisposable
     }
 
     /// <summary>A port that refuses every publish the way a desktop with notifications off does.</summary>
+    // Differs from RecordingNotifications: refuses every publish, as notifications switched off do.
     private sealed class RefusingNotifications : INotifications
     {
         public Task<Backlog.SharedKernel.Results.Result<Guid>> PublishAsync(NotificationDraft draft, CancellationToken cancellationToken = default) =>

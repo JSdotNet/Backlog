@@ -150,7 +150,7 @@ public sealed class RunSubjectWatchTests : IDisposable
         new(() => open, Probe(), () => _notifications, _clock);
 
     private SessionSubjectProbe Probe() =>
-        new(new NoSessions(), new LocalDeliveryRunSource(_home, "machine", "Workshop PC"), _pulls, _clock);
+        new(new StubSessionSource(), new LocalDeliveryRunSource(_home, "machine", "Workshop PC"), _pulls, _clock);
 
     /// <summary>A run at Personal Validation that recorded its pull request on the stage
     /// before.</summary>
@@ -237,14 +237,5 @@ public sealed class RunSubjectWatchTests : IDisposable
 
             return Fails is { } failure ? Task.FromException<SessionPullRequestState?>(failure) : Task.FromResult(State);
         }
-    }
-
-    private sealed class NoSessions : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog([], [], 0));
     }
 }

@@ -21,6 +21,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// with what it finds.
 /// </para>
 /// </summary>
+// Differs from StubFolderSource: wraps another source and can make every read throw.
 internal sealed class UnreadableDevbookFolderSource(IDevbookFolderSource inner) : IDevbookFolderSource
 {
     private bool _unreadable;

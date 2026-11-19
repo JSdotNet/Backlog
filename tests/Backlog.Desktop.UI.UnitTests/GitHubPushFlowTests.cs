@@ -2092,7 +2092,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         settings.SetRepositories(parsed);
 
         var client = new FakeGitHubClient();
-        var integration = new GitHubIntegration(settings, client, new FakeProbe());
+        var integration = new GitHubIntegration(settings, client, new StubProbe(new GitHubConnection(true, "Connected.")));
         var toasts = new ToastChannel();
 
         return new Harness(StateFor(store, integration, toasts, clock, storeCalls), client, store, integration, new FeedbackReporter(integration), toasts, settings);
@@ -2162,6 +2162,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         ToastChannel Toasts,
         GitHubSettingsStore Settings);
 
+    // Differs from StubGitHubClient: scripts issues, pull requests and merge acts, and records each call.
     private sealed class FakeGitHubClient : IGitHubClient
     {
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
@@ -2440,16 +2441,6 @@ public sealed class GitHubPushFlowTests : IDisposable
             UploadedContent = content;
 
             return Task.FromResult(new GitHubUploadedFile(path, UploadedDownloadUrl));
-        }
-    }
-
-    private sealed class FakeProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
         }
     }
 }

@@ -238,19 +238,10 @@ public sealed class LinkPullRequestByReferenceTests
         var clock = new FakeTimeProvider(Noon);
         host.Context.Services.AddSingleton<TimeProvider>(clock);
 
-        return new(RepositoryManagementChain.For(host.GitHub, clock), new NoSessions(), clock);
+        return new(RepositoryManagementChain.For(host.GitHub, clock), new StubSessionSource(), clock);
     }
 
     private static PullRequestByNumber Linked(int number, GitHubItemState state, DateTimeOffset? mergedAt = null, string repository = Repository) =>
         new(number, $"https://github.com/{repository}/pull/{number}", $"Pull request {number}", repository, state, "someone-else",
             state is GitHubItemState.Merged ? mergedAt ?? Noon.AddHours(-1) : null);
-
-    private sealed class NoSessions : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog([], [], 0));
-    }
 }

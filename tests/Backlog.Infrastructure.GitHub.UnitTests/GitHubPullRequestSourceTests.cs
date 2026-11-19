@@ -258,6 +258,7 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
 
     /// <summary>GitHub as far as the pull-request reads and acts go: what each read finds,
     /// what it refuses, and every act in order.</summary>
+    // Differs from StubGitHubClient: answers the pull request reads and records every act.
     private sealed class StubClient : IGitHubClient
     {
         private readonly List<GitHubOpenPullRequest> _found = [];

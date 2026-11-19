@@ -178,7 +178,7 @@ public sealed class PaneInitialLoadTests : IDisposable
         var gitHub = new GitHubIntegration(
             new GitHubSettingsStore(Path.Combine(root, "github.json")),
             new TasksPaneHost.FakeGitHubClient(),
-            new UnconnectedProbe());
+            new StubProbe());
         state = new TasksDesktopState(TasksTestHost.TaskStoreFor(store), entries, gitHub);
 
         var context = new BunitContext();
@@ -217,6 +217,7 @@ public sealed class PaneInitialLoadTests : IDisposable
 
     /// <summary>The module, with the first thing the load asks of it held until
     /// <see cref="Release"/>. Everything else delegates.</summary>
+    // Differs from RecordingTaskItems: wraps the real module and holds its first load.
     private sealed class HeldTaskItems(ITaskItems inner) : ITaskItems
     {
         private TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -271,16 +272,6 @@ public sealed class PaneInitialLoadTests : IDisposable
             bool layOutOnRoadmap = false,
             CancellationToken cancellationToken = default) =>
             inner.ImportPlanAsync(rawText, defaultRepo, repoMatches, sourceInboxId, sourceInboxIds, layOutOnRoadmap, cancellationToken);
-    }
-
-    private sealed class UnconnectedProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not configured."));
-
-        public void Invalidate()
-        {
-        }
     }
 }
 

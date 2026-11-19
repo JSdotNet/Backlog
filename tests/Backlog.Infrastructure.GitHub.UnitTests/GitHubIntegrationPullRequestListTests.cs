@@ -632,17 +632,7 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         return new GitHubIntegration(
             new GitHubSettingsStore(Path.Combine(_root, "github.json")),
             new GitHubClient(transport),
-            new NoProbe(),
+            new StubProbe(new GitHubConnection(true, "Connected.")),
             time: new FakeTimeProvider(Now));
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
-        }
     }
 }

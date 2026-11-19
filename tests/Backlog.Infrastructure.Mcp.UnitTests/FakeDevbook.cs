@@ -12,6 +12,7 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 /// with the containment check in it.
 /// </para>
 /// </summary>
+// Differs from StubFolderSource: resolves the folders it was given in the current layout, on a branch when set.
 internal sealed class FakeDevbookFolderSource(string rootPath, params DevbookFolderSetting[] folders) : IDevbookFolderSource
 {
     /// <summary>The keys and paths <c>PrepareContentAsync</c> was asked for. What

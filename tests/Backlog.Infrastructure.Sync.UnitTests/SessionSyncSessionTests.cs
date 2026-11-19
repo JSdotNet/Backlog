@@ -1286,7 +1286,7 @@ public sealed class SessionSyncSessionTests
             InMemorySessionSyncStateStore state,
             InMemoryReplicatedSessionStore replica,
             FakeTimeProvider clock,
-            StubAgentSessionSource source,
+            StubSessionSource source,
             List<string> bodies,
             List<string> queries)
         {
@@ -1319,7 +1319,7 @@ public sealed class SessionSyncSessionTests
 
         /// <summary>The local session source, so a test can read which query the
         /// push asked it.</summary>
-        public StubAgentSessionSource Source { get; }
+        public StubSessionSource Source { get; }
 
         public string LastBody => _bodies.Count == 0 ? string.Empty : _bodies[^1];
 
@@ -1374,7 +1374,7 @@ public sealed class SessionSyncSessionTests
                 "Workshop PC",
                 "a-registration-credential"));
 
-            var source = new StubAgentSessionSource(sessions ?? []);
+            var source = new StubSessionSource(sessions ?? []);
 
             var session = new SessionSyncSession(
                 new SessionSyncClient(http),

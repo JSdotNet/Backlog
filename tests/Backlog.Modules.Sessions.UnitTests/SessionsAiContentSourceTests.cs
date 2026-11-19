@@ -15,7 +15,7 @@ public class SessionsAiContentSourceTests
     [Fact]
     public async Task A_record_is_the_session_facts_most_recent_first()
     {
-        var source = new SessionsAiContentSource(new FixedSessions(
+        var source = new SessionsAiContentSource(new StubSessionSource(
         [
             Session("Older", Started.AddDays(-1), Started.AddDays(-1).AddMinutes(20), AgentSessionState.Finished, turns: 5),
             Session("Newer", Started, Started.AddHours(2).AddMinutes(5), AgentSessionState.Finished, turns: 1)
@@ -38,10 +38,12 @@ public class SessionsAiContentSourceTests
     [Fact]
     public async Task The_total_is_what_was_discovered_and_unreadable_files_are_said()
     {
-        var source = new SessionsAiContentSource(new FixedSessions(
-            [Session("Only one listed", Started, Started.AddMinutes(1), AgentSessionState.Finished, turns: 1)],
-            discovered: 842,
-            unreadable: ["broken.jsonl"]));
+        var source = new SessionsAiContentSource(new StubSessionSource(
+            [Session("Only one listed", Started, Started.AddMinutes(1), AgentSessionState.Finished, turns: 1)])
+        {
+            Discovered = 842,
+            Unreadable = ["broken.jsonl"]
+        });
 
         var content = await source.ComposeAsync(new AiContentRequest("nothing shared", 6000), TestContext.Current.CancellationToken);
 
@@ -56,7 +58,7 @@ public class SessionsAiContentSourceTests
     [Fact]
     public async Task A_running_session_has_no_duration_yet()
     {
-        var source = new SessionsAiContentSource(new FixedSessions(
+        var source = new SessionsAiContentSource(new StubSessionSource(
             [Session("Live", Started, Started.AddMinutes(3), AgentSessionState.Running, turns: null)]));
 
         var content = await source.ComposeAsync(new AiContentRequest("live", 6000), TestContext.Current.CancellationToken);
@@ -101,15 +103,4 @@ public class SessionsAiContentSourceTests
             state,
             turns,
             AgentSessionOrigin.Local);
-
-    private sealed class FixedSessions(IReadOnlyList<AgentSession> sessions, int? discovered = null, IReadOnlyList<string>? unreadable = null) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, unreadable ?? [], discovered ?? sessions.Count));
-
-        // The source asks for the inventory's reading; a horizon is the pane's
-        // question, not this one's, so the fixture answers both the same.
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-    }
 }

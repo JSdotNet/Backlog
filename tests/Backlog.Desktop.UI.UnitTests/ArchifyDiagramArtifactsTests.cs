@@ -1243,6 +1243,7 @@ file sealed class FakeAppFeatureSettings(bool archifyDiagrams, bool copilotCli) 
 /// <c>.domain</c>, <c>.arc42</c>, <c>.tech</c> and <c>.design</c> — and a folder
 /// that is not in this fixture answers the way a folder nobody configured does.
 /// </summary>
+// Differs from StubFolderSource: resolves only the one folder the clone holds.
 file sealed class FakeDevbookFolderSource(string root) : IDevbookFolderSource
 {
     public event Action? Changed;

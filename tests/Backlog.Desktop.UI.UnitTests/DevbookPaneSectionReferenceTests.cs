@@ -429,6 +429,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
     /// <summary>The folder source as the menu sees it, with every listing held
     /// until <paramref name="release"/> completes. Listing is the one call the menu
     /// awaits, so this holds the menu and nothing else.</summary>
+    // Differs from StubFolderSource: wraps another source and holds every listing until released.
     private sealed class HeldListingSource(IDevbookFolderSource inner, Task release) : IDevbookFolderSource
     {
         public event Action? Changed

@@ -810,6 +810,7 @@ public sealed class DevbookReferenceResolverTests : IDisposable
     /// <summary>One repository's folders on disk, resolved the way the product
     /// resolves an unconfigured folder: the devbook default, then the legacy root
     /// folder.</summary>
+    // Differs from StubFolderSource: resolves the default then legacy folder and records each sync context.
     private sealed class FolderSource(string root, bool available = true, string? disabled = null) : IDevbookFolderSource
     {
         /// <summary>The synchronization context each call into the port ran on.</summary>

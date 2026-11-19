@@ -192,7 +192,7 @@ public sealed class GitHubRequiredApprovalsTests : IDisposable
         Directory.CreateDirectory(_root);
         return new GitHubIntegration(
             new GitHubSettingsStore(Path.Combine(_root, "github.json")),
-            new GitHubClient(transport), new NoProbe(), time: clock ?? new FakeTimeProvider(Now));
+            new GitHubClient(transport), new StubProbe(new GitHubConnection(true, "Connected.")), time: clock ?? new FakeTimeProvider(Now));
     }
 
     private static string Ref(string protection = "null", string rules = "[]") =>
@@ -233,16 +233,6 @@ public sealed class GitHubRequiredApprovalsTests : IDisposable
             if (asksRules) RulesReads++;
 
             return Task.FromResult(JsonDocument.Parse(asksRules ? Rules : _list).RootElement.Clone());
-        }
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
         }
     }
 }

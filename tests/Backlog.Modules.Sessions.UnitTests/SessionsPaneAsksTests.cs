@@ -318,20 +318,11 @@ public sealed class SessionsPaneAsksTests
     private static BunitContext Context(IWaitingQuestionStore? questions, params AgentSession[] sessions)
     {
         var context = new BunitContext();
-        context.Services.AddSingleton<IAgentSessionSource>(new Sessions(sessions));
+        context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource(sessions));
         context.Services.AddSingleton<IDeliveryRunSource>(new SessionsPaneTests.StubRunSource([], []));
         if (questions is not null) context.Services.AddSingleton(questions);
 
         return context;
-    }
-
-    private sealed class Sessions(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
     }
 
     /// <summary>A catalog that offers nothing: the pull requests chip stays off, and the
@@ -347,6 +338,7 @@ public sealed class SessionsPaneAsksTests
         }
     }
 
+    // Differs from HeldWaitingQuestions: every call throws, as an unreadable database does.
     private sealed class UnreadableQuestions : IWaitingQuestionStore
     {
         public Task<WaitingQuestion> RegisterAsync(WaitingQuestion candidate, CancellationToken cancellationToken = default) =>

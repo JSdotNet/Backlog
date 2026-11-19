@@ -237,6 +237,7 @@ public sealed class SessionsPaneLoadStatesTests
             Origin: AgentSessionOrigin.Local);
 
     /// <summary>A source whose first read has not come back.</summary>
+    // Differs from StubSessionSource: its first reading answers only when the test completes it.
     private sealed class PendingSessionSource : IAgentSessionSource
     {
         private readonly TaskCompletionSource<AgentSessionCatalog> _answer = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -252,6 +253,7 @@ public sealed class SessionsPaneLoadStatesTests
 
     /// <summary>A source that cannot read Copilot's folder for its first
     /// <c>unreadableReads</c> reads, and reads it cleanly after.</summary>
+    // Differs from StubSessionSource: cannot read Copilot's folder for its first few readings.
     private sealed class FlakySessionSource(int unreadableReads) : IAgentSessionSource
     {
         public int Reads { get; private set; }
@@ -269,6 +271,7 @@ public sealed class SessionsPaneLoadStatesTests
     }
 
     /// <summary>A source that answers at once until told to hold its next read.</summary>
+    // Differs from StubSessionSource: can hold its next reading until the test releases it.
     private sealed class GatedSessionSource : IAgentSessionSource
     {
         private TaskCompletionSource? _gate;

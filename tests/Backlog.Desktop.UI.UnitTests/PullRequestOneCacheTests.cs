@@ -29,7 +29,7 @@ public sealed class PullRequestOneCacheTests
             656, $"https://github.com/{Repository}/pull/656", "Pull request 656", Repository, GitHubItemState.Closed, "octocat", null));
         var clock = new FakeTimeProvider(Noon);
         var contract = RepositoryManagementChain.For(host.GitHub, clock);
-        var sidePanel = new WorkInProgressReader(contract, new NoSessions(), clock, () => [new(Repository, 656), new(Repository, 700)]);
+        var sidePanel = new WorkInProgressReader(contract, new StubSessionSource(), clock, () => [new(Repository, 656), new(Repository, 700)]);
         var goals = new RepositoryManagementGoalPullRequests(() => contract);
 
         await sidePanel.ReadAsync();
@@ -54,7 +54,7 @@ public sealed class PullRequestOneCacheTests
             656, $"https://github.com/{Repository}/pull/656", "Pull request 656", Repository, GitHubItemState.Closed, "octocat", null));
         var clock = new FakeTimeProvider(Noon);
         var contract = RepositoryManagementChain.For(host.GitHub, clock);
-        var sidePanel = new WorkInProgressReader(contract, new NoSessions(), clock, () => [new(Repository, 656)]);
+        var sidePanel = new WorkInProgressReader(contract, new StubSessionSource(), clock, () => [new(Repository, 656)]);
         var goals = new RepositoryManagementGoalPullRequests(() => contract);
 
         await sidePanel.ReadAsync();
@@ -86,13 +86,4 @@ public sealed class PullRequestOneCacheTests
             MergeStateStatus: "BLOCKED",
             PreferredMergeMethod: GitHubMergeMethod.Squash,
             UpdatedAt: Noon.AddMinutes(-number));
-
-    private sealed class NoSessions : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog([], [], 0));
-    }
 }

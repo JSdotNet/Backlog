@@ -1687,6 +1687,7 @@ public sealed class TaskSyncWorkerTests
             await _release.Task.ConfigureAwait(false);
         }
 
+        // Differs from InMemoryTaskRepository: wraps the store behind a gate the test controls.
         private sealed class GatedTaskStore(RepositoryGate gate, InMemoryTaskStore inner) : ITaskRepository
         {
             public Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default) =>
@@ -1715,6 +1716,7 @@ public sealed class TaskSyncWorkerTests
     /// <summary>A local task database this build cannot read. The session answers
     /// everything it planned for with a result, so a throw is the one shape that
     /// could escape a tick.</summary>
+    // Differs from InMemoryTaskRepository: every call throws, as an unreadable database does.
     private sealed class ThrowingTaskStore : ITaskRepository
     {
         private const string Unreadable = "The task database could not be read.";

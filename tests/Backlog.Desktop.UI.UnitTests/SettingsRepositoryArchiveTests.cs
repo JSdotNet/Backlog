@@ -276,7 +276,7 @@ public sealed class SettingsRepositoryArchiveTests
         Assert.Null(githubSettings.SetRepositories(parsed));
         if (archiveDocsFirst) Assert.Null(githubSettings.SetRepositoryArchived("docs", archived: true));
 
-        var taskItems = new RecordingTaskItems(tasks ?? [], refileRefuses);
+        var taskItems = new RefileRecordingTaskItems(tasks ?? [], refileRefuses);
         var client = new StateClient(gitHubStates ?? []);
 
         var context = new BunitContext();
@@ -293,7 +293,7 @@ public sealed class SettingsRepositoryArchiveTests
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
-        context.Services.AddSingleton(new GitHubIntegration(githubSettings, client, new NoProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(githubSettings, client, new StubProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
@@ -305,7 +305,8 @@ public sealed class SettingsRepositoryArchiveTests
 
     /// <summary>Lists the tasks the test chose and records each refile it is asked
     /// for; every other member is out of this page's reach.</summary>
-    private sealed class RecordingTaskItems(IReadOnlyList<TaskItemDto> tasks, bool refuse) : ITaskItems
+    // Differs from RecordingTaskItems: records refiles and can refuse them; nothing else is reachable.
+    private sealed class RefileRecordingTaskItems(IReadOnlyList<TaskItemDto> tasks, bool refuse) : ITaskItems
     {
         public List<(string RepositoryId, string? MoveToId, bool Drop)> Refiles { get; } = [];
 
@@ -353,6 +354,7 @@ public sealed class SettingsRepositoryArchiveTests
 
     /// <summary>Answers GitHub's word on a repository from the test's table, and
     /// records which repositories were asked about at all.</summary>
+    // Differs from StubGitHubClient: answers each repository's state from the test's table.
     private sealed class StateClient(Dictionary<string, GitHubRepositoryState> states) : IGitHubClient
     {
         public List<string> Asked { get; } = [];
@@ -378,22 +380,12 @@ public sealed class SettingsRepositoryArchiveTests
             throw new NotSupportedException();
     }
 
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
-
     private sealed record SettingsRenderContext(
         string Root,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         GitHubSettingsStore GitHub,
-        RecordingTaskItems Tasks,
+        RefileRecordingTaskItems Tasks,
         StateClient Client) : IDisposable
     {
         public void Dispose()

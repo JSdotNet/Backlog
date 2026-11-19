@@ -404,7 +404,7 @@ public sealed class RoadmapActualHoursTests
         var log = Log(
             Session("one", turns: [On(Thursday, 10)], Run(On(Thursday, 10), On(Thursday, 10, 20))),
             Session("two", turns: [On(Thursday, 10, 40)], Run(On(Thursday, 10, 40), On(Thursday, 11))));
-        var names = new StubSessions(
+        var names = new StubSessionSource(
             Named("one", "Roadmap heads", "JSdotNet/Backlog"),
             Named("two", "Hours report", null));
 
@@ -443,15 +443,6 @@ public sealed class RoadmapActualHoursTests
 
     private static AgentSession Named(string id, string title, string? repository) =>
         new(id, AgentSessionKind.Claude, "tower", "DEV-TOWER", title, "D:/Repos", repository, null, null, Now, AgentSessionState.Finished, null, AgentSessionOrigin.Local);
-
-    private sealed class StubSessions(params AgentSession[] sessions) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Length));
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-    }
 
     private static async Task<IReadOnlyDictionary<DateOnly, TimeSpan>> Read(
         IAgentActivitySource source,

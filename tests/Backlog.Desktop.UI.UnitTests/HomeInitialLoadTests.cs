@@ -228,6 +228,7 @@ public sealed class HomeInitialLoadTests
     /// <summary>Counts the pull request reads — the read by number Repository
     /// Management's source sends, and the one over REST it falls back to — and answers
     /// each like a GitHub that cannot find it: the count is the whole question here.</summary>
+    // Differs from StubGitHubClient: counts the pull request reads and answers each as not found.
     private sealed class CountingGitHubClient : IGitHubClient
     {
         private int _statusReads;

@@ -185,7 +185,7 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
             var gitHub = new GitHubIntegration(
                 new GitHubSettingsStore(Path.Combine(_root, "github", "github.json")),
                 new TasksPaneHost.FakeGitHubClient(),
-                new NoProbe());
+                new StubProbe());
 
             var list = TasksTestHost.StateFor(_workspace, gitHub, myDayPreferences: Preferences);
             await list.InitializeAsync();
@@ -205,16 +205,6 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
         {
             _http.Dispose();
             TestDatabases.Release(_root);
-        }
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
         }
     }
 }

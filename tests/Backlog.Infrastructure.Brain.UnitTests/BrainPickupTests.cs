@@ -47,7 +47,7 @@ public sealed class BrainPickupTests : IDisposable
 
     private string Read(string relativePath) => File.ReadAllText(Path.Combine([_brain, .. relativePath.Split('/')]));
 
-    private BrainPickup Pickup(RecordingTaskItems? tasks, IInboxPlanDrafter? drafter = null, string? brainFolder = "<default>")
+    private BrainPickup Pickup(PickupRecordingTaskItems? tasks, IInboxPlanDrafter? drafter = null, string? brainFolder = "<default>")
     {
         var source = new BrainFolderSource(() => brainFolder == "<default>" ? _brain : brainFolder);
         return new BrainPickup(tasks, source, new BrainNoteLinkWriter(source), drafter, new KnownRepositories());
@@ -70,7 +70,7 @@ public sealed class BrainPickupTests : IDisposable
     public async Task Create_task_files_a_draft_in_the_brain_scope_pointing_at_the_note_and_lists_it()
     {
         Note("areas/home.md", Plain);
-        var tasks = new RecordingTaskItems();
+        var tasks = new PickupRecordingTaskItems();
 
         var result = await Pickup(tasks).CreateTaskAsync("areas/home.md", cancellationToken: Ct);
 
@@ -87,7 +87,7 @@ public sealed class BrainPickupTests : IDisposable
     public async Task Create_task_from_a_selected_line_takes_the_line_as_its_title()
     {
         Note("areas/home.md", Plain);
-        var tasks = new RecordingTaskItems();
+        var tasks = new PickupRecordingTaskItems();
 
         await Pickup(tasks).CreateTaskAsync("areas/home.md", "  - [ ] Buy a   ladder\nand more", Ct);
 
@@ -104,7 +104,7 @@ public sealed class BrainPickupTests : IDisposable
             repos: [JSdotNet/Backlog, JSdotNet/Sync]
             ```
             """);
-        var tasks = new RecordingTaskItems();
+        var tasks = new PickupRecordingTaskItems();
 
         var result = await Pickup(tasks).CreateTaskAsync("projects/sync.md", cancellationToken: Ct);
 
@@ -121,7 +121,7 @@ public sealed class BrainPickupTests : IDisposable
     {
         const string broken = "# Broken\n\n```meta\ntasks: [a\n```\n";
         Note("areas/broken.md", broken);
-        var tasks = new RecordingTaskItems();
+        var tasks = new PickupRecordingTaskItems();
 
         var result = await Pickup(tasks).CreateTaskAsync("areas/broken.md", cancellationToken: Ct);
 
@@ -135,7 +135,7 @@ public sealed class BrainPickupTests : IDisposable
     [Fact]
     public async Task Without_a_brain_or_a_backlog_both_actions_are_unavailable_with_a_reason()
     {
-        var noBrain = Pickup(new RecordingTaskItems(), new FixedDrafter("# x\n"), brainFolder: null);
+        var noBrain = Pickup(new PickupRecordingTaskItems(), new FixedDrafter("# x\n"), brainFolder: null);
         Assert.Equal(BrainPickup.NoBrain, noBrain.CreateTaskUnavailableReason);
         Assert.Equal(BrainPickup.NoBrain, noBrain.PlanUnavailableReason);
 
@@ -149,11 +149,11 @@ public sealed class BrainPickupTests : IDisposable
     [Fact]
     public void Without_a_drafter_only_plan_is_unavailable()
     {
-        var none = Pickup(new RecordingTaskItems());
+        var none = Pickup(new PickupRecordingTaskItems());
         Assert.Null(none.CreateTaskUnavailableReason);
         Assert.Equal(BrainPickup.NoDrafter, none.PlanUnavailableReason);
 
-        var unconfigured = Pickup(new RecordingTaskItems(), new FixedDrafter("# x\n", available: false));
+        var unconfigured = Pickup(new PickupRecordingTaskItems(), new FixedDrafter("# x\n", available: false));
         Assert.Equal("Set the endpoint first.", unconfigured.PlanUnavailableReason);
     }
 
@@ -176,7 +176,7 @@ public sealed class BrainPickupTests : IDisposable
         Note("projects/move.md", Project);
         Note("resources/movers.md", "# Movers\n\nCall Acme.\n");
         Note("people/sam.md", "# Sam\n\nKnows a van.\n");
-        var tasks = new RecordingTaskItems();
+        var tasks = new PickupRecordingTaskItems();
         var drafter = new FixedDrafter("""
             # Rough plan
             `plan` `+whatever`
@@ -224,7 +224,7 @@ public sealed class BrainPickupTests : IDisposable
     public async Task A_plan_naming_a_repository_the_note_does_not_is_refused_before_import()
     {
         Note("projects/move.md", Project);
-        var tasks = new RecordingTaskItems();
+        var tasks = new PickupRecordingTaskItems();
         var drafter = new FixedDrafter("# Book movers\n`task` `!draft` `repo:someone/else`\n");
 
         var result = await Pickup(tasks, drafter).PlanProjectAsync("projects/move.md", Ct);
@@ -238,7 +238,7 @@ public sealed class BrainPickupTests : IDisposable
     public async Task A_refused_roadmap_link_keeps_the_plan_and_says_so()
     {
         Note("projects/move.md", "# Move house\n\nNo meta block at all.\n");
-        var tasks = new RecordingTaskItems();
+        var tasks = new PickupRecordingTaskItems();
         var drafter = new FixedDrafter("# Pack\n`task` `!draft`\n");
 
         var result = await Pickup(tasks, drafter).PlanProjectAsync("projects/move.md", Ct);
@@ -253,7 +253,7 @@ public sealed class BrainPickupTests : IDisposable
     public async Task A_note_naming_a_repository_the_workspace_does_not_have_makes_nothing()
     {
         Note("projects/typo.md", "# Typo\n\n```meta\nrepos: [JSdotNet/Backlgo]\n```\n");
-        var tasks = new RecordingTaskItems();
+        var tasks = new PickupRecordingTaskItems();
         var drafter = new FixedDrafter("# Pack\n`task`\n");
 
         var task = await Pickup(tasks, drafter).CreateTaskAsync("projects/typo.md", cancellationToken: Ct);
@@ -273,7 +273,7 @@ public sealed class BrainPickupTests : IDisposable
         Note("areas/home.md", Plain);
         var drafter = new FixedDrafter("# Pack\n`task`\n");
 
-        var result = await Pickup(new RecordingTaskItems(), drafter).PlanProjectAsync("areas/home.md", Ct);
+        var result = await Pickup(new PickupRecordingTaskItems(), drafter).PlanProjectAsync("areas/home.md", Ct);
 
         Assert.Equal(BrainPickupOutcome.Failed, result.Outcome);
         Assert.Equal(BrainPickup.NotAProject, result.Message);
@@ -287,7 +287,7 @@ public sealed class BrainPickupTests : IDisposable
     public async Task A_path_that_is_not_one_plain_note_path_is_not_a_note(string path)
     {
         Note("areas/home.md", Plain);
-        var tasks = new RecordingTaskItems();
+        var tasks = new PickupRecordingTaskItems();
 
         var result = await Pickup(tasks).CreateTaskAsync(path, cancellationToken: Ct);
 
@@ -334,7 +334,8 @@ public sealed class BrainPickupTests : IDisposable
         }
     }
 
-    private sealed class RecordingTaskItems : ITaskItems
+    // Differs from RecordingTaskItems: records devbook references and answers an import without its plan entry.
+    private sealed class PickupRecordingTaskItems : ITaskItems
     {
         public List<(Guid Id, string RawText)> Saves { get; } = [];
 

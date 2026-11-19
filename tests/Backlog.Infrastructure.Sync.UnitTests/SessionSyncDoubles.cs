@@ -63,30 +63,6 @@ internal sealed class InMemoryReplicatedSessionStore : IReplicatedSessionStore
 }
 
 /// <summary>
-/// A session source that answers with whatever a test seeded, so the push can be
-/// driven without two agents' folders on disk.
-/// </summary>
-internal sealed class StubAgentSessionSource(params AgentSession[] sessions) : IAgentSessionSource
-{
-    public int Reads { get; private set; }
-
-    /// <summary>What each read asked for, so a test can pin that the push reads
-    /// since its watermark rather than the capped inventory.</summary>
-    public List<AgentSessionQuery> Queries { get; } = [];
-
-    public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-        GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
-
-    public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
-    {
-        Reads++;
-        Queries.Add(query);
-
-        return Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Length));
-    }
-}
-
-/// <summary>
 /// An activity source that answers with whatever a test seeded and remembers the
 /// horizon it was asked for, so the push can be driven without a transcript on disk
 /// and a test can say how far back it should have looked.

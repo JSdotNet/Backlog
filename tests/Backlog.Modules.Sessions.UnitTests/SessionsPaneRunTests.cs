@@ -1076,13 +1076,4 @@ public sealed class SessionsPaneRunTests
         State: AgentSessionState.Running,
         TurnCount: 12,
         Origin: AgentSessionOrigin.Local);
-
-    private sealed class StubSessionSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-    }
 }

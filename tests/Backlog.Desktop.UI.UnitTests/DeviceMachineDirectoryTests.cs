@@ -171,7 +171,7 @@ public sealed class DeviceMachineDirectoryTests
     [Fact]
     public async Task The_source_is_asked_back_to_the_dashboards_own_horizon()
     {
-        var source = new StubSessionSource([Session("laptop", "DEV-LAPTOP")]);
+        var source = new StubAssistantSessionSource([Session("laptop", "DEV-LAPTOP")]);
         var directory = new DeviceMachineDirectory(new StubIdentity(), source, new FakeTimeProvider(Noon));
 
         _ = await directory.GetMachinesAsync(TestContext.Current.CancellationToken);
@@ -180,7 +180,7 @@ public sealed class DeviceMachineDirectoryTests
     }
 
     private static DeviceMachineDirectory Directory(params AssistantSession[] sessions) =>
-        new(new StubIdentity(), new StubSessionSource(sessions), new FakeTimeProvider(Noon));
+        new(new StubIdentity(), new StubAssistantSessionSource(sessions), new FakeTimeProvider(Noon));
 
     private static AssistantSession Session(string machineId, string machineName) =>
         new(machineId, machineName, "Claude", Noon.AddHours(-2), Noon);
@@ -190,7 +190,7 @@ public sealed class DeviceMachineDirectoryTests
         public DeviceIdentity Current { get; } = new(ThisDevice, "DEV-TOWER");
     }
 
-    private sealed class StubSessionSource(IReadOnlyList<AssistantSession> sessions) : IAssistantSessionSource
+    private sealed class StubAssistantSessionSource(IReadOnlyList<AssistantSession> sessions) : IAssistantSessionSource
     {
         public List<DateTimeOffset> Horizons { get; } = [];
 

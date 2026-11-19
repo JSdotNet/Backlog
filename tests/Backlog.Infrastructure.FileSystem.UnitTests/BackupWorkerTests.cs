@@ -295,6 +295,7 @@ public sealed class BackupWorkerTests : IDisposable
         Assert.Equal(6, new FileBackupStateStore(_state.StorePath).Current.DailyCopies);
     }
 
+    // Differs from StubGitHubClient: records each backup commit and can hold one open.
     private sealed class RecordingGitHubClient : IGitHubClient
     {
         public List<(GitHubRepositoryRef Repository, string Path, byte[] Content, string Message)> Commits { get; } = [];

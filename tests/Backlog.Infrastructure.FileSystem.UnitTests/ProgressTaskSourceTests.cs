@@ -226,6 +226,7 @@ public class ProgressTaskSourceTests
 
     /// <summary>The backlog's port, answering its list and refusing every write, so a
     /// write this adapter made would fail the test rather than pass unnoticed.</summary>
+    // Differs from RecordingTaskItems: answers a fixed list, counts the reads and refuses every write.
     private sealed class ListOnlyTaskItems(IReadOnlyList<TaskItemDto> entries) : ITaskItems
     {
         public int Lists { get; private set; }

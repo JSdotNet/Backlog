@@ -147,7 +147,7 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
         Assert.Null(store.TryUseRoot(root));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-        var integration = new GitHubIntegration(settings, new UnusedGitHubClient(), new UnusedProbe());
+        var integration = new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe());
 
         var signal = new TaskChangeSignal();
         var repository = TasksTestHost.RepositoryFor(store, signal);
@@ -178,7 +178,7 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
         Assert.Null(store.TryUseRoot(root));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-        var integration = new GitHubIntegration(settings, new UnusedGitHubClient(), new UnusedProbe());
+        var integration = new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe());
 
         var signal = new TaskChangeSignal();
         var entries = TasksTestHost.EntriesFor(TasksTestHost.RepositoryFor(store, signal));
@@ -214,33 +214,6 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
         {
             TestDatabases.Release(dir);
             try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
-        }
-    }
-
-    /// <summary>Nothing here goes near GitHub; the integration only exists because
-    /// the state takes one.</summary>
-    private sealed class UnusedGitHubClient : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class UnusedProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not configured."));
-
-        public void Invalidate()
-        {
         }
     }
 }

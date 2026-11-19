@@ -2918,6 +2918,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     /// can be told to refuse the acts. Lists are replaceable between reads, which is
     /// how a test says what the re-read after an act finds.
     /// </summary>
+    // Differs from StubGitHubClient: answers each repository's pull request lists and records every act.
     private sealed class StubClient : IGitHubClient
     {
         private readonly Dictionary<string, Func<IReadOnlyList<GitHubOpenPullRequest>>> _lists = new(StringComparer.OrdinalIgnoreCase);
@@ -3119,14 +3120,5 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
-    }
-
-    private sealed class StubSessionSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
     }
 }

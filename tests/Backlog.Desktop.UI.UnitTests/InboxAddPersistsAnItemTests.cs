@@ -382,7 +382,7 @@ public sealed class InboxAddPersistsAnItemTests
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
         context.Services.AddSingleton<IAzureFoundryChatClient, StubAzureFoundryChatClient>();
         context.Services.AddSingleton<IDevToolService, UnsupportedDevToolService>();
-        context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
+        context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHubSettings, store));
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
@@ -462,14 +462,5 @@ public sealed class InboxAddPersistsAnItemTests
             {
             }
         }
-    }
-
-    private sealed class EmptySessionSource : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(AgentSessionCatalog.Empty);
     }
 }

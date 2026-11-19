@@ -850,6 +850,7 @@ public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
         return path;
     }
 
+    // Differs from StubAzureFoundryChatClient: answers plan drafts, or the failure it was given.
     private sealed class StubChatClient : IAzureFoundryChatClient
     {
         public string Plan { get; init; } = "# Step one\n`prompt` `!ready` `#plan` `id:step-1` `effort:2`\n\nDo it.";

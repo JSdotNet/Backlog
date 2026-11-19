@@ -234,6 +234,7 @@ public sealed class DevbookPaneBrainLinkTests
 
     /// <summary>Every alias in <paramref name="aliases"/> is a repository with the
     /// default devbook folders; any other has none.</summary>
+    // Differs from StubFolderSource: answers the default folders for the configured aliases only.
     private sealed class FixedFolders(params string[] aliases) : IDevbookFolderSource
     {
         public event Action? Changed { add { } remove { } }

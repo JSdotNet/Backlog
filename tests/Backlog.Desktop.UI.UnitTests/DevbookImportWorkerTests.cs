@@ -29,7 +29,7 @@ public sealed class DevbookImportWorkerTests : IDisposable
     private readonly MemoryLedger _ledger = new();
     private readonly SessionDevbookSubjectStateStore _subjects;
     private readonly SessionDevbookAnnotationStore _remarks;
-    private readonly ChangingFolders _folders = new();
+    private readonly StubFolderSource _folders = new(DevbookFolderSetting.Defaults());
     private readonly List<GitHubRepositoryRef> _repositories = [new(Alias, "JSdotNet", "Shop")];
     private readonly List<DevbookImportWorker> _workers = [];
     private readonly List<string> _temporary = [];
@@ -214,7 +214,7 @@ public sealed class DevbookImportWorkerTests : IDisposable
         Assert.True(_ledger.HasImported(Alias));
 
         _repositories.Add(new GitHubRepositoryRef("tower", "JSdotNet", "Tower"));
-        _folders.Raise();
+        _folders.RaiseChanged();
         await worker.Running;
 
         Assert.True(_ledger.HasImported("tower"));
@@ -365,6 +365,7 @@ public sealed class DevbookImportWorkerTests : IDisposable
 
     /// <summary>GitHub's answer per path: an addition, or a refusal; any other path
     /// has no history.</summary>
+    // Differs from StubGitHubClient: answers each path's addition history from the test.
     private sealed class FakeGitHub : IGitHubClient
     {
         private readonly Dictionary<string, GitHubPathAdditionRead> _answers = new(StringComparer.Ordinal);
@@ -404,21 +405,5 @@ public sealed class DevbookImportWorkerTests : IDisposable
         {
             lock (_marked) _marked.Add(repositoryAlias);
         }
-    }
-
-    /// <summary>A folder source whose only use here is the news that something
-    /// moved.</summary>
-    private sealed class ChangingFolders : IDevbookFolderSource
-    {
-        public event Action? Changed;
-
-        public void Raise() => Changed?.Invoke();
-
-        public void NotifyContentChanged() => Changed?.Invoke();
-
-        public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => DevbookFolderSetting.Defaults();
-
-        public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null) =>
-            DevbookFolderLocation.Unavailable(key, "Not resolved here.");
     }
 }

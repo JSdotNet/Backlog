@@ -59,24 +59,6 @@ public class DevbookAnnotationStoreTests : IDisposable
                     : folder)
         ]);
 
-    private sealed class StubFolderSource(IReadOnlyList<DevbookFolderSetting> folders) : IDevbookFolderSource
-    {
-        public event Action? Changed
-        {
-            add { }
-            remove { }
-        }
-
-        public void NotifyContentChanged()
-        {
-        }
-
-        public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => folders;
-
-        public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null) =>
-            DevbookFolderLocation.Unavailable(key, "Nothing here asks where the folder is.");
-    }
-
     [Fact]
     public void A_fresh_remark_is_a_draft_on_the_block_it_was_asked_for()
     {

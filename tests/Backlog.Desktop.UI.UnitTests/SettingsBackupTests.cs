@@ -333,7 +333,7 @@ public sealed class SettingsBackupTests
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
-        context.Services.AddSingleton(new GitHubIntegration(githubSettings, gitHub, new NoProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(githubSettings, gitHub, new StubProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
@@ -354,6 +354,7 @@ public sealed class SettingsBackupTests
         return new SettingsRenderContext(root, store, gitHub, worker, context, context.Render<Settings>());
     }
 
+    // Differs from StubGitHubClient: records the backup commits it is asked for.
     private sealed class RecordingGitHub : IGitHubClient
     {
         public List<(GitHubRepositoryRef Repository, string Path)> Commits { get; } = [];
@@ -376,16 +377,6 @@ public sealed class SettingsBackupTests
 
         public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
     }
 
     private sealed record SettingsRenderContext(

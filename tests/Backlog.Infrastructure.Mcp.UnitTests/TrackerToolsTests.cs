@@ -1058,6 +1058,7 @@ public class TrackerToolsTests
 
 /// <summary>A session request queue that records what <c>link_session</c> told it and
 /// answers nothing else.</summary>
+// Differs from InMemorySessionRequestStore: records only what link_session told it.
 internal sealed class RecordingSessionRequestStore : ISessionRequestStore
 {
     public List<(Guid EntryId, IReadOnlyCollection<string> PlanTags, string SessionId)> Links { get; } = [];

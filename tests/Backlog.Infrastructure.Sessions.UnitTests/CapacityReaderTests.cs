@@ -251,6 +251,7 @@ public sealed class CapacityReaderTests
         Assert.Equal(2, reading.WorkingSessions);
     }
 
+    // Differs from InMemorySessionRequestStore: answers a fixed list and can be told to fail.
     private sealed class HeldRequests(IReadOnlyList<SessionRequest> held) : ISessionRequestStore
     {
         public bool Fails { get; set; }
@@ -286,6 +287,7 @@ public sealed class CapacityReaderTests
             throw new NotSupportedException();
     }
 
+    // Differs from StubSessionSource: can be told to fail every reading.
     private sealed class HeldSessions(IReadOnlyList<AgentSession> held) : IAgentSessionSource
     {
         public bool Fails { get; set; }
