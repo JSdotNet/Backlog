@@ -4,6 +4,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Inbox.Abstractions.Services;
 using Microsoft.Extensions.Time.Testing;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -824,6 +825,58 @@ public sealed class SettingsAiUsageTests
     }
 
     /// <summary>
+    /// Under the Transcription deployment field, the last recording that failed to
+    /// transcribe, with its reason and when (local ADR 0049 §2): a deployment Foundry does
+    /// not know shows where it is fixed. Nothing is drawn while no recording failed.
+    /// </summary>
+    [Fact]
+    public void The_foundry_card_shows_the_last_transcription_failure_under_the_transcription_deployment()
+    {
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 18, 12, 0, 0, TimeSpan.Zero));
+        var transcriptions = new StubTranscriptionRecords(new InboxTranscriptionFailureDto(
+            new string('a', 64), 2, "Part 1 of 3 could not be transcribed.", clock.GetUtcNow().AddMinutes(-7)));
+        using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: false, clock: clock, transcriptions: transcriptions);
+
+        OpenAiTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var line = context.Component.Find("[data-testid='azure-foundry-transcription-failure']");
+            Assert.Equal("Last transcription failed 7 min ago: Part 1 of 3 could not be transcribed.", line.TextContent.Trim());
+            Assert.Equal("status", line.GetAttribute("role"));
+            Assert.Contains("setting__status", line.ClassList);
+        });
+    }
+
+    [Fact]
+    public void The_foundry_card_says_nothing_about_transcription_while_no_recording_failed()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: false, transcriptions: new StubTranscriptionRecords(null));
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='azure-foundry-settings']")));
+
+        Assert.Empty(context.Component.FindAll("[data-testid='azure-foundry-transcription-failure']"));
+    }
+
+    private sealed class StubTranscriptionRecords(InboxTranscriptionFailureDto? latest) : IInboxTranscriptionRecords
+    {
+        public Task<InboxTranscriptionFailureDto?> LatestFailureAsync(CancellationToken cancellationToken = default) => Task.FromResult(latest);
+
+        public Task<InboxTranscriptionRecordDto?> FindAsync(string sha256, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task SaveAsync(InboxTranscriptionRecordDto record, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<InboxTranscriptionFailureDto?> FindFailureAsync(string sha256, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<InboxTranscriptionFailureDto> CountFailureAsync(string sha256, string reason, DateTimeOffset at, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task ClearFailureAsync(string sha256, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    /// <summary>
     /// Under each figure, when its usage was last read on this device: a dot and
     /// how long ago, or the reason the last read failed, or nothing at all when it
     /// was never read. A read that lands while the page is open shows up on it.
@@ -1069,7 +1122,8 @@ public sealed class SettingsAiUsageTests
         IGitHubAccountProbe? gitHubAccountProbe = null,
         IAzureFoundryConnectionProbe? foundryProbe = null,
         IUsageReadStatus? reads = null,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        IInboxTranscriptionRecords? transcriptions = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-tests", Guid.NewGuid().ToString("n"));
 
@@ -1103,6 +1157,7 @@ public sealed class SettingsAiUsageTests
         if (foundryProbe is not null) testContext.Services.AddSingleton(foundryProbe);
         if (reads is not null) testContext.Services.AddSingleton(reads);
         if (clock is not null) testContext.Services.AddSingleton(clock);
+        if (transcriptions is not null) testContext.Services.AddSingleton(transcriptions);
         testContext.Services.AddSingleton(github);
         testContext.Services.AddSingleton<FeedbackReporter>();
         testContext.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
