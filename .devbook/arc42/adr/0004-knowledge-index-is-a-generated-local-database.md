@@ -13,6 +13,18 @@ leaves to be discovered. What is not built is the refresh machinery that was
 never required for correctness. The semantic tier's live call is built since
 2026-10-13; see the amendment below.
 
+> **Amended 2026-11-19: Archify is retired, and the database holds no artifact
+> rows.** *(Proposed with local ADR 0057.)* Local ADR 0057 removes Archify from
+> the app, and pull request #1913 deleted its code. Schema 7 drops the
+> `archify_artifact` table from both writers and the reader. No builder copies an
+> `_archify/index.json` into rows any more, and no lookup reads one, because every
+> diagram is drawn from its mermaid fence. A database built at schema 6 reads as
+> unrecognised and is rebuilt. *Archify moves its index and nothing else*, the
+> 2026-10-15 amendment below and the Archify rows of the tables are history now.
+> The scan still skips an `_archify` folder, so another repository's files are
+> never indexed as chapters. See
+> `0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md`.
+
 > **Amended 2026-10-15: the rendered Archify HTML is no longer on disk.**
 > *(Proposed with local ADR 0034.)* *Archify moves its index and nothing else*
 > says the rendered HTML stays on disk beside the specification for the WebView
@@ -148,7 +160,8 @@ never required for correctness. The semantic tier's live call is built since
 >
 > `_archify/index.json` stays committed. Its rows are copied into the database
 > and the Archify lookup reads them from there, but a different tool writes those
-> files and this record does not move them out of git.
+> files and this record does not move them out of git. *(Superseded 2026-11-19 by
+> local ADR 0057: no rows are copied, and this repository carries no `_archify/`.)*
 
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0004 (result objects for expected failures) under
@@ -450,6 +463,9 @@ could drift from it. See
 `0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md`.
 
 ### Archify moves its index and nothing else
+
+*(Withdrawn 2026-11-19 by local ADR 0057: Archify is retired, and schema 7 has
+no artifact table. What follows is history.)*
 
 Each folder's `_archify/index.json` becomes rows: chapter, ordinal, fence hash,
 type, kind, specification path, artifact path, state, checks passed. The

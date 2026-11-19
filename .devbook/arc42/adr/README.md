@@ -82,7 +82,7 @@ between inherited ADRs 0005 and 0009.
 - **[0053 — A plan or a task may reference a Brain note](0053-a-plan-or-a-task-may-reference-a-brain-note.md)** *(proposed, built; amends 0027 §6, builds on 0052)*
 - **[0054 — Clarify outcomes follow GTD, and each item has one home](0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md)** *(proposed, built; amends 0026 §2 and §3, adds a tool to 0012's Inbox group)*
 - **[0055 — Calendar is a surface of its own that reads layers](0055-calendar-is-a-surface-of-its-own-that-reads-layers.md)** *(proposed, Tasks and Plans layers built; supersedes 0022 §1 for the Calendar)*
-- **[0057 — Archify is retired, and Mermaid draws every chapter diagram](0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md)** *(proposed, code removal not yet built; supersedes 0034, resolves TDR 0001)*
+- **[0057 — Archify is retired, and Mermaid draws every chapter diagram](0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md)** *(proposed, built by pull request #1913; supersedes 0034, resolves TDR 0001)*
 
 ## Inherited decisions
 

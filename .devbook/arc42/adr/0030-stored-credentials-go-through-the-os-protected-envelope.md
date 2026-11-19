@@ -115,6 +115,8 @@ sealed, during that first read, rather than at the next save. The legacy Claude
 flat file and the legacy GitHub global token are covered the same way. The
 GitHub store skips this write only when a registry carry-over failed, because
 that write would drop fields the carry-over still needs. The next start seals it.
+*(Amended 2026-11-19: the legacy Claude flat file, the legacy GitHub global token
+and the registry carry-over are no longer read. See the [Amendment](#amendment).)*
 
 ### 4. An envelope this user cannot open reads as no key
 
@@ -197,6 +199,24 @@ Neutral:
 - **Windows Credential Manager.** It lost because it needs a separate entry per
   secret through P/Invoke, it cannot be reached from the unit tests the same way,
   and DPAPI already serves the two existing stores.
+
+## Amendment
+
+```meta
+```
+
+**2026-11-19: the legacy file shapes are no longer read.** Every install has run
+v0.1.149 or later, so these older shapes have already been read and written back
+in the current one. Pull request #1910 deleted three migrations and their tests:
+
+- the Claude store's flat file from before accounts (`hasLegacyFields`);
+- the GitHub store's global `token`;
+- the GitHub store's carry-over of its local rows into the registry. Its skipped
+  write in §3 went with it.
+
+§3 still holds for every value the current shapes carry. A plaintext token is
+read as it is and sealed during that first read. The rest of the decision is
+unchanged.
 
 ## Verification
 
