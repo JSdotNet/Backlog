@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Backlog.UI.Components.Diagrams.C4;
+namespace Backlog.SharedKernel.C4;
 
 /// <summary>What a token is, as far as the grammar cares.</summary>
 public enum C4TokenKind
@@ -31,6 +31,11 @@ public enum C4TokenKind
 /// <param name="Line">One-based line in the source, so a problem can name it.</param>
 public sealed record C4Token(C4TokenKind Kind, string Text, int Line)
 {
+    /// <summary>The file the token was read from, as the include resolver labelled
+    /// it, or null for text handed over with no name. An included file's tokens
+    /// keep their own file and line.</summary>
+    public string? File { get; init; }
+
     public bool IsWord(string word) =>
         Kind == C4TokenKind.Word && string.Equals(Text, word, StringComparison.OrdinalIgnoreCase);
 
@@ -48,36 +53,44 @@ public sealed record C4Token(C4TokenKind Kind, string Text, int Line)
 /// a grammar that has to guess where one declaration stops and the next begins.
 /// </para>
 /// <para>
-/// Comments are removed here rather than in the parser, because all three forms
-/// (<c>#</c>, <c>//</c>, <c>/* */</c>) may appear mid-line and only outside a
-/// quoted string — which is a question about characters, not about grammar. The
-/// block form still counts its newlines, so every token afterwards reports the
-/// line it is actually on.
+/// Comments are removed here rather than in the parser, because they are a
+/// question about characters, not about grammar. Under
+/// <see cref="C4IdMode.Drawing"/> all three forms (<c>#</c>, <c>//</c>,
+/// <c>/* */</c>) may appear mid-line and only outside a quoted string. Under
+/// <see cref="C4IdMode.Generator"/> the lexer is devbook's <c>c4.mjs</c>: <c>#</c>
+/// and <c>//</c> open a comment only at the start of a line, and a newline inside
+/// a block comment still ends the statement before it.
 /// </para>
 /// </summary>
 public static class C4DslLexer
 {
-    public static IReadOnlyList<C4Token> Tokenize(string? source)
+    public static IReadOnlyList<C4Token> Tokenize(string? source) => Tokenize(source, C4IdMode.Drawing, null);
+
+    /// <param name="file">The label every token carries in <see cref="C4Token.File"/>.</param>
+    public static IReadOnlyList<C4Token> Tokenize(string? source, C4IdMode mode, string? file)
     {
         var tokens = new List<C4Token>();
         if (string.IsNullOrWhiteSpace(source)) return tokens;
 
+        var generator = mode == C4IdMode.Generator;
         var text = source.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
         var line = 1;
         var index = 0;
         var statementHasTokens = false;
+        var lineStart = true;
 
         void EndStatement()
         {
             if (!statementHasTokens) return;
-            tokens.Add(new C4Token(C4TokenKind.EndOfStatement, "\n", line));
+            tokens.Add(new C4Token(C4TokenKind.EndOfStatement, "\n", line) { File = file });
             statementHasTokens = false;
         }
 
         void Add(C4TokenKind kind, string value)
         {
-            tokens.Add(new C4Token(kind, value, line));
+            tokens.Add(new C4Token(kind, value, line) { File = file });
             statementHasTokens = true;
+            lineStart = false;
         }
 
         while (index < text.Length)
@@ -89,6 +102,7 @@ public static class C4DslLexer
                 EndStatement();
                 line++;
                 index++;
+                lineStart = true;
                 continue;
             }
 
@@ -98,22 +112,33 @@ public static class C4DslLexer
                 continue;
             }
 
-            // Line comments. `#` is overloaded in this grammar: it opens a comment
-            // and it also opens every colour a `styles` block states. So a hash is a
-            // comment unless what follows it is exactly a hex colour — otherwise
-            // `background #438dd5` loses its value and the style silently becomes a
-            // style with no colour in it.
-            if (current == '#' && HexColourLength(text, index) is { } colour)
+            if (generator)
             {
-                Add(C4TokenKind.Word, text.Substring(index, colour + 1));
-                index += colour + 1;
-                continue;
+                if (lineStart && (current == '#' || (current == '/' && Peek(text, index + 1) == '/')))
+                {
+                    while (index < text.Length && text[index] != '\n') index++;
+                    continue;
+                }
             }
-
-            if (current == '#' || (current == '/' && Peek(text, index + 1) == '/'))
+            else
             {
-                while (index < text.Length && text[index] != '\n') index++;
-                continue;
+                // Line comments. `#` is overloaded in this grammar: it opens a comment
+                // and it also opens every colour a `styles` block states. So a hash is a
+                // comment unless what follows it is exactly a hex colour — otherwise
+                // `background #438dd5` loses its value and the style silently becomes a
+                // style with no colour in it.
+                if (current == '#' && HexColourLength(text, index) is { } colour)
+                {
+                    Add(C4TokenKind.Word, text.Substring(index, colour + 1));
+                    index += colour + 1;
+                    continue;
+                }
+
+                if (current == '#' || (current == '/' && Peek(text, index + 1) == '/'))
+                {
+                    while (index < text.Length && text[index] != '\n') index++;
+                    continue;
+                }
             }
 
             if (current == '/' && Peek(text, index + 1) == '*')
@@ -121,7 +146,17 @@ public static class C4DslLexer
                 index += 2;
                 while (index < text.Length && !(text[index] == '*' && Peek(text, index + 1) == '/'))
                 {
-                    if (text[index] == '\n') line++;
+                    if (text[index] == '\n')
+                    {
+                        if (generator)
+                        {
+                            EndStatement();
+                            lineStart = true;
+                        }
+
+                        line++;
+                    }
+
                     index++;
                 }
 
@@ -131,7 +166,7 @@ public static class C4DslLexer
 
             if (current == '"')
             {
-                var (value, next) = ReadQuoted(text, index);
+                var (value, next) = ReadQuoted(text, index, generator);
                 Add(C4TokenKind.Text, value);
                 index = next;
                 continue;
@@ -212,14 +247,16 @@ public static class C4DslLexer
         return after == '\0' || IsBreak(after) ? length : null;
     }
 
-    private static (string Value, int Next) ReadQuoted(string text, int start)
+    /// <param name="generator">Whether a backslash before a newline is left as it
+    /// stands, as <c>c4.mjs</c> leaves it, rather than escaping the newline.</param>
+    private static (string Value, int Next) ReadQuoted(string text, int start, bool generator)
     {
         var builder = new StringBuilder();
         var index = start + 1;
 
         while (index < text.Length && text[index] != '"')
         {
-            if (text[index] == '\\' && index + 1 < text.Length)
+            if (text[index] == '\\' && index + 1 < text.Length && !(generator && text[index + 1] == '\n'))
             {
                 builder.Append(text[index + 1] switch
                 {
