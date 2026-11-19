@@ -44,13 +44,17 @@ alternatives: ["JSON files on the device"]
 ```
 
 One SQLite file on the device, written through Microsoft.Data.Sqlite, for work
-made while offline. Two stores in `Backlog.Mobile.UI` share it, each with its
+made while offline. The stores in `Backlog.Mobile.UI` share it, each with its
 own tables.
 
 - **Used for** — `SqliteDeviceStore` holds the outbox of captures and tasks
   waiting for the next sync flush. It also holds the cached inbox the phone draws
-  before it asks the service. `SqliteTaskViewStore` holds the task view, the
-  phone's projection of the task feed.
+  before it asks the service. Five view stores hold the phone's projections of
+  the feeds: tasks, notes, progress, notifications and events. Each is a
+  `<prefix>_view` table and a `<prefix>_cursor`, kept by one generic
+  `SqliteViewStore<TRow>` that a store gives its table prefix and row mapping.
+  The tables are created additively and never migrated, so the names and columns
+  a mapping declares are the layout every phone already has.
 - **Why** — mobile is not canonical, so it needs only a durable queue and a
   cache, not the whole task database. It keeps a schema of its own rather than
   sharing the desktop's adapter.

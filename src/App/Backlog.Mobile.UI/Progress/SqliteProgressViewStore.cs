@@ -1,6 +1,4 @@
-using System.Globalization;
-
-using Microsoft.Data.Sqlite;
+using Backlog.Mobile.UI.Storage;
 
 namespace Backlog.Mobile.UI.Progress;
 
@@ -39,149 +37,44 @@ public interface IProgressViewStore
 /// </summary>
 public sealed class SqliteProgressViewStore : IProgressViewStore
 {
-    private readonly string _connectionString;
+    private static readonly SqliteViewMapping<ProgressViewRow> Mapping = new(
+        row => row.Id,
+        [
+            new("kind", "TEXT    NOT NULL", row => row.Kind),
+            new("updated_at", "TEXT    NOT NULL", row => SqliteInstant.Format(row.UpdatedAt)),
+            new("deleted_at", "TEXT    NULL", row => SqliteInstant.FormatOrNull(row.DeletedAt)),
+            new("server_ts", "INTEGER NOT NULL", row => row.ServerTimestamp),
+            new("content", "TEXT    NOT NULL", row => row.Content),
+        ],
+        reader => new ProgressViewRow(
+            Guid.Parse(reader.GetString(0)),
+            reader.GetString(1),
+            SqliteInstant.Parse(reader.GetString(2)),
+            SqliteInstant.ParseOrNull(reader, 3),
+            reader.GetInt64(4),
+            reader.GetString(5)),
+        // The later copy by ProgressFold.Wins, so a pull and a queued edit racing leave the
+        // later one on disk whichever writes last.
+        KeepLater: view => $"""
+            excluded.updated_at > {view}.updated_at
+                OR (excluded.updated_at = {view}.updated_at
+                    AND (excluded.server_ts > {view}.server_ts
+                        OR (excluded.server_ts = {view}.server_ts
+                            AND excluded.deleted_at IS NOT NULL AND {view}.deleted_at IS NULL)))
+            """);
 
-    public SqliteProgressViewStore(string databasePath)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+    private readonly SqliteViewStore<ProgressViewRow> _view;
 
-        var directory = Path.GetDirectoryName(Path.GetFullPath(databasePath));
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+    public SqliteProgressViewStore(string databasePath) =>
+        _view = new SqliteViewStore<ProgressViewRow>(databasePath, "progress", Mapping);
 
-        _connectionString = new SqliteConnectionStringBuilder
-        {
-            DataSource = databasePath,
-            Pooling = false
-        }.ToString();
+    public IReadOnlyList<ProgressViewRow> ReadRows() => _view.ReadRows();
 
-        using var connection = Open();
-        using var command = connection.CreateCommand();
+    public string? ReadCursor() => _view.ReadCursor();
 
-        // Additive only, as every table in this file is: the file outlives every build.
-        command.CommandText = """
-            CREATE TABLE IF NOT EXISTS progress_view (
-                id          TEXT    NOT NULL PRIMARY KEY,
-                kind        TEXT    NOT NULL,
-                updated_at  TEXT    NOT NULL,
-                deleted_at  TEXT    NULL,
-                server_ts   INTEGER NOT NULL,
-                content     TEXT    NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS progress_cursor (
-                id     INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
-                since  TEXT    NOT NULL
-            );
-            """;
-        command.ExecuteNonQuery();
-    }
+    public Task SaveAsync(IReadOnlyList<ProgressViewRow> rows, string? cursor = null, CancellationToken cancellationToken = default) =>
+        _view.SaveAsync(rows, cursor, alsoWrite: null, cancellationToken);
 
-    public IReadOnlyList<ProgressViewRow> ReadRows()
-    {
-        using var connection = Open();
-        using var command = connection.CreateCommand();
-
-        command.CommandText = "SELECT id, kind, updated_at, deleted_at, server_ts, content FROM progress_view";
-
-        using var reader = command.ExecuteReader();
-        var rows = new List<ProgressViewRow>();
-
-        while (reader.Read())
-        {
-            rows.Add(new ProgressViewRow(
-                Guid.Parse(reader.GetString(0)),
-                reader.GetString(1),
-                ParseInstant(reader.GetString(2)),
-                reader.IsDBNull(3) ? null : ParseInstant(reader.GetString(3)),
-                reader.GetInt64(4),
-                reader.GetString(5)));
-        }
-
-        return rows;
-    }
-
-    public string? ReadCursor()
-    {
-        using var connection = Open();
-        using var command = connection.CreateCommand();
-
-        command.CommandText = "SELECT since FROM progress_cursor WHERE id = 1";
-
-        return command.ExecuteScalar() as string;
-    }
-
-    public async Task SaveAsync(IReadOnlyList<ProgressViewRow> rows, string? cursor = null, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(rows);
-
-        await using var connection = Open();
-        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
-
-        foreach (var row in rows)
-        {
-            await using var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = """
-                INSERT INTO progress_view (id, kind, updated_at, deleted_at, server_ts, content)
-                VALUES ($id, $kind, $updatedAt, $deletedAt, $serverTs, $content)
-                ON CONFLICT (id) DO UPDATE SET
-                    kind = excluded.kind,
-                    updated_at = excluded.updated_at,
-                    deleted_at = excluded.deleted_at,
-                    server_ts = excluded.server_ts,
-                    content = excluded.content
-                WHERE excluded.updated_at > progress_view.updated_at
-                    OR (excluded.updated_at = progress_view.updated_at
-                        AND (excluded.server_ts > progress_view.server_ts
-                            OR (excluded.server_ts = progress_view.server_ts
-                                AND excluded.deleted_at IS NOT NULL AND progress_view.deleted_at IS NULL)))
-                """;
-            command.Parameters.AddWithValue("$id", row.Id.ToString());
-            command.Parameters.AddWithValue("$kind", row.Kind);
-            command.Parameters.AddWithValue("$updatedAt", FormatInstant(row.UpdatedAt));
-            command.Parameters.AddWithValue("$deletedAt", row.DeletedAt is { } deleted ? FormatInstant(deleted) : DBNull.Value);
-            command.Parameters.AddWithValue("$serverTs", row.ServerTimestamp);
-            command.Parameters.AddWithValue("$content", row.Content);
-
-            await command.ExecuteNonQueryAsync(cancellationToken);
-        }
-
-        if (cursor is not null)
-        {
-            await using var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = """
-                INSERT INTO progress_cursor (id, since) VALUES (1, $since)
-                ON CONFLICT (id) DO UPDATE SET since = excluded.since
-                """;
-            command.Parameters.AddWithValue("$since", cursor);
-
-            await command.ExecuteNonQueryAsync(cancellationToken);
-        }
-
-        await transaction.CommitAsync(cancellationToken);
-    }
-
-    public async Task ResetCursorAsync(CancellationToken cancellationToken = default)
-    {
-        await using var connection = Open();
-        await using var command = connection.CreateCommand();
-
-        command.CommandText = "DELETE FROM progress_cursor";
-
-        await command.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    private SqliteConnection Open()
-    {
-        var connection = new SqliteConnection(_connectionString);
-        connection.Open();
-        return connection;
-    }
-
-    /// <summary>UTC, round-trip: the stamps are compared, so none may lose a tick.</summary>
-    private static string FormatInstant(DateTimeOffset value) =>
-        value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
-
-    private static DateTimeOffset ParseInstant(string value) =>
-        DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+    public Task ResetCursorAsync(CancellationToken cancellationToken = default) =>
+        _view.ResetCursorAsync(cancellationToken);
 }
