@@ -45,12 +45,12 @@ public static class Iterations
                 return new IterationWindow(length, day, day);
 
             case IterationLength.Week:
-                var monday = MondayOf(today);
+                var monday = CalendarWeek.MondayOf(today);
                 if (today > monday.AddDays(4)) monday = monday.AddDays(7);
                 return new IterationWindow(length, monday, monday.AddDays(4));
 
             case IterationLength.TwoWeeks:
-                var anchor = twoWeekStart ?? MondayOf(today);
+                var anchor = twoWeekStart ?? CalendarWeek.MondayOf(today);
                 var offset = today.DayNumber - anchor.DayNumber;
                 var first = anchor.AddDays((int)Math.Floor(offset / 14d) * 14);
                 return new IterationWindow(length, first, first.AddDays(13));
@@ -115,9 +115,6 @@ public static class Iterations
         var perWeek = WorkingHours.Week.Count(usable.IsWorked);
         return (int)Math.Round(pointsPerWeek * WorkedDays(window, usable) / perWeek, MidpointRounding.AwayFromZero);
     }
-
-    /// <summary>The Monday of <paramref name="day"/>'s week, Monday first.</summary>
-    public static DateOnly MondayOf(DateOnly day) => day.AddDays(-(((int)day.DayOfWeek + 6) % 7));
 
     private static IterationWindow Step(IterationWindow window, WorkingHours week, bool forward)
     {

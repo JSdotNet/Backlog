@@ -139,6 +139,9 @@ The .NET wrapper over the Windows Data Protection API (DPAPI).
   - `SecretEnvelope` seals the token and key values in `github.json`,
     `claude.json` and `azure-foundry.json`. The GitHub adapter holds it, and the
     Claude and Azure Foundry adapters compile it in.
+  - All three seal through one `UserDpapi` call pair. The GitHub adapter holds
+    it, and the Claude, Azure Foundry, Sync and spec-manager adapters compile it
+    in, since they share no project it could live in.
 - **Why** — it is the OS credential store local ADR 0005's Identity section names
   for Windows. Local ADR 0030 makes it the rule for every stored credential.
   The app has no key to generate, rotate, or leak.

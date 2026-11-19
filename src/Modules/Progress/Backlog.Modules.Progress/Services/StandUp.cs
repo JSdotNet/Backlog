@@ -58,7 +58,7 @@ public sealed class InMemoryIterationSettings : IIterationSettings
         {
             Length = length,
             TwoWeekStart = length == IterationLength.TwoWeeks && current.TwoWeekStart is null
-                ? Iterations.MondayOf(today)
+                ? CalendarWeek.MondayOf(today)
                 : current.TwoWeekStart
         });
     }
