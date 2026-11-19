@@ -9,7 +9,7 @@
 //   fires; UserPromptSubmit covers a transcript not yet on disk. A marker per session keeps it
 //   to once.
 // - Stop: POST the run's finish to http://127.0.0.1:<port>/schedule-runs, beside the app's
-//   /mcp, with the same bearer token — `skipped` when the final message opens with `Skipped:`,
+//   /mcp, with a token of the delivery grant (runs:write, local ADR 0058 §4) — `skipped` when the final message opens with `Skipped:`,
 //   with the session it names as `heldBy`; `failed` when it opens with `Failed:`; else
 //   `finished` with its verdict line and its Needs-you rows.
 // - StopFailure: Claude Code fires it instead of Stop when the turn ends on an API error (a rate
@@ -20,24 +20,26 @@
 // not running refuses the connection at once, and a hung one is abandoned after TIMEOUT_MS.
 
 import { createReadStream } from "node:fs";
-import { mkdir, open, readFile } from "node:fs/promises";
+import { mkdir, open } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 
+import { authorization, readEndpoint } from "./backlog-grant.mjs";
 import {
-    endpointFrom,
     failureReport,
     finishReport,
     firstPrompt,
     lastAssistantText,
     promptedAfterStart,
+    ROUTE,
     scheduledTaskName,
-    settingsPath,
     startContext,
 } from "./schedule-run-logic.mjs";
 
 const TIMEOUT_MS = 2000;
+// The headers helper mints the delivery grant's token; abandoned after this long.
+const HELPER_TIMEOUT_MS = 1500;
 
 function readStdin() {
     return new Promise((resolve) => {
@@ -122,17 +124,20 @@ async function finish(event) {
         report = finishReport(scheduleId, event.session_id, message);
     }
 
-    let settingsText = null;
-    try {
-        settingsText = await readFile(settingsPath(process.env, process.platform, os.homedir()), "utf8");
-    } catch {
-        // No settings yet: the app has never served MCP on this machine.
-    }
-    const { url, token } = endpointFrom(process.env, settingsText);
-    const headers = { "content-type": "application/json" };
-    if (token) headers.authorization = `Bearer ${token}`;
+    // The route needs runs:write (local ADR 0058 §4), which the delivery grant holds: one token
+    // from the headers helper, one deadline for it and the post together.
+    const deadline = Date.now() + HELPER_TIMEOUT_MS + TIMEOUT_MS;
+    const target = await readEndpoint("delivery", ROUTE);
+    const { header } = await authorization(target, "delivery", { timeoutMs: HELPER_TIMEOUT_MS });
+    // No token is a refusal waiting to happen: the route answers 401 to a call without one.
+    if (!header) return;
 
-    await fetch(url, { method: "POST", headers, body: JSON.stringify(report), signal: AbortSignal.timeout(TIMEOUT_MS) });
+    await fetch(target.url, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: header },
+        body: JSON.stringify(report),
+        signal: AbortSignal.timeout(Math.max(250, deadline - Date.now())),
+    });
 }
 
 async function main() {

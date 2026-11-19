@@ -13,4 +13,9 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- A device's software P-256 key and the assertions it signs (local ADR 0058 §2). -->
+    <Compile Include="..\Shared\TestDoubles\DeviceSigningKey.cs" Link="Shared\TestDoubles\DeviceSigningKey.cs" />
+  </ItemGroup>
+
 </Project>

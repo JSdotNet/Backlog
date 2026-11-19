@@ -213,7 +213,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         var desktop = new Desktop(
             _temp.Combine("desktop"),
             desktopHttp,
-            new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential));
+            new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential!));
 
         var phoneDatabase = _temp.Combine("phone", "device.db");
         var sync = new CloudSyncClient(phoneHttp);

@@ -72,6 +72,7 @@
     <Compile Include="..\Shared\TestDoubles\InMemoryScheduleRegister.cs" Link="Shared\TestDoubles\InMemoryScheduleRegister.cs" />
     <Compile Include="..\Shared\TestDoubles\InMemoryLoopRegister.cs" Link="Shared\TestDoubles\InMemoryLoopRegister.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingTelemetry.cs" Link="Shared\TestDoubles\RecordingTelemetry.cs" />
+    <Compile Include="..\Shared\TestDoubles\FailableMcpGrantStore.cs" Link="Shared\TestDoubles\FailableMcpGrantStore.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingNotifications.cs" Link="Shared\TestDoubles\RecordingNotifications.cs" />
   </ItemGroup>
 

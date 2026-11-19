@@ -31,7 +31,7 @@ An inherited decision marked `proposed` rather than `active` is one no shipped c
 | **[0007 — Minimal APIs](adr/guidelines/0007-minimal-apis-over-controllers.md)** | Followed: `MapGroup` plus `Results` helpers, thin lambdas over handlers, and two endpoint filters. |
 | **[0010 — OpenTelemetry](adr/guidelines/0010-opentelemetry-observability.md)** | Wired through ServiceDefaults. Sync alone among the modules adds its own `ActivitySource` and counter. |
 | **[0012 — External identity (OIDC)](adr/guidelines/0012-authentication-external-identity-providers.md)** | Relevant only for the GitHub OAuth callback and any future external identity flow, not for device-session auth. |
-| **[0013 — Authorization & Zero Trust](adr/guidelines/0013-authorization-zero-trust.md)** | Relevant for device authorization, least-privilege checks, and audit logging. None implemented — the baseline is single-user. |
+| **[0013 — Authorization & Zero Trust](adr/guidelines/0013-authorization-zero-trust.md)** | Applied to the MCP surface and to owner and device identity by local ADR 0058, not yet built. |
 | **[0014 — Persistence & repository boundaries](adr/guidelines/0014-persistence-and-repository-boundaries.md)** | Relevant for sync-state persistence and data ownership boundaries. |
 | **[0015 — Resilience](adr/guidelines/0015-resilience-for-outbound-dependencies.md)** | Relevant for GitHub and push-delivery outbound calls. |
 | **[0017 — Problem Details](adr/guidelines/0017-http-error-contract-and-problem-details.md)** | Implemented: every failure is RFC 7807 with a `code` extension, mapped in one file. |
@@ -136,3 +136,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0055 — Calendar is a surface of its own that reads layers](adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md) (proposed, Tasks, Plans and Events layers built; superseded in part by ADR 0056)
 - [ADR 0056 — The Calendar owns its grid, and Tasks is one layer](adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (accepted, built; supersedes ADR 0055 §2, §3 and §6 in part, amends ADR 0022 §2)
 - [ADR 0057 — Archify is retired, and Mermaid draws every chapter diagram](adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md) (proposed; supersedes ADR 0034)
+- [ADR 0058 — Agents and devices authenticate by grant and key, the owner by GitHub sign-in](adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md) (proposed)

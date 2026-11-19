@@ -63,14 +63,15 @@ public class McpToolCreationTests
         InboxTools.ListInboxItems,
         InboxTools.ReadInboxItem,
         GoalTools.ListGoals,
+        GrantTools.ListAgentRequests,
         GoalTools.ReadIterations,
         SessionRequestTools.ListSessionRequests,
         SessionRequestTools.ListDeliveries
     ];
 
-    /// <summary>The one writer that destroys: <c>delete_goal</c> removes a goal and what
-    /// it holds. Every other writer adds or replaces.</summary>
-    private static readonly string[] Destructive = [GoalTools.DeleteGoal];
+    /// <summary>The writers that destroy: <c>delete_goal</c> removes a goal and what it holds,
+    /// and <c>revoke_agent</c> cuts an agent off for good. Every other writer adds or replaces.</summary>
+    private static readonly string[] Destructive = [GoalTools.DeleteGoal, GrantTools.RevokeAgent];
 
     /// <summary>
     /// Every tool builds, under the name the catalog claims, and reaches the wire
@@ -159,13 +160,13 @@ public class McpToolCreationTests
                 TrackerTools.CreateItem,
                 GoalTools.DeleteGoal,
                 GoalTools.DetachFromGoal,
-                DecisionTools.Accept,
-                DecisionTools.Approve,
                 DecisionTools.PostNote,
                 DecisionTools.ResolveNote,
                 DecisionTools.SetState,
+                GrantTools.EditAgentScopes,
                 SurfaceTools.FinishRun,
                 NotificationTools.GetAnswer,
+                GrantTools.GrantAgent,
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
                 ImpedimentTools.LinkToImpediment,
@@ -177,7 +178,9 @@ public class McpToolCreationTests
                 ImpedimentTools.RaiseImpediment,
                 SurfaceTools.RecordPrompt,
                 ScheduleTools.ReportScheduleRun,
+                AccessTools.RequestAccess,
                 DevbookTools.ResolveAnnotation,
+                GrantTools.RevokeAgent,
                 TrackerTools.SetBlocked,
                 TrackerTools.SetDevbookReferences,
                 ImpedimentTools.SetImpedimentState,
@@ -279,8 +282,8 @@ public class McpToolCreationTests
         // the host's, so neither by nor at is a parameter a caller could fill in.
         Assert.Equal(["repository", "subject"], schemas["devbook_get_state"]);
         Assert.Equal(["repository", "subject", "state"], schemas["devbook_set_state"]);
-        Assert.Equal(["repository", "subject", "fingerprint"], schemas["devbook_approve"]);
-        Assert.Equal(["repository", "subject", "fingerprint"], schemas["devbook_accept"]);
+        Assert.DoesNotContain("devbook_approve", schemas.Keys);
+        Assert.DoesNotContain("devbook_accept", schemas.Keys);
 
         // The units are optional: without them the tool answers the stated entries.
         Assert.Equal(["repository", "units"], schemas["list_sync_directions"]);
@@ -293,7 +296,7 @@ public class McpToolCreationTests
         Assert.Equal(["repository", "address", "body"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "devbook_post_note")));
         Assert.Equal(["repository", "id"], schemas["devbook_resolve_note"]);
         Assert.All(
-            [DecisionTools.GetState, DecisionTools.SetState, DecisionTools.Approve, DecisionTools.Accept],
+            [DecisionTools.GetState, DecisionTools.SetState],
             name =>
             {
                 var tool = Tools().Single(candidate => candidate.ProtocolTool.Name == name);
@@ -337,6 +340,15 @@ public class McpToolCreationTests
         // 0043 §6 are each optional, and advertised so a model knows they exist.
         Assert.Equal(["surface", "target", "plan", "entry", "chapter", "scope"], schemas["open_window"]);
         Assert.Equal(["surface", "target"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "open_window")));
+        Assert.Equal(["scopes", "folder"], schemas["request_access"]);
+        Assert.Equal(["scopes"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "request_access")));
+        // The granting tools name a request or a grant by its id, and the scopes where they change any.
+        Assert.Empty(schemas["list_agent_requests"]);
+        Assert.Equal(["requestId", "scopes"], schemas["grant_agent"]);
+        Assert.Equal(["requestId"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "grant_agent")));
+        Assert.Equal(["grantId", "scopes"], schemas["edit_agent_scopes"]);
+        Assert.Equal(["grantId", "scopes"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "edit_agent_scopes")));
+        Assert.Equal(["grantId"], schemas["revoke_agent"]);
         // The delivery tools take a delivery id and a dispatcher, never a message (local ADR 0041).
         Assert.Equal(["id", "dispatcher"], schemas["claim_delivery"]);
         Assert.Equal(["id", "outcome", "dispatcher"], schemas["mark_delivery"]);
@@ -434,8 +446,10 @@ public class McpToolCreationTests
             [typeof(LoopTools)] = new LoopTools(new InMemoryLoopRegister()),
             [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications()),
             [typeof(InboxTools)] = new InboxTools(InboxToolsTests.FakeInbox.Over()),
+            [typeof(WindowTools)] = new WindowTools(FakeSurfaceWindows.Catalog(), new FakeSurfaceWindows()),
+            [typeof(AccessTools)] = new AccessTools(new McpCallContext()),
             [typeof(EventTools)] = new EventTools(new EventToolsTests.FakeEventsPane()),
-            [typeof(WindowTools)] = new WindowTools(FakeSurfaceWindows.Catalog(), new FakeSurfaceWindows())
+            [typeof(GrantTools)] = new GrantTools(new McpCallContext())
         };
 
         foreach (var group in BacklogMcpTools.Groups)

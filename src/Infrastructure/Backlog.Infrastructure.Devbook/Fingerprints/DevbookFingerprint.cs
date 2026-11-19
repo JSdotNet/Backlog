@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 
 using Backlog.Infrastructure.Devbook.Building;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Infrastructure.Devbook.Fingerprints;
@@ -91,6 +92,55 @@ public static partial class DevbookFingerprint
     /// value.</summary>
     public static string Change(string proposalMarkdown, IEnumerable<DevbookChangeDelta> deltas) =>
         Of(ChangeText(proposalMarkdown, deltas));
+
+    private const string ChangesRoot = "openspec/changes/";
+    private const string DeltaFolder = "devbook-delta";
+    private const string DevbookPrefix = ".devbook/";
+
+    /// <summary>
+    /// The fingerprint of the change folder <c>openspec/changes/&lt;name&gt;/</c> in
+    /// a repository on disk: its <c>proposal.md</c> and every <c>*.md</c> and demo
+    /// under <c>devbook-delta/</c>, at any depth. Null when the folder has no
+    /// proposal — there is no change to decide.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="changeName"/> is no
+    /// folder name under <c>openspec/changes/</c>
+    /// (<see cref="DevbookSubject.IsProposalName"/>): nothing outside the change's
+    /// own folder is read.</exception>
+    public static string? ReadChange(string repositoryRoot, string changeName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(changeName);
+
+        if (!DevbookSubject.IsProposalName(changeName))
+        {
+            throw new ArgumentException(
+                "A change is read by its folder name under openspec/changes/: no path, no '..', not 'archive'.",
+                nameof(changeName));
+        }
+
+        var folder = Path.Combine([repositoryRoot, .. ChangesRoot.TrimEnd('/').Split('/'), changeName]);
+        var proposal = Path.Combine(folder, "proposal.md");
+        if (!File.Exists(proposal)) return null;
+
+        var deltaRoot = Path.Combine(folder, DeltaFolder);
+        var deltas = new List<DevbookChangeDelta>();
+
+        if (Directory.Exists(deltaRoot))
+        {
+            foreach (var file in Directory.EnumerateFiles(deltaRoot, "*", SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(deltaRoot, file).Replace('\\', '/');
+                if (!relative.EndsWith(".md", StringComparison.Ordinal) && !IsDemoPath(relative)) continue;
+
+                deltas.Add(new DevbookChangeDelta(DevbookPrefix + relative, ReadAsDevbookReads(file)));
+            }
+        }
+
+        return Change(ReadAsDevbookReads(proposal), deltas);
+    }
+
+    private static string ReadAsDevbookReads(string path) => Encoding.UTF8.GetString(File.ReadAllBytes(path));
 
     /// <summary>
     /// The canonical text of a change, decided as one: the value of its

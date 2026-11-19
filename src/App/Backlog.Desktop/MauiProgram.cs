@@ -5,6 +5,7 @@ using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
@@ -101,11 +102,16 @@ public static class MauiProgram
             // Windows one; the credential belongs to this machine and not to the
             // workspace.
             DeviceCredentialStore = _ => new DpapiDeviceCredentialStore(Path.Combine(appData, "device-credential.json")),
+            // The device key (local ADR 0058 §2): non-exportable CNG, TPM first, with the
+            // software provider as the fallback the Devices page warns about.
+            DeviceKeyStore = sp => new CngDeviceKeyStore(log: sp.GetService<ILogger<CngDeviceKeyStore>>()),
             // Plaintext because neither value is a secret.
             TaskSyncStateStore = _ => new FileTaskSyncStateStore(Path.Combine(appData, "task-sync-state.json")),
             SessionSyncFolder = appData,
             AnnotationSyncFolder = appData,
             BackupStatePath = Path.Combine(appData, "backup-state.json"),
+            // The MCP audit log, per installation and never in the workspace root.
+            McpAuditLogPath = Path.Combine(appData, "mcp-audit.db"),
             // The URL on the Settings page, per machine and never in the workspace.
             SyncServiceSettingsPath = Path.Combine(appData, "sync-service.json"),
             // The catalog is the shell's product copy; the store is the adapter that
@@ -188,6 +194,45 @@ public static class MauiProgram
         // (local ADR 0043 §7): one set for the app's life, so a token minted by an
         // MCP tool is the one the listener redeems.
         builder.Services.TryAddSingleton<WindowLinkTokens>();
+        // The MCP grants and the broker that mints their tokens (local ADR 0058 §3). This
+        // head's alone: the web harness composes no store and no broker (§9), so its /mcp
+        // has no grant path. mcp-grants.json sits in the head's app-data folder, Backlog.Debug
+        // for a debug head. One McpGrantTokens for the app's life, because it holds the
+        // signing key in memory: the broker mints with it and the listener validates with
+        // it, and a second instance would refuse every token the first one signed.
+        builder.Services.TryAddSingleton<IMcpGrantStore>(_ => new FileMcpGrantStore(Path.Combine(appData, FileMcpGrantStore.FileName)));
+        // The agents' requests for access beside them (local ADR 0058 §5): a registration's grant
+        // is pending, and mints nothing, while its request is open.
+        builder.Services.TryAddSingleton<IMcpAccessRequestStore>(_ => new FileMcpAccessRequestStore(Path.Combine(appData, FileMcpAccessRequestStore.FileName)));
+        builder.Services.TryAddSingleton(sp => new McpGrantTokens(
+            sp.GetRequiredService<IMcpGrantStore>(),
+            TimeProvider.System,
+            sp.GetRequiredService<IMcpAccessRequestStore>()));
+        // Allow asks for Windows Hello (§6), and the desk that holds a request to its limits
+        // opens the request window over these windows and raises its notification (ADR 0039).
+        builder.Services.TryAddSingleton<IUserConsent>(sp => new WindowsHelloUserConsent(sp.GetRequiredService<ShellWindows>()));
+        // Minting a pairing code and revoking a device ask for the same Hello (§6). Only this
+        // head composes it: the harness and the phone keep no step-up, so their pairing client
+        // asks nothing.
+        builder.Services.TryAddSingleton(sp => new DeviceStepUp(sp.GetRequiredService<IUserConsent>()));
+        builder.Services.TryAddSingleton<IAgentRequestWindows>(sp => new ShellAgentRequestWindows(sp.GetRequiredService<IShellWindows>()));
+        builder.Services.TryAddSingleton(sp => new McpAccessDesk(
+            sp.GetRequiredService<IMcpGrantStore>(),
+            sp.GetRequiredService<IMcpAccessRequestStore>(),
+            sp.GetRequiredService<IUserConsent>(),
+            TimeProvider.System,
+            sp.GetRequiredService<IAgentRequestWindows>(),
+            sp.GetService<Backlog.Modules.Notifications.Abstractions.INotifications>(),
+            sp.GetService<ILogger<McpAccessDesk>>(),
+            sp.GetService<IMcpAuditLog>()));
+        builder.Services.TryAddSingleton<IAgentAccessRequests>(sp => sp.GetRequiredService<McpAccessDesk>());
+        // The agents:grant tools answer through the same desk, under the same lock, so a granter
+        // agent and the person never both answer one request (§5).
+        builder.Services.TryAddSingleton<IAgentGrants>(sp => sp.GetRequiredService<McpAccessDesk>());
+        builder.Services.TryAddSingleton(sp => new McpTokenBroker(
+            sp.GetRequiredService<McpGrantTokens>(),
+            sp.GetRequiredService<McpAccessDesk>(),
+            sp.GetService<ILogger<McpTokenBroker>>()));
         // The head's windows (local ADR 0043 §4): the main one App asks for, and every
         // surface popped out beside it. Twice over, so App reaches the concrete type
         // that makes the main window while every caller sees the port.
@@ -199,11 +244,13 @@ public static class MauiProgram
         builder.Services.TryAddSingleton<ShellWindows>();
         builder.Services.TryAddSingleton<IShellWindows>(sp => sp.GetRequiredService<ShellWindows>());
         // What open_window opens and links to (local ADR 0043 §7): these windows, and a
-        // tokenized link to the listener's page at the port it is listening on now.
+        // tokenized link to the listener's page at the port it is listening on now, each
+        // minted link logged without its token (local ADR 0058 §4).
         builder.Services.TryAddSingleton<ISurfaceWindowHost>(sp => new DesktopSurfaceWindowHost(
             sp.GetRequiredService<IShellWindows>(),
             sp.GetRequiredService<WindowLinkTokens>(),
-            () => sp.GetService<McpServerWorker>()?.Address?.Port));
+            () => sp.GetService<McpServerWorker>()?.Address?.Port,
+            sp.GetService<ILogger<DesktopSurfaceWindowHost>>()));
         // What a backlog:// link opens (local ADR 0043 §7): BacklogLinkInstance hands it
         // the link the app was launched with and every one redirected here later.
         builder.Services.TryAddSingleton<BacklogLinkActivation>();
@@ -246,7 +293,9 @@ public static class MauiProgram
         // And where the same listener receives Claude Code's telemetry (local ADR
         // 0024), for the Settings page that says what to paste into Claude Code.
         builder.Services.TryAddSingleton<IClaudeCodeTelemetryEndpoint>(sp =>
-            new DesktopClaudeCodeTelemetryEndpoint(sp.GetRequiredService<IMcpEndpointSource>()));
+            new DesktopClaudeCodeTelemetryEndpoint(
+                sp.GetRequiredService<IMcpEndpointSource>(),
+                sp.GetRequiredService<WorkspaceSettingsStore>()));
 
         // The bill for the Azure Foundry resource, read from Azure Cost Management
         // with the developer sign-in on this machine. Reports itself unavailable
@@ -390,6 +439,11 @@ public static class MauiProgram
         // the app runs.
         _ = app.Services.GetRequiredService<McpServerWorker>();
 
+        // And the token broker beside it, on the same terms: its pipe outlives the window as
+        // the listener does (local ADR 0043 §5), and the container disposes it with the app.
+        // Start only queues the pipe onto the thread pool.
+        app.Services.GetRequiredService<McpTokenBroker>().Start();
+
         // And the question relay's hook script (local ADR 0041), written to <app data>\hooks
         // on every start so the installed hook is always this app's own. On the thread pool,
         // never ahead of the first window; a failure is logged and the app carries on.
@@ -405,6 +459,40 @@ public static class MauiProgram
                 // Whatever it was - a locked file, a missing resource - the app runs without
                 // an up-to-date hook rather than not at all; the served route still answers.
                 hookLog?.LogError(ex, "The question hook script could not be written to the app data folder.");
+            }
+
+            // And the headers helper beside it, then the shared token's retirement (local ADR
+            // 0058, Phase 1): on the first start after the upgrade, three grants in its place and
+            // Claude Code's own files rewritten to run the helper for them. Once the grants are
+            // recorded and nothing names a retired token, this does nothing.
+            try
+            {
+                var helper = McpHeadersHelperScript.Install(WorkspaceSettingsStore.DefaultAppDataDirectory);
+                var retirement = McpTokenRetirement.Run(
+                    app.Services.GetRequiredService<WorkspaceSettingsStore>(),
+                    app.Services.GetRequiredService<IMcpGrantStore>(),
+                    ClaudeConfigFiles.ForCurrentUser(),
+                    helper,
+                    McpHeadersHelperScript.IsDebugBuild);
+
+                foreach (var problem in retirement.Problems)
+                {
+                    hookLog?.LogWarning("The shared MCP token's retirement is not finished: {Problem}", problem);
+                }
+
+                if (retirement.RegistrationsRewritten > 0 || retirement.TelemetryRewritten)
+                {
+                    hookLog?.LogInformation(
+                        "The shared MCP token was retired: {Registrations} Claude Code registration(s) and {Telemetry} telemetry block now run the headers helper for a grant.",
+                        retirement.RegistrationsRewritten,
+                        retirement.TelemetryRewritten ? 1 : 0);
+                }
+            }
+            catch (Exception ex)
+            {
+                // The grants could not be made or recorded: the app runs, and every registration
+                // that still sends the retired token is refused until the next start manages it.
+                hookLog?.LogError(ex, "The shared MCP token could not be retired; the next start tries again.");
             }
         });
 

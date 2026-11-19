@@ -14,7 +14,6 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-    endpointFrom,
     failureReport,
     finishReport,
     firstPrompt,
@@ -22,10 +21,12 @@ import {
     lastAssistantText,
     needsYouRows,
     promptedAfterStart,
+    ROUTE,
     scheduledTaskName,
     startContext,
     verdictLine,
 } from "../hooks/schedule-run-logic.mjs";
+import { endpointFrom as grantEndpoint } from "../hooks/backlog-grant.mjs";
 
 const HOOKS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "hooks");
 const SCRIPT = path.join(HOOKS, "schedule-run-report.mjs");
@@ -235,10 +236,10 @@ test("the start context asks a skip to name the holding run's session and an err
     assert.match(text, /`Failed:`/);
 });
 
-test("the endpoint is the environment's, then settings.json's, then the default port, on /schedule-runs", () => {
-    assert.deepEqual(endpointFrom({ BACKLOG_MCP_PORT: "6000", BACKLOG_MCP_TOKEN: "t" }, null), { url: "http://127.0.0.1:6000/schedule-runs", token: "t" });
-    assert.deepEqual(endpointFrom({}, JSON.stringify({ mcpServer: { port: 6001, token: "s" } })), { url: "http://127.0.0.1:6001/schedule-runs", token: "s" });
-    assert.deepEqual(endpointFrom({}, "{half"), { url: "http://127.0.0.1:5757/schedule-runs", token: null });
+test("the report goes to /schedule-runs under the delivery grant, which holds runs:write", () => {
+    const settings = JSON.stringify({ mcpServer: { port: 6001, grants: { delivery: "g_delivery", telemetry: "g_telemetry" } } });
+    assert.equal(ROUTE, "/schedule-runs");
+    assert.deepEqual(grantEndpoint({}, settings, "delivery", ROUTE), { url: "http://127.0.0.1:6001/schedule-runs", grant: "g_delivery", token: null });
 });
 
 test("hooks.json runs the report script on SessionStart, UserPromptSubmit, Stop and StopFailure", () => {

@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure;
 /// <summary>
 /// One secret value in a per-user settings file, sealed under the signed-in
 /// Windows user (local ADR 0030): a GitHub token, the Claude admin key, the Azure
-/// Foundry API key.
+/// Foundry API key, an MCP grant's secret.
 /// <para>
 /// The envelope is on the value rather than on the file, so the files stay
 /// legible JSON and only the secret becomes <c>dpapi:</c> followed by the base64
@@ -28,9 +28,10 @@ namespace Backlog.Infrastructure;
 /// </para>
 /// </summary>
 /// <remarks>
-/// One copy for every settings adapter, compiled into the Claude and Azure Foundry
-/// adapters as a linked <c>Compile</c> item the way <c>IsoTimestamps</c> is, beside the
-/// <see cref="UserDpapi"/> it seals with.
+/// One copy for every settings adapter, compiled into the Claude, Azure Foundry and
+/// file-system adapters as a linked <c>Compile</c> item the way <c>IsoTimestamps</c> is —
+/// the last for the MCP grant secrets in <c>mcp-grants.json</c> (local ADR 0058 §3) —
+/// beside the <see cref="UserDpapi"/> it seals with.
 /// </remarks>
 internal static class SecretEnvelope
 {

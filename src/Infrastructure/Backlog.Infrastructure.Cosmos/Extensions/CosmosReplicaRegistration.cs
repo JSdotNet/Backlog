@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.Cosmos.Annotations;
+using Backlog.Infrastructure.Cosmos.ConnectorCredentials;
 using Backlog.Infrastructure.Cosmos.DevbookSubjects;
 using Backlog.Infrastructure.Cosmos.Devices;
 using Backlog.Infrastructure.Cosmos.KnowledgeEvents;
@@ -158,6 +159,12 @@ public static class CosmosReplicaRegistration
         builder.Services.AddSingleton<INotificationReplica, CosmosNotificationReplica>();
         builder.Services.AddSingleton<IDeviceRegistry, CosmosDeviceRegistry>();
         builder.Services.AddSingleton<IPairingCodeStore, CosmosPairingCodeStore>();
+
+        // The remote connector's client secret hash and refresh tokens (local ADR 0058 §8):
+        // both outlive a restart of a service that scales to zero. Its authorization steps
+        // live minutes and stay with the module's in-memory store, like enrolment tickets.
+        builder.Services.AddSingleton<IConnectorClientStore, CosmosConnectorClientStore>();
+        builder.Services.AddSingleton<IConnectorRefreshTokenStore, CosmosConnectorRefreshTokenStore>();
 
         // The code store stamps each document's ttl from the clock. The module
         // registers the same default, but this call is meant to stand on its

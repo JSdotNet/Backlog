@@ -53,9 +53,9 @@ internal sealed class PairedDesktops : IDisposable
         bHttp.Bearing(await bHttp.DeviceToken(laptop));
 
         var a = new Desktop(_temp.Combine("a"), aHttp,
-            new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential));
+            new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential!));
         var b = new Desktop(_temp.Combine("b"), bHttp,
-            new DeviceCredential(laptop.OwnerId, laptop.DeviceId, "Laptop", laptop.Credential));
+            new DeviceCredential(laptop.OwnerId, laptop.DeviceId, "Laptop", laptop.Credential!));
         _desktops.Add(a);
         _desktops.Add(b);
 

@@ -134,7 +134,7 @@ public sealed class DpapiDeviceCredentialStore : IDeviceCredentialStore
 
             Array.Clear(plaintext);
 
-            return credential is null || string.IsNullOrWhiteSpace(credential.Credential) ? null : credential;
+            return credential is { IsUsable: true } ? credential : null;
         }
         catch (Exception ex) when (ex is IOException
             or UnauthorizedAccessException

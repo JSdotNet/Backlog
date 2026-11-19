@@ -61,6 +61,23 @@ public sealed class SqliteWaitingQuestionStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task The_device_each_answer_came_from_survives_a_round_trip()
+    {
+        var store = Store();
+        var question = Dialog(away: true);
+        await store.RegisterAsync(question, Ct);
+        var phone = Guid.NewGuid();
+
+        var notified = WaitingQuestions.Notify(question, [Guid.NewGuid(), Guid.NewGuid()]).Question!;
+        var answered = WaitingQuestions.Answer(notified, notified.NotificationIds[0], RelayAnswer.Open("MySQL") with { FromDeviceId = phone }, Noon.AddMinutes(5)).Question!;
+        await store.ChangeAsync(question.Id, _ => WaitingQuestionOutcome.Done(answered), Ct);
+
+        var read = (await store.GetAsync(question.Id, Ct))!;
+        Assert.Equal(phone, read.Answers[0]!.FromDeviceId);
+        Assert.Null(read.Answers[1]);
+    }
+
+    [Fact]
     public async Task Registering_the_same_session_and_tool_use_twice_returns_the_first()
     {
         var store = Store();

@@ -68,6 +68,8 @@ public partial class SharedTestDoubleTests
 
     /// <summary>Each interface a double under <c>tests/Shared/TestDoubles</c>
     /// implements, mapped to the double that implements it.</summary>
+    private static readonly HashSet<string> LifetimeInterfaces = new(StringComparer.Ordinal) { "IDisposable", "IAsyncDisposable" };
+
     private static Dictionary<string, string> SharedDoubleInterfaces()
     {
         var covered = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -76,7 +78,9 @@ public partial class SharedTestDoubleTests
         {
             foreach (Match declaration in TypeDeclaration().Matches(File.ReadAllText(file.FullName)))
             {
-                foreach (var implemented in Interfaces(declaration.Groups["bases"].Value))
+                // A product port is what a copy would duplicate; disposing is how a test
+                // double lets go of what it holds, and every fixture class has it too.
+                foreach (var implemented in Interfaces(declaration.Groups["bases"].Value).Where(name => !LifetimeInterfaces.Contains(name)))
                 {
                     covered.TryAdd(implemented, declaration.Groups["name"].Value);
                 }

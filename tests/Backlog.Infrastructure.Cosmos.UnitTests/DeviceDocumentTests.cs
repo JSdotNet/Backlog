@@ -4,7 +4,9 @@
 //
 // Not tested here, deliberately: the point read, the owner count, and the
 // cross-partition query behind it need a store — the emulator can give one, a
-// fake would only assert that the fake was written to match the code.
+// fake would only assert that the fake was written to match the code. Binding a
+// key is the exception: its etag guard is a contract of the container, which
+// CosmosDeviceRegistryBindKeyTests holds to with a container that honours If-Match.
 
 using System.Text.Json;
 using Backlog.Infrastructure.Cosmos.Devices;
@@ -45,6 +47,29 @@ public class DeviceDocumentTests
             JsonSerializer.Serialize(DeviceDocumentFactory.From(Registered()), ReplicaDocumentSerialization.Options).Replace(",\"pairedBy\":null", string.Empty, StringComparison.Ordinal),
             ReplicaDocumentSerialization.Options)!;
         Assert.Null(DeviceDocumentFactory.ToDevice(older)!.PairedBy);
+    }
+
+    /// <summary>A device bound to a key (local ADR 0058 §2) keeps the key as
+    /// <c>publicKey</c> and no credential hash; a document written before the
+    /// field reads as a device still on its credential.</summary>
+    [Fact]
+    public void A_key_bound_device_round_trips_and_an_older_document_reads_as_unbound()
+    {
+        var bound = Registered() with { CredentialHash = null, PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE" };
+
+        var document = DeviceDocumentFactory.From(bound);
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options));
+
+        Assert.Equal(bound.PublicKey, json.RootElement.GetProperty("publicKey").GetString());
+        Assert.Equal(bound, DeviceDocumentFactory.ToDevice(document));
+
+        var older = JsonSerializer.Deserialize<DeviceDocument>(
+            JsonSerializer.Serialize(DeviceDocumentFactory.From(Registered()), ReplicaDocumentSerialization.Options).Replace(",\"publicKey\":null", string.Empty, StringComparison.Ordinal),
+            ReplicaDocumentSerialization.Options)!;
+        var restored = DeviceDocumentFactory.ToDevice(older)!;
+        Assert.Null(restored.PublicKey);
+        Assert.False(restored.IsKeyBound);
+        Assert.Equal(Registered().CredentialHash, restored.CredentialHash);
     }
 
     /// <summary>

@@ -267,7 +267,80 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.NotNull(first.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.UI.ICalendarViewPreferences>());
 
         Assert.IsType<DpapiDeviceCredentialStore>(provider.GetRequiredService<IDeviceCredentialStore>());
+        Assert.IsType<CngDeviceKeyStore>(provider.GetRequiredService<IDeviceKeyStore>());
         Assert.IsType<DevToolService>(provider.GetRequiredService<IDevToolService>());
+    }
+
+    /// <summary>
+    /// The key store reaches the two clients that use it, not only the container
+    /// (local ADR 0058 §2): the token provider the head resolves signs its fetch with
+    /// the key, and the pairing client it resolves sends the key's public half. Proved
+    /// on the wire, through the head's own client pipelines with a recording handler at
+    /// the bottom, so a registration that dropped the key would show as a request
+    /// without one.
+    /// </summary>
+    [Fact]
+    [SupportedOSPlatform("windows")]
+    public async Task The_maui_head_hands_its_key_store_to_the_token_provider_and_the_pairing_client()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var keys = new InMemoryDeviceKeyStore();
+        var wire = new RecordingSyncService();
+        var services = BuildMauiShapedServices();
+
+        // In place of the CNG store, so nothing here opens or makes a machine key.
+        services.AddSingleton<IDeviceKeyStore>(keys);
+        services.AddHttpClient(SyncTokenProvider.HttpClientName)
+            .ConfigureHttpClient(client => client.BaseAddress = RecordingSyncService.Address)
+            .ConfigurePrimaryHttpMessageHandler(() => wire);
+        services.AddHttpClient<DevicePairingClient>()
+            .ConfigureHttpClient(client => client.BaseAddress = RecordingSyncService.Address)
+            .ConfigurePrimaryHttpMessageHandler(() => wire);
+
+        using var provider = services.BuildServiceProvider();
+        var cancellation = TestContext.Current.CancellationToken;
+
+        await provider.GetRequiredService<DevicePairingClient>().PairAsync("K7MN9PQR", "Workshop PC", cancellation);
+
+        var redeem = Assert.Single(wire.Bodies(Backlog.Modules.Sync.Abstractions.SyncRoutes.RedeemPairingCode));
+        Assert.Equal(keys.GetOrCreate().PublicKey, redeem.GetProperty("publicKey").GetString());
+
+        await provider.GetRequiredService<IDeviceCredentialStore>().SaveAsync(
+            new DeviceCredential(Guid.NewGuid(), Guid.NewGuid(), "Workshop PC", Credential: null), cancellation);
+        await provider.GetRequiredService<SyncTokenProvider>().GetAccessTokenAsync(cancellation);
+
+        var token = Assert.Single(wire.Bodies(Backlog.Modules.Sync.Abstractions.SyncRoutes.DeviceToken));
+        Assert.Equal(
+            Backlog.Modules.Sync.Abstractions.SyncAssertion.ClientAssertionType,
+            token.GetProperty("clientAssertionType").GetString());
+        Assert.False(string.IsNullOrEmpty(token.GetProperty("clientAssertion").GetString()));
+    }
+
+    /// <summary>The sync service as a recorder: every request body is kept by path, and
+    /// every request answers 404, which each client takes as a failure and goes on.</summary>
+    private sealed class RecordingSyncService : HttpMessageHandler
+    {
+        public static readonly Uri Address = new("https://sync.composition.test");
+
+        private readonly System.Collections.Concurrent.ConcurrentQueue<(string Path, string Body)> _requests = new();
+
+        public IEnumerable<System.Text.Json.JsonElement> Bodies(string route) =>
+            _requests
+                .Where(request => request.Path == Backlog.Modules.Sync.Abstractions.SyncRoutes.Absolute(route) && request.Body.Length > 0)
+                .Select(request => System.Text.Json.JsonDocument.Parse(request.Body).RootElement.Clone())
+                .ToList();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var body = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
+            _requests.Enqueue((request.RequestUri!.AbsolutePath, body));
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound) { RequestMessage = request };
+        }
     }
 
     /// <summary>
@@ -625,10 +698,14 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         {
             DeviceIdentity = new DeviceIdentityStore(Path.Combine(appData, "device.json")),
             DeviceCredentialStore = _ => new DpapiDeviceCredentialStore(Path.Combine(appData, "device-credential.json")),
+            // A name of the test's own: nothing here signs, but nothing here may ever
+            // open the installed app's key either.
+            DeviceKeyStore = _ => new CngDeviceKeyStore("Backlog.Sync.DeviceKey.CompositionTests"),
             TaskSyncStateStore = _ => new FileTaskSyncStateStore(Path.Combine(appData, "task-sync-state.json")),
             SessionSyncFolder = appData,
             AnnotationSyncFolder = appData,
             BackupStatePath = Path.Combine(appData, "backup-state.json"),
+            McpAuditLogPath = Path.Combine(appData, "mcp-audit.db"),
             SyncServiceSettingsPath = Path.Combine(appData, "sync-service.json"),
             FeatureSettings = _ => new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(appData, "features.json")),
             WorkingHoursSettings = _ => new WorkingHoursSettingsStore(Path.Combine(appData, "working-hours.json")),
@@ -700,7 +777,8 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         services.TryAddSingleton<Backlog.Infrastructure.Mcp.ISurfaceWindowHost>(sp => new Backlog.Desktop.UI.Mcp.DesktopSurfaceWindowHost(
             new NoShellWindows(),
             sp.GetRequiredService<Backlog.Desktop.UI.Mcp.WindowLinkTokens>(),
-            () => sp.GetRequiredService<WorkspaceSettingsStore>().McpServerPort));
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().McpServerPort,
+            sp.GetService<Microsoft.Extensions.Logging.ILogger<Backlog.Desktop.UI.Mcp.DesktopSurfaceWindowHost>>()));
 
         Backlog.Infrastructure.AzureFoundry.AzureFoundryRegistration.AddAzureFoundryCostClient(services);
     }

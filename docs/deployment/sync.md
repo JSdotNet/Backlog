@@ -135,25 +135,95 @@ az consumption budget create --budget-name backlog-sync --amount 10 --time-grain
 > **Still outstanding:** current Cosmos serverless pricing has not been re-verified
 > against the numbers ADR 0005 quotes. Check it before the first `provision` run.
 
-### 5. Set the device-token signing key
+### 5. Create the Key Vault and seed the device-token signing key
 
-The service signs the device tokens it issues with an HMAC key, and outside
-Development it refuses to start without one. The key is a GitHub **environment
-secret**, `SYNC_TOKEN_SIGNING_KEY`, on the same `backlog-sync` environment as the
-variables above. Mint it locally — 32 random bytes, base64:
+The service signs the device tokens it issues with an HMAC key, and outside Development it
+refuses to start without one. The key lives in Key Vault **`kv-backlog-sync-we`** (the plain
+`kv-backlog-sync` is taken globally by a vault outside this tenant; RBAC mode,
+same resource group and region as the container app) as the secret
+**`sync-token-signing-key`**, and the service reads it with its managed identity
+(local ADR 0058). Nothing in GitHub carries it.
+
+The vault and the identity's *Key Vault Secrets User* role are declared in
+`infra/sync/main.bicep`, so a `provision` creates or keeps them. Creating them by hand first
+— the way it was done for this deployment — is:
 
 ```powershell
-$bytes = [byte[]]::new(32)
-[System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-[Convert]::ToBase64String($bytes)
+az keyvault create --name kv-backlog-sync-we --resource-group JS-AI --location <sync region> `
+  --enable-rbac-authorization true --retention-days 7 `
+  --tags workload=Backlog component=sync managedBy=azd azd-env-name=backlog-sync
+az role assignment create --assignee-object-id <id-sync principal id> --assignee-principal-type ServicePrincipal `
+  --role "Key Vault Secrets User" --scope <vault resource id> --name <the guid() the template derives>
 ```
 
-Paste the output into the secret and nowhere else. The workflow's first step checks it
-has the shape the service will accept — base64, at least 32 bytes decoded — and fails by
-name if it does not, so a bad key is caught before `azd provision` rather than as a
-container that never comes up. How it travels from there to the running service is in
-[*The device-token signing key*](#the-device-token-signing-key) below, along with what
-rotating it does.
+Pass the template's own assignment name, `guid(vault id, identity id, role id)`: a hand-made
+assignment under any other name makes the next `provision` fail with `RoleAssignmentExists`.
+
+Seeding the key needs a role that may *write* secrets, which the service never holds:
+give yourself *Key Vault Secrets Officer* on the vault, then store the first version the
+way [*Rotating the signing key*](#rotating-the-signing-key) does. To keep the devices'
+tokens through the move, store the key the container app holds today
+(`az containerapp secret show ... --secret-name sync-token-signing-key`) as the first
+version instead of a fresh one, before the first deploy of this template.
+
+The GitHub OAuth App's client secret goes into the same vault as
+**`github-oauth-client-secret`** once the app is registered; the service reads it as
+`GitHub:ClientSecret` (`GitHub__ClientSecret`) and leaves the setting empty until then.
+
+### 6. The owner and the OAuth App's client id
+
+Only the owner enrols a device (local ADR 0058 §1): a first device, and a recovery that
+re-enrols a new device and revokes every other one, both start with a GitHub sign-in
+through the "Backlog sync" OAuth App, whose callback is `/oauth/github/callback`. The
+template sets the two public halves on the container app from its parameters:
+`Owner__GitHubUserId` (`ownerGitHubUserId`, the numeric id `gh api user --jq .id`
+prints, never the login) and `GitHub__ClientId` (`gitHubOAuthClientId`). Outside
+Development the service refuses to start without both and the vault's client secret.
+
+The owner's devices join the owner id derived from the GitHub user id. An owner minted
+before sign-in existed keeps its data only if its id is passed as the template's
+`ownerId` parameter, which sets `Owner__OwnerId`, before the first enrolment; otherwise the first sign-in starts a new,
+empty owner, while the old devices keep syncing the old one and no recovery reaches them.
+
+### 7. The claude.ai remote connector
+
+The sync service is also the authorization server of the claude.ai custom connector
+(local ADR 0058 §8). The template sets its two settings on the container app from the
+ingress fqdn, so there is nothing to enter at deploy time:
+
+| Setting | Value |
+| --- | --- |
+| `Modules__Sync__Connector__Issuer` | `https://<ingress fqdn>` — the service's public origin, with no path |
+| `Modules__Sync__Connector__Resource` | `https://<ingress fqdn>/mcp` — the resource every access token is for |
+
+Outside Development the service refuses to start without both. The fqdn is the
+`SYNC_SERVICE_URI` output. The client id (`claude-connector`), the redirect URI
+(`https://claude.ai/api/mcp/auth_callback`) and the token lifetimes (15 minutes, 30 days)
+have defaults in `appsettings.json` under `Modules:Sync:Connector` and need no setting.
+
+The client secret is not a deployment secret. The service mints it and keeps only its
+hash, in the `connectorCredentials` container. To connect claude.ai:
+
+1. In the desktop app, open **Settings > MCP server**, find the **Remote connector** card,
+   and choose **Create secret**. The secret is shown once; copy it.
+2. In claude.ai, open **Settings > Connectors**, choose **Add custom connector**, and enter:
+   - **URL**: `<SYNC_SERVICE_URI>/mcp`;
+   - under **Advanced settings**, **OAuth Client ID** `claude-connector` and
+     **OAuth Client Secret** the secret from step 1.
+3. Connect. claude.ai sends you through the owner's GitHub sign-in and a consent page on
+   the sync service; only the owner's GitHub account can allow it.
+
+Revoking the secret on the same card disconnects claude.ai at once: every code, refresh
+token and access token issued under it stops working, the access tokens on their next call
+to `/mcp`. **Replace secret** on the card swaps in a new one with the same effect on the old.
+
+`/mcp` is the resource server those tokens are for. It serves one tool, `capture_to_inbox`,
+under the `inbox:capture` scope; a capture lands on the replica and reaches the desktop's
+Inbox, under the channel Claude, at its next sync. A call without a valid token is answered
+401 with `WWW-Authenticate: Bearer resource_metadata="<SYNC_SERVICE_URI>/.well-known/oauth-protected-resource/mcp"`,
+and that metadata (RFC 9728) names the service itself as the authorization server. A token
+for another audience is refused, as is a device token; one without `inbox:capture` is
+answered 403 `insufficient_scope`.
 
 ## Current state
 
@@ -168,7 +238,7 @@ state. Since then the workflow has completed a run: Deploy Sync succeeded from
 | 2. Federated credential | Not created. No `backlog-sync-deploy` app registration exists in the tenant. |
 | 3. Environment variables | All five unset on `backlog-sync`. |
 | 4. Budget alert | Not created. |
-| 5. Signing key secret | Not set. |
+| 5. Signing key secret | Not set. (Since local ADR 0058 the key is a Key Vault secret, not a GitHub one; see prerequisite 5.) |
 
 So every run then failed in `Verify deployment target`, before touching Azure, with:
 
@@ -194,16 +264,17 @@ closes; the first revision provisioned with a key is the first one that can come
 | Resource | Notes |
 | --- | --- |
 | Cosmos DB account | Serverless, session consistency, `disableLocalAuth: true` |
-| Cosmos database `backlog` | One database, four containers |
+| Cosmos database `backlog` | One database; the containers below |
 | Container `tasks` | Partition `/ownerId`, default indexing policy |
 | Container `sessions` | Partition `/ownerId`, lean custom index |
 | Container `devices` | Partition `/id` (the device id), default indexing policy |
 | Container `pairingCodes` | Partition `/id` (the code hash), nothing indexed |
+| Container `connectorCredentials` | Partition `/id` (`client:<client id>`, `refresh:<token hash>`, `family:<family id>`), nothing indexed |
 | User-assigned managed identity | The only principal the service runs as |
 | Container Apps environment | Consumption workload profile, logs via Azure Monitor |
 | Container app | Scale-to-zero (`minReplicas: 0`), external ingress on 8080 |
 | Container registry | Basic, admin user off |
-| Key Vault | RBAC authorization, soft delete, purge protection off. Empty and unread today; see below |
+| Key Vault `kv-backlog-sync-we` | RBAC authorization, soft delete (7 days), purge protection off. Holds `sync-token-signing-key` and `github-oauth-client-secret`; the identity reads it as *Key Vault Secrets User* |
 | Log Analytics workspace | 30-day retention, 1 GB/day ingestion cap |
 | Application Insights | Workspace-based, ingesting into that workspace |
 | Notification Hubs namespace `ntfns-<token>` | Free tier; the Android push (local ADR 0039 §4) |
@@ -222,6 +293,7 @@ identity it uses for everything else.
 | `sessions` | `defaultTtl: 31536000` | Every record expires at 12 months |
 | `devices` | none | A registration lasts until the device is forgotten |
 | `pairingCodes` | `defaultTtl: -1` | TTL enabled; every code carries its own |
+| `connectorCredentials` | `defaultTtl: -1` | TTL enabled; refresh tokens and family markers carry their own, the client none |
 
 `sessions` is straightforward: the whole record is history, and the retention is a
 container setting exactly as ADR 0005 describes.
@@ -245,6 +317,16 @@ lets the service keep answering "that code has expired" rather than "not one thi
 service issued" for a while after the window closes. Reaping is lazy and the
 emulator does not do it at all, so the service's own expiry check — not the TTL —
 is what turns a stale code away.
+
+`connectorCredentials` holds the remote connector's credentials (local ADR 0058 §8).
+The client document — the secret hash, its generation and when it was last used — carries
+no `ttl`: losing it disconnects claude.ai. A refresh token is written with its remaining
+life plus a day, recomputed on every write. Revoking a family after a replayed refresh
+token writes one marker, `family:<family id>`, which every read, rotation and add checks;
+it lives 92 days, past the longest a token of the family can (the `RefreshTokenDays`
+range tops out at 90). The service's own expiry checks decide; the TTLs only tidy up. The
+connector's short-lived authorization steps (sign-in state, consent ticket, code) are kept
+in memory, like the enrolment tickets: a restart mid-authorization costs one more attempt.
 
 ### The `sessions` index
 
@@ -307,74 +389,75 @@ that, and nothing in it can.
 ## The device-token signing key
 
 The identity model above is about how the service reaches Cosmos; it says nothing
-about how the service signs the device tokens it issues. That key —
-`Modules:Sync:Tokens:SigningKey`, at least 32 bytes, base64 — is a required setting
-outside Development: `Backlog.Modules.Sync.Api` binds it into `SyncTokenOptions`,
-validates it with `ValidateOnStart()`, and refuses to come up without one. Development
-mints and warns about an ephemeral key so no configuration is needed locally, but that
-path is Development-only by construction and stays that way: the point of failing at
-start is that a misconfigured deployment is found by the deploy, not by the first
-device that syncs.
-
-Deployed, the key travels like this:
+about how the service signs the device tokens it issues. That key — at least 32 bytes,
+base64 — is the Key Vault secret `sync-token-signing-key` (local ADR 0058). Deployed,
+it travels like this:
 
 | Step | Where | What |
 | --- | --- | --- |
-| 1 | GitHub environment `backlog-sync` | Secret `SYNC_TOKEN_SIGNING_KEY` (prerequisite 5) |
-| 2 | `.github/workflows/deploy-sync.yml` | Set in the step environment of `Verify deployment target`, which checks its shape, and of the four `azd` steps (preview, provision, the `service`-mode environment refresh, deploy) — no other step sees it |
-| 3 | `infra/sync/main.parameters.json` | `tokenSigningKey: ${SYNC_TOKEN_SIGNING_KEY}` — `azd` substitutes from the process environment |
-| 4 | `infra/sync/main.bicep` | `@secure() @minLength(44) param tokenSigningKey`, no default |
-| 5 | Container app `configuration.secrets` | `sync-token-signing-key` |
-| 6 | Container `env` | `Modules__Sync__Tokens__SigningKey`, a `secretRef` — `__` is how .NET reads the `:` path from an environment variable |
+| 1 | Key Vault `kv-backlog-sync-we` | Secret `sync-token-signing-key`, every version kept |
+| 2 | `infra/sync/main.bicep` | The vault, the identity's *Key Vault Secrets User* role on it, and `Modules__Sync__Tokens__KeyVaultUri` on the container |
+| 3 | `SigningKeyRefresher` | Reads the current and previous versions with the managed identity `AZURE_CLIENT_ID` names, before the first request and every `KeyRefreshMinutes` (5) after |
+| 4 | `SigningKeyRing` | Signs with the current key; validates tokens and cursors under the current key and, inside its window, the previous one |
 
-Three properties fall out of that, and they are the reason it is a container app
-secret rather than a Key Vault read:
+`SyncTokenOptions` refuses to start outside Development without `KeyVaultUri`, and a
+vault the identity cannot read fails the start too: a misconfigured deployment is
+found by the deploy, not by the first device that syncs. Only a Development run takes
+the key from configuration (`Modules:Sync:Tokens:SigningKey`, user-secrets) and mints
+an ephemeral one, with a warning, when none is set.
 
-- **A missing key fails the provision, not the app.** The parameter has no default and
-  ARM rejects a value under 44 characters, so an empty substitution cannot deploy a
-  container that restarts forever. The workflow fails earlier still, by name.
-- **The value is never on disk or in a log.** It goes from the GitHub secret straight
-  into the process environment; the workflow never passes it to `azd env set`, so it
-  is not written to `.azure/<env>/.env` and does not appear in `azd env get-values` or
-  the run summary. `@secure()` keeps it out of the deployment history, and
-  `az containerapp show` does not return secret values — `az containerapp secret show`
-  can, for a principal that can already write the app, which is the same trust as
-  being able to redeploy it with any key. GitHub masks the secret in the log as well,
-  though nothing in the workflow prints it.
-- **No round-trip on cold start.** The app scales to zero; a Key Vault call on every
-  start would be paid on every first request for one secret.
+The value is never in GitHub, an `azd` environment, a Bicep parameter or ARM's
+deployment history: the template names the vault and nothing else, and the service
+reads the secret at run time. Only a principal holding a Key Vault data role on the
+vault can read it, and only the service's identity holds one by default.
 
-Locally, `build/Deploy-Azure.ps1` makes the same check on the same variable, and fills
-it in from the deployed app's secret when the shell has not set it — see *Run locally*.
+### Rotating the signing key
 
-**Rotation.** Set a new value on the GitHub secret (or in the shell) and run a
-`provision`. What that invalidates, and what each device does about it:
+A rotation is a new **version** of the same secret, never a second secret. The newest
+enabled version is the current key; the newest enabled version before it is the
+previous key, accepted until the new version's creation time plus one token lifetime
+(`LifetimeMinutes`, 30) plus one refresh interval (`KeyRefreshMinutes`, 5) — 35 minutes
+by default. The refresh interval is in the window because an instance keeps signing
+with the old key until its next refresh, and a token it mints then lives one lifetime
+more. No restart is needed.
+
+1. Give yourself *Key Vault Secrets Officer* on `kv-backlog-sync-we`, if you do not hold it.
+2. Mint 32 random bytes and store them as the new version, without the value touching
+   disk or the console:
+
+   ```powershell
+   $bytes = [byte[]]::new(32)
+   [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+   az keyvault secret set --vault-name kv-backlog-sync-we --name sync-token-signing-key `
+     --value ([Convert]::ToBase64String($bytes)) --content-type 'base64 HMAC-SHA256 key' --output none
+   ```
+
+3. Wait one refresh interval (5 minutes). Every instance now signs with the new key;
+   tokens and cursors under the old one keep working until the window closes.
+4. After the window (35 minutes), nothing is accepted under the old key. Leave the old
+   version enabled — it is what a later read finds as "previous", and the window has
+   already closed — or disable it
+   (`az keyvault secret set-attributes --vault-name kv-backlog-sync-we --name sync-token-signing-key --version <old> --enabled false`).
+5. Remove your *Key Vault Secrets Officer* assignment again.
+
+A compromised key is the one case to end the window at once: store the new version,
+disable the old one straight away, and restart the revision
+(`az containerapp revision restart`) so no instance waits for its refresh. Every device
+then re-mints its token on its next call.
+
+What a rotation costs each device, once the window has closed:
 
 - **Device tokens** (`LifetimeMinutes`, 30 minutes) signed under the old key are refused
   with a 401. The desktop's `SyncAuthenticationHandler` drops a token that earns a 401
-  and the next call re-mints from the device's registration credential — it does not
-  wait for the token's expiry — so a rotation costs each device one failed request, not
-  half an hour. The registration credential itself is hashed (`Sha256CredentialHasher`),
-  not signed, and the registration lives in the `devices` container
-  (`CosmosDeviceRegistry`), so neither the key nor the restart a rotation causes
-  touches a pairing.
+  and the next call re-mints from the device's registration credential, so even an
+  early-ended window costs each device one failed request. The registration credential
+  itself is hashed (`Sha256CredentialHasher`), not signed, and the registration lives in
+  the `devices` container (`CosmosDeviceRegistry`), so a rotation never touches a pairing.
 - **Pull cursors** are signed with a key *derived* from the same secret
-  (`HmacSyncCursorCodec`: `HMACSHA256(SigningKey, "backlog.sync.cursor.v1")`). A cursor
-  from before the rotation no longer verifies and the service answers 400
-  `sync.cursor_malformed`. The desktop treats that, like `sync.cursor_expired`, as
-  "forget the cursor and pull from the beginning" (`TaskSyncSession`,
-  `SessionSyncSession`), so a rotation is one full re-pull per device rather than an
-  error. On a personal-scale replica that is worth knowing, not worth avoiding.
-
-**The Key Vault this template provisions stays empty.** ADR 0005 lists it, the
-service's managed identity holds *Key Vault Secrets User* on it, and no code reads it:
-the container app is handed no vault endpoint, because a `Sync__KeyVault__Endpoint`
-that nothing consumed was configuration that looked live and was not. It is reserved
-for the day the signing key wants vault-managed rotation, or for the webhook secrets
-ADR 0005 also names — that change adds
-`Azure.Extensions.AspNetCore.Configuration.Secrets` to the service and a vault secret
-named `Modules--Sync--Tokens--SigningKey` (`--` is that provider's section separator),
-and is product code rather than infrastructure.
+  (`HmacSyncCursorCodec`: `HMACSHA256(key, "backlog.sync.cursor.v1")`) and verified
+  under the same keys a token is. A cursor older than the window answers 400
+  `sync.cursor_malformed`, which the desktop treats as "pull from the beginning"
+  (`TaskSyncSession`, `SessionSyncSession`).
 
 ## Observability carries no domain data
 
@@ -457,7 +540,10 @@ exceptions" and is telling the truth about the table, not about the service.
 
 No Azure account is needed to build or run the sync path. The Aspire AppHost starts
 the **Cosmos DB preview (vNext) emulator** as a container, declares the `backlog`
-database and all four containers, and hands `sync` a reference to it.
+database and all of its containers, and hands `sync` a reference to it. It also sets
+`Modules__Sync__Connector__Issuer` and `__Resource` on `sync` from the service's own
+`http` endpoint (`<endpoint>` and `<endpoint>/mcp`), so the connector's metadata names the
+dynamic port the service actually answers on.
 
 ```powershell
 aspire start --isolated --non-interactive --apphost src\Aspire\Backlog.Aspire.AppHost\Backlog.Aspire.AppHost.csproj
@@ -581,30 +667,9 @@ is the project's `<Version>` either way.
 `build/Deploy-Azure.ps1` wraps this. A local run uses your own sign-in, so of the
 prerequisites only 1 and 5 apply — and the script's default `-SyncResourceGroup` is
 `JS-AI`, the group Foundry already lives in, so on the Sponsorship subscription nothing
-needs creating. The signing key is resolved into the process environment before `azd`
-runs, in every mode — `azd` resolves the parameter file before it knows whether it is
-going to change anything — from the first of these that applies:
-
-1. **Your shell.** Set it for the session only to rotate the key, or to deploy one you
-   chose. The script checks the shape the way the workflow does and stops by name when it
-   is wrong.
-
-   ```powershell
-   $env:SYNC_TOKEN_SIGNING_KEY = '<base64 key from prerequisite 5>'
-   ```
-
-2. **The deployed app.** When the shell has nothing, the script finds the container app
-   the environment already provisioned (by its `azd-env-name` and `azd-service-name`
-   tags) and reads its `sync-token-signing-key` secret back. A re-run keeps its key, so
-   no device token is invalidated and nothing has to be pasted between sessions.
-
-3. **Freshly minted,** when nothing is deployed yet. The provision makes it the app's
-   secret; copy it from there into the GitHub environment secret with the command the
-   script prints, or the next workflow run rotates it.
-
-The value stays in the process: the script never prints it and never `azd env set`s
-it — that would write it to `.azure/backlog-sync/.env` on disk, where
-`azd env get-values` would print it back.
+needs creating. The script needs no secret in the shell: it only warns when
+`kv-backlog-sync-we` does not list `sync-token-signing-key` (or cannot be listed), because the
+service then refuses to start.
 
 Its default component is `all`; pass `-Component sync` to deploy the sync tier alone:
 

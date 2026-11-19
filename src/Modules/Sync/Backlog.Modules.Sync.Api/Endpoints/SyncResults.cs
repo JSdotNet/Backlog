@@ -79,6 +79,10 @@ internal static class SyncResults
         // says it is this caller who may not revoke it.
         SyncErrorCodes.DeviceRevokeNotPairer => StatusCodes.Status403Forbidden,
 
+        // A device of some other owner asking about the remote connector. Its token is
+        // valid, so it is not unauthenticated; the connector is the configured owner's.
+        SyncErrorCodes.ConnectorNotOwner => StatusCodes.Status403Forbidden,
+
         // The replica is not there yet — locally, the Cosmos emulator still
         // starting. Come back; there is nothing to change about the request.
         SyncErrorCodes.ReplicaUnavailable => StatusCodes.Status503ServiceUnavailable,

@@ -48,12 +48,11 @@ public class BacklogMcpToolsTests
                 "capture_note",
                 "list_brain_reviews",
 
-                // devbook.decision@1's seven operations — four on state, three on
-                // notes — beside the devbook tools and behind the same key.
+                // devbook.decision@1's operations bar approve and accept, which
+                // are the person's in the app (local ADR 0058 §7) — two on state,
+                // three on notes — beside the devbook tools and behind the same key.
                 "devbook_get_state",
                 "devbook_set_state",
-                "devbook_approve",
-                "devbook_accept",
                 "devbook_list_notes",
                 "devbook_post_note",
                 "devbook_resolve_note",
@@ -128,7 +127,16 @@ public class BacklogMcpToolsTests
                 "add_knowledge_event",
 
                 // The surface windows (local ADR 0043 §7).
-                "open_window"
+                "open_window",
+
+                // An agent asking the person for more (local ADR 0058 §5).
+                "request_access",
+
+                // A granter agent granting other agents (local ADR 0058 §5).
+                "list_agent_requests",
+                "grant_agent",
+                "edit_agent_scopes",
+                "revoke_agent"
             ],
             BacklogMcpTools.ToolNames);
     }
@@ -198,7 +206,9 @@ public class BacklogMcpToolsTests
                 SyncDirectionTools.Group,
                 BacklogMcpTools.Impediments,
                 BacklogMcpTools.Goals,
-                BacklogMcpTools.Windows
+                BacklogMcpTools.Windows,
+                AccessTools.Group,
+                GrantTools.Group
             ],
             BacklogMcpTools.Groups.Where(group => group.FeatureKey is null));
 
@@ -288,11 +298,8 @@ public class BacklogMcpToolsTests
     /// stays deleted — those four are safe to repeat.
     /// </para>
     /// <para>
-    /// The devbook state writes split the same way: <c>devbook_set_state</c> to the
-    /// state a subject already has leaves it as it was, while <c>devbook_approve</c>
-    /// and <c>devbook_accept</c> each record a person's decision with its own time —
-    /// and approving again withdraws an acceptance — so no client may repeat one on
-    /// its own account.
+    /// The devbook state write is safe to repeat: <c>devbook_set_state</c> to
+    /// draft on a draft leaves it as it was.
     /// </para>
     /// </summary>
     [Fact]
@@ -306,8 +313,6 @@ public class BacklogMcpToolsTests
             InboxTools.CaptureToInbox,
             EventTools.AddKnowledgeEvent,
             DecisionTools.SetState,
-            DecisionTools.Approve,
-            DecisionTools.Accept,
             DecisionTools.PostNote,
             DecisionTools.ResolveNote,
             TrackerTools.Transition,
@@ -341,11 +346,15 @@ public class BacklogMcpToolsTests
             NotificationTools.Ask,
             NotificationTools.GetAnswer,
             NotificationTools.Close,
-            LoopTools.CheckIn,
-            WindowTools.OpenWindow
+            WindowTools.OpenWindow,
+            AccessTools.RequestAccess,
+            GrantTools.GrantAgent,
+            GrantTools.EditAgentScopes,
+            GrantTools.RevokeAgent,
+            LoopTools.CheckIn
         ];
 
-        string[] destructive = [GoalTools.DeleteGoal];
+        string[] destructive = [GoalTools.DeleteGoal, GrantTools.RevokeAgent];
 
         // The writes a client may safely repeat, and which ones is not guessable
         // from the verb. On the surface: showing a pane that is already showing

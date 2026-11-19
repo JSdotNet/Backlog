@@ -141,7 +141,7 @@ The system SHALL withdraw a proposal's approval and acceptance when it is set ba
 #### Scenario: Approved again
 
 - **Given** a proposal that is accepted, with its approval and acceptance, in the app's store
-- **When** an assistant approves it again at the change's new fingerprint
+- **When** the person approves it again in the app at the change's new fingerprint
 - **Then** the proposal is approved at that fingerprint and no longer carries an acceptance
 
 #### Scenario: Back to draft

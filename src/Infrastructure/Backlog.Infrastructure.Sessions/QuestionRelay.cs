@@ -1,8 +1,11 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -32,6 +35,8 @@ public sealed class QuestionRelay : IQuestionRelay
     private readonly TimeProvider _clock;
     private readonly ILogger _logger;
     private readonly Func<IAgentSessionSource?>? _sessions;
+    private readonly Func<IPairedDevices?>? _devices;
+    private readonly Func<IMcpAuditLog?>? _audit;
 
     // One publish at a time in this process: a cheap guard in front of the claim in the
     // store, which is what keeps processes sharing one backlog.db from publishing twice.
@@ -55,6 +60,11 @@ public sealed class QuestionRelay : IQuestionRelay
     /// never a source that reads the relay back, since a reading of one can close questions in
     /// the middle of a publish. Null, a session it does not hold, or a reading slower than
     /// <see cref="SessionLookupLimit"/> leaves the title naming no place.</param>
+    /// <param name="devices">Whether the device an answer came from is paired now, asked before
+    /// the answer reaches the hook or the Manager. Null, or a factory answering null, takes every
+    /// answer — a host with no sync client receives none from another device.</param>
+    /// <param name="audit">Where an answer dropped for its device is recorded; null records it
+    /// in the log alone.</param>
     public QuestionRelay(
         IWaitingQuestionStore store,
         IPresence? presence,
@@ -63,7 +73,9 @@ public sealed class QuestionRelay : IQuestionRelay
         TimeProvider? clock = null,
         ILogger<QuestionRelay>? logger = null,
         Func<bool>? available = null,
-        Func<IAgentSessionSource?>? sessions = null)
+        Func<IAgentSessionSource?>? sessions = null,
+        Func<IPairedDevices?>? devices = null,
+        Func<IMcpAuditLog?>? audit = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(notifyAfter);
@@ -77,6 +89,8 @@ public sealed class QuestionRelay : IQuestionRelay
         _clock = clock ?? TimeProvider.System;
         _logger = (ILogger?)logger ?? NullLogger.Instance;
         _sessions = sessions;
+        _devices = devices;
+        _audit = audit;
     }
 
     private DateTimeOffset Now => _clock.GetUtcNow();
@@ -286,12 +300,25 @@ public sealed class QuestionRelay : IQuestionRelay
 
         var now = Now;
 
+        var held = await _store.GetAsync(id, cancellationToken).ConfigureAwait(false);
+
         // An answer that outruns the write recording the question's notifications is not
         // taken, so Notifications replays it on the next start rather than losing it.
-        if (await _store.GetAsync(id, cancellationToken).ConfigureAwait(false) is { State: WaitingQuestionState.InSession })
+        if (held is { State: WaitingQuestionState.InSession })
         {
             throw new InvalidOperationException(
                 $"Waiting question {id:D} is still being published; its answer is replayed once it is.");
+        }
+
+        // An answer steers the agent, so only one from a device paired now reaches the hook or
+        // the Manager (ADR 0058, Phase 2). A device that cannot be checked throws, and the
+        // answer is replayed on the next start rather than taken unchecked.
+        // Only for an answer the question would take, so a stray reply is never audited.
+        if (held is { IsOpen: true }
+            && WaitingQuestions.IndexOf(held, answer.NotificationId) >= 0
+            && !await FromPairedDeviceAsync(held, answer, cancellationToken).ConfigureAwait(false))
+        {
+            return true;
         }
 
         var outcome = await _store.ChangeAsync(
@@ -401,7 +428,53 @@ public sealed class QuestionRelay : IQuestionRelay
             }
         }
 
-        return new RelayAnswer(labels, string.IsNullOrWhiteSpace(answer.Text) ? null : answer.Text.Trim());
+        return new RelayAnswer(labels, string.IsNullOrWhiteSpace(answer.Text) ? null : answer.Text.Trim())
+        {
+            FromDeviceId = answer.FromDeviceId
+        };
+    }
+
+    /// <summary>
+    /// Whether <paramref name="answer"/> came from a device paired now. One that did not —
+    /// revoked, or never one of the owner's — is dropped: logged by its device and the
+    /// question's id, never its text, and recorded in the audit log.
+    /// </summary>
+    private async Task<bool> FromPairedDeviceAsync(WaitingQuestion question, NotificationAnswer answer, CancellationToken cancellationToken)
+    {
+        if (_devices?.Invoke() is not { } devices) return true;
+
+        var standing = await devices.StandingOfAsync(answer.FromDeviceId, cancellationToken).ConfigureAwait(false);
+        if (standing == DeviceStanding.Paired) return true;
+
+        var device = standing == DeviceStanding.Revoked ? "revoked device" : "unknown device";
+
+        _logger.LogWarning(
+            "The answer to waiting question {Question} came from {Standing} {Device}; it is dropped and never reaches the session.",
+            question.Id,
+            device,
+            answer.FromDeviceId);
+
+        if (_audit?.Invoke() is { } audit)
+        {
+            var record = new McpAuditRecord(
+                Now,
+                string.Create(CultureInfo.InvariantCulture, $"{device} {answer.FromDeviceId:D}"),
+                McpAudit.DroppedAnswer,
+                question.Id.ToString("D"),
+                McpCallOutcome.Refused,
+                Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
+
+            try
+            {
+                await audit.AppendAsync(record, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogWarning(exception, "The dropped answer to waiting question {Question} was not written to the audit log.", question.Id);
+            }
+        }
+
+        return false;
     }
 
     /// <summary>The reason each notification of <paramref name="question"/> closes with.</summary>

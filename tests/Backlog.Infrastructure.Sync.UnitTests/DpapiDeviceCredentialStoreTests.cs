@@ -45,8 +45,8 @@ public sealed class DpapiDeviceCredentialStoreTests : IDisposable
         // because "not found" only means something if the search could have found
         // it — a UTF-16 write would pass a UTF-8-only scan for the wrong reason.
         var bytes = File.ReadAllBytes(CredentialPath);
-        Assert.False(Contains(bytes, Encoding.UTF8.GetBytes(credential.Credential)), "The credential is in the file as UTF-8.");
-        Assert.False(Contains(bytes, Encoding.Unicode.GetBytes(credential.Credential)), "The credential is in the file as UTF-16.");
+        Assert.False(Contains(bytes, Encoding.UTF8.GetBytes(credential.Credential!)), "The credential is in the file as UTF-8.");
+        Assert.False(Contains(bytes, Encoding.Unicode.GetBytes(credential.Credential!)), "The credential is in the file as UTF-16.");
         Assert.False(Contains(bytes, Encoding.UTF8.GetBytes(credential.DeviceId.ToString("D"))), "The device id is in the file in the clear.");
 
         // And the scan itself works: the envelope's own bytes are found by it.

@@ -277,7 +277,7 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
         var desktopRoot = _temp.Combine("desktop");
         Directory.CreateDirectory(desktopRoot);
         var tasks = new SqliteTaskRepository(desktopRoot);
-        var credential = new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential);
+        var credential = new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential!);
         var session = Session(desktopHttp, tasks, credential, Path.Combine(desktopRoot, "sync-state.json"));
 
         var phoneDatabase = _temp.Combine("phone", "device.db");
@@ -305,7 +305,7 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
         var root = _temp.Combine("laptop");
         Directory.CreateDirectory(root);
         var tasks = new SqliteTaskRepository(root);
-        var credential = new DeviceCredential(registration.OwnerId, registration.DeviceId, "Laptop", registration.Credential);
+        var credential = new DeviceCredential(registration.OwnerId, registration.DeviceId, "Laptop", registration.Credential!);
 
         return (tasks, Session(http, tasks, credential, Path.Combine(root, "sync-state.json")), http);
     }

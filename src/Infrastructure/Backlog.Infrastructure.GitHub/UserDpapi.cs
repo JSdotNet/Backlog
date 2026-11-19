@@ -10,7 +10,8 @@ namespace Backlog.Infrastructure;
 /// copied to another machine, opens nothing.
 /// <para>
 /// <see cref="SecretEnvelope"/> seals one value in a settings file with it; the sync
-/// device credential and the spec-manager tokens seal a whole file. The format is the
+/// device credential, the device signing key and the spec-manager tokens seal a whole
+/// file. The format is the
 /// one each of them wrote before they shared it, so what is already on disk still
 /// opens.
 /// </para>
@@ -22,7 +23,7 @@ namespace Backlog.Infrastructure;
 /// </para>
 /// </summary>
 /// <remarks>
-/// Compiled into the Claude, Azure Foundry, Sync and spec-manager adapters as a linked
+/// Compiled into the Claude, Azure Foundry, file-system, Sync and spec-manager adapters as a linked
 /// <c>Compile</c> item, the way <see cref="SecretEnvelope"/> and <c>IsoTimestamps</c>
 /// are: those adapters share no project this one could live in without a new reference.
 /// </remarks>

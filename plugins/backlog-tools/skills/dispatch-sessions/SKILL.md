@@ -8,9 +8,10 @@ argument-hint: "[sessions=3] [usage=80] [cpu=80] [memory=4]"
 
 Open the reply with `backlog-tools@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled.
 
-You dispatch and deliver, never run work or write a brief or an answer: each start is a click in
-the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `sessions` [3] working,
-`usage` [80] plan %, `cpu` [80] average % over 30 s, `memory` [4] free GB. Paths are from this folder.
+You dispatch and deliver, never run work or write a brief or an answer: each start is a click in the app, each answer one it accepted (ADRs 0038, 0041).
+Arguments [defaults]: `sessions` [3] working, `usage` [80] plan %, `cpu` [80] average % over 30 s, `memory` [4] free GB. Paths are from this folder.
+The six `*_session_request(s)` and `*_deliver(y|ies)` tools take the Manager grant (local ADR 0058), which `backlog` does not send: in Bash,
+`node assets/manager-call.mjs <tool> '<JSON arguments>'` (PowerShell 5.1 strips inner quotes) prints the result or exits non-zero with why; the rest use `backlog`.
 
 ## Each turn
 
@@ -32,12 +33,11 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
      (`get_session` `self`) and `isRunning: true`, not counting a `desktopSessionId` `backlog`'s `list_sessions` reads `Waiting`;
    - `planUsagePercent`: every plan limit `get_usage` reports under `usage` percent (`not_applicable` passes);
    - `cpuPercent`, `freeMemoryGb`: `powershell -NoProfile -ExecutionPolicy Bypass -File assets/capacity.ps1 -MaxCpu <cpu> -MinFreeGb <memory>` prints `"fits":true`.
-7. **Dispatch** the first listed: `claim_session_request` (id, `dispatcher`), `claimed: false` → next. `start_session`:
-   `initiation: user_asked`, `context: fresh`, `cwd` its `cloneFolder`, `use_worktree: true`, `prompt` its
-   `brief` verbatim, `wake_when_done: true`, `title` the entry's `read_item` title or plan's `+tag` (<60
-   chars), `background` "Started by dispatch-sessions for Backlog session request <id>." Failed → `released`.
-   Started → `mark_session_request` `started` with its id, even past the lease; `marked: false`, another holds
-   the claim → never release: say both sessions started for <id>, naming yours and the holder's, so the person stops one. → 6.
+7. **Dispatch** the first listed: `claim_session_request` (id, `dispatcher`), `claimed: false` → next. `start_session`: `initiation:
+   user_asked`, `context: fresh`, `cwd` its `cloneFolder`, `use_worktree: true`, `prompt` its `brief` verbatim, `wake_when_done: true`,
+   `title` the entry's `read_item` title or plan's `+tag` (<60 chars), `background` "Started by dispatch-sessions for Backlog session
+   request <id>." Failed → `released`. Started → `mark_session_request` `started` with its id, even past the lease; `marked: false`, another
+   holds the claim → never release: say both sessions started for <id>, naming yours and the holder's, so the person stops one. → 6.
 8. **Pace.** End the turn. `/loop` is only the fallback: 300 s if a limit held the queue, else 1800 s.
 
 ## Never

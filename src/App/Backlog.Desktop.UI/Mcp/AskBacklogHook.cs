@@ -51,20 +51,23 @@ public static class AskBacklogHook
     /// is replaced through a temporary file, so a hook starting meanwhile reads the old script or
     /// the new one and never half of each.
     /// </summary>
-    public static string Install(string appDataDirectory)
-    {
-        var target = PathUnder(appDataDirectory);
-        var folder = Path.GetDirectoryName(target)!;
-        var bytes = Script.Value;
+    public static string Install(string appDataDirectory) => Write(PathUnder(appDataDirectory), Script.Value);
 
-        if (File.Exists(target) && File.ReadAllBytes(target).AsSpan().SequenceEqual(bytes)) return target;
+    /// <summary>Writes <paramref name="bytes"/> to <paramref name="target"/> the way
+    /// <see cref="Install"/> describes, and answers the path: shared with
+    /// <see cref="McpHeadersHelperScript"/>, which installs beside it.</summary>
+    internal static string Write(string target, ReadOnlyMemory<byte> bytes)
+    {
+        var folder = Path.GetDirectoryName(target)!;
+
+        if (File.Exists(target) && File.ReadAllBytes(target).AsSpan().SequenceEqual(bytes.Span)) return target;
 
         Directory.CreateDirectory(folder);
 
-        var temporary = Path.Combine(folder, $"{FileName}.{Guid.NewGuid():N}.tmp");
+        var temporary = Path.Combine(folder, $"{Path.GetFileName(target)}.{Guid.NewGuid():N}.tmp");
         try
         {
-            File.WriteAllBytes(temporary, bytes);
+            File.WriteAllBytes(temporary, bytes.Span);
             File.Move(temporary, target, overwrite: true);
         }
         finally

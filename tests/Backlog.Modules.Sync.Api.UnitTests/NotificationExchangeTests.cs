@@ -329,7 +329,7 @@ public sealed class NotificationExchangeTests : IDisposable
             _desktop.GetRequiredService<INotificationReplication>(),
             _desktop.GetRequiredService<INotificationReplies>(),
             new FileNotificationSyncStateStore(_temp.Combine("notification-sync-state.json")),
-            new InMemoryDeviceCredentialStore(new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential)),
+            new InMemoryDeviceCredentialStore(new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential!)),
             identity,
             TimeProvider.System,
             repositories: repositories);
