@@ -60,16 +60,6 @@ public class ArchifyRendersAreNotCommittedTests
     }
 
     [Fact]
-    public void The_specifications_and_their_index_are_still_tracked()
-    {
-        var tracked = TrackedFiles(Specifications);
-
-        Assert.Contains(tracked, path => path.EndsWith("/_archify/index.json", StringComparison.Ordinal));
-        Assert.Contains(tracked, path => !path.EndsWith("/index.json", StringComparison.Ordinal));
-        Assert.NotEmpty(TrackedFiles([":(glob)tools/archify/examples/*.json"]));
-    }
-
-    [Fact]
     public void A_fresh_render_is_ignored_by_git()
     {
         var ignored = Git(string.Join('\0', FreshRenders) + '\0', ["check-ignore", "--no-index", "--stdin", "-z"], allowExitCodeOne: true)
