@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 
 using Backlog.Infrastructure.Devbook.Chapters;
 using Backlog.SharedKernel.Markdown;
@@ -193,13 +193,19 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
 public sealed class AiDevbookProvider(IDevbookFolderSource source)
     : DocumentDevbookProvider(source, DocumentDevbookFolder.Ai);
 
-public static class DocumentDevbookParser
+/// <summary>
+/// Reads one file of a document-shaped devbook folder into the pane's model: its
+/// title, the file's <c>meta</c> block and summary quote, and a section per
+/// <c>##</c> heading with that heading's block and the blocks under it.
+/// <para>
+/// The Markdown is read by <see cref="MarkdownPreview.ParseDocument"/>, the shared
+/// block parser, and the blocks mapped onto this model; the <c>meta</c> fences by
+/// <see cref="MetadataReader"/>. A <c>##</c> inside a fence is the fence's, so it
+/// starts no section.
+/// </para>
+/// </summary>
+public static partial class DocumentDevbookParser
 {
-    private static readonly Regex HeadingRegex = new(@"^(#{1,6})[ \t]+(.+)$", RegexOptions.Compiled);
-    private static readonly Regex OrderedListRegex = new(@"^[ \t]*\d+[.)][ \t]+(.+)$", RegexOptions.Compiled);
-    private static readonly Regex UnorderedListRegex = new(@"^[ \t]*[-*][ \t]+(.+)$", RegexOptions.Compiled);
-    private static readonly Regex TableSeparatorRegex = new(@"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$", RegexOptions.Compiled);
-
     /// <summary>
     /// One file, parsed. <paramref name="areaKey"/> prefixes the anchors the
     /// sections get, so two folders' overviews on one page never share an id.
@@ -207,205 +213,72 @@ public static class DocumentDevbookParser
     public static DocumentDevbookFile ParseFile(string folderPath, string path, string areaKey = "design")
     {
         var fileName = Path.GetFileName(path);
-        var lines = File.ReadAllText(path).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var markdown = DevbookMarkdownBlocks.Normalize(File.ReadAllText(path));
+        var lines = markdown.Split('\n');
+        var blocks = MarkdownPreview.ParseDocument(markdown);
         var index = 0;
 
+        // The title is the file's first line, when that line is a `#` heading.
         var title = Path.GetFileNameWithoutExtension(path);
-        if (index < lines.Length && TryParseHeading(lines[index], out var heading) && heading.Level == 1)
+        if (index < blocks.Count && blocks[index] is MdHeading { Level: 1, Source.StartLine: 0 } heading)
         {
-            title = heading.Text;
+            title = DevbookMarkdownBlocks.HeadingText(lines, heading);
             index++;
         }
 
-        index = SkipBlank(lines, index);
-        var meta = TryParseMeta(lines, ref index);
-        index = SkipBlank(lines, index);
+        var meta = DevbookMarkdownBlocks.TakeMeta(blocks, ref index) ?? MetadataRecord.Empty;
 
-        var summaryLines = new List<string>();
-        while (index < lines.Length && lines[index].TrimStart().StartsWith(">", StringComparison.Ordinal))
+        var summary = string.Empty;
+        if (index < blocks.Count && blocks[index] is MdQuote quote)
         {
-            summaryLines.Add(lines[index].TrimStart().TrimStart('>').TrimStart());
+            summary = string.Join(' ', DevbookMarkdownBlocks.SourceLines(lines, quote.Source)
+                .Select(line => line.TrimStart().TrimStart('>').TrimStart())).Trim();
             index++;
         }
 
         var sections = new List<DocumentDevbookSection>();
-        while (index < lines.Length)
+        while (index < blocks.Count)
         {
-            if (!TryParseHeading(lines[index], out var sectionHeading) || sectionHeading.Level != 2)
+            if (blocks[index] is not MdHeading { Level: 2 } sectionHeading)
             {
                 index++;
                 continue;
             }
 
             index++;
-            index = SkipBlank(lines, index);
-            var sectionMeta = TryParseMeta(lines, ref index);
-            var bodyStart = index;
+            var text = DevbookMarkdownBlocks.HeadingText(lines, sectionHeading);
+            var sectionMeta = DevbookMarkdownBlocks.TakeMeta(blocks, ref index) ?? MetadataRecord.Empty;
 
-            while (index < lines.Length && (!TryParseHeading(lines[index], out var nextHeading) || nextHeading.Level != 2))
+            var body = new List<DocumentDevbookBlock>();
+            for (; index < blocks.Count && blocks[index] is not MdHeading { Level: 2 }; index++)
             {
-                index++;
+                if (Map(blocks[index], lines) is { } block) body.Add(block);
             }
 
-            var blocks = ParseBlocks(lines[bodyStart..index]);
-            sections.Add(new DocumentDevbookSection(
-                sectionHeading.Text,
-                AnchorFor(areaKey, fileName, sectionHeading.Text),
-                sectionMeta,
-                blocks));
+            sections.Add(new DocumentDevbookSection(text, AnchorFor(areaKey, fileName, text), sectionMeta, body));
         }
 
-        return new DocumentDevbookFile(
-            fileName,
-            title,
-            string.Join(' ', summaryLines).Trim(),
-            meta,
-            sections);
+        return new DocumentDevbookFile(fileName, title, summary, meta, sections);
     }
 
-    private static IReadOnlyList<DocumentDevbookBlock> ParseBlocks(string[] lines)
+    /// <summary>One shared block as this model's, or null for one it does not draw:
+    /// a <c>meta</c> fence away from a heading.</summary>
+    private static DocumentDevbookBlock? Map(MdBlock block, IReadOnlyList<string> lines) => block switch
     {
-        var blocks = new List<DocumentDevbookBlock>();
-        var paragraph = new List<string>();
-        var index = 0;
+        MdParagraph paragraph => new DocumentDevbookParagraph(paragraph.Content),
+        MdHeading heading => new DocumentDevbookSubheading(heading.Level, DevbookMarkdownBlocks.HeadingText(lines, heading)),
+        MdCode code when MetadataReader.IsMetaBlock(code.Language) => null,
+        MdCode code when IsDiagramLanguage(code.Language) => new DocumentDevbookDiagram(code.Language, code.Text.TrimEnd()),
+        MdCode code => new DocumentDevbookCode(code.Language, code.Text.TrimEnd()),
+        MdTable table => ParseTable(DevbookMarkdownBlocks.SourceLines(lines, table.Source)),
+        MdQuote quote => new DocumentDevbookQuote(quote.Content),
+        MdList list => new DocumentDevbookList(list.Ordered, DevbookMarkdownBlocks.FlatItems(list)),
+        MdFootnotes notes => new DocumentDevbookList(true, DevbookMarkdownBlocks.NoteItems(notes)),
+        MdDivider => new DocumentDevbookDivider(),
+        _ => null
+    };
 
-        void FlushParagraph()
-        {
-            if (paragraph.Count == 0) return;
-            blocks.Add(new DocumentDevbookParagraph(MarkdownPreview.ParseInlines(string.Join(" ", paragraph))));
-            paragraph.Clear();
-        }
-
-        while (index < lines.Length)
-        {
-            var line = lines[index];
-            var trimmed = line.Trim();
-
-            if (trimmed.Length == 0)
-            {
-                FlushParagraph();
-                index++;
-                continue;
-            }
-
-            // CommonMark's fence rather than "starts with three backticks", so a
-            // devbook `annotation` note holding a code sample closes where its
-            // own four-backtick run does. The note stays a code record, which
-            // DevbookBlocks hands to the library to draw as a review note.
-            if (MarkdownFence.Open(trimmed) is { } fence)
-            {
-                FlushParagraph();
-                var language = fence.Language;
-                var code = new List<string>();
-                index++;
-
-                while (index < lines.Length && !fence.IsClosedBy(lines[index]))
-                {
-                    code.Add(lines[index]);
-                    index++;
-                }
-
-                if (index < lines.Length) index++;
-                if (string.Equals(language, "meta", StringComparison.OrdinalIgnoreCase)) continue;
-
-                var source = string.Join('\n', code).TrimEnd();
-                blocks.Add(IsDiagramLanguage(language)
-                    ? new DocumentDevbookDiagram(language, source)
-                    : new DocumentDevbookCode(language, source));
-                continue;
-            }
-
-            if (IsTableStart(lines, index))
-            {
-                FlushParagraph();
-                var tableLines = new List<string>();
-                while (index < lines.Length && lines[index].TrimStart().StartsWith('|'))
-                {
-                    tableLines.Add(lines[index]);
-                    index++;
-                }
-
-                blocks.Add(ParseTable(tableLines));
-                continue;
-            }
-
-            if (TryParseHeading(line, out var heading) && heading.Level >= 3)
-            {
-                FlushParagraph();
-                blocks.Add(new DocumentDevbookSubheading(heading.Level, heading.Text));
-                index++;
-                continue;
-            }
-
-            if (trimmed.StartsWith("> ", StringComparison.Ordinal))
-            {
-                FlushParagraph();
-                blocks.Add(new DocumentDevbookQuote(MarkdownPreview.ParseInlines(trimmed[2..])));
-                index++;
-                continue;
-            }
-
-            if (trimmed is "---" or "***" or "___")
-            {
-                FlushParagraph();
-                blocks.Add(new DocumentDevbookDivider());
-                index++;
-                continue;
-            }
-
-            if (TryParseList(lines, ref index, out var list))
-            {
-                FlushParagraph();
-                blocks.Add(list);
-                continue;
-            }
-
-            paragraph.Add(trimmed);
-            index++;
-        }
-
-        FlushParagraph();
-        return blocks;
-    }
-
-    private static bool TryParseList(string[] lines, ref int index, out DocumentDevbookList list)
-    {
-        list = new DocumentDevbookList(false, []);
-        var ordered = OrderedListRegex.Match(lines[index]).Success;
-        var unordered = UnorderedListRegex.Match(lines[index]).Success;
-        if (!ordered && !unordered) return false;
-
-        var items = new List<IReadOnlyList<MdInline>>();
-        while (index < lines.Length)
-        {
-            var match = ordered ? OrderedListRegex.Match(lines[index]) : UnorderedListRegex.Match(lines[index]);
-            if (!match.Success) break;
-
-            var text = match.Groups[1].Value.Trim();
-            index++;
-
-            // A wrapped item continues on the indented lines under it until a blank
-            // line or the next item; without this the rest of a long bullet fell out
-            // of the list and read as a paragraph of its own.
-            while (index < lines.Length
-                && lines[index].Length > 0
-                && char.IsWhiteSpace(lines[index][0])
-                && lines[index].Trim().Length > 0
-                && !OrderedListRegex.IsMatch(lines[index])
-                && !UnorderedListRegex.IsMatch(lines[index]))
-            {
-                text += " " + lines[index].Trim();
-                index++;
-            }
-
-            items.Add(MarkdownPreview.ParseInlines(text));
-        }
-
-        list = new DocumentDevbookList(ordered, items);
-        return true;
-    }
-
-    private static DocumentDevbookTable ParseTable(List<string> tableLines)
+    private static DocumentDevbookTable ParseTable(IReadOnlyList<string> tableLines)
     {
         var headers = SplitTableRow(tableLines[0]);
         var rows = tableLines.Skip(2).Select(SplitTableRow).Where(row => row.Count > 0).ToList();
@@ -421,77 +294,34 @@ public static class DocumentDevbookParser
         return [.. text.Split('|').Select(cell => cell.Trim())];
     }
 
-    private static bool IsTableStart(string[] lines, int index) =>
-        index + 1 < lines.Length
-        && lines[index].TrimStart().StartsWith('|')
-        && TableSeparatorRegex.IsMatch(lines[index + 1].Trim());
-
     private static bool IsDiagramLanguage(string language) =>
         language.Equals("mermaid", StringComparison.OrdinalIgnoreCase)
         || language.Equals("plantuml", StringComparison.OrdinalIgnoreCase)
         || language.Equals("dot", StringComparison.OrdinalIgnoreCase);
 
-    private static int SkipBlank(string[] lines, int index)
-    {
-        while (index < lines.Length && string.IsNullOrWhiteSpace(lines[index])) index++;
-        return index;
-    }
-
     /// <summary>
-    /// The fenced <c>meta</c> block under the heading the cursor is sitting on,
-    /// read by the shared knowledge reader rather than by a second one of this
-    /// parser's own.
+    /// The section's element id: the folder, the file and the heading, so two
+    /// folders' overviews on one page never share one.
     /// <para>
-    /// This used to keep a flat <c>key: value</c> dictionary, which is why
-    /// <c>related</c> arrived at the view as raw paths and every field the schema
-    /// defines beyond status and related was dropped on the floor. Collecting the
-    /// fence body and handing it over means the design pane reads a block exactly
-    /// as every other knowledge surface reads one — references parsed, absent
-    /// fields absent.
+    /// Not <see cref="HeadingAnchor"/>, on purpose: this is an element id rather than
+    /// a heading's address, ASCII-only with runs collapsed, and moving it onto the
+    /// GitHub rule would change the id of every section whose heading holds
+    /// punctuation between words (<c>Screen Reader / Announcements</c>).
     /// </para>
     /// </summary>
-    private static MetadataRecord TryParseMeta(string[] lines, ref int index)
-    {
-        if (index >= lines.Length || !lines[index].Trim().Equals("```meta", StringComparison.OrdinalIgnoreCase))
-        {
-            return MetadataRecord.Empty;
-        }
-
-        index++;
-        var body = new List<string>();
-        while (index < lines.Length && !lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal))
-        {
-            body.Add(lines[index]);
-            index++;
-        }
-
-        if (index < lines.Length) index++;
-        return MetadataReader.Parse(string.Join('\n', body));
-    }
-
-    private static bool TryParseHeading(string line, out ParsedHeading heading)
-    {
-        var match = HeadingRegex.Match(line.TrimStart());
-        if (!match.Success)
-        {
-            heading = default;
-            return false;
-        }
-
-        heading = new ParsedHeading(match.Groups[1].Value.Length, match.Groups[2].Value.Trim());
-        return true;
-    }
-
     private static string AnchorFor(string areaKey, string fileName, string heading)
     {
-        var slug = Regex.Replace(heading.ToLowerInvariant(), @"[^a-z0-9\s-]", string.Empty);
-        slug = Regex.Replace(slug, @"\s+", "-").Trim('-');
+        var slug = NotIdCharacter().Replace(heading.ToLowerInvariant(), string.Empty);
+        slug = WhitespaceRun().Replace(slug, "-").Trim('-');
         return $"{areaKey}-{Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant()}-{slug}";
     }
 
-    private readonly record struct ParsedHeading(int Level, string Text);
-}
+    [GeneratedRegex(@"[^a-z0-9\s-]")]
+    private static partial Regex NotIdCharacter();
 
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespaceRun();
+}
 /// <param name="RepositoryArchived">Whether the repository the folder belongs to
 /// is archived (local ADR 0029 §4) — which refuses a sync direction, a write to
 /// Backlog's own map that a read-only branch snapshot still takes.</param>

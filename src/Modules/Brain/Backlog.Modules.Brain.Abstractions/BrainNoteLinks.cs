@@ -1,6 +1,9 @@
 using System.Text;
 using System.Text.RegularExpressions;
 
+using Backlog.SharedKernel.Markdown;
+using Backlog.SharedKernel.Metadata;
+
 namespace Backlog.Modules.Brain.Abstractions;
 
 /// <summary>The two lists of a note's top <c>meta</c> block the app may append
@@ -237,7 +240,7 @@ public static partial class BrainNoteLinks
 
             var j = i + 1;
             while (j < lines.Count && JsTrim(lines[j].Text).Length == 0) j++;
-            if (j >= lines.Count || !MetaFence().IsMatch(JsTrim(lines[j].Text))) return (-1, -1, "The note has no meta block under its title.");
+            if (j >= lines.Count || !MetadataFence.IsGeneratorOpener(JsTrim(lines[j].Text))) return (-1, -1, "The note has no meta block under its title.");
 
             var k = j + 1;
             while (k < lines.Count && JsTrim(lines[k].Text) != "```") k++;
@@ -340,28 +343,15 @@ public static partial class BrainNoteLinks
             : value;
 
     /// <summary><c>String.prototype.trim</c>.</summary>
-    private static string JsTrim(string value)
-    {
-        var start = 0;
-        var end = value.Length;
-        while (start < end && IsJsWhitespace(value[start])) start++;
-        while (end > start && IsJsWhitespace(value[end - 1])) end--;
-        return value[start..end];
-    }
+    private static string JsTrim(string value) => EcmaScriptWhitespace.Trim(value);
 
-    private static bool IsJsWhitespace(char c) =>
-        (int)c is 0x09 or 0x0a or 0x0b or 0x0c or 0x0d or 0x20 or 0xa0 or 0x1680
-            or (>= 0x2000 and <= 0x200a)
-            or 0x2028 or 0x2029 or 0x202f or 0x205f or 0x3000 or 0xfeff;
+    private static bool IsJsWhitespace(char c) => EcmaScriptWhitespace.Is(c);
 
-    private const string JsWhitespace = "\\t\\n\\v\\f\\r \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff";
+    private const string JsWhitespace = EcmaScriptWhitespace.CharacterClass;
 
     [GeneratedRegex("^[" + JsWhitespace + "]*(`{3,}|~{3,})")]
     private static partial Regex FenceMarker();
 
     [GeneratedRegex("^(#{1,6})[" + JsWhitespace + "]+([^\\n\\r\\u2028\\u2029]*)\\z")]
     private static partial Regex Heading();
-
-    [GeneratedRegex("^```meta[" + JsWhitespace + "]*$")]
-    private static partial Regex MetaFence();
 }

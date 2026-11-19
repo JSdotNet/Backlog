@@ -334,5 +334,5 @@ else
         _ => "plain"
     };
 
-    private static string Slug(string title) => DomainUnits.Slug(title);
+    private static string Slug(string title) => HeadingAnchor.Of(title);
 }

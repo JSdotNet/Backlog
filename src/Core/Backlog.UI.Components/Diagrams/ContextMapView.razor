@@ -327,7 +327,7 @@
         var slug = events.Slug ?? string.Empty;
         return contract.Names.FirstOrDefault(name =>
                 (name.Reference is { } reference && reference.EndsWith($"#{slug}", StringComparison.OrdinalIgnoreCase))
-                || string.Equals(DomainUnits.Slug(name.Name), slug, StringComparison.OrdinalIgnoreCase))?.Name
+                || string.Equals(HeadingAnchor.Of(name.Name), slug, StringComparison.OrdinalIgnoreCase))?.Name
             ?? slug;
     }
 

@@ -207,18 +207,7 @@ public sealed record AiModel(
         return usages.FirstOrDefault(usage =>
             string.Equals(usage.FileName, reference.FileName, StringComparison.OrdinalIgnoreCase)
             && (string.Equals(usage.Link.Anchor, reference.Slug, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(GitHubSlug(usage.Heading), reference.Slug, StringComparison.OrdinalIgnoreCase)));
-    }
-
-    /// <summary>GitHub's anchor rule, as the devbook generator spells it: lower-case,
-    /// trim, keep letters, digits, underscores, whitespace and hyphens, and turn
-    /// each whitespace character into a hyphen without collapsing runs.</summary>
-    internal static string GitHubSlug(string heading)
-    {
-        var kept = heading.Trim().ToLowerInvariant()
-            .Where(ch => char.IsLetterOrDigit(ch) || ch == '_' || ch == '-' || char.IsWhiteSpace(ch))
-            .Select(ch => char.IsWhiteSpace(ch) ? '-' : ch);
-        return new string([.. kept]);
+                || string.Equals(HeadingAnchor.Of(usage.Heading), reference.Slug, StringComparison.OrdinalIgnoreCase)));
     }
 
     internal static string? HighestRung(IReadOnlyList<AiModelUsage> usages) =>

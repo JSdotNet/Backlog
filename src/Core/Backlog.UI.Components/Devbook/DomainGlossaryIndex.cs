@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Markdown;
+
 namespace Backlog.UI.Components.Devbook;
 
 /// <summary>One row of a context's Glossary: a term or a model chapter, as the
@@ -50,7 +52,7 @@ public sealed record DomainGlossaryEntry(
     public string? ModelAnchor => Kind switch
     {
         "aggregate" or "entity" or "value-object" or "enum" => Diagrams.DomainModelTabs.Fields,
-        "domain-event" => DomainUnits.Slug(Title),
+        "domain-event" => HeadingAnchor.Of(Title),
         "term" => null,
         _ => string.Empty
     };

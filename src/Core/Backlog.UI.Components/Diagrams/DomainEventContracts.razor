@@ -277,7 +277,7 @@ else
     private async Task PickAsync(DomainEventContract contract)
     {
         _selected = contract.Anchor;
-        _openEventParameter = DomainUnits.Slug(contract.Title);
+        _openEventParameter = HeadingAnchor.Of(contract.Title);
         await OpenEventChanged.InvokeAsync(_openEventParameter);
     }
 
@@ -285,7 +285,7 @@ else
     {
         if (string.Equals(_openEventParameter, OpenEvent, StringComparison.Ordinal)) return;
         _openEventParameter = OpenEvent;
-        _selected = Events.FirstOrDefault(e => DomainUnits.Slug(e.Title) == OpenEvent)?.Anchor;
+        _selected = Events.FirstOrDefault(e => HeadingAnchor.Of(e.Title) == OpenEvent)?.Anchor;
     }
     private readonly string _listensId = $"domain-events-listens-{Guid.NewGuid():N}";
 

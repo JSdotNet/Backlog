@@ -1,5 +1,8 @@
 using System.Text.RegularExpressions;
 
+using Backlog.SharedKernel.Markdown;
+using Backlog.SharedKernel.Metadata;
+
 namespace Backlog.Infrastructure.Devbook.Scenarios;
 
 /// <summary>
@@ -109,10 +112,6 @@ public static partial class ScenarioPageParser
 
     private static readonly string[] StepKeywords = ["Given", "When", "Then", "And"];
 
-    /// <summary>The GitHub anchor of a heading — the devbook checker's algorithm.</summary>
-    public static string Slugify(string text) =>
-        Whitespace().Replace(NotSlugCharacter().Replace(text.ToLowerInvariant().Trim(), string.Empty), "-");
-
     /// <summary>Collapse runs of whitespace to one space and trim.</summary>
     public static string Collapse(string text) => WhitespaceRun().Replace(text, " ").Trim();
 
@@ -173,7 +172,7 @@ public static partial class ScenarioPageParser
                 var journeyTitle = heading.Groups[2].Value.Trim();
                 var journeyLine = i + 1;
                 (var journeyMeta, i) = ReadMetaAfter(lines, i);
-                journey = new MutableJourney(journeyTitle, Slugify(journeyTitle), journeyLine, journeyMeta);
+                journey = new MutableJourney(journeyTitle, HeadingAnchor.Of(journeyTitle), journeyLine, journeyMeta);
                 journeys.Add(journey);
                 part = null;
                 inList = false;
@@ -184,7 +183,7 @@ public static partial class ScenarioPageParser
 
             if (heading.Success && heading.Groups[1].Length == 3 && journey is not null)
             {
-                part = new MutablePart(heading.Groups[2].Value.Trim(), Slugify(heading.Groups[2].Value), i + 1);
+                part = new MutablePart(heading.Groups[2].Value.Trim(), HeadingAnchor.Of(heading.Groups[2].Value), i + 1);
                 journey.Parts.Add(part);
                 inList = false;
                 blankSince = false;
@@ -260,7 +259,7 @@ public static partial class ScenarioPageParser
     {
         var j = i + 1;
         while (j < lines.Length && lines[j].Trim().Length == 0) j++;
-        if (j >= lines.Length || !MetaOpen().IsMatch(lines[j].Trim())) return (new Dictionary<string, ScenarioMetaValue>(StringComparer.Ordinal), i);
+        if (j >= lines.Length || !MetadataFence.IsGeneratorOpener(lines[j].Trim())) return (new Dictionary<string, ScenarioMetaValue>(StringComparer.Ordinal), i);
 
         var body = new List<string>();
         var k = j + 1;
@@ -409,9 +408,6 @@ public static partial class ScenarioPageParser
     [GeneratedRegex(@"^(#{1,6})\s+(.*)$")]
     private static partial Regex Heading();
 
-    [GeneratedRegex(@"^```meta\s*$")]
-    private static partial Regex MetaOpen();
-
     [GeneratedRegex(@"^\s{2,}\S")]
     private static partial Regex Indented();
 
@@ -430,12 +426,6 @@ public static partial class ScenarioPageParser
 
     [GeneratedRegex(@"(`+)[^`]*?\1")]
     private static partial Regex CodeSpan();
-
-    [GeneratedRegex(@"[^\p{L}\p{N}_\s-]")]
-    private static partial Regex NotSlugCharacter();
-
-    [GeneratedRegex(@"\s")]
-    private static partial Regex Whitespace();
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespaceRun();
