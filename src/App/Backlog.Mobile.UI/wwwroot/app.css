@@ -33,8 +33,8 @@ a, .btn-link {
   .tab-bar__tab) stacks its top border, its padding, the glyph MainLayout draws at
   20px, the gap, and its word's line; the bar adds its own top border and pads the
   safe-area inset. The word's line is pinned to --line-height-normal here, so the
-  sum is exact rather than the font's "normal". The task page, the focus page and
-  the notifications pager read it.
+  sum is exact rather than the font's "normal". The task page, the focus page,
+  the note page's tools and the notifications pager read it.
 */
 :root {
     --app-tab-bar-dock: calc(
@@ -49,14 +49,20 @@ a, .btn-link {
 .app-tabs .tab-bar__tab { line-height: var(--line-height-normal); }
 
 /*
-  The sum above holds only while every word stays on one line. The bar holds five
-  tabs at most (Notifications is the title bar's bell, not a tab), and five share
-  a 360px screen at 72px each. The library's --spacing-sm inline padding left
-  "Stand-up" too little room, so it broke at its hyphen and the bar outgrew the
-  dock; the tabs give up most of that padding, and every word fits whole. The
+  The sum above holds only while every word stays on one line. The bar aims at
+  five tabs at most, and five share a 360px screen at 72px each. A phone holding a
+  stand-up, a notification and an event draws six until tabs are merged, and then
+  the ellipsis below cuts "Stand-up" - a known gap, described once in
+  .devbook/design/interaction-guidelines.md#phone-tab-bar. Notifications is an
+  icon-only tab (NavItem.IconOnly): it shows the bell and keeps its word as hidden
+  text, which is .sr-only rather than .tab-bar__label, so the rule below never
+  cuts it. Being shorter than a worded tab, it never sets the row's height, so the
+  sum still holds. The library's --spacing-sm inline padding left "Stand-up" too
+  little room, so it broke at its hyphen and the bar outgrew the dock; the tabs
+  give up most of that padding, and at five tabs every shown word fits whole. The
   ellipsis stays as a guard for a larger text scale: a word that still does not
-  fit ends in one instead of wrapping, and no layout may rely on it. The link
-  keeps its whole word as its name; only the ink is cut.
+  fit ends in one instead of wrapping, and no layout may rely on it but that gap. The link keeps its
+  whole word as its name; only the ink is cut.
 */
 .app-tabs .tab-bar__tab {
     min-width: 0;
@@ -256,6 +262,17 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .focus-page { padding-top: .25rem; }
 /* Pinned above the tab bar, as the task page's footer is. */
 .focus-page .focus__footer { bottom: var(--app-tab-bar-dock); }
+/*
+  The note's tools sit on the tab bar whatever the note's length. A long note pins
+  them above the bar as the task page's footer is pinned. A short one would leave
+  them right under its last line, so the page's main column stretches to the bar,
+  as it does under the notifications pager, the editor fills it, and the row takes
+  the space left above it. The main column's bottom padding goes: it would sit
+  under the row at the end of a long note and lift it off the bar.
+*/
+.content:has(> .note-page) { display: flex; flex-direction: column; padding-bottom: 0; }
+.note-editor.note-page { display: flex; flex: 1; flex-direction: column; }
+.note-page .note-editor__tools { bottom: var(--app-tab-bar-dock); margin-top: auto; }
 .task-page__waiting {
     margin: .5rem 0 0;
     color: var(--color-text-secondary);
@@ -292,7 +309,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 /* The Inbox's search, over captures, notes and meetings alike. */
 .inbox__search { margin-bottom: 1rem; }
 
-/* The editor's dictation and attach buttons, and what they leave under the body. */
+/* What the editor's tools leave under the body. */
 .note-page__attached { display: grid; gap: .5rem; }
 
 /* The note's event: what it is attached to, where a request stands, and the picker. */

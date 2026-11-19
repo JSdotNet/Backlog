@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-18
-related: [".devbook/domain/events/context.md", ".devbook/domain/events/context.md#events-area", ".devbook/domain/events/domain.md#knowledge-event", ".devbook/domain/events/domain.md#event-series", ".devbook/domain/events/domain.md#harvest-task-policy", ".devbook/domain/events/features.md#harvest-task", ".devbook/domain/events/features.md#events-on-the-phone", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/arc42/05-building-block-view.md#desktop-app"]
+related: [".devbook/domain/events/context.md", ".devbook/domain/events/context.md#events-area", ".devbook/domain/events/domain.md#knowledge-event", ".devbook/domain/events/domain.md#event-series", ".devbook/domain/events/domain.md#harvest-task-policy", ".devbook/domain/events/features.md#harvest-task", ".devbook/domain/events/features.md#events-on-the-phone", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/domain/events/features.md#add-an-event-over-mcp"]
 c4: [backlog.desktop.events]
 c4-touches: [backlog.desktop.tasks, backlog.desktop.brain, backlog.desktop.inbox, backlog.desktop.calendar, backlog.desktop.sync]
 ```
@@ -177,9 +177,10 @@ promises.
 ```
 
 The switch is the [Events area](../../domain/events/context.md#events-area), key
-`events`, off by default. It gates five surfaces:
+`events`, off by default. It gates six surfaces:
 
 - the Events pane;
+- the Events tool on the app's MCP server (ADR 0012 §7);
 - the Inbox's To Event route;
 - the event page capture source;
 - the events layer on the Calendar;
@@ -304,7 +305,7 @@ Look for these in the specification and, once built, in the code:
 3. **The phone writes no event.** It sends attachment requests and nothing else.
 4. **One harvest task per event.** Two desktops that both see a Going event end
    file one task between them.
-5. **Switch off.** With `events` off, none of the five surfaces shows.
+5. **Switch off.** With `events` off, none of the six surfaces shows.
 6. **One trio, no cross references.** `Backlog.Modules.Events` references only
    other modules' `.Abstractions`, and no other module references it.
 
@@ -315,6 +316,7 @@ Look for these in the specification and, once built, in the code:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | §6 and Verification count six gated surfaces: the Events tool `add_knowledge_event` on the app's MCP server joins them, absent while `events` is off. The record stays proposed. | An assistant can now add an event over MCP, and ADR 0012 §7 puts each area's tools behind that area's switch. |
 | 2026-11-18 | The decision diagram draws the built edges solid and the events layer into the Calendar, §2 names the container `knowledgeEvents`, and Consequences lists the sibling chapters as landed. The record stays proposed. | The record still described the context as unbuilt after the `knowledge-events` plan built it and every sibling chapter followed. |
 | 2026-11-18 | A removed knowledge event travels as its document marked removed, the latest write winning as for any other edit; every device hides it. | §2's latest write wins needs a tombstone for a removal to reach the other devices; the person had no way to remove an event added by mistake. |
 | 2026-11-18 | Status lists what is built; the record stays proposed. | The Status still said no code existed, though every part had been built. |

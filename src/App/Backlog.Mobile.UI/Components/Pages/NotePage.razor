@@ -79,8 +79,12 @@ else
                 Body="@_draft.Body" BodyChanged="OnBodyChanged"
                 When="@When" State="_state" Waiting="@_waiting" OnBlur="FlushAsync"
                 BackHref="inbox" BackLabel="Inbox"
-                TestId="note-editor">
+                CssClass="note-page" TestId="note-editor">
         <Tools>
+            @* One row of tiles pinned above the tab bar, each a glyph over a short
+               word so five fit across 360px. A tile whose word is shorter than what
+               it does keeps the whole act as its name, so a screen reader still
+               hears "Take photo" where the eye reads "Photo". *@
             @* Dictation appends to the body, as it does to the Inbox's quick
                capture: nothing goes into the note that was not heard first. *@
             <ToggleButton Pressed="_listening"
@@ -89,23 +93,34 @@ else
                           AriaLabel="@(_listening ? "Stop dictating" : "Dictate into the note")"
                           Title="@(_listening ? "Stop dictating" : "Dictate into the note")"
                           TestId="note-speech-toggle">
-                <MicIcon />
+                <MicIcon Size="20" />Dictate
             </ToggleButton>
             @* One recording at a time, on any note: while one runs, its controls are
                on its bar, and Record stays disabled everywhere. *@
-            <AppButton Size="ButtonSize.Small"
-                       Disabled="@(_recordSupported != true || Recording.NoteId is not null)"
+            <AppButton Disabled="@(_recordSupported != true || Recording.NoteId is not null)"
                        Busy="_recordStarting" BusyLabel="Starting the recording"
-                       OnClick="RecordAsync" TestId="note-record">Record</AppButton>
+                       OnClick="RecordAsync" TestId="note-record">
+                <Icon><CircleDotIcon Size="20" /></Icon>
+                <ChildContent>Record</ChildContent>
+            </AppButton>
             @if (_canTakePhoto)
             {
-                <AppButton Size="ButtonSize.Small" Disabled="_picking" OnClick="() => PickAsync(Picker.TakePhotoAsync)"
-                           TestId="note-take-photo">Take photo</AppButton>
+                <AppButton Disabled="_picking" OnClick="() => PickAsync(Picker.TakePhotoAsync)"
+                           aria-label="Take photo" title="Take photo" TestId="note-take-photo">
+                    <Icon><CameraIcon Size="20" /></Icon>
+                    <ChildContent>Photo</ChildContent>
+                </AppButton>
             }
-            <AppButton Size="ButtonSize.Small" Disabled="_picking" OnClick="() => PickAsync(Picker.PickPicturesAsync)"
-                       TestId="note-choose-pictures">Choose pictures</AppButton>
-            <AppButton Size="ButtonSize.Small" Disabled="_picking" OnClick="() => PickAsync(Picker.PickFilesAsync)"
-                       TestId="note-choose-files">Choose files</AppButton>
+            <AppButton Disabled="_picking" OnClick="() => PickAsync(Picker.PickPicturesAsync)"
+                       aria-label="Choose pictures" title="Choose pictures" TestId="note-choose-pictures">
+                <Icon><ImageIcon Size="20" /></Icon>
+                <ChildContent>Pictures</ChildContent>
+            </AppButton>
+            <AppButton Disabled="_picking" OnClick="() => PickAsync(Picker.PickFilesAsync)"
+                       aria-label="Choose files" title="Choose files" TestId="note-choose-files">
+                <Icon><PaperclipIcon Size="20" /></Icon>
+                <ChildContent>Files</ChildContent>
+            </AppButton>
         </Tools>
         <ChildContent>
             @if (Picker is WebAttachmentPicker web)

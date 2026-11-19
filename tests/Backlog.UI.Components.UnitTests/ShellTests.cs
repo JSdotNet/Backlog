@@ -100,6 +100,74 @@ public sealed class ShellTests
         Assert.Empty(bar.Find("[data-testid='tab-bar-note']").Children);
     }
 
+    /// <summary>An icon-only tab (<c>.devbook/design/interaction-guidelines.md#phone-tab-bar</c>)
+    /// shows its glyph alone, still hidden; its word stays its name as visually hidden text and
+    /// its tooltip, and the tab keeps its test id. Its siblings are drawn as before.</summary>
+    [Fact]
+    public void An_icon_only_tab_shows_its_glyph_alone_and_is_still_named_by_its_word()
+    {
+        using var context = new BunitContext();
+        IReadOnlyList<NavItem> tabs =
+        [
+            new("", "Today", Match: true, Icon: Glyph<SunIcon>()),
+            new("notifications", "Notifications", Icon: Glyph<BellIcon>(), IconOnly: true)
+        ];
+
+        var bar = context.Render<TabBar>(parameters => parameters
+            .Add(p => p.Items, tabs)
+            .Add(p => p.TestId, "tab-bar"));
+
+        var tab = bar.Find("[data-testid='tab-bar-notifications']");
+        Assert.Equal(["tab-bar__icon", "sr-only"], tab.Children.Select(child => child.ClassName));
+        Assert.Equal("true", tab.QuerySelector(".tab-bar__icon svg.bell-icon")!.GetAttribute("aria-hidden"));
+        Assert.Null(tab.QuerySelector(".tab-bar__label"));
+        Assert.Equal("Notifications", tab.QuerySelector(".sr-only")!.TextContent);
+        Assert.Equal("Notifications", tab.TextContent.Trim());
+        Assert.Equal("Notifications", tab.GetAttribute("title"));
+        Assert.Contains("tab-bar__tab--icon", tab.ClassList);
+
+        var today = bar.Find("[data-testid='tab-bar-today']");
+        Assert.Null(today.GetAttribute("title"));
+        Assert.DoesNotContain("tab-bar__tab--icon", today.ClassList);
+        Assert.Equal(["tab-bar__icon", "tab-bar__label"], today.Children.Select(child => child.ClassName));
+    }
+
+    [Fact]
+    public void An_icon_only_tab_is_lit_on_its_route_like_any_other()
+    {
+        using var context = new BunitContext();
+        context.Services.GetRequiredService<NavigationManager>().NavigateTo("notifications/42");
+        IReadOnlyList<NavItem> tabs =
+        [
+            new("", "Today", Match: true, Icon: Glyph<SunIcon>()),
+            new("notifications", "Notifications", Icon: Glyph<BellIcon>(), IconOnly: true)
+        ];
+
+        var bar = context.Render<TabBar>(parameters => parameters
+            .Add(p => p.Items, tabs)
+            .Add(p => p.TestId, "tab-bar"));
+
+        var active = Assert.Single(bar.FindAll(".tab-bar__tab--active"));
+        Assert.Equal("tab-bar-notifications", active.GetAttribute("data-testid"));
+        Assert.Equal("page", active.GetAttribute("aria-current"));
+    }
+
+    /// <summary>Icon-only needs a glyph to show; without one the word is all there is, so it shows.</summary>
+    [Fact]
+    public void An_icon_only_tab_without_a_glyph_falls_back_to_its_word()
+    {
+        using var context = new BunitContext();
+
+        var bar = context.Render<TabBar>(parameters => parameters
+            .Add(p => p.Items, [new NavItem("notifications", "Notifications", IconOnly: true)])
+            .Add(p => p.TestId, "tab-bar"));
+
+        var tab = bar.Find("[data-testid='tab-bar-notifications']");
+        Assert.Empty(tab.Children);
+        Assert.Equal("Notifications", tab.TextContent);
+        Assert.Null(tab.GetAttribute("title"));
+    }
+
     [Theory]
     [InlineData(0, "just now")]
     [InlineData(-30, "just now")]

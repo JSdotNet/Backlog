@@ -201,6 +201,23 @@ public sealed class NoteViewProjectionTests : IDisposable
     }
 
     [Fact]
+    public async Task A_recording_names_an_empty_note_after_itself()
+    {
+        _service.State = InboxServiceState.Unreachable;
+
+        // Record on a new note creates it empty before anything is typed, and the desktop
+        // files no note that has no title.
+        var created = await _notes.CreateAsync(string.Empty, string.Empty, cancellationToken: Cancellation);
+        var recording = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.AttachmentMetadata(Guid.CreateVersion7(), "Recording · 0:12", "audio/aac", 300, new string('a', 64));
+
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        await _notes.AttachAsync(created.Id, [recording], Cancellation);
+
+        Assert.Equal("Recording · 0:12", _notes.Find(created.Id)!.Title);
+        Assert.Equal("Recording · 0:12", NoteOutboxKind.Read(_outbox.Entries[^1]).Change.Task.Title);
+    }
+
+    [Fact]
     public async Task Attaching_files_the_note_already_holds_writes_nothing()
     {
         _service.State = InboxServiceState.Unreachable;

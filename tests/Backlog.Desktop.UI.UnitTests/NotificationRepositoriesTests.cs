@@ -108,6 +108,36 @@ public sealed class NotificationRepositoriesTests
     }
 
     [Fact]
+    public async Task A_schedule_alert_resolves_through_the_repository_its_place_leads_with()
+    {
+        var resolver = new NotificationRepositories(AliasOf);
+        var key = "needs-you:schedule:issue-sweep:run-1";
+        var view = View(
+            new NotificationSource(SessionNotificationSubjects.Context, key),
+            new NotificationSubject(SessionNotificationSubjects.Context, SessionNotificationSubjects.Alert, key),
+            NotificationOrigin.Fit(NotificationOrigins.Backlog, SessionAlerts.SchedulePlace("JSdotNet/Fincent")));
+
+        Assert.Equal("fincent", await ResolveOne(resolver, view));
+    }
+
+    [Theory]
+    [InlineData(SessionAlerts.SchedulesPlace)]
+    [InlineData(SessionAlerts.SessionsPlace)]
+    public async Task A_schedule_alert_with_no_repository_and_a_loops_alert_are_the_brains(string place)
+    {
+        // An alias that spells the bare place must not claim it: only a place with a repository
+        // ahead of it names one.
+        var resolver = new NotificationRepositories(repository => repository is "Schedules" or "Sessions" ? "decoy" : AliasOf(repository));
+        var key = "stalled:loop:loop-1:2026-11-04T09:00:00.0000000Z";
+        var view = View(
+            new NotificationSource(SessionNotificationSubjects.Context, key),
+            new NotificationSubject(SessionNotificationSubjects.Context, SessionNotificationSubjects.Alert, key),
+            NotificationOrigin.Fit(NotificationOrigins.Backlog, place));
+
+        Assert.Null(await ResolveOne(resolver, view));
+    }
+
+    [Fact]
     public async Task A_pull_request_notification_resolves_through_the_repository_its_subject_names()
     {
         var resolver = new NotificationRepositories(AliasOf);

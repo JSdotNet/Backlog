@@ -292,17 +292,26 @@ there and quiet, and a record cannot tell that from a session that ended a month
 
 ```meta
 type: sub-feature
+related: [.devbook/domain/sessions/requirements.md#re-read-on-request, .devbook/domain/sessions/features.md#record-a-run-as-it-happens]
 ```
 
-The list is read when it is opened and again when the reader asks for it. Nothing
-polls.
+The sessions are read when the list is opened and again when the reader asks for them.
+Two things are read again on their own. While the list holds a
+[loop session](#loop-sessions), the pane reads the Loop Register every 30 seconds, so a
+loop's state follows its check-ins. And when this application records or changes a run, an
+open list reads its runs again, in every window.
 
-A self-refreshing surface would claim to be live, and the evidence does
-not support that: one of the two agents leaves no liveness marker.
+A self-refreshing list would claim to be live, and the evidence does
+not support that: one of the two agents leaves no liveness marker. A loop session is
+one exception, because its check-ins are the liveness marker. A run recorded here is the
+other: this application writes it, so it knows the moment the run starts, moves a stage or
+ends. Reading the runs again leaves the reader where they were: the row on screen, the
+run card and stage they opened, and the filters stay.
 
 Records arriving from another machine change nothing. They arrive on their own schedule, into what this environment has a record of, which is what the
-list reads. Nothing appears on screen until the reader
-opens the list or asks again, so the rows they are looking at never move.
+list reads. Nothing appears on screen until the reader opens the list or asks again.
+
+The [requirements](requirements.md#re-read-on-request) hold the rules.
 
 ## Session grouping
 
@@ -1689,4 +1698,170 @@ answer reaches the session as a message from the Manager session, which wakes it
 Answering in the session closes the question everywhere.
 
 Local [ADR 0041](../../arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)
-decides it. It sits behind the `notifications` flag, and nothing of it is built yet.
+decides it. It sits behind the `notifications` flag, and it is built: the hook, the relay and
+the Manager's answer deliveries. A Waiting row in the Sessions list shows the question as
+well, as [A waiting row shows its question](#a-waiting-row-shows-its-question) says.
+
+## Schedules and their runs
+
+```meta
+type: feature
+feature-flag: .devbook/domain/sessions/context.md#sessions-area
+depends-on: [.devbook/domain/sessions/features.md#delivery-runs-beside-their-sessions]
+related: [.devbook/arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md, .devbook/domain/sessions/domain.md#schedule-register, .devbook/domain/sessions/requirements.md#schedules-and-their-runs, .devbook/domain/notifications/features.md#asking-from-the-contexts]
+```
+
+A page in the Sessions takeover lists every schedule this machine runs, with the state its
+latest run left it in. The schedules that need the person lead the page. A person who keeps
+forty schedules across seven repositories cannot read every run's session to find the two that
+need them.
+
+Each scheduled run reports to Backlog itself. A `backlog-tools` hook has it report its start,
+and another reports its finish with its verdict and any Needs-you lines. A run that ends on an
+error reports a failure with the error line, and a run that skips itself names the earlier run
+that holds it where it can. The app never reads
+Claude Desktop's own schedule or run files. A schedule appears here after its first report.
+Local
+[ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)
+decides it.
+
+| State | The schedule's latest run | On the page |
+| --- | --- | --- |
+| Needs you | reported Needs-you lines, session not archived | Leads the page, and alerts |
+| Held | skipped itself, because an earlier run is unarchived | Leads the page, and alerts |
+| Failed | reported a failure | Alerts |
+| Missed | no start 30 minutes past its due time | Alerts |
+| Review ready | reported work to review, session not archived | Row only |
+| Handled | has its session archived, or failed and a later run finished Review ready | Row only |
+| No summary yet | started and has not reported its finish | Row only |
+
+The person marks a run done the way they do today: they archive its session in Claude Desktop.
+Backlog reads that from the session record it already reads, and the run reads Handled.
+
+A failed schedule stops alerting once a later run finishes Review ready. Its failed run still
+holds the next runs back until the person archives it.
+
+### Where the Schedules page is reached from
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#where-the-page-is-reached-from]
+```
+
+A **Schedules** button in the Sessions header opens the page, as Delivery economics opens its
+own. The button carries a badge counting the schedules that read Needs you or Held. A Sessions
+breadcrumb leads back to the list. The Scheduled section of the list links to the page as well.
+
+### What the Schedules page shows
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#scheduled-run-state]
+```
+
+The page reads top to bottom:
+
+1. **A line** counting the schedules and their repositories.
+2. **The filters:** All, Needs you, Review ready, and Failed or missed, each with its count.
+3. **Needs you:** one card per schedule that reads Needs you or Held. It says since when and
+   what the run asks of the person, with its links live. **Open run** opens the run's row in the
+   Sessions list; for a held schedule it opens the run that holds it.
+4. **All schedules:** one table per repository, with the schedule, its cadence, its last and
+   next run, and its state.
+
+Choosing a schedule opens its detail beside the table. The detail names the cadence and the next
+run, says what holds it, and lists its recent runs newest first, each with its state.
+
+A held schedule's skipped runs show as Skipped lines under it. They raise no alert of their own,
+because one cause is one alert.
+
+## Loop sessions
+
+```meta
+type: feature
+feature-flag: .devbook/domain/sessions/context.md#sessions-area
+related: [.devbook/arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#loop-register, .devbook/domain/sessions/requirements.md#loop-sessions, .devbook/domain/sessions/features.md#start-a-session-from-an-entry]
+```
+
+The Sessions list says whether each loop session is still doing its job. A loop session is a
+session a person keeps running under `/loop`: the Manager that dispatches session requests and
+the Brain tender. When one stops or hangs, the work waiting for it waits silently. Local
+[ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)
+decides it.
+
+A loop checks in with Backlog on every tick, through the MCP `check_in` tool. A Manager's wait
+for the next request counts as a check-in too. The answer tells the loop whether the person
+paused, resumed or stopped it, what work waits for it, and for the Manager whether the machine
+has room against the limits it sends.
+
+| State | When | Alerts |
+| --- | --- | --- |
+| Listening | it checks in, and nothing holds it | No |
+| Holding | it checks in, work waits, and a capacity limit is reached, until that check-in's heartbeat has passed | Row only |
+| Stalled | its process is alive, with no check-in past its heartbeat plus 10 minutes | Once |
+| Not running | it has no process, or its session is archived | Once, while work waits |
+
+The Brain tender has no queue, so it never reads Holding. A paused queue's requests hold no
+Manager in Holding and raise no alert, and the Manager's row reads them as paused. The goal tracker also runs under `/loop` but never checks in, so the list never shows
+it as a loop.
+
+### An Agents section leads the list
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#session-grouping, .devbook/domain/sessions/domain.md#session-title-reading]
+```
+
+An **Agents** section always leads the Sessions list, above the sections of whichever grouping is
+in force. It holds the sessions whose Session Purpose is Agent: the ones `standing-session.md`
+titles `📡 SESSION DISPATCHER` and `🧠 BRAIN TENDER`. The Purpose filter offers Agent first.
+
+Each loop's row shows its state, its repository and machine, when it last checked in, how long it
+has run, and one line on its work. For the Manager the line counts the requests waiting, the
+sessions working against the limit it checked in with, and the answers to deliver. While the
+person has paused the queue, the line reads "Queue paused · 2 requests" in place of "2 requests
+waiting". While it holds, a second line names the limit that holds it: "Plan usage is 84%, over
+the 80% limit."
+
+### The detail of a loop session
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#capacity-reading]
+```
+
+A loop's detail shows the `/loop` command it runs, and four tiles that say how much room the
+machine has, each against the limit the loop checked in with. Backlog measures them itself:
+
+- the dispatched sessions working, with Waiting sessions not counted;
+- plan usage, the app's own [weekly usage estimate](#share-of-the-week-and-the-weekly-limit);
+- CPU, its busy share over the last 30 seconds;
+- free memory.
+
+Beside the tiles, the detail's facts say when the loop last checked in, how long it has run,
+and for the Manager how many session requests it dispatched today.
+
+Under the tiles, the Manager's detail lists its queue, each item with its state, in the order
+the session queue shows it:
+
+1. the Claimed and Started requests, oldest first;
+2. the Requested ones in the person's order, which is the order the Manager takes them;
+3. each answer delivery. A Holding loop names the limit that holds it, as Backlog read it at
+the loop's check-in, or by the latest tiles when that reading reached none. With neither, it says
+it holds the waiting requests until a limit leaves room. It offers **See usage**, which opens the Dashboard's Sessions tab where the app shows plan usage. A Not running loop
+offers its `/loop` command to copy. A Not running Manager also offers **Cancel requests**, which
+asks first and cancels the waiting requests. It is not offered while another Manager checks in.
+
+The person pauses, resumes or stops a loop from its detail. The loop reads that from its next
+check-in answer and obeys it. Backlog never stops the session itself.
+
+### A waiting row shows its question
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#waiting-question, .devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere]
+```
+
+A row whose session is Waiting shows the question it asked, as **Asks**, with an **Answer** link.
+The link opens the question in the notification centre, so the person answers without opening the
+session.

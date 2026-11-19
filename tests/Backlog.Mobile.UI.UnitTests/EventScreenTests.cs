@@ -54,7 +54,7 @@ public sealed class EventScreenTests
     }
 
     [Fact]
-    public void The_tab_sits_last_beside_the_bell_when_both_are_held()
+    public void The_tab_follows_notifications_when_both_are_held()
     {
         var notifications = new ScriptedNotificationService();
         notifications.Publish(TestNotifications.Question("Run the migration?", Now.AddMinutes(-2)), Now.AddMinutes(-1));
@@ -65,18 +65,14 @@ public sealed class EventScreenTests
 
         var app = host.Open("");
 
-        app.WaitForAssertion(() =>
-        {
-            Assert.Equal(["Today", "Inbox", "Events"], Tabs(app));
-            Assert.NotNull(app.Find(".app-bar__end [data-testid='app-notifications'] .bell-icon"));
-        });
+        app.WaitForAssertion(() => Assert.Equal(["Today", "Inbox", "Notifications", "Events"], Tabs(app)));
     }
 
     /// <summary>The bar's maximum (<c>.devbook/design/interaction-guidelines.md#phone-tab-bar</c>):
-    /// a phone holding a stand-up, a notification and an event draws four tabs, because
-    /// Notifications is the app bar's bell rather than a fifth.</summary>
+    /// a phone holding a stand-up, a notification and an event draws five tabs, Events last,
+    /// because there is no Notes tab to make a sixth.</summary>
     [Fact]
-    public void The_bar_holds_four_tabs_when_stand_up_notifications_and_events_are_all_held()
+    public void The_bar_holds_five_tabs_when_stand_up_notifications_and_events_are_all_held()
     {
         var notifications = new ScriptedNotificationService();
         notifications.Publish(TestNotifications.Question("Run the migration?", Now.AddMinutes(-2)), Now.AddMinutes(-1));
@@ -88,12 +84,7 @@ public sealed class EventScreenTests
 
         var app = host.Open("");
 
-        app.WaitForAssertion(() =>
-        {
-            Assert.Equal(["Today", "Inbox", "Stand-up", "Events"], Tabs(app));
-            Assert.NotNull(app.Find("[data-testid='app-notifications']"));
-        });
-        Assert.Empty(app.FindAll("[data-testid='tab-bar'] a[href='notifications']"));
+        app.WaitForAssertion(() => Assert.Equal(["Today", "Inbox", "Notifications", "Stand-up", "Events"], Tabs(app)));
     }
 
     [Fact]

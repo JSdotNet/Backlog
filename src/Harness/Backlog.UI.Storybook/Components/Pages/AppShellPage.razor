@@ -84,12 +84,22 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/stand
     </Story>
 
     <Story Name="Tab bar with glyphs"
-           Description="The phone's own bar at its fullest, as a paired phone that holds a stand-up and a knowledge event draws it: Today, Inbox, Stand-up and Events, each with its glyph above its word — a sun, an inbox tray, a target and a calendar. Notes is not among them: notes and meetings are listed in the Inbox. Nor is Notifications: it is the bell in the phone's app bar. Every tab carries a glyph or none does, so no tab reads as the odd one out. The glyph is decorative and hidden from assistive technology, so each tab's name is still its word, and it takes the word's ink, so the lit tab's glyph lights with it. The tab is still at least 48px tall.
+           Description="The phone's own bar as a paired phone that holds a stand-up and a knowledge event, and no notification, draws it: Today, Inbox, Stand-up and Events, each with its glyph above its word — a sun, an inbox tray, a target and a calendar. Notes is not among them: notes and meetings are listed in the Inbox. Notifications, once held, is the icon-only tab the next story shows. Every tab carries a glyph or none does, so no tab reads as the odd one out. The glyph is decorative and hidden from assistive technology, so each tab's name is still its word, and it takes the word's ink, so the lit tab's glyph lights with it. The tab is still at least 48px tall.
 
 These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it."
            Code="@GlyphTabBarCode">
         <div class="sb-phone">
             <TabBar Items="GlyphTabs" AriaLabel="Sections" TestId="tab-bar-glyphs" />
+        </div>
+    </Story>
+
+    <Story Name="Tab bar with an icon-only tab"
+           Description="The phone's bar at its five-tab maximum, once it holds a notification, a stand-up and an event: Today, Inbox, Notifications, Stand-up and Events. Notifications sits right after Inbox and shows its bell alone, because its word fits no column of a bar of more than four. It is marked IconOnly on its NavItem: the word stays the link's name as visually hidden text and is its tooltip, so a screen reader still says Notifications, and the glyph stays hidden from assistive technology like every tab's. The bell sits on the same line as its siblings' glyphs, not centred in the taller tab, and the tab takes a full column, so no other tab moves when it comes and goes.
+
+These tabs are live too: tapping the bell opens /app-shell/notifications and lights it, glyph and bar."
+           Code="@IconOnlyTabBarCode">
+        <div class="sb-phone">
+            <TabBar Items="IconOnlyTabs" AriaLabel="Sections" TestId="tab-bar-icon-only" />
         </div>
     </Story>
 
@@ -138,6 +148,15 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
     [
         new("app-shell", "Today", Match: true, Icon: @<SunIcon Size="20" />),
         new("app-shell/inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
+        new("app-shell/standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
+        new("app-shell/events", "Events", Icon: @<CalendarIcon Size="20" />)
+    ];
+
+    private static readonly IReadOnlyList<NavItem> IconOnlyTabs =
+    [
+        new("app-shell", "Today", Match: true, Icon: @<SunIcon Size="20" />),
+        new("app-shell/inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
+        new("app-shell/notifications", "Notifications", Icon: @<BellIcon Size="20" />, IconOnly: true),
         new("app-shell/standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
         new("app-shell/events", "Events", Icon: @<CalendarIcon Size="20" />)
     ];
@@ -226,7 +245,8 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
         new("interaction-guidelines.md#workspace-panes", "Why the Inbox and the Devbook take the whole screen rather than opening beside the view."),
         new("interaction-guidelines.md#group-shape-says-cardinality", "What a fused group and a standalone option say before anything is pressed."),
         new("typography-and-layout.md#iconography", "The glyph each header option leads with: its library, its size, and where its colour comes from."),
-        new("accessibility.md#iconography-accessibility", "Why the glyph is hidden and the option's word stays its name."),
+        new("interaction-guidelines.md#phone-tab-bar", "Which destinations the phone's bar holds, in what order, and when a tab shows its glyph alone."),
+        new("accessibility.md#iconography-accessibility", "Why the glyph is hidden and the option's word stays its name, shown or not."),
         new("accessibility.md#target-sizes-and-text", "How large a tab has to be under a thumb, and why the lit tab is not told apart by colour alone."),
         new("interaction-guidelines.md#offline", "Why offline is a calm, persistent line rather than an error."),
         new("accessibility.md#screen-reader--announcements", "What a status line announces, and that it never interrupts.")
@@ -253,6 +273,21 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
             [
                 new("", "Today", Match: true, Icon: @<SunIcon Size="20" />),
                 new("inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
+                new("standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
+                new("events", "Events", Icon: @<CalendarIcon Size="20" />)
+            ];
+        }
+        """;
+
+    private const string IconOnlyTabBarCode = """
+        <TabBar Items="Tabs" AriaLabel="Sections" TestId="tab-bar" />
+
+        @code {
+            private static readonly IReadOnlyList<NavItem> Tabs =
+            [
+                new("", "Today", Match: true, Icon: @<SunIcon Size="20" />),
+                new("inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
+                new("notifications", "Notifications", Icon: @<BellIcon Size="20" />, IconOnly: true),
                 new("standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
                 new("events", "Events", Icon: @<CalendarIcon Size="20" />)
             ];

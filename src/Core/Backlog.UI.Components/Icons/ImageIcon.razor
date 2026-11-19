@@ -1,0 +1,48 @@
+@*
+    A framed picture: a sun over a hill.
+
+    Drawn here rather than fetched, for the reason ChevronUpIcon gives, in Lucide's
+    idiom on the terms `.devbook/design/typography-and-layout.md#iconography` allows:
+    an outline on the 24x24 grid, stroked at 2, round caps and joins, filled nowhere.
+    Lucide's `image`.
+
+    Named for the shape, not for a meaning. The phone's Notes editor puts it on
+    the tool that chooses pictures; the button carries the name.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    @* The frame, the sun, then the hill. *@
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <circle cx="9" cy="9" r="2" />
+    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>;
+    /// see <see cref="ChevronUpIcon.Size"/> for the scale it is drawn on.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "image-icon" : $"image-icon {CssClass}";
+}

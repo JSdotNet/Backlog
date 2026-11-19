@@ -18,7 +18,7 @@
 @*
     The phone's shell: a title bar that names the app and its version - the
     way into the update window - says where sync stands and holds the way into
-    the phone's notifications and its settings (SettingsControl), the page, and a
+    the phone's settings (SettingsControl), the page, and a
     row of tabs along the bottom where a thumb already is. The BlazorWebView
     fills the MAUI page edge to edge, so nothing else names the app on screen.
 
@@ -34,7 +34,7 @@
     There is no Notes tab: notes and meetings are listed in the Inbox
     (.devbook/design/interaction-guidelines.md#phone-inbox).
 
-    The Stand-up tab sits after Inbox once a desktop has sent the
+    The Stand-up tab sits after Inbox, and Notifications when that shows, once a desktop has sent the
     stand-up, which the phone reads as holding a stand-up context
     (ProgressViewProjection.HoldsStandUp).
     The layout pulls Progress once it is drawn, again when the app comes back to
@@ -48,17 +48,14 @@
     the update window as its one action. Queued captures wait in the outbox
     meanwhile; none is set aside.
 
-    Notifications is not a tab: the bar holds five at most, and its word fits no
-    bar of more than four. It is a bell in the title bar, between the sync line and
-    the settings cog, once the phone holds a notification
+    The Notifications tab follows Inbox once the phone holds a notification
     (NotificationViewProjection.HoldsAny): a desktop pushes them only with its
     notifications feature on, so a phone whose desktops have it off never shows
-    the bell. The bell is a link (IconButton with an Href), current on the list
-    and on any notification's detail, so it says which page is on screen there as
-    a lit tab would. The cog stays last, so it never moves as the bell comes and
-    goes. The layout pulls the notification feed with Progress — once drawn, on
-    every return to the front and on a new pairing — so a question reaches the
-    phone, and the bell appears, on whichever tab it is (local ADR 0039;
+    the tab. It is icon-only - the bell, with the word as its hidden name and
+    tooltip - because "Notifications" fits no column of a bar of more than four.
+    The layout pulls the notification feed with Progress — once drawn, on every
+    return to the front and on a new pairing — so a question reaches the phone,
+    and the tab appears, on whichever tab it is (local ADR 0039;
     .devbook/design/interaction-guidelines.md#phone-tab-bar).
 
     A tap on a notification in the Android tray lands here too (NotificationOpenRequests):
@@ -83,13 +80,6 @@
         <AppUpdateControl @ref="_updates" />
         <div class="app-bar__end">
             <SyncStatus />
-            @if (Paired && Notifications.HoldsAny)
-            {
-                <IconButton Href="notifications" AriaLabel="Notifications" Title="Notifications"
-                            CssClass="app-bar__notifications" TestId="app-notifications">
-                    <BellIcon Size="20" />
-                </IconButton>
-            }
             <SettingsControl />
         </div>
     </header>
@@ -125,12 +115,15 @@
     // Every tab leads with a glyph, or none would: a bar where one tab has a
     // picture and the rest do not reads as that one being different. The glyphs
     // are drawn at icon-md and hidden from assistive technology, so each tab's
-    // name stays its word (.devbook/design/interaction-guidelines.md#phone-tab-bar).
+    // name stays its word, Notifications' too, though only its glyph shows
+    // (.devbook/design/interaction-guidelines.md#phone-tab-bar).
     private static readonly RenderFragment TodayGlyph = @<SunIcon Size="20" />;
     private static readonly RenderFragment InboxGlyph = @<InboxIcon Size="20" />;
     private static readonly RenderFragment StandUpGlyph = @<TargetIcon Size="20" />;
+    private static readonly RenderFragment NotificationsGlyph = @<BellIcon Size="20" />;
     private static readonly RenderFragment EventsGlyph = @<CalendarIcon Size="20" />;
 
+    private static readonly NavItem NotificationsTab = new("notifications", "Notifications", Icon: NotificationsGlyph, IconOnly: true);
     private static readonly NavItem EventsTab = new("events", "Events", Icon: EventsGlyph);
 
     // No Notes tab: notes and meetings are listed in the Inbox
@@ -162,7 +155,12 @@
             var tabs = Progress.HoldsStandUp ? TabsWithStandUp : TabsWithoutStandUp;
 
             // Last: after the stand-up, events are what a person looks ahead to.
-            return EventView.IsOffered ? [.. tabs, EventsTab] : tabs;
+            if (EventView.IsOffered) tabs = [.. tabs, EventsTab];
+
+            // After Inbox: both are what reached the phone, and a question waiting is the
+            // tab a person comes back for. With no Notes tab the bar holds five at most:
+            // Today, Inbox, Notifications, Stand-up and Events.
+            return Notifications.HoldsAny ? [.. tabs.Take(2), NotificationsTab, .. tabs.Skip(2)] : tabs;
         }
     }
 
@@ -248,7 +246,7 @@
 
     /// <summary>
     /// Pulls the notification feed while a paired phone is on screen — on open and on every
-    /// return to the front — so the bell appears, and a question reaches the phone, on whichever
+    /// return to the front — so the tab appears, and a question reaches the phone, on whichever
     /// tab it is. One pull at a time; a failure leaves the phone as it last knew it, and the
     /// Notifications page is where it is put in words.
     /// </summary>
