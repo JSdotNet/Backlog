@@ -14,11 +14,9 @@ public class UsageResetSettingsStoreTests : IDisposable
 {
     private static readonly TimeOnly TwoPm = new(14, 0);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "usage-reset-settings-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("usage-reset-settings-store-tests");
 
-    public UsageResetSettingsStoreTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string SettingsFile => Path.Combine(_root, "usage-reset.json");
 
@@ -274,14 +272,5 @@ public class UsageResetSettingsStoreTests : IDisposable
         Assert.Equal(DateTimeOffset.Parse(expected), reset.MostRecentBefore(DateTimeOffset.Parse(now), zone));
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

@@ -126,14 +126,13 @@ public sealed class TasksRoadmapTagOptionsTests
 /// </summary>
 public sealed class RoadmapPlanTagSourceTests : IDisposable
 {
-    private readonly string _root;
+    private readonly TemporaryDirectory _temp = new("roadmap-tag-source");
     private readonly WorkspaceSettingsStore _settings;
     private readonly RoadmapPlanTagSource _source;
 
     public RoadmapPlanTagSourceTests()
     {
-        _root = Path.Combine(Path.GetTempPath(), "roadmap-tag-source-" + Guid.NewGuid().ToString("N"));
-        _settings = new WorkspaceSettingsStore(_root, Path.Combine(_root, "settings.json"));
+        _settings = new WorkspaceSettingsStore(_temp.Path, _temp.Combine("settings.json"));
         _source = new RoadmapPlanTagSource(TasksTestHost.PlanningFor(_settings));
     }
 
@@ -160,15 +159,8 @@ public sealed class RoadmapPlanTagSourceTests : IDisposable
 
     public void Dispose()
     {
-        TestDatabases.Release(_root);
-
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        TestDatabases.Release(_temp.Path);
+        _temp.Dispose();
 
         GC.SuppressFinalize(this);
     }

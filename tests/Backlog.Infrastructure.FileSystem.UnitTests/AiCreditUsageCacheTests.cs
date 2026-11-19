@@ -9,11 +9,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class AiCreditUsageCacheTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "ai-credit-usage-cache-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("ai-credit-usage-cache-tests");
 
-    public AiCreditUsageCacheTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private AiCreditUsageCache Cache() => new(() => _root);
 
@@ -151,13 +149,6 @@ public class AiCreditUsageCacheTests : IDisposable
     {
         GC.SuppressFinalize(this);
 
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp folder left behind is not a failed test.
-        }
+        _temp.Dispose();
     }
 }

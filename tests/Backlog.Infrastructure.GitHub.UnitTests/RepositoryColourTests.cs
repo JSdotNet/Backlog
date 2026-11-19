@@ -13,11 +13,9 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public class RepositoryColourTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "repository-colour-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("repository-colour-tests");
 
-    private GitHubSettingsStore Store() => new(Path.Combine(_root, "github.json"));
+    private GitHubSettingsStore Store() => new(_temp.Combine("github.json"));
 
     private static GitHubRepositoryRef Repository(string alias, int? colour = null) =>
         new(alias, "JSdotNet", alias) { Colour = colour };
@@ -192,8 +190,7 @@ public class RepositoryColourTests : IDisposable
     [Fact]
     public void ASettingsFileWrittenBeforeTheToggleExistedReadsAsOff()
     {
-        var path = Path.Combine(_root, "github.json");
-        Directory.CreateDirectory(_root);
+        var path = _temp.Combine("github.json");
 
         // Exactly what a build from before this change left on disk: no property at all.
         File.WriteAllText(
@@ -303,7 +300,7 @@ public class RepositoryColourTests : IDisposable
         Assert.Null(store.SetShowRepositoryColours(true));
 
         Assert.Null(store.SetRepositoryToken("backlog", "ghp_token"));
-        Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
+        Assert.Null(store.SetCloneDirectory("backlog", _temp.Combine("clone")));
         Assert.Null(store.SetApiEndpoint("https://github.example/api/v3"));
         Assert.Null(store.RemoveRepository("docs"));
 
@@ -331,7 +328,7 @@ public class RepositoryColourTests : IDisposable
         Assert.Null(here.SetRepositoryColour("docs", 4));
 
         // A second install: its own per-user file, the same workspace folder.
-        var there = new GitHubSettingsStore(Path.Combine(_root, "another-install", "github.json"), () => _root);
+        var there = new GitHubSettingsStore(_temp.Combine("another-install", "github.json"), () => _temp.Path);
 
         Assert.Equal(4, there.Current.Find("docs")!.Colour);
 
@@ -357,7 +354,7 @@ public class RepositoryColourTests : IDisposable
 
     public void Dispose()
     {
+        _temp.Dispose();
         GC.SuppressFinalize(this);
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
     }
 }

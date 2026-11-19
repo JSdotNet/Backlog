@@ -213,7 +213,8 @@ public sealed class SettingsStorageCopyTests
     /// </para></summary>
     private static SettingsRenderContext RenderSettings(Func<string, SyncedFolderMatch?>? detectSyncedFolder = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-storage-copy-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-storage-copy-tests");
+        var root = temp.Path;
 
         var storeAppData = Path.Combine(root, "store");
         var store = new WorkspaceSettingsStore(
@@ -244,25 +245,20 @@ public sealed class SettingsStorageCopyTests
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>());
+        return new SettingsRenderContext(temp, context, context.Render<Settings>());
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

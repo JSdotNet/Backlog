@@ -163,8 +163,8 @@ public sealed class AppFooterSyncTests
     public async Task Sync_now_also_runs_the_knowledge_event_loop()
     {
         using var context = Context(withSync: true);
-        var root = Path.Combine(Path.GetTempPath(), "backlog-footer-sync", Guid.NewGuid().ToString("n"));
-        using var cleanup = new DeletesFolder(root);
+        using var temp = new TemporaryDirectory("backlog-footer-sync");
+        var root = temp.Path;
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
         _ = features.SetEnabled(SyncFeatures.Sync, true);
         _ = features.SetEnabled(EventsFeatures.Events, true);
@@ -192,14 +192,6 @@ public sealed class AppFooterSyncTests
         // when this loop finishes, and bUnit re-checks only on a render.
         await sessions.FirstResolve.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         Assert.Equal(1, sessions.Resolved);
-    }
-
-    private sealed class DeletesFolder(string root) : IDisposable
-    {
-        public void Dispose()
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
     }
 
     /// <summary>A host that composed the loop and no exchange: the loop asks for its session,

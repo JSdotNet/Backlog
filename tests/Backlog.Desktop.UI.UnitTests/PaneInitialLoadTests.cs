@@ -19,7 +19,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class PaneInitialLoadTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _roots = [];
 
     [Fact]
     public async Task The_tasks_list_is_a_skeleton_while_the_backlog_is_read_rather_than_an_empty_state()
@@ -201,17 +201,17 @@ public sealed class PaneInitialLoadTests : IDisposable
 
     private string Root()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-pane-initial-load", Guid.NewGuid().ToString("n"));
+        var root = new TemporaryDirectory("backlog-pane-initial-load");
         _roots.Add(root);
-        return root;
+        return root.Path;
     }
 
     public void Dispose()
     {
         foreach (var root in _roots)
         {
-            TestDatabases.Release(root);
-            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(root.Path);
+            root.Dispose();
         }
     }
 

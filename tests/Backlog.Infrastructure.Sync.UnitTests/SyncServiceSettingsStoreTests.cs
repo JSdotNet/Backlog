@@ -2,12 +2,10 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 
 public sealed class SyncServiceSettingsStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-sync-settings-tests", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-sync-settings-tests");
+    private string _root => _temp.Path;
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void A_fresh_store_has_no_service_url()

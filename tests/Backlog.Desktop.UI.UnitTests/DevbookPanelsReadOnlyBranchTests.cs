@@ -26,7 +26,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     // --- Domain ----------------------------------------------------------------
 
@@ -424,23 +424,16 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "devbook-panels-read-only-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("devbook-panels-read-only-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     public void Dispose()
     {
-        foreach (var dir in _tempDirs)
+        foreach (var temp in _temps)
         {
-            try
-            {
-                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            temp.Dispose();
         }
     }
 

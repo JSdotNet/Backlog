@@ -7,14 +7,13 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class FileBackupStateStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-backup-state-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-backup-state-tests");
+
+    private string _root => _temp.Combine("data");
 
     private string StatePath => Path.Combine(_root, "backup-state.json");
 
-    public void Dispose()
-    {
-        try { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void A_missing_file_reads_as_none() =>

@@ -7,19 +7,13 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class PullRequestPinsStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "pull-request-pins-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("pull-request-pins-tests");
 
-    private string FilePath => Path.Combine(_root, "pull-request-pins.json");
+    private string FilePath => _temp.Combine("pull-request-pins.json");
 
     private PullRequestPinsStore Store() => new(FilePath);
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void Nothing_is_pinned_at_first()
@@ -81,7 +75,6 @@ public sealed class PullRequestPinsStoreTests : IDisposable
     [Fact]
     public void An_unreadable_file_reads_as_nothing_pinned()
     {
-        Directory.CreateDirectory(_root);
         File.WriteAllText(FilePath, "{ not json");
 
         var store = Store();
@@ -96,7 +89,6 @@ public sealed class PullRequestPinsStoreTests : IDisposable
     [Fact]
     public void A_row_naming_a_blank_owner_or_name_is_dropped_on_read()
     {
-        Directory.CreateDirectory(_root);
         File.WriteAllText(FilePath, """{ "pins": [ { "repository": " /Backlog", "number": 1 }, { "repository": "JSdotNet/ ", "number": 2 }, { "repository": "JSdotNet/Backlog", "number": 3 } ] }""");
 
         Assert.Equal([new PullRequestPin("JSdotNet/Backlog", 3)], Store().Pins);
@@ -112,7 +104,7 @@ public sealed class PullRequestPinsStoreTests : IDisposable
         store.Pin("JSdotNet/Backlog", 1);
         store.Pin("JSdotNet/Backlog", 2);
 
-        Assert.Equal([FilePath], Directory.GetFiles(_root));
+        Assert.Equal([FilePath], Directory.GetFiles(_temp.Path));
         Assert.Equal(2, Store().Pins.Count);
     }
 

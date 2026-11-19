@@ -880,21 +880,20 @@ public sealed class TechnologyGraphMeasuresTests : IDisposable
 
 file sealed class TestWorkspace : IDisposable
 {
-    private TestWorkspace(string root)
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-tests");
+
+    private TestWorkspace()
     {
-        Root = root;
-        RepositoryPath = Path.Combine(root, "repo");
-        SettingsPath = Path.Combine(root, "github.json");
+        RepositoryPath = _temp.Combine("repo");
+        SettingsPath = _temp.Combine("github.json");
         Directory.CreateDirectory(RepositoryPath);
     }
-
-    public string Root { get; }
 
     public string RepositoryPath { get; }
 
     public string SettingsPath { get; }
 
-    public static TestWorkspace Create() => new(Path.Combine(Path.GetTempPath(), "backlog-devbook-tests", Guid.NewGuid().ToString("n")));
+    public static TestWorkspace Create() => new();
 
     public GitHubSettingsStore CreateStore()
     {
@@ -906,10 +905,7 @@ file sealed class TestWorkspace : IDisposable
         return store;
     }
 
-    public void Dispose()
-    {
-        try { Directory.Delete(Root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
 }
 

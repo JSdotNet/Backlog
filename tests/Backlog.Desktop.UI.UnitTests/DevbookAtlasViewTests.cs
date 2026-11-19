@@ -19,7 +19,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookAtlasViewTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>
     /// A pull announces the folder change off the renderer's thread, and the
@@ -122,8 +122,9 @@ public sealed class DevbookAtlasViewTests : IDisposable
 
     private Harness CreateHarness(bool writeIndex = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-atlas-tests", Guid.NewGuid().ToString("N"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-atlas-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         var repository = Path.Combine(root, "repo");
         var domain = Path.Combine(repository, ".domain");
@@ -181,19 +182,6 @@ public sealed class DevbookAtlasViewTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots)
-        {
-            try
-            {
-                if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temp folder that outlives the run is not worth failing a test over.
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

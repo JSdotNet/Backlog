@@ -23,14 +23,14 @@ public sealed class InboxMergeIntoTaskTests : IDisposable
 {
     private static readonly DateTimeOffset Today = new(2026, 10, 8, 9, 30, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-merge", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-merge");
+
+    private string _root => _temp.Path;
 
     private readonly ServiceProvider _provider;
 
     public InboxMergeIntoTaskTests()
     {
-        Directory.CreateDirectory(_root);
-
         _provider = new ServiceCollection()
             .AddSingleton<ITaskRepository>(new RootedSqliteTaskRepository(() => _root))
             .AddSingleton<IRepositoryDirectory, NoRepositories>()
@@ -136,15 +136,7 @@ public sealed class InboxMergeIntoTaskTests : IDisposable
     public void Dispose()
     {
         _provider.Dispose();
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // SQLite's pool can hold the file a moment past the last call; the
-            // folder is under the temp directory and harmless if it stays.
-        }
+        _temp.Dispose();
     }
 
     /// <summary>A workspace with no repositories: these tasks name none.</summary>

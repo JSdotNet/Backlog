@@ -18,8 +18,10 @@ public sealed class SqliteEventSeriesRepositoryTests : IDisposable
     private static readonly DateTimeOffset Noon = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
     private const string BadId = "11111111-1111-1111-1111-111111111111";
 
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "event-series-tests-" + Guid.NewGuid().ToString("N"));
-    private readonly string _other = Path.Combine(Path.GetTempPath(), "event-series-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("event-series-tests");
+    private string _dir => _temp.Path;
+    private readonly TemporaryDirectory _otherTemp = new("event-series-tests");
+    private string _other => _otherTemp.Path;
     private readonly FakeTimeProvider _clock = new(Noon);
     private readonly SqliteEventSeriesRepository _repository;
 
@@ -167,9 +169,9 @@ public sealed class SqliteEventSeriesRepositoryTests : IDisposable
         foreach (var dir in new[] { _dir, _other })
         {
             SqliteDatabaseFile.ReleasePool(SqliteTaskRepository.DatabasePathFor(dir));
-
-            if (!Directory.Exists(dir)) continue;
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
+
+        _temp.Dispose();
+        _otherTemp.Dispose();
     }
 }

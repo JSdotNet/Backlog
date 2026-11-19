@@ -24,13 +24,11 @@ public sealed class DevbookSubjectStateStoreTests : IDisposable
     private static readonly DevbookSubject Debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md");
     private static readonly DevbookSubject Change = DevbookSubject.Proposal("pay-by-card");
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "devbook-subject-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("devbook-subject-store-tests");
+
+    private string _root => _temp.Path;
 
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 10, 30, 9, 0, 0, TimeSpan.Zero));
-
-    public DevbookSubjectStateStoreTests() => Directory.CreateDirectory(_root);
 
     private DevbookSubjectStateStore Store() => new(_root, _time);
 
@@ -325,15 +323,5 @@ public sealed class DevbookSubjectStateStoreTests : IDisposable
     public void A_moved_backlog_takes_the_subject_states_along() =>
         Assert.Contains(DevbookSubjectStateStore.FolderName, WorkspaceSettingsStore.OwnedRootFolders);
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp folder left behind is not a test failure.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

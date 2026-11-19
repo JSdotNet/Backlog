@@ -9,8 +9,8 @@ public sealed class FileKnowledgeEventSyncStateStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 11, 18, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(), "backlog-knowledge-event-sync-state-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-knowledge-event-sync-state-tests");
+    private string _root => _temp.Path;
 
     private string StatePath => Path.Combine(_root, "knowledge-event-sync-state.json");
 
@@ -85,8 +85,5 @@ public sealed class FileKnowledgeEventSyncStateStoreTests : IDisposable
         Assert.Equal(store.Current, new FileKnowledgeEventSyncStateStore(StatePath).Current);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

@@ -28,10 +28,8 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
 
     private static readonly string[] Stages = ["Update Base", "Scope Discovery", "Implementation", "Summary"];
 
-    private readonly string _home = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-delivery-surface-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-delivery-surface-tests");
+    private string _home => _temp.Path;
 
     [Fact]
     public void The_capability_is_the_eight_the_contract_names()
@@ -957,8 +955,5 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
             Task.FromResult(answer);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

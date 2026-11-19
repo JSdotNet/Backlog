@@ -22,10 +22,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookIndexDatabaseTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-devbook-index-tests",
-        Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-index-tests");
 
     private const string Scope = ".domain";
 
@@ -163,7 +160,7 @@ public sealed class DevbookIndexDatabaseTests : IDisposable
         // A rebuild, as far as the stamp can tell: the file grows. Grown by more
         // than a page rather than by one small row, so the check is on the size
         // and not on how finely the filesystem records a write time.
-        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_root)!;
+        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_temp.Path)!;
         // The reader's pooled connection would keep the write in the WAL file
         // rather than the database itself; the generator never writes into a
         // file a reader holds either — it renames a new one over it.
@@ -191,7 +188,7 @@ public sealed class DevbookIndexDatabaseTests : IDisposable
 
     private string Arrange(bool withDatabase = true, int? schemaVersion = null)
     {
-        var folder = Path.Combine(_root, Scope);
+        var folder = _temp.Combine(Scope);
         Directory.CreateDirectory(Path.Combine(folder, "inbox"));
 
         Write(ChapterPath, "# Inbox\n\nQuick capture never blocks on a decision.\n");
@@ -199,7 +196,7 @@ public sealed class DevbookIndexDatabaseTests : IDisposable
 
         if (!withDatabase) return folder;
 
-        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_root)!;
+        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_temp.Path)!;
         Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
@@ -250,7 +247,7 @@ public sealed class DevbookIndexDatabaseTests : IDisposable
     private void Write(string relativePath, string markdown) => File.WriteAllText(Resolve(relativePath), markdown);
 
     private string Resolve(string relativePath) =>
-        Path.Combine(_root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        _temp.Combine(relativePath.Replace('/', Path.DirectorySeparatorChar));
 
     private static void Execute(SqliteConnection connection, string sql)
     {
@@ -268,14 +265,7 @@ public sealed class DevbookIndexDatabaseTests : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            SqliteConnection.ClearAllPools();
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // A temp folder that outlives the run is not a test failure.
-        }
+        SqliteConnection.ClearAllPools();
+        _temp.Dispose();
     }
 }

@@ -261,7 +261,8 @@ public sealed class SettingsRepositoryArchiveTests
         bool archiveDocsFirst = false,
         string repositories = "backlog = JSdotNet/Backlog\ndocs = JSdotNet/Docs")
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-archive-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-archive-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -300,7 +301,7 @@ public sealed class SettingsRepositoryArchiveTests
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         context.Services.AddSingleton<ITaskItems>(taskItems);
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), githubSettings, taskItems, client);
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), githubSettings, taskItems, client);
     }
 
     /// <summary>Lists the tasks the test chose and records each refile it is asked
@@ -381,7 +382,7 @@ public sealed class SettingsRepositoryArchiveTests
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         GitHubSettingsStore GitHub,
@@ -391,14 +392,7 @@ public sealed class SettingsRepositoryArchiveTests
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

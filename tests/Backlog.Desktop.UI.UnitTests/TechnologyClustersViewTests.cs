@@ -24,7 +24,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class TechnologyClustersViewTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _roots = [];
 
     [Fact]
     public async Task All_layers_draws_one_cluster_per_layer_with_a_dot_per_technology()
@@ -569,10 +569,9 @@ public sealed class TechnologyClustersViewTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var root in _roots)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            root.Dispose();
         }
     }
 
@@ -609,11 +608,12 @@ public sealed class TechnologyClustersViewTests : IDisposable
 
     private Harness CreateHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-technology-clusters-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-technology-clusters-tests");
+        _roots.Add(temp);
+        var root = temp.Path;
         var repository = Path.Combine(root, "repo");
         var tech = Path.Combine(repository, ".tech");
         Directory.CreateDirectory(tech);
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(tech, "technology-graph.md"), TechnologyGraph);
         File.WriteAllText(Path.Combine(tech, "shared.md"), SharedLayer);

@@ -19,37 +19,25 @@ namespace Backlog.Infrastructure.Brain.UnitTests;
 /// </summary>
 public sealed class BrainPickupTests : IDisposable
 {
-    private readonly string _brain = Path.Combine(Path.GetTempPath(), "brain-pickup-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("brain-pickup-tests");
 
-    public BrainPickupTests() => Directory.CreateDirectory(_brain);
-
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_brain, recursive: true);
-        }
-        catch (IOException)
-        {
-            // Left for the OS to clear.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private string Note(string relativePath, string text)
     {
-        var path = Path.Combine([_brain, .. relativePath.Split('/')]);
+        var path = _temp.Combine(relativePath.Split('/'));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, text);
         return path;
     }
 
-    private string Read(string relativePath) => File.ReadAllText(Path.Combine([_brain, .. relativePath.Split('/')]));
+    private string Read(string relativePath) => File.ReadAllText(_temp.Combine(relativePath.Split('/')));
 
     private BrainPickup Pickup(PickupRecordingTaskItems? tasks, IInboxPlanDrafter? drafter = null, string? brainFolder = "<default>")
     {
-        var source = new BrainFolderSource(() => brainFolder == "<default>" ? _brain : brainFolder);
+        var source = new BrainFolderSource(() => brainFolder == "<default>" ? _temp.Path : brainFolder);
         return new BrainPickup(tasks, source, new BrainNoteLinkWriter(source), drafter, new KnownRepositories());
     }
 

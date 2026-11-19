@@ -13,27 +13,14 @@ namespace Backlog.Infrastructure.DevPc.UnitTests;
 /// </summary>
 public sealed class DevToolPcConfigPathTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(), "backlog-pc-config-path-tests", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-pc-config-path-tests");
 
-    private string ToolFolder => Path.Combine(_root, ".tools");
+    private string ToolFolder => _temp.Combine(".tools");
 
     private string ExpectedPcConfigPath =>
         Path.Combine(ToolFolder, Environment.MachineName.ToLowerInvariant(), "ai-tools.json");
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (DirectoryNotFoundException)
-        {
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task The_desktop_host_names_the_choices_file_when_there_is_no_catalog_yet()
@@ -49,7 +36,7 @@ public sealed class DevToolPcConfigPathTests : IDisposable
     [Fact]
     public async Task The_catalog_only_host_names_the_choices_file_when_there_is_no_catalog_yet()
     {
-        var catalog = await new CatalogOnlyDevTools(StoreAt(_root)).ListAsync(TestContext.Current.CancellationToken);
+        var catalog = await new CatalogOnlyDevTools(StoreAt(_temp.Path)).ListAsync(TestContext.Current.CancellationToken);
 
         Assert.False(catalog.CatalogExists);
         Assert.Equal(ExpectedPcConfigPath, catalog.PcConfigPath, ignoreCase: true);
@@ -64,7 +51,7 @@ public sealed class DevToolPcConfigPathTests : IDisposable
             """{ "plugins": [], "mcpServers": [] }""",
             TestContext.Current.CancellationToken);
 
-        var catalog = await new CatalogOnlyDevTools(StoreAt(_root)).ListAsync(TestContext.Current.CancellationToken);
+        var catalog = await new CatalogOnlyDevTools(StoreAt(_temp.Path)).ListAsync(TestContext.Current.CancellationToken);
 
         Assert.True(catalog.CatalogExists);
         Assert.Equal(ExpectedPcConfigPath, catalog.PcConfigPath, ignoreCase: true);

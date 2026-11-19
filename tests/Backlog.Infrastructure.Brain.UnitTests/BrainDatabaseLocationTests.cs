@@ -22,15 +22,14 @@ public class BrainDatabaseLocationTests : IDisposable
 
     private const string TouchedMilliseconds = "1767323045000";
 
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-brain-location", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-brain-location");
 
     public BrainDatabaseLocationTests()
     {
-        Directory.CreateDirectory(_scratch);
-        DevbookDatabaseLocation.Configure(() => Path.Combine(_scratch, "devbook-cache"));
+        DevbookDatabaseLocation.Configure(() => _temp.Combine("devbook-cache"));
     }
 
-    private string Brain => Path.Combine(_scratch, "OneDrive", "Brain");
+    private string Brain => _temp.Combine("OneDrive", "Brain");
 
     [Fact]
     public void Asking_for_the_brains_database_records_the_folder_as_the_brain()
@@ -46,7 +45,7 @@ public class BrainDatabaseLocationTests : IDisposable
     [Fact]
     public void A_second_brain_folder_replaces_the_first()
     {
-        var old = Path.Combine(_scratch, "Old Brain");
+        var old = _temp.Combine("Old Brain");
 
         BrainDatabaseLocation.ForBrainFolder(old);
         BrainDatabaseLocation.ForBrainFolder(Brain);
@@ -72,7 +71,7 @@ public class BrainDatabaseLocationTests : IDisposable
         Write("CONVENTIONS.md", "# Conventions\n\n## Areas\n\n- `work`\n- `design`\n");
         Write("work/standup.md", "# Standup\n");
         Write("design/palette.md", "# Palette\n");
-        var target = Path.Combine(_scratch, "brain.db");
+        var target = _temp.Combine("brain.db");
         Assert.True(DevbookDatabaseBuilder.Build(Brain, target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
 
         // The text the builder hashed before the hook existed: the schema version,
@@ -94,15 +93,7 @@ public class BrainDatabaseLocationTests : IDisposable
         BrainDatabaseLocation.RegisterBrainRoot(null);
         DevbookDatabaseLocation.Configure(() => null);
 
-        try
-        {
-            Directory.Delete(_scratch, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A scratch folder left behind costs disk, not correctness.
-        }
-
+        _temp.Dispose();
         GC.SuppressFinalize(this);
     }
 

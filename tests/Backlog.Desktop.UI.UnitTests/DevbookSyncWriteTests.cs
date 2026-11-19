@@ -21,7 +21,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
     private const string ContextMap = "domain/context-map.md";
     private const string Pad = ".file-view__header [role='group'][aria-label='Sync direction']";
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Theory]
     [InlineData(DevbookSourceKind.LocalFolder)]
@@ -181,17 +181,16 @@ public sealed class DevbookSyncWriteTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "devbook-sync-write-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        _roots.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("devbook-sync-write-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+            temp.Dispose();
         }
     }
 

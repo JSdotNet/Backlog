@@ -390,7 +390,8 @@ public sealed class CaptureSourcesPanelTests
         Action<CaptureRunResultDto>? imported = null,
         ICaptureSourceAvailability? availability = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-capture-sources-panel-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-capture-sources-panel-tests");
+        var root = temp.Path;
 
         captureSources ??= new CaptureSourcesSettingsStore(Path.Combine(root, "capture-sources.json"));
         // Before the render: the panel seeds its drafts once, when it initializes.
@@ -410,7 +411,7 @@ public sealed class CaptureSourcesPanelTests
         var component = context.Render<CaptureSourcesPanel>(parameters => parameters
             .Add(p => p.OnImported, run => imported?.Invoke(run)));
 
-        return new PanelRenderContext(root, context, component, captureSources, runLog, runner);
+        return new PanelRenderContext(temp, context, component, captureSources, runLog, runner);
     }
 
     /// <summary>The run, answering an import with a fixed line and keeping the
@@ -491,7 +492,7 @@ public sealed class CaptureSourcesPanelTests
     }
 
     private sealed record PanelRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<CaptureSourcesPanel> Component,
         ICaptureSourceSettings CaptureSources,
@@ -501,14 +502,7 @@ public sealed class CaptureSourcesPanelTests
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

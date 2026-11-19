@@ -212,17 +212,10 @@ public sealed class TechnologyComplexityViewTests : IDisposable
     [Fact]
     public void A_heading_with_inline_markdown_reads_plain_in_the_table_and_every_aria_label()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-tests", Guid.NewGuid().ToString("n"));
-        var techPath = Path.Combine(root, ".tech");
+        using var temp = new TemporaryDirectory("backlog-devbook-tests");
+        var techPath = temp.Combine(".tech");
         Directory.CreateDirectory(techPath);
-        try
-        {
-            AssertPlainLabels(techPath);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
+        AssertPlainLabels(techPath);
     }
 
     private void AssertPlainLabels(string techPath)

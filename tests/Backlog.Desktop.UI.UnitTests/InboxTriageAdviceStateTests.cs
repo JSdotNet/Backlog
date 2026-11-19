@@ -14,18 +14,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class InboxTriageAdviceStateTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-triage-state-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-triage-state-tests");
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Without_an_available_advisor_nothing_is_asked_and_nothing_is_exposed()
@@ -234,7 +225,7 @@ public sealed class InboxTriageAdviceStateTests : IDisposable
         var item = inbox.Seed("Login page returns a server error");
         inbox.Seed("Already decided", status: InboxStatus.Deferred);
 
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories([new GitHubRepositoryRef("web", "acme", "web")]));
 
         var state = new InboxDesktopState(inbox, settings);

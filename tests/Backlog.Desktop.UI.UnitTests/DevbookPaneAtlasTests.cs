@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookPaneAtlasTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task The_all_knowledge_button_is_not_offered_before_the_atlas_is_open()
@@ -239,10 +239,11 @@ public sealed class DevbookPaneAtlasTests : IDisposable
 
     private Harness CreateHarness(bool lobesAtlas = false, bool withTechnology = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-atlas", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-atlas");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "_meta"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), ContextMap);
         File.WriteAllText(Path.Combine(root, ".domain", "_meta", "graph.json"), Graph);
@@ -302,11 +303,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private sealed record Harness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable

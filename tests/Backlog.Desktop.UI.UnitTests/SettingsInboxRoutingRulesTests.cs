@@ -170,7 +170,8 @@ public sealed class SettingsInboxRoutingRulesTests
 
     private static SectionRenderContext RenderSection(bool inboxPane = true, bool withRules = true, string? existing = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-routing-rules-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-routing-rules-tests");
+        var root = temp.Path;
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(AppFeatures.InboxPane, inboxPane);
@@ -182,12 +183,13 @@ public sealed class SettingsInboxRoutingRulesTests
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         if (withRules) context.Services.AddSingleton<IInboxRoutingRules>(rules);
 
-        return new SectionRenderContext(root, context, context.Render<InboxSettings>(), rules);
+        return new SectionRenderContext(temp, context, context.Render<InboxSettings>(), rules);
     }
 
     private static SettingsRenderContext RenderSettings(bool registerSection)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-routing-rules-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-routing-rules-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -222,22 +224,11 @@ public sealed class SettingsInboxRoutingRulesTests
         context.Services.AddSingleton<IInboxRoutingRules>(rules);
         if (registerSection) context.Services.AddInboxSettings();
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), rules);
-    }
-
-    private static void DeleteQuietly(string root)
-    {
-        try
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), rules);
     }
 
     private sealed record SectionRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<InboxSettings> Component,
         InboxRoutingRulesStore Rules) : IDisposable
@@ -245,12 +236,12 @@ public sealed class SettingsInboxRoutingRulesTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         InboxRoutingRulesStore Rules) : IDisposable
@@ -258,7 +249,7 @@ public sealed class SettingsInboxRoutingRulesTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 }

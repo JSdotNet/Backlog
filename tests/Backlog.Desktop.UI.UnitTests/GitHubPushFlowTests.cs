@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class GitHubPushFlowTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
     private readonly List<TasksDesktopState> _states = [];
 
     public void Dispose()
@@ -31,10 +31,10 @@ public sealed class GitHubPushFlowTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(temp.Path);
+            temp.Dispose();
         }
     }
 
@@ -2081,8 +2081,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     /// holds a save on its way.</summary>
     private Harness BuildWatchingStore(TimeProvider? clock, TaskStoreCalls? storeCalls, params string[] repositories)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-github-flow", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var root = NewTemporaryRoot();
 
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(root));
@@ -2135,11 +2134,18 @@ public sealed class GitHubPushFlowTests : IDisposable
     /// facts and the task list's settled finishes.</summary>
     private DeviceMemory Memory()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-github-flow", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var root = NewTemporaryRoot();
         return new DeviceMemory(
             new SettledPullRequestStore(() => Path.Combine(root, SettledPullRequestStore.FolderName)),
             new PullRequestFinishMemory(() => Path.Combine(root, PullRequestFinishMemory.FolderName)));
+    }
+
+    /// <summary>A folder of the test's own, removed with the test's.</summary>
+    private string NewTemporaryRoot()
+    {
+        var temp = new TemporaryDirectory("backlog-github-flow");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     private sealed record DeviceMemory(ISettledPullRequestStore Settled, IPullRequestFinishMemory Finishes);

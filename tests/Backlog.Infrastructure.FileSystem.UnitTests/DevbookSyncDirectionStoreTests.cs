@@ -21,13 +21,11 @@ public sealed class DevbookSyncDirectionStoreTests : IDisposable
 
     private static readonly DevbookSubject Debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md");
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "devbook-sync-direction-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("devbook-sync-direction-store-tests");
+
+    private string _root => _temp.Path;
 
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 11, 2, 9, 0, 0, TimeSpan.Zero));
-
-    public DevbookSyncDirectionStoreTests() => Directory.CreateDirectory(_root);
 
     private string Storage => Path.Combine(_root, "storage");
 
@@ -294,12 +292,7 @@ public sealed class DevbookSyncDirectionStoreTests : IDisposable
         Assert.False(store.IsImported(Repository));
     }
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>Where one key resolves: a folder, from a clone or a branch, or
     /// pending — a branch whose first fetch is running, which is unavailable.</summary>

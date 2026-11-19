@@ -19,7 +19,7 @@ public sealed class DevToolListingTests : IDisposable
     private const string LocalCommit = "1111111111111111111111111111111111111111";
     private const string FetchedCommit = "2222222222222222222222222222222222222222";
 
-    private readonly string _root;
+    private readonly TemporaryDirectory _temp = new("backlog-tool-listing-tests");
     private readonly string _catalogPath;
     private readonly string _mirror;
 
@@ -30,29 +30,19 @@ public sealed class DevToolListingTests : IDisposable
 
     public DevToolListingTests()
     {
-        _root = Path.Combine(Path.GetTempPath(), "backlog-tool-listing-tests", Guid.NewGuid().ToString("N"));
-        _mirror = Path.Combine(_root, "mirror");
-        Directory.CreateDirectory(Path.Combine(_root, ".tools"));
+        _mirror = _temp.Combine("mirror");
+        Directory.CreateDirectory(_temp.Combine(".tools"));
         Directory.CreateDirectory(_mirror);
 
-        _catalogPath = DevToolConfigurationPaths.FromRepositoryRoot(_root, "dev-pc").CatalogPath;
-        _desktopConfig = [Path.Combine(_root, "claude-desktop", "claude_desktop_config.json")];
+        _catalogPath = DevToolConfigurationPaths.FromRepositoryRoot(_temp.Path, "dev-pc").CatalogPath;
+        _desktopConfig = [_temp.Combine("claude-desktop", "claude_desktop_config.json")];
         File.WriteAllText(_catalogPath, Catalog(_mirror));
     }
 
     private DevToolService Service(ScriptedRunner runner, int concurrency, TimeSpan? probeTimeout = null) =>
         new(_catalogPath, runner, concurrency, probeTimeout, _desktopConfig);
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task A_concurrent_listing_reads_exactly_as_a_listing_run_one_command_at_a_time()
@@ -195,7 +185,7 @@ public sealed class DevToolListingTests : IDisposable
         var catalog = await Service(new ScriptedRunner(), concurrency: 5).ListAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(
-            Path.Combine(_root, ".tools", Environment.MachineName.ToLowerInvariant(), "ai-tools.json"),
+            _temp.Combine(".tools", Environment.MachineName.ToLowerInvariant(), "ai-tools.json"),
             catalog.PcConfigPath,
             ignoreCase: true);
     }

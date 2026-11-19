@@ -22,9 +22,9 @@ public sealed class IterationSettingsStoreTests : IDisposable
     private static readonly DateOnly Monday19 = new(2026, 10, 19);
     private static readonly DateOnly Wednesday21 = new(2026, 10, 21);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "iteration-settings-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("iteration-settings-tests");
+
+    private string _root => _temp.Combine("data");
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -33,16 +33,7 @@ public sealed class IterationSettingsStoreTests : IDisposable
     private IterationSettingsStore Store(string device = "a", TimeProvider? time = null) =>
         new(FileOf(device), time ?? new FakeTimeProvider(Morning));
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static IterationSettingsCopyDto Copy(string length, DateOnly? start, DateTimeOffset at, string extra = "") =>
         new(

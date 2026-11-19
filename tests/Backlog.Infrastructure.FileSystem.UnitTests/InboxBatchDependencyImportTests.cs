@@ -19,14 +19,14 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class InboxBatchDependencyImportTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-batch-dependencies", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-batch-dependencies");
+
+    private string _root => _temp.Path;
 
     private readonly ServiceProvider _provider;
 
     public InboxBatchDependencyImportTests()
     {
-        Directory.CreateDirectory(_root);
-
         _provider = new ServiceCollection()
             .AddSingleton<ITaskRepository>(new RootedSqliteTaskRepository(() => _root))
             .AddSingleton<IRepositoryDirectory, NoRepositories>()
@@ -107,15 +107,7 @@ public sealed class InboxBatchDependencyImportTests : IDisposable
     {
         _provider.Dispose();
 
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // SQLite's pool can hold the file a moment past the last call; the
-            // folder is under the temp directory and harmless if it stays.
-        }
+        _temp.Dispose();
     }
 
     /// <summary>A workspace with no repositories: these batches name none.</summary>

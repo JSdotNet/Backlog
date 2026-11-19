@@ -20,19 +20,16 @@ public sealed class AskBacklogScriptTests : IDisposable
     private const string ProseId = "22222222-2222-2222-2222-222222222222";
     private const string Question = "Which database?";
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "ask-backlog-script-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("ask-backlog-script");
     private readonly string _script;
 
     public AskBacklogScriptTests()
     {
         // The script as the app installs it, so what runs is the embedded bytes.
-        _script = AskBacklogHook.Install(_root);
+        _script = AskBacklogHook.Install(_temp.Path);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static JsonArray Questions() => JsonNode.Parse("""
         [{ "question": "Which database?", "header": "Database", "multiSelect": false,
@@ -445,7 +442,7 @@ public sealed class AskBacklogScriptTests : IDisposable
     [Fact]
     public void End_sweeps_stale_state_files_and_orphaned_temporary_files()
     {
-        var folder = Path.Combine(_root, "state");
+        var folder = Path.Combine(_temp.Path, "state");
         Directory.CreateDirectory(folder);
         var now = DateTime.UtcNow;
         string Seed(string name, TimeSpan age)
@@ -500,7 +497,7 @@ public sealed class AskBacklogScriptTests : IDisposable
     /// after a tool-use-only assistant entry and before nothing.</summary>
     private string Transcript(string message)
     {
-        var path = Path.Combine(_root, $"transcript-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(_temp.Path, $"transcript-{Guid.NewGuid():N}.jsonl");
         var lines = new[]
         {
             new JsonObject { ["type"] = "user", ["message"] = new JsonObject { ["role"] = "user", ["content"] = "Do the thing." } },
@@ -521,7 +518,7 @@ public sealed class AskBacklogScriptTests : IDisposable
 
     private string[] StateFiles()
     {
-        var folder = Path.Combine(_root, "state");
+        var folder = Path.Combine(_temp.Path, "state");
         return Directory.Exists(folder) ? Directory.GetFiles(folder) : [];
     }
 
@@ -545,11 +542,11 @@ public sealed class AskBacklogScriptTests : IDisposable
         var environment = new JsonObject
         {
             ["BACKLOG_MCP_TOKEN"] = "test-token",
-            ["ASK_BACKLOG_STATE_DIR"] = Path.Combine(_root, "state"),
+            ["ASK_BACKLOG_STATE_DIR"] = Path.Combine(_temp.Path, "state"),
             ["ASK_BACKLOG_RETRY_MS"] = "",
             // Never this machine's own settings.json, whatever the test sets.
-            ["LOCALAPPDATA"] = _root,
-            ["XDG_DATA_HOME"] = _root,
+            ["LOCALAPPDATA"] = _temp.Path,
+            ["XDG_DATA_HOME"] = _temp.Path,
         };
         foreach (var (key, value) in env) environment[key] = value;
 

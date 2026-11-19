@@ -225,11 +225,12 @@ public sealed class SurfaceWindowTests
     [Fact]
     public async Task An_inbox_capture_made_outside_the_window_reloads_its_inbox()
     {
+        using var temp = new TemporaryDirectory("backlog-surface-window-tests");
         using var host = await CreateHostAsync();
         var signal = new InboxChangeSignal();
         host.Pane.Context.Services.AddSingleton<IInboxChangeSignal>(signal);
         host.Pane.Context.Services.AddSingleton(new Backlog.Infrastructure.GitHub.GitHubSettingsStore(
-            Path.Combine(Path.GetTempPath(), "backlog-surface-window-tests", Guid.NewGuid().ToString("n"), "github.json")));
+            temp.Combine("github.json")));
         var fake = InboxTestHost.AddInboxState(host.Pane.Context.Services);
 
         var window = host.Render("rows");

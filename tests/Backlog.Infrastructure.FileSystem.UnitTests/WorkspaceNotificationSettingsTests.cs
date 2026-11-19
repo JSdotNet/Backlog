@@ -10,11 +10,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class WorkspaceNotificationSettingsTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "workspace-notification-settings-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("workspace-notification-settings-tests");
 
-    public WorkspaceNotificationSettingsTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string SettingsFile => Path.Combine(_root, "settings.json");
 
@@ -93,14 +91,5 @@ public sealed class WorkspaceNotificationSettingsTests : IDisposable
         Assert.Equal(PresenceSettings.Default with { NotifyAfter = TimeSpan.FromMinutes(45) }, Store().Presence);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

@@ -27,7 +27,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
 
     private const string Decision = "# ADR 0001: Test decision\n\n```meta\nstatus: draft\n```\n\nOriginal prose.\n";
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>
     /// A pull announces the folder change off the renderer's thread, and the
@@ -924,8 +924,9 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// </summary>
     private ModelHarness CreateModelHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-panel-tests", Guid.NewGuid().ToString("N"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-arc42-panel-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         var arc42 = Path.Combine(root, ".arc42");
         Directory.CreateDirectory(Path.Combine(arc42, "adr"));
@@ -1023,17 +1024,13 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// <summary>
     /// Deletes the temp folders once every test has awaited its harness away, so
     /// nothing this class rendered can still be writing into one of them. The
-    /// catch stays as a courtesy for a lock this class does not own — a scanner
+    /// quiet delete stays as a courtesy for a lock this class does not own — a scanner
     /// or an indexer holding a file open — rather than as the thing keeping the
     /// suite green.
     /// </summary>
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     /// <param name="configuredPath">Where the <c>.arc42</c> devbook folder is
@@ -1074,9 +1071,9 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         bool withSubjects = false,
         bool? statusShown = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-panel-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-arc42-panel-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         var folderPath = configuredPath ?? ".arc42";
         var arc42 = Path.Combine(root, folderPath.Replace('/', Path.DirectorySeparatorChar));

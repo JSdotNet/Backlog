@@ -16,8 +16,8 @@ public class AnnotationSyncRegistrationTests : IDisposable
 {
     private static readonly Uri SyncAddress = new("https://sync.example");
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(), "backlog-annotation-sync-registration-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-annotation-sync-registration-tests");
+    private string _root => _temp.Path;
 
     private static ServiceProvider Build(IServiceCollection services) =>
         services.BuildServiceProvider(new ServiceProviderOptions
@@ -78,14 +78,5 @@ public class AnnotationSyncRegistrationTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => provider.GetService<AnnotationSyncWorker>());
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

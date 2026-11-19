@@ -16,18 +16,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class TasksRepositoryDirectoryTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-repository-directory-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-repository-directory-tests");
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void It_offers_the_repositories_settings_holds()
@@ -301,8 +292,8 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
     [Fact]
     public void A_registration_against_an_unreadable_registry_reports_it_and_adds_nothing()
     {
-        var local = Path.Combine(_root, "github", "github.json");
-        var registry = Path.Combine(_root, "github", GitHubSettingsStore.RegistryFolderName, "repos.json");
+        var local = _temp.Combine("github", "github.json");
+        var registry = _temp.Combine("github", GitHubSettingsStore.RegistryFolderName, "repos.json");
         Directory.CreateDirectory(Path.GetDirectoryName(registry)!);
         File.WriteAllText(registry, "{ this is not a registry");
 
@@ -344,7 +335,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
 
     private GitHubSettingsStore StoreWith(string configuredLines)
     {
-        var store = new GitHubSettingsStore(Path.Combine(_root, "github", "github.json"));
+        var store = new GitHubSettingsStore(_temp.Combine("github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText(configuredLines);
 
         Assert.Empty(errors);

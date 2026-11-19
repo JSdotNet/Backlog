@@ -147,8 +147,8 @@ public class ClaudeUsageClientTests
     [Fact]
     public async Task Usage_is_unavailable_and_says_why_when_no_key_is_configured()
     {
-        using var directory = new TemporaryDirectory();
-        var settings = new ClaudeSettingsStore(directory.File("claude.json"));
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var settings = new ClaudeSettingsStore(directory.Combine("claude.json"));
         var client = new ClaudeUsageClient(new StubTransport(available: false), settings);
 
         var availability = await client.GetAvailabilityAsync(TestContext.Current.CancellationToken);
@@ -167,8 +167,8 @@ public class ClaudeUsageClientTests
     [Fact]
     public async Task A_key_without_the_admin_prefix_is_sent_rather_than_refused()
     {
-        using var directory = new TemporaryDirectory();
-        var settings = new ClaudeSettingsStore(directory.File("claude.json"));
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var settings = new ClaudeSettingsStore(directory.Combine("claude.json"));
         settings.SetAdminApiKey(settings.Current.Accounts[0].Id, "sk-ant-api03-personal-key");
 
         var client = new ClaudeUsageClient(new StubTransport(available: true), settings);
@@ -179,8 +179,8 @@ public class ClaudeUsageClientTests
     [Fact]
     public async Task An_admin_key_makes_usage_available()
     {
-        using var directory = new TemporaryDirectory();
-        var settings = new ClaudeSettingsStore(directory.File("claude.json"));
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var settings = new ClaudeSettingsStore(directory.Combine("claude.json"));
         settings.SetAdminApiKey(settings.Current.Accounts[0].Id, "sk-ant-admin01-example");
 
         var client = new ClaudeUsageClient(new StubTransport(available: true), settings);
@@ -193,8 +193,8 @@ public class ClaudeUsageClientTests
     [Fact]
     public async Task Usage_is_available_when_any_account_has_a_key()
     {
-        using var directory = new TemporaryDirectory();
-        var settings = new ClaudeSettingsStore(directory.File("claude.json"));
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var settings = new ClaudeSettingsStore(directory.Combine("claude.json"));
         settings.AddAccount();
         settings.SetAdminApiKey(settings.Current.Accounts[1].Id, "sk-ant-admin01-second");
 
@@ -206,8 +206,8 @@ public class ClaudeUsageClientTests
     [Fact]
     public async Task A_window_that_ends_before_it_starts_is_refused()
     {
-        using var directory = new TemporaryDirectory();
-        var settings = new ClaudeSettingsStore(directory.File("claude.json"));
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var settings = new ClaudeSettingsStore(directory.Combine("claude.json"));
         var client = new ClaudeUsageClient(new StubTransport(available: true), settings);
 
         var now = DateTimeOffset.UtcNow;
@@ -219,8 +219,8 @@ public class ClaudeUsageClientTests
     [Fact]
     public async Task The_messages_report_asks_for_daily_buckets_and_the_configured_workspace()
     {
-        using var directory = new TemporaryDirectory();
-        var settings = new ClaudeSettingsStore(directory.File("claude.json"));
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var settings = new ClaudeSettingsStore(directory.Combine("claude.json"));
         var id = settings.Current.Accounts[0].Id;
         settings.SetAdminApiKey(id, "sk-ant-admin01-example");
         settings.SetWorkspaceId(id, "wrkspc_01");
@@ -245,8 +245,8 @@ public class ClaudeUsageClientTests
     [Fact]
     public async Task The_cost_report_only_ever_asks_for_daily_buckets()
     {
-        using var directory = new TemporaryDirectory();
-        var settings = new ClaudeSettingsStore(directory.File("claude.json"));
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var settings = new ClaudeSettingsStore(directory.Combine("claude.json"));
         settings.SetAdminApiKey(settings.Current.Accounts[0].Id, "sk-ant-admin01-example");
 
         var transport = new StubTransport(available: true, response: """{ "data": [], "has_more": false }""");
@@ -260,8 +260,8 @@ public class ClaudeUsageClientTests
     [Fact]
     public async Task Paging_is_followed_to_the_end()
     {
-        using var directory = new TemporaryDirectory();
-        var settings = new ClaudeSettingsStore(directory.File("claude.json"));
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var settings = new ClaudeSettingsStore(directory.Combine("claude.json"));
         settings.SetAdminApiKey(settings.Current.Accounts[0].Id, "sk-ant-admin01-example");
 
         var transport = new StubTransport(available: true, responses:
@@ -292,8 +292,8 @@ public class ClaudeUsageClientTests
     [Fact]
     public async Task The_workspace_filter_comes_from_the_account_the_report_was_asked_for()
     {
-        using var directory = new TemporaryDirectory();
-        var settings = new ClaudeSettingsStore(directory.File("claude.json"));
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var settings = new ClaudeSettingsStore(directory.Combine("claude.json"));
         settings.SetAdminApiKey(settings.Current.Accounts[0].Id, "sk-ant-admin01-first");
         settings.SetWorkspaceId(settings.Current.Accounts[0].Id, "wrkspc_first");
         settings.AddAccount();
@@ -336,32 +336,6 @@ public class ClaudeUsageClientTests
             Paths.Add(path);
             Accounts.Add(account);
             return Task.FromResult(Parse(_responses[index]));
-        }
-    }
-}
-
-/// <summary>A throwaway folder so settings tests never touch the real per-user file.</summary>
-internal sealed class TemporaryDirectory : IDisposable
-{
-    public TemporaryDirectory()
-    {
-        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"backlog-claude-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(Path);
-    }
-
-    public string Path { get; }
-
-    public string File(string name) => System.IO.Path.Combine(Path, name);
-
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(Path, recursive: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // A leftover temp folder is not worth failing a test over.
         }
     }
 }

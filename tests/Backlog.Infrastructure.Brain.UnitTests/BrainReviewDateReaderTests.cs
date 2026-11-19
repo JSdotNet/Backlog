@@ -19,9 +19,9 @@ public sealed class BrainReviewDateReaderTests : IDisposable
 {
     private static readonly DateOnly Today = new(2026, 11, 11);
 
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-brain-review-dates", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-brain-review-dates");
 
-    private string Brain => Path.Combine(_scratch, "Brain");
+    private string Brain => _temp.Combine("Brain");
 
     private string Target => DatabaseFor(Brain)!;
 
@@ -95,10 +95,9 @@ public sealed class BrainReviewDateReaderTests : IDisposable
     public async Task No_brain_no_database_or_a_broken_one_reads_as_nothing_due()
     {
         var none = new BrainReviewDateReader(() => null);
-        var missing = new BrainReviewDateReader(() => Brain, _ => Path.Combine(_scratch, "missing", "devbook.db"));
+        var missing = new BrainReviewDateReader(() => Brain, _ => _temp.Combine("missing", "devbook.db"));
 
-        Directory.CreateDirectory(_scratch);
-        var brokenPath = Path.Combine(_scratch, "broken.db");
+        var brokenPath = _temp.Combine("broken.db");
         File.WriteAllText(brokenPath, "this is not a database");
         var broken = new BrainReviewDateReader(() => Brain, _ => brokenPath);
 
@@ -126,7 +125,7 @@ public sealed class BrainReviewDateReaderTests : IDisposable
     private BrainReviewDateReader Reader() => new(() => Brain, DatabaseFor);
 
     private string? DatabaseFor(string root) =>
-        DevbookDatabaseLocation.PathFor(Path.Combine(_scratch, "devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), root);
+        DevbookDatabaseLocation.PathFor(_temp.Combine("devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), root);
 
     private void Build() =>
         Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
@@ -141,16 +140,6 @@ public sealed class BrainReviewDateReaderTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-
-        try
-        {
-            if (Directory.Exists(_scratch)) Directory.Delete(_scratch, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
+        _temp.Dispose();
     }
 }

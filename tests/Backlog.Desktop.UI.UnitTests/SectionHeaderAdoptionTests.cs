@@ -29,13 +29,13 @@ public sealed class SectionHeaderAdoptionTests
     [Fact]
     public void The_inbox_pane_header_is_the_library_header_under_the_panes_names()
     {
+        using var temp = new TemporaryDirectory("backlog-section-header-adoption");
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         // The pane reads its own module now rather than taking items; the
         // header it draws above them is the same shape it always was.
-        var root = Path.Combine(Path.GetTempPath(), "backlog-section-header-adoption", Guid.NewGuid().ToString("n"));
-        context.Services.AddSingleton(new GitHubSettingsStore(Path.Combine(root, "github.json")));
+        context.Services.AddSingleton(new GitHubSettingsStore(temp.Combine("github.json")));
         _ = InboxTestHost.AddInboxState(context.Services);
 
         var pane = context.Render<InboxPane>();

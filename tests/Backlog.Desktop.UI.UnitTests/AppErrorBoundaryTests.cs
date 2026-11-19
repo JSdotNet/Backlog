@@ -118,7 +118,8 @@ public sealed class AppErrorBoundaryTests
         // is about that.
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
-        var root = Path.Combine(Path.GetTempPath(), "backlog-error-boundary", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-error-boundary");
+        var root = temp.Path;
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
 
@@ -140,22 +141,15 @@ public sealed class AppErrorBoundaryTests
                 builder.CloseComponent();
             }));
 
-        return new LayoutHost(context, layout, root);
+        return new LayoutHost(context, layout, temp);
     }
 
-    private sealed record LayoutHost(BunitContext Context, IRenderedComponent<MainLayout> Layout, string Root) : IDisposable
+    private sealed record LayoutHost(BunitContext Context, IRenderedComponent<MainLayout> Layout, TemporaryDirectory Temp) : IDisposable
     {
         public void Dispose()
         {
             Context.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 

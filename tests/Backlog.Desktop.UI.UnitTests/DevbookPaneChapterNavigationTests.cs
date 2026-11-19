@@ -33,7 +33,7 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         system in its surroundings is drawn in `.arc42/03-context-and-scope.md`.
         """;
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task Following_a_reference_to_another_domain_chapter_opens_it()
@@ -621,10 +621,11 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
     /// <summary>A clone with the Domain and arc42 chapters every test here reads.</summary>
     private string NewRoot(string? contextMap)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-navigation", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-navigation");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), contextMap ?? ContextMap);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), "# Domain\n\n```meta\nstatus: draft\n```\n\nWhat the tasks context is.\n");
@@ -633,11 +634,7 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private sealed record Harness(BunitContext Context, string RepositoryAlias, string? ForkAlias = null) : IAsyncDisposable

@@ -108,7 +108,8 @@ public sealed class HomeInitialLoadTests
         bool gitHubOn = false,
         int? linkPullRequest = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-home-initial-load", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-home-initial-load");
+        var root = temp.Path;
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
 
         // Written through the real use case, so the store is left exactly as the
@@ -222,7 +223,7 @@ public sealed class HomeInitialLoadTests
         // module, the same terms as the Tasks state above.
         _ = InboxTestHost.AddInboxState(context.Services);
 
-        return new Harness(root, context);
+        return new Harness(temp, context);
     }
 
     /// <summary>Counts the pull request reads — the read by number Repository
@@ -279,20 +280,13 @@ public sealed class HomeInitialLoadTests
         public Result<TasksRepositoryRef> Register(string name) => new TasksRepositoryRef(name, name, name);
     }
 
-    private sealed record Harness(string Root, BunitContext Context) : IDisposable
+    private sealed record Harness(TemporaryDirectory Temp, BunitContext Context) : IDisposable
     {
         public void Dispose()
         {
             Context.Dispose();
-            TestDatabases.Release(Root);
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            TestDatabases.Release(Temp.Path);
+            Temp.Dispose();
         }
     }
 }

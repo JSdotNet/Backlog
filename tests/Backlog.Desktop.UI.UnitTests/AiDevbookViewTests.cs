@@ -22,7 +22,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class AiDevbookViewTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task The_overview_reads_the_folder_in_flow_order_with_the_map_first()
@@ -236,20 +236,17 @@ public sealed class AiDevbookViewTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private Harness CreateHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-ai-view-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-ai-view-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
         var repository = Path.Combine(root, "repo");
         var ai = Path.Combine(repository, ".ai");
         Directory.CreateDirectory(ai);
-        _roots.Add(root);
 
         // Written out of flow order on purpose: the view has to order them, and
         // a fixture written in order would pass on a view that did not.

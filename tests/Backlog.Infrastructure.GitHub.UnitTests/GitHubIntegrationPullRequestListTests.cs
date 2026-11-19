@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class GitHubIntegrationPullRequestListTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-pull-request-list-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-pull-request-list-tests");
 
     private static readonly GitHubRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
     private static readonly GitHubRepositoryRef Almanac = new("almanac", "JSdotNet", "Almanac");
@@ -40,13 +40,7 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         PreferredMergeMethod: GitHubMergeMethod.Squash,
         UpdatedAt: new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero));
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Every_repository_is_listed_and_the_newest_update_comes_first()
@@ -628,9 +622,8 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
 
     private GitHubIntegration Integration(RoutingTransport transport)
     {
-        Directory.CreateDirectory(_root);
         return new GitHubIntegration(
-            new GitHubSettingsStore(Path.Combine(_root, "github.json")),
+            new GitHubSettingsStore(_temp.Combine("github.json")),
             new GitHubClient(transport),
             new StubProbe(new GitHubConnection(true, "Connected.")),
             time: new FakeTimeProvider(Now));

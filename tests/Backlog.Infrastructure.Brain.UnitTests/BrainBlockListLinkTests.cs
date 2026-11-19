@@ -18,9 +18,9 @@ public sealed class BrainBlockListLinkTests : IDisposable
     private const string Earlier = "0c8a1b4e-2f6d-4a37-9c11-5e0b7d3f2a90";
     private const string Created = "7b908425-4208-497e-a978-d3c5b3faa597";
 
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-brain-block-lists", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-brain-block-lists");
 
-    private string Brain => Path.Combine(_scratch, "Brain");
+    private string Brain => _temp.Combine("Brain");
 
     private string Target => DatabaseFor(Brain)!;
 
@@ -85,7 +85,7 @@ public sealed class BrainBlockListLinkTests : IDisposable
     }
 
     private string? DatabaseFor(string root) =>
-        DevbookDatabaseLocation.PathFor(Path.Combine(_scratch, "devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), root);
+        DevbookDatabaseLocation.PathFor(_temp.Combine("devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), root);
 
     private void Write(string relativePath, string text)
     {
@@ -97,16 +97,6 @@ public sealed class BrainBlockListLinkTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-
-        try
-        {
-            if (Directory.Exists(_scratch)) Directory.Delete(_scratch, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
+        _temp.Dispose();
     }
 }

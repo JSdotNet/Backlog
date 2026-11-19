@@ -297,7 +297,8 @@ public sealed class SettingsRepositoryRenameTests
 
     private static SettingsRenderContext RenderSettings(int entriesMoved = 0, int itemsMoved = 0, bool tasksRefuse = false, string? registry = null, ILocalGitRepositoryService? localGit = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-rename-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-rename-tests");
+        var root = temp.Path;
 
         if (registry is not null)
         {
@@ -342,7 +343,7 @@ public sealed class SettingsRepositoryRenameTests
         context.Services.AddSingleton<ITaskItems>(tasks);
         context.Services.AddSingleton<IInboxItems>(inbox);
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), githubSettings, tasks, inbox);
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), githubSettings, tasks, inbox);
     }
 
     /// <summary>Records the rename it is asked for and answers with the count the
@@ -461,24 +462,19 @@ public sealed class SettingsRepositoryRenameTests
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         GitHubSettingsStore GitHub,
         RenameRecordingTaskItems Tasks,
         RecordingInboxItems Inbox) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

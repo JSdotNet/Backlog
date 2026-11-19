@@ -34,18 +34,15 @@ internal sealed class GhStub : IDisposable
 
     private const string EndOfCall = "--- end of call ---";
 
-    private readonly string _directory = Path.Combine(
-        Path.GetTempPath(),
-        "gh-cli-stub-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("gh-cli-stub");
 
     public GhStub()
     {
-        Directory.CreateDirectory(_directory);
         File.Copy(Path.Combine(AppContext.BaseDirectory, ScriptName), Executable);
     }
 
     /// <summary>What <see cref="GhCliTransport"/> should be pointed at.</summary>
-    public string Executable => Path.Combine(_directory, ScriptName);
+    public string Executable => _temp.Combine(ScriptName);
 
     /// <summary>A transport that talks to this stub instead of to <c>gh</c>.</summary>
     public GhCliTransport Transport() => new(Executable);
@@ -61,7 +58,7 @@ internal sealed class GhStub : IDisposable
     {
         get
         {
-            var path = Path.Combine(_directory, "args.txt");
+            var path = _temp.Combine("args.txt");
             if (!File.Exists(path)) return [];
 
             var calls = new List<string[]>();
@@ -92,7 +89,7 @@ internal sealed class GhStub : IDisposable
     {
         get
         {
-            var path = Path.Combine(_directory, "stdin.txt");
+            var path = _temp.Combine("stdin.txt");
             return File.Exists(path) ? File.ReadAllText(path).Trim() : null;
         }
     }
@@ -100,7 +97,7 @@ internal sealed class GhStub : IDisposable
     /// <summary>Answers every call with this on stdout, and exit code 0.</summary>
     public GhStub Answers(string standardOutput)
     {
-        File.WriteAllText(Path.Combine(_directory, "stdout.txt"), standardOutput);
+        File.WriteAllText(_temp.Combine("stdout.txt"), standardOutput);
         Set("exit-code.txt", null);
         return this;
     }
@@ -111,7 +108,7 @@ internal sealed class GhStub : IDisposable
     /// can say different things to one transport.</summary>
     public GhStub AnswersTo(string verb, string standardOutput)
     {
-        File.WriteAllText(Path.Combine(_directory, $"stdout-{verb}.txt"), standardOutput);
+        File.WriteAllText(_temp.Combine($"stdout-{verb}.txt"), standardOutput);
         return this;
     }
 
@@ -144,7 +141,7 @@ internal sealed class GhStub : IDisposable
         return this;
     }
 
-    private string HangLock => Path.Combine(_directory, "hang.lock");
+    private string HangLock => _temp.Combine("hang.lock");
 
     /// <summary>Waits for a hanging call to be under way — its child holding the
     /// lock — so a test cancels a call that is really running.</summary>
@@ -172,21 +169,11 @@ internal sealed class GhStub : IDisposable
             },
             timeout);
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp directory that outlives the run is not worth failing a test over.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private void Set(string name, string? content)
     {
-        var path = Path.Combine(_directory, name);
+        var path = _temp.Combine(name);
 
         if (content is null)
         {

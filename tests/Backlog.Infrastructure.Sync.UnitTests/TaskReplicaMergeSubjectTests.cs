@@ -17,7 +17,8 @@ public sealed class TaskReplicaMergeSubjectTests : IDisposable
     private static readonly Guid Phone = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly DateTimeOffset Noon = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-merge-subjects", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-merge-subjects");
+    private string _root => _temp.Path;
     private readonly RecordingNotifications _notifications = new RecordingNotifications();
 
     [Fact]
@@ -40,8 +41,5 @@ public sealed class TaskReplicaMergeSubjectTests : IDisposable
         Assert.Equal("Task done", closed.Reason);
     }
 
-    public void Dispose()
-    {
-        try { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 }

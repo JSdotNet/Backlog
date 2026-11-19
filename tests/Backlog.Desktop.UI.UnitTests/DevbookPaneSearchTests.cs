@@ -32,7 +32,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookPaneSearchTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task Search_is_not_offered_while_the_feature_is_off()
@@ -185,10 +185,11 @@ public sealed class DevbookPaneSearchTests : IDisposable
 
     private Harness CreateHarness(bool withDatabase = true, bool searchEnabled = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-search", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-search");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "inbox"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), ContextMap);
         File.WriteAllText(Path.Combine(root, ".domain", "inbox", "domain.md"), InboxChapter);
@@ -291,11 +292,7 @@ public sealed class DevbookPaneSearchTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private sealed record Harness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable

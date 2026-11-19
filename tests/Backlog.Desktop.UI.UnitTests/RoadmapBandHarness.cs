@@ -25,11 +25,10 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public abstract class RoadmapBandHarness : IDisposable
 {
-    private readonly string _root;
+    private readonly TemporaryDirectory _temp = new("roadmap-band-tests");
 
     protected RoadmapBandHarness()
     {
-        _root = Path.Combine(Path.GetTempPath(), "roadmap-band-tests-" + Guid.NewGuid().ToString("N"));
         Settings = new WorkspaceSettingsStore(_root, Path.Combine(_root, "settings.json"));
         RepositorySettings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
         // Carrying the device's working week, as the desktop host composes it, so a day
@@ -41,6 +40,8 @@ public abstract class RoadmapBandHarness : IDisposable
         // a pace chosen there is the one the plan re-lengthens by.
         Planning = TasksTestHost.PlanningFor(Settings, new PlanningVelocitySource(PaceFile), new ListedWork(Finished, RepositorySettings), PaceClock);
     }
+
+    private string _root => _temp.Path;
 
     protected WorkspaceSettingsStore Settings { get; }
 
@@ -243,15 +244,7 @@ public abstract class RoadmapBandHarness : IDisposable
     public void Dispose()
     {
         TestDatabases.Release(_root);
-
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp folder the OS is still holding open is not a test failure.
-        }
+        _temp.Dispose();
 
         GC.SuppressFinalize(this);
     }

@@ -17,12 +17,9 @@ public sealed class SpecManagerTokenStoreTests : IDisposable
 {
     private const string BaseUrl = "https://spec.test";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-spec-manager-token-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-spec-manager-token-tests");
 
-    private string StorePath => Path.Combine(_root, "spec-manager-credentials.json");
+    private string StorePath => _temp.Combine("spec-manager-credentials.json");
 
     private static readonly SpecManagerCredential Credential = new(
         "client-backlog-1",
@@ -33,16 +30,7 @@ public sealed class SpecManagerTokenStoreTests : IDisposable
         "Jip Jansen",
         new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero));
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void The_tokens_survive_a_restart_and_are_never_written_in_the_clear()
@@ -95,7 +83,7 @@ public sealed class SpecManagerTokenStoreTests : IDisposable
         store.Save(BaseUrl, Credential with { RefreshToken = "smr_rotated" });
         store.Save("https://other.test", Credential);
 
-        Assert.Equal([StorePath], Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
+        Assert.Equal([StorePath], Directory.GetFiles(_temp.Path, "*", SearchOption.AllDirectories));
     }
 
     [Fact]
@@ -119,7 +107,6 @@ public sealed class SpecManagerTokenStoreTests : IDisposable
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        Directory.CreateDirectory(_root);
         File.WriteAllText(StorePath, "not an envelope");
 
         Assert.Null(new DpapiSpecManagerTokenStore(StorePath).Get(BaseUrl));

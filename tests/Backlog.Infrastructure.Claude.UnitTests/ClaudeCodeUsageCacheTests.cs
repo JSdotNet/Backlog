@@ -23,7 +23,7 @@ public class ClaudeCodeUsageCacheTests
     [Fact]
     public void What_was_written_comes_back()
     {
-        using var directory = new TemporaryDirectory();
+        using var directory = new TemporaryDirectory("backlog-claude");
         var cache = new ClaudeCodeUsageCache(() => directory.Path);
 
         cache.Write(Personal, "me@example.com", Day, Spend());
@@ -45,7 +45,7 @@ public class ClaudeCodeUsageCacheTests
     [Fact]
     public void An_empty_day_comes_back_empty_rather_than_missing()
     {
-        using var directory = new TemporaryDirectory();
+        using var directory = new TemporaryDirectory("backlog-claude");
         var cache = new ClaudeCodeUsageCache(() => directory.Path);
 
         cache.Write(Personal, "me@example.com", Day, ClaudeCodeSettledDay.Empty);
@@ -59,7 +59,7 @@ public class ClaudeCodeUsageCacheTests
     [Fact]
     public void A_day_nothing_was_written_for_is_a_miss()
     {
-        using var directory = new TemporaryDirectory();
+        using var directory = new TemporaryDirectory("backlog-claude");
 
         Assert.Null(new ClaudeCodeUsageCache(() => directory.Path).TryRead(Personal, "me@example.com", Day));
     }
@@ -71,7 +71,7 @@ public class ClaudeCodeUsageCacheTests
     [Fact]
     public void Each_account_actor_and_day_is_its_own_entry()
     {
-        using var directory = new TemporaryDirectory();
+        using var directory = new TemporaryDirectory("backlog-claude");
         var cache = new ClaudeCodeUsageCache(() => directory.Path);
 
         cache.Write(Personal, "me@example.com", Day, Spend());
@@ -86,7 +86,7 @@ public class ClaudeCodeUsageCacheTests
     [Fact]
     public void The_actor_does_not_appear_in_the_path()
     {
-        using var directory = new TemporaryDirectory();
+        using var directory = new TemporaryDirectory("backlog-claude");
         var cache = new ClaudeCodeUsageCache(() => directory.Path);
 
         cache.Write(Personal, "me@example.com", Day, Spend());
@@ -98,7 +98,7 @@ public class ClaudeCodeUsageCacheTests
     [Fact]
     public void An_unreadable_day_reads_as_a_miss_rather_than_throwing()
     {
-        using var directory = new TemporaryDirectory();
+        using var directory = new TemporaryDirectory("backlog-claude");
         var cache = new ClaudeCodeUsageCache(() => directory.Path);
         cache.Write(Personal, "me@example.com", Day, Spend());
 
@@ -111,7 +111,7 @@ public class ClaudeCodeUsageCacheTests
     [Fact]
     public void A_day_written_under_an_older_version_reads_as_a_miss()
     {
-        using var directory = new TemporaryDirectory();
+        using var directory = new TemporaryDirectory("backlog-claude");
         var cache = new ClaudeCodeUsageCache(() => directory.Path);
         cache.Write(Personal, "me@example.com", Day, Spend());
 
@@ -124,8 +124,8 @@ public class ClaudeCodeUsageCacheTests
     [Fact]
     public void A_write_that_cannot_land_is_not_fatal()
     {
-        using var directory = new TemporaryDirectory();
-        var blocked = directory.File("blocked");
+        using var directory = new TemporaryDirectory("backlog-claude");
+        var blocked = directory.Combine("blocked");
         File.WriteAllText(blocked, "not a directory");
 
         var cache = new ClaudeCodeUsageCache(() => blocked);
@@ -138,7 +138,7 @@ public class ClaudeCodeUsageCacheTests
     [Fact]
     public void Forgetting_drops_every_account_and_every_day()
     {
-        using var directory = new TemporaryDirectory();
+        using var directory = new TemporaryDirectory("backlog-claude");
         var cache = new ClaudeCodeUsageCache(() => directory.Path);
         cache.Write(Personal, "me@example.com", Day, Spend());
         cache.Write(Work, "me@employer.example", Day.AddDays(-1), Spend());
@@ -152,7 +152,7 @@ public class ClaudeCodeUsageCacheTests
     [Fact]
     public void Forgetting_when_nothing_was_stored_is_not_an_error()
     {
-        using var directory = new TemporaryDirectory();
+        using var directory = new TemporaryDirectory("backlog-claude");
 
         Assert.Null(Record.Exception(() => new ClaudeCodeUsageCache(() => directory.Path).Forget()));
     }

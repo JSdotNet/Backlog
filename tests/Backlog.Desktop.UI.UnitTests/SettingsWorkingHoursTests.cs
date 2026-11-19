@@ -314,7 +314,8 @@ public sealed class SettingsWorkingHoursTests
 
     private static SectionRenderContext RenderSection()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-working-hours-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-working-hours-tests");
+        var root = temp.Path;
 
         var workingWeek = new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json"));
         var usageReset = new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json"));
@@ -322,12 +323,13 @@ public sealed class SettingsWorkingHoursTests
         var context = new BunitContext();
         context.Services.AddSingleton<IWorkingHoursSettings>(workingWeek);
 
-        return new SectionRenderContext(root, context, context.Render<WorkingWeekSettings>(), workingWeek, usageReset);
+        return new SectionRenderContext(temp, context, context.Render<WorkingWeekSettings>(), workingWeek, usageReset);
     }
 
     private static SettingsRenderContext RenderSettings()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-working-hours-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-working-hours-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -357,22 +359,11 @@ public sealed class SettingsWorkingHoursTests
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         context.Services.AddDashboardSettings();
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), workingWeek);
-    }
-
-    private static void DeleteQuietly(string root)
-    {
-        try
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), workingWeek);
     }
 
     private sealed record SectionRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<WorkingWeekSettings> Component,
         WorkingHoursSettingsStore WorkingWeek,
@@ -381,12 +372,12 @@ public sealed class SettingsWorkingHoursTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         WorkingHoursSettingsStore WorkingWeek) : IDisposable
@@ -394,7 +385,7 @@ public sealed class SettingsWorkingHoursTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 }

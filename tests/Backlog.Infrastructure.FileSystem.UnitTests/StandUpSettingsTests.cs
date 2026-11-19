@@ -16,7 +16,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class StandUpSettingsTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-iteration-settings-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-iteration-settings-tests");
+
+    private string _root => _temp.Combine("data");
 
     private string ShellPath => Path.Combine(_root, "shell-navigation.json");
 
@@ -228,7 +230,7 @@ public sealed class StandUpSettingsTests : IDisposable
     public void Dispose()
     {
         ShellNavigationStore.WaitForPendingWrites(ShellPath);
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        _temp.Dispose();
     }
 
     private sealed class FixedVelocity(decimal pace) : IPlanningVelocity

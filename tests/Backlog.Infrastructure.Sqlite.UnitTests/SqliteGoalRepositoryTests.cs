@@ -19,14 +19,16 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
     private static readonly DateOnly Due = new(2026, 10, 31);
     private static readonly DateOnly Today = new(2026, 10, 17);
 
+    private readonly TemporaryDirectory _temp = new("goal-tests");
+    private readonly TemporaryDirectory _otherTemp = new("goal-tests");
     private readonly string _dir;
     private readonly string _other;
     private readonly SqliteGoalRepository _repository;
 
     public SqliteGoalRepositoryTests()
     {
-        _dir = Path.Combine(Path.GetTempPath(), "goal-tests-" + Guid.NewGuid().ToString("N"));
-        _other = Path.Combine(Path.GetTempPath(), "goal-tests-" + Guid.NewGuid().ToString("N"));
+        _dir = _temp.Path;
+        _other = _otherTemp.Path;
         _repository = new SqliteGoalRepository(_dir);
     }
 
@@ -447,10 +449,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        foreach (var dir in new[] { _dir, _other })
-        {
-            if (!Directory.Exists(dir)) continue;
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-        }
+        _temp.Dispose();
+        _otherTemp.Dispose();
     }
 }

@@ -33,7 +33,7 @@ public sealed class McpServerWorkerTests : IDisposable
 {
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "mcp-worker-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("mcp-worker-tests");
 
     private readonly GatedProvider _services = new(new ServiceCollection().BuildServiceProvider());
 
@@ -504,19 +504,12 @@ public sealed class McpServerWorkerTests : IDisposable
     public void Dispose()
     {
         _services.Open();
-
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 
     private WorkspaceSettingsStore Settings(int port)
     {
-        var settings = new WorkspaceSettingsStore(Path.Combine(_root, "store-" + Guid.NewGuid().ToString("N")));
+        var settings = new WorkspaceSettingsStore(_temp.Combine("store-" + Guid.NewGuid().ToString("N")));
         Assert.Null(settings.SetMcpServerPort(port));
         return settings;
     }

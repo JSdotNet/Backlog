@@ -30,18 +30,18 @@ public sealed class BrainScopeToolsTests : IDisposable
 
     private static readonly TasksRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
 
-    private readonly DirectoryInfo _root = Directory.CreateTempSubdirectory("backlog-mcp-brain");
+    private readonly TemporaryDirectory _root = new("backlog-mcp-brain");
 
     public BrainScopeToolsTests()
     {
         Directory.CreateDirectory(Path.Combine(BrainRoot, "projects"));
         File.WriteAllText(Path.Combine(BrainRoot, "projects", "plan.md"), Note);
-        File.WriteAllText(Path.Combine(_root.FullName, "outside.md"), "# Not the Brain");
+        File.WriteAllText(Path.Combine(_root.Path, "outside.md"), "# Not the Brain");
     }
 
-    private string BrainRoot => Path.Combine(_root.FullName, "brain");
+    private string BrainRoot => Path.Combine(_root.Path, "brain");
 
-    public void Dispose() => _root.Delete(recursive: true);
+    public void Dispose() => _root.Dispose();
 
     [Theory]
     [InlineData("#brain")]
@@ -79,7 +79,7 @@ public sealed class BrainScopeToolsTests : IDisposable
     [Fact]
     public void A_brain_folder_that_is_missing_lists_unavailable()
     {
-        var tools = Tools(out _, out _, brainFolder: Path.Combine(_root.FullName, "gone"));
+        var tools = Tools(out _, out _, brainFolder: Path.Combine(_root.Path, "gone"));
 
         var context = Assert.Single(tools.ListKnowledgeContextsFor("#brain").Contexts);
 
@@ -91,7 +91,7 @@ public sealed class BrainScopeToolsTests : IDisposable
     public async Task A_host_that_composed_no_brain_lists_it_unavailable_and_refuses_to_read_or_capture()
     {
         var tools = new DevbookTools(
-            new FakeDevbookFolderSource(_root.FullName, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
+            new FakeDevbookFolderSource(_root.Path, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
             new FakeDevbookAnnotationStore(),
             new FakeRepositoryDirectory([Backlog]));
 
@@ -165,7 +165,7 @@ public sealed class BrainScopeToolsTests : IDisposable
     public async Task A_path_rooted_somewhere_else_is_refused()
     {
         var tools = Tools(out _, out _);
-        var outside = Path.Combine(_root.FullName, "outside.md");
+        var outside = Path.Combine(_root.Path, "outside.md");
 
         var failure = await Assert.ThrowsAsync<McpException>(() => tools.ReadKnowledgeChapterAsync(
             "#brain", outside, review: false, TestContext.Current.CancellationToken));
@@ -185,7 +185,7 @@ public sealed class BrainScopeToolsTests : IDisposable
     [Fact]
     public async Task A_note_reached_through_a_link_is_refused()
     {
-        var elsewhere = Directory.CreateDirectory(Path.Combine(_root.FullName, "elsewhere"));
+        var elsewhere = Directory.CreateDirectory(Path.Combine(_root.Path, "elsewhere"));
         File.WriteAllText(Path.Combine(elsewhere.FullName, "secret.md"), "# Not the Brain");
 
         try
@@ -387,7 +387,7 @@ public sealed class BrainScopeToolsTests : IDisposable
         var brain = new BrainFolderSource(() => brainFolder);
 
         return new DevbookTools(
-            new FakeDevbookFolderSource(_root.FullName, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
+            new FakeDevbookFolderSource(_root.Path, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
             store,
             directory,
             brain,

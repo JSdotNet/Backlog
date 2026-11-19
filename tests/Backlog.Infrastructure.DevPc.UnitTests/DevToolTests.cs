@@ -2,8 +2,12 @@ using System.Text.Json.Nodes;
 
 namespace Backlog.Infrastructure.DevPc.UnitTests;
 
-public class DevToolTests
+public sealed class DevToolTests : IDisposable
 {
+    private readonly TemporaryDirectory _temp = new("backlog-tool-tests");
+
+    public void Dispose() => _temp.Dispose();
+
     [Theory]
     [InlineData("1.2.3", "1.2.4", true)]
     [InlineData("v1.2.3", "1.2.3", false)]
@@ -172,7 +176,7 @@ public class DevToolTests
     [Fact]
     public void Default_paths_use_the_configured_storage_root_for_tools()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        var storageRoot = _temp.Combine("storage");
         var repositoryRoot = CreateTempToolConfigRoot();
         var nestedStartPath = Path.Combine(repositoryRoot, "src", "App", "Backlog.Desktop", "bin", "Debug");
         Directory.CreateDirectory(nestedStartPath);
@@ -188,7 +192,7 @@ public class DevToolTests
     [Fact]
     public async Task Creating_a_catalog_writes_the_new_name()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        var root = _temp.Path;
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
         await DevToolConfiguration.CreateCatalogAsync(paths, TestContext.Current.CancellationToken);
@@ -202,7 +206,7 @@ public class DevToolTests
     {
         // Deliberately not CreateTempToolConfigRoot: a machine that has never had
         // a catalog has no .tools folder either, and creating one has to make it.
-        var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        var root = _temp.Path;
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
         Assert.False(DevToolConfiguration.CatalogExists(paths));
@@ -464,7 +468,7 @@ public class DevToolTests
         Assert.Single(root["plugins"]!.AsArray());
     }
 
-    private static async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
+    private async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
     {
         var root = CreateTempToolConfigRoot();
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
@@ -472,9 +476,9 @@ public class DevToolTests
         return paths;
     }
 
-    private static string CreateTempToolConfigRoot()
+    private string CreateTempToolConfigRoot()
     {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        var path = _temp.Combine(Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(path, ".tools"));
         return path;
     }
@@ -796,8 +800,12 @@ public class DevToolHostTests
 /// The catalog shapes Claude support added: the marketplace array, the per-entry
 /// hosts filter, and the <c>claude</c> section on an MCP server.
 /// </summary>
-public class ClaudeCatalogTests
+public sealed class ClaudeCatalogTests : IDisposable
 {
+    private readonly TemporaryDirectory _temp = new("backlog-tool-tests");
+
+    public void Dispose() => _temp.Dispose();
+
     [Fact]
     public void A_marketplace_key_round_trips_through_the_catalog_reader()
     {
@@ -1121,9 +1129,9 @@ public class ClaudeCatalogTests
         Assert.Equal("JSdotNet/Copilot", marketplace["source"]!.GetValue<string>());
     }
 
-    private static async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
+    private async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        var root = _temp.Combine(Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".tools"));
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
         await File.WriteAllTextAsync(paths.CatalogPath, json);
@@ -1342,8 +1350,12 @@ public class DevToolVersionComparisonTests
 /// The <c>applications</c> array: the machine's own software inventory, beside
 /// the two arrays that were only ever about AI tooling.
 /// </summary>
-public class ApplicationCatalogTests
+public sealed class ApplicationCatalogTests : IDisposable
 {
+    private readonly TemporaryDirectory _temp = new("backlog-tool-tests");
+
+    public void Dispose() => _temp.Dispose();
+
     /// <summary>Every kind, because the catch-all this replaced minted an
     /// <c>mcp:</c> key for anything it had not been told about — which
     /// <see cref="DevToolConfiguration.ParseKey"/> then resolved to the wrong
@@ -1821,16 +1833,16 @@ public class ApplicationCatalogTests
             new DevToolDraft(DevToolKind.Application, "git.git") { Provider = DevToolProvider.Winget }, TestContext.Current.CancellationToken));
     }
 
-    private static async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
+    private async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
     {
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(CreateTempToolConfigRoot(), "dev-pc");
         await File.WriteAllTextAsync(paths.CatalogPath, json);
         return paths;
     }
 
-    private static string CreateTempToolConfigRoot()
+    private string CreateTempToolConfigRoot()
     {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        var path = _temp.Combine(Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(path, ".tools"));
         return path;
     }
@@ -1867,7 +1879,8 @@ public class ClaudeDesktopHostTests
     [Fact]
     public async Task An_entry_for_claude_desktop_carries_it_in_its_hosts()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        using var temp = new TemporaryDirectory("backlog-tool-tests");
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".tools"));
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
         await File.WriteAllTextAsync(paths.CatalogPath, """{ "plugins": [], "mcpServers": [] }""", TestContext.Current.CancellationToken);

@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class LocalGitRepositoryServiceTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-local-git-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-local-git-tests");
     private readonly LocalGitRepositoryService _service = new();
     private readonly GitHubRepositoryRef _repository = new("backlog", "JSdotNet", "Backlog");
 
@@ -21,7 +21,7 @@ public sealed class LocalGitRepositoryServiceTests : IDisposable
     [Fact]
     public void Missing_target_directory_can_be_cloned()
     {
-        var target = Path.Combine(_root, "Backlog");
+        var target = _temp.Combine("Backlog");
 
         var status = _service.GetStatus(_repository, target);
 
@@ -33,7 +33,7 @@ public sealed class LocalGitRepositoryServiceTests : IDisposable
     [Fact]
     public void Existing_git_directory_is_already_cloned()
     {
-        var target = Path.Combine(_root, "Backlog");
+        var target = _temp.Combine("Backlog");
         CreateGitMetadata(target, "https://github.com/JSdotNet/Backlog.git");
 
         var status = _service.GetStatus(_repository, target);
@@ -46,7 +46,7 @@ public sealed class LocalGitRepositoryServiceTests : IDisposable
     [Fact]
     public void Existing_git_directory_for_another_origin_is_not_this_clone()
     {
-        var target = Path.Combine(_root, "Backlog");
+        var target = _temp.Combine("Backlog");
         CreateGitMetadata(target, "https://github.com/SomeoneElse/Backlog.git");
 
         var status = _service.GetStatus(_repository, target);
@@ -59,7 +59,7 @@ public sealed class LocalGitRepositoryServiceTests : IDisposable
     [Fact]
     public void Existing_non_git_directory_blocks_clone()
     {
-        var target = Path.Combine(_root, "Backlog");
+        var target = _temp.Combine("Backlog");
         Directory.CreateDirectory(target);
         File.WriteAllText(Path.Combine(target, "notes.txt"), "not a clone");
 
@@ -78,14 +78,5 @@ public sealed class LocalGitRepositoryServiceTests : IDisposable
         File.WriteAllText(Path.Combine(git, "config"), $"[remote \"origin\"]{Environment.NewLine}\turl = {origin}{Environment.NewLine}");
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

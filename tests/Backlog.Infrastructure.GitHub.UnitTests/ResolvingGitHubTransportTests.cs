@@ -24,9 +24,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
     private const string NotConnected =
         "Not connected. Sign in with `gh auth login`, or paste a personal access token in repository settings.";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "resolving-github-transport-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("resolving-github-transport-tests");
 
     // --- Which transport answers ----------------------------------------------
 
@@ -435,8 +433,8 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
     {
         const string path = "repos/innovadis-dev/spec-manager/issues";
 
-        var root = Path.Combine(_root, "workspace-one");
-        var store = new GitHubSettingsStore(Path.Combine(_root, "github.json"), () => root);
+        var root = _temp.Combine("workspace-one");
+        var store = new GitHubSettingsStore(_temp.Combine("github.json"), () => root);
 
         // Deliberately nothing machine-local, so this install has no overlay row to
         // carry into the workspace it moves to.
@@ -453,7 +451,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
                 transport.SendAsync(HttpMethod.Get, path, cancellationToken: TestContext.Current.CancellationToken))).Message);
 
         // The same repository, bound in the workspace being moved to.
-        var moved = Path.Combine(_root, "workspace-two");
+        var moved = _temp.Combine("workspace-two");
         Directory.CreateDirectory(Path.Combine(moved, "config"));
         File.WriteAllText(
             Path.Combine(moved, "config", "repos.json"),
@@ -520,12 +518,9 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         Assert.Equal(1, accounts.Invalidations);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
-    private GitHubSettingsStore Store() => new(Path.Combine(_root, "github.json"));
+    private GitHubSettingsStore Store() => new(_temp.Combine("github.json"));
 
     /// <summary>The transport under test, blind to this machine's environment: a
     /// <c>GH_HOST</c> or <c>GH_ENTERPRISE_TOKEN</c> on a developer machine or a runner

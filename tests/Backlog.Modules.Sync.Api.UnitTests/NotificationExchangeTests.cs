@@ -28,7 +28,7 @@ public sealed class NotificationExchangeTests : IDisposable
     private static readonly Guid DesktopInstance = Guid.Parse("7f3a0000-0000-0000-0000-0000000000d1");
 
     private readonly SyncServiceFactory _service = new();
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "notification-sync-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("notification-sync");
     private ServiceProvider? _desktop;
     private ServiceProvider? _secondDesktop;
     private Guid _ownerId;
@@ -40,11 +40,7 @@ public sealed class NotificationExchangeTests : IDisposable
         _desktop?.Dispose();
         _secondDesktop?.Dispose();
         _service.Dispose();
-
-        if (Directory.Exists(_root))
-        {
-            try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-        }
+        _temp.Dispose();
     }
 
     [Fact]
@@ -284,7 +280,7 @@ public sealed class NotificationExchangeTests : IDisposable
     /// notifications, its own exchange.</summary>
     private (NotificationSyncSession Session, INotifications Notifications) SecondDesktop(Owner owner)
     {
-        var root = Path.Combine(_root, "laptop");
+        var root = _temp.Combine("laptop");
         Directory.CreateDirectory(root);
         var identity = new FixedIdentity(new DeviceIdentity(Guid.Parse("7f3a0000-0000-0000-0000-0000000000d2"), "LAPTOP"));
 
@@ -320,12 +316,11 @@ public sealed class NotificationExchangeTests : IDisposable
         var (phone, phoneDevice) = await PairAsync(desktopHttp, "Phone");
         var (laptop, laptopDevice) = await PairAsync(desktopHttp, "Laptop");
 
-        Directory.CreateDirectory(_root);
         var identity = new FixedIdentity(new DeviceIdentity(DesktopInstance, "STUDY-DESKTOP"));
 
         var services = new ServiceCollection();
         services.AddSingleton<IDeviceIdentitySource>(identity);
-        services.AddSingleton<INotificationRepository>(new SqliteNotificationRepository(_root));
+        services.AddSingleton<INotificationRepository>(new SqliteNotificationRepository(_temp.Path));
         services.AddNotificationsModule();
         _desktop = services.BuildServiceProvider();
 
@@ -333,7 +328,7 @@ public sealed class NotificationExchangeTests : IDisposable
             new NotificationSyncClient(desktopHttp),
             _desktop.GetRequiredService<INotificationReplication>(),
             _desktop.GetRequiredService<INotificationReplies>(),
-            new FileNotificationSyncStateStore(Path.Combine(_root, "notification-sync-state.json")),
+            new FileNotificationSyncStateStore(_temp.Combine("notification-sync-state.json")),
             new InMemoryDeviceCredentialStore(new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential)),
             identity,
             TimeProvider.System,

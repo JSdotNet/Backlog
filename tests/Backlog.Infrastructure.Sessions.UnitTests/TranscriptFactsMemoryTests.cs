@@ -24,10 +24,8 @@ public sealed class TranscriptFactsMemoryTests : IDisposable
 
     private const string Slug = "D--Repos-Backlog";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-transcript-memory-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-transcript-memory-tests");
+    private string _root => _temp.Path;
 
     private string ClaudeHome => Path.Combine(_root, ".claude");
 
@@ -668,14 +666,5 @@ public sealed class TranscriptFactsMemoryTests : IDisposable
         public void Forget() => _entries.Clear();
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

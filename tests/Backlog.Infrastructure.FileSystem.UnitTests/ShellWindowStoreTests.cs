@@ -10,16 +10,16 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class ShellWindowStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "shell-window-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("shell-window-store-tests");
+
+    private string _root => _temp.Combine("data");
 
     private string FilePath => Path.Combine(_root, ShellWindowStore.FileName);
 
     public void Dispose()
     {
         ShellNavigationStore.WaitForPendingWrites(FilePath);
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        _temp.Dispose();
     }
 
     [Fact]

@@ -843,8 +843,11 @@ public sealed class InboxTriagePassTests
 
     private sealed class Harness : IDisposable
     {
-        private Harness(BunitContext context, FakeInboxItems inbox)
+        private readonly TemporaryDirectory _temp;
+
+        private Harness(TemporaryDirectory temp, BunitContext context, FakeInboxItems inbox)
         {
+            _temp = temp;
             Context = context;
             Inbox = inbox;
         }
@@ -859,11 +862,11 @@ public sealed class InboxTriagePassTests
 
         public static Harness Create()
         {
+            var temp = new TemporaryDirectory("backlog-inbox-triage-pass-tests");
             var context = new BunitContext();
             context.JSInterop.Mode = JSRuntimeMode.Loose;
 
-            var settings = new GitHubSettingsStore(
-                Path.Combine(Path.GetTempPath(), "backlog-inbox-triage-pass-tests", Guid.NewGuid().ToString("n"), "github.json"));
+            var settings = new GitHubSettingsStore(temp.Combine("github.json"));
             Assert.Null(settings.SetRepositories([new GitHubRepositoryRef("web", "acme", "web")]));
             Assert.Null(settings.SetShowRepositoryColours(true));
 
@@ -871,7 +874,7 @@ public sealed class InboxTriagePassTests
             TasksTestHost.AddToastChannel(context.Services);
             var inbox = InboxTestHost.AddInboxState(context.Services);
 
-            return new Harness(context, inbox);
+            return new Harness(temp, context, inbox);
         }
 
         /// <summary>
@@ -925,6 +928,10 @@ public sealed class InboxTriagePassTests
             return pane;
         }
 
-        public void Dispose() => Context.Dispose();
+        public void Dispose()
+        {
+            Context.Dispose();
+            _temp.Dispose();
+        }
     }
 }

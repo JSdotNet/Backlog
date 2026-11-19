@@ -46,7 +46,7 @@ public sealed class DevbookChapterTestsAttributeTests : IDisposable
 
     private DevbookDatabase? _opened;
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-chapter-tests", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-chapter-tests");
 
     [Fact]
     public void Each_tests_entry_is_a_tests_attribute_of_its_chapter()
@@ -72,12 +72,12 @@ public sealed class DevbookChapterTestsAttributeTests : IDisposable
 
     private DevbookDatabase Build()
     {
-        var file = Path.Combine(_root, ChapterPath.Replace('/', Path.DirectorySeparatorChar));
+        var file = _temp.Combine(ChapterPath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
         File.WriteAllText(file, Markdown);
-        var target = Path.Combine(_root, "out", "devbook.db");
+        var target = _temp.Combine("out", "devbook.db");
 
-        Assert.True(DevbookDatabaseBuilder.Build(_root, target, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(_temp.Path, target, TestContext.Current.CancellationToken));
 
         var database = DevbookDatabase.TryOpen(target);
         Assert.NotNull(database);
@@ -89,13 +89,6 @@ public sealed class DevbookChapterTestsAttributeTests : IDisposable
     {
         _opened?.Dispose();
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
-        {
-            // A temp folder that outlives the run is not a test failure.
-        }
+        _temp.Dispose();
     }
 }

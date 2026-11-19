@@ -10,10 +10,8 @@ namespace Backlog.Infrastructure.Sessions.UnitTests;
 /// </summary>
 public sealed class DeliveryQualityFactsTests : IDisposable
 {
-    private readonly string _home = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-quality-facts-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-quality-facts-tests");
+    private string _home => _temp.Path;
 
     [Fact]
     public async Task A_finished_run_reads_the_facts_finish_run_sent_over_the_ones_its_run_context_kept()
@@ -130,15 +128,5 @@ public sealed class DeliveryQualityFactsTests : IDisposable
         return Assert.Single(catalog.Runs);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp folder left behind is harmless.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

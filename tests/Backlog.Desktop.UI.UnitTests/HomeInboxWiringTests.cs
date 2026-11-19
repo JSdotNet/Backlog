@@ -474,7 +474,8 @@ public sealed class HomeInboxWiringTests
     /// </summary>
     private static Harness CreateHarness(bool inboxOpenOnStart = true, TaskItem? pull = null, bool startOnRoadmap = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-inbox-wiring-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-inbox-wiring-tests");
+        var root = temp.Path;
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -592,11 +593,11 @@ public sealed class HomeInboxWiringTests
                 sp, featureSettings, credentials, syncState, new FakeTimeProvider()));
         }
 
-        return new Harness(root, context, shellNavigation, entries, inbox, replica);
+        return new Harness(temp, context, shellNavigation, entries, inbox, replica);
     }
 
     private sealed record Harness(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext Context,
         ShellNavigationStore ShellNavigation,
         ITaskItems Entries,
@@ -606,15 +607,8 @@ public sealed class HomeInboxWiringTests
         public void Dispose()
         {
             Context.Dispose();
-            TestDatabases.Release(Root);
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            TestDatabases.Release(Temp.Path);
+            Temp.Dispose();
         }
     }
 

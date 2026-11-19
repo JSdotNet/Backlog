@@ -291,7 +291,8 @@ public sealed class SettingsDevbookFolderStatusTests
 
     private static SettingsRenderContext RenderSettings(CloneDirectory cloneDirectory, IDevbookSnapshotCache? snapshots = null, bool withOverview = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devbook-status-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-devbook-status-tests");
+        var root = temp.Path;
 
         string? clone = null;
         if (cloneDirectory is not CloneDirectory.None)
@@ -347,7 +348,7 @@ public sealed class SettingsDevbookFolderStatusTests
             context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         }
 
-        return new SettingsRenderContext(root, clone, context, context.Render<Settings>());
+        return new SettingsRenderContext(temp, clone, context, context.Render<Settings>());
     }
 
     /// <summary>A snapshot cache whose one fetch waits until the test lands it,
@@ -396,22 +397,17 @@ public sealed class SettingsDevbookFolderStatusTests
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         string? CloneDirectory,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

@@ -220,37 +220,37 @@ public sealed class EventAttachmentRequestSyncTests
     [Fact]
     public async Task A_request_held_while_the_events_area_is_off_survives_a_restart_and_is_applied_once_the_area_is_on()
     {
-        using var folder = new TemporaryFolder();
+        using var folder = new TemporaryDirectory("backlog-held-requests");
         var attachments = new RecordingEventAttachments();
         var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
 
-        var before = Merge(new InMemoryTaskStore(), attachments, new PhoneRequestRetirements(folder.Store()), eventsOn: false);
+        var before = Merge(new InMemoryTaskStore(), attachments, new PhoneRequestRetirements(Store(folder)), eventsOn: false);
         await before.ApplyAsync([TaskChanges.Record(change, Phone, 100)], Cancellation);
         Assert.Equal(0, await before.RetryDeferredRequestsAsync(Cancellation));
         Assert.Empty(attachments.Offered);
 
         // The desktop is closed and opened again, with the area on.
-        var retirements = new PhoneRequestRetirements(folder.Store());
+        var retirements = new PhoneRequestRetirements(Store(folder));
         var after = Merge(new InMemoryTaskStore(), attachments, retirements, eventsOn: true);
 
         Assert.Equal(1, await after.RetryDeferredRequestsAsync(Cancellation));
         Assert.Equal(change.Id, Assert.Single(attachments.Offered).RequestId);
         Assert.Equal(change.Id, Assert.Single(retirements.Waiting()).Id);
-        Assert.Empty(folder.Store().ReadAll());
+        Assert.Empty(Store(folder).ReadAll());
         Assert.Equal(0, await after.RetryDeferredRequestsAsync(Cancellation));
     }
 
     [Fact]
     public async Task A_request_held_for_an_unknown_event_survives_a_restart()
     {
-        using var folder = new TemporaryFolder();
+        using var folder = new TemporaryDirectory("backlog-held-requests");
         var attachments = new RecordingEventAttachments { Answer = EventAttachmentOutcome.UnknownEvent };
         var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
 
-        await Merge(new InMemoryTaskStore(), attachments, new PhoneRequestRetirements(folder.Store()))
+        await Merge(new InMemoryTaskStore(), attachments, new PhoneRequestRetirements(Store(folder)))
             .ApplyAsync([TaskChanges.Record(change, Phone, 100)], Cancellation);
 
-        var held = Assert.Single(folder.Store().ReadAll());
+        var held = Assert.Single(Store(folder).ReadAll());
         Assert.Equal(change, held with { Task = change.Task });
         Assert.Equal(change.Task.ContentMd, held.Task.ContentMd);
     }
@@ -258,18 +258,18 @@ public sealed class EventAttachmentRequestSyncTests
     [Fact]
     public async Task A_held_request_another_desktop_retired_is_let_go()
     {
-        using var folder = new TemporaryFolder();
+        using var folder = new TemporaryDirectory("backlog-held-requests");
         var attachments = new RecordingEventAttachments();
-        var retirements = new PhoneRequestRetirements(folder.Store());
+        var retirements = new PhoneRequestRetirements(Store(folder));
         var merge = Merge(new InMemoryTaskStore(), attachments, retirements, eventsOn: false);
         var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
 
         await merge.ApplyAsync([TaskChanges.Record(change, Phone, 100)], Cancellation);
-        Assert.Single(folder.Store().ReadAll());
+        Assert.Single(Store(folder).ReadAll());
 
         await merge.ApplyAsync([TaskChanges.Record(EventAttachmentReplicaDocuments.Retire(change, Morning.AddHours(1)), Guid.NewGuid(), 101)], Cancellation);
 
-        Assert.Empty(folder.Store().ReadAll());
+        Assert.Empty(Store(folder).ReadAll());
         Assert.Equal(0, await merge.RetryDeferredRequestsAsync(Cancellation));
         Assert.Empty(attachments.Offered);
     }
@@ -277,44 +277,44 @@ public sealed class EventAttachmentRequestSyncTests
     [Fact]
     public async Task A_held_request_that_does_not_read_is_let_go_once_the_area_is_on()
     {
-        using var folder = new TemporaryFolder();
+        using var folder = new TemporaryDirectory("backlog-held-requests");
         var attachments = new RecordingEventAttachments();
         var features = new KeyedFeatureSettings(syncOn: true, eventsOn: false);
-        var merge = Merge(new InMemoryTaskStore(), attachments, new PhoneRequestRetirements(folder.Store()), features: features);
+        var merge = Merge(new InMemoryTaskStore(), attachments, new PhoneRequestRetirements(Store(folder)), features: features);
         var change = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
         var garbled = change with { Task = change.Task with { ContentMd = "not json" } };
 
         await merge.ApplyAsync([TaskChanges.Record(garbled, Phone, 100)], Cancellation);
-        Assert.Single(folder.Store().ReadAll());
+        Assert.Single(Store(folder).ReadAll());
 
         features.SetEnabled(EventsFeatures.Events, true);
 
         Assert.Equal(0, await merge.RetryDeferredRequestsAsync(Cancellation));
-        Assert.Empty(folder.Store().ReadAll());
+        Assert.Empty(Store(folder).ReadAll());
         Assert.Empty(attachments.Offered);
     }
 
     [Fact]
     public void A_held_request_file_that_cannot_be_read_holds_nothing()
     {
-        using var folder = new TemporaryFolder();
-        _ = folder.Store();
-        File.WriteAllText(folder.HeldPath, "{ not a list");
+        using var folder = new TemporaryDirectory("backlog-held-requests");
+        _ = Store(folder);
+        File.WriteAllText(HeldPath(folder), "{ not a list");
 
-        Assert.Empty(folder.Store().ReadAll());
+        Assert.Empty(Store(folder).ReadAll());
     }
 
     [Fact]
     public void An_impediment_edit_is_not_written_to_the_held_request_file()
     {
-        using var folder = new TemporaryFolder();
-        var retirements = new PhoneRequestRetirements(folder.Store());
+        using var folder = new TemporaryDirectory("backlog-held-requests");
+        var retirements = new PhoneRequestRetirements(Store(folder));
         var attachment = EventAttachmentReplicaDocuments.ToChange(Request(), Morning);
         var edit = attachment with { Id = Guid.NewGuid(), Task = attachment.Task with { Type = "impediment-edit" } };
 
         retirements.Defer(edit);
 
-        Assert.Empty(folder.Store().ReadAll());
+        Assert.Empty(Store(folder).ReadAll());
         Assert.Equal(edit.Id, Assert.Single(retirements.TakeDeferred()).Id);
         Assert.Empty(retirements.TakeDeferred());
     }
@@ -379,19 +379,9 @@ public sealed class EventAttachmentRequestSyncTests
         Assert.Null(read.NoteTitle);
     }
 
-    /// <summary>A folder of this test's own for the held-request file; each <see cref="Store"/>
-    /// is a fresh read of it, as a restarted desktop's would be.</summary>
-    private sealed class TemporaryFolder : IDisposable
-    {
-        private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-held-requests-" + Guid.NewGuid().ToString("N"));
+    /// <summary>The held-request file in a test's own folder.</summary>
+    private static string HeldPath(TemporaryDirectory folder) => folder.Combine("held-attachment-requests.json");
 
-        public string HeldPath => Path.Combine(_root, "held-attachment-requests.json");
-
-        public FileHeldAttachmentRequestStore Store() => new(HeldPath);
-
-        public void Dispose()
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-    }
+    /// <summary>A fresh read of the held-request file, as a restarted desktop's would be.</summary>
+    private static FileHeldAttachmentRequestStore Store(TemporaryDirectory folder) => new(HeldPath(folder));
 }

@@ -16,9 +16,9 @@ namespace Backlog.Infrastructure.Brain.UnitTests;
 [Collection(CorpusRegistryCollection.Name)]
 public sealed class BrainRoadmapNoteReaderTests : IDisposable
 {
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-brain-roadmap-notes", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-brain-roadmap-notes");
 
-    private string Brain => Path.Combine(_scratch, "Brain");
+    private string Brain => _temp.Combine("Brain");
 
     private string Target => DatabaseFor(Brain)!;
 
@@ -84,10 +84,9 @@ public sealed class BrainRoadmapNoteReaderTests : IDisposable
     public async Task No_brain_no_database_or_a_broken_one_reads_as_no_brain_on_this_device()
     {
         var none = new BrainRoadmapNoteReader(() => null);
-        var missing = new BrainRoadmapNoteReader(() => Brain, _ => Path.Combine(_scratch, "missing", "devbook.db"));
+        var missing = new BrainRoadmapNoteReader(() => Brain, _ => _temp.Combine("missing", "devbook.db"));
 
-        Directory.CreateDirectory(_scratch);
-        var brokenPath = Path.Combine(_scratch, "broken.db");
+        var brokenPath = _temp.Combine("broken.db");
         File.WriteAllText(brokenPath, "this is not a database");
         var broken = new BrainRoadmapNoteReader(() => Brain, _ => brokenPath);
 
@@ -101,7 +100,7 @@ public sealed class BrainRoadmapNoteReaderTests : IDisposable
     private BrainRoadmapNoteReader Reader() => new(() => Brain, DatabaseFor);
 
     private string? DatabaseFor(string root) =>
-        DevbookDatabaseLocation.PathFor(Path.Combine(_scratch, "devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), root);
+        DevbookDatabaseLocation.PathFor(_temp.Combine("devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), root);
 
     private void Build() =>
         Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
@@ -116,16 +115,6 @@ public sealed class BrainRoadmapNoteReaderTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-
-        try
-        {
-            if (Directory.Exists(_scratch)) Directory.Delete(_scratch, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
+        _temp.Dispose();
     }
 }

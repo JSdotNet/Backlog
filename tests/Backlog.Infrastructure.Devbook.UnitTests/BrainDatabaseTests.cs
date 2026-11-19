@@ -15,11 +15,11 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public class BrainDatabaseTests : IDisposable
 {
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-brain-database", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-brain-database");
 
-    private string Brain => Path.Combine(_scratch, "OneDrive", "Brain");
+    private string Brain => _temp.Combine("OneDrive", "Brain");
 
-    private string Cache => Path.Combine(_scratch, "devbook-cache");
+    private string Cache => _temp.Combine("devbook-cache");
 
     private string Target => DevbookDatabaseLocation.PathFor(Path.Combine(Cache, DevbookDatabaseLocation.DatabasesFolderName), Brain)!;
 
@@ -167,12 +167,12 @@ public class BrainDatabaseTests : IDisposable
     [Fact]
     public void A_brain_with_no_area_folder_has_nothing_to_build()
     {
-        var empty = Path.Combine(_scratch, "Empty");
+        var empty = _temp.Combine("Empty");
         Directory.CreateDirectory(empty);
         File.WriteAllText(Path.Combine(empty, BrainConventions.FileName), "## Areas\n\n- `work`\n");
 
         Assert.False(DevbookDatabaseBuilder.HasDevbook(empty, BrainCorpusProfile.Instance));
-        Assert.False(DevbookDatabaseBuilder.Build(empty, Path.Combine(_scratch, "empty.db"), BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
+        Assert.False(DevbookDatabaseBuilder.Build(empty, _temp.Combine("empty.db"), BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -349,19 +349,6 @@ public class BrainDatabaseTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-
-        try
-        {
-            foreach (var file in Directory.Exists(_scratch) ? Directory.GetFiles(_scratch, "*", SearchOption.AllDirectories) : [])
-            {
-                File.SetAttributes(file, FileAttributes.Normal);
-            }
-
-            if (Directory.Exists(_scratch)) Directory.Delete(_scratch, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // A temp folder that outlives the run is not a test failure.
-        }
+        _temp.Dispose();
     }
 }

@@ -18,15 +18,11 @@ public sealed class RoadmapItemRollupServiceSessionTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 9, 26, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "rollup-sessions-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("rollup-sessions");
 
-    public RoadmapItemRollupServiceSessionTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_root, recursive: true); }
-        catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task A_finished_entry_with_no_dates_is_dated_by_its_linked_sessions()

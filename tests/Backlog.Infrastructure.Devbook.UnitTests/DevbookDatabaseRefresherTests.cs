@@ -12,12 +12,15 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public class DevbookDatabaseRefresherTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-refresher", Guid.NewGuid().ToString("N"), "repo");
-    private readonly string _cache = Path.Combine(Path.GetTempPath(), "backlog-refresher", Guid.NewGuid().ToString("N"), "devbook-cache");
+    private readonly TemporaryDirectory _temp = new("backlog-refresher");
+    private readonly string _root;
+    private readonly string _cache;
     private readonly DevbookDatabaseRefresher _refresher;
 
     public DevbookDatabaseRefresherTests()
     {
+        _root = _temp.Combine("repo");
+        _cache = _temp.Combine("devbook-cache");
         Write(".devbook/domain/inbox/domain.md", "# Inbox\n\n```meta\nstatus: draft\n```\n\n## Inbox Item\n\n```meta\nrelated: [.devbook/domain/inbox/domain.md]\n```\n\nThe item a capture becomes.\n");
         Write(".devbook/arc42/01-introduction.md", "# 01. Introduction\n\nWhy the system exists.\n");
         _refresher = new DevbookDatabaseRefresher(() => _cache, quietInterval: TimeSpan.FromMinutes(5));
@@ -247,17 +250,6 @@ public class DevbookDatabaseRefresherTests : IDisposable
     {
         _refresher.Dispose();
         SqliteConnection.ClearAllPools();
-
-        foreach (var folder in (string[])[Path.GetDirectoryName(_root)!, Path.GetDirectoryName(_cache)!])
-        {
-            try
-            {
-                if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                // A temp folder that outlives the run is not a test failure.
-            }
-        }
+        _temp.Dispose();
     }
 }

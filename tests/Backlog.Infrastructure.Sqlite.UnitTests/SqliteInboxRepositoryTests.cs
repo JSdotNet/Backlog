@@ -21,12 +21,13 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
 
+    private readonly TemporaryDirectory _temp = new("backlog-sqlite-inbox-tests");
     private readonly string _root;
     private readonly SqliteInboxRepository _repository;
 
     public SqliteInboxRepositoryTests()
     {
-        _root = Path.Combine(Path.GetTempPath(), "backlog-sqlite-inbox-tests", Guid.NewGuid().ToString("n"));
+        _root = _temp.Path;
         _repository = new SqliteInboxRepository(_root);
     }
 
@@ -592,7 +593,8 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
     [Fact]
     public async Task Pointing_the_rooted_repository_at_another_folder_moves_to_that_inbox()
     {
-        var second = Path.Combine(Path.GetTempPath(), "backlog-sqlite-inbox-tests", Guid.NewGuid().ToString("n"));
+        using var secondTemp = new TemporaryDirectory("backlog-sqlite-inbox-tests");
+        var second = secondTemp.Path;
         var root = _root;
         var rooted = new RootedSqliteInboxRepository(() => root);
 
@@ -615,7 +617,6 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         finally
         {
             SqliteConnection.ClearAllPools();
-            if (Directory.Exists(second)) Directory.Delete(second, recursive: true);
         }
     }
 
@@ -722,7 +723,6 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         // failing a green suite over.
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

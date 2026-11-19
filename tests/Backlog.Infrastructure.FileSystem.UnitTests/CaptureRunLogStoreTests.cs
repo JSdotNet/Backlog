@@ -14,11 +14,9 @@ public class CaptureRunLogStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 9, 16, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "capture-run-log-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("capture-run-log-store-tests");
 
-    public CaptureRunLogStoreTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string LogFile => Path.Combine(_root, "capture-runs.json");
 
@@ -184,12 +182,6 @@ public class CaptureRunLogStoreTests : IDisposable
     {
         GC.SuppressFinalize(this);
 
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 }

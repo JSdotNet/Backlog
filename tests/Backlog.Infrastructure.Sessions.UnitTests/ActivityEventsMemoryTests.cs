@@ -34,10 +34,8 @@ public sealed class ActivityEventsMemoryTests : IDisposable
 
     private const string Slug = "D--Repos-Backlog";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-activity-memory-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-activity-memory-tests");
+    private string _root => _temp.Path;
 
     private string ClaudeHome => Path.Combine(_root, ".claude");
 
@@ -804,14 +802,5 @@ public sealed class ActivityEventsMemoryTests : IDisposable
             $"{path}|{writtenAt.UtcTicks}|{idleAfter}";
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

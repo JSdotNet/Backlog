@@ -21,7 +21,7 @@ public sealed class DomainViewBrainTaskLinksTests : IDisposable
     private const string Held = "11111111-1111-1111-1111-111111111111";
     private const string Elsewhere = "22222222-2222-2222-2222-222222222222";
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     private const string Domain = """
         # Domain: Tasks
@@ -337,9 +337,10 @@ public sealed class DomainViewBrainTaskLinksTests : IDisposable
 
     private Harness CreateHarness(IReadOnlyList<BrainChapterBacklink>? links = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-domain-view-brain-task-links", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-domain-view-brain-task-links");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts.\n");
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "context.md"), "# Tasks\n\n```meta\ntype: context\nstatus: draft\n```\n\nThe tasks context.\n");
@@ -376,10 +377,9 @@ public sealed class DomainViewBrainTaskLinksTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            temp.Dispose();
         }
     }
 

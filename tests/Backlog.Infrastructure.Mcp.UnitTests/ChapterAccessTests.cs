@@ -32,7 +32,7 @@ public sealed class ChapterAccessTests : IDisposable
 {
     private static readonly TasksRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
 
-    private readonly DirectoryInfo _root = Directory.CreateTempSubdirectory("backlog-mcp-access");
+    private readonly TemporaryDirectory _root = new("backlog-mcp-access");
 
     public ChapterAccessTests()
     {
@@ -53,7 +53,7 @@ public sealed class ChapterAccessTests : IDisposable
         Write(".claude/worktrees/other/CLAUDE.md", "# Another checkout\n");
     }
 
-    public void Dispose() => _root.Delete(recursive: true);
+    public void Dispose() => _root.Dispose();
 
     /// <summary>The chapters, which still read. A gate that refused these would
     /// have closed the tool rather than the hole.</summary>
@@ -158,7 +158,7 @@ public sealed class ChapterAccessTests : IDisposable
 
     private FakeDevbookFolderSource Folders() =>
         new(
-            _root.FullName,
+            _root.Path,
             new DevbookFolderSetting(".arc42", "Architecture", ".arc42"),
             new DevbookFolderSetting(".domain", "Domain", ".domain"),
             // The one that matters: enabled, last, and rooted at the clone.
@@ -169,7 +169,7 @@ public sealed class ChapterAccessTests : IDisposable
 
     private void Write(string relativePath, string content)
     {
-        var fullPath = Path.Combine(_root.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        var fullPath = Path.Combine(_root.Path, relativePath.Replace('/', Path.DirectorySeparatorChar));
 
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         File.WriteAllText(fullPath, content);

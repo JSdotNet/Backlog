@@ -17,7 +17,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class BackupWorkerTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-backup-worker-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-backup-worker-tests");
+
+    private string _root => _temp.Combine("data");
 
     // Tuesday 15 September 2026, 09:00. FakeTimeProvider's local zone is UTC
     // unless told otherwise, so local and UTC agree throughout.
@@ -37,7 +39,7 @@ public sealed class BackupWorkerTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-        try { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); } catch (IOException) { }
+        _temp.Dispose();
     }
 
     private BackupWorker Worker() => new(_settings, _gitHub, _state, _time);

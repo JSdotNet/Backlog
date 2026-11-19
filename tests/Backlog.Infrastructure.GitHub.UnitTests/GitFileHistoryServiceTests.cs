@@ -13,21 +13,14 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class GitFileHistoryServiceTests : IDisposable
 {
-    private readonly List<string> _directories = [];
+    private readonly List<TemporaryDirectory> _directories = [];
     private readonly GitFileHistoryService _service = new();
 
     public void Dispose()
     {
-        foreach (var directory in _directories.Where(Directory.Exists))
+        foreach (var directory in _directories)
         {
-            // git writes loose objects read-only and Directory.Delete refuses
-            // those, so the attribute comes off before the recursive delete.
-            foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
-            {
-                try { File.SetAttributes(file, FileAttributes.Normal); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-            }
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            directory.Dispose();
         }
     }
 
@@ -115,10 +108,9 @@ public sealed class GitFileHistoryServiceTests : IDisposable
 
     private string NewDirectory()
     {
-        var directory = Path.Combine(Path.GetTempPath(), "backlog-git-history-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        var directory = new TemporaryDirectory("backlog-git-history");
         _directories.Add(directory);
-        return directory;
+        return directory.Path;
     }
 
     private string NewRepository()

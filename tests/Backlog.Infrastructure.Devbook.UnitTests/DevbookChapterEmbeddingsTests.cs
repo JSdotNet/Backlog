@@ -11,13 +11,13 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookChapterEmbeddingsTests : IDisposable
 {
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-embeddings", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-embeddings");
 
-    private string Repository => Path.Combine(_scratch, "repo");
+    private string Repository => _temp.Combine("repo");
 
-    private string Brain => Path.Combine(_scratch, "Brain");
+    private string Brain => _temp.Combine("Brain");
 
-    private string Cache => Path.Combine(_scratch, "devbook-cache");
+    private string Cache => _temp.Combine("devbook-cache");
 
     public DevbookChapterEmbeddingsTests()
     {
@@ -221,14 +221,7 @@ public sealed class DevbookChapterEmbeddingsTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-        try
-        {
-            if (Directory.Exists(_scratch)) Directory.Delete(_scratch, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // A temp folder left behind is harmless.
-        }
+        _temp.Dispose();
     }
 
     /// <summary>A deterministic stand-in: each text's vector is a function of its

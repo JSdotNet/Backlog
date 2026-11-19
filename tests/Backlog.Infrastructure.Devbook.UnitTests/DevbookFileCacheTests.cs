@@ -11,7 +11,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// </summary>
 public sealed class DevbookFileCacheTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-devbook-cache-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-cache-tests");
 
     [Fact]
     public void A_file_that_has_not_changed_is_produced_once()
@@ -52,7 +52,7 @@ public sealed class DevbookFileCacheTests : IDisposable
     [Fact]
     public void A_file_that_is_not_there_is_produced_and_not_remembered()
     {
-        var path = Path.Combine(_root, "missing.md");
+        var path = _temp.Combine("missing.md");
         var cache = new DevbookFileCache<string>();
 
         Assert.Equal("one", cache.GetOrAdd(path, () => "one"));
@@ -63,14 +63,11 @@ public sealed class DevbookFileCacheTests : IDisposable
 
     private string Write(string relativePath, string content)
     {
-        var fullPath = Path.Combine(_root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        var fullPath = _temp.Combine(relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         File.WriteAllText(fullPath, content);
         return fullPath;
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }
