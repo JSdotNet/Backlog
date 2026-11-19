@@ -2,11 +2,11 @@
     One page of the Settings screen: this machine's own MCP server (local ADR
     0012) - whether it holds its port, the address a client registers, the port
     itself, why nothing is listening when nothing is, the agents that can reach it
-    each by a grant of its own (local ADR 0052 §3), and the latest tool calls the
-    audit log holds (local ADR 0052, Phase 0).
+    each by a grant of its own (local ADR 0058 §3), and the latest tool calls the
+    audit log holds (local ADR 0058, Phase 0).
 
     The Agents card took the Bearer token card's place. The shared token is retired
-    (local ADR 0052, Phase 1): a registration made from here names a grant, and the
+    (local ADR 0058, Phase 1): a registration made from here names a grant, and the
     first start after the upgrade made three for what the app installs itself.
 
     Offered whatever any feature says. The server is always on while the app runs,
@@ -114,7 +114,7 @@
         }
     </SettingsCard>
 
-    @* The agents waiting for the person (local ADR 0052 §5): one row each, with Trim scopes,
+    @* The agents waiting for the person (local ADR 0058 §5): one row each, with Trim scopes,
        Decline and Allow with Hello. Drawn only while one waits, so the page says nothing
        about requests while there are none; the headline counts them either way. *@
     @if (_waiting.Count > 0)
@@ -150,7 +150,7 @@
         </SettingsCard>
     }
 
-    @* The agents that can reach Backlog, each by a grant of its own (local ADR 0052 §3),
+    @* The agents that can reach Backlog, each by a grant of its own (local ADR 0058 §3),
        in the Bearer token card's old place. Grants are made, changed and revoked here and
        nowhere else: nothing in Dev PC or the Tools pane reads or writes one. A host that
        composes no grant store - the browser harness, which asks for no token - says so
@@ -249,7 +249,7 @@
                 <ul class="agent-list" aria-label="@AgentsCardTitle" data-testid="mcp-server-agents">
                     @* A grant another agent made sits indented under its granter, saying who
                        granted it and when it expires, with Revoke alone: its scopes are its
-                       granter's to set, and trimming the granter trims it (local ADR 0052 §5). *@
+                       granter's to set, and trimming the granter trims it (local ADR 0058 §5). *@
                     @foreach (var listed in McpAgents.Listed(_agents))
                     {
                         var grant = listed.Grant;
@@ -279,7 +279,7 @@
         }
     </SettingsCard>
 
-    @* The claude.ai connector (local ADR 0052 §8): what to enter in claude.ai, where the
+    @* The claude.ai connector (local ADR 0058 §8): what to enter in claude.ai, where the
        secret stands, and Create, Replace and Revoke over the sync service. A host with no
        sync client, or a device not paired, says so and offers nothing. A secret just made
        is shown once, under the state line, until Done; the desktop keeps no copy. *@
@@ -734,7 +734,7 @@
         // an agent that registers itself: the card follows both.
         _grants.Changed += OnGrantsChanged;
 
-        // The requests waiting for the person (local ADR 0052 §5), made over the pipe or by
+        // The requests waiting for the person (local ADR 0058 §5), made over the pipe or by
         // request_access off this thread: the waiting card follows them.
         _desk = Services.GetService<McpAccessDesk>();
         if (_desk is not null) _desk.Changed += OnGrantsChanged;
@@ -872,7 +872,7 @@
     }
 
     /// <summary>
-    /// Windows Hello before <c>agents:grant</c> is switched on (local ADR 0052 §5 and §6): true
+    /// Windows Hello before <c>agents:grant</c> is switched on (local ADR 0058 §5 and §6): true
     /// when <paramref name="scopes"/> hold none that asks for it, or the person confirmed it.
     /// Otherwise the card says why, and nothing is written.
     /// </summary>

@@ -19,7 +19,7 @@ public static class DevbookLocalAuthor
     /// The author every Devbook write that arrives over MCP is stamped with — a
     /// note, a reply, a proposal set back to draft — in place of <see cref="Name"/>.
     /// <para>
-    /// Local ADR 0052 §7: the MCP token is an agent's, so a write through it is
+    /// Local ADR 0058 §7: the MCP token is an agent's, so a write through it is
     /// never recorded as the person's. A record already stored keeps the author it
     /// was written with; <see cref="Display"/> reads this one back as written.
     /// </para>

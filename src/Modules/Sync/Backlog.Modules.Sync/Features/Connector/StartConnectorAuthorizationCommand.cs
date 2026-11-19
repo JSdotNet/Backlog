@@ -25,7 +25,7 @@ public sealed record StartConnectorAuthorizationCommand(
     string? RepeatedParameter = null);
 
 /// <summary>
-/// Checks an authorization request and sends the owner's browser to GitHub (local ADR 0052
+/// Checks an authorization request and sends the owner's browser to GitHub (local ADR 0058
 /// §8). The client and its redirect are checked first and refused in place — a failure —
 /// because an unverified redirect must never receive anything (RFC 6749 §4.1.2.1). Every
 /// later problem goes back to the registered redirect with <c>error=</c> and the client's

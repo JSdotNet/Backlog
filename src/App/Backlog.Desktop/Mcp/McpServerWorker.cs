@@ -162,7 +162,7 @@ public sealed class McpServerWorker : IDisposable
     /// return without waiting on the head's container.</summary>
     private volatile WindowLinkTokens? _windowLinkTokens;
 
-    /// <summary>The grant tokens the broker mints (local ADR 0052 §3), or null in a container
+    /// <summary>The grant tokens the broker mints (local ADR 0058 §3), or null in a container
     /// that composed none — the web harness — whose listener then has no grant path. The head's
     /// own instance, never a second one: a token is signed with a key that instance alone holds.
     /// Resolved where the listener is built, as <see cref="_windowLinkTokens"/> is.</summary>
@@ -600,7 +600,7 @@ public sealed class McpServerWorker : IDisposable
 
         // The audit names the caller the guard's principal carries — a grant by its name and
         // id, or the escape hatch's fixed caller — and that fixed name only for a call whose
-        // principal names nobody (ADR 0052 §3).
+        // principal names nobody (ADR 0058 §3).
         builder.Services.AddBacklogMcpServer(McpAudit.SharedTokenCaller).WithHttpTransport();
 
         // The pop-out pages' own services, before the bridge: what the listener
@@ -721,7 +721,7 @@ public sealed class McpServerWorker : IDisposable
 
         try
         {
-            // No token to mint first: since the shared token was retired (local ADR 0052,
+            // No token to mint first: since the shared token was retired (local ADR 0058,
             // Phase 1) every client presents a grant token the broker mints on demand.
             await listener.StartAsync(_lifetime.Token).ConfigureAwait(false);
 
@@ -832,7 +832,7 @@ public sealed class McpServerWorker : IDisposable
         }
 
         // Locked out after too many failed attempts: every bearer request is refused,
-        // the right token included, before the token is even compared (local ADR 0052,
+        // the right token included, before the token is even compared (local ADR 0058,
         // Phase 0).
         if (_bearerLimiter.RetryAfter() is { } wait)
         {
@@ -847,7 +847,7 @@ public sealed class McpServerWorker : IDisposable
 
         var authorization = context.Request.Headers.Authorization;
 
-        // A grant token (local ADR 0052 §3), or the BACKLOG_MCP_TOKEN escape hatch where a debug
+        // A grant token (local ADR 0058 §3), or the BACKLOG_MCP_TOKEN escape hatch where a debug
         // setting switched it on. No token kept in settings.json is accepted: the shared token
         // and the hook and telemetry tokens beside it were retired with Phase 1.
         var environmentToken = _settings.EnvironmentMcpToken;
@@ -918,7 +918,7 @@ public sealed class McpServerWorker : IDisposable
 
         // Who the call is: a grant's own principal, or the fixed one of the static token it
         // matched. The route's named policy is asked of it here, and each tool's by the call
-        // filter after it; the audit names its caller (local ADR 0052 §3, §4).
+        // filter after it; the audit names its caller (local ADR 0058 §3, §4).
         var principal = credential switch
         {
             McpCredential.Grant => grant!.Principal!,
@@ -1115,7 +1115,7 @@ public sealed class McpServerWorker : IDisposable
             .Append(typeof(IWaitingQuestionStore))
             .Append(typeof(IAgentSessionSource))
             .Append(typeof(IMcpAuditLog))
-            // Windows Hello for a tasks:admin tool (local ADR 0052 §6), which the step-up filter
+            // Windows Hello for a tasks:admin tool (local ADR 0058 §6), which the step-up filter
             // reads from this container: missing, every such call would be refused unlogged.
             .Append(typeof(Backlog.SharedKernel.IUserConsent))
             // The caller of one request, which the listener's own container scopes per request

@@ -31,7 +31,7 @@ namespace Backlog.Infrastructure.Cosmos.Devices;
 /// A registry rather than a replica, and the difference shows in what it does
 /// not have: no change feed, no cursor, no tombstone, no TTL. A device is
 /// written on registration, replaced at most once — when it binds a key in
-/// place of its credential (local ADR 0052 §2) — and read many times; there is
+/// place of its credential (local ADR 0058 §2) — and read many times; there is
 /// no offline copy that needs to converge with it.
 /// </para>
 /// </summary>

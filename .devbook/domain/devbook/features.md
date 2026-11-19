@@ -165,7 +165,7 @@ checks reject:
     `openspec/changes/`, with its state, who decided and when, and Approve and
     Accept. A decision at a fingerprint the change has since moved from reads as
     lapsed. An assistant can only set a proposal back to draft over the app's MCP
-    server, recorded as *agent via MCP* (local ADR 0052 §7).
+    server, recorded as *agent via MCP* (local ADR 0058 §7).
 - **Kinds.** Each area that classifies its chapters is read with its own set of
   kinds. A domain context's set covers:
 

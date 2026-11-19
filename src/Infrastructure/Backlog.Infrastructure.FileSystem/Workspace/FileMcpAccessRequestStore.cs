@@ -7,7 +7,7 @@ using Backlog.SharedKernel.Mcp;
 namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
-/// The agents' access requests (local ADR 0052 §5), in <c>mcp-access-requests.json</c> beside
+/// The agents' access requests (local ADR 0058 §5), in <c>mcp-access-requests.json</c> beside
 /// <c>mcp-grants.json</c> in the installation's app-data folder. Legible JSON and nothing
 /// secret: a request names a grant id, which is a label, and what the agent said about itself.
 /// <para>

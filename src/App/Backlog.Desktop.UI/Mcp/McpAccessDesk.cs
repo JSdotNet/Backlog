@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// "Approve an agent once" (local ADR 0052 §5): where an agent's request for access is made,
+/// "Approve an agent once" (local ADR 0058 §5): where an agent's request for access is made,
 /// held to its limits, shown to the person, and answered — by the person alone.
 /// <para>
 /// <b>Two ways in for an agent, neither of which grants anything.</b> The broker's
@@ -300,7 +300,7 @@ public sealed partial class McpAccessDesk : IAgentAccessRequests
         }
 
         // A grant another agent made takes its scopes from its granter, so the person's Allow could
-        // add nothing a token would carry (local ADR 0052 §5): revoke it and allow it again instead.
+        // add nothing a token would carry (local ADR 0058 §5): revoke it and allow it again instead.
         if (request.Kind == McpAccessRequestKind.MoreScopes && _grants.Find(request.GrantId) is { IsDelegated: true })
         {
             return Refuse(McpAccessRefusals.Delegated, $"{request.Name} was granted by another agent, which sets its scopes. Revoke it and allow it yourself, or trim its granter.");
@@ -569,7 +569,7 @@ public static class McpAccessRefusals
     public const string HelloDeclined = "hello-declined";
     public const string StoreUnavailable = "store-unavailable";
 
-    // A granter agent's refusals (local ADR 0052 §5, agents that grant other agents).
+    // A granter agent's refusals (local ADR 0058 §5, agents that grant other agents).
     public const string NotGranter = "not-granter";
     public const string OneLevel = "one-level-deep";
     public const string NotDelegable = "not-delegable";
@@ -611,7 +611,7 @@ public static class McpAccessRules
 }
 
 /// <summary>
-/// Brings the request window forward (local ADR 0052 §5, ADR 0043): a pop-out on the request,
+/// Brings the request window forward (local ADR 0058 §5, ADR 0043): a pop-out on the request,
 /// or the one already open on it, focused. The desktop head answers it over its windows.
 /// </summary>
 public interface IAgentRequestWindows

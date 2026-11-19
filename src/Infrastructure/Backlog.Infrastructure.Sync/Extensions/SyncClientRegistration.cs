@@ -104,7 +104,7 @@ public static class SyncClientRegistration
         services.AddHttpClient<DevicePairingClient>((sp, client) => client.BaseAddress = baseAddress(sp))
             .AddSyncPipeline();
 
-        // The claude.ai connector's owner calls (local ADR 0052 §8), all bearer: the
+        // The claude.ai connector's owner calls (local ADR 0058 §8), all bearer: the
         // Remote connector card resolves the port, and a host with no sync client none.
         services.AddHttpClient<RemoteConnectorClient>((sp, client) => client.BaseAddress = baseAddress(sp))
             .AddSyncPipeline();

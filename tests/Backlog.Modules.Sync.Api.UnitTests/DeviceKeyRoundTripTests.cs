@@ -13,7 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
-/// The device key end to end (local ADR 0052 §2): the real
+/// The device key end to end (local ADR 0058 §2): the real
 /// <see cref="DevicePairingClient"/> and <see cref="SyncTokenProvider"/> against the
 /// real sync service, so the client's requests and the service's rules are proved
 /// against each other rather than each against a stub of the other. Registration is

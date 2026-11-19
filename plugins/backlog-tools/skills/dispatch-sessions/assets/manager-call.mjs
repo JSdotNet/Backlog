@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// One Backlog MCP tool call under the "Manager" grant (local ADR 0052 §4):
+// One Backlog MCP tool call under the "Manager" grant (local ADR 0058 §4):
 //
 //   node manager-call.mjs <tool> [<arguments as JSON>]
 //

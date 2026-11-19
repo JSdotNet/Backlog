@@ -9,7 +9,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The person's approval and acceptance of a change proposal, which local ADR 0052
+/// The person's approval and acceptance of a change proposal, which local ADR 0058
 /// §7 moved off MCP into the devbook view: the shared use case
 /// (<see cref="DevbookProposalDecision"/>), the rows the view offers
 /// (<see cref="DevbookProposals"/>), and the Instructions area's Proposals tab

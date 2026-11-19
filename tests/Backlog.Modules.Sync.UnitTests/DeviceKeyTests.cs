@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Modules.Sync.UnitTests;
 
 /// <summary>
-/// A device bound to a non-exportable key (local ADR 0052 §2), through the handlers:
+/// A device bound to a non-exportable key (local ADR 0058 §2), through the handlers:
 /// it registers or pairs with its public key, gets no credential, and trades a signed
 /// <c>private_key_jwt</c> assertion for its token. A credential device binds a key once
 /// on its next token fetch and loses the credential.

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Infrastructure.Cosmos.ConnectorCredentials;
 
 /// <summary>
-/// The remote connector's refresh tokens in Cosmos DB (local ADR 0052 §8). A token lives
+/// The remote connector's refresh tokens in Cosmos DB (local ADR 0058 §8). A token lives
 /// thirty days and the service scales to zero, so memory would disconnect the connector on
 /// every cold start.
 /// <para>

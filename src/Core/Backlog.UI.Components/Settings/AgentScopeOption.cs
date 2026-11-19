@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.Settings;
 /// one line saying what it lets the agent do, and whether it is locked.
 /// <para>
 /// The host owns the list and its order. The library knows no scope by name, because which
-/// scopes exist and what each one opens is the MCP server's to say (local ADR 0052 §4).
+/// scopes exist and what each one opens is the MCP server's to say (local ADR 0058 §4).
 /// </para>
 /// </summary>
 /// <param name="Name">The scope as a grant stores it, such as <c>tasks:read</c>.</param>

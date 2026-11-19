@@ -117,7 +117,7 @@ public sealed class WindowTools(ISurfaceCatalog catalog, ISurfaceWindowHost host
                 : $"The link opens {shown.Title} once, within 10 minutes. Nothing was opened.");
     }
 
-    /// <summary>The caller a minted link is logged for (local ADR 0052 §4).</summary>
+    /// <summary>The caller a minted link is logged for (local ADR 0058 §4).</summary>
     internal const string UnnamedCaller = "MCP client";
 
     /// <summary>The longest caller the log records.</summary>
@@ -126,7 +126,7 @@ public sealed class WindowTools(ISurfaceCatalog catalog, ISurfaceWindowHost host
     /// <summary>
     /// Who asked for a link, as the log records it: the MCP client's name and version
     /// as its <c>initialize</c> gave them, or <see cref="UnnamedCaller"/> when it gave
-    /// none. Until the token broker of local ADR 0052 §3 names an agent's grant, the
+    /// none. Until the token broker of local ADR 0058 §3 names an agent's grant, the
     /// client's own word is all there is, so it is a label, never an identity; control
     /// characters are dropped and the length is capped, so a client cannot write lines
     /// of its own into the log.

@@ -539,10 +539,10 @@ references, they stay node attributes and produce no edges in the knowledge grap
 ## Authentication and Authorization
 
 ```meta
-related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0052-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
+related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
 ```
 
-Local ADR 0052 decides how each principal proves itself. It is partly built, and
+Local ADR 0058 decides how each principal proves itself. It is partly built, and
 each item below says where the code stands.
 
 | Principal | Proven by | Today |
@@ -579,7 +579,7 @@ each item below says where the code stands.
 - **An agent may grant others only within what it holds.** The person switches
   `agents:grant` on for an orchestrator. It then grants, trims and revokes other agents,
   one level deep, without `devbook:decide`, `agents:grant` or `tasks:admin`. Its grants
-  expire after 7 days unless renewed, and each mint cuts them to its scopes. Local ADR 0052 §5
+  expire after 7 days unless renewed, and each mint cuts them to its scopes. Local ADR 0058 §5
   has the rules.
 - **Windows Hello confirms what is hard to undo:** a `tasks:admin` tool, revoking a
   device, minting a pairing code, allowing an agent's grant, and switching
@@ -592,7 +592,7 @@ each item below says where the code stands.
   app stores is sealed under the signed-in Windows user with DPAPI, or in the
   platform secure store on Android. The settings files seal only the secret value
   and stay legible otherwise. No MCP credential is stored in plaintext since local
-  ADR 0052 retired the loopback token. Local ADR 0030 has the threat model.
+  ADR 0058 retired the loopback token. Local ADR 0030 has the threat model.
 
 For the cloud service specifically, three inherited decisions apply:
 

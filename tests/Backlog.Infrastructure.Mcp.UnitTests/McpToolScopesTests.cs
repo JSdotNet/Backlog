@@ -3,7 +3,7 @@ using Backlog.SharedKernel.Mcp;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// The tool-to-scope table of local ADR 0052 §4 against the tools this library serves: every
+/// The tool-to-scope table of local ADR 0058 §4 against the tools this library serves: every
 /// served tool has exactly one grantable scope, the table names nothing that is not served, and
 /// no tool needs <c>devbook:decide</c>.
 /// </summary>

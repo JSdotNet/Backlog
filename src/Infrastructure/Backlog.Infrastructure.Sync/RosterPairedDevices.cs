@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.Sync;
 /// <summary>
 /// The <see cref="IPairedDevices"/> a desktop composes: the owner's device list, read from the
 /// sync service through <see cref="IDeviceRoster"/> on every question, so a device revoked a
-/// moment ago reads as revoked at once (local ADR 0052, Phase 2).
+/// moment ago reads as revoked at once (local ADR 0058, Phase 2).
 /// <para>
 /// This installation is paired without a read: an answer given at this desktop is named by its
 /// installation identity (<c>NotificationSyncSession</c>), and the sync device id the service

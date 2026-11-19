@@ -273,7 +273,7 @@ public static class DesktopCompositionRegistration
         // repository and the schedule off the workspace settings and uploads through
         // the same GitHub client the feedback dialog commits screenshots with.
         services.AddSingleton<IBackupStateStore>(_ => new FileBackupStateStore(options.BackupStatePath));
-        // The MCP audit log (local ADR 0052, Phase 0), per installation like the backup
+        // The MCP audit log (local ADR 0058, Phase 0), per installation like the backup
         // state: one record per tool call, written by the call filter both hosts install.
         services.AddSingleton<IMcpAuditLog>(_ => new SqliteMcpAuditLog(options.McpAuditLogPath));
         services.AddSingleton<BackupWorker>();
@@ -287,7 +287,7 @@ public static class DesktopCompositionRegistration
         services.AddSyncClient(SyncServiceAddress);
         services.AddTaskSyncClient(SyncServiceAddress);
         // Where the owner signs in to register this desktop as a first device or to
-        // recover (local ADR 0052 §1): the person's own browser, back to a loopback.
+        // recover (local ADR 0058 §1): the person's own browser, back to a loopback.
         // A phone composes none and pairs by code.
         services.AddSingleton<ISystemBrowser, ShellSystemBrowser>();
         // The version compared with the sync service's: the one the update window
@@ -377,7 +377,7 @@ public static class DesktopCompositionRegistration
         services.AddNotificationsSurface();
         services.AddToolsSurface();
         services.AddAtlasSurface();
-        // The agent request window (local ADR 0052 §5), opened on a request and never offered
+        // The agent request window (local ADR 0058 §5), opened on a request and never offered
         // in the header. Its desk is the desktop head's; a host without one says so in it.
         global::Backlog.Desktop.UI.Mcp.AgentRequestSurfaceRegistration.AddAgentRequestSurface(services);
         // What those takeovers read from the window they are shown in — its scope,
@@ -478,7 +478,7 @@ public static class DesktopCompositionRegistration
                 // questions, which must not happen in the middle of this publish.
                 () => sp.GetKeyedService<IAgentSessionSource>(SessionsAdapterRegistration.LocalSourceKey),
                 // Only an answer from a device paired now reaches the hook or the Manager; one
-                // from a revoked or unknown device is dropped and audited (ADR 0052, Phase 2).
+                // from a revoked or unknown device is dropped and audited (ADR 0058, Phase 2).
                 sp.GetService<IPairedDevices>,
                 sp.GetService<IMcpAuditLog>);
         });

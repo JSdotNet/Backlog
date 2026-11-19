@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 /// The operations of <c>devbook.decision@1</c> Backlog serves over MCP —
 /// <c>devbook_get_state</c>, <c>devbook_set_state</c> and the three note tools — as
 /// a caller meets them. Approve and accept are the person's, in the app (local ADR
-/// 0052 §7); <c>DevbookProposalDecisionTests</c> holds them.
+/// 0058 §7); <c>DevbookProposalDecisionTests</c> holds them.
 /// <para>
 /// What a caller is promised is mostly about shape and refusal: the answer is
 /// <c>{ state }</c>, plus <c>approval</c> and <c>acceptance</c> for a proposal, or

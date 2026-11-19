@@ -31,7 +31,7 @@ test("only BACKLOG_MCP_TOKEN is a static token: the escape hatch", () => {
     assert.equal(resolveToken({}), null);
 });
 
-test("settings.json answers the delivery grant's id, never a token (local ADR 0052, Phase 1)", () => {
+test("settings.json answers the delivery grant's id, never a token (local ADR 0058, Phase 1)", () => {
     assert.equal(deliveryGrant(settings({ mcpServer: { grants: { delivery: "g_d", questionHook: "g_q", telemetry: "g_t" } } })), "g_d");
     // A file from before the upgrade: the retired token is not read.
     assert.equal(deliveryGrant(settings({ mcpServer: { token: "retired" } })), null);
@@ -81,7 +81,7 @@ test("no grant recorded exits 1 with the reason, and prints no header", async ()
     assert.match(result.stderr, /No Backlog MCP grant/);
 });
 
-// --grant (local ADR 0052 §3): the token comes from the desktop app's broker pipe.
+// --grant (local ADR 0058 §3): the token comes from the desktop app's broker pipe.
 
 test("no flags is the recorded delivery grant, then the escape hatch", () => {
     assert.deepEqual(parseArgs([]), { grant: null, debug: false });
@@ -239,7 +239,7 @@ test("an unknown flag exits 1 and prints no header", async () => {
     assert.match(result.stderr, /Unknown argument/);
 });
 
-// --register and --request (local ADR 0052 §5): an agent registers itself into a pending grant
+// --register and --request (local ADR 0058 §5): an agent registers itself into a pending grant
 // and opens its own request window; neither grants anything.
 
 test("--register takes the name and --scopes the list, by commas or spaces", () => {

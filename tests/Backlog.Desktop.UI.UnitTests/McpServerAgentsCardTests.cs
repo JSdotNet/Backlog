@@ -14,7 +14,7 @@ using static Backlog.Desktop.UI.UnitTests.McpServerSettingsPageTests;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The MCP server page's Agents card (local ADR 0052 §3): one row per grant not revoked, with
+/// The MCP server page's Agents card (local ADR 0058 §3): one row per grant not revoked, with
 /// its role, source, last use and scopes; Edit scopes opening the switches in place, each
 /// stored on change; Revoke confirmed in place; and Add agent in two steps - name, role and
 /// switches, then the registration to copy. The grants are an in-memory stand-in at

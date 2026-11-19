@@ -4,7 +4,7 @@ using Backlog.SharedKernel.Mcp;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// Which scope each served tool requires (local ADR 0052 §4), beside the group table that says
+/// Which scope each served tool requires (local ADR 0058 §4), beside the group table that says
 /// which flag lists it (<see cref="BacklogMcpTools"/>).
 /// <para>
 /// <b>Per tool, not per group, because a group is a flag's unit and a scope is not.</b> The
@@ -32,7 +32,7 @@ public static class McpToolScopes
     /// <summary>
     /// The tools any admitted caller may call, whatever scopes it holds: <c>request_access</c>
     /// alone, because an agent that lacks a scope is the one that must ask for it (local ADR
-    /// 0052 §5). Named here, beside the table, so a tool reaches no caller by being forgotten:
+    /// 0058 §5). Named here, beside the table, so a tool reaches no caller by being forgotten:
     /// one in neither still meets the fallback-deny.
     /// </summary>
     public static IReadOnlySet<string> AnyCaller { get; } =

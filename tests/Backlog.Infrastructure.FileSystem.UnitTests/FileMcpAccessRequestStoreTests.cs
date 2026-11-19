@@ -5,7 +5,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// The agents' access requests on disk (local ADR 0052 §5): one record per request, answered
+/// The agents' access requests on disk (local ADR 0058 §5): one record per request, answered
 /// once, read back as written, and a file that does not parse is never written over.
 /// </summary>
 public sealed class FileMcpAccessRequestStoreTests : IDisposable

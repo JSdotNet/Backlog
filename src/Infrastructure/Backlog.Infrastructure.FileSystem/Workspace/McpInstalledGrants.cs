@@ -2,7 +2,7 @@ namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
 /// The grants the desktop app made in place of the shared MCP token on its first start after the
-/// upgrade (local ADR 0052, Phase 1), by id: what <c>settings.json</c> records under
+/// upgrade (local ADR 0058, Phase 1), by id: what <c>settings.json</c> records under
 /// <c>mcpServer.grants</c>. A grant id is a label, not a password, so recording it there puts no
 /// secret in the file.
 /// </summary>

@@ -13,7 +13,7 @@ using ModelContextProtocol.Server;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// Windows Hello before a <see cref="McpScopes.TasksAdmin"/> tool runs (local ADR 0052 §6):
+/// Windows Hello before a <see cref="McpScopes.TasksAdmin"/> tool runs (local ADR 0058 §6):
 /// deleting a goal, and any bulk change that joins that scope. The call waits while the desktop
 /// asks the person through <see cref="IUserConsent"/>, runs only when they confirm, and is
 /// refused when they cancel or nothing here can ask.

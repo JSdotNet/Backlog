@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
-/// The order <see cref="CngDeviceKeyStore"/> looks for its key in (local ADR 0052 §2),
+/// The order <see cref="CngDeviceKeyStore"/> looks for its key in (local ADR 0058 §2),
 /// over stand-in providers so every failure a TPM can give is reachable on a machine
 /// that has none. The rule each case holds: a TPM key that exists is never shadowed
 /// by a software key made beside it, and software is used only when the TPM is

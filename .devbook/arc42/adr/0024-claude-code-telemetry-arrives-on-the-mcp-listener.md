@@ -120,7 +120,7 @@ endpoint URL and a `settings.json` `env` block that sends the logs there. The bl
 uses the logs signal's own variables — `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`,
 `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` — so the logs go to this endpoint and to no other
 exporter a person has configured. The block holds no token. Its `otelHeadersHelper`
-runs the app's headers helper for the **Telemetry** grant (ADR 0052 §3), which asks the
+runs the app's headers helper for the **Telemetry** grant (ADR 0058 §3), which asks the
 token broker for a 15-minute token. The block sets
 `CLAUDE_CODE_OTEL_HEADERS_HELPER_DEBOUNCE_MS` to ten minutes, because Claude Code's
 default of 29 minutes outlives the token.
@@ -170,6 +170,6 @@ default of 29 minutes outlives the token.
 
 | Date | Change | Why |
 | --- | --- | --- |
-| 2026-11-12 | The telemetry token is retired: the block's `otelHeadersHelper` fetches a 15-minute token for the Telemetry grant, and the app rewrites a block that carries the old token. | Plan `zero-trust-auth`, ADR 0052 Phase 1: no long-lived MCP secret sits in a file. |
-| 2026-11-11 | `/v1/logs` takes a telemetry token of its own and refuses the MCP server's token. | ADR 0052 phase 0: the exporter's header must not be a credential that calls tools. |
+| 2026-11-12 | The telemetry token is retired: the block's `otelHeadersHelper` fetches a 15-minute token for the Telemetry grant, and the app rewrites a block that carries the old token. | Plan `zero-trust-auth`, ADR 0058 Phase 1: no long-lived MCP secret sits in a file. |
+| 2026-11-11 | `/v1/logs` takes a telemetry token of its own and refuses the MCP server's token. | ADR 0058 phase 0: the exporter's header must not be a credential that calls tools. |
 | 2026-10-08 | Proposed: Claude Code's OTLP/HTTP logs arrive at `/v1/logs` on the MCP listener, behind the MCP server's token. | A run's cost is Claude Code's figure, and the listener already had the guard. |

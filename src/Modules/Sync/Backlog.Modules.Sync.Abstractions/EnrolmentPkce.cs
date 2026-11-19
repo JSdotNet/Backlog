@@ -6,7 +6,7 @@ using System.Text;
 namespace Backlog.Modules.Sync.Abstractions;
 
 /// <summary>
-/// The rules the owner sign-in's two ends must agree on (local ADR 0052 §1): PKCE
+/// The rules the owner sign-in's two ends must agree on (local ADR 0058 §1): PKCE
 /// with S256 (RFC 7636) and a loopback redirect (RFC 8252 §7.3). Written once, so
 /// the desktop that builds a challenge and the service that checks it cannot drift.
 /// </summary>

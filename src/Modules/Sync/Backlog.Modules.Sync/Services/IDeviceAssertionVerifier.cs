@@ -13,7 +13,7 @@ namespace Backlog.Modules.Sync.Services;
 public sealed record VerifiedAssertion(string Id, DateTimeOffset AcceptableUntil);
 
 /// <summary>Checks a device's <c>private_key_jwt</c> assertion (RFC 7523 §3) against
-/// the public key the device registered (local ADR 0052 §2).</summary>
+/// the public key the device registered (local ADR 0058 §2).</summary>
 public interface IDeviceAssertionVerifier
 {
     /// <summary>The verified assertion, or null when <paramref name="assertion"/> is

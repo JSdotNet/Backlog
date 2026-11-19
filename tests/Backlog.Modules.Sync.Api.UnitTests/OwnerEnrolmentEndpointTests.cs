@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
-/// Local ADR 0052 §1 over HTTP: a first device enrols only through the configured
+/// Local ADR 0058 §1 over HTTP: a first device enrols only through the configured
 /// owner's GitHub sign-in, the code it gets back works once and only with its PKCE
 /// verifier, and the same sign-in from a new device recovers the owner by revoking
 /// every other device. GitHub itself is a stand-in that answers a user id per code.

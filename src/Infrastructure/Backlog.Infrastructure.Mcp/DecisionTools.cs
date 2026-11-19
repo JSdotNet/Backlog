@@ -17,7 +17,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// Backlog's own subject store, and the three on review notes — list them at an
 /// address, post one, resolve one — answered over its remark store.
 /// <para>
-/// <b>The decisions are the person's (local ADR 0052 §7).</b> <c>devbook_approve</c>
+/// <b>The decisions are the person's (local ADR 0058 §7).</b> <c>devbook_approve</c>
 /// and <c>devbook_accept</c> are not served: an agent holding the MCP token could
 /// approve its own proposal, and the record named the person. The person approves
 /// and accepts in the devbook view, through <see cref="DevbookProposalDecision"/>.

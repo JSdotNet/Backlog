@@ -43,7 +43,7 @@ public class ClaudeHttpRegistrationArgumentTests
 
     /// <summary>
     /// <c>claude mcp add</c> has no flag for a <c>headersHelper</c>, so a registration that runs
-    /// one — Backlog's own, for its delivery grant (local ADR 0052 §3) — is
+    /// one — Backlog's own, for its delivery grant (local ADR 0058 §3) — is
     /// <c>claude mcp add-json</c> at user scope with the server as a single JSON argument that
     /// carries the helper and any static headers beside it.
     /// </summary>

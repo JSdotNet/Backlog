@@ -7,7 +7,7 @@ using ModelContextProtocol.Server;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// The <c>agents:grant</c> tools (local ADR 0052 §5, agents that grant other agents): an
+/// The <c>agents:grant</c> tools (local ADR 0058 §5, agents that grant other agents): an
 /// orchestrator the person made a granter — the Manager session, a delivery flow that starts a
 /// worker — answers other agents' requests and grants, trims, renews or revokes them without the
 /// person, inside the rules the host enforces. Every refusal names the rule it met.

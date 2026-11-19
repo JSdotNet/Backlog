@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
 /// The three calls the desktop's Remote connector card makes about the claude.ai
-/// connector's client secret (local ADR 0052 §8): read where it stands, mint a new one,
+/// connector's client secret (local ADR 0058 §8): read where it stands, mint a new one,
 /// revoke it. Only the wire is faked, so what is asserted is the request that would
 /// have gone out and what a screen gets back.
 /// </summary>

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Modules.Sync.Api.Security;
 
 /// <summary>
-/// The remote connector's authorization server (local ADR 0052 §8): its options, the module's
+/// The remote connector's authorization server (local ADR 0058 §8): its options, the module's
 /// view of them, the token issuer and the rate limit of its anonymous routes. Called before
 /// <c>AddSyncModule</c>, so the configured settings win over the module's stand-in.
 /// </summary>

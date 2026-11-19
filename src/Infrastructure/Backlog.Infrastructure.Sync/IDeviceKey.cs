@@ -1,7 +1,7 @@
 namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
-/// This device's signing key (local ADR 0052 §2): an ECDSA P-256 key whose private
+/// This device's signing key (local ADR 0058 §2): an ECDSA P-256 key whose private
 /// half never leaves the store that holds it. A device bound to it proves itself by
 /// signing a <see cref="DeviceAssertion"/> instead of presenting a stored secret.
 /// </summary>

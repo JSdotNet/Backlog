@@ -266,7 +266,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 
     /// <summary>
     /// The key store reaches the two clients that use it, not only the container
-    /// (local ADR 0052 §2): the token provider the head resolves signs its fetch with
+    /// (local ADR 0058 §2): the token provider the head resolves signs its fetch with
     /// the key, and the pairing client it resolves sends the key's public half. Proved
     /// on the wire, through the head's own client pipelines with a recording handler at
     /// the bottom, so a registration that dropped the key would show as a request

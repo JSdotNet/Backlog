@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
 /// What the MCP server page and the request window say about an agent's request for access
-/// (local ADR 0052 §5): the line under its name, the switches it offers, which of them start
+/// (local ADR 0058 §5): the line under its name, the switches it offers, which of them start
 /// on, and the headline that counts it. Words and shapes only, so the screens and their tests
 /// agree on them without rendering.
 /// </summary>
@@ -39,7 +39,7 @@ public static class McpAgentRequests
     }
 
     /// <summary>The switches on when a request is first shown: what it asked for, except
-    /// <c>agents:grant</c>, which always starts off (local ADR 0052 §5).</summary>
+    /// <c>agents:grant</c>, which always starts off (local ADR 0058 §5).</summary>
     public static IReadOnlyList<string> Initial(McpAccessRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

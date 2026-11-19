@@ -50,7 +50,7 @@ public sealed class DesktopCompositionOptions
     /// content root in the harness, so it pairs as a device of its own.</summary>
     public required Func<IServiceProvider, IDeviceCredentialStore> DeviceCredentialStore { get; init; }
 
-    /// <summary>The key this device proves itself with (local ADR 0052 §2): a
+    /// <summary>The key this device proves itself with (local ADR 0058 §2): a
     /// non-exportable CNG key, TPM first, in the installed app; a DPAPI-sealed software
     /// key beside the harness's credential, so it lives exactly as long as that does.</summary>
     public required Func<IServiceProvider, IDeviceKeyStore> DeviceKeyStore { get; init; }
@@ -74,7 +74,7 @@ public sealed class DesktopCompositionOptions
     public required string BackupStatePath { get; init; }
 
     /// <summary>The database file the MCP audit log keeps its records in (local ADR
-    /// 0052, Phase 0): per installation, beside the device files, and never the
+    /// 0058, Phase 0): per installation, beside the device files, and never the
     /// workspace's <c>backlog.db</c>, which a backup commits to GitHub.</summary>
     public required string McpAuditLogPath { get; init; }
 

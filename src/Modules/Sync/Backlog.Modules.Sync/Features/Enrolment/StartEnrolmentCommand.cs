@@ -8,7 +8,7 @@ using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.Features.Enrolment;
 
-/// <summary>A device with no owner starts the owner sign-in (local ADR 0052 §1).</summary>
+/// <summary>A device with no owner starts the owner sign-in (local ADR 0058 §1).</summary>
 public sealed record StartEnrolmentCommand(Uri? RedirectUri, string? CodeChallenge, string? CodeChallengeMethod, string? State);
 
 /// <summary>

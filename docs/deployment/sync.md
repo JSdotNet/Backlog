@@ -142,7 +142,7 @@ refuses to start without one. The key lives in Key Vault **`kv-backlog-sync-we`*
 `kv-backlog-sync` is taken globally by a vault outside this tenant; RBAC mode,
 same resource group and region as the container app) as the secret
 **`sync-token-signing-key`**, and the service reads it with its managed identity
-(local ADR 0052). Nothing in GitHub carries it.
+(local ADR 0058). Nothing in GitHub carries it.
 
 The vault and the identity's *Key Vault Secrets User* role are declared in
 `infra/sync/main.bicep`, so a `provision` creates or keeps them. Creating them by hand first
@@ -172,7 +172,7 @@ The GitHub OAuth App's client secret goes into the same vault as
 
 ### 6. The owner and the OAuth App's client id
 
-Only the owner enrols a device (local ADR 0052 §1): a first device, and a recovery that
+Only the owner enrols a device (local ADR 0058 §1): a first device, and a recovery that
 re-enrols a new device and revokes every other one, both start with a GitHub sign-in
 through the "Backlog sync" OAuth App, whose callback is `/oauth/github/callback`. The
 template sets the two public halves on the container app from its parameters:
@@ -188,7 +188,7 @@ empty owner, while the old devices keep syncing the old one and no recovery reac
 ### 7. The claude.ai remote connector
 
 The sync service is also the authorization server of the claude.ai custom connector
-(local ADR 0052 §8). The template sets its two settings on the container app from the
+(local ADR 0058 §8). The template sets its two settings on the container app from the
 ingress fqdn, so there is nothing to enter at deploy time:
 
 | Setting | Value |
@@ -238,7 +238,7 @@ state. Since then the workflow has completed a run: Deploy Sync succeeded from
 | 2. Federated credential | Not created. No `backlog-sync-deploy` app registration exists in the tenant. |
 | 3. Environment variables | All five unset on `backlog-sync`. |
 | 4. Budget alert | Not created. |
-| 5. Signing key secret | Not set. (Since local ADR 0052 the key is a Key Vault secret, not a GitHub one; see prerequisite 5.) |
+| 5. Signing key secret | Not set. (Since local ADR 0058 the key is a Key Vault secret, not a GitHub one; see prerequisite 5.) |
 
 So every run then failed in `Verify deployment target`, before touching Azure, with:
 
@@ -318,7 +318,7 @@ service issued" for a while after the window closes. Reaping is lazy and the
 emulator does not do it at all, so the service's own expiry check — not the TTL —
 is what turns a stale code away.
 
-`connectorCredentials` holds the remote connector's credentials (local ADR 0052 §8).
+`connectorCredentials` holds the remote connector's credentials (local ADR 0058 §8).
 The client document — the secret hash, its generation and when it was last used — carries
 no `ttl`: losing it disconnects claude.ai. A refresh token is written with its remaining
 life plus a day, recomputed on every write. Revoking a family after a replayed refresh
@@ -390,7 +390,7 @@ that, and nothing in it can.
 
 The identity model above is about how the service reaches Cosmos; it says nothing
 about how the service signs the device tokens it issues. That key — at least 32 bytes,
-base64 — is the Key Vault secret `sync-token-signing-key` (local ADR 0052). Deployed,
+base64 — is the Key Vault secret `sync-token-signing-key` (local ADR 0058). Deployed,
 it travels like this:
 
 | Step | Where | What |

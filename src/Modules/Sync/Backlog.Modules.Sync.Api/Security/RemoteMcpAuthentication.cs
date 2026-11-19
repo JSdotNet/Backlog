@@ -15,7 +15,7 @@ using Microsoft.Net.Http.Headers;
 namespace Backlog.Modules.Sync.Api.Security;
 
 /// <summary>
-/// The remote <c>/mcp</c> endpoint as an OAuth 2.1 resource server (local ADR 0052 §8): a
+/// The remote <c>/mcp</c> endpoint as an OAuth 2.1 resource server (local ADR 0058 §8): a
 /// bearer scheme of its own, beside the device scheme rather than in it, that accepts only
 /// the connector's access tokens.
 /// <list type="bullet">
@@ -46,7 +46,7 @@ internal static class RemoteMcpAuthentication
     internal const string InboxCapturePolicy = "mcp:inbox-capture";
 
     /// <summary>The scopes the remote endpoint serves. <c>tasks:admin</c> and
-    /// <c>devbook:decide</c> never join it (local ADR 0052 §8).</summary>
+    /// <c>devbook:decide</c> never join it (local ADR 0058 §8).</summary>
     internal static IReadOnlyList<string> ServedScopes { get; } = [McpScopes.InboxCapture];
 
     internal static void AddRemoteMcpAuthentication(this IHostApplicationBuilder builder)

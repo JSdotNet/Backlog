@@ -5,7 +5,7 @@
 // the counting — it reads the transcript the event names, so nothing here does.
 //
 // Endpoint: POST http://127.0.0.1:<port>/telemetry, beside the app's /mcp, with a token for the
-// "Telemetry" grant (mcpServer.grants.telemetry, local ADR 0052, Phase 1), asked for per event
+// "Telemetry" grant (mcpServer.grants.telemetry, local ADR 0058, Phase 1), asked for per event
 // through the app's installed headers helper — see backlog-grant.mjs. BACKLOG_MCP_TOKEN is sent
 // only when no Telemetry grant is recorded. With neither, nothing is posted.
 //

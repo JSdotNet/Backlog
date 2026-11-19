@@ -49,7 +49,7 @@ public class DeviceDocumentTests
         Assert.Null(DeviceDocumentFactory.ToDevice(older)!.PairedBy);
     }
 
-    /// <summary>A device bound to a key (local ADR 0052 §2) keeps the key as
+    /// <summary>A device bound to a key (local ADR 0058 §2) keeps the key as
     /// <c>publicKey</c> and no credential hash; a document written before the
     /// field reads as a device still on its credential.</summary>
     [Fact]

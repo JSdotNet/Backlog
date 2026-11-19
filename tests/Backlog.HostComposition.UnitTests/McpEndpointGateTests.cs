@@ -599,7 +599,7 @@ public class McpEndpointGateTests
 
     /// <summary>
     /// A call that answers is recorded once, as succeeded, against the harness's caller
-    /// (local ADR 0052, Phase 0). Over the real endpoint, because the record is written by
+    /// (local ADR 0058, Phase 0). Over the real endpoint, because the record is written by
     /// a filter the SDK runs, in the order the host installed its filters.
     /// </summary>
     [Fact]

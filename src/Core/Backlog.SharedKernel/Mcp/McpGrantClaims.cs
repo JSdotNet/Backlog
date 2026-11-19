@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.Mcp;
 
 /// <summary>
-/// The fixed values of a grant token (local ADR 0052 §3): who issues it, who it is for, how
+/// The fixed values of a grant token (local ADR 0058 §3): who issues it, who it is for, how
 /// long it lives and the two claims it adds to the registered ones. The broker that mints a
 /// token and the listener that validates it read them from here, so the two cannot disagree.
 /// </summary>
@@ -19,7 +19,7 @@ public static class McpGrantClaims
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(15);
 
     /// <summary>How long a delegated grant mints before its granter must renew it (local ADR
-    /// 0052 §5). Each grant or renewal by the granter starts it again.</summary>
+    /// 0058 §5). Each grant or renewal by the granter starts it again.</summary>
     public static readonly TimeSpan DelegationLifetime = TimeSpan.FromDays(7);
 
     /// <summary>The grant's scopes, space-separated, as RFC 8693 writes <c>scope</c>.</summary>

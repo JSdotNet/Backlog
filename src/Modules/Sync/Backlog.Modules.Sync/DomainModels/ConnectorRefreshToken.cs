@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Sync.DomainModels;
 
 /// <summary>
-/// One refresh token of the remote connector (local ADR 0052 §8), stored by hash. It
+/// One refresh token of the remote connector (local ADR 0058 §8), stored by hash. It
 /// rotates on use: the token that answers a refresh replaces the one presented, which then
 /// stops working. Every token of one authorization shares a <see cref="FamilyId"/>, so a
 /// rotated token presented again — a replay — revokes the whole family.

@@ -15,7 +15,7 @@ using Microsoft.Net.Http.Headers;
 namespace Backlog.Modules.Sync.Api.Endpoints;
 
 /// <summary>
-/// The remote connector's OAuth 2.1 authorization server (local ADR 0052 §8): RFC 8414
+/// The remote connector's OAuth 2.1 authorization server (local ADR 0058 §8): RFC 8414
 /// metadata, the authorize endpoint, the consent page and the token endpoint, all at the root
 /// and all anonymous — the owner's GitHub sign-in, the consent ticket and the client secret
 /// are what authorize each step.

@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel;
 
 /// <summary>
-/// The person confirming, with Windows Hello, an act that is hard to undo (local ADR 0052 §6):
+/// The person confirming, with Windows Hello, an act that is hard to undo (local ADR 0058 §6):
 /// allowing an agent's grant, switching <c>agents:grant</c> on, running a <c>tasks:admin</c>
 /// tool, minting a pairing code and revoking a device. A port, because what asks is the
 /// host's: the desktop head asks <c>UserConsentVerifier</c>, which a script or UI automation

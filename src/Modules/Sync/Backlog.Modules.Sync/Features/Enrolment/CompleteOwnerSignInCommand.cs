@@ -13,7 +13,7 @@ namespace Backlog.Modules.Sync.Features.Enrolment;
 public sealed record CompleteOwnerSignInCommand(string? State, string? AuthorizationCode);
 
 /// <summary>
-/// Ends an owner sign-in (local ADR 0052 §1). The sign-in is burned first, so its state
+/// Ends an owner sign-in (local ADR 0058 §1). The sign-in is burned first, so its state
 /// works once. Then GitHub is asked who signed in, and only the configured owner's
 /// numeric id is let through: the device's loopback gets a one-time code. Anybody
 /// else — and a sign-in GitHub did not confirm — gets <c>error=access_denied</c> and

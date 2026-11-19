@@ -15,7 +15,7 @@ using static Backlog.Desktop.UI.UnitTests.McpServerSettingsPageTests;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// An agent's request waiting for the person (local ADR 0052 §5), where the person meets it:
+/// An agent's request waiting for the person (local ADR 0058 §5), where the person meets it:
 /// the MCP server page's headline and waiting card, the settings menu's badge, and the request
 /// window. Over the real file stores and desk, with Windows Hello faked.
 /// </summary>

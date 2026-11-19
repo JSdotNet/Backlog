@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.Mcp;
 
 /// <summary>
-/// The MCP audit log (local ADR 0052, Phase 0): one row per tool call in the
+/// The MCP audit log (local ADR 0058, Phase 0): one row per tool call in the
 /// <c>mcp_calls</c> table of a database file of its own.
 /// <para>
 /// <b>Its own file, never <c>backlog.db</c>.</b> The log is this installation's record of

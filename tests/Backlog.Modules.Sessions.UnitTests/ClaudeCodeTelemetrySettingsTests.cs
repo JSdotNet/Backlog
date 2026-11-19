@@ -32,7 +32,7 @@ public sealed class ClaudeCodeTelemetrySettingsTests
     private const string Helper = "node \"C:/Users/me/AppData/Local/Backlog/hooks/backlog-mcp-headers.mjs\" --grant g_t";
 
     /// <summary>The desktop block names the headers helper for the Telemetry grant (local ADR
-    /// 0052, Phase 1) and carries no token: drawn and copied the same, with nothing to hide.</summary>
+    /// 0058, Phase 1) and carries no token: drawn and copied the same, with nothing to hide.</summary>
     [Fact]
     public void The_desktop_endpoint_is_shown_with_the_headers_helper_for_the_telemetry_grant()
     {

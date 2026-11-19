@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
 /// An <see cref="IDeviceKey"/> over a key this process cannot hold, only ask to sign: the
-/// phone's, in Android Keystore (local ADR 0052 §2). Such a key hands out its public half
+/// phone's, in Android Keystore (local ADR 0058 §2). Such a key hands out its public half
 /// as SubjectPublicKeyInfo and signs <c>SHA256withECDSA</c> as a DER
 /// <c>SEQUENCE { r, s }</c>; the assertion the service verifies is ES256, whose signature
 /// is <c>r||s</c> at 32 bytes each. This is the conversion, kept off the device so it can

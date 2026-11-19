@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
 /// <summary>
-/// The MCP audit log's own database file (local ADR 0052, Phase 0): a record comes back
+/// The MCP audit log's own database file (local ADR 0058, Phase 0): a record comes back
 /// whole, newest first, at most the count asked for, and nothing older than thirty days
 /// is kept or shown.
 /// </summary>

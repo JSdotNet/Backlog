@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Sync.Api.Options;
 
 /// <summary>
-/// The "Backlog sync" GitHub OAuth App the owner signs in through (local ADR 0052 §1).
+/// The "Backlog sync" GitHub OAuth App the owner signs in through (local ADR 0058 §1).
 /// <see cref="ClientId"/> is the container app's <c>GitHub__ClientId</c> setting;
 /// <see cref="ClientSecret"/> is read from the vault secret
 /// <c>github-oauth-client-secret</c> (<c>KeyVaultSecretsConfigurationSource</c>) and

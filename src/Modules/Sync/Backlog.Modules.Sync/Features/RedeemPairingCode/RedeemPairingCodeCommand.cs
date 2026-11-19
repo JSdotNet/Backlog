@@ -13,7 +13,7 @@ namespace Backlog.Modules.Sync.Features.RedeemPairingCode;
 /// was handed out of band is the whole of its claim, which is why this slice
 /// runs anonymously and why every failure it can produce says as little as
 /// possible. A device that sends its <paramref name="PublicKey"/> is bound to that
-/// key and gets no credential (local ADR 0052 §2).
+/// key and gets no credential (local ADR 0058 §2).
 /// </summary>
 public sealed record RedeemPairingCodeCommand(string Code, string DeviceName, string? PublicKey = null);
 

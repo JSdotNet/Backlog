@@ -1,6 +1,6 @@
 namespace Backlog.SharedKernel.Mcp;
 
-/// <summary>The MCP audit log's fixed values (local ADR 0052, Phase 0).</summary>
+/// <summary>The MCP audit log's fixed values (local ADR 0058, Phase 0).</summary>
 public static class McpAudit
 {
     /// <summary>How long a record is kept.</summary>
@@ -10,11 +10,11 @@ public static class McpAudit
     public const int Shown = 200;
 
     /// <summary>The caller of a call the desktop app admits on the BACKLOG_MCP_TOKEN escape
-    /// hatch, and before local ADR 0052, Phase 1 of every call: the shared bearer token.</summary>
+    /// hatch, and before local ADR 0058, Phase 1 of every call: the shared bearer token.</summary>
     public const string SharedTokenCaller = "shared token";
 
     /// <summary>The caller of every call the web harness admits: it asks for no token,
-    /// because it is not the installed app (local ADR 0052).</summary>
+    /// because it is not the installed app (local ADR 0058).</summary>
     public const string HarnessCaller = "web harness, no token";
 
     /// <summary>The caller of a record the listener writes for requests that carried no
@@ -25,7 +25,7 @@ public static class McpAudit
     /// the listener's lockout: not a tool, so not in a tool's snake case.</summary>
     public const string BearerLockout = "bearer lockout";
 
-    /// <summary>The tool column of the record a granter agent's grant writes (local ADR 0052
+    /// <summary>The tool column of the record a granter agent's grant writes (local ADR 0058
     /// §5): the caller is the granter, the target the grant it made, both by name and id.</summary>
     public const string DelegatedGrant = "delegated grant";
 
@@ -36,7 +36,7 @@ public static class McpAudit
     public const string DelegatedRevoke = "delegated revoke";
 
     /// <summary>The tool column of the record the question relay writes when it drops an
-    /// answer from a device that is not paired now (local ADR 0041, ADR 0052 Phase 2): the
+    /// answer from a device that is not paired now (local ADR 0041, ADR 0058 Phase 2): the
     /// caller is that device, revoked or unknown, the target the waiting question.</summary>
     public const string DroppedAnswer = "dropped answer";
 }

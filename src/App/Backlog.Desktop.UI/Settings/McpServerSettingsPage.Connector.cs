@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
-/// The Remote connector card on Settings › MCP server (local ADR 0052 §8): the claude.ai
+/// The Remote connector card on Settings › MCP server (local ADR 0058 §8): the claude.ai
 /// connector's client id and redirect URI, where its secret stands, and Create, Replace
 /// and Revoke over <see cref="IRemoteConnector"/>.
 /// <para>

@@ -79,7 +79,7 @@ public interface IMcpEndpointSource
     /// <summary>
     /// What a <c>${BACKLOG_MCP_TOKEN}</c> placeholder is filled with: the
     /// <c>BACKLOG_MCP_TOKEN</c> escape hatch's token where a debug setting switched it on
-    /// (local ADR 0052, Phase 1), else <see langword="null"/> — and null leaves the
+    /// (local ADR 0058, Phase 1), else <see langword="null"/> — and null leaves the
     /// placeholder unresolved, so the row reports it rather than registering a token the
     /// listener refuses. Nothing is minted: since the shared token was retired a
     /// registration names a grant, which the MCP server's own Settings page makes.
@@ -91,7 +91,7 @@ public interface IMcpEndpointSource
     /// <summary>
     /// What a <c>${BACKLOG_MCP_HEADERS_HELPER}</c> placeholder is filled with: the command that
     /// runs the app's installed headers helper for its "Backlog delivery" grant — node on the
-    /// helper's absolute path, then <c>--grant &lt;id&gt;</c> (local ADR 0052 §3) — or
+    /// helper's absolute path, then <c>--grant &lt;id&gt;</c> (local ADR 0058 §3) — or
     /// <see langword="null"/> while the app has recorded no such grant, which leaves the
     /// placeholder unresolved and the row reporting it. A grant id is a label, not a secret, and
     /// the catalog never sees one: it carries the placeholder, and this answers it on the machine

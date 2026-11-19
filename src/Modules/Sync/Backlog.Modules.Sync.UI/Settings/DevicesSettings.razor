@@ -133,7 +133,7 @@
             }
 
             @* The key this device signs in with is in software, not the TPM
-               (local ADR 0052 §2). Nothing reads it out, but a full copy of
+               (local ADR 0058 §2). Nothing reads it out, but a full copy of
                the Windows profile carries it, which a TPM key never is. The
                heading says where the key is rather than why: a TPM may be
                missing or unavailable, and a development harness keeps its key
@@ -502,7 +502,7 @@
     private bool UpdateRequired => _compatibility?.UpdateRequired == true;
     private IDeviceCredentialStore? _deviceCredentials;
 
-    /// <summary>This device's key, on a host that keeps one (local ADR 0052 §2).</summary>
+    /// <summary>This device's key, on a host that keeps one (local ADR 0058 §2).</summary>
     private IDeviceKeyStore? _deviceKeys;
 
     /// <summary>Optional for the reason the pairing client is: a host that has

@@ -1,6 +1,6 @@
 namespace Backlog.SharedKernel;
 
-/// <summary>Where one device stands with its owner right now (local ADR 0052, Phase 2).</summary>
+/// <summary>Where one device stands with its owner right now (local ADR 0058, Phase 2).</summary>
 public enum DeviceStanding
 {
     /// <summary>The device is one of the owner's paired devices now, or this installation.</summary>
@@ -18,7 +18,7 @@ public enum DeviceStanding
 /// <para>
 /// In the kernel for the reason <see cref="IDeviceIdentitySource"/> is: Sync knows the
 /// owner's devices and Sessions asks, before it hands an answer to a waiting agent, whether
-/// the device it came from is still paired (local ADR 0041, ADR 0052 Phase 2). Neither may
+/// the device it came from is still paired (local ADR 0041, ADR 0058 Phase 2). Neither may
 /// see the other.
 /// </para>
 /// </summary>

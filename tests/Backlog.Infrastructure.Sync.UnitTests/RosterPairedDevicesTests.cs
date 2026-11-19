@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
 /// Where a device stands with the owner, read from the sync service's device list
-/// (local ADR 0052, Phase 2): paired while listed, revoked once listed and then gone,
+/// (local ADR 0058, Phase 2): paired while listed, revoked once listed and then gone,
 /// unknown when never listed, and never paired when the list cannot be read.
 /// </summary>
 public sealed class RosterPairedDevicesTests

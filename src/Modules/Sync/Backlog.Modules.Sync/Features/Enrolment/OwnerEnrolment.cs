@@ -5,7 +5,7 @@ using Backlog.Modules.Sync.DomainModels;
 namespace Backlog.Modules.Sync.Features.Enrolment;
 
 /// <summary>
-/// Who may enrol a first device, and under which owner (local ADR 0052 §1). The host
+/// Who may enrol a first device, and under which owner (local ADR 0058 §1). The host
 /// builds it from configuration; the module only reads it.
 /// </summary>
 /// <param name="GitHubUserId">The numeric id of the one GitHub user who is the owner.

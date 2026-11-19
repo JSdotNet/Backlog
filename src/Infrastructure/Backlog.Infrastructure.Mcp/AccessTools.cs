@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
 /// <c>request_access</c>, the one tool an agent asks the person for more through (local ADR
-/// 0052 §5): it opens a request for scopes the calling grant does not hold and brings
+/// 0058 §5): it opens a request for scopes the calling grant does not hold and brings
 /// Backlog's request window forward. It changes no grant — the caller's least of all — because
 /// only the person answers a request, in the desktop window, with Windows Hello.
 /// <para>

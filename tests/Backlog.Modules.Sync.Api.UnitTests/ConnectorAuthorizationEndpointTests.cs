@@ -19,7 +19,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
-/// Local ADR 0052 §8 over HTTP: the remote connector's authorization server — RFC 8414
+/// Local ADR 0058 §8 over HTTP: the remote connector's authorization server — RFC 8414
 /// metadata, an authorize that refuses a bad client or redirect in place, the owner's GitHub
 /// sign-in through the shared callback, a consent page, and a token endpoint that rotates
 /// refresh tokens and answers RFC 6749 errors. GitHub is a stand-in that answers a user id

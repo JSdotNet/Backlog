@@ -18,7 +18,7 @@ namespace Backlog.Infrastructure.Sync;
 /// Registering and pairing both end with a credential that is shown once, so
 /// both write it into the <see cref="IDeviceCredentialStore"/> before returning.
 /// With an <see cref="IDeviceKeyStore"/> both send the device's public key instead,
-/// and what is stored is the device's identity with no secret in it (local ADR 0052
+/// and what is stored is the device's identity with no secret in it (local ADR 0058
 /// §2).
 /// Doing it here rather than in the screen is what stops a second caller — the
 /// mobile pairing panel beside the desktop one — from being the place the secret
@@ -79,11 +79,11 @@ public sealed class DevicePairingClient : IDeviceRoster
     /// <param name="browser">Where the owner signs in to register a first device; none on a
     /// host that only pairs by code.</param>
     /// <param name="signInTimeout">How long to wait for the browser to come back.</param>
-    /// <param name="keys">This device's key (local ADR 0052 §2): with one, registering and
+    /// <param name="keys">This device's key (local ADR 0058 §2): with one, registering and
     /// pairing send its public key and the service hands back no credential to keep. None
     /// on a host that keeps no key, which goes on with a credential.</param>
     /// <param name="stepUp">Windows Hello before minting a pairing code or revoking a device
-    /// (local ADR 0052 §6). None on a host that keeps no step-up — the web harness and the
+    /// (local ADR 0058 §6). None on a host that keeps no step-up — the web harness and the
     /// phone — which mints and revokes without asking.</param>
     public DevicePairingClient(
         HttpClient http,
@@ -109,7 +109,7 @@ public sealed class DevicePairingClient : IDeviceRoster
     }
 
     /// <summary>
-    /// First device in, or recovery of a lost owner (local ADR 0052 §1): signs the owner
+    /// First device in, or recovery of a lost owner (local ADR 0058 §1): signs the owner
     /// in through the system browser, then registers with the one-time code the sign-in
     /// handed back to this machine's loopback, and stores the credential it is handed.
     /// <para>

@@ -11,7 +11,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The named scope policies and the fallback-deny behind them (local ADR 0052 §4), asked
+/// The named scope policies and the fallback-deny behind them (local ADR 0058 §4), asked
 /// through the authorization service the hosts compose: one allowed and one refused caller
 /// per scope, the routes' policies, the static callers' scopes, and <c>devbook:decide</c> in
 /// no policy, no token and no grant. The call filter that asks these per tool is
@@ -141,7 +141,7 @@ public sealed class McpScopePoliciesTests
     [Fact]
     public void The_escape_hatch_and_the_harness_hold_every_grantable_scope()
     {
-        // The BACKLOG_MCP_TOKEN escape hatch stands in for no particular agent (local ADR 0052,
+        // The BACKLOG_MCP_TOKEN escape hatch stands in for no particular agent (local ADR 0058,
         // Phase 1); the hook and telemetry callers went with the tokens they named.
         Assert.Equal(McpScopes.Grantable.Count, McpScopePolicies.ScopesOf(McpScopePolicies.SharedTokenCaller).Count);
         Assert.Equal(McpScopes.Grantable.Count, McpScopePolicies.ScopesOf(McpScopePolicies.HarnessCaller).Count);

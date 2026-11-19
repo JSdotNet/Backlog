@@ -6,7 +6,7 @@ namespace Backlog.Modules.Sync.Api.Security;
 
 /// <summary>
 /// The signing key from Key Vault, read with the service's managed identity
-/// (local ADR 0052; the role is Key Vault Secrets User on the one vault).
+/// (local ADR 0058; the role is Key Vault Secrets User on the one vault).
 /// <para>
 /// Rotation is a new version of the one secret
 /// (<see cref="SyncTokenOptions.SigningKeySecretName"/>), never a second

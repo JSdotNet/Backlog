@@ -8,7 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace Backlog.Modules.Sync.Api.Security;
 
 /// <summary>
-/// Mints the remote connector's access token (local ADR 0052 §8): HS256, for the <c>/mcp</c>
+/// Mints the remote connector's access token (local ADR 0058 §8): HS256, for the <c>/mcp</c>
 /// resource, for 15 minutes by default.
 /// <para>
 /// Signed with a key derived from the device-token signing key —

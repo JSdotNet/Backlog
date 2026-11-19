@@ -69,7 +69,7 @@ internal sealed class SyncServiceFactory : WebApplicationFactory<Program>
     /// thing that is missing.</summary>
     internal IReadOnlyList<(string Key, string? Value)> MoreConfiguration { get; init; } = [];
 
-    /// <summary>The owner a deployed service needs before it starts (local ADR 0052
+    /// <summary>The owner a deployed service needs before it starts (local ADR 0058
     /// §1): a GitHub user id and both halves of the OAuth App. Test values.</summary>
     internal static IReadOnlyList<(string Key, string? Value)> ConfiguredOwner { get; } =
     [
@@ -79,7 +79,7 @@ internal sealed class SyncServiceFactory : WebApplicationFactory<Program>
     ];
 
     /// <summary>The remote connector's issuer and resource a deployed service needs before it
-    /// starts (local ADR 0052 §8). Test values.</summary>
+    /// starts (local ADR 0058 §8). Test values.</summary>
     internal static IReadOnlyList<(string Key, string? Value)> ConfiguredConnector { get; } =
     [
         ("Modules:Sync:Connector:Issuer", "https://sync.test"),

@@ -3,7 +3,7 @@ using System.Security.Claims;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// What the <c>request_access</c> tool asks of the host (local ADR 0052 §5): record that the
+/// What the <c>request_access</c> tool asks of the host (local ADR 0058 §5): record that the
 /// calling agent wants more scopes, and bring the request window forward. A port, because the
 /// grants, the requests and the window are the desktop head's. A host that keeps no grants —
 /// the web harness — composes none, and the tool says so.
@@ -41,7 +41,7 @@ public sealed record AgentAccessAnswer(string? RequestId, bool WindowOpened, str
 
 /// <summary>
 /// The principal the listener put on the current MCP call, for a tool that must know which
-/// grant called it (local ADR 0052 §5). Scoped to the request: the host's call filter sets it
+/// grant called it (local ADR 0058 §5). Scoped to the request: the host's call filter sets it
 /// before the tool runs, and a tool takes it from its constructor.
 /// </summary>
 public sealed class McpCallContext

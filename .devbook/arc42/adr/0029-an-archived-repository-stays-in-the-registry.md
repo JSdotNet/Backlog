@@ -175,7 +175,7 @@ before, with every edit refused.
   debt record's state and offers no pick, though a branch snapshot of an active
   repository does. The MCP tool `devbook_set_state` refuses with
   `repository.archived`; `devbook_get_state` still reads. *(2026-11-11, local
-  ADR 0052 §7: approve and accept left MCP for the Instructions area's Proposals
+  ADR 0058 §7: approve and accept left MCP for the Instructions area's Proposals
   tab, which shows an archived repository's proposals and refuses both.)*
 - **The Instructions area is read-only too.** It reads the clone's instruction
   files as before and offers no edit.

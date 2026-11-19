@@ -9,7 +9,7 @@ namespace Backlog.Desktop.Mcp;
 /// <summary>
 /// Where this head receives Claude Code's telemetry: the MCP listener's configured port
 /// on loopback, at <c>/v1/logs</c>, behind a token for the "Telemetry" grant (local ADR 0024,
-/// local ADR 0052, Phase 1), which the exporter fetches by running the installed headers helper.
+/// local ADR 0058, Phase 1), which the exporter fetches by running the installed headers helper.
 /// <para>
 /// Read off <see cref="IMcpEndpointSource"/> rather than the worker, for the reason that
 /// port exists: the configured port is what a registration is written from, and it is

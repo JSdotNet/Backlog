@@ -75,7 +75,7 @@ internal sealed class SyncModuleFixture
     internal RegisterFirstDeviceCommandHandler Register { get; }
 
     /// <summary>A registration carrying a one-time code from an enrolment that, with no
-    /// owner configured, signs nobody in (local ADR 0052 §1).</summary>
+    /// owner configured, signs nobody in (local ADR 0058 §1).</summary>
     internal async Task<RegisterFirstDeviceCommand> Enrolled(string name)
     {
         var verifier = EnrolmentPkce.CreateVerifier();

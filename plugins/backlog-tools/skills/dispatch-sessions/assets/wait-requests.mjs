@@ -3,7 +3,7 @@
 // GET /session-requests/wait long poll (local ADR 0038 §4) and prints one line per answer
 // delivery (local ADR 0041) and per request, so the Manager spends no model turn while nothing waits.
 //
-// The route takes sessions:dispatch, which only the "Manager" grant holds (local ADR 0052 §4):
+// The route takes sessions:dispatch, which only the "Manager" grant holds (local ADR 0058 §4):
 // each call carries a fresh token for mcpServer.grants.manager from the app's installed headers
 // helper, so an app restarted on another port, or a token past its 15 minutes, is found without
 // restarting the Monitor. BACKLOG_MCP_TOKEN is sent only when no Manager grant is recorded. See

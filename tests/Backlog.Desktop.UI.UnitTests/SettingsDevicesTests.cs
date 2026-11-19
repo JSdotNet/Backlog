@@ -1093,7 +1093,7 @@ public sealed class SettingsDevicesTests
         Assert.Null(context.SyncSettings.Current.ServiceUrl);
     }
 
-    /// <summary>A device whose key is kept in software rather than a TPM (local ADR 0052
+    /// <summary>A device whose key is kept in software rather than a TPM (local ADR 0058
     /// §2) is told what that costs: a copy of the profile signs in as this device. The
     /// heading says where the key is, not why - a TPM may be missing, or merely
     /// unavailable, and the harness keeps its key in software on purpose.</summary>
@@ -1586,7 +1586,7 @@ public sealed class SettingsDevicesTests
                 LastBody = await request.Content.ReadAsStringAsync(cancellationToken);
             }
 
-            // The enrolment start a Development service answers (local ADR 0052 §1): no
+            // The enrolment start a Development service answers (local ADR 0058 §1): no
             // owner configured, so straight back to the device's loopback with a code.
             if (path.EndsWith("/enrolment/start", StringComparison.Ordinal))
             {

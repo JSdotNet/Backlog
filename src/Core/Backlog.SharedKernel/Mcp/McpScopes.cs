@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.Mcp;
 
 /// <summary>
-/// The scopes a grant token claims (local ADR 0052 §4), one per area a tool group or route
+/// The scopes a grant token claims (local ADR 0058 §4), one per area a tool group or route
 /// serves. A scope decides which grant may call a tool that is listed; a tool group's feature
 /// flag still decides whether it is listed at all (ADR 0012 §7). The names are a starting cut.
 /// <para>
@@ -66,7 +66,7 @@ public static class McpScopes
     /// spelled exactly.</summary>
     public static bool IsGrantable(string? scope) => scope is not null && Grantable.Contains(scope, StringComparer.Ordinal);
 
-    /// <summary>The scopes an agent never grants another (local ADR 0052 §5): deciding, which no
+    /// <summary>The scopes an agent never grants another (local ADR 0058 §5): deciding, which no
     /// grant holds; granting, so delegation stays one level deep; and the admin scope, which asks
     /// the person for Windows Hello each time.</summary>
     public static IReadOnlyList<string> NonDelegable { get; } = [DevbookDecide, AgentsGrant, TasksAdmin];

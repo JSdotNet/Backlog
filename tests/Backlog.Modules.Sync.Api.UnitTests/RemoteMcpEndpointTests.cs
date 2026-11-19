@@ -16,7 +16,7 @@ using ModelContextProtocol.Protocol;
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
-/// Local ADR 0052 §8 over HTTP: the remote <c>/mcp</c> endpoint as an OAuth 2.1 resource
+/// Local ADR 0058 §8 over HTTP: the remote <c>/mcp</c> endpoint as an OAuth 2.1 resource
 /// server. It answers RFC 9728 metadata naming the authorization server, challenges with the
 /// metadata address, accepts only a connector token for its own audience (RFC 8707) from the
 /// current client generation, refuses one without <c>inbox:capture</c> as

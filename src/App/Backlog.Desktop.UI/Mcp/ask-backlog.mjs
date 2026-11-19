@@ -22,7 +22,7 @@
 //                                         then sweep state files other sessions left behind.
 //
 // The MCP tools are called as JSON-RPC tools/call over HTTP on the app's /mcp, with a token for
-// the "Question hook" grant (local ADR 0052, Phase 1), which holds notify:ask and nothing else.
+// the "Question hook" grant (local ADR 0058, Phase 1), which holds notify:ask and nothing else.
 // The grant's id is mcpServer.grants.questionHook in the app's settings.json — the one beside
 // this script's own folder first, then %LOCALAPPDATA%\Backlog's — and the token comes from the
 // app's token broker, the named pipe of that folder's installation and this Windows user, the

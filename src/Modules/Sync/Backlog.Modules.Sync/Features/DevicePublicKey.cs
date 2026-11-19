@@ -7,7 +7,7 @@ namespace Backlog.Modules.Sync.Features;
 
 /// <summary>
 /// The one rule every way of binding a key shares — registration, pairing and the
-/// migration on a token fetch (local ADR 0052 §2): the key is a base64url
+/// migration on a token fetch (local ADR 0058 §2): the key is a base64url
 /// SubjectPublicKeyInfo of a P-256 key and nothing else. What is stored is the
 /// key re-encoded, so two spellings of one key cannot both be on file.
 /// </summary>

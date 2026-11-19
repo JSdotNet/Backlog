@@ -7,7 +7,7 @@ name: Deploy Sync
 # authenticates with an OIDC federated credential: there is no publish profile
 # and no service principal secret. It carries no secret of the service's either:
 # the key the sync service signs device tokens with lives in Key Vault
-# kv-backlog-sync-we, read by the service's managed identity (local ADR 0052). The
+# kv-backlog-sync-we, read by the service's managed identity (local ADR 0058). The
 # federated credential, the resource group and that vault secret are created by
 # hand once — see docs/deployment/sync.md.
 

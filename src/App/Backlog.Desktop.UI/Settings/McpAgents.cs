@@ -10,7 +10,7 @@ using Backlog.UI.Components.Settings;
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
-/// What the MCP server page's Agents card says about a grant (local ADR 0052 §3 and §4): the
+/// What the MCP server page's Agents card says about a grant (local ADR 0058 §3 and §4): the
 /// scopes it offers as switches and the line each one carries, the roles that fill those
 /// switches in, the line under an agent's name, and the registration a new agent is given.
 /// Words and shapes only, so the page and its tests agree on them without rendering.
@@ -27,10 +27,10 @@ public static class McpAgents
     public const string CreatedInSettings = "Settings";
 
     /// <summary>The scopes drawn locked: <see cref="McpScopes.DevbookDecide"/>, which no grant
-    /// holds and no tool serves (ADR 0052 §7), so the boundary shows.</summary>
+    /// holds and no tool serves (ADR 0058 §7), so the boundary shows.</summary>
     public static IReadOnlyList<string> Locked { get; } = [McpScopes.DevbookDecide];
 
-    /// <summary>The scopes whose switching on asks for Windows Hello first (ADR 0052 §5 and §6):
+    /// <summary>The scopes whose switching on asks for Windows Hello first (ADR 0058 §5 and §6):
     /// <see cref="McpScopes.AgentsGrant"/>, which lets an agent grant others.</summary>
     public static IReadOnlyList<string> NeedsHello { get; } = [McpScopes.AgentsGrant];
 
@@ -62,7 +62,7 @@ public static class McpAgents
         [McpScopes.AgentsGrant] = "Grant other agents a subset of its own scopes; Windows Hello to switch on",
     };
 
-    /// <summary>Every scope ADR 0052 §4 names, as <see cref="McpScopes.All"/> orders them, with
+    /// <summary>Every scope ADR 0058 §4 names, as <see cref="McpScopes.All"/> orders them, with
     /// what each lets the agent do and whether it is drawn locked. A scope added there without a
     /// line here fails the first read of this list.</summary>
     public static IReadOnlyList<AgentScopeOption> Scopes { get; } =
@@ -124,7 +124,7 @@ public static class McpAgents
     };
 
     /// <summary>
-    /// The line under a delegated agent's name (ADR 0052 §5): who granted it, when it expires,
+    /// The line under a delegated agent's name (ADR 0058 §5): who granted it, when it expires,
     /// and when it was last used. No role: its scopes are its granter's to set.
     /// </summary>
     public static string DelegatedMeta(McpGrant grant, string granterName, DateTimeOffset? lastUsed, DateTimeOffset now)
@@ -151,7 +151,7 @@ public static class McpAgents
     }
 
     /// <summary>
-    /// The agents in the order the card lists them (ADR 0052 §5): each grant the person made,
+    /// The agents in the order the card lists them (ADR 0058 §5): each grant the person made,
     /// followed by the grants it delegated, indented under it. A delegated grant whose granter is
     /// not in the list is drawn last, on its own, so nothing is hidden.
     /// </summary>

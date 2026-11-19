@@ -14,7 +14,7 @@ namespace Backlog.Modules.Sync.Features.RegisterFirstDevice;
 /// <summary>
 /// A device enrols as the owner's: the first device, or — when the owner already has
 /// devices — a recovery. What authorizes it is the one-time code an owner sign-in
-/// handed back to its loopback and the PKCE verifier behind it (local ADR 0052 §1).
+/// handed back to its loopback and the PKCE verifier behind it (local ADR 0058 §1).
 /// A device that sends its <paramref name="PublicKey"/> is bound to that key and gets
 /// no credential (§2).
 /// </summary>

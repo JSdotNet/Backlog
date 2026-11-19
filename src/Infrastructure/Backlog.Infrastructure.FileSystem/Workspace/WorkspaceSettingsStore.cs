@@ -117,7 +117,7 @@ public sealed class WorkspaceSettingsStore
         BackupSchedule = settings?.BackupSchedule?.ToSchedule() ?? BackupSchedule.Off;
 
         // Absent reads as the default port. The shared tokens an earlier build kept here
-        // are read only to be retired (local ADR 0052, Phase 1): the listener accepts none
+        // are read only to be retired (local ADR 0058, Phase 1): the listener accepts none
         // of them, and the save after the migration has run drops them.
         McpServerPort = settings?.McpServer?.ToPort() ?? DefaultMcpServerPort;
         _retiredMcpTokenFields = (Clean(settings?.McpServer?.Token), Clean(settings?.McpServer?.HookToken), Clean(settings?.McpServer?.TelemetryToken));
@@ -229,7 +229,7 @@ public sealed class WorkspaceSettingsStore
     /// <summary>
     /// The shared tokens an earlier build kept in <c>settings.json</c> — <c>mcpServer.token</c>,
     /// <c>hookToken</c> and <c>telemetryToken</c> — read so the migration can recognise the
-    /// registrations that still carry one (local ADR 0052, Phase 1). Empty once
+    /// registrations that still carry one (local ADR 0058, Phase 1). Empty once
     /// <see cref="ForgetRetiredMcpTokens"/> has run, or in a file that never had one. The
     /// listener accepts none of them: they are kept only until what names them has been
     /// rewritten, then dropped from the file.
@@ -242,7 +242,7 @@ public sealed class WorkspaceSettingsStore
     private (string? Token, string? Hook, string? Telemetry) _retiredMcpTokenFields;
 
     /// <summary>
-    /// The grants the app made for what it installs itself (local ADR 0052, Phase 1): the
+    /// The grants the app made for what it installs itself (local ADR 0058, Phase 1): the
     /// delivery registration, the question hook, the telemetry exporter and the dispatch-sessions
     /// Manager. Null until the
     /// first start after the upgrade has made them. Ids only — a grant id is a label, not a
@@ -979,7 +979,7 @@ public sealed class WorkspaceSettingsStore
     }
 
     /// <summary>
-    /// Records the grants the migration made (local ADR 0052, Phase 1). Answers null, or
+    /// Records the grants the migration made (local ADR 0058, Phase 1). Answers null, or
     /// the sentence saying they hold for this run but could not be saved for next time — the
     /// next start then makes them again, and the ones made now stay on the Agents card.
     /// </summary>
@@ -995,7 +995,7 @@ public sealed class WorkspaceSettingsStore
 
     /// <summary>
     /// Drops the retired shared tokens from <c>settings.json</c>, once what named them has been
-    /// rewritten (local ADR 0052, Phase 1). Answers null, or the sentence saying the file still
+    /// rewritten (local ADR 0058, Phase 1). Answers null, or the sentence saying the file still
     /// carries them, in which case they are kept so the next start can try again.
     /// </summary>
     public string? ForgetRetiredMcpTokens()
@@ -1266,7 +1266,7 @@ public sealed class WorkspaceSettingsStore
     /// <summary>
     /// The MCP server's row in the settings file: which loopback port it listens on, the
     /// grants the app made for what it installs, and the escape hatch's debug setting. No
-    /// secret: since local ADR 0052, Phase 1, a grant's secret is sealed in
+    /// secret: since local ADR 0058, Phase 1, a grant's secret is sealed in
     /// <c>mcp-grants.json</c> and this row names grants by id only.
     /// </summary>
     private sealed record StoreMcpServerSettings

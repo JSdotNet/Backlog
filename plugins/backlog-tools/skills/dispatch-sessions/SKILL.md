@@ -14,7 +14,7 @@ the app, each answer one it accepted (ADRs 0038, 0041). Arguments [defaults]: `s
 
 The six request and delivery tools — `list_session_requests`, `claim_session_request`,
 `mark_session_request`, `list_deliveries`, `claim_delivery`, `mark_delivery` — take the Manager
-grant (local ADR 0052), which the `backlog` server does not send: call each as
+grant (local ADR 0058), which the `backlog` server does not send: call each as
 `node assets/manager-call.mjs <tool> '<arguments as JSON>'` through Bash (Windows PowerShell 5.1
 strips the inner quotes), which prints the result as JSON and
 exits non-zero with the reason on a refusal. Every other Backlog tool goes through `backlog`.

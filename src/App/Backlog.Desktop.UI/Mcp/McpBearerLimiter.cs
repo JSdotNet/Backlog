@@ -3,7 +3,7 @@ using Backlog.SharedKernel.Mcp;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// The desktop listener's limit on failed bearer attempts (local ADR 0052, Phase 0):
+/// The desktop listener's limit on failed bearer attempts (local ADR 0058, Phase 0):
 /// after <see cref="MaxFailures"/> within <see cref="Window"/>, every bearer request is
 /// refused for <see cref="Lockout"/>, the right token included, and the trip is one
 /// audit record.

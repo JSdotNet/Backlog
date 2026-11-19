@@ -17,7 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.HostComposition.UnitTests;
 
 /// <summary>
-/// Windows Hello before a <c>tasks:admin</c> tool runs (local ADR 0052 §6), over the real
+/// Windows Hello before a <c>tasks:admin</c> tool runs (local ADR 0058 §6), over the real
 /// endpoint: the call waits for the person, runs when they confirm, and is refused — with
 /// nothing changed and the refusal audited — when they cancel or nothing can ask. A
 /// <c>tasks:write</c> tool, <c>transition</c> to Done among them, asks nothing, and neither

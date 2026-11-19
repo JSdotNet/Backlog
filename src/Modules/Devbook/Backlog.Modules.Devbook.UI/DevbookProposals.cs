@@ -35,7 +35,7 @@ public sealed record DevbookProposalRow(string Name, string? Fingerprint, Devboo
 
 /// <summary>
 /// The person's decisions on a repository's change proposals — Approve and Accept
-/// in the devbook view, which local ADR 0052 §7 moved off MCP.
+/// in the devbook view, which local ADR 0058 §7 moved off MCP.
 /// <para>
 /// A decision goes through <see cref="DevbookProposalDecision"/>, the use case the
 /// retired <c>devbook_approve</c> and <c>devbook_accept</c> tools ran, stamped

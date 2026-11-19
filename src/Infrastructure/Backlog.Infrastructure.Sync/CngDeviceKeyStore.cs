@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
-/// The Windows device key (local ADR 0052 §2): a persisted, user-scoped CNG
+/// The Windows device key (local ADR 0058 §2): a persisted, user-scoped CNG
 /// ECDSA P-256 key that cannot be exported.
 /// <para>
 /// The TPM comes first, through the Platform Crypto Provider, where the private key

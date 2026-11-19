@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.Mcp;
 
 /// <summary>
-/// The agents' access requests the desktop app keeps (local ADR 0052 §5), beside the grants
+/// The agents' access requests the desktop app keeps (local ADR 0058 §5), beside the grants
 /// (<see cref="IMcpGrantStore"/>). The store keeps them; the rules — one open request per name,
 /// five open at once, a day's block after a decline — are the desk's that writes them.
 /// </summary>

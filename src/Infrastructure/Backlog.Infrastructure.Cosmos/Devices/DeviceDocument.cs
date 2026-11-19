@@ -64,7 +64,7 @@ internal sealed class DeviceDocument
     public string? PairedBy { get; set; }
 
     /// <summary>The device's P-256 public key, base64url SubjectPublicKeyInfo
-    /// (local ADR 0052 §2); null, or absent on an older document, for a device
+    /// (local ADR 0058 §2); null, or absent on an older document, for a device
     /// still on a credential.</summary>
     public string? PublicKey { get; set; }
 

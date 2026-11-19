@@ -105,7 +105,7 @@ public class McpEndpointExpansionTests
     }
 
     /// <summary>
-    /// Backlog's own row runs the app's headers helper for its delivery grant (local ADR 0052 §3)
+    /// Backlog's own row runs the app's headers helper for its delivery grant (local ADR 0058 §3)
     /// rather than sending a static token. The command names a grant id, a label and no secret,
     /// so describing a row answers it as readily as registering one does, and neither mints a
     /// token on the way.

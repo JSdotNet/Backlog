@@ -153,7 +153,7 @@ running plan.
   ADR 0038 (`.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md`).
   A person starts it once as `/loop /backlog-tools:dispatch-sessions` in a pinned Claude
   Desktop session. It works under the app's **Manager** grant (`mcpServer.grants.manager`,
-  local ADR 0052), the only grant holding `sessions:dispatch`: the six request and delivery
+  local ADR 0058), the only grant holding `sessions:dispatch`: the six request and delivery
   tools go through `assets/manager-call.mjs`, one JSON-RPC call to the app's `/mcp` each, not
   through the `backlog` server, whose delivery grant the app refuses them. A Monitor runs
   `skills/dispatch-sessions/assets/wait-requests.mjs`, which takes a Manager token per call
@@ -309,7 +309,7 @@ It also registers `hooks/telemetry-forwarder.mjs` for `PreToolUse`, `PostToolUse
 the app attributes the tool calls, delegated agents, token usage and context gauge to the
 delivery run that session is driving, which the Sessions pane shows under the run's row. Each
 post carries a token for the app's **Telemetry** grant (`mcpServer.grants.telemetry` in its
-`settings.json`, local ADR 0052), which `hooks/backlog-grant.mjs` asks for through the headers
+`settings.json`, local ADR 0058), which `hooks/backlog-grant.mjs` asks for through the headers
 helper the app installs, `<app data>\hooks\backlog-mcp-headers.mjs --grant <id>`; no token is
 kept in a file. `BACKLOG_MCP_TOKEN`, the dev and CI escape hatch, is sent only where no
 Telemetry grant is recorded, and `BACKLOG_MCP_PORT` overrides the port. The tool-call events

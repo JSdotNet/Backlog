@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-15
-related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/11-risks-and-technical-debt.md#architectural-risks", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/tech/desktop.md#systemsecuritycryptographyprotecteddata", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/0052-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/11-risks-and-technical-debt.md#architectural-risks", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/tech/desktop.md#systemsecuritycryptographyprotecteddata", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 c4: [backlog.desktop, backlog.mobile]
 c4-touches: [github, claude, azureFoundry, backlog.cloud]
 ```
@@ -10,7 +10,7 @@ c4-touches: [github, claude, azureFoundry, backlog.cloud]
 Every third-party credential Backlog keeps on a device is sealed by the operating
 system before it is written. On Windows that is DPAPI under the signed-in user. On
 Android it is the platform secure store. The MCP server's loopback token, which
-local ADR 0012 kept in plaintext, was the one stated exception until local ADR 0052
+local ADR 0012 kept in plaintext, was the one stated exception until local ADR 0058
 retired it (§6).
 
 ## Status
@@ -90,7 +90,7 @@ flowchart LR
 | GitHub account and repository tokens | `GitHubSettingsStore` | DPAPI, per value | not composed |
 | Claude Admin API keys | `ClaudeSettingsStore` | DPAPI, per value | not composed |
 | Azure Foundry API key | `AzureFoundrySettingsStore` | DPAPI, per value | not composed |
-| MCP grant secrets (local ADR 0052 §3) | `FileMcpGrantStore` | DPAPI, per value | not composed |
+| MCP grant secrets (local ADR 0058 §3) | `FileMcpGrantStore` | DPAPI, per value | not composed |
 
 The three settings stores are desktop-only. Only the Windows head and the desktop
 web harness construct them, and only the Windows head constructs the grant store,
@@ -149,7 +149,7 @@ token only opened a loopback listener for the same user. Sealing it against that
 same user would defend against nothing. Any new stored credential follows this
 record unless its own ADR states an exception the same way.
 
-**Amended 2026-11-11 by ADR 0052 §3, and built 2026-11-12: the exception is closed.**
+**Amended 2026-11-11 by ADR 0058 §3, and built 2026-11-12: the exception is closed.**
 The shared token has left `settings.json`, which now holds only grant ids. Each agent
 registration holds a grant, whose secret the app seals like every other credential,
 and the token broker mints its 15-minute tokens in memory. No MCP credential is

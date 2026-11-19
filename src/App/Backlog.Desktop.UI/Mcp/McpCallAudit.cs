@@ -14,7 +14,7 @@ namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
 /// The call-tool filter that writes one <see cref="McpAuditRecord"/> per
-/// <c>tools/call</c> (local ADR 0052, Phase 0), installed by
+/// <c>tools/call</c> (local ADR 0058, Phase 0), installed by
 /// <c>BacklogMcpServerRegistration</c> in both hosts.
 /// <para>
 /// <b>Outermost.</b> It is registered before the feature gates and the argument check, so

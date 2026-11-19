@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Cosmos.ConnectorCredentials;
 
 /// <summary>
 /// The remote connector's client — its secret hash, times and generation — in Cosmos DB
-/// (local ADR 0052 §8). It has to survive a restart: the service scales to zero, and a lost
+/// (local ADR 0058 §8). It has to survive a restart: the service scales to zero, and a lost
 /// hash disconnects the connector until the person makes a new secret.
 /// <para>
 /// One document per client id in the <c>connectorCredentials</c> container, every

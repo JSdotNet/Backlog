@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// The token broker of local ADR 0052 §3: a named pipe only the person's own Windows SID can
+/// The token broker of local ADR 0058 §3: a named pipe only the person's own Windows SID can
 /// open, which hands the <c>headersHelper</c> a grant token for the grant id it names. The OS
 /// has authenticated the caller by the time a byte arrives, so nobody is prompted.
 /// <para>
@@ -25,7 +25,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// granter did not renew), <c>bad-request</c> or <c>forbidden</c>.
 /// </para>
 /// <para>
-/// <b>Two requests more, for an agent registering itself</b> (local ADR 0052 §5), served when
+/// <b>Two requests more, for an agent registering itself</b> (local ADR 0058 §5), served when
 /// the broker has the access desk. <c>{"register":{"name":…,"scopes":[…],"folder":…,"parentPid":…}}</c>
 /// makes a pending grant and answers <c>{"grant":"g_…","request":"r_…","state":"pending"}</c>.
 /// <c>{"request":"g_…"}</c> brings that grant's request window forward and answers
@@ -52,7 +52,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <para>
 /// Started and stopped on the same terms as the MCP listener (local ADR 0012 §2, ADR 0043 §5):
 /// resolved and started after <c>Build()</c> by the desktop head alone, and disposed with the
-/// head's container. The web harness composes no broker (ADR 0052 §9).
+/// head's container. The web harness composes no broker (ADR 0058 §9).
 /// </para>
 /// </summary>
 public sealed class McpTokenBroker : IDisposable
@@ -87,7 +87,7 @@ public sealed class McpTokenBroker : IDisposable
     }
 
     /// <summary>The broker for this installation and Windows user, serving an agent's own
-    /// registration and request window through <paramref name="desk"/> (local ADR 0052 §5).</summary>
+    /// registration and request window through <paramref name="desk"/> (local ADR 0058 §5).</summary>
     public McpTokenBroker(McpGrantTokens tokens, McpAccessDesk? desk, ILogger<McpTokenBroker>? log = null)
         : this(tokens, PipeNameFor(WorkspaceSettingsStore.DefaultAppDataFolderName, Environment.UserName), log, desk: desk)
     {

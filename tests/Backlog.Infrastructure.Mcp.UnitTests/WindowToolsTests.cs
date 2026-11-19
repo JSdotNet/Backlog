@@ -63,7 +63,7 @@ public class WindowToolsTests
             answer.BacklogLink);
     }
 
-    /// <summary>The host logs every link it mints with the caller (local ADR 0052 §4); a
+    /// <summary>The host logs every link it mints with the caller (local ADR 0058 §4); a
     /// call with no MCP client behind it names the generic caller.</summary>
     [Fact]
     public async Task Web_hands_the_host_the_caller_a_minted_link_is_logged_for()

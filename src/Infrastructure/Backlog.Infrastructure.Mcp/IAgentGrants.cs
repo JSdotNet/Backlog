@@ -3,7 +3,7 @@ using System.Security.Claims;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// What the <c>agents:grant</c> tools ask of the host (local ADR 0052 §5, agents that grant other
+/// What the <c>agents:grant</c> tools ask of the host (local ADR 0058 §5, agents that grant other
 /// agents): list the requests waiting, answer one, change or renew a grant the caller made, and
 /// revoke one. A port, because the grants and the requests are the desktop head's; a host that
 /// keeps no grants composes none, and the tools say so.

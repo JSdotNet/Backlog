@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.Sync;
 /// <see cref="IDeviceCredentialStore"/> and never anywhere else.
 /// </para>
 /// <para>
-/// It is null for a device bound to a key (local ADR 0052 §2): that device proves
+/// It is null for a device bound to a key (local ADR 0058 §2): that device proves
 /// itself with an assertion its <see cref="IDeviceKey"/> signs, and keeps no secret
 /// at all. A device that moves onto a key drops its secret the same way.
 /// </para>

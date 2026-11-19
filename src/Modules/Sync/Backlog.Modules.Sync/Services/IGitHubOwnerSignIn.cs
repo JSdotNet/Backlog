@@ -2,7 +2,7 @@ namespace Backlog.Modules.Sync.Services;
 
 /// <summary>
 /// Turns the authorization code GitHub sent back into the numeric id of the GitHub
-/// user who signed in (local ADR 0052 §1). Declared here and implemented by the
+/// user who signed in (local ADR 0058 §1). Declared here and implemented by the
 /// host, which holds the OAuth App's client secret — the same split as
 /// <see cref="IDeviceTokenIssuer"/>.
 /// </summary>

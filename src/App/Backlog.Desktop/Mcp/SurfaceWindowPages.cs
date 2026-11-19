@@ -132,7 +132,7 @@ internal static class SurfaceWindowPages
     /// <item><b>Any other page request</b> — the page itself, its files and its
     /// circuit — goes on only with the cookie, and is 401 without it. The request
     /// holds the cookie in use while it runs, so a page whose circuit is connected
-    /// never goes idle (local ADR 0052 §4).</item>
+    /// never goes idle (local ADR 0058 §4).</item>
     /// </list>
     /// A refused <c>/window</c> load answers <see cref="ExpiredPage"/>, which asks for the
     /// window to be opened again: a cookie idle for 8 hours, or forgotten by a restart,

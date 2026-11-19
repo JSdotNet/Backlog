@@ -6,7 +6,7 @@ using Backlog.SharedKernel.Mcp;
 namespace Backlog.Modules.Sync.UnitTests;
 
 /// <summary>
-/// The connector's token endpoint and its secret (local ADR 0052 §8): the secret is the
+/// The connector's token endpoint and its secret (local ADR 0058 §8): the secret is the
 /// owner's to make and revoke and is kept only as a hash; a code works once and only with its
 /// verifier; a refresh token rotates, and a replay or a revoke kills the whole family.
 /// </summary>

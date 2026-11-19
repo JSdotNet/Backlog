@@ -60,7 +60,7 @@ public static class SettingsBadges
 
     /// <summary>
     /// The MCP server page's badge with the agents' requests waiting for the person (local ADR
-    /// 0052 §5) beside the listener's state - <c>Listening · 1 waiting</c> - or the state alone
+    /// 0058 §5) beside the listener's state - <c>Listening · 1 waiting</c> - or the state alone
     /// while none waits. Null where <paramref name="isListening"/> is.
     /// </summary>
     public static string? McpServer(bool? isListening, bool failed, int waiting) =>

@@ -47,12 +47,12 @@ internal static partial class McpPlaceholders
     /// on.</summary>
     internal const string PortName = "BACKLOG_MCP_PORT";
 
-    /// <summary>The escape hatch's token (local ADR 0052, Phase 1), filled in only where a debug setting switched it on —
+    /// <summary>The escape hatch's token (local ADR 0058, Phase 1), filled in only where a debug setting switched it on —
     /// which is why only one of the two resolvers below will.</summary>
     internal const string TokenName = "BACKLOG_MCP_TOKEN";
 
     /// <summary>The command that runs the app's headers helper for its "Backlog delivery" grant
-    /// (local ADR 0052 §3): what the <c>backlog</c> row's <c>headersHelper</c> is filled with. It
+    /// (local ADR 0058 §3): what the <c>backlog</c> row's <c>headersHelper</c> is filled with. It
     /// names a grant id, which is no secret, so both resolvers below answer it.</summary>
     internal const string HeadersHelperName = "BACKLOG_MCP_HEADERS_HELPER";
 

@@ -29,7 +29,7 @@
     The sync tier needs no secret in the process environment. The key the sync
     service signs device tokens with lives in Key Vault kv-backlog-sync-we as
     sync-token-signing-key and is read by the service's managed identity (local
-    ADR 0052); the script only warns when the vault does not list it yet, because
+    ADR 0058); the script only warns when the vault does not list it yet, because
     the service then refuses to start. Seeding and rotating it is
     docs/deployment/sync.md, "Rotating the signing key".
 

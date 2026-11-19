@@ -5,7 +5,7 @@ using ModelContextProtocol;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// <c>request_access</c> (local ADR 0052 §5): it hands the caller's own principal and the scopes
+/// <c>request_access</c> (local ADR 0058 §5): it hands the caller's own principal and the scopes
 /// it asks for to the host's desk and relays the answer, refuses what the desk refuses, and in a
 /// host that keeps no grants says so. It holds no grant store, so it cannot change a grant.
 /// </summary>

@@ -6,7 +6,7 @@ using Backlog.SharedKernel.Mcp;
 namespace Backlog.Modules.Sync.UnitTests;
 
 /// <summary>
-/// The connector's authorize request through to the code (local ADR 0052 §8): one client,
+/// The connector's authorize request through to the code (local ADR 0058 §8): one client,
 /// one exact redirect, S256 only, <c>inbox:capture</c> only, the configured owner only, and
 /// every step usable once.
 /// </summary>

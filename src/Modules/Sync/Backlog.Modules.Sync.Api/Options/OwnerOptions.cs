@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Sync.Api.Options;
 
 /// <summary>
-/// The one owner this service accepts (local ADR 0052 §1). Not a secret: the
+/// The one owner this service accepts (local ADR 0058 §1). Not a secret: the
 /// numeric GitHub user id is public. Bound from <c>Owner</c>, so the deployment
 /// sets it as <c>Owner__GitHubUserId</c>.
 /// </summary>

@@ -396,7 +396,7 @@ public sealed record DevToolMcpServer(
     public IReadOnlyList<KeyValuePair<string, string>> Headers { get; init; } = [];
 
     /// <summary>The command the host runs to fetch the registration's headers, in place of a
-    /// static header — Backlog's own row runs its headers helper for a grant (local ADR 0052 §3)
+    /// static header — Backlog's own row runs its headers helper for a grant (local ADR 0058 §3)
     /// — or empty when the entry names none. Unexpanded for the reason <see cref="Url"/> is.</summary>
     public string HeadersHelper { get; init; } = string.Empty;
 

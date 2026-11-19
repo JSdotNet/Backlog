@@ -17,7 +17,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// tokens in <c>backlog://</c> links for the same reason).
 /// </para>
 /// <para>
-/// <b>A cookie value expires after <see cref="IdleTimeout"/> idle</b> (local ADR 0052
+/// <b>A cookie value expires after <see cref="IdleTimeout"/> idle</b> (local ADR 0058
 /// §4): every request it admits slides it, and a page whose circuit is still connected
 /// is never idle, so a window in use stays open and one left alone for a working day
 /// asks for a new link.
@@ -37,7 +37,7 @@ public sealed class WindowLinkTokens(TimeProvider? clock = null)
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(10);
 
     /// <summary>How long a cookie value stays valid with no request carrying it and no
-    /// connection held open on it (local ADR 0052 §4).</summary>
+    /// connection held open on it (local ADR 0058 §4).</summary>
     public static readonly TimeSpan IdleTimeout = TimeSpan.FromHours(8);
 
     /// <summary>The query key a web link carries its token under.</summary>

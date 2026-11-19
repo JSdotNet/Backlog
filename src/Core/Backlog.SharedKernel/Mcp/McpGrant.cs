@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.Mcp;
 
 /// <summary>
-/// One registration's grant to the desktop MCP listener (local ADR 0052 §3): Claude Code at
+/// One registration's grant to the desktop MCP listener (local ADR 0058 §3): Claude Code at
 /// user scope, a repository's <c>.mcp.json</c>, Copilot, the telemetry exporter or the
 /// question hook. A registration carries only <see cref="Id"/>, never a secret, so a
 /// registration copied to another machine grants nothing there.
@@ -20,7 +20,7 @@ namespace Backlog.SharedKernel.Mcp;
 /// <param name="CreatedBy">Who created it, for the Agents card.</param>
 /// <param name="CreatedAt">When it was created.</param>
 /// <param name="Revoked">Whether it was revoked. A revoked grant mints nothing and validates nothing.</param>
-/// <param name="GrantedBy">The grant of the agent that granted this one (local ADR 0052 §5,
+/// <param name="GrantedBy">The grant of the agent that granted this one (local ADR 0058 §5,
 /// agents that grant other agents), or null for a grant the person made. A delegated grant is
 /// one level deep, holds no <see cref="McpScopes.NonDelegable"/> scope, and mints only within
 /// what its granter holds at the time.</param>

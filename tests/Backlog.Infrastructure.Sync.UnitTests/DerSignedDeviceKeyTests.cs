@@ -10,7 +10,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
-/// The phone's device key (local ADR 0052 §2) off a device: Android Keystore signs
+/// The phone's device key (local ADR 0058 §2) off a device: Android Keystore signs
 /// <c>SHA256withECDSA</c> as a DER sequence and hands its public key out as
 /// SubjectPublicKeyInfo, so <see cref="DerSignedDeviceKey"/> is what turns that into the
 /// ES256 assertion the service verifies. A .NET key signing in DER stands in for the

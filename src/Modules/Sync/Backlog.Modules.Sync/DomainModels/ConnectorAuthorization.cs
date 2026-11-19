@@ -17,7 +17,7 @@ public enum ConnectorAuthorizationKind
 }
 
 /// <summary>
-/// One step of a connector authorization (local ADR 0052 §8), stored by hash the way an
+/// One step of a connector authorization (local ADR 0058 §8), stored by hash the way an
 /// <see cref="EnrolmentTicket"/> is. Short-lived — minutes — and burned once.
 /// </summary>
 /// <param name="KeyHash">SHA-256 of the state, the ticket or the code, hex.</param>

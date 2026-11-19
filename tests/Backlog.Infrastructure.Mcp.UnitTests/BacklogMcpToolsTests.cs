@@ -47,7 +47,7 @@ public class BacklogMcpToolsTests
                 "capture_note",
 
                 // devbook.decision@1's operations bar approve and accept, which
-                // are the person's in the app (local ADR 0052 §7) — two on state,
+                // are the person's in the app (local ADR 0058 §7) — two on state,
                 // three on notes — beside the devbook tools and behind the same key.
                 "devbook_get_state",
                 "devbook_set_state",
@@ -115,10 +115,10 @@ public class BacklogMcpToolsTests
                 // The surface windows (local ADR 0043 §7).
                 "open_window",
 
-                // An agent asking the person for more (local ADR 0052 §5).
+                // An agent asking the person for more (local ADR 0058 §5).
                 "request_access",
 
-                // A granter agent granting other agents (local ADR 0052 §5).
+                // A granter agent granting other agents (local ADR 0058 §5).
                 "list_agent_requests",
                 "grant_agent",
                 "edit_agent_scopes",

@@ -8,7 +8,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// The grants the desktop app keeps in <c>mcp-grants.json</c> (local ADR 0052 §3), each with
+/// The grants the desktop app keeps in <c>mcp-grants.json</c> (local ADR 0058 §3), each with
 /// a secret sealed under the Windows user the way every stored credential is (local ADR 0030).
 /// </summary>
 public sealed class FileMcpGrantStoreTests : IDisposable

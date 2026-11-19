@@ -3,7 +3,7 @@
 //
 // With no --grant (this repository's .mcp.json, which no machine-specific id can go in), the
 // token is a broker token for the "Backlog delivery" grant the app recorded in its settings.json
-// as mcpServer.grants.delivery (local ADR 0052, Phase 1), else BACKLOG_MCP_TOKEN — the dev or CI
+// as mcpServer.grants.delivery (local ADR 0058, Phase 1), else BACKLOG_MCP_TOKEN — the dev or CI
 // escape hatch for a machine with no app, which the app accepts only where a debug setting
 // switched it on. The grant comes first, so a machine that once copied the retired shared token
 // into its environment by hand is not left sending it. settings.json holds no token any more. Claude Code runs this at connect and again
@@ -12,7 +12,7 @@
 // No grant recorded yet (the app has never started here since the upgrade) exits 1 with the
 // reason on stderr rather than printing an empty header, so the failure says what to do.
 //
-// --grant <id> (local ADR 0052 §3) asks the app's token broker for a 15-minute token for that
+// --grant <id> (local ADR 0058 §3) asks the app's token broker for a 15-minute token for that
 // grant instead, and never reads settings.json or BACKLOG_MCP_TOKEN. The broker is a named
 // pipe only this Windows user can open: \\.\pipe\backlog-mcp-broker-<user> for the installed
 // app, \\.\pipe\backlog-debug-mcp-broker-<user> for a Debug build (pass --debug), <user> being
@@ -22,7 +22,7 @@
 // {"error":…}. No pipe, or a refusal, exits 1 with the reason on stderr. A grant whose
 // registration the person has not allowed yet is refused "pending", and gets no token.
 //
-// --register "<name>" --scopes a,b (local ADR 0052 §5) lets an agent register itself: it asks
+// --register "<name>" --scopes a,b (local ADR 0058 §5) lets an agent register itself: it asks
 // the broker for a pending grant, then writes the grant's id into the agent's own MCP config
 // (--config <path>, else .mcp.json in the current folder) as the `backlog` server's
 // headersHelper --grant. The grant holds no scope and gets no token until the person allows
@@ -217,7 +217,7 @@ export function exchange(payload, connect, { timeoutMs = 5000 } = {}) {
     });
 }
 
-// Registers an agent (local ADR 0052 §5): resolves to { grant, request, state: "pending" }, or
+// Registers an agent (local ADR 0058 §5): resolves to { grant, request, state: "pending" }, or
 // rejects with the broker's refusal and its sentence.
 export async function registerAgent(name, scopes, connect, { folder = null, parentPid = null, timeoutMs } = {}) {
     const reply = await exchange({ register: { name, scopes, folder, parentPid } }, connect, { timeoutMs });

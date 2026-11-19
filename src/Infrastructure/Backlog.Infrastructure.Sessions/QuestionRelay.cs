@@ -311,7 +311,7 @@ public sealed class QuestionRelay : IQuestionRelay
         }
 
         // An answer steers the agent, so only one from a device paired now reaches the hook or
-        // the Manager (ADR 0052, Phase 2). A device that cannot be checked throws, and the
+        // the Manager (ADR 0058, Phase 2). A device that cannot be checked throws, and the
         // answer is replayed on the next start rather than taken unchecked.
         // Only for an answer the question would take, so a stray reply is never audited.
         if (held is { IsOpen: true }

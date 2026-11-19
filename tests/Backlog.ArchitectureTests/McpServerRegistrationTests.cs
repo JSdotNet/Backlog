@@ -121,7 +121,7 @@ public class McpServerRegistrationTests
     /// library and the shared registration live outside the two hosts.
     /// </para>
     /// <para>
-    /// The sync service is the third listener (local ADR 0052 §8: the remote
+    /// The sync service is the third listener (local ADR 0058 §8: the remote
     /// <c>/mcp</c> endpoint). It is a Web SDK project, so it already carries the
     /// framework, and it is an executable nothing on the mobile path references.
     /// </para>

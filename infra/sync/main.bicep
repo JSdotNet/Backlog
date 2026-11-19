@@ -69,7 +69,7 @@ param logRetentionInDays int = 30
 @description('Daily ingestion cap of the Log Analytics workspace, in GB. Emergency stop against runaway logging; Azure discards further ingestion for the rest of the day once it is reached.')
 param logDailyQuotaGb int = 1
 
-// The vault the sync service reads its device-token signing key from (local ADR 0052),
+// The vault the sync service reads its device-token signing key from (local ADR 0058),
 // through its managed identity. A fixed name rather than one derived from the resource
 // token: it was created by hand once (docs/deployment/sync.md) and the rotation procedure
 // and the GitHub OAuth client secret both name it. Key Vault names are global, and the
@@ -79,7 +79,7 @@ param logDailyQuotaGb int = 1
 @description('Name of the Key Vault holding the secrets of the sync service: the device-token signing key and the GitHub OAuth client secret.')
 param keyVaultName string = 'kv-backlog-sync-we'
 
-// The owner's sign-in (local ADR 0052 §1). The sync service enrols a first device, and
+// The owner's sign-in (local ADR 0058 §1). The sync service enrols a first device, and
 // recovers a lost owner, only for the GitHub user whose numeric id this is, signed in
 // through the "Backlog sync" OAuth App whose client id follows. Neither is a secret: a
 // GitHub user id is public, and an OAuth client id is sent to every browser that signs
@@ -239,7 +239,7 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 // Key Vault
 // ---------------------------------------------------------------------------
 
-// The sync service's secrets (local ADR 0052), read with its managed identity:
+// The sync service's secrets (local ADR 0058), read with its managed identity:
 //   sync-token-signing-key      the HMAC key device tokens and pull cursors are signed
 //                               with (Modules:Sync:Tokens). Rotation adds a version; the
 //                               service accepts the previous version for one token
@@ -666,7 +666,7 @@ resource pairingCodesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabas
 }
 
 // `connectorCredentials` — the remote connector's client, its refresh tokens and their
-// family revocation markers (local ADR 0052 §8), partitioned on `/id`: `client:<client id>`,
+// family revocation markers (local ADR 0058 §8), partitioned on `/id`: `client:<client id>`,
 // `refresh:<token hash>` (the only handle a refresh has) and `family:<family id>`. Every
 // operation is a point read or a conditional write of one document; revoking a family is one
 // marker that every token read checks, so no query ever runs and nothing is indexed but the key.
@@ -1267,7 +1267,7 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'GitHub__ClientId'
               value: gitHubOAuthClientId
             }
-            // The connector's authorization server (local ADR 0052 §8): its issuer is the
+            // The connector's authorization server (local ADR 0058 §8): its issuer is the
             // public origin and its tokens are for the /mcp resource there. Outside
             // Development the service refuses to start without both.
             {

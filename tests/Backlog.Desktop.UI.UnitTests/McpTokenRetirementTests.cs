@@ -7,7 +7,7 @@ using Backlog.SharedKernel.Mcp;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The shared MCP token's retirement on the first start after the upgrade (local ADR 0052,
+/// The shared MCP token's retirement on the first start after the upgrade (local ADR 0058,
 /// Phase 1): three grants in its place, recorded by id; Claude Code's own files rewritten where
 /// they still carry a retired token, and only there; the retired tokens dropped from
 /// <c>settings.json</c> once that is done.
@@ -234,7 +234,7 @@ public sealed class McpTokenRetirementTests : IDisposable
 
     /// <summary>The delivery grant serves the delivery flows' review notes and the windows they
     /// open, so it carries those two beyond the Delivery flow preset. Dispatching sessions is the
-    /// Manager grant's alone (local ADR 0052 §4).</summary>
+    /// Manager grant's alone (local ADR 0058 §4).</summary>
     [Fact]
     public void The_delivery_grant_carries_devbook_write_and_ui_open_but_not_sessions_dispatch()
     {

@@ -9,7 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// Mints and validates the grant tokens of local ADR 0052 §3: a JWT for one grant, HS256,
+/// Mints and validates the grant tokens of local ADR 0058 §3: a JWT for one grant, HS256,
 /// <see cref="McpGrantClaims.Lifetime"/> long, signed with 32 random bytes this process draws
 /// at construction and never writes anywhere.
 /// <para>
@@ -51,7 +51,7 @@ public sealed class McpGrantTokens
     {
     }
 
-    /// <summary>With the access requests (local ADR 0052 §5), so a grant whose registration the
+    /// <summary>With the access requests (local ADR 0058 §5), so a grant whose registration the
     /// person has not answered yet mints nothing and validates nothing: it is pending.</summary>
     public McpGrantTokens(IMcpGrantStore grants, TimeProvider clock, IMcpAccessRequestStore? requests)
         : this(grants, clock, RandomNumberGenerator.GetBytes(32))
@@ -108,7 +108,7 @@ public sealed class McpGrantTokens
         }
 
         // Only scopes a grant may hold: devbook:decide, or a name no policy knows, is never
-        // written into a token, whatever the stored grant says (ADR 0052 §4).
+        // written into a token, whatever the stored grant says (ADR 0058 §4).
         IEnumerable<string> scopes = grant.Scopes.Where(McpScopes.IsGrantable);
 
         if (grant.IsDelegated)
@@ -127,7 +127,7 @@ public sealed class McpGrantTokens
 
             if (refused is { } refusal) return McpGrantMint.Refused(refusal);
 
-            // Cut to what its granter holds now (local ADR 0052 §5), so trimming the granter trims
+            // Cut to what its granter holds now (local ADR 0058 §5), so trimming the granter trims
             // what it granted at the next token; and never a scope no granter may hand on.
             scopes = scopes.Where(scope => McpScopes.IsDelegable(scope) && granterScopes.Contains(scope, StringComparer.Ordinal));
         }
@@ -215,7 +215,7 @@ public sealed class McpGrantTokens
     }
 
     /// <summary>
-    /// Why a delegated grant mints nothing now (local ADR 0052 §5), or null with its granter's
+    /// Why a delegated grant mints nothing now (local ADR 0058 §5), or null with its granter's
     /// scopes: past its expiry; or its granter is gone, revoked, pending, no longer holds
     /// <c>agents:grant</c>, or is delegated itself —
     /// delegation is one level deep, so a grant whose granter was granted by an agent fails closed.
@@ -241,7 +241,7 @@ public sealed class McpGrantTokens
     }
 
     /// <summary>Whether <paramref name="grant"/> is a registration the person has not allowed
-    /// (local ADR 0052 §5). An open request for more scopes leaves its grant working. Without
+    /// (local ADR 0058 §5). An open request for more scopes leaves its grant working. Without
     /// the requests — a host that composes none — only a self-registered grant is pending.</summary>
     private bool IsPending(McpGrant grant) =>
         McpAccessRules.IsPending(_requests?.List() ?? [], grant);
@@ -269,15 +269,15 @@ public enum McpGrantRefusal
     StoreUnavailable,
 
     /// <summary>For a grant an agent registered and the person has not allowed yet (local ADR
-    /// 0052 §5): it gets no token until they do.</summary>
+    /// 0058 §5): it gets no token until they do.</summary>
     Pending,
 
     /// <summary>For a delegated grant past its expiry, which its granter did not renew (local ADR
-    /// 0052 §5).</summary>
+    /// 0058 §5).</summary>
     GrantExpired,
 
     /// <summary>For a delegated grant whose granter is gone, revoked, pending, no longer holds
-    /// <c>agents:grant</c>, or is itself delegated (local ADR 0052 §5).</summary>
+    /// <c>agents:grant</c>, or is itself delegated (local ADR 0058 §5).</summary>
     GranterRevoked
 }
 

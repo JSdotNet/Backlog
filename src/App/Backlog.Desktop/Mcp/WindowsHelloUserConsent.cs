@@ -9,7 +9,7 @@ using Windows.Security.Credentials.UI;
 namespace Backlog.Desktop.Mcp;
 
 /// <summary>
-/// <see cref="IUserConsent"/> for the desktop head (local ADR 0052 §6): Windows Hello, through
+/// <see cref="IUserConsent"/> for the desktop head (local ADR 0058 §6): Windows Hello, through
 /// <c>UserConsentVerifier</c> — face, fingerprint or PIN, which a script or UI automation cannot
 /// pass.
 /// <para>

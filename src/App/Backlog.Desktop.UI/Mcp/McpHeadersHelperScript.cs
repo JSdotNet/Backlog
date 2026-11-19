@@ -1,7 +1,7 @@
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// The headers helper, <c>tools/mcp/backlog-mcp-headers.mjs</c> (local ADR 0052 §3), embedded in
+/// The headers helper, <c>tools/mcp/backlog-mcp-headers.mjs</c> (local ADR 0058 §3), embedded in
 /// this assembly and written to <c>&lt;app data&gt;\hooks\backlog-mcp-headers.mjs</c> on every start
 /// beside the question hook, so a registration outside this repository — Claude Code's user
 /// scope, the telemetry exporter — can run it by an absolute path. A repository's own

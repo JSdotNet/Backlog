@@ -15,7 +15,7 @@ using static Backlog.Desktop.UI.UnitTests.McpServerSettingsPageTests;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// Agents that grant other agents (local ADR 0052 §5): the <c>agents:grant</c> tools' host, the
+/// Agents that grant other agents (local ADR 0058 §5): the <c>agents:grant</c> tools' host, the
 /// access desk, held to every rule of the proposal over the real file stores and the real token
 /// mint — only scopes the granter holds; never <c>devbook:decide</c>, <c>agents:grant</c> or
 /// <c>tasks:admin</c>; one level deep; never its own grant or its granter's; the person's and

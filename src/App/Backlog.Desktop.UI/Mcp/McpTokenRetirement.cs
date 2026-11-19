@@ -9,7 +9,7 @@ using Backlog.SharedKernel.Mcp;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// Retires the shared MCP token (local ADR 0052, Phase 1), once, on the first start after the
+/// Retires the shared MCP token (local ADR 0058, Phase 1), once, on the first start after the
 /// upgrade. It makes the four grants the app's own installs use in its place — "Backlog
 /// delivery", "Question hook", "Telemetry" and the dispatch-sessions "Manager" — records their ids in <c>settings.json</c>, and
 /// rewrites what still names a retired token in Claude Code's own files: the <c>backlog</c>
@@ -56,7 +56,7 @@ public static class McpTokenRetirement
     /// user-scope one the Dev PC row installs — is what the delivery flows call through:
     /// <c>devbook:write</c> for their review notes and <c>ui:open</c> for the windows they open.
     /// <c>sessions:dispatch</c> is not among them: it is the <see cref="ManagerGrantName"/>
-    /// grant's alone (local ADR 0052 §4).</summary>
+    /// grant's alone (local ADR 0058 §4).</summary>
     public static IReadOnlyList<string> DeliveryAdditions { get; } =
         [McpScopes.DevbookWrite, McpScopes.UiOpen];
 
@@ -66,7 +66,7 @@ public static class McpTokenRetirement
 
     /// <summary>The Manager grant's scopes: the Manager role's preset, <c>sessions:dispatch</c>
     /// with <c>tasks:read</c> and <c>tasks:write</c>. <c>agents:grant</c> is never granted at
-    /// start: switching it on asks for Windows Hello (local ADR 0052 §5).</summary>
+    /// start: switching it on asks for Windows Hello (local ADR 0058 §5).</summary>
     public static IReadOnlyList<string> ManagerScopes { get; } = McpAgents.PresetOf("Manager")
         ?? throw new InvalidOperationException("McpAgents has no Manager role.");
 

@@ -3,7 +3,7 @@ using Backlog.SharedKernel.Mcp;
 namespace Backlog.Modules.Sync.Features.Connector;
 
 /// <summary>
-/// The remote connector's one client as the host configured it (local ADR 0052 §8). The
+/// The remote connector's one client as the host configured it (local ADR 0058 §8). The
 /// host builds it from <c>Modules:Sync:Connector</c>; the module only reads it.
 /// </summary>
 /// <param name="ClientId">The one statically registered client id.</param>
@@ -34,7 +34,7 @@ public sealed record ConnectorSettings(
 
 /// <summary>
 /// The scopes the connector may be granted — <c>inbox:capture</c> and nothing else (local ADR
-/// 0052 §8) — each with the sentence the consent page shows for it.
+/// 0058 §8) — each with the sentence the consent page shows for it.
 /// </summary>
 public static class ConnectorScopes
 {

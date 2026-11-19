@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// The request window as a shell surface (local ADR 0052 §5, ADR 0043 §1): a takeover the
+/// The request window as a shell surface (local ADR 0058 §5, ADR 0043 §1): a takeover the
 /// header does not offer, because it is opened on a request — by the agent through the broker
 /// or <c>request_access</c>, or by the request's notification — and never chosen from a menu.
 /// </summary>

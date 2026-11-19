@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Modules.Sync.Api.Security;
 
 /// <summary>
-/// Who may enrol a device (local ADR 0052 §1): the configured owner, signed in through
+/// Who may enrol a device (local ADR 0058 §1): the configured owner, signed in through
 /// the GitHub OAuth App. Called before <c>AddSyncModule</c>, so the configured owner and
 /// the real sign-in win over the module's stand-ins.
 /// </summary>

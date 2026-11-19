@@ -8,7 +8,7 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Sync.Api.Endpoints;
 
 /// <summary>
-/// The remote connector as the owner's desktop manages it (local ADR 0052 §8): describe it,
+/// The remote connector as the owner's desktop manages it (local ADR 0058 §8): describe it,
 /// mint a client secret shown once, and revoke it. Bearer and owner-scoped like every sync
 /// route; the handlers also refuse a device of any owner but the configured one.
 /// </summary>

@@ -17,7 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.HostComposition.UnitTests;
 
 /// <summary>
-/// The scope policies of local ADR 0052 §4 over the real endpoint: a call to a tool runs only
+/// The scope policies of local ADR 0058 §4 over the real endpoint: a call to a tool runs only
 /// for a caller holding the tool's scope, the audit names that caller, and a switched-off group
 /// is still unknown whatever the caller holds.
 /// <para>

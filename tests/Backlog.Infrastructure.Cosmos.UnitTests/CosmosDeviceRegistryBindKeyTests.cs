@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Infrastructure.Cosmos.UnitTests;
 
 /// <summary>
-/// How the device registry binds a key in a credential's place (local ADR 0052 §2):
+/// How the device registry binds a key in a credential's place (local ADR 0058 §2):
 /// a point read, then a replace conditional on the etag that read carried. The
 /// container under it keeps documents and etags the way Cosmos does — a replace whose
 /// etag no longer matches is a 412 — so what is pinned is that the adapter sends the

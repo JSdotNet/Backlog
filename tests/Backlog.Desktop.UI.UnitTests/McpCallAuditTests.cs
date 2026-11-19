@@ -5,7 +5,7 @@ using Backlog.Desktop.UI.Mcp;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// Which id an MCP audit record names (local ADR 0052, Phase 0): the call's <c>id</c>,
+/// Which id an MCP audit record names (local ADR 0058, Phase 0): the call's <c>id</c>,
 /// else its first <c>…Id</c> argument, as text and never longer than the cap. The record
 /// itself being written per call, refused or not, is McpEndpointGateTests' over the real
 /// endpoint.

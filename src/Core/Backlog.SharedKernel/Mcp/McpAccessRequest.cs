@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.Mcp;
 
 /// <summary>
-/// An agent asking the person for access (local ADR 0052 §5): a new agent that registered
+/// An agent asking the person for access (local ADR 0058 §5): a new agent that registered
 /// itself, or an agent with a grant that wants more scopes. Only the person answers it, in the
 /// desktop app; nothing the agent can call changes its own grant.
 /// <para>

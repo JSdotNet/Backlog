@@ -4,7 +4,7 @@ namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
 /// Opens an address in the person's own browser, where the owner signs in to GitHub
-/// (local ADR 0052 §1). A seam of its own so a test can play the browser.
+/// (local ADR 0058 §1). A seam of its own so a test can play the browser.
 /// </summary>
 public interface ISystemBrowser
 {

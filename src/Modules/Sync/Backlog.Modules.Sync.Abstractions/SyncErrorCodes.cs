@@ -34,7 +34,7 @@ public static class SyncErrorCodes
     public const string DeviceNameRequired = "device.name_required";
 
     /// <summary>A public key offered on registration, pairing or a key migration
-    /// that is not a base64url SubjectPublicKeyInfo of a P-256 key (local ADR 0052
+    /// that is not a base64url SubjectPublicKeyInfo of a P-256 key (local ADR 0058
     /// §2). Mapped to 400: the device has to send its key, not the same body
     /// again.</summary>
     public const string DevicePublicKeyInvalid = "device.public_key_invalid";
@@ -280,7 +280,7 @@ public static class SyncErrorCodes
     public const string ClientOutdated = "sync.client_outdated";
 
     /// <summary>A first device asked to register without the one-time enrolment
-    /// code and the PKCE verifier its owner sign-in hands back (local ADR 0052 §1).
+    /// code and the PKCE verifier its owner sign-in hands back (local ADR 0058 §1).
     /// Nobody creates an owner without signing in.</summary>
     public const string EnrolmentCodeRequired = "enrolment.code_required";
 

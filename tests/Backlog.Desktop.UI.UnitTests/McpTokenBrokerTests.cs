@@ -13,7 +13,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The token broker of local ADR 0052 §3: one JSON line in, one out, over a named pipe only
+/// The token broker of local ADR 0058 §3: one JSON line in, one out, over a named pipe only
 /// the person's Windows SID can open. The codec is held over any stream; the ACL, the
 /// client-SID predicate and a real pipe round trip are held on Windows.
 /// </summary>

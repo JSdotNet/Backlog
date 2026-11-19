@@ -26520,7 +26520,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     min-width: 0;
 }
 
-/* --- Agents (MCP server page, local ADR 0052 §3) ------------------------- */
+/* --- Agents (MCP server page, local ADR 0058 §3) ------------------------- */
 
 /* One row per agent: who it is and its scopes on the left, its actions on the
    right, and its switches under both while Edit scopes is open. Rows are divided
@@ -26595,7 +26595,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     padding-top: var(--spacing-xs);
 }
 
-/* A grant another agent made, under its granter (local ADR 0052 §5): indented, with
+/* A grant another agent made, under its granter (local ADR 0058 §5): indented, with
    a rule down its leading edge that ties it to the row above. */
 .agent-row--delegated {
     margin-inline-start: var(--spacing-lg);
@@ -26658,7 +26658,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     gap: var(--spacing-xs);
 }
 
-/* An agent's request for access (local ADR 0052 §5): an agent row with Decline and
+/* An agent's request for access (local ADR 0058 §5): an agent row with Decline and
    Allow with Hello. In the request window the switches are its content, so the row
    gives its whole width to them under the name. */
 .agent-request--window {

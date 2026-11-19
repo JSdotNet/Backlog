@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Sessions.UnitTests;
 
 /// <summary>
 /// The question relay hands an answer to the hook or the Manager only when the device it came
-/// from is paired now (local ADR 0041, ADR 0052 Phase 2): a paired device's answer is recorded
+/// from is paired now (local ADR 0041, ADR 0058 Phase 2): a paired device's answer is recorded
 /// with its device id, and a revoked or unknown device's is dropped and audited.
 /// </summary>
 public sealed class QuestionRelayDeviceTests

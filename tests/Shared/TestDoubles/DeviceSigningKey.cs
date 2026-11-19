@@ -8,7 +8,7 @@ namespace Backlog.Tests;
 
 /// <summary>
 /// A device's P-256 key in software, the way the harness keeps one, and the
-/// <c>private_key_jwt</c> assertions it signs (local ADR 0052 §2). Every claim can be
+/// <c>private_key_jwt</c> assertions it signs (local ADR 0058 §2). Every claim can be
 /// bent on purpose, so a test can build the assertion the service must refuse.
 /// </summary>
 internal sealed class DeviceSigningKey : IDisposable

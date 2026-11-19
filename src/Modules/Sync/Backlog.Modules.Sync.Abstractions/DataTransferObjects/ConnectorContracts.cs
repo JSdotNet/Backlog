@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 /// <summary>
-/// The remote connector as the desktop's settings card shows it (local ADR 0052 §8):
+/// The remote connector as the desktop's settings card shows it (local ADR 0058 §8):
 /// whether a client secret exists, when it was made and last used, and the client id and
 /// redirect URI the person enters in claude.ai. Never the secret itself.
 /// </summary>

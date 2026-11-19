@@ -3,7 +3,7 @@ using Backlog.Modules.Sync.DomainModels;
 namespace Backlog.Modules.Sync.Ports;
 
 /// <summary>
-/// The assertion ids a device has already spent (local ADR 0052 §2). A signed
+/// The assertion ids a device has already spent (local ADR 0058 §2). A signed
 /// assertion is good for minutes, so without this anybody who saw one on the wire
 /// could trade it for a token of their own until it ran out.
 /// </summary>

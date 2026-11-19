@@ -14,7 +14,7 @@ public interface IDeviceRoster
     Task<Result<DeviceListResponse>> ListDevicesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Revokes another device of this owner. Where the host composed a step-up, the
-    /// person confirms with Windows Hello first (local ADR 0052 §6).</summary>
+    /// person confirms with Windows Hello first (local ADR 0058 §6).</summary>
     Task<Result> RevokeDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default);
 
     /// <summary>Revokes the device that just redeemed this device's pairing code, because the

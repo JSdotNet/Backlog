@@ -1,4 +1,4 @@
-# ADR 0052: Agents and devices authenticate by grant and key, the owner by GitHub sign-in
+# ADR 0058: Agents and devices authenticate by grant and key, the owner by GitHub sign-in
 
 ```meta
 date: 2026-11-12

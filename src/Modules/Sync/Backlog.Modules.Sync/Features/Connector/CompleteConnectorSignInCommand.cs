@@ -18,7 +18,7 @@ public sealed record CompleteConnectorSignInCommand(string? State, string? Autho
 public sealed record ConnectorSignInOutcome(Uri? Redirect, string? ConsentTicket);
 
 /// <summary>
-/// Ends the GitHub sign-in of a connector authorization (local ADR 0052 §8). A state the
+/// Ends the GitHub sign-in of a connector authorization (local ADR 0058 §8). A state the
 /// connector did not start is <see cref="SyncErrorCodes.ConnectorSignInUnknown"/> and burns
 /// nothing, so the callback can hand it to the enrolment sign-in unchanged. The connector's
 /// own state is burned first, so it works once; then only the configured owner's GitHub id

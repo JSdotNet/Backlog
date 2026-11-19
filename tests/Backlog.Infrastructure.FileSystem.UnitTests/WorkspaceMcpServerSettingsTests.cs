@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// listener takes, the grants the app made for what it installs, and the escape hatch's
 /// debug setting.
 /// <para>
-/// Since the shared token was retired (local ADR 0052, Phase 1) the file holds no MCP
+/// Since the shared token was retired (local ADR 0058, Phase 1) the file holds no MCP
 /// secret: a token an earlier build wrote is read only to be retired, and dropped once the
 /// migration has rewritten what names it.
 /// </para>

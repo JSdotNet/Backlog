@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// Agents that grant other agents (local ADR 0052 §5): the person switches <c>agents:grant</c> on
+/// Agents that grant other agents (local ADR 0058 §5): the person switches <c>agents:grant</c> on
 /// for an orchestrator, with Windows Hello, and after that it answers its workers' requests and
 /// grants, trims, renews and revokes them without the person — inside rules this desk holds,
 /// under the same lock as the person's own answers, so a granter and the person cannot both

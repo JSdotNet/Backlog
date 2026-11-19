@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Modules.Sync.Api.Security;
 
 /// <summary>
-/// The owner's GitHub sign-in over the OAuth App's web flow (local ADR 0052 §1): the
+/// The owner's GitHub sign-in over the OAuth App's web flow (local ADR 0058 §1): the
 /// authorize address for the browser, then the code-for-token exchange with the client
 /// secret and one <c>GET /user</c> for the numeric id. The token is used for that one
 /// call and kept nowhere. No scope is asked for: the public profile carries the id.

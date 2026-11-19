@@ -30,7 +30,7 @@ public interface IDeviceRegistry
 
     /// <summary>
     /// Binds <paramref name="publicKey"/> to a device that has no key yet and drops
-    /// its credential hash, so the credential mints no further token (local ADR 0052
+    /// its credential hash, so the credential mints no further token (local ADR 0058
     /// §2). Answers false when there is no such device or it is already bound — a
     /// concurrent binding included — so a device migrates once and only once.
     /// </summary>

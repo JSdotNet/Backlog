@@ -73,16 +73,16 @@ builder.Services.AddOptions<SyncAttachmentOptions>()
 // Its settings (the cap and the audio allowlist) are bound and validated either way.
 builder.AddDictationTranscription();
 
-// Who may enrol a device (local ADR 0052 §1): the configured owner, signed in through
+// Who may enrol a device (local ADR 0058 §1): the configured owner, signed in through
 // GitHub. Before AddSyncModule so the configured owner wins over the module's stand-in;
 // anywhere but Development the service refuses to start without it.
 builder.AddOwnerEnrolment();
 
-// The remote connector's authorization server (local ADR 0052 §8): its settings and token
+// The remote connector's authorization server (local ADR 0058 §8): its settings and token
 // issuer, on the same terms — before AddSyncModule, so the configured settings win.
 builder.AddConnectorAuthorization();
 
-// The remote /mcp endpoint the connector's tokens are for (local ADR 0052 §8): its own bearer
+// The remote /mcp endpoint the connector's tokens are for (local ADR 0058 §8): its own bearer
 // scheme, the inbox:capture policy and the MCP server with its one tool group.
 builder.AddRemoteMcpServer();
 

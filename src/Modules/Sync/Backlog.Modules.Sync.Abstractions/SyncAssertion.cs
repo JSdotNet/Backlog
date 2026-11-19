@@ -2,7 +2,7 @@ namespace Backlog.Modules.Sync.Abstractions;
 
 /// <summary>
 /// What a device's <c>private_key_jwt</c> assertion (RFC 7523 §3) has to say for the
-/// token exchange to take it (local ADR 0052 §2). Shared by the service that checks
+/// token exchange to take it (local ADR 0058 §2). Shared by the service that checks
 /// an assertion and the client that signs one, so the two cannot drift apart.
 /// <para>
 /// An assertion is a compact JWT signed with the device's non-exportable P-256 key:

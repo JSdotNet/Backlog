@@ -1,7 +1,7 @@
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// The MCP grant store and its token broker (local ADR 0052 §3) are the installed app's: the
+/// The MCP grant store and its token broker (local ADR 0058 §3) are the installed app's: the
 /// desktop head composes and starts them, and the web harness composes neither (§9), so its
 /// <c>/mcp</c> keeps no auth. A MAUI head cannot be composed in a test process, so this is a
 /// text scan over the composition sources, the way <c>TaskSyncClientRegistrationTests</c>
@@ -30,7 +30,7 @@ public class McpTokenBrokerCompositionTests
 
         Assert.True(
             offenders.Count == 0,
-            "The MCP grant store and token broker belong to the desktop head alone (local ADR 0052 §9); "
+            "The MCP grant store and token broker belong to the desktop head alone (local ADR 0058 §9); "
             + "these files name them:\n" + string.Join('\n', offenders));
     }
 

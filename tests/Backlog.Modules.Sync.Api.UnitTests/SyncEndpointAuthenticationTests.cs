@@ -197,7 +197,7 @@ public class SyncEndpointAuthenticationTests : IDisposable
             () => misconfigured.CreateClient());
     }
 
-    /// <summary>Local ADR 0052: a deployed service takes its key from the
+    /// <summary>Local ADR 0058: a deployed service takes its key from the
     /// vault, so a key in configuration alone is not enough outside
     /// Development.</summary>
     [Fact]

@@ -7,7 +7,7 @@ namespace Backlog.Modules.Sync.UnitTests;
 
 /// <summary>
 /// The refresh-token family against concurrent callers, and a refresh against a changed
-/// configuration (local ADR 0052 §8). A concurrent caller is a wrapper around the store that
+/// configuration (local ADR 0058 §8). A concurrent caller is a wrapper around the store that
 /// runs the other caller's step at the exact point the race would interleave it.
 /// </summary>
 public sealed class ConnectorRefreshRaceTests

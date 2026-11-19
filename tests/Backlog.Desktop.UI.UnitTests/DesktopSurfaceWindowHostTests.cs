@@ -92,7 +92,7 @@ public sealed class DesktopSurfaceWindowHostTests
     }
 
     /// <summary>
-    /// Every link minted is logged (local ADR 0052 §4) with the surface, the caller and
+    /// Every link minted is logged (local ADR 0058 §4) with the surface, the caller and
     /// the moment its token stops redeeming — and never the token, nor the link that
     /// carries it, since the log is a file anyone reading it later could replay.
     /// </summary>

@@ -201,7 +201,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     /// <summary>The routes assembly also holds the main window and the Settings screen;
     /// the listener serves popped-out surfaces and nothing else. Neither path is a
     /// page's, so it is held to the bearer token first, and with one it still meets the
-    /// fallback-deny policy no caller passes (local ADR 0052 §4).</summary>
+    /// fallback-deny policy no caller passes (local ADR 0058 §4).</summary>
     [Theory]
     [InlineData("/")]
     [InlineData("/settings")]
@@ -383,7 +383,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     }
 
     /// <summary>
-    /// The cookie a link buys expires after 8 idle hours (local ADR 0052 §4): a page
+    /// The cookie a link buys expires after 8 idle hours (local ADR 0058 §4): a page
     /// asked for with it after that is 401 and shows the page that asks for the window
     /// to be opened again, and the page's files are refused as plainly as with no
     /// cookie. Within the 8 hours the same cookie still admits it.
@@ -574,7 +574,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         services.AddSingleton(new ShellSurface("probe","Probe", ShellSurfaceGroup.Takeover, 900, typeof(ProbeSurface), QueryKeys: ["keep"]));
         services.AddSingleton(new ShellSurface("probe-target", "Probe target", ShellSurfaceGroup.Takeover, 901, typeof(ProbeTargetSurface)));
         services.AddSingleton<ProbeSingleton>();
-        // The grants the listener validates bearer tokens against (local ADR 0052 §3): the
+        // The grants the listener validates bearer tokens against (local ADR 0058 §3): the
         // shared token they replaced is retired, so a test's token is one minted here.
         var grants = new FileMcpGrantStore(Path.Combine(_appData, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
         services.AddSingleton<Backlog.SharedKernel.Mcp.IMcpGrantStore>(grants);

@@ -7,7 +7,7 @@ using ModelContextProtocol;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// The <c>agents:grant</c> tools (local ADR 0052 §5): each hands the caller's own principal to
+/// The <c>agents:grant</c> tools (local ADR 0058 §5): each hands the caller's own principal to
 /// the host and relays its answer or its refusal; every rule a granter is held to is the host's
 /// (McpGrantDelegationTests). Here: the scope that guards them, the hand-off, and a host that
 /// keeps no grants.

@@ -17,7 +17,7 @@ using ModelContextProtocol.Server;
 namespace Backlog.Modules.Sync.Api.Mcp;
 
 /// <summary>
-/// The <c>inbox:capture</c> tool group of the remote <c>/mcp</c> endpoint (local ADR 0052 §8):
+/// The <c>inbox:capture</c> tool group of the remote <c>/mcp</c> endpoint (local ADR 0058 §8):
 /// the one thing the claude.ai connector may do, capture into the owner's Inbox.
 /// <para>
 /// <b>It writes the replica, never the desktop.</b> The capture goes through the same

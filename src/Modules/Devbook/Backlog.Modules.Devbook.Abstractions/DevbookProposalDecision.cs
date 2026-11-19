@@ -7,7 +7,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// <para>
 /// One use case for every caller, so the devbook view's Approve and Accept buttons
 /// refuse exactly what the retired <c>devbook_approve</c> and <c>devbook_accept</c>
-/// tools refused. Local ADR 0052 §7 takes both decisions off MCP: an agent holding
+/// tools refused. Local ADR 0058 §7 takes both decisions off MCP: an agent holding
 /// the token could otherwise approve its own proposal under the person's name. So
 /// nothing on the MCP path calls this.
 /// </para>

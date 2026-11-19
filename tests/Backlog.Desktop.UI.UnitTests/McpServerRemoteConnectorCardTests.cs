@@ -15,7 +15,7 @@ using static Backlog.Desktop.UI.UnitTests.McpServerSettingsPageTests;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The MCP server page's Remote connector card (local ADR 0052 §8): the claude.ai
+/// The MCP server page's Remote connector card (local ADR 0058 §8): the claude.ai
 /// connector's client id and redirect URI, where its secret stands, Create secret showing
 /// the plaintext once, Replace and Revoke confirmed in place, and nothing offered where
 /// there is no sync client or the device never paired. The sync service is an in-memory

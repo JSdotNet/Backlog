@@ -114,7 +114,7 @@ public sealed class WindowLinkTokensTests
         Assert.True(tokens.IsValidCookie(cookie));
     }
 
-    /// <summary>The cookie a link buys expires after 8 idle hours (local ADR 0052 §4),
+    /// <summary>The cookie a link buys expires after 8 idle hours (local ADR 0058 §4),
     /// and once it has, it never comes back.</summary>
     [Fact]
     public void A_cookie_value_idle_for_eight_hours_is_valid_to_the_last_moment_and_then_never_again()

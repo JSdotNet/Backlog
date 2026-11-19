@@ -158,7 +158,7 @@ public static class CosmosReplicaRegistration
         builder.Services.AddSingleton<IDeviceRegistry, CosmosDeviceRegistry>();
         builder.Services.AddSingleton<IPairingCodeStore, CosmosPairingCodeStore>();
 
-        // The remote connector's client secret hash and refresh tokens (local ADR 0052 §8):
+        // The remote connector's client secret hash and refresh tokens (local ADR 0058 §8):
         // both outlive a restart of a service that scales to zero. Its authorization steps
         // live minutes and stay with the module's in-memory store, like enrolment tickets.
         builder.Services.AddSingleton<IConnectorClientStore, CosmosConnectorClientStore>();

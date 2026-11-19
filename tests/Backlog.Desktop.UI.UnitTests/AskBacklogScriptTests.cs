@@ -63,7 +63,7 @@ public sealed class AskBacklogScriptTests : IDisposable
     /// <summary>
     /// With no token in the environment the hook reads the Question hook grant's id from the
     /// app's settings.json beside its folder, asks the broker for a token for it, and presents
-    /// that (local ADR 0052, Phase 1) — never a token settings.json still carries from before.
+    /// that (local ADR 0058, Phase 1) — never a token settings.json still carries from before.
     /// </summary>
     [Fact]
     public async Task The_hook_presents_a_broker_token_for_the_question_hook_grant_and_never_a_retired_token()

@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.Sync;
 /// <summary>
 /// The loopback redirect a native app signs in through (RFC 8252 §7.3): a port on
 /// <c>127.0.0.1</c> chosen by the OS, and one path, waiting for the browser to arrive
-/// with the answer to an owner sign-in (local ADR 0052 §1).
+/// with the answer to an owner sign-in (local ADR 0058 §1).
 /// <para>
 /// A bare socket rather than <c>HttpListener</c>: http.sys wants a URL reservation for
 /// anything but <c>localhost</c>, and the browser only ever sends one GET here. Bound

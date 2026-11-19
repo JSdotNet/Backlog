@@ -626,7 +626,7 @@ public class DevToolMcpServerTests
         Assert.Equal(BacklogServerUrl, server.Url);
 
         // A grant's headers helper, never a static bearer: since the shared token was retired
-        // (local ADR 0052, Phase 1) the listener refuses one.
+        // (local ADR 0058, Phase 1) the listener refuses one.
         Assert.Empty(server.Headers);
         Assert.Equal($"${{{McpPlaceholders.HeadersHelperName}}}", server.HeadersHelper);
     }

@@ -95,7 +95,7 @@ public sealed class CosmosOptions
     public string PairingCodesContainerName { get; set; } = "pairingCodes";
 
     /// <summary>
-    /// The container holding the remote connector's credentials (local ADR 0052 §8) —
+    /// The container holding the remote connector's credentials (local ADR 0058 §8) —
     /// the one client document with its secret hash, the refresh tokens, and one marker per
     /// revoked token family — partitioned on <c>/id</c>. Every operation is a point
     /// operation with the id in hand: the client id, the hash of the token presented, or

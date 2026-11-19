@@ -126,7 +126,7 @@ public static class BacklogMcpServerRegistration
     /// <param name="caller">Who a call comes from when its principal names nobody, as the
     /// audit log names it: <see cref="McpAudit.SharedTokenCaller"/> in the desktop app and
     /// <see cref="McpAudit.HarnessCaller"/> in the web harness. A principal the host put on the
-    /// request names its own caller — a grant by its name and id (local ADR 0052 §3) — and the
+    /// request names its own caller — a grant by its name and id (local ADR 0058 §3) — and the
     /// record says that instead.</param>
     public static IMcpServerBuilder AddBacklogMcpServer(this IServiceCollection services, string caller)
     {
@@ -134,11 +134,11 @@ public static class BacklogMcpServerRegistration
         ArgumentException.ThrowIfNullOrWhiteSpace(caller);
 
         // The scope policies the call filter below and the desktop listener's guard both ask
-        // (local ADR 0052 §4).
+        // (local ADR 0058 §4).
         services.AddMcpScopePolicies();
 
         // The caller's principal, per request, for the one tool that must know which grant
-        // called it: request_access (local ADR 0052 §5). Set by the filter below before any
+        // called it: request_access (local ADR 0058 §5). Set by the filter below before any
         // tool runs.
         services.TryAddScoped<McpCallContext>();
 
@@ -169,7 +169,7 @@ public static class BacklogMcpServerRegistration
             // here at all: the SDK answers a binding failure with no reason.
             .WithRequestFilters(filters => filters.AddCallToolFilter(ToolArguments.Filter))
             // Last, so Windows Hello is asked only for a call every check above admitted: a
-            // tasks:admin tool waits here for the person (local ADR 0052 §6).
+            // tasks:admin tool waits here for the person (local ADR 0058 §6).
             .WithRequestFilters(filters => filters.AddCallToolFilter(McpStepUp.Filter));
     }
 
@@ -228,7 +228,7 @@ public static class BacklogMcpServerRegistration
     }
 
     /// <summary>
-    /// The scope half of local ADR 0052 §4: a call is dispatched only when the request's
+    /// The scope half of local ADR 0058 §4: a call is dispatched only when the request's
     /// principal passes the named policy of the tool's scope (<see cref="McpScopePolicies.ToolPolicy"/>),
     /// and a tool no scope serves meets the fallback-deny policy. The principal is the one the
     /// host put on the HTTP request — a grant's, a static token's, or the harness's.

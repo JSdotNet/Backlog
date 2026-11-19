@@ -53,7 +53,7 @@ namespace Backlog.Infrastructure.Sync;
 /// </para>
 /// <para>
 /// On a host with an <see cref="IDeviceKeyStore"/> the proof is the device's key
-/// (local ADR 0052 §2). A device bound to it — a stored credential with no secret —
+/// (local ADR 0058 §2). A device bound to it — a stored credential with no secret —
 /// sends a fresh <see cref="DeviceAssertion"/> on every fetch. A device still holding
 /// a secret moves onto the key on its next fetch: it sends the secret, the public key
 /// and an assertion that key signed, and once a token comes back the secret is

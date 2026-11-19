@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// Which credential a request presented, now that the shared token and the hook and telemetry
-/// tokens beside it are retired (local ADR 0052, Phase 1): the <c>BACKLOG_MCP_TOKEN</c> escape
+/// tokens beside it are retired (local ADR 0058, Phase 1): the <c>BACKLOG_MCP_TOKEN</c> escape
 /// hatch's token where a debug setting switched it on, a grant token, or none. The predicates
 /// <c>McpServerWorker.GuardAsync</c> refuses on.
 /// </summary>

@@ -13,7 +13,7 @@ namespace Backlog.Modules.Sync.Features.Connector;
 public sealed record RefreshConnectorTokenCommand(ConnectorClientCredentials Client, string? RefreshToken, string? Scope);
 
 /// <summary>
-/// Rotates a refresh token (local ADR 0052 §8, inherited ADR 0012): the answer carries a new
+/// Rotates a refresh token (local ADR 0058 §8, inherited ADR 0012): the answer carries a new
 /// refresh token, and the one presented stops working in the same step. A token that was
 /// already rotated or revoked is a replay, and revokes its whole family — the legitimate
 /// holder then has to connect again, which is the point. There is deliberately no grace for

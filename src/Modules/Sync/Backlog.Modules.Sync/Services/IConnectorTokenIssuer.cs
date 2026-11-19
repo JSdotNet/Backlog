@@ -15,7 +15,7 @@ public readonly record struct ConnectorTokenClaims(
 public readonly record struct ConnectorAccessToken(string AccessToken, DateTimeOffset ExpiresAt);
 
 /// <summary>
-/// Mints the remote connector's access token (local ADR 0052 §8). A port, for the reason
+/// Mints the remote connector's access token (local ADR 0058 §8). A port, for the reason
 /// <see cref="IDeviceTokenIssuer"/> is one: the host holds the signing key, and the
 /// resource server that later validates the token sits beside it.
 /// </summary>

@@ -7,7 +7,7 @@ using Backlog.SharedKernel.Mcp;
 namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
-/// The MCP grants (local ADR 0052 §3), in <c>mcp-grants.json</c> in the installation's
+/// The MCP grants (local ADR 0058 §3), in <c>mcp-grants.json</c> in the installation's
 /// app-data folder: legible JSON, one record per grant, with only each grant's secret sealed
 /// under the Windows user (local ADR 0030 §2).
 /// <para>
@@ -96,7 +96,7 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
         ArgumentNullException.ThrowIfNull(scopes);
         ArgumentException.ThrowIfNullOrWhiteSpace(createdBy);
 
-        // Only a scope a grant may hold (local ADR 0052 §4): devbook:decide, a misspelling or a
+        // Only a scope a grant may hold (local ADR 0058 §4): devbook:decide, a misspelling or a
         // name no policy knows is refused rather than dropped, so the caller cannot believe it
         // was granted.
         if (scopes.FirstOrDefault(scope => !McpScopes.IsGrantable(scope)) is { } refused)
@@ -152,7 +152,7 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
             record.Version++;
 
             // A token a grant it delegated holds was cut to the old scopes: raising their versions
-            // in this write makes the next request mint again, under the new cut (local ADR 0052 §5).
+            // in this write makes the next request mint again, under the new cut (local ADR 0058 §5).
             foreach (var delegated in Delegated(file, record.Id)) delegated.Version++;
 
             Save(file);
@@ -212,7 +212,7 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
             record.Revoked = true;
             record.Version++;
 
-            // Everything it granted goes with it, in this one write (local ADR 0052 §5): no
+            // Everything it granted goes with it, in this one write (local ADR 0058 §5): no
             // moment exists in which the granter is revoked and a grant it made still mints.
             foreach (var delegated in Delegated(file, record.Id))
             {

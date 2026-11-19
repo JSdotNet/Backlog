@@ -8,7 +8,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
-/// A rotation of the signing key (local ADR 0052): the previous key stays
+/// A rotation of the signing key (local ADR 0058): the previous key stays
 /// accepted for its window and not a moment longer, for tokens and cursors
 /// alike, and a bad new key never replaces a good one.
 /// </summary>

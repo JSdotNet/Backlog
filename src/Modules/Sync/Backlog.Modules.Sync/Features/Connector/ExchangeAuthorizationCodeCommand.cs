@@ -18,7 +18,7 @@ public sealed record ExchangeAuthorizationCodeCommand(
     string? CodeVerifier);
 
 /// <summary>
-/// Trades an authorization code for the connector's tokens (local ADR 0052 §8). The client
+/// Trades an authorization code for the connector's tokens (local ADR 0058 §8). The client
 /// authenticates with its secret; the code must be live, issued under the client's current
 /// generation, for the exact redirect, and matched by the verifier. It is burned once — and a
 /// code presented again revokes the refresh tokens its first use issued, because a second

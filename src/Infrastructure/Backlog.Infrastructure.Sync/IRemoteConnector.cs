@@ -5,7 +5,7 @@ namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
 /// The claude.ai remote connector as the owner's desktop manages it on the sync service
-/// (local ADR 0052 §8): where its client secret stands, minting a new one, and revoking it.
+/// (local ADR 0058 §8): where its client secret stands, minting a new one, and revoking it.
 /// <see cref="RemoteConnectorClient"/> answers it; the MCP server page's Remote connector
 /// card reads it.
 /// <para>

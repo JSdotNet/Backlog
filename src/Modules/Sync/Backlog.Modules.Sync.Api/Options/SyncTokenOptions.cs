@@ -8,7 +8,7 @@ namespace Backlog.Modules.Sync.Api.Options;
 /// <para>
 /// The key is a secret and never appears in <c>appsettings.json</c>. A
 /// deployment reads it from Key Vault (<see cref="KeyVaultUri"/>, local ADR
-/// 0052); only a Development run takes it from configuration. What is checked
+/// 0058); only a Development run takes it from configuration. What is checked
 /// in is the shape of the section and the non-secret defaults.
 /// </para>
 /// </summary>
@@ -34,7 +34,7 @@ public sealed class SyncTokenOptions
     public string SigningKey { get; set; } = string.Empty;
 
     /// <summary>The vault the signing key is read from, through the service's
-    /// managed identity (local ADR 0052). Required anywhere but Development;
+    /// managed identity (local ADR 0058). Required anywhere but Development;
     /// set, it wins over <see cref="SigningKey"/> in Development too.</summary>
     public string? KeyVaultUri { get; set; }
 

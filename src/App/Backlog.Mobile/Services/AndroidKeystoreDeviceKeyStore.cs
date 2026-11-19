@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Mobile.Services;
 
 /// <summary>
-/// The phone's device key (local ADR 0052 §2): an EC P-256 signing key in Android
+/// The phone's device key (local ADR 0058 §2): an EC P-256 signing key in Android
 /// Keystore, made there and never exportable, so a copy of the app's data on another
 /// phone cannot sign.
 /// </summary>

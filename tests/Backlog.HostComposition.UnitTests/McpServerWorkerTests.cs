@@ -218,7 +218,7 @@ public sealed class McpServerWorkerTests : IDisposable
 
     /// <summary>
     /// Claude Code's OTLP logs reach the head's listener at <c>/v1/logs</c> behind a token for
-    /// a grant holding <c>telemetry:write</c> (local ADR 0024, local ADR 0052, Phase 1): the real
+    /// a grant holding <c>telemetry:write</c> (local ADR 0024, local ADR 0058, Phase 1): the real
     /// listener refuses an export with no token, the wrong token and the telemetry token an
     /// earlier build kept in settings.json — 401, storing nothing — refuses a delivery grant's
     /// with 403, and stores the one carrying the Telemetry grant's token.
@@ -370,7 +370,7 @@ public sealed class McpServerWorkerTests : IDisposable
     }
 
     /// <summary>
-    /// The shared token is retired (local ADR 0052, Phase 1): a settings.json an earlier build
+    /// The shared token is retired (local ADR 0058, Phase 1): a settings.json an earlier build
     /// wrote still carries it, and the listener refuses it with 401 wherever it is presented —
     /// <c>/mcp</c>, the wait route, the hook script — as it refuses no token at all.
     /// </summary>
@@ -552,7 +552,7 @@ public sealed class McpServerWorkerTests : IDisposable
     }
 
     /// <summary>
-    /// The <c>BACKLOG_MCP_TOKEN</c> escape hatch (local ADR 0052, Phase 1): with the debug
+    /// The <c>BACKLOG_MCP_TOKEN</c> escape hatch (local ADR 0058, Phase 1): with the debug
     /// setting on, the token in the app's environment calls a tool; with it off, the same token
     /// in the same environment is refused with 401.
     /// </summary>
@@ -581,7 +581,7 @@ public sealed class McpServerWorkerTests : IDisposable
     }
 
     /// <summary>
-    /// A grant token the broker minted (local ADR 0052 §3) gets past the guard where its scopes
+    /// A grant token the broker minted (local ADR 0058 §3) gets past the guard where its scopes
     /// reach, and is refused with 403 where they do not; once its grant is revoked the same token is
     /// refused with 401 and <c>WWW-Authenticate: Bearer</c> on the very next request.
     /// </summary>
@@ -606,7 +606,7 @@ public sealed class McpServerWorkerTests : IDisposable
         }
 
         // The logs route needs telemetry:write, which this grant does not hold: its token is
-        // good and its scope is not, so 403 with insufficient_scope (local ADR 0052 §4).
+        // good and its scope is not, so 403 with insufficient_scope (local ADR 0058 §4).
         using (var response = await client.SendAsync(Export(token), TestContext.Current.CancellationToken))
         {
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);

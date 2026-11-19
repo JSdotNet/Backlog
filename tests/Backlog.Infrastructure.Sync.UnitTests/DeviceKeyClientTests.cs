@@ -14,7 +14,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
-/// The device key on the client side (local ADR 0052 §2): the assertion it signs, the
+/// The device key on the client side (local ADR 0058 §2): the assertion it signs, the
 /// stores that keep it, and how registering, pairing and the token exchange use it —
 /// including the one-time move of a device on a credential onto its key.
 /// </summary>

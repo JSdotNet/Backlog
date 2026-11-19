@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Modules.Sync.Api.Endpoints;
 
 /// <summary>
-/// The remote MCP endpoint (local ADR 0052 §8): <c>/mcp</c> over the streamable HTTP transport,
+/// The remote MCP endpoint (local ADR 0058 §8): <c>/mcp</c> over the streamable HTTP transport,
 /// stateless so any instance answers any call, and its RFC 9728 protected-resource metadata.
 /// <para>
 /// One tool group is served, <c>inbox:capture</c>, and the whole endpoint stands behind its

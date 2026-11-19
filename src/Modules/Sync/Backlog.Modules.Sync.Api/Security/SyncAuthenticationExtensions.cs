@@ -45,7 +45,7 @@ public static class SyncAuthenticationExtensions
                 options => options.UsesKeyVault || options.HasUsableSigningKey(),
                 $"{SigningKeyPath} must be base64 for at least {SyncTokenOptions.MinimumKeyBytes} bytes.");
 
-        // Local ADR 0052: a deployed service reads its signing key from the
+        // Local ADR 0058: a deployed service reads its signing key from the
         // vault, and only a Development run may take it from configuration.
         if (!builder.Environment.IsDevelopment())
         {

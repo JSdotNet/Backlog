@@ -5,7 +5,7 @@ using Backlog.Modules.Sync.Features.Connector;
 namespace Backlog.Modules.Sync.Api.Options;
 
 /// <summary>
-/// The remote connector's authorization server (local ADR 0052 §8): who it says it is, the
+/// The remote connector's authorization server (local ADR 0058 §8): who it says it is, the
 /// resource its tokens are for, its one client and redirect, and the token lifetimes
 /// (inherited ADR 0018: bind, validate, fail fast). Nothing here is a secret — the client
 /// secret is minted by the service and kept as a hash.

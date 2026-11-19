@@ -5,7 +5,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
-/// What the MCP server page's Remote connector card says (local ADR 0052 §8): why it offers
+/// What the MCP server page's Remote connector card says (local ADR 0058 §8): why it offers
 /// nothing, where the secret stands, and the questions its destructive acts ask in place.
 /// Words only, so the card and its tests agree on them without rendering.
 /// </summary>

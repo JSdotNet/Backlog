@@ -118,7 +118,7 @@ public static class SyncTelemetry
         unit: "By",
         description: "Bytes of dictation audio relayed for transcription, by content type and outcome.");
 
-    /// <summary>Remote connector access tokens issued (local ADR 0052 §8), by grant type.</summary>
+    /// <summary>Remote connector access tokens issued (local ADR 0058 §8), by grant type.</summary>
     public static readonly Counter<long> ConnectorTokensIssued = Meter.CreateCounter<long>(
         "backlog.sync.connector.tokens_issued",
         unit: "{token}",
@@ -131,7 +131,7 @@ public static class SyncTelemetry
         unit: "{request}",
         description: "Remote connector authorize and token requests refused, tagged by the OAuth error.");
 
-    /// <summary>Calls to the remote <c>/mcp</c> endpoint refused (local ADR 0052 §8), by
+    /// <summary>Calls to the remote <c>/mcp</c> endpoint refused (local ADR 0058 §8), by
     /// reason: <c>no_token</c>, <c>invalid_token</c> or <c>insufficient_scope</c>.</summary>
     public static readonly Counter<long> RemoteMcpRefused = Meter.CreateCounter<long>(
         "backlog.sync.mcp.refused",

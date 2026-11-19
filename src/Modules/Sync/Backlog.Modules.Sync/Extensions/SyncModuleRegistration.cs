@@ -88,7 +88,7 @@ public static class SyncModuleRegistration
         services.AddScoped<ICommandHandler<TranscribeDictationCommand, Result<TranscriptionResponse>>, TranscribeDictationCommandHandler>();
         services.AddScoped<CaptureAttachmentRelease>();
 
-        // The remote connector's authorization server (local ADR 0052 §8).
+        // The remote connector's authorization server (local ADR 0058 §8).
         services.AddScoped<ICommandHandler<StartConnectorAuthorizationCommand, Result<Uri>>, StartConnectorAuthorizationCommandHandler>();
         services.AddScoped<ICommandHandler<CompleteConnectorSignInCommand, Result<ConnectorSignInOutcome>>, CompleteConnectorSignInCommandHandler>();
         services.AddScoped<IQueryHandler<DescribeConnectorConsentQuery, Result<ConnectorConsentPrompt>>, DescribeConnectorConsentQueryHandler>();
@@ -105,14 +105,14 @@ public static class SyncModuleRegistration
         services.TryAddSingleton<IDeviceAssertionVerifier, EcdsaDeviceAssertionVerifier>();
         services.TryAddSingleton(TimeProvider.System);
 
-        // Who may enrol (local ADR 0052 §1). The host registers the configured owner
+        // Who may enrol (local ADR 0058 §1). The host registers the configured owner
         // and its GitHub sign-in first; without them enrolment signs nobody in, which
         // the host allows in Development only.
         services.TryAddSingleton(OwnerEnrolment.Open);
         services.TryAddSingleton<IGitHubOwnerSignIn, NoGitHubOwnerSignIn>();
         services.TryAddSingleton<IEnrolmentTicketStore, InMemoryEnrolmentTicketStore>();
 
-        // The remote connector (local ADR 0052 §8). The host registers its configured
+        // The remote connector (local ADR 0058 §8). The host registers its configured
         // settings and token issuer first; without them nothing is authorized. The
         // short-lived steps stay in memory in a deployment too, as enrolment tickets do; the
         // client and its refresh tokens must outlive a restart, so a deployed host registers
@@ -130,7 +130,7 @@ public static class SyncModuleRegistration
         services.TryAddSingleton<IDeviceRegistry, InMemoryDeviceRegistry>();
         services.TryAddSingleton<IPairingCodeStore, InMemoryPairingCodeStore>();
 
-        // The spent assertion ids (local ADR 0052 §2). In memory while the service
+        // The spent assertion ids (local ADR 0058 §2). In memory while the service
         // runs one replica; a restart forgets them, bounded by an assertion's five
         // minutes.
         services.TryAddSingleton<IAssertionReplayCache, InMemoryAssertionReplayCache>();

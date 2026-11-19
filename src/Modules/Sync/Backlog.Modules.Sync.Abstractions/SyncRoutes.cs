@@ -18,7 +18,7 @@ public static class SyncRoutes
     /// <summary>First device in, or a lost owner's recovery: trades the one-time
     /// enrolment code an owner sign-in handed back, and its PKCE verifier, for a
     /// registration credential. Anonymous, because there is nothing yet to
-    /// authenticate as — the code is what authorizes it (local ADR 0052 §1).</summary>
+    /// authenticate as — the code is what authorizes it (local ADR 0058 §1).</summary>
     public const string RegisterDevice = "/devices/register";
 
     /// <summary>A device with no owner starts the owner sign-in: it sends its
@@ -32,7 +32,7 @@ public static class SyncRoutes
     public const string GitHubCallback = "/oauth/github/callback";
 
     /// <summary>The authorization server's RFC 8414 metadata for the remote connector
-    /// (local ADR 0052 §8). At the root, derived from the configured issuer. Anonymous.</summary>
+    /// (local ADR 0058 §8). At the root, derived from the configured issuer. Anonymous.</summary>
     public const string AuthorizationServerMetadata = "/.well-known/oauth-authorization-server";
 
     /// <summary>The connector's authorization endpoint: claude.ai sends the owner's browser
@@ -48,7 +48,7 @@ public static class SyncRoutes
     /// secret authenticates it. At the root.</summary>
     public const string ConnectorToken = "/oauth/token";
 
-    /// <summary>The remote MCP endpoint the connector's access tokens are for (local ADR 0052
+    /// <summary>The remote MCP endpoint the connector's access tokens are for (local ADR 0058
     /// §8): an OAuth 2.1 resource server serving the <c>inbox:capture</c> tools. At the root,
     /// because its URL is the token audience (RFC 8707). Bearer, connector tokens only.</summary>
     public const string RemoteMcp = "/mcp";

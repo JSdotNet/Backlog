@@ -94,7 +94,7 @@ public static class MauiProgram
             // Windows one; the credential belongs to this machine and not to the
             // workspace.
             DeviceCredentialStore = _ => new DpapiDeviceCredentialStore(Path.Combine(appData, "device-credential.json")),
-            // The device key (local ADR 0052 §2): non-exportable CNG, TPM first, with the
+            // The device key (local ADR 0058 §2): non-exportable CNG, TPM first, with the
             // software provider as the fallback the Devices page warns about.
             DeviceKeyStore = sp => new CngDeviceKeyStore(log: sp.GetService<ILogger<CngDeviceKeyStore>>()),
             // Plaintext because neither value is a secret.
@@ -187,14 +187,14 @@ public static class MauiProgram
         // (local ADR 0043 §7): one set for the app's life, so a token minted by an
         // MCP tool is the one the listener redeems.
         builder.Services.TryAddSingleton<WindowLinkTokens>();
-        // The MCP grants and the broker that mints their tokens (local ADR 0052 §3). This
+        // The MCP grants and the broker that mints their tokens (local ADR 0058 §3). This
         // head's alone: the web harness composes no store and no broker (§9), so its /mcp
         // has no grant path. mcp-grants.json sits in the head's app-data folder, Backlog.Debug
         // for a debug head. One McpGrantTokens for the app's life, because it holds the
         // signing key in memory: the broker mints with it and the listener validates with
         // it, and a second instance would refuse every token the first one signed.
         builder.Services.TryAddSingleton<IMcpGrantStore>(_ => new FileMcpGrantStore(Path.Combine(appData, FileMcpGrantStore.FileName)));
-        // The agents' requests for access beside them (local ADR 0052 §5): a registration's grant
+        // The agents' requests for access beside them (local ADR 0058 §5): a registration's grant
         // is pending, and mints nothing, while its request is open.
         builder.Services.TryAddSingleton<IMcpAccessRequestStore>(_ => new FileMcpAccessRequestStore(Path.Combine(appData, FileMcpAccessRequestStore.FileName)));
         builder.Services.TryAddSingleton(sp => new McpGrantTokens(
@@ -238,7 +238,7 @@ public static class MauiProgram
         builder.Services.TryAddSingleton<IShellWindows>(sp => sp.GetRequiredService<ShellWindows>());
         // What open_window opens and links to (local ADR 0043 §7): these windows, and a
         // tokenized link to the listener's page at the port it is listening on now, each
-        // minted link logged without its token (local ADR 0052 §4).
+        // minted link logged without its token (local ADR 0058 §4).
         builder.Services.TryAddSingleton<ISurfaceWindowHost>(sp => new DesktopSurfaceWindowHost(
             sp.GetRequiredService<IShellWindows>(),
             sp.GetRequiredService<WindowLinkTokens>(),
@@ -423,7 +423,7 @@ public static class MauiProgram
             }
 
             // And the headers helper beside it, then the shared token's retirement (local ADR
-            // 0052, Phase 1): on the first start after the upgrade, three grants in its place and
+            // 0058, Phase 1): on the first start after the upgrade, three grants in its place and
             // Claude Code's own files rewritten to run the helper for them. Once the grants are
             // recorded and nothing names a retired token, this does nothing.
             try

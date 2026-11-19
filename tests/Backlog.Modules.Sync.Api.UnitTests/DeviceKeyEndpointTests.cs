@@ -7,7 +7,7 @@ using Backlog.Tests;
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
-/// A device bound to a non-exportable key, over HTTP (local ADR 0052 §2): it
+/// A device bound to a non-exportable key, over HTTP (local ADR 0058 §2): it
 /// registers or pairs with its public key, signs a <c>private_key_jwt</c> for its
 /// 30-minute token, and a credential device binds its key once on a token fetch.
 /// </summary>

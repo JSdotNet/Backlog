@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.Mcp;
 
 /// <summary>
-/// One MCP tool call, as the audit log keeps it (local ADR 0052, Phase 0).
+/// One MCP tool call, as the audit log keeps it (local ADR 0058, Phase 0).
 /// </summary>
 /// <param name="At">When the call was answered, in UTC.</param>
 /// <param name="Caller">Who made it. Today every registration sends the one shared

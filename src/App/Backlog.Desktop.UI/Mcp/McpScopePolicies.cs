@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// The named authorization policies of local ADR 0052 §4, one per scope, and the fallback-deny
+/// The named authorization policies of local ADR 0058 §4, one per scope, and the fallback-deny
 /// that stands behind them — the sync service's pattern (<c>SyncAuthenticationExtensions</c>),
 /// applied per tool and per route rather than per endpoint, because every tool is one
 /// <c>/mcp</c> endpoint.
@@ -48,14 +48,14 @@ public static class McpScopePolicies
     /// <summary>The policy name for <paramref name="scope"/>: <see cref="Prefix"/> and the scope.</summary>
     public static string PolicyName(string scope) => Prefix + scope;
 
-    /// <summary>The <c>BACKLOG_MCP_TOKEN</c> escape hatch (local ADR 0052, Phase 1): a dev or CI
+    /// <summary>The <c>BACKLOG_MCP_TOKEN</c> escape hatch (local ADR 0058, Phase 1): a dev or CI
     /// run's static token, accepted only where a debug setting switched it on. Every grantable
     /// scope, as the harness's caller has, since it stands in for no particular agent; audited
     /// as <see cref="McpAudit.SharedTokenCaller"/>, the name the retired shared token had.</summary>
     public static ClaimsPrincipal SharedTokenCaller { get; } = Static(McpAudit.SharedTokenCaller, McpScopes.Grantable);
 
     /// <summary>The web harness's caller, which presents nothing: every grantable scope, since
-    /// the harness keeps no auth (ADR 0052) and its tools are QA's.</summary>
+    /// the harness keeps no auth (ADR 0058) and its tools are QA's.</summary>
     public static ClaimsPrincipal HarnessCaller { get; } = Static(McpAudit.HarnessCaller, McpScopes.Grantable);
 
     /// <summary>

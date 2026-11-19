@@ -12,7 +12,7 @@ namespace Backlog.Modules.Sync.Features.IssueDeviceToken;
 /// <summary>
 /// The exchange that happens on every sync: proof that the caller is the device,
 /// in return for a token that is good for half an hour. The proof is a signed
-/// <paramref name="ClientAssertion"/> from a device bound to a key (local ADR 0052
+/// <paramref name="ClientAssertion"/> from a device bound to a key (local ADR 0058
 /// §2), or the <paramref name="Credential"/> of a device that is not. A credential
 /// device migrates by sending all of them: its credential, the
 /// <paramref name="PublicKey"/> to bind, and an assertion that key signed.

@@ -9,7 +9,7 @@ public sealed record DevbookChangeReading(string Name, string? Fingerprint);
 
 /// <summary>
 /// The change proposals of a repository on disk, for the devbook view's Proposals
-/// tab (local ADR 0052 §7). Here rather than in the panel's module because a module
+/// tab (local ADR 0058 §7). Here rather than in the panel's module because a module
 /// UI does no file I/O (<c>ModuleUiIoTests</c>).
 /// <para>
 /// Every read answers rather than throws: a folder that cannot be listed is no

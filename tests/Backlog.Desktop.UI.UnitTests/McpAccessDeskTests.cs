@@ -14,7 +14,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// "Approve an agent once" (local ADR 0052 §5): an agent registers itself into a pending grant
+/// "Approve an agent once" (local ADR 0058 §5): an agent registers itself into a pending grant
 /// that mints no token, asks for more through <c>request_access</c> without its grant changing,
 /// and only the person — through Allow with Windows Hello, or Decline — answers. Each limit and
 /// refusal is held here, and the pending-to-granted path end to end over the real file stores,

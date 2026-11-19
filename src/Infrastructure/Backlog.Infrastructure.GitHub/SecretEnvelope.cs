@@ -32,7 +32,7 @@ namespace Backlog.Infrastructure;
 /// <remarks>
 /// One copy for every settings adapter, compiled into the Claude, Azure Foundry and
 /// file-system adapters as a linked <c>Compile</c> item the way <c>IsoTimestamps</c> is —
-/// the last for the MCP grant secrets in <c>mcp-grants.json</c> (local ADR 0052 §3).
+/// the last for the MCP grant secrets in <c>mcp-grants.json</c> (local ADR 0058 §3).
 /// </remarks>
 internal static class SecretEnvelope
 {

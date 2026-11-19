@@ -11,7 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The grant tokens the broker mints and the listener validates (local ADR 0052 §3): a
+/// The grant tokens the broker mints and the listener validates (local ADR 0058 §3): a
 /// 15-minute HS256 JWT for one grant, signed with a key the process holds in memory, and
 /// refused once the grant is revoked or its version moves past the token's.
 /// </summary>

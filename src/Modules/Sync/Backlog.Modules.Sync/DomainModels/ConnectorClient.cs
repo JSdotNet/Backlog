@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Sync.DomainModels;
 
 /// <summary>
-/// The one statically registered OAuth client of the remote connector (local ADR 0052 §8):
+/// The one statically registered OAuth client of the remote connector (local ADR 0058 §8):
 /// claude.ai's custom connector. Its secret is minted by the service and kept only as a
 /// hash. <see cref="Generation"/> moves on every create and every revoke, and every code and
 /// refresh token carries the generation it was issued under, so a revoke kills all of them

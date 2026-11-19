@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <summary>
 /// The two checks local ADR 0012 §1 puts in front of the desktop MCP listener:
 /// an <c>Origin</c> that must be absent or loopback, and a bearer token that
-/// must be a grant token the broker minted (local ADR 0052).
+/// must be a grant token the broker minted (local ADR 0058).
 /// <para>
 /// Pure predicates over header values, deliberately. The listener itself lives
 /// in <c>Backlog.Desktop</c>, which is a MAUI <c>WinExe</c> on a platform TFM
@@ -214,7 +214,7 @@ public static class McpLoopbackGuard
     /// <see cref="McpCredential.Mcp"/> — or not. Compared through <see cref="IsAuthorized"/>, so
     /// fixed-time; with the escape hatch off <paramref name="environmentToken"/> is null and
     /// nothing matches. No token kept in <c>settings.json</c> is ever passed here: the shared
-    /// token and the hook and telemetry tokens were retired (local ADR 0052, Phase 1).
+    /// token and the hook and telemetry tokens were retired (local ADR 0058, Phase 1).
     /// </summary>
     public static McpCredential Identify(string? authorization, string? environmentToken) =>
         IsAuthorized(authorization, environmentToken) ? McpCredential.Mcp : McpCredential.None;
@@ -246,10 +246,10 @@ public enum McpCredential
     None,
 
     /// <summary>The <c>BACKLOG_MCP_TOKEN</c> escape hatch's token, where a debug setting
-    /// switched it on (local ADR 0052, Phase 1).</summary>
+    /// switched it on (local ADR 0058, Phase 1).</summary>
     Mcp,
 
-    /// <summary>A grant token the broker minted (local ADR 0052 §3), validated by
+    /// <summary>A grant token the broker minted (local ADR 0058 §3), validated by
     /// <see cref="McpGrantTokens"/> rather than by <see cref="McpLoopbackGuard.Identify"/>:
     /// it is checked only once the escape hatch's token did not match, so a static token
     /// is never parsed as a JWT and its fixed-time comparison stays as it was.</summary>

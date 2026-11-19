@@ -6,7 +6,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The desktop listener's limit on failed bearer attempts (local ADR 0052, Phase 0):
+/// The desktop listener's limit on failed bearer attempts (local ADR 0058, Phase 0):
 /// ten within sixty seconds lock every bearer request out for sixty seconds, the trip is
 /// one audit record, and a lockout that has run out starts the count afresh. The status
 /// codes around it are <c>McpServerWorker.GuardAsync</c>'s, held by

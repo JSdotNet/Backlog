@@ -5,7 +5,7 @@ namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
 /// Windows Hello before this device mints a pairing code or revokes another device (local ADR
-/// 0052 §6): both are hard to undo — a code lets a new device in, a revocation shuts one out.
+/// 0058 §6): both are hard to undo — a code lets a new device in, a revocation shuts one out.
 /// <see cref="DevicePairingClient"/> asks it before either call leaves the machine.
 /// <para>
 /// <b>Composed by the desktop head alone.</b> A host that registers none asks nothing: the

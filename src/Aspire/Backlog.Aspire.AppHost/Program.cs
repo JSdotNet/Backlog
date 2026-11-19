@@ -44,7 +44,7 @@ cosmosDatabase.AddContainer("notifications", "/ownerId");
 cosmosDatabase.AddContainer("notificationReplies", "/ownerId");
 cosmosDatabase.AddContainer("devices", "/id");
 cosmosDatabase.AddContainer("pairingCodes", "/id");
-// The remote connector's credentials (local ADR 0052 §8): its client's secret hash, its
+// The remote connector's credentials (local ADR 0058 §8): its client's secret hash, its
 // refresh tokens and a marker per revoked token family, partitioned on /id for the reason
 // `pairingCodes` is. The tokens' and markers' TTLs are stamped per document and the
 // indexing policy lives only in the bicep.
@@ -95,7 +95,7 @@ var sync = builder.AddProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sy
     .WaitFor(azureFoundryTest);
 
 // The connector's authorization server says who it is and which resource its tokens are for
-// (local ADR 0052 §8). Ports are dynamic, so both come from the service's own endpoint rather
+// (local ADR 0058 §8). Ports are dynamic, so both come from the service's own endpoint rather
 // than the Development default of http://localhost, which nothing would answer on.
 sync.WithEnvironment("Modules__Sync__Connector__Issuer", sync.GetEndpoint("http"))
     .WithEnvironment("Modules__Sync__Connector__Resource", ReferenceExpression.Create($"{sync.GetEndpoint("http")}/mcp"));

@@ -13,7 +13,7 @@ public enum EnrolmentTicketKind
 }
 
 /// <summary>
-/// One step of an owner sign-in (local ADR 0052 §1), stored by hash like a pairing
+/// One step of an owner sign-in (local ADR 0058 §1), stored by hash like a pairing
 /// code: the plaintext is in the browser's address bar and nowhere here. Not a
 /// credential — a <see cref="EnrolmentTicketKind.Code"/> authorizes one registration,
 /// and only with the verifier behind <see cref="CodeChallenge"/>.

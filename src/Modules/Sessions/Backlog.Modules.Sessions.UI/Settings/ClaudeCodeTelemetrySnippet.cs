@@ -15,7 +15,7 @@ namespace Backlog.Modules.Sessions.UI;
 /// <c>otelHeadersHelper</c>'s headers to the HTTP protocols alone.
 /// </para>
 /// <para>
-/// <b>No token in it.</b> Since the shared tokens were retired (local ADR 0052, Phase 1) the
+/// <b>No token in it.</b> Since the shared tokens were retired (local ADR 0058, Phase 1) the
 /// block names a command, <c>otelHeadersHelper</c>, that asks the app's token broker for a
 /// short-lived token for the Telemetry grant — so the block is no secret, and a copy of it on
 /// another machine grants nothing there.

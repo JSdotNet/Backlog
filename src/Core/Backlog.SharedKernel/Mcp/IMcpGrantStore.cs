@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.Mcp;
 
 /// <summary>
-/// The grants the desktop app keeps (local ADR 0052 §3). The token broker mints only for a
+/// The grants the desktop app keeps (local ADR 0058 §3). The token broker mints only for a
 /// grant found here and not revoked, and the listener checks every grant token against what
 /// is stored now, which is why a revoke reaches a token already handed out.
 /// </summary>
@@ -18,7 +18,7 @@ public interface IMcpGrantStore
 
     /// <summary>A new grant at version 1, with a new id and its own sealed secret. Refuses
     /// any scope outside <see cref="McpScopes.Grantable"/> — <see cref="McpScopes.DevbookDecide"/>
-    /// among them — with an <see cref="ArgumentException"/> (local ADR 0052 §4).</summary>
+    /// among them — with an <see cref="ArgumentException"/> (local ADR 0058 §4).</summary>
     McpGrant Create(string name, IReadOnlyList<string> scopes, string createdBy);
 
     /// <summary>Replaces the grant's scopes and raises its version, so a token minted under the
@@ -30,7 +30,7 @@ public interface IMcpGrantStore
     McpGrant? SetScopes(string id, IReadOnlyList<string> scopes);
 
     /// <summary>
-    /// Makes the grant <paramref name="id"/> a delegated one (local ADR 0052 §5): granted by the
+    /// Makes the grant <paramref name="id"/> a delegated one (local ADR 0058 §5): granted by the
     /// grant <paramref name="grantedBy"/>, holding <paramref name="scopes"/> until
     /// <paramref name="expiresAt"/>, its version raised. The store records it; the rules a
     /// granter is held to are the access desk's that calls it. Null when there is no such grant,
@@ -41,6 +41,6 @@ public interface IMcpGrantStore
 
     /// <summary>Marks the grant revoked and raises its version, so a token minted before the
     /// revoke is refused on its next request — and with it, in the same write, every grant it
-    /// delegated (local ADR 0052 §5). Null when there is no such grant.</summary>
+    /// delegated (local ADR 0058 §5). Null when there is no such grant.</summary>
     McpGrant? Revoke(string id);
 }

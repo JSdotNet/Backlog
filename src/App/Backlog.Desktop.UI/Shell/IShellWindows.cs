@@ -25,7 +25,7 @@ public interface IShellWindows
 
     /// <summary>Brings forward the popped-out window that shows <paramref name="surfaceId"/>
     /// with exactly <paramref name="query"/>, or opens one when none does, and answers whether
-    /// one is on screen: what the request window of local ADR 0052 §5 needs, where opening it
+    /// one is on screen: what the request window of local ADR 0058 §5 needs, where opening it
     /// again focuses the open one. A host that cannot tell its windows apart opens another.</summary>
     Task<bool> FocusOrOpenAsync(string surfaceId, IReadOnlyDictionary<string, string> query) => OpenAsync(surfaceId, query);
 

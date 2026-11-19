@@ -195,7 +195,7 @@ public static class DevToolCommands
 
     /// <summary>
     /// The registration of an HTTP server whose headers a command fetches — Backlog's own, whose
-    /// headers helper asks the app's token broker for a grant's token (local ADR 0052 §3).
+    /// headers helper asks the app's token broker for a grant's token (local ADR 0058 §3).
     /// <c>claude mcp add</c> has no flag for a <c>headersHelper</c>, so this is
     /// <c>claude mcp add-json</c> with the server written out whole, as one argv element: the
     /// launcher passes it through <c>ArgumentList</c>, which quotes it intact.

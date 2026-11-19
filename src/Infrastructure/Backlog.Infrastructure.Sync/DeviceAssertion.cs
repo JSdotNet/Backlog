@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
 /// Builds the <c>private_key_jwt</c> assertion (RFC 7523 §3) a device bound to a key
-/// trades for a token, in the shape <see cref="SyncAssertion"/> fixes (local ADR 0052
+/// trades for a token, in the shape <see cref="SyncAssertion"/> fixes (local ADR 0058
 /// §2). Written by hand rather than through a JWT library: the shape is one header and
 /// six claims, and the service reads it by hand for the same reason.
 /// </summary>

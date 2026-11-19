@@ -9,7 +9,7 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Sync.Api.Endpoints;
 
 /// <summary>
-/// The owner sign-in (local ADR 0052 §1): a device with no owner starts it, GitHub
+/// The owner sign-in (local ADR 0058 §1): a device with no owner starts it, GitHub
 /// comes back to the callback, and the browser is sent on to the device's loopback
 /// with a one-time code — or with <c>error=access_denied</c> for anyone but the owner.
 /// Both anonymous: nobody has a token yet.
@@ -54,7 +54,7 @@ internal static class EnrolmentEndpoints
 
     /// <summary>
     /// The one callback the GitHub OAuth App has, shared by two sign-ins: the remote
-    /// connector's authorization (local ADR 0052 §8) is asked first whether the state is one
+    /// connector's authorization (local ADR 0058 §8) is asked first whether the state is one
     /// of its own, and anything it does not recognise goes to the enrolment sign-in unchanged.
     /// </summary>
     private static async Task<IResult> CompleteSignIn(

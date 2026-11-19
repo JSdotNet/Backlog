@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
-/// Windows Hello before a pairing code is minted or a device revoked (local ADR 0052 §6): with a
+/// Windows Hello before a pairing code is minted or a device revoked (local ADR 0058 §6): with a
 /// <see cref="DeviceStepUp"/> composed, each call reaches the service only once the person
 /// confirms; cancelled or unavailable, nothing is sent and the failure says which. Without one —
 /// the web harness and the phone — the client asks nothing.

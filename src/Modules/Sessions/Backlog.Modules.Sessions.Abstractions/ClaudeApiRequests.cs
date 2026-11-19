@@ -74,7 +74,7 @@ public interface IClaudeApiRequestStore
 /// tells a person what to paste into Claude Code.
 /// <para>
 /// A port because the address is the desktop head's to know — the MCP listener's
-/// configured port and the Telemetry grant (local ADR 0024, local ADR 0052) — and the page
+/// configured port and the Telemetry grant (local ADR 0024, local ADR 0058) — and the page
 /// that shows it is this context's. A host that composes none, the browser harness, serves
 /// the endpoint on its own origin with no token, and the page says that instead.
 /// </para>

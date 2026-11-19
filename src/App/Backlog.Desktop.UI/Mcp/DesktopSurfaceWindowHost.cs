@@ -29,7 +29,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <param name="tokens">The link tokens the listener redeems.</param>
 /// <param name="listenerPort">The port the loopback listener is listening on now, or null
 /// while it is not.</param>
-/// <param name="log">Where every minted link is recorded (local ADR 0052 §4); none
+/// <param name="log">Where every minted link is recorded (local ADR 0058 §4); none
 /// records nothing.</param>
 public sealed class DesktopSurfaceWindowHost(
     IShellWindows windows,

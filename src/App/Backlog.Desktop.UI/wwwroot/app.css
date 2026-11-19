@@ -9492,7 +9492,7 @@ a.pull-request-detail-checks__name:hover {
     overflow: auto;
 }
 
-/* The change proposals the person decides (local ADR 0052 §7): one row each,
+/* The change proposals the person decides (local ADR 0058 §7): one row each,
    its state and decisions, then Approve and Accept. */
 .devbook-proposals {
     display: flex;
@@ -12310,7 +12310,7 @@ a.pull-request-detail-checks__name:hover {
     }
 }
 
-/* The agent request window (local ADR 0052 §5): one request, read in a pop-out of its
+/* The agent request window (local ADR 0058 §5): one request, read in a pop-out of its
    own, with its switches as the content and Decline and Allow with Hello under them. */
 .agent-request-window {
     display: grid;
