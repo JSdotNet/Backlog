@@ -235,9 +235,9 @@ flowchart LR
         DevbookTech["devbook-tech Inventory Scripts"]:::trial
         DbWriter["Devbook Database Writer"]:::adopted
         C4Hero["c4hero"]:::adopted
-        Archify["Archify"]:::adopted
-        Ajv["Ajv"]:::adopted
-        SimpleIcons["simple-icons"]:::adopted
+        Archify["Archify"]:::retired
+        Ajv["Ajv"]:::retired
+        SimpleIcons["simple-icons"]:::retired
     end
 
     Mermaid --> Markdown
@@ -520,7 +520,7 @@ How each is used, stage by stage, is the AI adoption record in
 | Design concept, grilling, prototyping | `.devbook/design/` and the `ux-design` plugin's wireframe and review skills |
 | Vibe coding | Explicitly not the model here: the [code gate](../ai/02-code.md#code-gate-through-flow-code) exists to prevent it |
 
-- **Automated check:** `dotnet test`, `dotnet build`, CodeQL, the devbook-meta check and `check-metadata.mjs`, `apksigner verify`, and Archify's 9/9 validation.
+- **Automated check:** `dotnet test`, `dotnet build`, CodeQL, the devbook-meta check and `check-metadata.mjs`, and `apksigner verify`.
 - **AX:** An agent cannot drive a MAUI head, so the harnesses serve the same UI at a URL.
 
 ## How to read and extend this graph

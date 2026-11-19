@@ -230,7 +230,7 @@ Rating: ✔ strong · ◑ partial/with work · ✘ weak/absent · — n/a.
 ## Diagram and Graph Strategy
 
 ```meta
-related: [".devbook/tech/technology-graph.md", ".devbook/tech/tooling.md#archify", ".devbook/tech/tooling.md#c4hero", ".devbook/design/content-editing.md", ".devbook/design/accessibility.md", ".devbook/domain/devbook/features.md#technology-view"]
+related: [".devbook/tech/technology-graph.md", ".devbook/arc42/adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md", ".devbook/tech/tooling.md#c4hero", ".devbook/design/content-editing.md", ".devbook/design/accessibility.md", ".devbook/domain/devbook/features.md#technology-view"]
 ```
 
 Backlog should solve diagrams in layers instead of relying on one component suite:
@@ -238,7 +238,6 @@ Backlog should solve diagrams in layers instead of relying on one component suit
 | Need | Choice | Guidance |
 |---|---|---|
 | Flow, C4, sequence, state, class/domain-model diagrams in devbook Markdown | **Mermaid** | Render fenced `mermaid`/`mmd` blocks directly inside devbook-folder Markdown; show the source when rendering fails or assets are unavailable. |
-| A considered picture for the diagrams that earn one | **Archify** (generated artifact) | An optional second rendering of a fence somebody has authored a specification for. |
 | A C4 model of the system, authored beside the chapters and drawn inside them | **c4hero** (authoring) + **a first-party renderer** (drawing) | One Structurizr workspace, `.devbook/arc42/workspace.dsl`, edited in c4hero and drawn by the app from the DSL. |
 | Technology graph exploration | **Blazor components positioned with CSS** | Draw the `.devbook/tech` graph as the five views of the [Technology view](../domain/devbook/features.md#technology-view). |
 | Knowledge graph exploration | **A first-party canvas renderer** | Draw the Brain's atlas and the repository devbook atlas as a 3D-projected map. |
@@ -246,9 +245,8 @@ Backlog should solve diagrams in layers instead of relying on one component suit
 | Charts and operational dashboards | **Apache ECharts** (future) | Preferred for metrics, trend charts, dependency health, and monitoring dashboards. |
 | Full general-purpose diagram editor | **diagrams.net / draw.io** (optional future) | Consider only when a broad GUI editor outweighs Markdown-first diagrams. |
 
-- **Archify:** it never replaces Mermaid and is never automatic. A fence with no
-  artifact, or whose text has moved on, is drawn by Mermaid. See
-  `#archify-artifacts` below.
+- **Mermaid:** it is the only renderer for a fence. Archify, which offered a
+  second rendering, is retired (local ADR 0057); see `#archify-artifacts` below.
 - **c4hero and the first-party renderer:** the app draws wherever a chapter
   embeds a view as `![…](c4:<view key>)`. Mermaid cannot be themed into the
   shape a C4 view wants: it sizes its own boxes, draws no glyph and writes every
@@ -362,52 +360,22 @@ arrangement, the DSL subset, and what the drawing cannot say.
 ### Archify artifacts
 
 ```meta
-related: [".devbook/tech/tooling.md#archify", ".devbook/design/design-principles.md", ".devbook/design/accessibility.md"]
+related: [".devbook/arc42/adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md", ".devbook/design/design-principles.md", ".devbook/design/accessibility.md"]
 ```
 
-An Archify artifact is a whole generated document rather than a picture. The
-rules that follow are about showing somebody else's viewer inside a chapter
-without it reading as a foreign object.
+Retired. Local ADR 0057 retires Archify, so a chapter diagram carries no artifact,
+no renderer switch and no out-of-date notice: Mermaid draws it.
 
-| Rule | Guidance |
-|---|---|
-| The reader chooses the renderer | A diagram with an artifact carries an Archify/Mermaid switch, with the selected one highlighted. |
-| The frame is sized to the drawing | Never a fixed height: an artifact's height follows the width it is given. |
-| The diagram sits on the chapter | The artifact's own background, panel and grid are cleared so the drawing composites onto the pane. |
-| No control that visibly refuses | The app hides the artifact's theme toggle, and its visual-style picker when under two options. |
-| It is a document, not an image | The frame is not labelled `role="img"`; the frame's title carries the accessible name instead. |
+### Click demos
 
-- **The reader chooses the renderer:** an artifact is a *re-authoring* of the
-  fence, not a rendering of it. A reader who doubts the picture must be able
-  to see the fence drawn instead. Both wear the same badge as the rest of the
-  header.
-- **The frame is sized to the drawing:** a landscape runtime view and a portrait
-  building-block view are not the same shape. A fixed frame clips one and leaves
-  the other in empty space.
-- **The diagram sits on the chapter:** a diagram in a body is part of the prose,
-  not a card laid on top of it.
-- **No control that visibly refuses:** the app pins the dark theme from outside
-  per `design-principles.md`. Everything the viewer can do stays: zoom,
-  drag-to-pan, presets, presentation and export.
-- **It is a document, not an image:** the role would collapse a structured
-  document into one opaque graphic for a screen reader. What is inside stays reachable.
+```meta
+related: [".devbook/design/design-principles.md", ".devbook/design/accessibility.md"]
+```
 
-**Not every diagram can have one.** Archify has five types: architecture,
-workflow, sequence, dataflow and lifecycle. Class and ER diagrams have none, so
-a bounded context's aggregate model is always Mermaid. The app offers nothing
-for it rather than offering something it cannot deliver.
-
-The review surface is Storybook → *Diagrams*, in two stories that exercise the
-component the app ships. **With an Archify artifact** draws one committed
-artifact through `DiagramView`'s own artifact mode: the switch, the default and
-full screen. **Artifact out of date** draws the same fence after an edit, so the
-notice and the render offer can be seen.
-
-**A click demo is framed the same way, by `DemoView`.** Like an artifact, a demo
-goes into the frame as `srcdoc`, and the stage around the frame goes full screen
-with the way out inside it. Three rules differ, because a demo shows the product
-rather than a diagram. Devbook's demo address contract (`devbook.demo.address@1`)
-governs the frame.
+**A click demo is framed by `DemoView`.** A demo goes into the frame as `srcdoc`,
+and the stage around the frame goes full screen with the way out inside it. Because
+a demo shows the product rather than a diagram, three rules govern it. Devbook's
+demo address contract (`devbook.demo.address@1`) governs the frame.
 
 | Rule | Guidance |
 |---|---|
@@ -419,7 +387,7 @@ A demo is the one framed document the dark-mode default does not reach, and it
 talks to the pane only through its messages.
 
 - **The places a chapter names are chips:** the chips take the badge style of
-  the renderer switch. The first is sent as `demo:goto` once the demo reports
+  the pane's header. The first is sent as `demo:goto` once the demo reports
   `demo:ready`, and the chip that is open reads as pressed. A demo shown for its
   page alone has no chip row.
 
