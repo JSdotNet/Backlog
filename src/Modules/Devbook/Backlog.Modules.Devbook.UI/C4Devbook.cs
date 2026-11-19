@@ -34,13 +34,6 @@ namespace Backlog.Desktop.UI.Devbook;
 /// rather than read, and it is held only as long as the catalog is: an authored
 /// workspace, once there is one, replaces it entirely.
 /// </para>
-/// <para>
-/// That is the whole difference from the Archify arrangement next door. An Archify
-/// artifact is a re-authoring of a mermaid fence with nothing in it pointing back,
-/// so it has to be matched to that fence by hash and filed in a generated index, and
-/// it can go stale. A C4 workspace is attached to no fence, has no committed
-/// rendering, and therefore has nothing to drift from.
-/// </para>
 /// </summary>
 public sealed class C4DevbookStore : IDisposable
 {
@@ -52,8 +45,8 @@ public sealed class C4DevbookStore : IDisposable
     public const string IncludeDirectory = "c4";
 
     /// <summary>The folder that held the workspaces before contract 33 and still holds
-    /// <see cref="ReferenceFile"/>. Named to sit next to <c>_archify</c> and
-    /// <c>_meta</c>, which is what puts it out of the way of the chapter listing.</summary>
+    /// <see cref="ReferenceFile"/>. Named to sit next to <c>_meta</c>, which is what
+    /// puts it out of the way of the chapter listing.</summary>
     public const string ReferenceDirectory = "_c4";
 
     /// <summary>
@@ -64,10 +57,9 @@ public sealed class C4DevbookStore : IDisposable
     /// embed and the file is retired. A view a chapter embeds needs no entry here.
     /// </para>
     /// <para>
-    /// <c>references.json</c> rather than <c>index.json</c> because the
-    /// <c>_archify/index.json</c> beside a chapter is generated, and a file with that
-    /// name beside a workspace would read as generated too. This one is authored and
-    /// reviewed like the <c>.dsl</c> is.
+    /// <c>references.json</c> rather than <c>index.json</c> because an
+    /// <c>index.json</c> reads as generated. This one is authored and reviewed like
+    /// the <c>.dsl</c> is.
     /// </para>
     /// <para>
     /// A file at all because the two better homes are both closed. A chapter's own

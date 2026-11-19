@@ -21,7 +21,6 @@ using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.UI.Components.Diagrams;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -533,7 +532,6 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Same(
             provider.GetRequiredService<IDevbookSubjectStateStore>(),
             provider.GetRequiredService<IDevbookSyncDirectionStore>());
-        Assert.IsType<ArchifyDiagramArtifacts>(provider.GetRequiredService<IDiagramArtifactSource>());
         Assert.IsType<ProcessCopilotCliLauncher>(provider.GetRequiredService<ICopilotCliLauncher>());
     }
 

@@ -2281,7 +2281,7 @@ public sealed class HomeWorkspaceSurfaceTests
         Assert.Equal("Read delivery run files", task.Label);
 
         Assert.Null(pane.PullRequestTask(PullRequestSubject("JSdotNet/Backlog", 713), false));
-        Assert.Null(pane.PullRequestTask(PullRequestSubject("JSdotNet/Archify", 712), false));
+        Assert.Null(pane.PullRequestTask(PullRequestSubject("JSdotNet/Almanac", 712), false));
 
         // An open local entry is one of mine, so Mine asks of it too.
         Assert.Equal(row.Id, pane.PullRequestTask(PullRequestSubject("JSdotNet/Backlog", 712), true)?.EntryId);

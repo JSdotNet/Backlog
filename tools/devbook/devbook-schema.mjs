@@ -46,7 +46,11 @@ const SCHEMA_TEXT = readFileSync(new URL('./devbook-schema.sql', import.meta.url
  *  states, as written (devbook contract 25).
  *
  *  5 — `demo` and `demo_link` were added: the `*.demo.html` files beside the
- *  pages and what pairs each one with a chapter. */
+ *  pages and what pairs each one with a chapter.
+ *
+ *  6 — the `tests` rows of `node_attribute` were added.
+ *
+ *  7 — `archify_artifact` was dropped with Archify (local ADR 0057). */
 export const SCHEMA_VERSION = (() => {
     const match = /^-- schema-version: (\d+)\s*$/m.exec(SCHEMA_TEXT);
     if (!match) throw new Error('devbook-schema.sql carries no `-- schema-version: N` line.');
@@ -103,8 +107,8 @@ export const SCHEMA_VERSION = (() => {
  * convention says to skip when reading a chapter as content. The rest of the
  * fences in this corpus are mermaid diagram source, and `stateDiagram-v2` or
  * `Created --> Organized` is no more readable in an excerpt than `status: draft`
- * is; a diagram is reachable through the graph and through its Archify artifact,
- * which is where a reader is meant to meet it. "A fenced block is not prose" is
+ * is; a diagram is reachable through the graph and drawn where its chapter is
+ * shown, which is where a reader is meant to meet it. "A fenced block is not prose" is
  * also a rule that survives the next fence language somebody adds, which "these
  * two names are not prose" would not. The cost is real and small: a chapter that
  * is nothing but a diagram is findable by its title and its metadata-derived
@@ -157,15 +161,10 @@ export const SCHEMA_VERSION = (() => {
  * what produced the vector, and a reader configured for a different one ignores
  * the row rather than comparing across coordinate spaces.
  *
- * `archify_artifact.checks_passed` / `check_count` — present in the fourteen
- * `_archify/index.json` files today and read by no C# DTO. ADR 0004 lists them,
- * so they are carried rather than dropped: a column nobody reads is cheaper to
- * keep than a regeneration to add.
- *
  * `demo` — one row per `*.demo.html` in an adopted folder: the agreed,
  * clickable picture of what a person sees, which devbook's `devbook-domain.md`
  * places beside the pages of a bounded context. Only its path and file facts
- * are stored — never its HTML, which is read on demand like an Archify artifact.
+ * are stored — never its HTML, which is read on demand.
  * `page_path` is the page the demo pairs with by its name — `demo.html` with the
  * `context.md` beside it, `<page>.demo.html` with the `<page>.md` beside it —
  * and null when that page is not there. A demo has no reading position, so it

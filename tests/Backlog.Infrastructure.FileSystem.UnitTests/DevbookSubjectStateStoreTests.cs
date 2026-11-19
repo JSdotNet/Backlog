@@ -21,7 +21,7 @@ public sealed class DevbookSubjectStateStoreTests : IDisposable
     private const string Host = "DEV-TOWER";
     private const string Fingerprint = "sha256:2b11c532";
 
-    private static readonly DevbookSubject Debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-archify.md");
+    private static readonly DevbookSubject Debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md");
     private static readonly DevbookSubject Change = DevbookSubject.Proposal("pay-by-card");
 
     private readonly string _root = Path.Combine(
@@ -199,7 +199,7 @@ public sealed class DevbookSubjectStateStoreTests : IDisposable
     [Theory]
     [InlineData("""{ "repositoryAlias": "jsdotnet/backlog", "subjects": null }""", 0)]
     [InlineData("""{ "repositoryAlias": "jsdotnet/backlog", "subjects": [ null ] }""", 0)]
-    [InlineData("""{ "repositoryAlias": "jsdotnet/backlog", "subjects": [ null, { "id": "7d3c1f2a-9b8e-5c4d-8a6b-1e2f3a4b5c6d", "kind": "debt", "key": ".devbook/arc42/tdr/0001-archify.md", "state": "planned", "by": "OTHER-PC" } ] }""", 1)]
+    [InlineData("""{ "repositoryAlias": "jsdotnet/backlog", "subjects": [ null, { "id": "7d3c1f2a-9b8e-5c4d-8a6b-1e2f3a4b5c6d", "kind": "debt", "key": ".devbook/arc42/tdr/0001-almanac.md", "state": "planned", "by": "OTHER-PC" } ] }""", 1)]
     public void A_file_with_no_list_or_a_hole_in_it_reads_as_what_it_holds(string json, int held)
     {
         Directory.CreateDirectory(Folder);

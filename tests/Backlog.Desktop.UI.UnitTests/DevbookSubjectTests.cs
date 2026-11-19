@@ -22,16 +22,16 @@ public sealed class DevbookSubjectTests
     {
         Assert.Equal("proposal:pay-by-card", DevbookSubject.Proposal("pay-by-card").CanonicalKey);
         Assert.Equal("decision:.devbook/arc42/adr/0044-subject-state.md#1607", DevbookSubject.Decision(".devbook/arc42/adr/0044-subject-state.md", 1607).CanonicalKey);
-        Assert.Equal("debt:.devbook/arc42/tdr/0001-archify.md", DevbookSubject.Debt(".devbook/arc42/tdr/0001-archify.md").CanonicalKey);
+        Assert.Equal("debt:.devbook/arc42/tdr/0001-almanac.md", DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md").CanonicalKey);
     }
 
     [Fact]
     public void A_record_path_is_spelled_one_way()
     {
-        var spelled = DevbookSubject.Debt(@" ./.devbook\arc42\tdr\0001-archify.md ");
+        var spelled = DevbookSubject.Debt(@" ./.devbook\arc42\tdr\0001-almanac.md ");
 
-        Assert.Equal(DevbookSubject.Debt(".devbook/arc42/tdr/0001-archify.md"), spelled);
-        Assert.Equal(".devbook/arc42/tdr/0001-archify.md", DevbookSubject.Debt("/.devbook/arc42/tdr/0001-archify.md").Key);
+        Assert.Equal(DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md"), spelled);
+        Assert.Equal(".devbook/arc42/tdr/0001-almanac.md", DevbookSubject.Debt("/.devbook/arc42/tdr/0001-almanac.md").Key);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class DevbookSubjectTests
         Assert.Equal(["draft", "approved", "accepted"], DevbookSubject.StatesOf(DevbookSubjectKind.Proposal));
         Assert.Equal(["proposed", "decided", "declined"], DevbookSubject.StatesOf(DevbookSubjectKind.Decision));
         Assert.Equal(["identified", "planned", "in-progress", "resolved"], DevbookSubject.StatesOf(DevbookSubjectKind.Debt));
-        Assert.Equal(DevbookSubject.StatesOf(DevbookSubjectKind.Debt), DevbookSubject.Debt(".devbook/arc42/tdr/0001-archify.md").States);
+        Assert.Equal(DevbookSubject.StatesOf(DevbookSubjectKind.Debt), DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md").States);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public sealed class DevbookSubjectTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => DevbookSubject.Decision(".devbook/arc42/adr/0044-subject-state.md", 0));
         Assert.Throws<ArgumentException>(() => new DevbookSubject(DevbookSubjectKind.Decision, ".devbook/arc42/adr/0044-subject-state.md"));
-        Assert.Throws<ArgumentException>(() => new DevbookSubject(DevbookSubjectKind.Debt, ".devbook/arc42/tdr/0001-archify.md", 12));
+        Assert.Throws<ArgumentException>(() => new DevbookSubject(DevbookSubjectKind.Debt, ".devbook/arc42/tdr/0001-almanac.md", 12));
         Assert.Throws<ArgumentException>(() => DevbookSubject.Proposal("  "));
     }
 
@@ -59,8 +59,8 @@ public sealed class DevbookSubjectTests
     public void The_id_is_the_same_on_every_device_for_the_same_subject()
     {
         Assert.Equal(
-            Guid.Parse("f73649b2-5f7f-5428-850c-c844369aab7a"),
-            DevbookSubject.IdFor(Repository, DevbookSubject.Debt(".devbook/arc42/tdr/0001-archify.md")));
+            Guid.Parse("c9af5e7c-6767-5050-a766-af14b187e9c1"),
+            DevbookSubject.IdFor(Repository, DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md")));
         Assert.Equal(
             Guid.Parse("d983c893-ecbd-56d1-9a8c-1bfc8cbdcdd0"),
             DevbookSubject.IdFor(Repository, DevbookSubject.Proposal("pay-by-card")));
@@ -72,7 +72,7 @@ public sealed class DevbookSubjectTests
     [Fact]
     public void Another_repository_or_pull_request_is_another_subject()
     {
-        var debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-archify.md");
+        var debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md");
 
         Assert.NotEqual(DevbookSubject.IdFor(Repository, debt), DevbookSubject.IdFor("JSdotNet/devbook", debt));
         Assert.NotEqual(
@@ -86,7 +86,7 @@ public sealed class DevbookSubjectTests
     [Fact]
     public void An_alias_names_one_repository_whatever_its_case()
     {
-        var debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-archify.md");
+        var debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md");
 
         Assert.Equal(DevbookSubject.IdFor(Repository, debt), DevbookSubject.IdFor(" jsdotnet/BACKLOG ", debt));
         Assert.Equal("jsdotnet/backlog", DevbookSubject.AliasKey("  JSdotNet/Backlog "));
@@ -131,7 +131,7 @@ public sealed class DevbookSubjectTests
     [Theory]
     [InlineData(".devbook/arc42/adr/0044-subject-state.md", DevbookSubjectKind.Decision)]
     [InlineData(".arc42/adr/0001-decision.md", DevbookSubjectKind.Decision)]
-    [InlineData(@".devbook\arc42\tdr\0001-archify.md", DevbookSubjectKind.Debt)]
+    [InlineData(@".devbook\arc42\tdr\0001-almanac.md", DevbookSubjectKind.Debt)]
     [InlineData(".arc42/tdr/0002-conventions.md", DevbookSubjectKind.Debt)]
     public void A_record_under_adr_or_tdr_is_a_subject(string path, DevbookSubjectKind kind) =>
         Assert.Equal(kind, DevbookSubjects.Classify(path));

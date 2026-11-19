@@ -31,7 +31,7 @@ public sealed class PullRequestLabelSettingsTests : IDisposable
     private GitHubSettingsStore Configured(string device = "a")
     {
         var store = Store(device);
-        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("archify", "Archify")]));
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("almanac", "Almanac")]));
         return store;
     }
 
@@ -57,7 +57,7 @@ public sealed class PullRequestLabelSettingsTests : IDisposable
         Assert.Null(store.SetPullRequestLabels("backlog", [" frontend ", "Frontend", "", "  ", "needs review"]));
 
         Assert.Equal(["frontend", "needs review"], store.Current.Find("backlog")!.PullRequestLabels);
-        Assert.Empty(store.Current.Find("archify")!.PullRequestLabels);
+        Assert.Empty(store.Current.Find("almanac")!.PullRequestLabels);
     }
 
     [Fact]
@@ -65,9 +65,9 @@ public sealed class PullRequestLabelSettingsTests : IDisposable
     {
         var store = Configured();
 
-        Assert.Null(store.SetPullRequestLabels("JSdotNet/Archify", ["backend"]));
+        Assert.Null(store.SetPullRequestLabels("JSdotNet/Almanac", ["backend"]));
 
-        Assert.Equal(["backend"], store.Current.Find("archify")!.PullRequestLabels);
+        Assert.Equal(["backend"], store.Current.Find("almanac")!.PullRequestLabels);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public sealed class PullRequestLabelSettingsTests : IDisposable
         var store = Configured();
         Assert.Null(store.SetPullRequestLabels("backlog", ["frontend"]));
 
-        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("archify", "Archify")]));
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("almanac", "Almanac")]));
         Assert.Null(store.SetRepositoryColour("backlog", 2));
         Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
         Assert.Null(store.SetDevbookSource("backlog", "main", useLocalFolder: false));

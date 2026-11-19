@@ -77,11 +77,6 @@ public static class AppFeatures
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
         new(
-            DevbookFeatures.ArchifyDiagrams,
-            "Archify diagrams",
-            "Draw a devbook chapter's diagrams from their generated Archify artifacts where one exists, and offer to generate the rest. Chapters whose artifact is missing or was authored from an earlier version of the diagram keep their mermaid rendering.",
-            EnabledByDefault: false),
-        new(
             DevbookFeatures.LobesAtlas,
             "Lobes atlas",
             "Offer the Atlas in the header: the Brain and every registered devbook drawn as brains in one full-window map, with a scope switch for each. The Devbook's own Atlas button opens it at the scope it is reading.",

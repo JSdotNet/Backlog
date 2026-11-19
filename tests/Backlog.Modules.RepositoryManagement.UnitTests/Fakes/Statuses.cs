@@ -8,7 +8,7 @@ internal static class Statuses
 {
     public const string BacklogRepository = "JSdotNet/Backlog";
 
-    public const string ArchifyRepository = "JSdotNet/Archify";
+    public const string AlmanacRepository = "JSdotNet/Almanac";
 
     public static readonly DateTimeOffset Noon = new(2026, 10, 15, 12, 0, 0, TimeSpan.Zero);
 

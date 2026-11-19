@@ -212,11 +212,11 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
         var settings = Settings();
         var registry = new GitHubRegisteredRepositories(settings);
 
-        Assert.Null(settings.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(settings.SetRepositoryArchived("almanac", archived: true));
 
         Assert.True(registry.IsConfigured);
         Assert.Equal([Repository], registry.Active);
-        Assert.True(registry.IsArchived(" jsdotnet/archify "));
+        Assert.True(registry.IsArchived(" jsdotnet/almanac "));
         Assert.False(registry.IsArchived(Repository));
         Assert.False(registry.IsArchived("someone/elsewhere"));
     }
@@ -225,7 +225,7 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
     {
         Directory.CreateDirectory(_root);
         var settings = new GitHubSettingsStore(Path.Combine(_root, Guid.NewGuid().ToString("n"), "github.json"));
-        Assert.Null(settings.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"), new GitHubRepositoryRef("archify", "JSdotNet", "Archify")]));
+        Assert.Null(settings.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"), new GitHubRepositoryRef("almanac", "JSdotNet", "Almanac")]));
         return settings;
     }
 

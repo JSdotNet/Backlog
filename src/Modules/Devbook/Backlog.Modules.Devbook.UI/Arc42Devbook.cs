@@ -268,9 +268,9 @@ public static class Arc42DevbookReader
     ///
     /// <para>Underscored segments are left out on the rule the menu already leaves
     /// them out on, so the two agree on what the folder holds rather than agreeing
-    /// by coincidence: <c>_meta</c> is the index itself, and <c>_c4</c> and
-    /// <c>_archify</c> are read by the surfaces that own them rather than as
-    /// chapters.</para>
+    /// by coincidence: <c>_meta</c> is the index itself, <c>_c4</c> is read by the
+    /// surface that owns it rather than as chapters, and <c>_archify</c> is another
+    /// repository's leftover renders, never shown (local ADR 0057 §4).</para>
     /// </summary>
     private static List<string> ScannedPaths(string arc42Directory, string rootDirectory) =>
         [.. Directory.EnumerateFiles(arc42Directory, "*.md", Recursive)

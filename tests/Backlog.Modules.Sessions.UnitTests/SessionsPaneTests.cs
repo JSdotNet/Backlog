@@ -129,7 +129,7 @@ public sealed class SessionsPaneTests
         GroupBy(pane, "repository");
 
         pane.WaitForAssertion(() => Assert.Equal(
-            ["archify", "backlog", "JSdotNet/Project-Guidelines-MCP", "No repository"],
+            ["almanac", "backlog", "JSdotNet/Project-Guidelines-MCP", "No repository"],
             pane.FindAll("[data-testid='sessions-group-name']").Select(name => name.TextContent.Trim())));
     }
 
@@ -228,7 +228,7 @@ public sealed class SessionsPaneTests
         pane.WaitForAssertion(() =>
         {
             var stalled = pane.FindAll("[data-testid='sessions-row']")
-                .Single(row => row.TextContent.Contains("JSdotNet/Archify"));
+                .Single(row => row.TextContent.Contains("JSdotNet/Almanac"));
 
             Assert.NotEmpty(stalled.QuerySelectorAll(".badge--integration-stalled"));
         });
@@ -1490,8 +1490,8 @@ public sealed class SessionsPaneTests
 
     /// <summary>
     /// What the agent recorded outranks what the product placed, on the cell and
-    /// on the scope alike: a session recorded in Archify and placed in Backlog is
-    /// shown as Archify, unmarked — and it is in either scope, because both are
+    /// on the scope alike: a session recorded in Almanac and placed in Backlog is
+    /// shown as Almanac, unmarked — and it is in either scope, because both are
     /// true of it and neither overwrites the other.
     /// </summary>
     [Fact]
@@ -1508,13 +1508,13 @@ public sealed class SessionsPaneTests
         pane.WaitForAssertion(() =>
         {
             var cell = pane.Find(".sessions-repository");
-            Assert.Equal("archify", cell.TextContent.Trim());
+            Assert.Equal("almanac", cell.TextContent.Trim());
             Assert.DoesNotContain("sessions-repository--resolved", cell.ClassName, StringComparison.Ordinal);
-            Assert.Equal("JSdotNet/Archify", cell.GetAttribute("title"));
+            Assert.Equal("JSdotNet/Almanac", cell.GetAttribute("title"));
         });
 
         pane.Render(parameters => parameters
-            .Add(p => p.RepositoryScope, new[] { "archify" }));
+            .Add(p => p.RepositoryScope, new[] { "almanac" }));
 
         pane.WaitForAssertion(() =>
             Assert.Equal("1 session", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
@@ -1540,7 +1540,7 @@ public sealed class SessionsPaneTests
         {
             var rows = pane.FindAll("[data-testid='sessions-row']");
             Assert.Contains(rows, row => row.TextContent.Contains("keen-bose-667825", StringComparison.Ordinal));
-            Assert.DoesNotContain(pane.FindAll(".sessions-repository"), cell => cell.TextContent.Trim() is "backlog" or "archify");
+            Assert.DoesNotContain(pane.FindAll(".sessions-repository"), cell => cell.TextContent.Trim() is "backlog" or "almanac");
 
             var subtitle = pane.Find("[data-testid='sessions-subtitle']").TextContent;
             Assert.Contains("Narrowed to Brain", subtitle, StringComparison.Ordinal);
@@ -1554,10 +1554,10 @@ public sealed class SessionsPaneTests
         using var context = Context(Sample);
 
         var pane = context.Render<SessionsPane>(parameters => parameters
-            .Add(p => p.RepositoryScope, new[] { "backlog", "archify" })
+            .Add(p => p.RepositoryScope, new[] { "backlog", "almanac" })
             .Add(p => p.RepositoryAlias, AliasFor));
 
-        // Live: only the stalled Archify session is both in scope and live.
+        // Live: only the stalled Almanac session is both in scope and live.
         pane.WaitForAssertion(() =>
             Assert.Equal("1 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
 
@@ -1632,7 +1632,7 @@ public sealed class SessionsPaneTests
     private static string? AliasFor(string? repository) => repository?.ToLowerInvariant() switch
     {
         "jsdotnet/backlog" or "backlog" => "backlog",
-        "jsdotnet/archify" or "archify" => "archify",
+        "jsdotnet/almanac" or "almanac" => "almanac",
         _ => null
     };
 
@@ -2103,9 +2103,9 @@ public sealed class SessionsPaneTests
             Kind: AgentSessionKind.Copilot,
             EnvironmentId: "tower",
             Environment: "DEV-TOWER",
-            Title: "JSdotNet/Archify",
-            WorkingFolder: @"C:\Users\dev\.copilot\repos\archify",
-            Repository: "JSdotNet/Archify",
+            Title: "JSdotNet/Almanac",
+            WorkingFolder: @"C:\Users\dev\.copilot\repos\almanac",
+            Repository: "JSdotNet/Almanac",
             Branch: "main",
             StartedAt: Noon.AddHours(-3),
             LastActivityAt: Noon.AddMinutes(-45),

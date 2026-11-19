@@ -33,8 +33,9 @@ public static class DevbookDatabaseSchema
     /// files beside the pages, and what pairs each one with a chapter.</para>
     /// <para>6 added the <c>tests</c> rows of <c>node_attribute</c>, one per
     /// test identifier a chapter's <c>tests</c> field names, so a reader can
-    /// tell a proved requirement from a database that never recorded it.</para></summary>
-    public const int Version = 6;
+    /// tell a proved requirement from a database that never recorded it.</para>
+    /// <para>7 dropped <c>archify_artifact</c> with Archify (local ADR 0057).</para></summary>
+    public const int Version = 7;
 
     /// <summary>The embedded resource holding <c>devbook-schema.sql</c>.</summary>
     internal const string DdlResourceName = "Backlog.Infrastructure.Devbook.devbook-schema.sql";
@@ -97,7 +98,6 @@ public static class DevbookDatabaseSchema
         "outline_entry",
         "chapter",
         "chapter_embedding",
-        "archify_artifact",
         "demo",
         "demo_link",
         "problem"

@@ -64,7 +64,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1, updated: Noon.AddHours(-2)))
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2, updated: Noon.AddHours(-1)));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 2, updated: Noon.AddHours(-1)));
         using var context = Context(client);
 
         var pane = context.Render<PullRequestsPane>();
@@ -73,18 +73,18 @@ public sealed class PullRequestsPaneTests : IDisposable
         {
             var rows = pane.FindAll("[data-testid='pull-request-row']");
             Assert.Equal(2, rows.Count);
-            Assert.Equal(["JSdotNet/Archify#2", "JSdotNet/Backlog#1"], rows.Select(row => row.GetAttribute("data-pull-request")));
+            Assert.Equal(["JSdotNet/Almanac#2", "JSdotNet/Backlog#1"], rows.Select(row => row.GetAttribute("data-pull-request")));
 
             // The repository by its alias, the head branch, and the title.
-            Assert.Equal("archify", rows[0].QuerySelector("[data-testid='pull-request-repository']")!.TextContent.Trim());
+            Assert.Equal("almanac", rows[0].QuerySelector("[data-testid='pull-request-repository']")!.TextContent.Trim());
             Assert.Contains("feature-2", rows[0].TextContent, StringComparison.Ordinal);
             Assert.Contains("Pull request 2", rows[0].TextContent, StringComparison.Ordinal);
 
             // The detail of the first: the pull request as an anchor to GitHub, and the
             // branch it would merge where.
             var detail = Detail(pane);
-            Assert.Equal("JSdotNet/Archify#2", detail.GetAttribute("data-pull-request"));
-            Assert.Equal("https://github.com/JSdotNet/Archify/pull/2", detail.QuerySelector("a[data-testid='pull-request-link']")!.GetAttribute("href"));
+            Assert.Equal("JSdotNet/Almanac#2", detail.GetAttribute("data-pull-request"));
+            Assert.Equal("https://github.com/JSdotNet/Almanac/pull/2", detail.QuerySelector("a[data-testid='pull-request-link']")!.GetAttribute("href"));
             Assert.Contains("feature-2 → main", detail.TextContent, StringComparison.Ordinal);
         });
     }
@@ -97,7 +97,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1, updated: Noon.AddHours(-2)))
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2, updated: Noon.AddHours(-1)));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 2, updated: Noon.AddHours(-1)));
         using var context = Context(client);
         var drawn = new List<Backlog.UI.Components.Goals.GoalSubject>();
         var slot = new Backlog.UI.Components.Goals.GoalControlSlot(subject => builder =>
@@ -111,7 +111,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         var pane = context.Render<PullRequestsPane>(parameters => parameters.AddCascadingValue(slot));
 
         pane.WaitForAssertion(() => Assert.NotNull(Detail(pane).QuerySelector(".pull-request-detail__line [data-testid='goal-slot']")));
-        Assert.Equal([Backlog.UI.Components.Goals.GoalSubject.ForPullRequest("JSdotNet/Archify", 2)], drawn.Distinct());
+        Assert.Equal([Backlog.UI.Components.Goals.GoalSubject.ForPullRequest("JSdotNet/Almanac", 2)], drawn.Distinct());
         Assert.Empty(pane.FindAll("[data-testid='pull-request-row'] [data-testid='goal-slot']"));
 
         using var bare = Context(new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1)));
@@ -176,16 +176,16 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 2));
         using var context = Context(client);
 
         var pane = context.Render<PullRequestsPane>(parameters => parameters
-            .Add(p => p.RepositoryScope, ["archify"]));
+            .Add(p => p.RepositoryScope, ["almanac"]));
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(["JSdotNet/Archify#2"], RowKeys(pane));
-            Assert.Contains("Narrowed to archify.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
+            Assert.Equal(["JSdotNet/Almanac#2"], RowKeys(pane));
+            Assert.Contains("Narrowed to almanac.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
         });
     }
 
@@ -199,7 +199,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 2));
         using var context = Context(client);
 
         var pane = context.Render<PullRequestsPane>(parameters => parameters
@@ -207,7 +207,7 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(["JSdotNet/Archify#2", "JSdotNet/Backlog#1"], RowKeys(pane).Order());
+            Assert.Equal(["JSdotNet/Almanac#2", "JSdotNet/Backlog#1"], RowKeys(pane).Order());
             Assert.DoesNotContain("Narrowed to", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
         });
     }
@@ -219,16 +219,16 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 2));
         using var context = Context(client);
 
         var pane = context.Render<PullRequestsPane>(parameters => parameters
-            .Add(p => p.RepositoryScope, [BrainScope.Value, "archify"]));
+            .Add(p => p.RepositoryScope, [BrainScope.Value, "almanac"]));
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(["JSdotNet/Archify#2"], RowKeys(pane));
-            Assert.Contains("Narrowed to archify.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
+            Assert.Equal(["JSdotNet/Almanac#2"], RowKeys(pane));
+            Assert.Contains("Narrowed to almanac.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
         });
     }
 
@@ -453,7 +453,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1, behind: true))
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 2));
         using var context = Context(client);
 
         var pane = context.Render<PullRequestsPane>();
@@ -487,7 +487,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         var merged = Pull("JSdotNet/Backlog", 1, mergeReady: true) with { IsMerged = true, MergedAt = Noon };
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1, mergeReady: true))
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 2));
         using var context = Context(client);
 
         var pane = context.Render<PullRequestsPane>();
@@ -500,7 +500,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(["merge PR_1 Squash"], client.Acts);
-            Assert.Equal(["JSdotNet/Archify#2"], RowKeys(pane));
+            Assert.Equal(["JSdotNet/Almanac#2"], RowKeys(pane));
         });
 
         var read = await context.Services.GetRequiredService<IPullRequests>()
@@ -519,7 +519,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1, mergeReady: true))
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 2));
         using var context = Context(client);
 
         var pane = context.Render<PullRequestsPane>();
@@ -532,7 +532,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         Assert.True(result.IsSuccess);
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(["JSdotNet/Archify#2"], RowKeys(pane));
+            Assert.Equal(["JSdotNet/Almanac#2"], RowKeys(pane));
             Assert.Equal(["JSdotNet/Backlog"], client.ListedAfterFirstRead);
         });
     }
@@ -575,7 +575,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         };
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", failing)
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 2));
         using var context = Context(client);
 
         var pane = context.Render<PullRequestsPane>();
@@ -808,7 +808,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var older = Session("older-1", branch: "feature-1", repository: "JSdotNet/Backlog", lastActivity: Noon.AddHours(-4));
         var newer = Session("newer-1", branch: "feature-1", resolved: "JSdotNet/Backlog", lastActivity: Noon.AddHours(-1));
-        var elsewhere = Session("elsewhere-1", branch: "feature-1", repository: "JSdotNet/Archify", lastActivity: Noon);
+        var elsewhere = Session("elsewhere-1", branch: "feature-1", repository: "JSdotNet/Almanac", lastActivity: Noon);
         string? opened = null;
 
         using var context = Context(new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1)), sessions: [older, newer, elsewhere]);
@@ -924,7 +924,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     [InlineData("capped list, listed parent", "Ready to merge", true)]
     public async Task All_three_screens_give_a_pull_request_one_verdict(string situation, string? label, bool stacked)
     {
-        var client = new StubClient().Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 3));
+        var client = new StubClient().Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 3));
         GitHubOpenPullRequest pinned;
         string[]? scope = null;
         switch (situation)
@@ -936,7 +936,7 @@ public sealed class PullRequestsPaneTests : IDisposable
             case "out-of-scope pin, listed parent":
                 pinned = Pull("JSdotNet/Backlog", 9, mergeReady: true, baseRef: "feature-6") with { DefaultBranch = "main" };
                 client.Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 6), pinned);
-                scope = ["archify"];
+                scope = ["almanac"];
                 break;
             case "capped list, listed parent":
                 // Fifty open pull requests fill the list, #6 and #9 among them.
@@ -1074,11 +1074,11 @@ public sealed class PullRequestsPaneTests : IDisposable
         var child = Pull("JSdotNet/Backlog", 7, mergeReady: true, baseRef: "feature-6");
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 6), child)
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 3));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 3));
         client.Finds(child);
         using var context = Context(client, pins: Pins(("JSdotNet/Backlog", 7)));
 
-        var pane = context.Render<PullRequestsPane>(parameters => parameters.Add(p => p.RepositoryScope, ["archify"]));
+        var pane = context.Render<PullRequestsPane>(parameters => parameters.Add(p => p.RepositoryScope, ["almanac"]));
 
         pane.WaitForAssertion(() =>
         {
@@ -1584,7 +1584,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
             .Merged("JSdotNet/Backlog", MergedPull("JSdotNet/Backlog", 10, merged: Noon.AddDays(-3)))
-            .Merged("JSdotNet/Archify", MergedPull("JSdotNet/Archify", 20, merged: Noon.AddHours(-2)));
+            .Merged("JSdotNet/Almanac", MergedPull("JSdotNet/Almanac", 20, merged: Noon.AddHours(-2)));
         using var context = Context(client);
 
         var pane = context.Render<PullRequestsPane>();
@@ -1597,11 +1597,11 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(["JSdotNet/Archify#20", "JSdotNet/Backlog#10"], RowKeys(pane));
+            Assert.Equal(["JSdotNet/Almanac#20", "JSdotNet/Backlog#10"], RowKeys(pane));
             Assert.Equal("true", pane.Find("[data-testid='pull-requests-view-merged']").GetAttribute("aria-pressed"));
 
             var row = pane.FindAll("[data-testid='pull-request-row']")[0];
-            Assert.Equal("archify", row.QuerySelector("[data-testid='pull-request-repository']")!.TextContent.Trim());
+            Assert.Equal("almanac", row.QuerySelector("[data-testid='pull-request-repository']")!.TextContent.Trim());
             Assert.Equal("Merged", row.QuerySelector("[data-testid='pull-request-verdict']")!.TextContent.Trim());
             Assert.Empty(row.QuerySelectorAll(".badge--integration"));
 
@@ -1617,7 +1617,7 @@ public sealed class PullRequestsPaneTests : IDisposable
 
             // The detail: the link wears Merged as its colour, and the banner says it.
             var detail = Detail(pane);
-            Assert.Equal("https://github.com/JSdotNet/Archify/pull/20", detail.QuerySelector("a[data-testid='pull-request-link']")!.GetAttribute("href"));
+            Assert.Equal("https://github.com/JSdotNet/Almanac/pull/20", detail.QuerySelector("a[data-testid='pull-request-link']")!.GetAttribute("href"));
             Assert.Contains("integration-link--state-merged", detail.QuerySelector("a[data-testid='pull-request-link']")!.ClassList);
             Assert.Contains("Merged", detail.QuerySelector("[data-testid='pull-request-state']")!.TextContent, StringComparison.Ordinal);
             Assert.Contains("feature-20 → main", detail.TextContent, StringComparison.Ordinal);
@@ -1687,15 +1687,15 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var client = new StubClient()
             .Merged("JSdotNet/Backlog", MergedPull("JSdotNet/Backlog", 10))
-            .Merged("JSdotNet/Archify", MergedPull("JSdotNet/Archify", 20));
+            .Merged("JSdotNet/Almanac", MergedPull("JSdotNet/Almanac", 20));
         using var context = Context(client);
 
-        var pane = OnMergedView(context, parameters => parameters.Add(p => p.RepositoryScope, ["archify"]));
+        var pane = OnMergedView(context, parameters => parameters.Add(p => p.RepositoryScope, ["almanac"]));
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(["JSdotNet/Archify#20"], RowKeys(pane));
-            Assert.Contains("Narrowed to archify.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
+            Assert.Equal(["JSdotNet/Almanac#20"], RowKeys(pane));
+            Assert.Contains("Narrowed to almanac.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
         });
     }
 
@@ -2159,7 +2159,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var client = new StubClient()
             .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 10))
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 11, baseRef: "feature-10"));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 11, baseRef: "feature-10"));
         using var context = Context(client);
 
         var pane = context.Render<PullRequestsPane>();
@@ -2320,7 +2320,7 @@ public sealed class PullRequestsPaneTests : IDisposable
                 "JSdotNet/Backlog",
                 Pull("JSdotNet/Backlog", 1) with { Labels = ["Frontend"] },
                 Pull("JSdotNet/Backlog", 2) with { Labels = ["backend"] })
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 3));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 3));
         using var context = Context(client);
         Assert.Null(SettingsOf(context).SetPullRequestLabels("backlog", ["frontend", "design"]));
 
@@ -2328,7 +2328,7 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Archify#3"], RowKeys(pane));
+            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Almanac#3"], RowKeys(pane));
             Assert.Equal("2 of 3 pull requests", pane.Find("[data-testid='pull-requests-count']").TextContent.Trim());
             Assert.Contains("Label filter on backlog: frontend or design.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
         });
@@ -2337,7 +2337,7 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2", "JSdotNet/Archify#3"], RowKeys(pane));
+            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2", "JSdotNet/Almanac#3"], RowKeys(pane));
             Assert.DoesNotContain("Label filter", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
         });
     }
@@ -2430,16 +2430,16 @@ public sealed class PullRequestsPaneTests : IDisposable
                 "JSdotNet/Backlog",
                 Pull("JSdotNet/Backlog", 1, mine: true, updated: Noon) with { Labels = ["frontend"] },
                 Pull("JSdotNet/Backlog", 2, mine: false, updated: Noon.AddHours(-5)) with { Labels = ["backend"] })
-            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 3, updated: Noon.AddMinutes(-1)));
+            .Lists("JSdotNet/Almanac", Pull("JSdotNet/Almanac", 3, updated: Noon.AddMinutes(-1)));
         client.Finds(Pull("JSdotNet/Backlog", 2, mine: false, updated: Noon.AddHours(-5)) with { Labels = ["backend"] });
         using var context = Context(client, pins: Pins(("JSdotNet/Backlog", 2)));
         Assert.Null(SettingsOf(context).SetPullRequestLabels("backlog", ["frontend"]));
 
-        var pane = context.Render<PullRequestsPane>(parameters => parameters.Add(p => p.RepositoryScope, ["archify"]));
+        var pane = context.Render<PullRequestsPane>(parameters => parameters.Add(p => p.RepositoryScope, ["almanac"]));
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(["JSdotNet/Backlog#2", "JSdotNet/Archify#3"], RowKeys(pane));
+            Assert.Equal(["JSdotNet/Backlog#2", "JSdotNet/Almanac#3"], RowKeys(pane));
             Assert.Equal("true", Row(pane, "JSdotNet/Backlog#2").GetAttribute("data-pinned"));
             Assert.Equal("pinned", Groups(pane)[0].Lane);
         });
@@ -2790,7 +2790,7 @@ public sealed class PullRequestsPaneTests : IDisposable
 
     private BunitContext Context(
         StubClient client,
-        string repositories = "JSdotNet/Backlog\nJSdotNet/Archify\nocto/broken",
+        string repositories = "JSdotNet/Backlog\nJSdotNet/Almanac\nocto/broken",
         IReadOnlyList<AgentSession>? sessions = null,
         bool toasts = true,
         PullRequestPinsStore? pins = null)
@@ -2801,7 +2801,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         Assert.Null(settings.SetRepositories(parsed));
 
         // A repository the stub was told nothing about lists nothing, so the default
-        // three-repository workspace reads as Backlog and Archify plus an empty one.
+        // three-repository workspace reads as Backlog and Almanac plus an empty one.
         foreach (var repository in parsed.Where(repository => !client.Knows(repository.FullName)))
         {
             client.Lists(repository.FullName);

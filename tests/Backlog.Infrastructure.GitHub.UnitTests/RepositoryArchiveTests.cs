@@ -39,7 +39,7 @@ public sealed class RepositoryArchiveTests : IDisposable
     private GitHubSettingsStore Configured(string device = "a")
     {
         var store = Store(device);
-        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("archify", "Archify")]));
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("almanac", "Almanac")]));
         return store;
     }
 
@@ -61,7 +61,7 @@ public sealed class RepositoryArchiveTests : IDisposable
         var store = Configured();
 
         Assert.False(store.Current.Find("backlog")!.Archived);
-        Assert.False(store.Current.Find("archify")!.Archived);
+        Assert.False(store.Current.Find("almanac")!.Archived);
     }
 
     [Fact]
@@ -69,13 +69,13 @@ public sealed class RepositoryArchiveTests : IDisposable
     {
         var store = Configured();
 
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
 
-        Assert.True(store.Current.Find("archify")!.Archived);
-        Assert.True((bool)RegistryRow(store, "JSdotNet/Archify")["archived"]!);
+        Assert.True(store.Current.Find("almanac")!.Archived);
+        Assert.True((bool)RegistryRow(store, "JSdotNet/Almanac")["archived"]!);
         Assert.DoesNotContain("archived", File.ReadAllText(store.SettingsPath), StringComparison.Ordinal);
 
-        Assert.True(Store().Current.Find("archify")!.Archived);
+        Assert.True(Store().Current.Find("almanac")!.Archived);
         Assert.False(Store().Current.Find("backlog")!.Archived);
     }
 
@@ -87,8 +87,8 @@ public sealed class RepositoryArchiveTests : IDisposable
         var untouched = Configured("untouched");
         var toggled = Configured("toggled");
 
-        Assert.Null(toggled.SetRepositoryArchived("archify", archived: true));
-        Assert.Null(toggled.SetRepositoryArchived("archify", archived: false));
+        Assert.Null(toggled.SetRepositoryArchived("almanac", archived: true));
+        Assert.Null(toggled.SetRepositoryArchived("almanac", archived: false));
 
         Assert.DoesNotContain("archived", File.ReadAllText(toggled.RegistryPath), StringComparison.Ordinal);
         Assert.Equal(
@@ -103,9 +103,9 @@ public sealed class RepositoryArchiveTests : IDisposable
         var raised = 0;
         store.Changed += () => raised++;
 
-        Assert.Null(store.SetRepositoryArchived("JSdotNet/Archify", archived: true));
+        Assert.Null(store.SetRepositoryArchived("JSdotNet/Almanac", archived: true));
 
-        Assert.True(store.Current.Find("archify")!.Archived);
+        Assert.True(store.Current.Find("almanac")!.Archived);
         Assert.Equal(1, raised);
     }
 
@@ -116,7 +116,7 @@ public sealed class RepositoryArchiveTests : IDisposable
         var replication = new GitHubSettingsReplication(store);
         var before = (await replication.ReadAsync(GitHubReplicaDocument.Registry, TestContext.Current.CancellationToken))!.UpdatedAt;
 
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
 
         var after = (await replication.ReadAsync(GitHubReplicaDocument.Registry, TestContext.Current.CancellationToken))!.UpdatedAt;
         Assert.True(after > before);
@@ -129,24 +129,24 @@ public sealed class RepositoryArchiveTests : IDisposable
     {
         var store = Configured();
         var clone = Path.Combine(_root, "clone");
-        Assert.Null(store.SetRepositoryColour("archify", 4));
-        Assert.Null(store.SetRepositoryToken("archify", "ghp_secret"));
-        Assert.Null(store.SetCloneDirectory("archify", clone));
-        Assert.Null(store.SetPullRequestLabels("archify", ["frontend"]));
-        Assert.Null(store.SetDevbookSource("archify", "release", useLocalFolder: false));
+        Assert.Null(store.SetRepositoryColour("almanac", 4));
+        Assert.Null(store.SetRepositoryToken("almanac", "ghp_secret"));
+        Assert.Null(store.SetCloneDirectory("almanac", clone));
+        Assert.Null(store.SetPullRequestLabels("almanac", ["frontend"]));
+        Assert.Null(store.SetDevbookSource("almanac", "release", useLocalFolder: false));
 
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
-        AssertSettingsKept(Store().Current.Find("archify")!);
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
+        AssertSettingsKept(Store().Current.Find("almanac")!);
 
-        Assert.Null(store.SetRepositoryArchived("archify", archived: false));
-        var restored = Store().Current.Find("archify")!;
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: false));
+        var restored = Store().Current.Find("almanac")!;
         Assert.False(restored.Archived);
         AssertSettingsKept(restored);
 
         void AssertSettingsKept(GitHubRepositoryRef repository)
         {
-            Assert.Equal("JSdotNet/Archify", repository.FullName);
-            Assert.Equal("archify", repository.Alias);
+            Assert.Equal("JSdotNet/Almanac", repository.FullName);
+            Assert.Equal("almanac", repository.Alias);
             Assert.Equal(4, repository.Colour);
             Assert.Equal("ghp_secret", repository.Token);
             Assert.Equal(clone, repository.CloneDirectory);
@@ -160,11 +160,11 @@ public sealed class RepositoryArchiveTests : IDisposable
     public void An_archived_repository_is_still_configured_and_found_by_alias_and_by_id()
     {
         var store = Configured();
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
 
         Assert.Equal(2, store.Current.Repositories.Count);
-        Assert.Equal("JSdotNet/Archify", store.Current.Find("archify")!.FullName);
-        Assert.Equal("archify", store.Current.Find("JSdotNet/Archify")!.Alias);
+        Assert.Equal("JSdotNet/Almanac", store.Current.Find("almanac")!.FullName);
+        Assert.Equal("almanac", store.Current.Find("JSdotNet/Almanac")!.Alias);
     }
 
     // --- Refusals (I2) ---------------------------------------------------------------
@@ -173,7 +173,7 @@ public sealed class RepositoryArchiveTests : IDisposable
     public void The_last_active_repository_cannot_be_archived()
     {
         var store = Configured();
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
 
         Assert.Equal(LastActive, store.SetRepositoryArchived("backlog", archived: true));
 
@@ -198,14 +198,14 @@ public sealed class RepositoryArchiveTests : IDisposable
     public void The_last_active_repository_cannot_be_removed_dropped_or_merged_away_while_others_are_archived()
     {
         var store = Configured();
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
 
         Assert.Equal(LastActive, store.RemoveRepository("backlog"));
-        Assert.Equal(LastActive, store.SetRepositories([Repository("archify", "Archify")]));
-        Assert.Equal(LastActive, store.RenameRepository("backlog", "JSdotNet/Archify", out var rename));
+        Assert.Equal(LastActive, store.SetRepositories([Repository("almanac", "Almanac")]));
+        Assert.Equal(LastActive, store.RenameRepository("backlog", "JSdotNet/Almanac", out var rename));
 
         Assert.Null(rename);
-        Assert.Equal(["backlog", "archify"], Store().Current.Repositories.Select(r => r.Alias));
+        Assert.Equal(["backlog", "almanac"], Store().Current.Repositories.Select(r => r.Alias));
         Assert.Equal("backlog", Store().Current.DefaultRepository!.Alias);
         Assert.Empty(Store().Current.Renames);
         Assert.Empty(Store().Current.Removals);
@@ -225,10 +225,10 @@ public sealed class RepositoryArchiveTests : IDisposable
     public void Archiving_an_archived_repository_again_is_not_refused_as_the_last_active_one()
     {
         var store = Configured();
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
 
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
-        Assert.True(store.Current.Find("archify")!.Archived);
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
+        Assert.True(store.Current.Find("almanac")!.Archived);
     }
 
     [Fact]
@@ -260,8 +260,8 @@ public sealed class RepositoryArchiveTests : IDisposable
 
         Assert.Null(store.SetRepositoryArchived("backlog", archived: true));
 
-        Assert.Equal("archify", store.Current.DefaultRepository!.Alias);
-        Assert.Equal(["archify"], store.Current.ActiveRepositories.Select(r => r.Alias));
+        Assert.Equal("almanac", store.Current.DefaultRepository!.Alias);
+        Assert.Equal(["almanac"], store.Current.ActiveRepositories.Select(r => r.Alias));
     }
 
     [Fact]
@@ -281,39 +281,39 @@ public sealed class RepositoryArchiveTests : IDisposable
     public void A_re_typed_repositories_list_keeps_the_flag()
     {
         var store = Configured();
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
 
-        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("archify", "Archify")]));
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("almanac", "Almanac")]));
 
-        Assert.True(store.Current.Find("archify")!.Archived);
-        Assert.True(Store().Current.Find("archify")!.Archived);
+        Assert.True(store.Current.Find("almanac")!.Archived);
+        Assert.True(Store().Current.Find("almanac")!.Archived);
     }
 
     [Fact]
     public void Every_other_mutator_keeps_the_flag()
     {
         var store = Configured();
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
 
-        Assert.Null(store.SetRepositoryColour("archify", 2));
-        Assert.Null(store.SetCloneDirectory("archify", Path.Combine(_root, "clone")));
-        Assert.Null(store.SetPullRequestLabels("archify", ["frontend"]));
-        Assert.Null(store.SetDevbookSource("archify", "main", useLocalFolder: false));
-        Assert.Null(store.SetRepositoryToken("archify", "ghp_secret"));
+        Assert.Null(store.SetRepositoryColour("almanac", 2));
+        Assert.Null(store.SetCloneDirectory("almanac", Path.Combine(_root, "clone")));
+        Assert.Null(store.SetPullRequestLabels("almanac", ["frontend"]));
+        Assert.Null(store.SetDevbookSource("almanac", "main", useLocalFolder: false));
+        Assert.Null(store.SetRepositoryToken("almanac", "ghp_secret"));
 
-        Assert.True(Store().Current.Find("archify")!.Archived);
+        Assert.True(Store().Current.Find("almanac")!.Archived);
     }
 
     [Fact]
     public void A_rename_keeps_an_archived_repository_archived()
     {
         var store = Configured();
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
 
-        Assert.Null(store.RenameRepository("archify", "JSdotNet/Archify2", out _));
+        Assert.Null(store.RenameRepository("almanac", "JSdotNet/Almanac2", out _));
 
-        Assert.True(store.Current.Find("JSdotNet/Archify2")!.Archived);
-        Assert.True(Store().Current.Find("JSdotNet/Archify")!.Archived);
+        Assert.True(store.Current.Find("JSdotNet/Almanac2")!.Archived);
+        Assert.True(Store().Current.Find("JSdotNet/Almanac")!.Archived);
     }
 
     [Fact]
@@ -323,14 +323,14 @@ public sealed class RepositoryArchiveTests : IDisposable
         Assert.Null(store.SetRepositories(
         [
             Repository("backlog", "Backlog"),
-            Repository("archify", "Archify"),
+            Repository("almanac", "Almanac"),
             Repository("placeholder", "Placeholder")
         ]));
-        Assert.Null(store.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
 
         // An active row merged into an archived one leaves it archived.
-        Assert.Null(store.RenameRepository("placeholder", "JSdotNet/Archify", out _));
-        Assert.True(Store().Current.Find("archify")!.Archived);
+        Assert.Null(store.RenameRepository("placeholder", "JSdotNet/Almanac", out _));
+        Assert.True(Store().Current.Find("almanac")!.Archived);
     }
 
     [Fact]
@@ -340,14 +340,14 @@ public sealed class RepositoryArchiveTests : IDisposable
         Assert.Null(store.SetRepositories(
         [
             Repository("backlog", "Backlog"),
-            Repository("archify", "Archify"),
+            Repository("almanac", "Almanac"),
             Repository("placeholder", "Placeholder")
         ]));
         Assert.Null(store.SetRepositoryArchived("placeholder", archived: true));
 
-        Assert.Null(store.RenameRepository("placeholder", "JSdotNet/Archify", out _));
+        Assert.Null(store.RenameRepository("placeholder", "JSdotNet/Almanac", out _));
 
-        Assert.False(Store().Current.Find("archify")!.Archived);
+        Assert.False(Store().Current.Find("almanac")!.Archived);
         Assert.Equal(2, Store().Current.Repositories.Count);
     }
 }

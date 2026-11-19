@@ -272,7 +272,6 @@ The Sync Client's `KnowledgeEventSyncWorker` replicates the events through `IKno
 - the chapters;
 - the reference graph;
 - the outline;
-- the Archify artifacts;
 - the click demos;
 - the C4 model.
 
@@ -308,7 +307,7 @@ flowchart LR
 ```
 
 - **Areas, not devbook folders.** The builder indexes the areas `BrainConventions` (Devbook Abstractions) resolves (local ADR 0026 §2): those the Brain's `CONVENTIONS.md` declares, or the PARA set. Every other top folder holding a note follows. The `Ignore` section of `CONVENTIONS.md` comes off the whole list. No devbook folder convention applies. `para`, `repos` and `tasks` become node attributes, and a `repo:` link in `related` or prose is stored as an edge whose target is no node.
-- **A port of its own.** `BrainFolderSource` resolves the Brain as one local, editable folder keyed `brain`, beside `DevbookFolderSource`. The pane reads it through `IBrainFolderSource`, beside `IDevbookFolderSource` in the Devbook Abstractions. The repository source stays the one registration every search, reference, annotation and Archify reader resolves. `AddDevbookAdapters` builds the source over `IBrainSettings.BrainFolder`.
+- **A port of its own.** `BrainFolderSource` resolves the Brain as one local, editable folder keyed `brain`, beside `DevbookFolderSource`. The pane reads it through `IBrainFolderSource`, beside `IDevbookFolderSource` in the Devbook Abstractions. The repository source stays the one registration every search, reference and annotation reader resolves. `AddDevbookAdapters` builds the source over `IBrainSettings.BrainFolder`.
 - **The watch.** Both heads resolve `BrainFolderWatch` after `Build()` and call `Start()`. It raises the source's `Changed` after a setting change or a Brain rebuild.
 - **Its own root.** `DevbookDatabaseLocation` records the folder as a Brain, with its own database in app storage. `BrainConflictCopies` (Abstractions) finds OneDrive conflict pairs from note names alone.
 - **Parity.** `tools/devbook/brain.mjs` is the Node side of the same convention, compared on a Brain fixture.

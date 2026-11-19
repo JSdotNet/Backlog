@@ -276,26 +276,26 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         var a = Device("a");
         var b = Device("b");
 
-        Assert.Null(a.Store.SetRepositories(Parse("JSdotNet/Backlog", "JSdotNet/Archify")));
+        Assert.Null(a.Store.SetRepositories(Parse("JSdotNet/Backlog", "JSdotNet/Almanac")));
         await Carry(a, b, GitHubReplicaDocument.Registry);
         var clone = Path.Combine(_root, "b-clone");
-        Assert.Null(b.Store.SetCloneDirectory("archify", clone));
+        Assert.Null(b.Store.SetCloneDirectory("almanac", clone));
 
         a.Clock.Advance(TimeSpan.FromMinutes(5));
         b.Clock.Advance(TimeSpan.FromMinutes(5));
-        Assert.Null(a.Store.SetRepositoryArchived("archify", archived: true));
+        Assert.Null(a.Store.SetRepositoryArchived("almanac", archived: true));
         Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
 
-        Assert.True(b.Store.Current.Find("archify")!.Archived);
-        Assert.True(Device("b").Store.Current.Find("archify")!.Archived);
-        Assert.Equal(clone, Device("b").Store.Current.Find("archify")!.CloneDirectory);
+        Assert.True(b.Store.Current.Find("almanac")!.Archived);
+        Assert.True(Device("b").Store.Current.Find("almanac")!.Archived);
+        Assert.Equal(clone, Device("b").Store.Current.Find("almanac")!.CloneDirectory);
 
         a.Clock.Advance(TimeSpan.FromMinutes(5));
         b.Clock.Advance(TimeSpan.FromMinutes(5));
-        Assert.Null(a.Store.SetRepositoryArchived("archify", archived: false));
+        Assert.Null(a.Store.SetRepositoryArchived("almanac", archived: false));
         Assert.Equal(GitHubReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
 
-        Assert.False(Device("b").Store.Current.Find("archify")!.Archived);
+        Assert.False(Device("b").Store.Current.Find("almanac")!.Archived);
     }
 
     // --- Verification 7: a new device sends nothing --------------------------------
