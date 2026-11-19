@@ -41,18 +41,28 @@ public interface IGoalRepository
 /// knows the document's shape, so it also says whether a copy reads as a goal before
 /// anything is written. Answered by the adapter that holds the goals, registered by the host.
 /// </summary>
-public interface IGoalReplicaStore
+/// <remarks>Goals are read in the order they were set, tombstones included.</remarks>
+public interface IGoalReplicaStore : IWholeDocumentReplicaStore<GoalReplicaCopyDto>;
+
+/// <summary>
+/// Where one kind of replicated Progress document is kept, read and written as stored
+/// text rather than as the aggregate. <see cref="IGoalReplicaStore"/> and
+/// <see cref="IImpedimentReplicaStore"/> are this store for their document.
+/// </summary>
+/// <typeparam name="TCopy">One copy of the document as it travels.</typeparam>
+public interface IWholeDocumentReplicaStore<TCopy>
+    where TCopy : class, IWholeDocumentCopy
 {
-    /// <summary>Every stored goal and its stamp, tombstones included, in the order they
-    /// were set. Empty when none was ever saved.</summary>
-    Task<IReadOnlyList<GoalReplicaCopyDto>> ReadAllAsync(CancellationToken cancellationToken = default);
+    /// <summary>Every stored document and its stamp. Empty when none was ever saved.</summary>
+    Task<IReadOnlyList<TCopy>> ReadAllAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>One stored goal and its stamp, or null when this device holds none with that id.</summary>
-    Task<GoalReplicaCopyDto?> ReadAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>One stored document and its stamp, or null when this device holds none
+    /// with that id.</summary>
+    Task<TCopy?> ReadAsync(Guid id, CancellationToken cancellationToken = default);
 
-    /// <summary>Replaces the stored goal with <paramref name="copy"/>'s text, verbatim, at
-    /// <paramref name="copy"/>'s stamp — or adds it. Answers false and writes nothing when
-    /// the text does not read as a goal, or names another goal than
-    /// <see cref="GoalReplicaCopyDto.Id"/>.</summary>
-    Task<bool> TryWriteAsync(GoalReplicaCopyDto copy, CancellationToken cancellationToken = default);
+    /// <summary>Replaces the stored document with <paramref name="copy"/>'s text,
+    /// verbatim, at <paramref name="copy"/>'s stamp — or adds it. Answers false and writes
+    /// nothing when the text does not read as the document, or names another one than
+    /// <see cref="IWholeDocumentCopy.Id"/>.</summary>
+    Task<bool> TryWriteAsync(TCopy copy, CancellationToken cancellationToken = default);
 }

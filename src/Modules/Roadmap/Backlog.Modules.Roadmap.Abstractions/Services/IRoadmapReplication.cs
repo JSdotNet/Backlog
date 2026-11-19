@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Modules.Roadmap.Abstractions.Services;
 
@@ -10,31 +11,6 @@ public enum RoadmapReplicaDocument
 {
     Plan,
     Pace,
-}
-
-/// <summary>What <see cref="IRoadmapReplication.ApplyAsync"/> did with an inbound
-/// copy. Four answers rather than a bool, because the sync client counts the
-/// first as work applied, the last as a document this build could not read, and
-/// the two between as nothing to do.</summary>
-public enum RoadmapReplicaOutcome
-{
-    /// <summary>The copy was later than the local one, or there was none, and it
-    /// replaced it whole.</summary>
-    Taken,
-
-    /// <summary>The copy carries the stamp the local one already has: this
-    /// device's own push coming back, or a replayed page. Nothing was
-    /// written.</summary>
-    Echo,
-
-    /// <summary>The copy is older than the local one and was refused, as the
-    /// replica refuses a stale push.</summary>
-    Refused,
-
-    /// <summary>The copy does not read as the document it claims to be, or this
-    /// head keeps no such document. The local one was left exactly as it
-    /// was.</summary>
-    Unreadable,
 }
 
 /// <summary>
@@ -78,7 +54,7 @@ public interface IRoadmapReplication
     /// echo and an older one is refused; neither writes anything. A copy that does
     /// not read as the document it claims to be leaves the local one as it was.
     /// </summary>
-    Task<RoadmapReplicaOutcome> ApplyAsync(
+    Task<ReplicaOutcome> ApplyAsync(
         RoadmapReplicaDocument document,
         RoadmapReplicaCopyDto inbound,
         CancellationToken cancellationToken = default);

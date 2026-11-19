@@ -4,6 +4,7 @@ using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -11,10 +12,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
 /// The iteration settings file (local ADR 0036, §1–§3, §5): the length and the two-week
-/// start as one document, every change stamped past the one held; the same file as the
-/// document that travels, replaced whole by a later copy and left alone by an echo, an
-/// older copy or one it cannot read; and a copy an earlier build seeded at the floor
-/// stamp.
+/// start as one document; a copy that does not read as the settings left alone; and a
+/// copy an earlier build seeded at the floor stamp. The stamping and the last-write-wins
+/// rule both settings files share are <see cref="StampedSettingsStoreTests"/>'.
 /// </summary>
 public sealed class IterationSettingsStoreTests : IDisposable
 {
@@ -97,23 +97,6 @@ public sealed class IterationSettingsStoreTests : IDisposable
         Assert.Null(Store().Choice);
     }
 
-    /// <summary>Two changes under a clock that has not moved are still two versions, the
-    /// later one stamped past the earlier (the pace store's <c>Next</c>).</summary>
-    [Fact]
-    public async Task Every_change_is_stamped_past_the_one_before_under_a_frozen_clock()
-    {
-        var store = Store();
-
-        store.Set("two-weeks", Monday19);
-        var first = (await Replica(store).ReadAsync(Cancellation))!.UpdatedAt;
-
-        store.Set("week", Monday19);
-        var second = (await Replica(store).ReadAsync(Cancellation))!.UpdatedAt;
-
-        Assert.Equal(Morning, first);
-        Assert.True(second > first);
-    }
-
     /// <summary>A person's change is news for the sync, and never a taken copy.</summary>
     [Fact]
     public void A_change_is_announced_to_the_sync_and_not_as_a_taken_copy()
@@ -145,32 +128,7 @@ public sealed class IterationSettingsStoreTests : IDisposable
         Assert.Equal(before, File.ReadAllText(FileOf("a")));
     }
 
-    [Fact]
-    public void A_file_that_cannot_be_written_keeps_the_change_for_now_and_says_so()
-    {
-        // A folder where the file should be: every write is refused.
-        Directory.CreateDirectory(FileOf("a"));
-        var store = Store();
-
-        var message = store.Set("two-weeks", Monday19);
-
-        Assert.False(string.IsNullOrWhiteSpace(message));
-        Assert.Equal(new IterationChoice("two-weeks", Monday19), store.Choice);
-    }
-
     // --- The document that travels ------------------------------------------------
-
-    [Fact]
-    public async Task The_document_is_the_file_as_stored_with_its_stamp()
-    {
-        var store = Store();
-        store.Set("two-weeks", Monday19);
-
-        var copy = (await Replica(store).ReadAsync(Cancellation))!;
-
-        Assert.Equal(File.ReadAllText(FileOf("a")), copy.Content);
-        Assert.Equal(Morning, copy.UpdatedAt);
-    }
 
     /// <summary>ADR 0036 Verification 2: a later stamp is taken whole — length and start
     /// together, at the inbound stamp, keys this build does not know included. The screen
@@ -189,7 +147,7 @@ public sealed class IterationSettingsStoreTests : IDisposable
         var outcome = await Replica(store).ApplyAsync(
             Copy("two-weeks", Monday19, later, extra: ""","weekStartsOn":"sunday" """), Cancellation);
 
-        Assert.Equal(IterationSettingsReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
         Assert.Equal(new IterationChoice("two-weeks", Monday19), store.Choice);
         Assert.Equal(1, taken);
         Assert.Equal(0, sync);
@@ -198,19 +156,6 @@ public sealed class IterationSettingsStoreTests : IDisposable
         Assert.Equal("sunday", (string)written["weekStartsOn"]!);
         Assert.Equal(later, (DateTimeOffset)written["updatedAt"]!);
         Assert.Equal(new IterationChoice("two-weeks", Monday19), Store().Choice);
-    }
-
-    /// <summary>ADR 0036 Verification 4: a newly paired device that never chose takes the
-    /// other device's choice.</summary>
-    [Fact]
-    public async Task A_device_with_no_file_takes_any_copy()
-    {
-        var store = Store();
-
-        var outcome = await Replica(store).ApplyAsync(Copy("two-weeks", Monday19, Morning), Cancellation);
-
-        Assert.Equal(IterationSettingsReplicaOutcome.Taken, outcome);
-        Assert.Equal(new IterationChoice("two-weeks", Monday19), store.Choice);
     }
 
     /// <summary>A length this build does not know is still taken verbatim, so it rides
@@ -223,38 +168,8 @@ public sealed class IterationSettingsStoreTests : IDisposable
 
         var outcome = await Replica(store).ApplyAsync(Copy("quarter", null, Morning), Cancellation);
 
-        Assert.Equal(IterationSettingsReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
         Assert.Equal("quarter", store.Choice!.Length);
-    }
-
-    /// <summary>ADR 0036 Verification 2: an echo writes nothing.</summary>
-    [Fact]
-    public async Task A_copy_at_the_stamp_already_held_is_an_echo_and_writes_nothing()
-    {
-        var store = Store();
-        store.Set("two-weeks", Monday19);
-        var before = File.ReadAllText(FileOf("a"));
-
-        var outcome = await Replica(store).ApplyAsync(Copy("month", null, Morning), Cancellation);
-
-        Assert.Equal(IterationSettingsReplicaOutcome.Echo, outcome);
-        Assert.Equal(before, File.ReadAllText(FileOf("a")));
-        Assert.Equal(new IterationChoice("two-weeks", Monday19), store.Choice);
-    }
-
-    /// <summary>ADR 0036 Verification 2: an older stamp is refused.</summary>
-    [Fact]
-    public async Task An_older_copy_is_refused()
-    {
-        var store = Store();
-        store.Set("two-weeks", Monday19);
-        var before = File.ReadAllText(FileOf("a"));
-
-        var outcome = await Replica(store).ApplyAsync(Copy("month", null, Morning.AddMinutes(-1)), Cancellation);
-
-        Assert.Equal(IterationSettingsReplicaOutcome.Refused, outcome);
-        Assert.Equal(before, File.ReadAllText(FileOf("a")));
-        Assert.Equal(new IterationChoice("two-weeks", Monday19), store.Choice);
     }
 
     /// <summary>ADR 0036 Verification 2: an unreadable payload leaves the local value.</summary>
@@ -273,23 +188,9 @@ public sealed class IterationSettingsStoreTests : IDisposable
 
         var outcome = await Replica(store).ApplyAsync(new IterationSettingsCopyDto(content, Morning.AddDays(1)), Cancellation);
 
-        Assert.Equal(IterationSettingsReplicaOutcome.Unreadable, outcome);
+        Assert.Equal(ReplicaOutcome.Unreadable, outcome);
         Assert.Equal(before, File.ReadAllText(FileOf("a")));
         Assert.Equal(new IterationChoice("two-weeks", Monday19), store.Choice);
-    }
-
-    /// <summary>A change made after taking a copy from a PC whose clock runs ahead stamps
-    /// past it, so it is the later version rather than one the replica refuses.</summary>
-    [Fact]
-    public async Task A_change_after_taking_a_copy_from_the_future_stamps_past_it()
-    {
-        var store = Store();
-        var ahead = Morning.AddHours(3);
-        await Replica(store).ApplyAsync(Copy("month", null, ahead), Cancellation);
-
-        store.Set("week", null);
-
-        Assert.True((await Replica(store).ReadAsync(Cancellation))!.UpdatedAt > ahead);
     }
 
     // --- A copy an earlier build seeded at the floor (ADR 0036 §5) -----------------
@@ -311,7 +212,7 @@ public sealed class IterationSettingsStoreTests : IDisposable
 
         var outcome = await Replica(store).ApplyAsync(Copy("month", null, Morning), Cancellation);
 
-        Assert.Equal(IterationSettingsReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
         Assert.Equal(new IterationChoice("month", null), store.Choice);
     }
 
@@ -326,7 +227,7 @@ public sealed class IterationSettingsStoreTests : IDisposable
 
         var outcome = await Replica(store).ApplyAsync(Copy("month", null, IterationSettingsStore.FloorStamp), Cancellation);
 
-        Assert.Equal(IterationSettingsReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
         Assert.Equal(new IterationChoice("month", null), store.Choice);
         Assert.Equal(1, taken);
         Assert.Equal(IterationSettingsStore.FloorStamp, (await Replica(store).ReadAsync(Cancellation))!.UpdatedAt);
@@ -342,7 +243,7 @@ public sealed class IterationSettingsStoreTests : IDisposable
 
         var outcome = await Replica(store).ApplyAsync(Copy("two-weeks", Monday19, IterationSettingsStore.FloorStamp), Cancellation);
 
-        Assert.Equal(IterationSettingsReplicaOutcome.Echo, outcome);
+        Assert.Equal(ReplicaOutcome.Echo, outcome);
         Assert.Equal(before, File.ReadAllText(FileOf("a")));
     }
 
@@ -356,7 +257,7 @@ public sealed class IterationSettingsStoreTests : IDisposable
 
         Assert.Equal(Morning, (await Replica(store).ReadAsync(Cancellation))!.UpdatedAt);
         Assert.Equal(
-            IterationSettingsReplicaOutcome.Refused,
+            ReplicaOutcome.Refused,
             await Replica(store).ApplyAsync(Copy("day", null, IterationSettingsStore.FloorStamp), Cancellation));
     }
 }

@@ -24,29 +24,22 @@ public static class GoalReplicaDocuments
     /// <summary>What the activity log calls a goal whose title this build could not read.</summary>
     public const string UntitledTitle = "Goal";
 
+    private static readonly WholeDocumentKind Kind = new(GoalType, UntitledTitle);
+
     /// <summary>Whether a document is a goal's. Ordinal, as every token on the feed is compared.</summary>
-    public static bool IsGoal(TaskChange change)
-    {
-        ArgumentNullException.ThrowIfNull(change);
-        return string.Equals(change.Task.Type, GoalType, StringComparison.Ordinal);
-    }
+    public static bool IsGoal(TaskChange change) => Kind.Is(change);
 
     /// <summary>The key a goal's push mark is kept under in
     /// <see cref="TaskSyncState.DocumentWatermarks"/>: one per goal, prefixed by the kind
     /// token so it never meets another kind's marks.</summary>
-    public static string MarkOf(Guid goalId) => $"{GoalType}/{goalId:D}";
+    public static string MarkOf(Guid goalId) => Kind.MarkOf(goalId);
 
     /// <summary>The goal as a task-shaped change, titled by the goal's title.</summary>
     public static TaskChange ToChange(GoalReplicaCopyDto copy)
     {
         ArgumentNullException.ThrowIfNull(copy);
 
-        return WholeDocumentChange.Of(
-            copy.Id,
-            string.IsNullOrWhiteSpace(copy.Title) ? UntitledTitle : copy.Title,
-            GoalType,
-            copy.Content,
-            copy.UpdatedAt);
+        return Kind.ToChange(copy.Id, copy.Title, copy.Content, copy.UpdatedAt);
     }
 
     /// <summary>The copy a pulled document carries, as Progress takes it.</summary>
@@ -55,9 +48,6 @@ public static class GoalReplicaDocuments
         ArgumentNullException.ThrowIfNull(change);
 
         return new GoalReplicaCopyDto(
-            change.Id,
-            change.Task.Title ?? string.Empty,
-            change.Task.ContentMd ?? string.Empty,
-            change.UpdatedAt);
+            change.Id, WholeDocumentKind.TitleOf(change), WholeDocumentKind.ContentOf(change), change.UpdatedAt);
     }
 }

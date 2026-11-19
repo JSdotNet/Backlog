@@ -4,6 +4,7 @@ using System.Text.Json;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Replication;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -19,14 +20,14 @@ internal sealed class RecordingImpedimentReplication : IImpedimentReplication
 
     public List<ImpedimentReplicaCopyDto> Offered { get; } = [];
 
-    public ImpedimentReplicaOutcome Answer { get; set; } = ImpedimentReplicaOutcome.Taken;
+    public ReplicaOutcome Answer { get; set; } = ReplicaOutcome.Taken;
 
     public void RaiseChanged() => Changed?.Invoke();
 
     public Task<IReadOnlyList<ImpedimentReplicaCopyDto>> ReadAllAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<ImpedimentReplicaCopyDto>>([.. Held]);
 
-    public Task<ImpedimentReplicaOutcome> ApplyAsync(ImpedimentReplicaCopyDto inbound, CancellationToken cancellationToken = default)
+    public Task<ReplicaOutcome> ApplyAsync(ImpedimentReplicaCopyDto inbound, CancellationToken cancellationToken = default)
     {
         Offered.Add(inbound);
         return Task.FromResult(Answer);
@@ -72,10 +73,10 @@ public sealed class ImpedimentSyncTests
     }
 
     [Theory]
-    [InlineData(ImpedimentReplicaOutcome.Echo, 0, 0)]
-    [InlineData(ImpedimentReplicaOutcome.Refused, 0, 0)]
-    [InlineData(ImpedimentReplicaOutcome.Unreadable, 0, 1)]
-    public async Task An_echo_an_older_copy_or_an_unreadable_one_counts_as_the_port_said(ImpedimentReplicaOutcome answer, int applied, int skipped)
+    [InlineData(ReplicaOutcome.Echo, 0, 0)]
+    [InlineData(ReplicaOutcome.Refused, 0, 0)]
+    [InlineData(ReplicaOutcome.Unreadable, 0, 1)]
+    public async Task An_echo_an_older_copy_or_an_unreadable_one_counts_as_the_port_said(ReplicaOutcome answer, int applied, int skipped)
     {
         var impediments = new RecordingImpedimentReplication { Answer = answer };
 

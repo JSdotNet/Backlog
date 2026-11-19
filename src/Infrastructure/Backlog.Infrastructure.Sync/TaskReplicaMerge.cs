@@ -14,6 +14,7 @@ using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Replication;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -837,25 +838,7 @@ public sealed class TaskReplicaMerge(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        switch (outcome)
-        {
-            case RoadmapReplicaOutcome.Taken:
-                Moved(
-                    moved, SyncDirection.Received, SyncItemKind.Roadmap, record.Change.Id.ToString("D"), record.Change.Task.Title);
-                return ApplyOutcome.Written;
-
-            case RoadmapReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that document. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id);
-                return ApplyOutcome.Unreadable;
-
-            // An echo or an older copy: the local one stands, as it does for a task.
-            default:
-                return ApplyOutcome.Held;
-        }
+        return Counted(outcome, record, moved, SyncItemKind.Roadmap, "that document");
     }
 
     /// <summary>
@@ -932,24 +915,7 @@ public sealed class TaskReplicaMerge(
             .ApplyAsync(GoalReplicaDocuments.ToCopy(record.Change), cancellationToken)
             .ConfigureAwait(false);
 
-        switch (outcome)
-        {
-            case GoalReplicaOutcome.Taken:
-                Moved(moved, SyncDirection.Received, SyncItemKind.Goal, record.Change.Id.ToString("D"), record.Change.Task.Title);
-                return ApplyOutcome.Written;
-
-            case GoalReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that goal. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id);
-                return ApplyOutcome.Unreadable;
-
-            // An echo or an older copy: the local one stands, as it does for a task.
-            default:
-                return ApplyOutcome.Held;
-        }
+        return Counted(outcome, record, moved, SyncItemKind.Goal, "that goal");
     }
 
     /// <summary>
@@ -975,23 +941,7 @@ public sealed class TaskReplicaMerge(
             .ApplyAsync(ImpedimentReplicaDocuments.ToCopy(record.Change), cancellationToken)
             .ConfigureAwait(false);
 
-        switch (outcome)
-        {
-            case ImpedimentReplicaOutcome.Taken:
-                Moved(moved, SyncDirection.Received, SyncItemKind.Impediment, record.Change.Id.ToString("D"), record.Change.Task.Title);
-                return ApplyOutcome.Written;
-
-            case ImpedimentReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that impediment. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id);
-                return ApplyOutcome.Unreadable;
-
-            default:
-                return ApplyOutcome.Held;
-        }
+        return Counted(outcome, record, moved, SyncItemKind.Impediment, "that impediment");
     }
 
     /// <summary>
@@ -1188,25 +1138,7 @@ public sealed class TaskReplicaMerge(
             .ApplyAsync(MyDayReplicaDocuments.ToCopy(record.Change), cancellationToken)
             .ConfigureAwait(false);
 
-        switch (outcome)
-        {
-            case MyDayPreferencesReplicaOutcome.Taken:
-                Moved(
-                    moved, SyncDirection.Received, SyncItemKind.MyDayPreferences, record.Change.Id.ToString("D"), record.Change.Task.Title);
-                return ApplyOutcome.Written;
-
-            case MyDayPreferencesReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as the My Day preferences. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id);
-                return ApplyOutcome.Unreadable;
-
-            // An echo or an older copy: the local one stands, as it does for a task.
-            default:
-                return ApplyOutcome.Held;
-        }
+        return Counted(outcome, record, moved, SyncItemKind.MyDayPreferences, "the My Day preferences");
     }
 
     /// <summary>
@@ -1235,25 +1167,7 @@ public sealed class TaskReplicaMerge(
             .ApplyAsync(IterationReplicaDocuments.ToCopy(record.Change), cancellationToken)
             .ConfigureAwait(false);
 
-        switch (outcome)
-        {
-            case IterationSettingsReplicaOutcome.Taken:
-                Moved(
-                    moved, SyncDirection.Received, SyncItemKind.IterationSettings, record.Change.Id.ToString("D"), record.Change.Task.Title);
-                return ApplyOutcome.Written;
-
-            case IterationSettingsReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as the iteration settings. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id);
-                return ApplyOutcome.Unreadable;
-
-            // An echo or an older copy: the local one stands, as it does for a task.
-            default:
-                return ApplyOutcome.Held;
-        }
+        return Counted(outcome, record, moved, SyncItemKind.IterationSettings, "the iteration settings");
     }
 
     /// <summary>
@@ -1283,19 +1197,36 @@ public sealed class TaskReplicaMerge(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        return Counted(outcome, record, moved, SyncItemKind.GitHubSettings, "that document");
+    }
+
+    /// <summary>
+    /// Counts what a whole-document port answered, the one rule every such document keeps:
+    /// a taken copy is work applied, an unreadable one is skipped with the local copy left
+    /// as it is, and an echo or an older copy is held — the local one stands, as it does
+    /// for a task.
+    /// </summary>
+    /// <param name="readsAs">What the document should have read as, for the log.</param>
+    private ApplyOutcome Counted(
+        ReplicaOutcome outcome,
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        SyncItemKind kind,
+        string readsAs)
+    {
         switch (outcome)
         {
-            case GitHubReplicaOutcome.Taken:
-                Moved(
-                    moved, SyncDirection.Received, SyncItemKind.GitHubSettings, record.Change.Id.ToString("D"), record.Change.Task.Title);
+            case ReplicaOutcome.Taken:
+                Moved(moved, SyncDirection.Received, kind, record.Change.Id.ToString("D"), record.Change.Task.Title);
                 return ApplyOutcome.Written;
 
-            case GitHubReplicaOutcome.Unreadable:
+            case ReplicaOutcome.Unreadable:
                 _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that document. "
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as {ReadsAs}. "
                     + "The local copy is left as it is.",
                     record.Change.Task.Type,
-                    record.Change.Id);
+                    record.Change.Id,
+                    readsAs);
                 return ApplyOutcome.Unreadable;
 
             default:

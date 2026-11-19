@@ -4,6 +4,7 @@ using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
@@ -188,7 +189,7 @@ public sealed class StandUpSettingsTests : IDisposable
                 new DateTimeOffset(2026, 10, 20, 8, 0, 0, TimeSpan.Zero)),
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(IterationSettingsReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
         Assert.Equal((IterationLength.TwoWeeks, (DateOnly?)new DateOnly(2026, 10, 5)), (settings.Length, settings.TwoWeekStart));
         Assert.Equal(1, changes);
     }
