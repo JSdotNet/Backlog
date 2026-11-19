@@ -76,7 +76,7 @@ There is no view switch, no takeover option, no Ask AI — it stays in the main 
     <Story Name="Tab bar"
            Description="One link per destination, each a route of its own, so the Router and the back button already understand it. NavLink decides which tab is lit — the root route is given Match: true, or it would match every path as a prefix.
 
-The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes too, so tapping one moves the lit tab and the address together."
+The tabs below are live: this page answers /app-shell/inbox and /app-shell/standup too, so tapping one moves the lit tab and the address together."
            Code="@TabBarCode">
         <div class="sb-phone">
             <TabBar Items="Tabs" AriaLabel="Sections" TestId="tab-bar" />
@@ -84,7 +84,7 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
     </Story>
 
     <Story Name="Tab bar with glyphs"
-           Description="The phone's own bar at its five-tab maximum, as a paired phone that holds a stand-up and a knowledge event draws it: Today, Inbox, Stand-up, Events and Notes, each with its glyph above its word — a sun, an inbox tray, a target, a calendar and a sticky note. Every tab carries a glyph or none does, so no tab reads as the odd one out. The glyph is decorative and hidden from assistive technology, so each tab's name is still its word, and it takes the word's ink, so the lit tab's glyph lights with it. The tab is still at least 48px tall.
+           Description="The phone's own bar as a paired phone that holds a stand-up and a knowledge event, and no notification, draws it: Today, Inbox, Stand-up and Events, each with its glyph above its word — a sun, an inbox tray, a target and a calendar. Notes is not among them: notes and meetings are listed in the Inbox. Notifications, once held, is the icon-only tab the next story shows. Every tab carries a glyph or none does, so no tab reads as the odd one out. The glyph is decorative and hidden from assistive technology, so each tab's name is still its word, and it takes the word's ink, so the lit tab's glyph lights with it. The tab is still at least 48px tall.
 
 These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it."
            Code="@GlyphTabBarCode">
@@ -94,7 +94,7 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
     </Story>
 
     <Story Name="Tab bar with an icon-only tab"
-           Description="The phone's bar once it holds a notification and a stand-up: Today, Inbox, Notifications, Stand-up and Notes. Notifications sits right after Inbox and shows its bell alone, because its word fits no column of a bar of more than four. It is marked IconOnly on its NavItem: the word stays the link's name as visually hidden text and is its tooltip, so a screen reader still says Notifications, and the glyph stays hidden from assistive technology like every tab's. The bell sits on the same line as its siblings' glyphs, not centred in the taller tab, and the tab takes a full column, so no other tab moves when it comes and goes.
+           Description="The phone's bar at its five-tab maximum, once it holds a notification, a stand-up and an event: Today, Inbox, Notifications, Stand-up and Events. Notifications sits right after Inbox and shows its bell alone, because its word fits no column of a bar of more than four. It is marked IconOnly on its NavItem: the word stays the link's name as visually hidden text and is its tooltip, so a screen reader still says Notifications, and the glyph stays hidden from assistive technology like every tab's. The bell sits on the same line as its siblings' glyphs, not centred in the taller tab, and the tab takes a full column, so no other tab moves when it comes and goes.
 
 These tabs are live too: tapping the bell opens /app-shell/notifications and lights it, glyph and bar."
            Code="@IconOnlyTabBarCode">
@@ -141,7 +141,7 @@ These tabs are live too: tapping the bell opens /app-shell/notifications and lig
     [
         new("app-shell", "Today", Match: true),
         new("app-shell/inbox", "Inbox"),
-        new("app-shell/notes", "Notes")
+        new("app-shell/standup", "Stand-up")
     ];
 
     private static readonly IReadOnlyList<NavItem> GlyphTabs =
@@ -149,8 +149,7 @@ These tabs are live too: tapping the bell opens /app-shell/notifications and lig
         new("app-shell", "Today", Match: true, Icon: @<SunIcon Size="20" />),
         new("app-shell/inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
         new("app-shell/standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
-        new("app-shell/events", "Events", Icon: @<CalendarIcon Size="20" />),
-        new("app-shell/notes", "Notes", Icon: @<StickyNoteIcon Size="20" />)
+        new("app-shell/events", "Events", Icon: @<CalendarIcon Size="20" />)
     ];
 
     private static readonly IReadOnlyList<NavItem> IconOnlyTabs =
@@ -159,7 +158,7 @@ These tabs are live too: tapping the bell opens /app-shell/notifications and lig
         new("app-shell/inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
         new("app-shell/notifications", "Notifications", Icon: @<BellIcon Size="20" />, IconOnly: true),
         new("app-shell/standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
-        new("app-shell/notes", "Notes", Icon: @<StickyNoteIcon Size="20" />)
+        new("app-shell/events", "Events", Icon: @<CalendarIcon Size="20" />)
     ];
 
     private static readonly string[] Surfaces = ["Dashboard", "Tools"];
@@ -261,7 +260,7 @@ These tabs are live too: tapping the bell opens /app-shell/notifications and lig
             [
                 new("", "Today", Match: true),
                 new("inbox", "Inbox"),
-                new("notes", "Notes")
+                new("standup", "Stand-up")
             ];
         }
         """;
@@ -275,8 +274,7 @@ These tabs are live too: tapping the bell opens /app-shell/notifications and lig
                 new("", "Today", Match: true, Icon: @<SunIcon Size="20" />),
                 new("inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
                 new("standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
-                new("events", "Events", Icon: @<CalendarIcon Size="20" />),
-                new("notes", "Notes", Icon: @<StickyNoteIcon Size="20" />)
+                new("events", "Events", Icon: @<CalendarIcon Size="20" />)
             ];
         }
         """;
@@ -291,7 +289,7 @@ These tabs are live too: tapping the bell opens /app-shell/notifications and lig
                 new("inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
                 new("notifications", "Notifications", Icon: @<BellIcon Size="20" />, IconOnly: true),
                 new("standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
-                new("notes", "Notes", Icon: @<StickyNoteIcon Size="20" />)
+                new("events", "Events", Icon: @<CalendarIcon Size="20" />)
             ];
         }
         """;

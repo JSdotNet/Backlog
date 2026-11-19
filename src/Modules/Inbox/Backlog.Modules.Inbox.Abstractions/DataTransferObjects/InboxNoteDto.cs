@@ -16,6 +16,11 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// files already in the attachment store, metadata only, as a capture's do
 /// (<c>.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md</c>).
 /// </para>
+/// <para>
+/// <paramref name="Kind"/> is the item's content kind slug, <c>note</c> or
+/// <c>meeting</c> (<c>.devbook/domain/inbox/domain.md#meeting</c>). It decides the
+/// kind of an item the receiving side creates and never changes one it holds.
+/// </para>
 /// </summary>
 public sealed record InboxNoteDto(
     Guid Id,
@@ -26,4 +31,5 @@ public sealed record InboxNoteDto(
     DateTimeOffset UpdatedAt,
     DateTimeOffset? DeletedAt = null,
     IReadOnlyList<string>? Tags = null,
-    IReadOnlyList<InboxCaptureAttachmentDto>? Attachments = null);
+    IReadOnlyList<InboxCaptureAttachmentDto>? Attachments = null,
+    string Kind = InboxEnumMap.NoteKind);

@@ -28,6 +28,7 @@ using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sqlite.Mcp;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
+using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Calendar.Extensions;
 using Backlog.Modules.Calendar.UI;
 using Backlog.Modules.Capture.Extensions;
@@ -234,9 +235,9 @@ public static class DesktopCompositionRegistration
         // behind the same feature; it has no settings section or Ask AI source yet.
         services.AddEventsModule();
 
-        // Calendar (local ADR 0055): it owns no data, and its services are the Plans and
-        // Events layers' read policies, one per window. Its view is the surface
-        // AddCalendarSurface registers below, which hosts the Tasks part.
+        // Calendar (local ADR 0055, local ADR 0056): it owns no data, and its services are
+        // the Tasks, Plans and Events layers' read policies, one per window. Its view is
+        // the surface AddCalendarSurface registers below, which draws its own grid.
         services.AddCalendarModule();
 
         // Capture: the module brings the run, and the head decides where the
@@ -252,10 +253,11 @@ public static class DesktopCompositionRegistration
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
 
-        // The Calendar's Plans layer and working week, answered over Roadmap's ports, and its
-        // Events layer over Events' read contract, offering nothing while the `events` area
-        // is off; after the Roadmap module and its adapters, whose ports these resolve. Each
-        // resolves its source's port when first asked, so the Events module above is enough.
+        // The Calendar's Tasks layer over Tasks' published ITaskItems (local ADR 0056 §2), its
+        // Plans layer and working week, answered over Roadmap's ports, and its Events layer
+        // over Events' read contract, offering nothing while the `events` area is off; after
+        // the Roadmap module and its adapters, whose ports these resolve. Each resolves its
+        // source's port when first asked, so the modules above are enough.
         services.AddCalendarCrossContextAdapters();
 
         // The tasks goals name, read through Tasks' published ITaskItems.
@@ -413,13 +415,12 @@ public static class DesktopCompositionRegistration
         // The shell's surfaces (local ADR 0043 §1): each module's .UI registers its
         // ShellSurface, one catalog holds them, and each window jumps between them
         // through a navigator of its own (§3). The five views — Tasks and Board from
-        // Tasks, the Calendar from its own module, which hosts Tasks' part (local ADR
-        // 0055), the Roadmap, Goals — and the takeovers: the Inbox, the Devbook, Events,
-        // Sessions, the Dashboard, the notification centre, Tools and the Lobes atlas from
-        // their modules, and the pull requests from the shell's own project, which reads
-        // GitHub for them.
+        // Tasks, the Calendar from its own module, which draws its own grid from the
+        // layers it reads (local ADR 0056), the Roadmap, Goals — and the takeovers: the
+        // Inbox, the Devbook, Events, Sessions, the Dashboard, the notification centre,
+        // Tools and the Lobes atlas from their modules, and the pull requests from the
+        // shell's own project, which reads GitHub for them.
         services.AddTasksSurfaces();
-        services.AddTasksCalendarLayer();
         services.AddCalendarSurface();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
@@ -487,6 +488,12 @@ public static class DesktopCompositionRegistration
         services.Add(new ServiceDescriptor(
             typeof(IDevbookWindowScope),
             sp => new ShellDevbookWindowScope(sp.GetRequiredService<TasksDesktopState>()),
+            options.WindowStateLifetime));
+        // The window's scope chips and colours, which narrow and mark the Calendar's Tasks
+        // layer and colour its plan bars (local ADR 0056 §2).
+        services.Add(new ServiceDescriptor(
+            typeof(ICalendarWindowScope),
+            sp => new ShellCalendarWindowScope(sp.GetRequiredService<TasksDesktopState>()),
             options.WindowStateLifetime));
 
         // One window's state, and what reads it. The panes' state captures the

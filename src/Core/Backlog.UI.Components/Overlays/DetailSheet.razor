@@ -65,7 +65,7 @@
             }
         </div>
 
-        <IconButton BaseClass="detail-sheet__close"
+        <IconButton CssClass="detail-sheet__close"
                     AriaLabel="@CloseLabel"
                     TestId="@CloseTestId"
                     Disabled="@(!Dismissible)"
@@ -123,6 +123,15 @@
     /// turn one of those off for good; this turns all three off for a while.</summary>
     [Parameter]
     public bool Dismissible { get; set; } = true;
+
+    /// <summary>Asked before every way out — the close button, Escape, the
+    /// backdrop — while the sheet is dismissible. False keeps it open and leaves
+    /// <see cref="OpenChanged"/> unraised: the host has something the reader would
+    /// lose, such as an edit that did not save, and keeps it on screen with its
+    /// reason. Unlike <see cref="Dismissible"/>, the answer can come from work the
+    /// close itself starts, such as saving what was typed.</summary>
+    [Parameter]
+    public Func<Task<bool>>? BeforeClose { get; set; }
 
     [Parameter]
     public bool CloseOnEscape { get; set; } = true;
@@ -195,6 +204,7 @@
     private async Task CloseAsync()
     {
         if (!Open || !Dismissible) return;
+        if (BeforeClose is not null && !await BeforeClose()) return;
 
         Open = false;
         await OpenChanged.InvokeAsync(false);

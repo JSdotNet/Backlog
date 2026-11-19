@@ -55,8 +55,18 @@ public sealed class DeviceOutbox : IDisposable
     private readonly ILogger _logger;
 
     private readonly SemaphoreSlim _gate = new(1, 1);
+
+    /// <summary>One change to the entries at a time, in memory and on the device
+    /// together, so the file never takes them in another order than the list did.
+    /// Separate from <see cref="_gate"/>, which a flush holds for a whole send.</summary>
+    private readonly SemaphoreSlim _writes = new(1, 1);
     private readonly Lock _entriesLock = new();
     private readonly List<OutboxEntry> _entries;
+
+    /// <summary>Entries <see cref="RemoveAsync"/> is taking off the device, under
+    /// <see cref="_entriesLock"/>: a flush does not claim one, so an entry is never
+    /// sent while the file is losing it.</summary>
+    private readonly HashSet<Guid> _removing = [];
 
     private DateTimeOffset? _notBefore;
     private ITimer? _retryTimer;
@@ -114,8 +124,17 @@ public sealed class DeviceOutbox : IDisposable
     {
         var entry = new OutboxEntry(id, kind, payloadJson, Attempts: 0, LastError: null, _clock.GetUtcNow());
 
-        await _store.AddAsync(entry, cancellationToken);
-        lock (_entriesLock) _entries.Add(entry);
+        await _writes.WaitAsync(cancellationToken);
+        try
+        {
+            await _store.AddAsync(entry, cancellationToken);
+            lock (_entriesLock) _entries.Add(entry);
+        }
+        finally
+        {
+            _writes.Release();
+        }
+
         Changed?.Invoke();
 
         _ = FlushInBackgroundAsync(immediately: false);
@@ -136,24 +155,108 @@ public sealed class DeviceOutbox : IDisposable
     /// window resuming, the network coming back.</summary>
     public void Resume() => _ = FlushInBackgroundAsync(immediately: true);
 
-    /// <summary>The person tapped a parked entry: it starts again from no attempts.</summary>
-    public async Task RetryAsync(Guid id, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Rewrites the payload of an entry still waiting — the person changed what it
+    /// says before it left — keeping its place, its attempts and its id. Answers
+    /// false, and changes nothing, for an entry that is not there or is being
+    /// sent right now: that one has already been said, so the caller queues its
+    /// change behind it instead. A set-aside entry is rewritten too, and stays
+    /// set aside until <see cref="RetryAsync"/>.
+    /// </summary>
+    public async Task<bool> ReplacePayloadAsync(Guid id, string payloadJson, CancellationToken cancellationToken = default)
     {
-        OutboxEntry? reset = null;
+        ArgumentNullException.ThrowIfNull(payloadJson);
 
-        lock (_entriesLock)
+        // Answered before waiting for the writes: the one in progress may be this
+        // entry's outcome, and the answer is already known. Checked again under the
+        // lock, where it counts.
+        if (Sending == id) return false;
+
+        var replaced = await UpdateEntryAsync(
+            id,
+            entry => Sending == id ? null : entry with { PayloadJson = payloadJson },
+            cancellationToken);
+
+        if (replaced is null) return false;
+
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// Takes an entry still waiting out of the outbox, so it is never sent.
+    /// Answers false, and changes nothing, for an entry that is not there or is
+    /// being sent right now — the caller queues what undoes it instead.
+    /// </summary>
+    public async Task<bool> RemoveAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        // As in ReplacePayloadAsync: known before the writes are waited for.
+        if (Sending == id) return false;
+
+        await _writes.WaitAsync(cancellationToken);
+        try
         {
-            var index = _entries.FindIndex(entry => entry.Id == id);
-            if (index >= 0)
+            lock (_entriesLock)
             {
-                reset = _entries[index] with { Attempts = 0, LastError = null, Refused = false };
-                _entries[index] = reset;
+                if (Sending == id || !_entries.Exists(entry => entry.Id == id)) return false;
+                _removing.Add(id);
+            }
+
+            // The file first, then the list: a delete the file refuses leaves the
+            // entry where it was, and a second try finds it. Taken out of the list
+            // first, the entry would be gone from the screen and back on the next
+            // start. Meanwhile it is held from a flush (Claim skips it) and from
+            // every other write (this holds the writes).
+            try
+            {
+                await _store.RemoveAsync(id, cancellationToken);
+
+                lock (_entriesLock) _entries.RemoveAll(entry => entry.Id == id);
+            }
+            finally
+            {
+                lock (_entriesLock) _removing.Remove(id);
             }
         }
+        finally
+        {
+            _writes.Release();
+        }
+
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// Puts a set-aside or parked entry back in line from no attempts, and starts a
+    /// flush nobody waits for — for a caller that changed the entry, such as a
+    /// capture reworded after the service refused its words, and must not hold the
+    /// screen for a network round trip. <see cref="RetryAsync"/> is the tap that
+    /// waits.
+    /// </summary>
+    public async Task RequeueAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var reset = await UpdateEntryAsync(
+            id,
+            entry => entry with { Attempts = 0, LastError = null, Refused = false },
+            cancellationToken);
 
         if (reset is null) return;
 
-        await _store.UpdateAsync(reset, cancellationToken);
+        Changed?.Invoke();
+        _ = FlushInBackgroundAsync(immediately: false);
+    }
+
+    /// <summary>The person tapped a parked entry: it starts again from no attempts.</summary>
+    public async Task RetryAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var reset = await UpdateEntryAsync(
+            id,
+            entry => entry with { Attempts = 0, LastError = null, Refused = false },
+            cancellationToken);
+
+        if (reset is null) return;
+
         Changed?.Invoke();
 
         await FlushAsync(immediately: true, cancellationToken);
@@ -171,6 +274,7 @@ public sealed class DeviceOutbox : IDisposable
     {
         _retryTimer?.Dispose();
         _gate.Dispose();
+        _writes.Dispose();
     }
 
     private async Task FlushAsync(bool immediately, CancellationToken cancellationToken)
@@ -225,27 +329,61 @@ public sealed class DeviceOutbox : IDisposable
                 return;
             }
 
-            var delivery = await SendAsync(entry, cancellationToken);
+            // Claimed as it stands now, not as the pass first read it: the person
+            // may have rewritten it or taken it out while the queue waited.
+            if (Claim(entry.Id) is not { } claimed) continue;
 
-            // A staged kind may have checkpointed while it ran; what follows
-            // builds on the entry as it now stands, not on the copy it was sent.
-            var latest = Find(entry.Id) ?? entry;
+            // Claimed until its outcome is written: until then the service may
+            // already have it, so it is neither rewritten nor taken out, and the
+            // outcome lands on the entry as it stands — a staged kind may have
+            // checkpointed while it ran — rather than on a copy.
+            OutboxDelivery delivery;
+            OutboxEntry? failed = null;
+
+            try
+            {
+                delivery = await SendAsync(claimed, cancellationToken);
+
+                switch (delivery.Kind)
+                {
+                    case OutboxDeliveryKind.Delivered:
+                        await RemoveDeliveredAsync(claimed.Id, cancellationToken);
+                        break;
+
+                    case OutboxDeliveryKind.Refused:
+                        // Not a network problem, and not one a timer will fix — so it
+                        // is set aside rather than holding up the entries behind it.
+                        await UpdateEntryAsync(claimed.Id, current => current with { Refused = true, LastError = delivery.Error }, cancellationToken);
+                        break;
+
+                    case OutboxDeliveryKind.Held:
+                        await UpdateEntryAsync(claimed.Id, current => current with { LastError = delivery.Error }, cancellationToken);
+                        break;
+
+                    default:
+                        failed = await UpdateEntryAsync(
+                            claimed.Id,
+                            current => current with { Attempts = current.Attempts + 1, LastError = delivery.Error },
+                            cancellationToken)
+                            ?? claimed with { Attempts = claimed.Attempts + 1, LastError = delivery.Error };
+                        break;
+                }
+            }
+            finally
+            {
+                Sending = null;
+            }
 
             switch (delivery.Kind)
             {
                 case OutboxDeliveryKind.Delivered:
-                    await _store.RemoveAsync(entry.Id, cancellationToken);
-                    lock (_entriesLock) _entries.RemoveAll(queued => queued.Id == entry.Id);
                     _notBefore = null;
                     Unreachable = false;
                     Changed?.Invoke();
-                    Delivered?.Invoke(entry);
+                    Delivered?.Invoke(claimed);
                     continue;
 
                 case OutboxDeliveryKind.Refused:
-                    // Not a network problem, and not one a timer will fix — so it
-                    // is set aside rather than holding up the entries behind it.
-                    await ReplaceAsync(latest with { Refused = true, LastError = delivery.Error }, cancellationToken);
                     Changed?.Invoke();
                     continue;
 
@@ -255,19 +393,16 @@ public sealed class DeviceOutbox : IDisposable
                     // and nothing behind it goes either. Asked again when the
                     // compatibility verdict is next due, which is what lets a
                     // rolled-back service take the queue without a tap.
-                    await ReplaceAsync(latest with { LastError = delivery.Error }, cancellationToken);
                     Changed?.Invoke();
                     _notBefore = now + HeldRetryDelay;
                     Schedule(HeldRetryDelay);
                     return;
 
                 default:
-                    var failed = latest with { Attempts = latest.Attempts + 1, LastError = delivery.Error };
-                    await ReplaceAsync(failed, cancellationToken);
                     Unreachable = true;
                     Changed?.Invoke();
 
-                    if (failed.IsParked)
+                    if (failed!.IsParked)
                     {
                         _notBefore = null;
                         return;
@@ -286,7 +421,7 @@ public sealed class DeviceOutbox : IDisposable
     {
         foreach (var entry in Entries.Where(entry => entry.IsParked && !entry.Refused))
         {
-            await ReplaceAsync(entry with { Attempts = 0 }, cancellationToken);
+            await UpdateEntryAsync(entry.Id, current => current with { Attempts = 0 }, cancellationToken);
         }
     }
 
@@ -297,7 +432,6 @@ public sealed class DeviceOutbox : IDisposable
             return OutboxDelivery.Refused($"Nothing on this phone sends a '{entry.Kind}' entry.");
         }
 
-        Sending = entry.Id;
         Changed?.Invoke();
 
         try
@@ -312,35 +446,87 @@ public sealed class DeviceOutbox : IDisposable
             // treated as the network's, which is the case a retry can cure.
             return OutboxDelivery.Transient(ex.Message);
         }
-        finally
-        {
-            Sending = null;
-        }
     }
 
     /// <summary>A staged kind's request landed: keep what it has sent, and give
     /// the entry its attempts back for the next one.</summary>
     private async Task CheckpointAsync(Guid id, string payloadJson, CancellationToken cancellationToken)
     {
-        if (Find(id) is not { } current) return;
+        if (await UpdateEntryAsync(id, current => current with { PayloadJson = payloadJson, Attempts = 0, LastError = null }, cancellationToken) is null)
+        {
+            return;
+        }
 
-        await ReplaceAsync(current with { PayloadJson = payloadJson, Attempts = 0, LastError = null }, cancellationToken);
         Changed?.Invoke();
     }
 
-    private OutboxEntry? Find(Guid id)
+    /// <summary>The entry as it stands, marked as the one being sent — in the
+    /// same lock <see cref="ReplacePayloadAsync"/> and <see cref="RemoveAsync"/>
+    /// check, so neither can change an entry between this read and its send.
+    /// Null when it was taken out, or is being taken out.</summary>
+    private OutboxEntry? Claim(Guid id)
     {
-        lock (_entriesLock) return _entries.Find(queued => queued.Id == id);
-    }
-
-    private async Task ReplaceAsync(OutboxEntry entry, CancellationToken cancellationToken)
-    {
-        await _store.UpdateAsync(entry, cancellationToken);
-
         lock (_entriesLock)
         {
-            var index = _entries.FindIndex(queued => queued.Id == entry.Id);
-            if (index >= 0) _entries[index] = entry;
+            var current = _entries.Find(queued => queued.Id == id);
+            if (current is null || _removing.Contains(id)) return null;
+
+            Sending = id;
+            return current;
+        }
+    }
+
+    /// <summary>
+    /// Applies <paramref name="change"/> to the entry as it stands — never to a copy
+    /// read earlier — in the list and then on the device, under
+    /// <see cref="_writes"/> so the file takes changes in the order the list did.
+    /// Answers the entry as written, or null when it is not there or
+    /// <paramref name="change"/> declined (answered null).
+    /// </summary>
+    private async Task<OutboxEntry?> UpdateEntryAsync(
+        Guid id,
+        Func<OutboxEntry, OutboxEntry?> change,
+        CancellationToken cancellationToken)
+    {
+        await _writes.WaitAsync(cancellationToken);
+
+        try
+        {
+            OutboxEntry? updated;
+
+            lock (_entriesLock)
+            {
+                var index = _entries.FindIndex(queued => queued.Id == id);
+                if (index < 0) return null;
+
+                updated = change(_entries[index]);
+                if (updated is null) return null;
+
+                _entries[index] = updated;
+            }
+
+            await _store.UpdateAsync(updated, cancellationToken);
+            return updated;
+        }
+        finally
+        {
+            _writes.Release();
+        }
+    }
+
+    /// <summary>The service has the entry: out of the list and off the device.</summary>
+    private async Task RemoveDeliveredAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await _writes.WaitAsync(cancellationToken);
+
+        try
+        {
+            await _store.RemoveAsync(id, cancellationToken);
+            lock (_entriesLock) _entries.RemoveAll(queued => queued.Id == id);
+        }
+        finally
+        {
+            _writes.Release();
         }
     }
 

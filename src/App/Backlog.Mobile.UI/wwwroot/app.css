@@ -147,12 +147,24 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .inbox-heading__lede { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .inbox-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 
+/*
+  The kind chips, one fused group with exactly one pressed
+  (interaction-guidelines.md#phone-inbox). Every
+  chip keeps the 44px target (accessibility.md#target-sizes-and-text).
+*/
+.inbox-kinds { display: flex; align-items: center; margin-bottom: .75rem; }
+.inbox-kinds__chips { flex: 1; min-width: 0; }
+.inbox-kinds__chip { flex: 1; min-height: 44px; padding-inline: .5rem; }
+
 .inbox { transition: transform .15s ease-out; }
 .inbox--pulling { transform: translateY(.75rem); }
 
 .inbox__list { display: grid; gap: .5rem; list-style: none; padding: 0; margin: 0; }
 
-.inbox-sheet__body { margin-bottom: 1rem; }
+/* The capture's title and notes, edited in place, with the line saying whether
+   the edit is kept just under them. */
+.inbox-sheet__editor { display: grid; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
+.inbox-sheet__save { justify-self: start; }
 .inbox-sheet__facts { display: grid; grid-template-columns: auto 1fr; gap: .35rem .75rem; margin: 0; }
 .inbox-sheet__facts dt { color: var(--color-text-secondary); }
 .inbox-sheet__facts dd { margin: 0; overflow-wrap: anywhere; }
@@ -179,6 +191,10 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 }
 .detail-sheet.app-update-sheet[data-open="true"],
 .detail-sheet.app-settings-sheet[data-open="true"] { transform: translateY(0); }
+/* Risen from the bottom, these never meet the status bar, so their header does
+   not make room for it the way the library's top-anchored sheet does. */
+.detail-sheet.app-update-sheet .detail-sheet__header,
+.detail-sheet.app-settings-sheet .detail-sheet__header { padding-top: var(--spacing-lg); }
 .app-update-sheet__current { margin: 0; }
 .app-update-sheet__actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 
@@ -297,41 +313,8 @@ html, body { background-color: var(--color-background); color: var(--color-text-
    the point: truncating would hide the very thing the person asked to see. */
 .capture__status { overflow-wrap: anywhere; }
 
-/*
-  Notes. The library draws the rows and the editor; this file lays the list out
-  under its heading and search, and pins "New note" above the tab bar where the
-  capture button sits on Today. Colours are the library's tokens.
-*/
-.notes-heading { display: grid; gap: .125rem; margin-bottom: .75rem; }
-.notes-heading__kicker { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
-.notes-heading h1 { margin: 0; font-family: var(--font-family-heading); }
-
-.notes__search { margin-bottom: 1rem; }
-
-.notes__list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
-
-/* Clear of "New note", so the last row is never under it. */
-.notes { padding-bottom: 5rem; }
-
-.notes__new {
-    position: fixed;
-    right: 1.25rem;
-    bottom: calc(3rem + 1px + env(safe-area-inset-bottom, 0px) + 1rem);
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    min-height: 3.5rem;
-    padding: 0 1.25rem 0 1rem;
-    border-radius: var(--border-radius-full);
-    background: var(--color-primary);
-    color: var(--color-text-inverse);
-    font-weight: var(--font-weight-semibold);
-    text-decoration: none;
-    box-shadow: var(--shadow-lg);
-}
-.notes__new:hover { background: var(--color-primary-light); color: var(--color-text-inverse); }
-.notes__new:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 3px; }
+/* The Inbox's search, over captures, notes and meetings alike. */
+.inbox__search { margin-bottom: 1rem; }
 
 /* What the editor's tools leave under the body. */
 .note-page__attached { display: grid; gap: .5rem; }

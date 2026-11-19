@@ -109,8 +109,8 @@ internal static class RemoteMcpAuthentication
             {
                 Logger(context.HttpContext).LogWarning(
                     "Remote MCP token rejected on {Method} {Path}: {Reason}.",
-                    context.Request.Method,
-                    context.Request.Path,
+                    LogSafe(context.Request.Method),
+                    LogSafe(context.Request.Path.Value),
                     context.Exception.GetType().Name);
                 return Task.CompletedTask;
             },
@@ -130,8 +130,8 @@ internal static class RemoteMcpAuthentication
                 SyncTelemetry.RemoteMcpRefused.Add(1, new TagList { { "error", invalid ? "invalid_token" : "no_token" } });
                 Logger(context.HttpContext).LogWarning(
                     "Remote MCP call to {Method} {Path} challenged: {Error}.",
-                    context.Request.Method,
-                    context.Request.Path,
+                    LogSafe(context.Request.Method),
+                    LogSafe(context.Request.Path.Value),
                     invalid ? "invalid_token" : "no bearer token");
 
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -146,8 +146,8 @@ internal static class RemoteMcpAuthentication
                 SyncTelemetry.RemoteMcpRefused.Add(1, new TagList { { "error", "insufficient_scope" } });
                 Logger(context.HttpContext).LogWarning(
                     "Remote MCP call to {Method} {Path} refused: the token does not grant {Scope}.",
-                    context.Request.Method,
-                    context.Request.Path,
+                    LogSafe(context.Request.Method),
+                    LogSafe(context.Request.Path.Value),
                     scope);
 
                 context.Response.Headers.Append(
@@ -187,6 +187,10 @@ internal static class RemoteMcpAuthentication
             context.Fail("The connector's access was revoked after this token was issued.");
         }
     }
+
+    // The method and path are the caller's own text: drop line breaks so a request cannot forge a log line.
+    private static string LogSafe(string? value) =>
+        (value ?? string.Empty).Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
 
     private static ILogger Logger(HttpContext context) =>
         context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(RemoteMcpAuthentication).FullName!);

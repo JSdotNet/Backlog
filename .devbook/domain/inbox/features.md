@@ -42,6 +42,8 @@ sequenceDiagram
             A-->>I: bytes
             I->>I: check sha256, write into the item's folder — Downloaded, or Failed with the reason
         end
+    else known id, live, later stamp, new words, still open
+        I->>I: take the copy's title and body (Updated)
     else known id, live
         I->>I: record attachments it lacks, fetch waiting ones (AlreadyKnown)
     else known id, tombstoned, still open
@@ -72,13 +74,15 @@ sequenceDiagram
   reaches the phone on the first push that succeeds.
 - A deleted item's acknowledgement is kept beside the item store and is all
   that is left of the item. Until it is sent, a replay of the capture is
-  `AlreadyKnown` rather than a new item.
+  `AlreadyKnown` rather than a new item. A copy the phone reworded, stamped at
+  or after the deletion, owes the tombstone again under a later stamp.
 - The desktop's own tombstone, its [sync echo](domain.md#sync-echo), comes back
   on the next pull as a known id it has already decided on: `AlreadyKnown`,
   nothing written. A second desktop still holding the item open archives it
   instead.
-- The phone's own "Triage" acknowledges the same way: the service tombstones the
-  capture document.
+- The phone's own Delete acknowledges the same way: the service tombstones the
+  capture document. The tombstone wins over any live copy whatever their stamps,
+  so an edit landing while the desktop decides cannot bring the capture back.
 
 Receive normalized Inbox Items from all Capture sources into a single shared
 queue. New items default to `unprocessed` and are read newest first by capture
@@ -1239,7 +1243,9 @@ Events where those areas are on. The phone Inbox is one list of two parts:
 | Every note and meeting, whichever device made it | Never: they sync both ways |
 
 Filter chips **All**, **Captures**, **Notes** and **Meetings** narrow the list.
-Every row shows its kind's mark and name. A note or meeting row also shows:
+Every row leads with its content kind's mark, the kind's name its tooltip and
+accessible text: a capture's kind is what it holds, such as Text or Link. A note
+or meeting row also shows:
 
 - the title;
 - when it last changed: the time for today, "Yesterday", the weekday
@@ -1250,10 +1256,11 @@ A search field narrows the list on the phone itself. A note stays when every
 word typed is in its title or its body. With nothing to show the list says how
 to start, and with no match it repeats the words searched for.
 
-The **+** menu offers **Note**, which opens an empty editor, and **Meeting**,
-which opens a new [meeting](domain.md#meeting) already recording. A tap on a note
-or meeting opens it in the same editor. Sharing from another app and the quick
-one-line field still make a capture.
+The Inbox has one **+**, beside the quick one-line field. With words in the
+field, **+** or Enter adds them as a capture. With the field empty, **+** opens a
+menu of **Note**, which opens an empty editor, and **Meeting**, which opens a
+new [meeting](domain.md#meeting) already recording. A tap on a note or meeting
+opens it in the same editor. Sharing from another app still makes a capture.
 
 The old `/notes` address opens the Inbox filtered to notes. `/notes/new` and
 `/notes/{id}` still open the editor.
@@ -1302,8 +1309,35 @@ related: [.devbook/domain/inbox/domain.md#triage, .devbook/domain/capture/featur
 The phone does not route, defer, accept or archive any Inbox item, notes and
 meetings included, and offers no button that would. Of the other captures, the
 phone's Inbox shows only those the phone made itself, each with its sync state,
-until the desktop takes them in. The desktop decides what an item becomes,
-because the backlog and the repositories are there.
+until the desktop decides them. Until then the phone may
+[edit or delete](#edit-and-delete-a-capture-on-the-phone) each one. The desktop
+decides what an item becomes, because the backlog and the repositories are there.
+
+### Edit and delete a capture on the phone
+
+```meta
+type: sub-feature
+related: [.devbook/domain/inbox/features.md#triage-stays-on-the-desktop, .devbook/domain/capture/features.md#offline-first-sync, .devbook/arc42/06-runtime-view.md#mobile-capture-and-sync, .devbook/domain/inbox/requirements.md#edit-and-delete-a-capture-on-the-phone]
+```
+
+The capture sheet of the phone's Inbox tab offers **Edit** and **Delete** on
+every capture the tab lists.
+
+- **Edit** changes the title and body. Like the
+  [Notes editor](#notes-on-the-phone) it has no save button: it saves a second
+  after typing stops, and at once on leaving a field, closing the sheet, the app
+  going to the background, or leaving the page. The row shows the edit at once.
+  A sheet whose edit cannot be kept, such as one with a blank title, stays open
+  with the reason and offers **Discard changes**.
+- **Delete** asks first: "Removes it from this phone and archives it on the
+  desktop."
+
+A capture still waiting in the outbox, and not being sent, is rewritten or taken
+out where it waits, so a deleted one never reaches the service. On the desktop
+an edit replaces the open item's title and body, and the activity log records
+"edited". A delete archives the open item, and the archive can be undone. When
+the desktop decided first, the phone says in one calm line that the desktop
+already dealt with it.
 
 ### Meetings
 

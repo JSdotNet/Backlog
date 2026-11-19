@@ -111,7 +111,16 @@ public sealed record TaskPayload(
     // Unrecognised. Both null on every other task, so its document serialises as
     // it did before.
     string? WaitingFor = null,
-    DateOnly? FollowUpOn = null)
+    DateOnly? FollowUpOn = null,
+    // Only a note document carries this: the Inbox content kind of the item it
+    // syncs when that is not `note` itself — `meeting` for a meeting, which
+    // travels as a note does under the `note` type
+    // (.devbook/arc42/06-runtime-view.md#mobile-note-sync). An opaque token the
+    // service never reads. Last and defaulted for the reason StartedOn is: an
+    // older document carries none and reads as a plain note, and a service built
+    // before it passes it through in Unrecognised. Null on every task and every
+    // plain note, so its document serialises as it did before.
+    string? NoteKind = null)
 {
     /// <summary>
     /// Every property the document carried that this build has no member for,

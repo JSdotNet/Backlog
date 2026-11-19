@@ -3,6 +3,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Api.Security;
 using Backlog.Modules.Sync.Features.AcknowledgeInboxItem;
 using Backlog.Modules.Sync.Features.CaptureInboxItem;
+using Backlog.Modules.Sync.Features.EditCapture;
 using Backlog.Modules.Sync.Features.ListInbox;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -35,6 +36,9 @@ internal static class InboxEndpoints
 
         inbox.MapPost(SyncRoutes.Inbox, CaptureInboxItem)
             .WithSummary("Pushes a capture into this owner's inbox.");
+
+        inbox.MapPut(SyncRoutes.EditInboxItem, EditInboxItem)
+            .WithSummary("Replaces the title and body of one capture the desktop has not decided yet.");
 
         inbox.MapPost(SyncRoutes.AcknowledgeInboxItem, AcknowledgeInboxItem)
             .WithSummary("Acknowledges one capture, taking it out of the inbox.");
@@ -114,14 +118,48 @@ internal static class InboxEndpoints
         ?? (request.Tags is { } tags ? TagsOutOfBounds(tags) : null)
         ?? (request.Attachments is { } attachments ? AttachmentsOutOfBounds(attachments) : null);
 
-    private static Error? FieldsOutOfBounds(CaptureRequest request) => request switch
+    /// <param name="request">Bounded here as a new capture's title and body
+    /// are, so an edit can never make a capture the capture route would have
+    /// refused.</param>
+    /// <remarks>200 with the capture as it now reads; 404
+    /// <c>inbox.item_not_found</c> for one the desktop already decided, which the
+    /// phone counts as delivered.</remarks>
+    private static async Task<IResult> EditInboxItem(
+        HttpContext context,
+        Guid id,
+        CaptureEditRequest request,
+        ICommandHandler<EditCaptureCommand, Result<InboxItem>> handler,
+        CancellationToken cancellationToken)
     {
-        { Title: var title } when string.IsNullOrWhiteSpace(title) =>
+        if ((TitleOutOfBounds(request.Title) ?? BodyOutOfBounds(request.BodyMd)) is { } refusal)
+        {
+            return SyncResults.From(context, Result.Failure<InboxItem>(refusal), Results.Ok);
+        }
+
+        var result = await handler.Handle(
+            new EditCaptureCommand(context.GetOwnerScope(), id, request.Title, request.BodyMd),
+            cancellationToken);
+
+        return SyncResults.From(context, result, Results.Ok);
+    }
+
+    private static Error? TitleOutOfBounds(string? title) => title switch
+    {
+        _ when string.IsNullOrWhiteSpace(title) =>
             Invalid("A capture needs a title."),
 
-        { Title.Length: var length } when length > SyncRequestLimits.MaximumCaptureTitle =>
+        { Length: > SyncRequestLimits.MaximumCaptureTitle } =>
             Invalid($"A capture's title may be at most {SyncRequestLimits.MaximumCaptureTitle} characters."),
 
+        _ => null,
+    };
+
+    private static Error? BodyOutOfBounds(string? body) => body is { Length: > SyncRequestLimits.MaximumCaptureBody }
+        ? Invalid($"A capture's body may be at most {SyncRequestLimits.MaximumCaptureBody} characters.")
+        : null;
+
+    private static Error? FieldsOutOfBounds(CaptureRequest request) => TitleOutOfBounds(request.Title) ?? request switch
+    {
         { Source: var source } when string.IsNullOrWhiteSpace(source) =>
             Invalid("A capture needs to say where it came from."),
 

@@ -5,8 +5,8 @@ namespace Backlog.Desktop.UI.Tasks;
 /// <para>
 /// Each layout reads the same filtered rows under the same filter bar, beside the
 /// same detail panel; only the half below the bar changes. The shell picks one
-/// from its view switch. The Calendar is no layout of the pane (local ADR 0055): its
-/// Tasks layer hands the pane a body of its own, <see cref="TasksPane.Body"/>.
+/// from its view switch. The Calendar is no layout of the pane: it draws its own grid
+/// and reads the tasks through its own port (local ADR 0056).
 /// </para>
 /// </summary>
 public enum TasksLayout

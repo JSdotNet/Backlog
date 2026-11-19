@@ -3,8 +3,9 @@
 @inject IJSRuntime Js
 
 @*
-    A month of tasks placed by their due date, with the tasks that have none in a
-    tray beside it.
+    The Calendar's grid (local ADR 0056 §1): a month, or a week, of tasks placed by their
+    due date, with the plans and the events the Calendar reads laid over the days. The
+    Calendar module owns it; CalendarSurface is its one host.
 
     The month bar steps a month back or forward, or back to the month holding
     today, and names the month it shows. The grid is Monday-first and whole weeks:
@@ -12,7 +13,7 @@
     last day, so its first and last rows reach into the neighbouring months. Those
     days are dimmed rather than left blank, because a task due on the 30th of the
     month before is still a task the reader is looking at. Saturdays and Sundays
-    are shaded. Today is ringed and says how many tasks are in My Day.
+    are shaded. Today is ringed.
 
     A day lists its tasks as compact chips with a dot for where each one is: a
     hollow ring for a draft, filled grey for ready, the brand colour in progress
@@ -21,13 +22,12 @@
     colour; a done one is struck through. Two chips fit; past that a "+N more"
     opens the whole day in place, and "Show fewer" folds it back.
 
-    The tray lists the open tasks without a due date. Dragging one onto a day
-    gives it that date, and dragging a chip to another day moves it — a pointer
-    gesture, through `backlogCalendarDrag` in components.js, for the reason
-    `taskListDrag` there gives: native drag never delivers a drop in the desktop
-    head's WebView2. A press that does not travel stays a click, and a click on a
-    chip or a tray item opens the task. The keyboard way to the same date is the
-    detail panel the click opens.
+    Dragging a chip to another day moves its due date — a pointer gesture, through
+    `backlogCalendarDrag` in components.js, for the reason `taskListDrag` there gives:
+    native drag never delivers a drop in the desktop head's WebView2. A press that does
+    not travel stays a click, and a click on a chip opens the task (OnOpen) — in Tasks,
+    which is also the keyboard way to the same date. A task with no due date is not on
+    the grid: a due date is set in Tasks.
 
     The month bar's Month | Week control picks the range; the host keeps the choice
     (Range), as it keeps ShowPlans, and is told of a change through RangeChanged. Week
@@ -35,19 +35,23 @@
     with no "+N more", and the plan bars, milestones, hours blocks, day totals, drops
     and the hours editor are the month grid's own, because a Week day is the same day
     markup with the same data-calendar-day. Previous, next and Today then step a week,
-    and the heading names the week's days ("6 – 12 October 2026"). The calendar keeps
+    and the heading names the week's days ("6 – 12 October 2026"). The grid keeps
     one place to come back to: Week opens on the week holding today when today is in
     the month shown, else on the month's first week, and Month after Week shows the
     month holding that week's Thursday. Only the range is the host's to remember,
-    never the date.
+    never the date. Every move tells the host the days now on screen (ShownChanged),
+    which is the window it reads its layers for.
 
-    The calendar holds no tasks and writes nothing. The host hands in the tasks —
-    already filtered — and is told which one was opened and which one was dropped
-    where; it redraws from what it wrote.
+    The grid holds no tasks and writes nothing. The host hands in the tasks — already
+    narrowed to the window's scope — and is told which one was opened and which one was
+    dropped where; it redraws from what it wrote.
 
     The repository identity edge is the host's, through each task's CssClass, as
     on a card and a row: the host passes the shared repo-mark classes only while
-    its repository colours are showing.
+    the window's repository colours are showing.
+
+    The Show tasks box (TasksAvailable, ShowTasks) leads the layer boxes; unticked, the
+    grid draws no chip, no hours block, no day total and no "Add hours…".
 
     Plans, when the host offers them (PlansAvailable), are drawn while the "Show
     plans" box in the month bar is ticked; the host keeps the choice. Each plan's
@@ -55,11 +59,11 @@
     numbers and above the chips; plans that overlap in a week take a lane each, and
     a bar carried on from the week before opens with "…". Its tooltip gives the
     title, the plan tag and the finished points of the total. The fill is the
-    plan's band colour while the host passes one — only while its repository
+    plan's band colour while the host passes one — only while the repository
     colours are showing — and neutral grey otherwise. A milestone is a diamond chip
-    on its day. The tray's second section, "Plans without a window", lists the
+    on its day. The shelf beside the grid, "Plans without a window", lists the
     plans with no window yet; dropping one on a day reports it through
-    OnPlanStarted, and the host has the window placed — the calendar sizes nothing.
+    OnPlanStarted, and the host has the window placed — the grid sizes nothing.
 
     Planned hours, when the host keeps them (HoursAvailable), are the person's own
     plan: a block is a day and a number of hours, never a time of day. Each is a chip
@@ -67,14 +71,14 @@
     and the day head adds the day's blocks up against the hours the host says the day
     has (CapacityOn): "3h / 8h", in the error colour with the numbers in its tooltip
     when the day holds more than it has. A block is made from a day's "Add hours…", or
-    by dragging a chip or a tray item onto a day with Shift held; either opens the
-    day's hours editor, which also changes or removes a block its chip opened. The
+    by dragging a chip onto a day with Shift held; either opens the day's hours
+    editor, which also changes or removes a block its chip opened. The
     editor's figure is a Combobox suggesting the usual blocks (CalendarHours.Presets)
     over a field that takes any figure; taking a suggestion fills the figure and
     Enter or Save keeps it. Closing the editor — Save, Add, Remove, Cancel or Escape —
     sends the focus back to the chip that opened it, or to the day's "Add hours…"
     when that or a Shift drop did, or when Remove took the chip away. The
-    calendar writes nothing: it reports the figure through OnHoursChanged and redraws
+    grid writes nothing: it reports the figure through OnHoursChanged and redraws
     from what the host hands back.
 
     Knowledge events, when the host offers them (EventsAvailable), are drawn while
@@ -86,7 +90,7 @@
     before. A decided event is filled; one still being weighed up (Tentative) is
     dashed, and its state word says so as well. A key date is a diamond chip on its
     day, before the day's milestones, its tooltip naming the event. An event bar is
-    no drag source and no drop: the calendar changes no event.
+    no drag source and no drop: the grid changes no event.
 *@
 <section class="@ClassValue"
          data-testid="@TestId"
@@ -132,6 +136,14 @@
                 Week
             </ToggleButton>
         </ButtonGroup>
+        @if (TasksAvailable)
+        {
+            <Checkbox CssClass="task-calendar__show-tasks"
+                      Label="Show tasks"
+                      Checked="@ShowTasks"
+                      CheckedChanged="OnShowTasksChangedAsync"
+                      TestId="@Part("show-tasks")" />
+        }
         @if (PlansAvailable)
         {
             <Checkbox CssClass="task-calendar__show-plans"
@@ -172,48 +184,12 @@
             }
         </div>
 
-        <aside class="task-calendar__tray" aria-labelledby="@TrayHeadingId" data-testid="@Part("tray")">
-            <div class="task-calendar__tray-head">
-                <h3 class="task-calendar__tray-title" id="@TrayHeadingId">Tasks without a due date</h3>
-                <span class="task-calendar__tray-count" data-testid="@Part("tray-count")">@Undated.Count</span>
-            </div>
-            @if (Undated.Count == 0)
-            {
-                <p class="task-calendar__tray-hint" data-testid="@Part("tray-empty")">Every open task in view has a due date.</p>
-            }
-            else
-            {
-                <p class="task-calendar__tray-hint">@(HoursAvailable ? "Drag onto a day to set its due date, or hold Shift to plan hours there." : "Drag onto a day to set its due date.")</p>
-                <ul class="task-calendar__tray-list">
-                    @foreach (var task in Undated)
-                    {
-                        <li @key="task.Id">
-                            <AppButton BaseClass="task-calendar__tray-item"
-                                       Variant="ButtonVariant.None"
-                                       CssClass="@ItemClass(task, "task-calendar__tray-item")"
-                                       TestId="@Part($"tray-{task.Id}")"
-                                       id="@ItemDomId(task.Id)"
-                                       data-calendar-task="@task.Id"
-                                       aria-label="@ChipTitle(task)"
-                                       aria-current="@(IsSelected(task) ? "true" : null)"
-                                       OnClick="() => OpenAsync(task)">
-                                <span class="@DotClass(task)" aria-hidden="true"></span>
-                                <span class="task-calendar__tray-text">@task.Title</span>
-                                @if (!string.IsNullOrWhiteSpace(task.Effort))
-                                {
-                                    <span class="task-calendar__tray-effort">@task.Effort</span>
-                                }
-                            </AppButton>
-                        </li>
-                    }
-                </ul>
-            }
-
-            @if (PlansShown)
-            {
-                <div class="task-calendar__tray-head task-calendar__tray-head--plans">
+        @if (PlansShown)
+        {
+            <aside class="task-calendar__tray" aria-labelledby="@ShelfHeadingId" data-testid="@Part("shelf")">
+                <div class="task-calendar__tray-head">
                     <h3 class="task-calendar__tray-title" id="@ShelfHeadingId">Plans without a window</h3>
-                    <span class="task-calendar__tray-count" data-testid="@Part("shelf-count")">@ShelfPlans.Count</span>
+                    <Badge BaseClass="task-calendar__tray-count" Kind="" TestId="@Part("shelf-count")">@ShelfPlans.Count</Badge>
                 </div>
                 @if (ShelfPlans.Count == 0)
                 {
@@ -238,8 +214,8 @@
                         }
                     </ul>
                 }
-            }
-        </aside>
+            </aside>
+        }
     </div>
 </section>
 
@@ -255,7 +231,7 @@
 
     private readonly string _ownerId = $"task-calendar-{Guid.NewGuid():N}";
     private ElementReference _root;
-    private DotNetObjectReference<TaskCalendar>? _self;
+    private DotNetObjectReference<CalendarGrid>? _self;
     private DateOnly _month;
     private DateOnly? _shownMonth;
     private CalendarRange _range;
@@ -263,7 +239,7 @@
     private DateOnly _week;
     private DateOnly? _expandedDay;
     private ILookup<DateOnly, CalendarTask> _byDay = Array.Empty<CalendarTask>().ToLookup(task => default(DateOnly));
-    private IReadOnlyList<CalendarTask> _undated = [];
+    private CalendarWindow? _reported;
     private ILookup<DateOnly, CalendarHoursBlock> _hoursByDay = Array.Empty<CalendarHoursBlock>().ToLookup(block => default(DateOnly));
     private HoursDraft? _draft;
     private string? _draftError;
@@ -273,8 +249,8 @@
     private ILookup<DateOnly, CalendarMilestone> _milestonesByDay = Array.Empty<CalendarMilestone>().ToLookup(milestone => default(DateOnly));
     private ILookup<DateOnly, CalendarKeyDate> _keyDatesByDay = Array.Empty<CalendarKeyDate>().ToLookup(keyDate => default(DateOnly));
 
-    /// <summary>The tasks to place, in the order a day lists them. Filtered by the
-    /// host: the calendar shows what it is given.</summary>
+    /// <summary>The tasks to place, in the order a day lists them. Narrowed by the
+    /// host: the grid shows what it is given.</summary>
     [Parameter, EditorRequired]
     public IReadOnlyList<CalendarTask> Tasks { get; set; } = [];
 
@@ -297,21 +273,32 @@
     [Parameter]
     public EventCallback<CalendarRange> RangeChanged { get; set; }
 
-    /// <summary>How many tasks are in today's My Day; today's cell says it.</summary>
-    [Parameter]
-    public int MyDayCount { get; set; }
-
-    /// <summary>The task the host has open, marked on its chip.</summary>
-    [Parameter]
-    public string? SelectedId { get; set; }
-
-    /// <summary>A chip or a tray item was pressed: open that task.</summary>
+    /// <summary>A chip was pressed: open that task.</summary>
     [Parameter]
     public EventCallback<string> OnOpen { get; set; }
 
     /// <summary>A task was dropped on a day other than the one it is due on.</summary>
     [Parameter]
     public EventCallback<CalendarDueChange> OnDueChanged { get; set; }
+
+    /// <summary>The days on screen changed — a step, Today, or a switch of range — and on
+    /// the first render: the window the host reads its layers for.</summary>
+    [Parameter]
+    public EventCallback<CalendarWindow> ShownChanged { get; set; }
+
+    /// <summary>Whether the host has tasks to offer at all. Without it there is no
+    /// "Show tasks" box, and whatever tasks and hours it hands in are drawn.</summary>
+    [Parameter]
+    public bool TasksAvailable { get; set; }
+
+    /// <summary>Whether the tasks and their planned hours are drawn — the "Show tasks"
+    /// box. On by default. The host keeps the choice; the grid reports a change through
+    /// <see cref="ShowTasksChanged"/>.</summary>
+    [Parameter]
+    public bool ShowTasks { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<bool> ShowTasksChanged { get; set; }
 
     /// <summary>Whether the host has plans to offer at all. Without it there is no
     /// "Show plans" box, no bar, no milestone and no shelf.</summary>
@@ -334,7 +321,7 @@
     [Parameter]
     public IReadOnlyList<CalendarMilestone> Milestones { get; set; } = [];
 
-    /// <summary>The plans with no window yet, in the tray's second section.</summary>
+    /// <summary>The plans with no window yet, on the shelf beside the grid.</summary>
     [Parameter]
     public IReadOnlyList<CalendarShelfPlan> ShelfPlans { get; set; } = [];
 
@@ -436,8 +423,6 @@
         }
     }
 
-    private string TrayHeadingId => $"{_ownerId}-tray";
-
     private string ShelfHeadingId => $"{_ownerId}-shelf";
 
     private bool PlansShown => PlansAvailable && ShowPlans;
@@ -463,7 +448,16 @@
             : $"--task-calendar-lanes: {lanes}";
     }
 
-    private IReadOnlyList<CalendarTask> Undated => _undated;
+    /// <summary>Whether the chips, the hours blocks and the day totals are drawn: always
+    /// when the host offers no Show tasks box, else as the box says.</summary>
+    private bool TasksShown => !TasksAvailable || ShowTasks;
+
+    private bool HoursShown => HoursAvailable && TasksShown;
+
+    /// <summary>The days on screen: the whole weeks of the month, or the one week.</summary>
+    public CalendarWindow ShownWindow => IsWeek
+        ? new CalendarWindow(_week, _week.AddDays(6))
+        : CalendarMonth.Window(_month);
 
     protected override void OnParametersSet()
     {
@@ -485,16 +479,17 @@
             if (_range != Range) SwitchRange(Range);
         }
 
-        _byDay = Tasks.Where(task => task.DueOn is not null).ToLookup(task => task.DueOn!.Value);
-        _undated = [.. Tasks.Where(task => task.DueOn is null && task.Open)];
+        _byDay = (TasksShown ? Tasks : []).ToLookup(task => task.DueOn);
         _milestonesByDay = Milestones.ToLookup(milestone => milestone.On);
         _keyDatesByDay = KeyDates.ToLookup(keyDate => keyDate.On);
-        _hoursByDay = HoursBlocks.ToLookup(block => block.On);
+        _hoursByDay = (HoursShown ? HoursBlocks : []).ToLookup(block => block.On);
 
-        // A draft whose task left the view, or whose block was taken away elsewhere, has
-        // nothing left to edit: Save would re-create what was removed.
+        // A draft whose block was taken away elsewhere, or a new one whose task left the
+        // view, has nothing left to edit: Save would re-create what was removed. A block's
+        // own draft is held by its block alone, as its task may be due outside the window
+        // or not at all, and so never among Tasks.
         if (_draft is { } draft
-            && ((draft.TaskId is { } taskId && !Tasks.Any(task => string.Equals(task.Id, taskId, StringComparison.Ordinal)))
+            && ((!draft.Existing && draft.TaskId is { } taskId && !Tasks.Any(task => string.Equals(task.Id, taskId, StringComparison.Ordinal)))
                 || (draft.Existing && !_hoursByDay[draft.Day].Any(block => string.Equals(block.TaskId, draft.TaskId, StringComparison.Ordinal)))))
         {
             _draft = null;
@@ -504,6 +499,15 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // After the render rather than in it, so the host redraws from the window it is
+        // told of without re-entering this render; the host's redraw reports nothing new.
+        var window = ShownWindow;
+        if (window != _reported)
+        {
+            _reported = window;
+            await ShownChanged.InvokeAsync(window);
+        }
+
         if (_focusDraft && _draft is not null)
         {
             _focusDraft = false;
@@ -607,8 +611,8 @@
         var hidden = tasks.Count - shown.Count;
         var isToday = date == Today;
         var iso = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        List<CalendarHoursBlock> blocks = HoursAvailable ? [.. _hoursByDay[date]] : [];
-        var dayHours = CalendarHours.Day(blocks, CapacityOn?.Invoke(date));
+        List<CalendarHoursBlock> blocks = HoursShown ? [.. _hoursByDay[date]] : [];
+        var dayHours = CalendarDayHours.Of(blocks, CapacityOn?.Invoke(date));
         var editing = _draft is { } draft && draft.Day == date;
 
         <div @key="date"
@@ -626,13 +630,6 @@
                           title="@dayHours.Summary"
                           data-over="@(dayHours.Over ? "true" : null)"
                           data-testid="@Part($"day-{iso}-hours")"><span aria-hidden="true">@dayHours.Label</span><span class="sr-only">@dayHours.Summary</span></span>
-                }
-                @if (isToday)
-                {
-                    <span class="task-calendar__my-day" title="In My Day" data-testid="@Part("my-day")">
-                        <SunIcon Size="13" />
-                        <span>My Day · @MyDayCount</span>
-                    </span>
                 }
             </div>
 
@@ -669,7 +666,6 @@
                            data-calendar-task="@task.Id"
                            title="@ChipTitle(task)"
                            aria-label="@ChipTitle(task)"
-                           aria-current="@(IsSelected(task) ? "true" : null)"
                            OnClick="() => OpenAsync(task)">
                     <span class="@DotClass(task)" aria-hidden="true"></span>
                     <span class="task-calendar__chip-text">@task.Title</span>
@@ -719,7 +715,7 @@
             {
                 @RenderHoursEditor(date)
             }
-            else if (HoursAvailable)
+            else if (HoursShown)
             {
                 <AppButton BaseClass="task-calendar__add-hours"
                            Variant="ButtonVariant.None"
@@ -798,7 +794,7 @@
             </div>
             @if (_draftError is { } error)
             {
-                <span class="task-calendar__hours-error" role="alert" data-testid="@Part("hours-editor-error")">@error</span>
+                <Alert BaseClass="task-calendar__hours-error" Inline="true" Message="@error" TestId="@Part("hours-editor-error")" />
             }
         </div>
     };
@@ -853,6 +849,8 @@
     {
         if (!DateOnly.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) return;
 
+        if (!TasksShown) return;
+
         var task = Tasks.FirstOrDefault(candidate => string.Equals(candidate.Id, taskId, StringComparison.Ordinal));
         if (task is null || task.DueOn == date) return;
 
@@ -890,7 +888,7 @@
     [JSInvokable]
     public Task HoldOnDay(string taskId, string day)
     {
-        if (!HoursAvailable) return DropOnDay(taskId, day);
+        if (!HoursShown) return DropOnDay(taskId, day);
         if (!DateOnly.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) return Task.CompletedTask;
 
         var task = Tasks.FirstOrDefault(candidate => string.Equals(candidate.Id, taskId, StringComparison.Ordinal));
@@ -1006,8 +1004,8 @@
         await SaveDraftAsync();
     }
 
-    /// <summary>The tasks a new block can be for: the open ones in view, dated or not,
-    /// in the order the host gave them.</summary>
+    /// <summary>The tasks a new block can be for: the open ones the host gave, in its
+    /// order. A task with no due date takes its hours in Tasks.</summary>
     private IReadOnlyList<SelectorOption> HoursTaskOptions() =>
         [.. Tasks.Where(task => task.Open).Select(task => new SelectorOption(task.Id, task.Title))];
 
@@ -1021,13 +1019,8 @@
         && draft.Day == block.On
         && string.Equals(draft.TaskId, block.TaskId, StringComparison.Ordinal);
 
-    private string? BlockClass(CalendarHoursBlock block)
-    {
-        var classes = new List<string>(3);
-        if (string.Equals(block.TaskId, SelectedId, StringComparison.Ordinal)) classes.Add("task-calendar__block--selected");
-        if (!string.IsNullOrWhiteSpace(block.CssClass)) classes.Add(block.CssClass);
-        return classes.Count == 0 ? null : string.Join(' ', classes);
-    }
+    private static string? BlockClass(CalendarHoursBlock block) =>
+        string.IsNullOrWhiteSpace(block.CssClass) ? null : block.CssClass;
 
     private static string BlockTitle(CalendarHoursBlock block) =>
         $"{block.Title}, {CalendarHours.Format(block.Hours)} planned";
@@ -1046,6 +1039,8 @@
     /// picked), whether it edits a block already there, the figure as typed, and the
     /// element the focus goes back to when it closes.</summary>
     private sealed record HoursDraft(DateOnly Day, string? TaskId, bool Existing, string Hours, string ReturnFocusTo);
+
+    private Task OnShowTasksChangedAsync(bool shown) => ShowTasksChanged.InvokeAsync(shown);
 
     private Task OnShowPlansChangedAsync(bool shown) => ShowPlansChanged.InvokeAsync(shown);
 
@@ -1094,42 +1089,9 @@
         return $"{plan.Title}, +{plan.Tag}, {tasks}, {ShelfEffort(plan)}";
     }
 
-    /// <summary>
-    /// Puts the focus on the selected task's chip, or its tray item — where a host
-    /// sends the focus back when the task it opened closes, as a list sends it back
-    /// to the row. A chip folded behind "+N more" opens its day first, so there is a
-    /// chip to land on. Nothing selected, or a task this month does not show, moves
-    /// nothing.
-    /// </summary>
-    public async Task FocusSelectedAsync()
-    {
-        if (SelectedId is null) return;
-
-        var task = Tasks.FirstOrDefault(candidate => string.Equals(candidate.Id, SelectedId, StringComparison.Ordinal));
-        if (task is null) return;
-
-        if (task.DueOn is { } due
-            && _expandedDay != due
-            && _byDay[due].TakeWhile(candidate => !ReferenceEquals(candidate, task)).Count() >= ChipsPerDay)
-        {
-            _expandedDay = due;
-            StateHasChanged();
-        }
-
-        try
-        {
-            await Js.InvokeVoidAsync("backlogFocus", ItemDomId(task.Id), false);
-        }
-        catch (JSException)
-        {
-        }
-    }
-
-    /// <summary>The element id of a task's chip or tray item: unique to this
-    /// calendar, since a page may hold two.</summary>
+    /// <summary>The element id of a task's chip: unique to this grid, since a page may
+    /// hold two.</summary>
     private string ItemDomId(string taskId) => $"{_ownerId}-task-{taskId}";
-
-    private bool IsSelected(CalendarTask task) => string.Equals(task.Id, SelectedId, StringComparison.Ordinal);
 
     private string DayClass(DateOnly date, CalendarDayHours? hours)
     {
@@ -1149,17 +1111,8 @@
         var classes = new List<string>(4);
         if (task.IsOverdue(Today)) classes.Add("task-calendar__chip--overdue");
         if (task.Done) classes.Add("task-calendar__chip--done");
-        if (IsSelected(task)) classes.Add("task-calendar__chip--selected");
         if (!string.IsNullOrWhiteSpace(task.CssClass)) classes.Add(task.CssClass);
         return string.Join(' ', classes);
-    }
-
-    private string? ItemClass(CalendarTask task, string block)
-    {
-        var classes = new List<string>(2);
-        if (IsSelected(task)) classes.Add($"{block}--selected");
-        if (!string.IsNullOrWhiteSpace(task.CssClass)) classes.Add(task.CssClass);
-        return classes.Count == 0 ? null : string.Join(' ', classes);
     }
 
     private string DotClass(CalendarTask task)
@@ -1171,7 +1124,6 @@
                 CalendarTaskState.Ready => "ready",
                 CalendarTaskState.InProgress => "in-progress",
                 CalendarTaskState.Done => "done",
-                CalendarTaskState.Archived => "archived",
                 _ => "draft"
             };
         return $"task-calendar__dot task-calendar__dot--{state}";

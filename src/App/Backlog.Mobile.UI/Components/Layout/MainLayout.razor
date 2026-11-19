@@ -31,7 +31,10 @@
     arrive on any tab, and this is the one component every tab sits inside. A
     share made before pairing waits in the outbox with the rest.
 
-    The Stand-up tab sits between Inbox and Notes once a desktop has sent the
+    There is no Notes tab: notes and meetings are listed in the Inbox
+    (.devbook/design/interaction-guidelines.md#phone-inbox).
+
+    The Stand-up tab sits after Inbox, and Notifications when that shows, once a desktop has sent the
     stand-up, which the phone reads as holding a stand-up context
     (ProgressViewProjection.HoldsStandUp).
     The layout pulls Progress once it is drawn, again when the app comes back to
@@ -62,7 +65,7 @@
     launcher icon (CaptureOpenRequests) is followed the same way, to the capture sheet over
     the Inbox.
 
-    The Events tab sits after Stand-up and before Notes once the phone holds a knowledge
+    The Events tab sits last, after Stand-up, once the phone holds a knowledge
     event and no desktop has since turned its events switch off (EventViewProjection.IsOffered):
     a desktop pushes events only with its events feature on, and the latest switch a desktop
     moved travels with them, so a phone whose desktops have it off never shows the tab
@@ -117,26 +120,25 @@
     private static readonly RenderFragment TodayGlyph = @<SunIcon Size="20" />;
     private static readonly RenderFragment InboxGlyph = @<InboxIcon Size="20" />;
     private static readonly RenderFragment StandUpGlyph = @<TargetIcon Size="20" />;
-    private static readonly RenderFragment NotesGlyph = @<StickyNoteIcon Size="20" />;
     private static readonly RenderFragment NotificationsGlyph = @<BellIcon Size="20" />;
     private static readonly RenderFragment EventsGlyph = @<CalendarIcon Size="20" />;
 
     private static readonly NavItem NotificationsTab = new("notifications", "Notifications", Icon: NotificationsGlyph, IconOnly: true);
     private static readonly NavItem EventsTab = new("events", "Events", Icon: EventsGlyph);
 
+    // No Notes tab: notes and meetings are listed in the Inbox
+    // (.devbook/design/interaction-guidelines.md#phone-inbox).
     private static readonly IReadOnlyList<NavItem> TabsWithoutStandUp =
     [
         new("", "Today", Match: true, Icon: TodayGlyph),
-        new("inbox", "Inbox", Icon: InboxGlyph),
-        new("notes", "Notes", Icon: NotesGlyph)
+        new("inbox", "Inbox", Icon: InboxGlyph)
     ];
 
     private static readonly IReadOnlyList<NavItem> TabsWithStandUp =
     [
         new("", "Today", Match: true, Icon: TodayGlyph),
         new("inbox", "Inbox", Icon: InboxGlyph),
-        new("standup", "Stand-up", Icon: StandUpGlyph),
-        new("notes", "Notes", Icon: NotesGlyph)
+        new("standup", "Stand-up", Icon: StandUpGlyph)
     ];
 
     private bool _pullingProgress;
@@ -152,12 +154,12 @@
         {
             var tabs = Progress.HoldsStandUp ? TabsWithStandUp : TabsWithoutStandUp;
 
-            // Last before Notes, which keeps the bar's end: after the stand-up, events are
-            // what a person looks ahead to, and a note taken at one is a tap away.
-            if (EventView.IsOffered) tabs = [.. tabs.SkipLast(1), EventsTab, tabs[^1]];
+            // Last: after the stand-up, events are what a person looks ahead to.
+            if (EventView.IsOffered) tabs = [.. tabs, EventsTab];
 
             // After Inbox: both are what reached the phone, and a question waiting is the
-            // tab a person comes back for.
+            // tab a person comes back for. With no Notes tab the bar holds five at most:
+            // Today, Inbox, Notifications, Stand-up and Events.
             return Notifications.HoldsAny ? [.. tabs.Take(2), NotificationsTab, .. tabs.Skip(2)] : tabs;
         }
     }

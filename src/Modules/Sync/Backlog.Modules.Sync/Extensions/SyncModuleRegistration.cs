@@ -5,6 +5,7 @@ using Backlog.Modules.Sync.Features.Connector;
 using Backlog.Modules.Sync.Features.CaptureInboxItem;
 using Backlog.Modules.Sync.Features.DeleteNotificationReply;
 using Backlog.Modules.Sync.Features.DescribeOwner;
+using Backlog.Modules.Sync.Features.EditCapture;
 using Backlog.Modules.Sync.Features.Devices;
 using Backlog.Modules.Sync.Features.IssueDeviceToken;
 using Backlog.Modules.Sync.Features.Enrolment;
@@ -87,6 +88,7 @@ public static class SyncModuleRegistration
         services.AddScoped<IQueryHandler<ListInboxQuery, Result<IReadOnlyList<InboxItem>>>, ListInboxQueryHandler>();
         services.AddScoped<ICommandHandler<CaptureInboxItemCommand, Result<CaptureOutcome>>, CaptureInboxItemCommandHandler>();
         services.AddScoped<ICommandHandler<AcknowledgeInboxItemCommand, Result>, AcknowledgeInboxItemCommandHandler>();
+        services.AddScoped<ICommandHandler<EditCaptureCommand, Result<InboxItem>>, EditCaptureCommandHandler>();
         services.AddScoped<ICommandHandler<StoreAttachmentCommand, Result<StoreAttachmentOutcome>>, StoreAttachmentCommandHandler>();
         services.AddScoped<IQueryHandler<ReadAttachmentQuery, Result<AttachmentContent>>, ReadAttachmentQueryHandler>();
         services.AddScoped<ICommandHandler<TranscribeDictationCommand, Result<TranscriptionResponse>>, TranscribeDictationCommandHandler>();
