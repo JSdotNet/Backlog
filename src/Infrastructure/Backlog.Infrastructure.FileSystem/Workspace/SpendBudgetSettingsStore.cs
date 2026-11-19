@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -18,38 +19,25 @@ public sealed class SpendBudgetSettingsStore : ISpendBudgetSettings
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    private readonly string _path;
+    private readonly JsonFileStore<Dictionary<string, decimal>> _file;
 
     private readonly Dictionary<SpendProvider, decimal> _budgets;
 
     public SpendBudgetSettingsStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "spend-budgets.json"))
+        : this(AppDataPaths.Shared("spend-budgets.json"))
     {
     }
 
     public SpendBudgetSettingsStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        _path = path;
-
-        var directory = Path.GetDirectoryName(path);
-
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _file = new JsonFileStore<Dictionary<string, decimal>>(path, JsonOptions);
 
         _budgets = Read();
     }
 
     public event Action? Changed;
 
-    public string SettingsPath => _path;
+    public string SettingsPath => _file.Path;
 
     public decimal? BudgetFor(SpendProvider provider) =>
         _budgets.TryGetValue(provider, out var amount) ? amount : null;
@@ -63,25 +51,11 @@ public sealed class SpendBudgetSettingsStore : ISpendBudgetSettings
         if (amount is { } value) _budgets[provider] = value;
         else _budgets.Remove(provider);
 
-        string? error = null;
+        var saved = _file.TrySave(_budgets.Count == 0
+            ? null
+            : _budgets.OrderBy(pair => pair.Key).ToDictionary(pair => pair.Key.ToString(), pair => pair.Value));
 
-        try
-        {
-            if (_budgets.Count == 0)
-            {
-                if (File.Exists(_path)) File.Delete(_path);
-            }
-            else
-            {
-                File.WriteAllText(_path, JsonSerializer.Serialize(
-                    _budgets.OrderBy(pair => pair.Key).ToDictionary(pair => pair.Key.ToString(), pair => pair.Value),
-                    JsonOptions));
-            }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            error = "Changed, but the budget couldn't be saved for next time.";
-        }
+        var error = saved ? null : "Changed, but the budget couldn't be saved for next time.";
 
         Changed?.Invoke();
 
@@ -95,25 +69,14 @@ public sealed class SpendBudgetSettingsStore : ISpendBudgetSettings
     {
         var budgets = new Dictionary<SpendProvider, decimal>();
 
-        try
+        foreach (var (name, amount) in _file.Load() ?? [])
         {
-            if (!File.Exists(_path)) return budgets;
-
-            var stored = JsonSerializer.Deserialize<Dictionary<string, decimal>>(File.ReadAllText(_path), JsonOptions);
-
-            foreach (var (name, amount) in stored ?? [])
+            if (Enum.TryParse<SpendProvider>(name, ignoreCase: true, out var provider)
+                && Enum.IsDefined(provider)
+                && amount >= 0m)
             {
-                if (Enum.TryParse<SpendProvider>(name, ignoreCase: true, out var provider)
-                    && Enum.IsDefined(provider)
-                    && amount >= 0m)
-                {
-                    budgets[provider] = amount;
-                }
+                budgets[provider] = amount;
             }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            budgets.Clear();
         }
 
         return budgets;

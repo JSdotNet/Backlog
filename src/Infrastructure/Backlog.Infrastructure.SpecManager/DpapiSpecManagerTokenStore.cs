@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.SpecManager;
 
@@ -42,10 +43,7 @@ public sealed class DpapiSpecManagerTokenStore : ISpecManagerTokenStore
 
     /// <summary><c>%LOCALAPPDATA%\Backlog\spec-manager-credentials.json</c>, beside
     /// the per-user <c>github.json</c>.</summary>
-    public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Backlog",
-        "spec-manager-credentials.json");
+    public static string DefaultPath => AppDataPaths.Shared("spec-manager-credentials.json");
 
     /// <summary>The one file this store writes.</summary>
     public string StorePath => _path;

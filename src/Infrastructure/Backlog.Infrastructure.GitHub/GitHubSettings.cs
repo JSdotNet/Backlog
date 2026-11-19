@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -622,10 +623,7 @@ public sealed partial class GitHubSettingsStore
     /// a host can compose the two-argument form without restating the path, and
     /// so the parameterless constructor and that composition cannot drift
     /// apart.</summary>
-    public static string DefaultLocalPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Backlog",
-        "github.json");
+    public static string DefaultLocalPath => AppDataPaths.Shared("github.json");
 
     public GitHubSettingsStore()
         : this(DefaultLocalPath)

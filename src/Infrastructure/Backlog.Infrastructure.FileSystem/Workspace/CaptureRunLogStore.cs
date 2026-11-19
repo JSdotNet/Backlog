@@ -3,6 +3,7 @@ using System.Text.Json;
 using Backlog.Modules.Capture.Abstractions;
 using Backlog.Modules.Capture.Abstractions.DataTransferObjects;
 using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -36,7 +37,7 @@ public sealed class CaptureRunLogStore : ICaptureRunLog
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly string _path;
+    private readonly JsonFileStore<CaptureRunsDto> _file;
     private readonly object _gate = new();
 
     /// <summary>Newest first, per kind. Only kinds a run has looked at have
@@ -44,11 +45,7 @@ public sealed class CaptureRunLogStore : ICaptureRunLog
     private Dictionary<CaptureSourceKind, List<CaptureRunLogEntry>> _entries;
 
     public CaptureRunLogStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "capture-runs.json"))
+        : this(AppDataPaths.Shared("capture-runs.json"))
     {
     }
 
@@ -56,15 +53,7 @@ public sealed class CaptureRunLogStore : ICaptureRunLog
     /// the reason <see cref="CaptureSourcesSettingsStore(string)"/> does.</summary>
     public CaptureRunLogStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        _path = path;
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _file = new JsonFileStore<CaptureRunsDto>(path, JsonOptions);
 
         _entries = Read();
     }
@@ -118,61 +107,43 @@ public sealed class CaptureRunLogStore : ICaptureRunLog
         Changed?.Invoke();
     }
 
-    private void Save()
-    {
-        try
+    // A refused write leaves the line on screen for this session; only its surviving
+    // a restart is lost, and that is not the run's failure to report.
+    private void Save() =>
+        _file.TrySave(new CaptureRunsDto
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(new CaptureRunsDto
+            Sources = [.. _entries.Select(pair => new SourceRunsDto
             {
-                Sources = [.. _entries.Select(pair => new SourceRunsDto
+                Kind = CaptureSourceKinds.Slug(pair.Key),
+                Runs = [.. pair.Value.Select(entry => new RunDto
                 {
-                    Kind = CaptureSourceKinds.Slug(pair.Key),
-                    Runs = [.. pair.Value.Select(entry => new RunDto
-                    {
-                        RanAt = entry.RanAt,
-                        NewItems = entry.NewItems,
-                        Message = entry.Message
-                    })]
+                    RanAt = entry.RanAt,
+                    NewItems = entry.NewItems,
+                    Message = entry.Message
                 })]
-            }, JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // The line is on screen for this session; only its surviving a
-            // restart is lost, and that is not the run's failure to report.
-        }
-    }
+            })]
+        });
 
     private Dictionary<CaptureSourceKind, List<CaptureRunLogEntry>> Read()
     {
-        try
+        // A corrupt or unreachable log must never stop the app from
+        // opening — fall back to nothing remembered.
+        if (_file.Load() is not { } dto) return [];
+
+        var entries = new Dictionary<CaptureSourceKind, List<CaptureRunLogEntry>>();
+
+        foreach (var source in dto.Sources)
         {
-            if (!File.Exists(_path)) return [];
+            // A kind nobody can read is dropped rather than guessed at.
+            if (!CaptureSourceKinds.TryParse(source.Kind, out var kind)) continue;
+            if (entries.ContainsKey(kind)) continue;
 
-            var dto = JsonSerializer.Deserialize<CaptureRunsDto>(File.ReadAllText(_path), JsonOptions);
-            if (dto is null) return [];
-
-            var entries = new Dictionary<CaptureSourceKind, List<CaptureRunLogEntry>>();
-
-            foreach (var source in dto.Sources)
-            {
-                // A kind nobody can read is dropped rather than guessed at.
-                if (!CaptureSourceKinds.TryParse(source.Kind, out var kind)) continue;
-                if (entries.ContainsKey(kind)) continue;
-
-                entries[kind] = [.. source.Runs
-                    .Select(run => new CaptureRunLogEntry(run.RanAt, run.NewItems, run.Message ?? string.Empty))
-                    .Take(MaxEntriesPerSource)];
-            }
-
-            return entries;
+            entries[kind] = [.. source.Runs
+                .Select(run => new CaptureRunLogEntry(run.RanAt, run.NewItems, run.Message ?? string.Empty))
+                .Take(MaxEntriesPerSource)];
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            // A corrupt or unreachable log must never stop the app from
-            // opening — fall back to nothing remembered.
-            return [];
-        }
+
+        return entries;
     }
 
     private sealed class CaptureRunsDto

@@ -7,6 +7,7 @@ using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -167,10 +168,7 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
     }
 
     private static string DefaultPath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog",
-            "planning-velocity.json");
+        AppDataPaths.Shared("planning-velocity.json");
 
     /// <summary>Names the settings file separately from the per-user location.
     /// Public rather than internal because it is the only way to give a test — or

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -32,10 +33,7 @@ public sealed class PullRequestPinsStore
     private List<PullRequestPin> _pins;
 
     /// <summary>Where the pins sit when nothing overrides it.</summary>
-    public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Backlog",
-        "pull-request-pins.json");
+    public static string DefaultPath => AppDataPaths.Shared("pull-request-pins.json");
 
     public PullRequestPinsStore()
         : this(DefaultPath)
