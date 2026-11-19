@@ -164,6 +164,7 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
 
     /// <summary>The devbook folders of one repository on disk, with nothing else
     /// the port can do — no settings file, no clone, no branch snapshot.</summary>
+    // Differs from StubFolderSource: resolves the current layout of one repository on disk.
     private sealed class FixedDevbookFolderSource(string root) : IDevbookFolderSource
     {
         public event Action? Changed

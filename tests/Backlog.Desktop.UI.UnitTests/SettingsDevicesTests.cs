@@ -1376,6 +1376,7 @@ public sealed class SettingsDevicesTests
 
     /// <summary>One task, stamped now, so a push has exactly one thing to
     /// send and the reported count is a number a test can name.</summary>
+    // Differs from InMemoryTaskRepository: holds one task stamped now, so a push sends exactly one.
     private sealed class OneTaskRepository : ITaskRepository
     {
         private readonly Dictionary<Guid, TaskItem> _tasks;
@@ -1496,6 +1497,7 @@ public sealed class SettingsDevicesTests
 
     /// <summary>One local session, active now, so a push has exactly one record
     /// to send and the reported count is a number a test can name.</summary>
+    // Differs from StubSessionSource: builds its one session at each reading, so it is always active now.
     private sealed class OneSessionSource : IAgentSessionSource
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>

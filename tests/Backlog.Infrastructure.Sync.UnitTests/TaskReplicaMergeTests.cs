@@ -963,6 +963,7 @@ public sealed class TaskReplicaMergeTests
 
     /// <summary>The store, failing the save of one task the way a full disk or a
     /// locked database file would.</summary>
+    // Differs from InMemoryTaskRepository: wraps the store and fails one task's save.
     private sealed class SaveFailingTaskStore(InMemoryTaskStore inner, Guid failing) : ITaskRepository
     {
         public Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default) =>
@@ -1011,6 +1012,7 @@ public sealed class TaskReplicaMergeTests
 
     /// <summary>What the host's <c>RootedSqliteTaskRepository</c> does: the store,
     /// plus a raise after every save.</summary>
+    // Differs from InMemoryTaskRepository: wraps the store and raises a change after every save.
     private sealed class AnnouncingTaskStore(InMemoryTaskStore inner, ITaskChangeSignal signal) : ITaskRepository
     {
         public async Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default)

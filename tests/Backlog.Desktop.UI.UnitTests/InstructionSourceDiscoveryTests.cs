@@ -189,6 +189,7 @@ public sealed class InstructionSourceDiscoveryTests : IDisposable
 
     /// <summary>The folder port answering the instructions area from the clone of an
     /// archived repository, the way <c>DevbookFolderSource</c> marks it.</summary>
+    // Differs from StubFolderSource: answers the instructions area from an archived clone.
     private sealed class ArchivedCloneSource(string root) : IDevbookFolderSource
     {
         public event Action? Changed

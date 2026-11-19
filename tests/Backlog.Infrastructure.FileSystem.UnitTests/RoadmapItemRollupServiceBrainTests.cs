@@ -92,6 +92,7 @@ public sealed class RoadmapItemRollupServiceBrainTests : IDisposable
     }
 
     /// <summary>The Tasks facade with an empty backlog: the adapter only ever lists.</summary>
+    // Differs from RecordingTaskItems: answers an empty list and refuses every write.
     private sealed class EmptyTaskItems : ITaskItems
     {
         public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>

@@ -233,6 +233,7 @@ public sealed class FeedbackDialogTests
         }
     }
 
+    // Differs from StubGitHubClient: creates the issue and uploads the file, recording both.
     private sealed class RecordingGitHubClient : IGitHubClient
     {
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>

@@ -582,6 +582,7 @@ public sealed class DevbookLobesTests : IDisposable
 
     /// <summary>The repositories registered on this machine: an alias, and where
     /// its clone is when it has one.</summary>
+    // Differs from StubFolderSource: answers several registered repositories, each with its own clone.
     private sealed class Registered(params (string Alias, string? Root)[] repositories) : IDevbookFolderSource
     {
         public Registered(params string[] aliases)

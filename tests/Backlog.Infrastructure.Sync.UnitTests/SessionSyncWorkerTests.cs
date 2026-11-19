@@ -453,7 +453,7 @@ public sealed class SessionSyncWorkerTests
 
             return new SessionSyncSession(
                 new SessionSyncClient(_http),
-                new StubAgentSessionSource(_sessions),
+                new StubSessionSource(_sessions),
                 new StubSessionRepositoryAliases(),
                 State,
                 new InMemoryReplicatedSessionStore(),

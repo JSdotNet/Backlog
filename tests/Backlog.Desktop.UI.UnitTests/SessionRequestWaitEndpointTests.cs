@@ -242,7 +242,7 @@ public class SessionRequestWaitEndpointTests
         queue.Add(Entry(Guid.NewGuid(), now - TimeSpan.FromHours(1)));
         var questions = new HeldWaitingQuestions();
         var delivery = questions.AddPendingDelivery("cli-1", "Which database?", "Postgres", now - TimeSpan.FromMinutes(1));
-        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
+        var sessions = new StubSessionSource(StubSessionSource.Claude("cli-1", "local_1"));
 
         var reply = await SessionRequestWaitEndpoint.WaitAsync(
             queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken, questions: questions, sessions: sessions);
@@ -268,7 +268,7 @@ public class SessionRequestWaitEndpointTests
         var questions = new HeldWaitingQuestions();
         questions.AddPendingDelivery("cli-2", "Second?", "b", now - TimeSpan.FromMinutes(1));
         var older = questions.AddPendingDelivery("cli-1", "First?", "a", now - TimeSpan.FromMinutes(5));
-        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"), FixedSessionSource.Claude("cli-2", "local_2"));
+        var sessions = new StubSessionSource(StubSessionSource.Claude("cli-1", "local_1"), StubSessionSource.Claude("cli-2", "local_2"));
 
         var reply = await SessionRequestWaitEndpoint.WaitAsync(
             new InMemorySessionRequestStore(), Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken,
@@ -289,7 +289,7 @@ public class SessionRequestWaitEndpointTests
         var questions = new HeldWaitingQuestions();
         questions.AddPendingDelivery("cli-only", "A?", "a", now);
         questions.AddPendingDelivery("archived", "B?", "b", now);
-        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-only", null), FixedSessionSource.Claude("archived", "local_9", archived: true));
+        var sessions = new StubSessionSource(StubSessionSource.Claude("cli-only", null), StubSessionSource.Claude("archived", "local_9", archived: true));
 
         var reply = await SessionRequestWaitEndpoint.WaitAsync(
             queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken, questions: questions, sessions: sessions);
@@ -306,7 +306,7 @@ public class SessionRequestWaitEndpointTests
         var questions = new HeldWaitingQuestions();
         var delivery = questions.AddPendingDelivery("cli-1", "A?", "a", clock.GetUtcNow());
         await questions.ChangeAsync(delivery.Id, question => WaitingQuestions.ClaimDelivery(question, "manager-1", clock.GetUtcNow()), TestContext.Current.CancellationToken);
-        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
+        var sessions = new StubSessionSource(StubSessionSource.Claude("cli-1", "local_1"));
 
         var held = await SessionRequestWaitEndpoint.WaitAsync(
             new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, null, questions, sessions);
@@ -333,7 +333,7 @@ public class SessionRequestWaitEndpointTests
         var delivery = questions.AddPendingDelivery("cli-1", "A?", "a", clock.GetUtcNow());
         await questions.ChangeAsync(delivery.Id, question => WaitingQuestions.ClaimDelivery(question, "manager-1", clock.GetUtcNow()), TestContext.Current.CancellationToken);
         await questions.ChangeAsync(delivery.Id, question => WaitingQuestions.ReleaseDelivery(question, "manager-1", clock.GetUtcNow()), TestContext.Current.CancellationToken);
-        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
+        var sessions = new StubSessionSource(StubSessionSource.Claude("cli-1", "local_1"));
 
         var held = await SessionRequestWaitEndpoint.WaitAsync(
             new InMemorySessionRequestStore(), Features(on: true), clock, TestContext.Current.CancellationToken, TimeSpan.Zero, null, questions, sessions);
@@ -354,7 +354,7 @@ public class SessionRequestWaitEndpointTests
         var queue = new InMemorySessionRequestStore(clock);
         var questions = new HeldWaitingQuestions();
         questions.AddPendingDelivery("cli-only", "A?", "a", clock.GetUtcNow());
-        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-only", null));
+        var sessions = new StubSessionSource(StubSessionSource.Claude("cli-only", null));
 
         var waiting = SessionRequestWaitEndpoint.WaitAsync(
             queue, Features(on: true), clock, TestContext.Current.CancellationToken, ShortHold, questions: questions, sessions: sessions);
@@ -544,7 +544,7 @@ public class SessionRequestWaitEndpointTests
         await queue.SetPausedAsync(true, TestContext.Current.CancellationToken);
         var questions = new HeldWaitingQuestions();
         var delivery = questions.AddPendingDelivery("cli-1", "Which database?", "Postgres", now);
-        var sessions = new FixedSessionSource(FixedSessionSource.Claude("cli-1", "local_1"));
+        var sessions = new StubSessionSource(StubSessionSource.Claude("cli-1", "local_1"));
 
         var reply = await SessionRequestWaitEndpoint.WaitAsync(
             queue, Features(on: true), TimeProvider.System, TestContext.Current.CancellationToken, questions: questions, sessions: sessions);
@@ -692,6 +692,7 @@ public class SessionRequestWaitEndpointTests
     }
 
     /// <summary>A queue whose database cannot be opened: every read throws.</summary>
+    // Differs from InMemorySessionRequestStore: every read throws, as an unopenable database does.
     private sealed class UnreadableQueue : ISessionRequestStore
     {
         private static Task<T> Fail<T>() => Task.FromException<T>(new InvalidOperationException("The database is locked."));
@@ -723,6 +724,7 @@ public class SessionRequestWaitEndpointTests
     }
 
     /// <summary>A Loop Register whose database cannot be opened: every call throws.</summary>
+    // Differs from InMemoryLoopRegister: every call throws, as an unopenable database does.
     private sealed class UnwritableLoopRegister : ILoopRegister
     {
         private static Task<T> Fail<T>() => Task.FromException<T>(new InvalidOperationException("The database is locked."));

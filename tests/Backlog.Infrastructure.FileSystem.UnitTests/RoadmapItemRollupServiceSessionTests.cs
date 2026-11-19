@@ -32,7 +32,7 @@ public sealed class RoadmapItemRollupServiceSessionTests : IDisposable
     public async Task A_finished_entry_with_no_dates_is_dated_by_its_linked_sessions()
     {
         var id = Guid.NewGuid();
-        var sessions = new StubSessions(
+        var sessions = new StubSessionSource(
             Session("worked", Now.AddDays(-10), Now.AddDays(-8)),
             Session("elsewhere", Now.AddDays(-40), Now.AddDays(-39)));
         var service = Service(sessions, Entry(id, EntryStatus.Done, "worked"));
@@ -53,7 +53,7 @@ public sealed class RoadmapItemRollupServiceSessionTests : IDisposable
     public async Task Sessions_are_not_read_when_every_gathered_entry_is_already_dated()
     {
         var id = Guid.NewGuid();
-        var sessions = new StubSessions(Session("worked", Now.AddDays(-10), Now.AddDays(-8)));
+        var sessions = new StubSessionSource(Session("worked", Now.AddDays(-10), Now.AddDays(-8)));
         var service = Service(
             sessions,
             Entry(id, EntryStatus.Done, "worked") with
@@ -74,7 +74,7 @@ public sealed class RoadmapItemRollupServiceSessionTests : IDisposable
     {
         var id = Guid.NewGuid();
         var created = Now.AddDays(-200);
-        var sessions = new StubSessions();
+        var sessions = new StubSessionSource();
         var service = Service(sessions, Entry(id, EntryStatus.Done, "old") with { CreatedAt = created });
 
         await service.GatherAsync(Item(id), TestContext.Current.CancellationToken);
@@ -87,7 +87,7 @@ public sealed class RoadmapItemRollupServiceSessionTests : IDisposable
     {
         var id = Guid.NewGuid();
         var service = Service(
-            new StubSessions(
+            new StubSessionSource(
                 Session("twice", Now.AddDays(-6), Now.AddDays(-5)),
                 Session("twice", null, Now.AddDays(-2))),
             Entry(id, EntryStatus.Done, "twice"));
@@ -106,7 +106,7 @@ public sealed class RoadmapItemRollupServiceSessionTests : IDisposable
     public async Task Linked_sessions_are_read_at_the_timestamps_depth()
     {
         var id = Guid.NewGuid();
-        var sessions = new StubSessions(Session("worked", Now.AddDays(-10), Now.AddDays(-8)));
+        var sessions = new StubSessionSource(Session("worked", Now.AddDays(-10), Now.AddDays(-8)));
         var service = Service(sessions, Entry(id, EntryStatus.Done, "worked"));
 
         await service.GatherPlanAsync(Plan(Item(id)), TestContext.Current.CancellationToken);
@@ -116,7 +116,7 @@ public sealed class RoadmapItemRollupServiceSessionTests : IDisposable
         Assert.Equal(Now - AgentSessionLimits.History, query.Horizon);
     }
 
-    private RoadmapItemRollupService Service(StubSessions sessions, params TaskItemDto[] backlog) =>
+    private RoadmapItemRollupService Service(StubSessionSource sessions, params TaskItemDto[] backlog) =>
         new(new ListingTaskItems(backlog), () => _root, sessions, new FakeTimeProvider(Now));
 
     private static RoadmapItemDto Item(Guid taskId) =>
@@ -133,22 +133,9 @@ public sealed class RoadmapItemRollupServiceSessionTests : IDisposable
         new(id, AgentSessionKind.Claude, "tower", "DEV-TOWER", id, @"D:\Repos\Backlog", null, null,
             startedAt, lastActivityAt, AgentSessionState.Finished, null, AgentSessionOrigin.Local);
 
-    private sealed class StubSessions(params AgentSession[] sessions) : IAgentSessionSource
-    {
-        public List<AgentSessionQuery> Queries { get; } = [];
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
-        {
-            Queries.Add(query);
-            return Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Length));
-        }
-    }
-
     /// <summary>The Tasks facade with a fixed list and nothing else: the adapter only
     /// ever reads.</summary>
+    // Differs from RecordingTaskItems: answers a fixed list and refuses every write.
     private sealed class ListingTaskItems(params TaskItemDto[] entries) : ITaskItems
     {
         public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>

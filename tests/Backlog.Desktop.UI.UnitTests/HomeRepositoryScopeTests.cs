@@ -2037,7 +2037,7 @@ public sealed class HomeRepositoryScopeTests
         // asking whether the takeover replaced the panes should not also be reading
         // whatever the person running it had been doing that morning — and a pane that
         // only worked with rows in it would fail here, which is the point.
-        context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
+        context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource());
         // And no delivery runs behind it, for the same reason.
         context.Services.AddSingleton<IDeliveryRunSource>(new EmptyRunSource());
         // An empty notification centre, offered only where a test turns its flag on.
@@ -2138,15 +2138,6 @@ public sealed class HomeRepositoryScopeTests
         }
 
         public event Action? Changed;
-    }
-
-    private sealed class EmptySessionSource : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(AgentSessionCatalog.Empty);
     }
 
     /// <summary>An owner's centre holding nothing, so the notification centre can open.</summary>

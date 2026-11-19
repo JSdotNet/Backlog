@@ -340,6 +340,7 @@ public sealed class DevbookBrainAtlasTests : IDisposable
     }
 
     /// <summary>The repositories configured on this machine, by alias.</summary>
+    // Differs from StubFolderSource: answers the repository aliases configured on the machine.
     private sealed class FixedFolders(params string[] aliases) : IDevbookFolderSource
     {
         public event Action? Changed { add { } remove { } }

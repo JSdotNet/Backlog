@@ -166,6 +166,8 @@
     <Compile Include="..\Shared\TestDoubles\StubPriceStore.cs" Link="Shared\TestDoubles\StubPriceStore.cs" />
     <Compile Include="..\Shared\TestDoubles\StubProbe.cs" Link="Shared\TestDoubles\StubProbe.cs" />
     <Compile Include="..\Shared\TestDoubles\InMemoryPullRequests.cs" Link="Shared\TestDoubles\InMemoryPullRequests.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubSessionSource.cs" Link="Shared\TestDoubles\StubSessionSource.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubFolderSource.cs" Link="Shared\TestDoubles\StubFolderSource.cs" />
     <!-- The pane-header shape the shell panes share with the Sessions pane. -->
     <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
   </ItemGroup>

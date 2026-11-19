@@ -401,6 +401,7 @@ internal sealed class ScriptedGitRepositoryService : ILocalGitRepositoryService
 /// A folder source that resolves nothing and counts the one thing this test cares
 /// about: whether the panels were told to re-read.
 /// </summary>
+// Differs from StubFolderSource: resolves nothing and counts the re-read announcements.
 internal sealed class AnnouncementCountingFolderSource : IDevbookFolderSource
 {
     public event Action? Changed;

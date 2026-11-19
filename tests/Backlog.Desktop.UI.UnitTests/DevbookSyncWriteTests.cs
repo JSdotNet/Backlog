@@ -199,31 +199,4 @@ public sealed class DevbookSyncWriteTests : IDisposable
     {
         public void Dispose() => Context.Dispose();
     }
-
-    /// <summary>Resolves every area against one root in the legacy layout and
-    /// stamps the source and the archive flag on it, as
-    /// <see cref="DevbookPanelsReadOnlyBranchTests"/>' stub does.</summary>
-    private sealed class StubFolderSource(string root, DevbookSourceKind source) : IDevbookFolderSource
-    {
-        public bool Archived { get; set; }
-
-        public event Action? Changed;
-
-        public void NotifyContentChanged() => Changed?.Invoke();
-
-        public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => DevbookFolderSetting.Defaults();
-
-        public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null)
-        {
-            var folder = DevbookFolderSetting.Defaults()
-                .First(setting => string.Equals(setting.Key, key, StringComparison.OrdinalIgnoreCase));
-            folder = folder with { ResolvedPath = folder.LegacyRelativePath };
-
-            var full = Path.Combine(root, folder.EffectivePath);
-
-            return Directory.Exists(full)
-                ? new DevbookFolderLocation(key, true, null, "JSdotNet/Backlog", folder, full, root, "JSdotNet/Backlog", Alias, source, RepositoryArchived: Archived)
-                : DevbookFolderLocation.Unavailable(key, $"No {key}.", source: source, repositoryArchived: Archived);
-        }
-    }
 }

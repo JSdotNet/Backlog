@@ -87,9 +87,9 @@ public sealed class SessionRecordsTests
     {
         var composite = new CompositeAgentSessionSource(
         [
-            new FixedSource([Session("both")]),
-            new FixedSource([Session("both") with { Origin = AgentSessionOrigin.Recorded }, Session("gone") with { Origin = AgentSessionOrigin.Recorded }]),
-            new FixedSource([Session("both") with { Origin = AgentSessionOrigin.Replicated }, Session("gone") with { Origin = AgentSessionOrigin.Replicated }])
+            new StubSessionSource([Session("both")]),
+            new StubSessionSource([Session("both") with { Origin = AgentSessionOrigin.Recorded }, Session("gone") with { Origin = AgentSessionOrigin.Recorded }]),
+            new StubSessionSource([Session("both") with { Origin = AgentSessionOrigin.Replicated }, Session("gone") with { Origin = AgentSessionOrigin.Replicated }])
         ]);
 
         var catalog = await composite.GetSessionsAsync(TestContext.Current.CancellationToken);
@@ -131,7 +131,7 @@ public sealed class SessionRecordsTests
         var store = new MemoryStore();
         var publisher = new StubPublisher();
         var keeper = new SessionRecordKeeper(
-            new FixedSource([Session("mine"), Session("theirs") with { Origin = AgentSessionOrigin.Replicated }]),
+            new StubSessionSource([Session("mine"), Session("theirs") with { Origin = AgentSessionOrigin.Replicated }]),
             new FixedActivity([Activity("mine", runs: [(Noon.AddHours(-1), Noon)], hits: [Noon.AddMinutes(-5)])]),
             store,
             new FakeTimeProvider(Noon),
@@ -153,7 +153,7 @@ public sealed class SessionRecordsTests
     [Fact]
     public async Task A_keeper_without_a_store_does_nothing()
     {
-        var keeper = new SessionRecordKeeper(new FixedSource([Session("mine")]), null, null, new FakeTimeProvider(Noon), null);
+        var keeper = new SessionRecordKeeper(new StubSessionSource([Session("mine")]), null, null, new FakeTimeProvider(Noon), null);
 
         Assert.Equal(SessionRecordUpdate.None, await keeper.UpdateAsync(everything: true, TestContext.Current.CancellationToken));
     }
@@ -164,7 +164,7 @@ public sealed class SessionRecordsTests
     [Fact]
     public async Task The_keeper_reads_its_sessions_at_full_depth()
     {
-        var source = new FixedSource([Session("mine")]);
+        var source = new StubSessionSource([Session("mine")]);
         var keeper = new SessionRecordKeeper(source, null, new MemoryStore(), new FakeTimeProvider(Noon), null);
 
         await keeper.UpdateAsync(everything: true, TestContext.Current.CancellationToken);
@@ -206,21 +206,6 @@ public sealed class SessionRecordsTests
 
     private static AgentSessionRecord Record(AgentSession session, AgentSessionActivity? activity = null) =>
         new(session, activity, Noon);
-
-    private sealed class FixedSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
-    {
-        public List<AgentSessionQuery> Queries { get; } = [];
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
-        {
-            Queries.Add(query);
-
-            return Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
-        }
-    }
 
     private sealed class FixedActivity(IReadOnlyList<AgentSessionActivity> sessions) : IAgentActivitySource
     {

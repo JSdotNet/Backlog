@@ -129,6 +129,7 @@ public class LinkedSessionStatesTests
             TurnCount: null,
             Origin: AgentSessionOrigin.Local);
 
+    // Differs from StubSessionSource: can throw the failure it was given instead of answering.
     private sealed class StubSessions(params AgentSession[] sessions) : IAgentSessionSource
     {
         private readonly Exception? _failure;

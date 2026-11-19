@@ -113,18 +113,8 @@ public sealed class GitHubRepositoryStateTests : IDisposable
         var integration = new GitHubIntegration(
             new GitHubSettingsStore(Path.Combine(_root, "github.json")),
             new GitHubClient(transport),
-            new NoProbe());
+            new StubProbe(new GitHubConnection(true, "Connected.")));
         Assert.Null(integration.Settings.SetRepositories(configured));
         return integration;
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
-        }
     }
 }

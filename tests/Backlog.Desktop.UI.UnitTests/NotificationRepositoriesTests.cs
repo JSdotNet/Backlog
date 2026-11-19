@@ -86,7 +86,7 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task A_relayed_session_question_resolves_through_the_sessions_resolved_repository()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions(AgentSession("sess-1", resolved: "JSdotNet/Fincent")));
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource(AgentSession("sess-1", resolved: "JSdotNet/Fincent")));
 
         Assert.Equal("fincent", await ResolveOne(resolver, Session("sess-1")));
     }
@@ -94,7 +94,7 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task A_session_question_falls_back_to_the_repository_the_session_recorded()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions(AgentSession("sess-1", recorded: "JSdotNet/Backlog")));
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource(AgentSession("sess-1", recorded: "JSdotNet/Backlog")));
 
         Assert.Equal("backlog", await ResolveOne(resolver, Session("sess-1")));
     }
@@ -102,7 +102,7 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task A_session_worked_against_no_repository_is_the_brains()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions(AgentSession("sess-1")));
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource(AgentSession("sess-1")));
 
         Assert.Null(await ResolveOne(resolver, Session("sess-1")));
     }
@@ -151,7 +151,7 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task An_mcp_ask_from_a_session_resolves_as_the_session_does()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions(AgentSession("sess-2", resolved: "JSdotNet/Backlog")));
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource(AgentSession("sess-2", resolved: "JSdotNet/Backlog")));
         var view = View(
             new NotificationSource("mcp", "k"),
             new NotificationSubject("sessions", "session", "sess-2"),
@@ -163,7 +163,7 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task An_mcp_ask_from_no_session_is_the_brains()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions());
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource());
         var view = View(new NotificationSource("mcp", "k"), new NotificationSubject("mcp", "ask", "k"), new NotificationOrigin("An MCP client", Via: "MCP ask"));
 
         Assert.Null(await ResolveOne(resolver, view));
@@ -371,7 +371,7 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task A_session_the_catalog_does_not_hold_is_left_unresolved()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions());
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource());
         var session = Session("sess-gone");
 
         Assert.False((await resolver.ResolveAsync([session], Ct)).ContainsKey(session.Id));
@@ -383,15 +383,7 @@ public sealed class NotificationRepositoriesTests
             string.Equals(workingFolder, folder, StringComparison.OrdinalIgnoreCase) ? repository : null;
     }
 
-    private sealed class Sessions(params AgentSession[] sessions) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Length));
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-    }
-
+    // Differs from StubSessionSource: holds every reading until the test releases it.
     private sealed class HeldSessions : IAgentSessionSource
     {
         private readonly TaskCompletionSource<AgentSessionCatalog> _catalog = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -405,6 +397,7 @@ public sealed class NotificationRepositoriesTests
             GetSessionsAsync(cancellationToken);
     }
 
+    // Differs from StubSessionSource: throws, the way an unreadable session store does.
     private sealed class UnreadableSessions : IAgentSessionSource
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>

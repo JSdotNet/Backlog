@@ -9,6 +9,7 @@ namespace Backlog.Infrastructure.SpecManager.UnitTests;
 /// Enough of the owner's behaviour for the source's rules to be asserted: publishing a held
 /// id changes nothing, and closing a settled or unknown one is refused.
 /// </summary>
+// Differs from RecordingNotifications: keeps by draft id, publishes once and replays answers.
 internal sealed class NotificationLedger : INotifications, INotificationReplication, INotificationAnswerReplay
 {
     private readonly Lock _gate = new();

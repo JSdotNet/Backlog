@@ -307,6 +307,7 @@ public sealed class DevbookSyncDirectionStoreTests : IDisposable
 
     /// <summary>Resolves the keys it is given to their folders, for any alias, and
     /// every other key to nothing.</summary>
+    // Differs from StubFolderSource: resolves the keys it is given for any alias.
     private sealed class StubFolders(IReadOnlyDictionary<string, Location> byKey) : IDevbookFolderSource
     {
         public event Action? Changed;

@@ -112,7 +112,7 @@ internal sealed class TasksPaneHost : IDisposable
         }
 
         var client = new FakeGitHubClient();
-        var gitHub = new GitHubIntegration(gitHubSettings, client, new ConnectedProbe());
+        var gitHub = new GitHubIntegration(gitHubSettings, client, new StubProbe(new GitHubConnection(true, "Connected.")));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
         var toasts = new ToastChannel();
         var myDay = new MyDayPreferencesStore(Path.Combine(root, MyDayPreferencesStore.FileName));
@@ -230,6 +230,7 @@ internal sealed class TasksPaneHost : IDisposable
 
     /// <summary>A GitHub that answers rather than reaches the network. What it
     /// created is recorded so a test can assert the push actually happened.</summary>
+    // Differs from StubGitHubClient: answers pull request reads and merge acts and records what it created.
     internal sealed class FakeGitHubClient : IGitHubClient
     {
         /// <summary>What the open pull requests read answers, across every repository;
@@ -508,16 +509,6 @@ internal sealed class TasksPaneHost : IDisposable
             MergeCalls.Add($"{act} {status.Number}");
             PullRequestStatuses[status.Number] = change(status);
             return Task.CompletedTask;
-        }
-    }
-
-    private sealed class ConnectedProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
         }
     }
 }

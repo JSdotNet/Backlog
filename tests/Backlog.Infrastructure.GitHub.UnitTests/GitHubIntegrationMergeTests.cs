@@ -204,16 +204,6 @@ public sealed class GitHubIntegrationMergeTests : IDisposable
         return new GitHubIntegration(
             new GitHubSettingsStore(Path.Combine(_root, "github.json")),
             new GitHubClient(transport),
-            new NoProbe());
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
-        }
+            new StubProbe(new GitHubConnection(true, "Connected.")));
     }
 }

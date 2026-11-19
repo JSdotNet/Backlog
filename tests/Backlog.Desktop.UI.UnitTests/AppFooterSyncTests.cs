@@ -258,8 +258,8 @@ public sealed class AppFooterSyncTests
         context.Services.AddSingleton(new FeedbackReporter(
             new GitHubIntegration(
                 new GitHubSettingsStore(Path.Combine(root, "github.json")),
-                new SilentGitHubClient(),
-                new SilentProbe())));
+                new StubGitHubClient(),
+                new StubProbe())));
         context.Services.AddSingleton<FeedbackReportChannel>();
 
         // The one task this machine has to send, shared with the wire so the
@@ -372,6 +372,7 @@ public sealed class AppFooterSyncTests
     /// <summary>One task, stamped now, so a push has exactly one thing to send —
     /// and so the echo of it on the pulled page is held rather than applied,
     /// because the merge finds the same document, same stamp, already here.</summary>
+    // Differs from InMemoryTaskRepository: holds one task the test stamped, so a pull's echo of it is held.
     private sealed class OneTaskRepository(TaskItem mine) : ITaskRepository
     {
         private readonly Dictionary<Guid, TaskItem> _tasks = new() { [mine.Id] = mine };
@@ -404,31 +405,6 @@ public sealed class AppFooterSyncTests
                 return Task.FromResult<IReadOnlyList<TaskItem>>(
                     [.. _tasks.Values.Where(task => task.UpdatedAt > since).OrderBy(task => task.UpdatedAt)]);
             }
-        }
-    }
-
-    private sealed class SilentGitHubClient : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class SilentProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not configured."));
-
-        public void Invalidate()
-        {
         }
     }
 }

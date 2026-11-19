@@ -345,7 +345,7 @@ public class LoopSessionsTests
 
         var monitor = new LoopSessionMonitor(
             register,
-            new ListedSessions(
+            new StubSessionSource(
                 Session("live", AgentSessionState.Running, false),
                 Session("hung", AgentSessionState.Running, false),
                 Session("archived", AgentSessionState.Finished, true)),
@@ -376,13 +376,4 @@ public class LoopSessionsTests
         {
             Archived = archived
         };
-
-    private sealed class ListedSessions(params AgentSession[] sessions) : IAgentSessionSource
-    {
-        private readonly AgentSessionCatalog _catalog = new(sessions, [], sessions.Length);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) => Task.FromResult(_catalog);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) => Task.FromResult(_catalog);
-    }
 }

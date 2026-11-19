@@ -30,6 +30,7 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 /// <param name="entries">The backlog this double answers with. A save replaces
 /// the entry it names, so a tool that reads back what it wrote sees what it
 /// wrote.</param>
+// Differs from RecordingTaskItems: holds entries and applies the tracker tools' four writes.
 internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
 {
     private readonly List<TaskItemDto> _entries = [.. entries];

@@ -437,6 +437,7 @@ public sealed class GitHubConnectorTests
             new DateTimeOffset(2026, 10, 2, 8, 0, 0, TimeSpan.Zero),
             labels ?? []);
 
+    // Differs from StubGitHubClient: answers the issue search, reads and closes, and records them.
     private sealed class StubClient(params GitHubSearchedIssue[] issues) : IGitHubClient
     {
         public bool Truncated { get; init; }
