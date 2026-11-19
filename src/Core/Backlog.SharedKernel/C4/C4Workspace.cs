@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.Diagrams.C4;
+namespace Backlog.SharedKernel.C4;
 
 /// <summary>What kind of thing an element is, in the C4 vocabulary.</summary>
 /// <remarks>
@@ -46,7 +46,7 @@ public enum C4ViewKind
 /// something it is actually drawing.</param>
 /// <param name="Group">The <c>group</c> block the declaration sat in, if any.
 /// Carried because it is part of what the author said. The layout draws it as a
-/// labelled band (<see cref="C4LayoutEngine"/>); mermaid C4 has no grouping construct
+/// labelled band (the component library's <c>C4LayoutEngine</c>); mermaid C4 has no grouping construct
 /// to draw it with.</param>
 /// <param name="InstanceOfId">For a deployment instance, the static element it is
 /// an instance of. A deployment view draws the instance with the name and
@@ -73,6 +73,17 @@ public sealed record C4Element(
     string? Environment = null,
     IReadOnlyDictionary<string, string>? Properties = null)
 {
+    /// <summary>The file the declaration stands in, as the include resolver labelled
+    /// it, or null for text the reader was handed with no name.</summary>
+    public string? File { get; init; }
+
+    /// <summary>The one-based line of the declaring keyword in <see cref="File"/>.</summary>
+    public int Line { get; init; }
+
+    /// <summary>Whether the DSL gave the element no identifier, so the reader made
+    /// one up — which no relationship can spell.</summary>
+    public bool Anonymous { get; init; }
+
     /// <summary>Whether this element carries the given tag, case-insensitively.
     /// Tags are how Structurizr says "this container is a database", and the only
     /// input to choosing between mermaid's <c>Container</c> and
@@ -157,7 +168,15 @@ public sealed record C4View(
     bool IncludesAll,
     string? AutoLayout,
     IReadOnlyList<C4DynamicStep> Steps,
-    string? Environment = null);
+    string? Environment = null)
+{
+    /// <summary>The file the view stands in, as the include resolver labelled it,
+    /// or null for text the reader was handed with no name.</summary>
+    public string? File { get; init; }
+
+    /// <summary>The one-based line of the view's keyword in <see cref="File"/>.</summary>
+    public int Line { get; init; }
+}
 
 /// <summary>
 /// Something in the file the reader did not understand.

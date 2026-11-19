@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.C4;
+
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>The four levels of the C4 zoom chain, numbered the way the zoom bar

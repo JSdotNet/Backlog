@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.C4;
+
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>Which group of the architecture surface's views list a line sits in.</summary>
