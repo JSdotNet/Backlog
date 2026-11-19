@@ -42,7 +42,7 @@ deferred pieces step 18 settled landed in pull request #1134.
 > names in §6.
 
 > **Amended, 2026-11-18, by
-> [ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (proposed).**
+> [ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (accepted).**
 > §2's view switch becomes `Tasks | Board | Roadmap`, and the Calendar gets a header
 > tab of its own after it. It stays a main view, and `lastView: calendar` still
 > reopens it.
@@ -390,7 +390,7 @@ per window, lets any surface open in separate OS windows, and replaces the enums
 §1 and §4 with surfaces modules register.
 
 **2026-11-18: the Calendar gets a tab of its own.**
-[ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (proposed) takes
+[ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (accepted) takes
 the Calendar out of §2's view switch, which reads `Tasks | Board | Roadmap`. The
 Calendar tab stands alone after it and acts as a view option. The GitHub check and
 Ask AI's Tasks area are not offered while it shows.

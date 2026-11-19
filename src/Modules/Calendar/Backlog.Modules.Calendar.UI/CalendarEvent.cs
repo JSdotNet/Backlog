@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.Tasks;
+namespace Backlog.Modules.Calendar.UI;
 
 /// <summary>
 /// One knowledge event as the month calendar draws it: a bar from its first day to its

@@ -42,23 +42,21 @@ taken. The Events layer writes nothing.
 These chapters are the model decided in local
 [ADR 0055](../../arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md),
 as local [ADR 0056](../../arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md)
-changes it. Both are proposed. The module `Backlog.Modules.Calendar` is built as 0055
-decided; what 0056 adds is not built yet. `Backlog.Modules.Calendar.Abstractions` holds
-the layer ports, and `Backlog.Modules.Calendar.UI` the surface.
+changes it. 0055 is proposed and 0056 accepted, and the module `Backlog.Modules.Calendar`
+is built as both decide. `Backlog.Modules.Calendar.Abstractions` holds the layer ports,
+and `Backlog.Modules.Calendar.UI` the surface and its grid.
 
-- **Grid:** the Calendar's own, in `Backlog.Modules.Calendar.UI`. Not built: the grid is
-  still drawn by a part Tasks offers.
+- **Grid:** the Calendar's own, `CalendarGrid` in `Backlog.Modules.Calendar.UI`. Built.
 - **Tasks layer:** the Calendar's own port, `ICalendarTasks`, which an adapter answers
-  over Tasks' published contract. Not built.
+  over Tasks' published contract. Built.
 - **Plans layer and the hours worked each day:** the Calendar's own ports, which adapters
   answer over Roadmap Planning. Built.
 - **Events layer:** the Calendar's own port, which an adapter answers over Events. Built.
 - **Range, Show tasks, Show plans and Show events:** the Calendar's own view choices.
-  Show tasks is not built.
+  Built.
 - **Opening a task:** the Calendar asks the window to show the Tasks view with the task
-  open, naming it by the published surface id and key. Not built.
-- **Header tab:** the Calendar's own, outside the view switch. Not built: it still sits
-  in the view switch.
+  open, naming it by the published surface id and key. Built.
+- **Header tab:** the Calendar's own, outside the view switch. Built.
 
 ## Calendar range
 
@@ -122,10 +120,10 @@ apart from Show plans.
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Tasks](../tasks/features.md#tasks-on-the-calendar) | Customer/Supplier | `ICalendarTasks` in `Backlog.Modules.Calendar.Abstractions`, answered by `TasksCalendarTasks` under `Infrastructure.FileSystem/Calendar/`, or `NoCalendarTasks` (Off) in a host without Tasks; not built | `ITaskItems`, `ITaskLookup`, `ITaskStore` and `ITaskChangeSignal` in `Backlog.Modules.Tasks.Abstractions`; local ADR 0056 §2 | The tasks with a due date in the range, their hours, and the due-date and hours writes back |
+| [Tasks](../tasks/features.md#tasks-on-the-calendar) | Customer/Supplier | `ICalendarTasks` in `Backlog.Modules.Calendar.Abstractions`, answered by `TasksCalendarTasks` under `Infrastructure.FileSystem/Calendar/`, or `NoCalendarTasks` (Off) in a host without Tasks | `ITaskItems`, `ITaskStore` and `ITaskChangeSignal` in `Backlog.Modules.Tasks.Abstractions`; local ADR 0056 §2 | The tasks with a due date in the range, their hours, and the due-date and hours writes back |
 | [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier | `ICalendarPlans` and `ICalendarCapacity` in `Backlog.Modules.Calendar.Abstractions`, answered by `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` under `Infrastructure.FileSystem/Calendar/` over Roadmap's abstractions | Roadmap's plans, shelf and working week | The plan bars, the shelf drop, and a day's capacity |
 | [Events](../events/domain.md#knowledge-event) | Customer/Supplier | `ICalendarEvents` in `Backlog.Modules.Calendar.Abstractions`, answered by `EventsCalendarEvents` under `Infrastructure.FileSystem/Calendar/`, or `NoCalendarEvents` (Off) in a host without Events | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions` | The event bars and key dates |
-| The desktop shell | Composition root | A window-scope port the host answers from the window's view state, and `ISurfaceNavigator` (local ADR 0043 §3); not built | The repository scope and colours; the `tasks` surface id and its `entry` key | Narrowing the Tasks layer, colouring chips and bars, and opening a task in the Tasks view |
+| The desktop shell | Composition root | `ICalendarWindowScope`, which the host answers from the window's view state as `ShellCalendarWindowScope`, and `ISurfaceNavigator` (local ADR 0043 §3) | The repository scope and colours; the `tasks` surface id and its `entry` key | Narrowing the Tasks layer, colouring chips and bars, and opening a task in the Tasks view |
 
 ### Inbound dependents (known)
 

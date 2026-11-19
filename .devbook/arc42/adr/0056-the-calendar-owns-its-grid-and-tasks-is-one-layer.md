@@ -1,7 +1,7 @@
 # ADR 0056: The Calendar owns its grid, and Tasks is one layer
 
 ```meta
-date: 2026-11-18
+date: 2026-11-19
 related: [".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/domain/calendar/context.md", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/calendar/features.md#planned-hours", ".devbook/domain/tasks/features.md#tasks-on-the-calendar", ".devbook/domain/events/features.md#events-on-the-calendar", ".devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#2-the-view-switch-holds-the-task-views-in-progress-sits-with-the-work-in-progress", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md#7-the-code-is-one-module-trio", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/design/interaction-guidelines.md#shell-header"]
 c4: [backlog.desktop.calendar]
 c4-touches: [backlog.desktop.shell, backlog.desktop.tasks, backlog.desktop.roadmap, backlog.desktop.events]
@@ -18,8 +18,8 @@ gets a header tab of its own, outside the view switch.
 ```meta
 ```
 
-Proposed, 2026-11-18, by a flow-spec run, from the repository owner's answers of the
-same day. Specification only: no code has changed. A later `flow-code` run builds it.
+Accepted, 2026-11-19, when the `flow-code` run that builds it landed. Proposed on
+2026-11-18 by a flow-spec run, from the repository owner's answers of the same day.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -114,8 +114,10 @@ panel uses them:
   `PlannedHoursDay` and `PlannedHoursDayChange`. The code run may rename them, since
   no calendar uses them any more.
 
-The storybook page `TaskCalendarPage.razor` moves with the component, and its
-`StorybookIndex` entry follows.
+The storybook's Task calendar story retires with its page, `TaskCalendarPage.razor`,
+and its `StorybookIndex` entry: the storybook hosts the shared library alone, and the
+grid is no longer in it. `PlannedHoursEditor`'s story moves to the Task panel page,
+beside the detail panel it serves.
 
 ### 2. Tasks answers a layer port, `ICalendarTasks`
 
@@ -135,7 +137,7 @@ Each read carries `Available`, as `CalendarPlansDto` and `CalendarEventsDto` do.
 
 | Host | Answered by |
 | --- | --- |
-| With Tasks | `TasksCalendarTasks`, in `Backlog.Infrastructure.FileSystem/Calendar/`, over `ITaskItems`, `ITaskLookup`, `ITaskStore` and `ITaskChangeSignal` |
+| With Tasks | `TasksCalendarTasks`, in `Backlog.Infrastructure.FileSystem/Calendar/`, over `ITaskItems`, `ITaskStore` and `ITaskChangeSignal` |
 | Without Tasks | `NoCalendarTasks`, which answers Off and refuses every write |
 
 A write still goes back through the source, which decides whether it is taken (0055
@@ -334,4 +336,5 @@ Look for these in the specification and, once built, in the code:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-19 | Accepted and built: `CalendarGrid` and its records in `Backlog.Modules.Calendar.UI`; `ICalendarTasks`, `ICalendarTasksLayer` and `ICalendarWindowScope` in the Calendar's abstractions, answered by `TasksCalendarTasks`, `NoCalendarTasks` and the shell's `ShellCalendarWindowScope`; `ITaskItems.SetDueAsync`; Show tasks; the Calendar's own header tab. §1's storybook sentence amended: the Task calendar story retired. §2's adapter reads no `ITaskLookup`. | The code landed. The storybook hosts the shared library alone, and `ITaskLookup` answers sessions and pull requests, which the Tasks layer does not read. |
 | 2026-11-18 | Proposed: the Calendar owns its grid; Tasks answers `ICalendarTasks` like the other layers; the filter bar, the open task, the tray and the My Day count leave the Calendar; Show tasks stored as `calendarTasksShown`; the Calendar gets its own header tab. Supersedes ADR 0055 §2, §3, §6 and one Rejected bullet; amends 0055 §4 and ADR 0022 §2. | With no Tasks module the Calendar drew nothing, and the person expected it to stand free of Tasks. |

@@ -41,7 +41,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// bands the reader folded to one lane are the same kind of choice and ride beside it.
 /// </para>
 /// <para>
-/// So do the Calendar's Month | Week range and the
+/// So do the Calendar's Month | Week range, its Show tasks, plans and events boxes, and the
 /// header's repository scope, and the system tools pane's tab and host filter: each is
 /// how the reader last had a screen, kept on this device only. So is show archived
 /// (local ADR 0029, §3), whether the archived repositories are offered where they are
@@ -176,6 +176,7 @@ public sealed class ShellNavigationStore
         RoadmapCompletedShown = dto?.RoadmapCompletedShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
+        CalendarTasksShown = dto?.CalendarTasksShown ?? true;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
         CalendarEventsShown = dto?.CalendarEventsShown ?? false;
         CalendarRange = string.IsNullOrWhiteSpace(dto?.CalendarRange) ? DefaultCalendarRange : dto.CalendarRange;
@@ -238,6 +239,11 @@ public sealed class ShellNavigationStore
     /// </para>
     /// </summary>
     public string BoardColumns { get; private set; }
+
+    /// <summary>Whether the Calendar draws the tasks and their planned hours — its "Show
+    /// tasks" box (local ADR 0056 §4): on until the reader turns it off on this device. A
+    /// file that carries no choice — every file from before the box — reads as on.</summary>
+    public bool CalendarTasksShown { get; private set; }
 
     /// <summary>Whether the Calendar draws the roadmap's plans — its "Show plans"
     /// box: off until the reader turns it on on this device. A file that carries no
@@ -474,6 +480,14 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetCalendarTasksShown(bool shown)
+    {
+        if (shown == CalendarTasksShown) return;
+
+        CalendarTasksShown = shown;
+        Save();
+    }
+
     public void SetCalendarPlansShown(bool shown)
     {
         if (shown == CalendarPlansShown) return;
@@ -665,6 +679,9 @@ public sealed class ShellNavigationStore
                 RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups],
                 // Likewise left out while the columns are the default ones.
                 BoardColumns = BoardColumns == DefaultBoardColumns ? null : BoardColumns,
+                // Left out while on, the default, so only turning it off writes a key. A
+                // stored name: never rename it without reading the old one.
+                CalendarTasksShown = CalendarTasksShown ? null : false,
                 // Left out while off, the default, so only turning it on writes a key.
                 CalendarPlansShown = CalendarPlansShown ? true : null,
                 // The same for the events box. A stored name: never rename it without
@@ -753,6 +770,9 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? BoardColumns { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? CalendarTasksShown { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? CalendarPlansShown { get; init; }

@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.Tasks;
+namespace Backlog.Modules.Calendar.UI;
 
 /// <summary>
 /// The one way a bar across days is cut into a week row and given a lane, shared by

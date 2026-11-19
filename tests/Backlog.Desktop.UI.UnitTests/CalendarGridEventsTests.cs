@@ -1,6 +1,11 @@
 using System.Globalization;
+using Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
+using Backlog.Modules.Calendar.UI;
+using Backlog.UI.Components.Tasks;
+using Bunit;
+using Microsoft.AspNetCore.Components;
 
-namespace Backlog.UI.Components.UnitTests;
+namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// Knowledge events on the month calendar: each event a bar across its days, cut at
@@ -12,14 +17,14 @@ namespace Backlog.UI.Components.UnitTests;
 /// 11th, 18th and 25th of May.
 /// </para>
 /// </summary>
-public sealed class TaskCalendarEventsTests : IDisposable
+public sealed class CalendarGridEventsTests : IDisposable
 {
     private static readonly DateOnly Today = new(2026, 5, 6);
 
     private readonly CultureInfo _culture = CultureInfo.CurrentCulture;
     private readonly CultureInfo _uiCulture = CultureInfo.CurrentUICulture;
 
-    public TaskCalendarEventsTests()
+    public CalendarGridEventsTests()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
@@ -111,15 +116,15 @@ public sealed class TaskCalendarEventsTests : IDisposable
 
     // --- Drawn on the calendar ----------------------------------------------
 
-    private static IRenderedComponent<TaskCalendar> Render(
+    private static IRenderedComponent<CalendarGrid> Render(
         BunitContext context,
         IReadOnlyList<CalendarEvent>? events = null,
-        Action<ComponentParameterCollectionBuilder<TaskCalendar>>? configure = null,
+        Action<ComponentParameterCollectionBuilder<CalendarGrid>>? configure = null,
         bool available = true,
         bool shown = true)
     {
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        return context.Render<TaskCalendar>(parameters =>
+        return context.Render<CalendarGrid>(parameters =>
         {
             parameters
                 .Add(c => c.Tasks, [])
@@ -266,7 +271,7 @@ public sealed class TaskCalendarEventsTests : IDisposable
         bool? reported = null;
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
-        var calendar = context.Render<TaskCalendar>(parameters => parameters
+        var calendar = context.Render<CalendarGrid>(parameters => parameters
             .Add(c => c.Tasks, [])
             .Add(c => c.Today, Today)
             .Add(c => c.TestId, "cal")

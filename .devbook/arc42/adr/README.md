@@ -82,7 +82,7 @@ between inherited ADRs 0005 and 0009.
 - **[0053 — A plan or a task may reference a Brain note](0053-a-plan-or-a-task-may-reference-a-brain-note.md)** *(proposed, built; amends 0027 §6, builds on 0052)*
 - **[0054 — Clarify outcomes follow GTD, and each item has one home](0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md)** *(proposed, built; amends 0026 §2 and §3, adds a tool to 0012's Inbox group)*
 - **[0055 — Calendar is a surface of its own that reads layers](0055-calendar-is-a-surface-of-its-own-that-reads-layers.md)** *(proposed, all three layers built; supersedes 0022 §1 for the Calendar; §2, §3, §6 and one Rejected bullet superseded by 0056, §4 amended by it)*
-- **[0056 — The Calendar owns its grid, and Tasks is one layer](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md)** *(proposed, specification only; supersedes 0055 §2, §3, §6 in part, amends 0055 §4 and 0022 §2)*
+- **[0056 — The Calendar owns its grid, and Tasks is one layer](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md)** *(accepted, built; supersedes 0055 §2, §3, §6 in part, amends 0055 §4 and 0022 §2)*
 
 ## Inherited decisions
 

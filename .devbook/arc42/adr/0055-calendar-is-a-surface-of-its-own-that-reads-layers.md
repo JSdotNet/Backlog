@@ -26,7 +26,7 @@ the Tasks and Plans layers. Step 13 built the Events layer and the Show events c
 in the Calendar, so all three layers are built.
 
 > **Superseded in part, 2026-11-18, by
-> [ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (proposed).**
+> [ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (accepted).**
 > §2's Tasks part, §3's Tasks layer, §6's shared components and the Rejected bullet
 > "A Tasks layer that can be switched off": the Calendar owns its grid, and Tasks
 > answers a layer port like Plans and Events. 0056 also adds one stored key to §4,

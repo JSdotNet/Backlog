@@ -7704,9 +7704,9 @@
     //
     // The same pointer gesture `taskListDrag` above is, for the same reason: the
     // desktop head's WebView2 aborts a native drag before it delivers a drop, so
-    // both halves come from pointer events. A press on a chip or a tray item that
+    // both halves come from pointer events. A press on a chip or a shelf plan that
     // travels past the threshold becomes a drag; the day under the pointer is lit
-    // while it moves; letting go over a day tells TaskCalendar which task landed
+    // while it moves; letting go over a day tells the Calendar's grid which task landed
     // where, once, and the click that follows the release is swallowed so the
     // drop does not also open the task. A press that never travels stays a click.
     //
@@ -7715,9 +7715,9 @@
     // Escape, a cancelled pointer, or the window losing focus put the task back.
     //
     // Mouse and pen only. A finger on a chip is how the calendar is scrolled, and
-    // the detail panel a tap opens sets the due date as well.
+    // the Tasks view a tap opens sets the due date as well.
     //
-    // A plan on the tray's "Plans without a window" is dragged the same way: it
+    // A plan on the shelf, "Plans without a window", is dragged the same way: it
     // carries `data-calendar-plan` rather than `data-calendar-task`, and its drop is
     // reported as `DropPlanOnDay` — the day its window opens on.
     const calendarRefs = new Map();
@@ -7796,7 +7796,7 @@
             over: null,
             // What the shared edge-scroll loop asks of a drag — see
             // `dragScrollTarget` in the first half of this file. The scroller
-            // is found from a day, not from the item: a tray item sits in a tray
+            // is found from a day, not from the item: a shelf plan sits in a shelf
             // that may scroll on its own, and the days are what must come into
             // reach. The month grid clips rather than scrolls, so the walk goes
             // on up to the pane that does.

@@ -261,9 +261,9 @@ Module UI projects reference adapters directly where a pane needs one: Tasks.UI 
 
 The Sync Client's `KnowledgeEventSyncWorker` replicates the events through `IKnowledgeEventReplication`. `TaskReplicaMerge` hands the phone's attachment requests to `IEventAttachmentRequests`.
 
-**Calendar** is `Backlog.Modules.Calendar`, with its `.Abstractions` and `.UI` (local ADR 0055). It owns no data: its services are the read policies of the Tasks, Plans and Events layers, one per window. Its `.UI` draws the calendar grid itself, and Tasks.UI registers nothing for it (local ADR 0056, proposed; until it is built, the view hosts the Tasks layer as a part Tasks.UI offers through `CalendarTasksLayer`). Adapters in `Backlog.Infrastructure.FileSystem/Calendar/` answer its ports:
+**Calendar** is `Backlog.Modules.Calendar`, with its `.Abstractions` and `.UI` (local ADR 0055). It owns no data: its services are the read policies of the Tasks, Plans and Events layers, one per window. Its `.UI` draws the calendar grid itself, `CalendarGrid`, and Tasks.UI registers nothing for it (local ADR 0056). Adapters in `Backlog.Infrastructure.FileSystem/Calendar/` answer its ports:
 
-- `TasksCalendarTasks` answers `ICalendarTasks` over Tasks' `ITaskItems`, `ITaskLookup`, `ITaskStore` and `ITaskChangeSignal`. In a host with no Tasks module, `NoCalendarTasks` answers it, and the Calendar draws plans and events alone.
+- `TasksCalendarTasks` answers `ICalendarTasks` over Tasks' `ITaskItems`, `ITaskStore` and `ITaskChangeSignal`. In a host with no Tasks module, `NoCalendarTasks` answers it, and the Calendar draws plans and events alone.
 
 - `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` answer `ICalendarPlans` and `ICalendarCapacity` over Roadmap's ports.
 - `EventsCalendarEvents` answers `ICalendarEvents` over Events' `IKnowledgeEventReader`. With the `events` area off it reads nothing, and the Calendar offers no events.

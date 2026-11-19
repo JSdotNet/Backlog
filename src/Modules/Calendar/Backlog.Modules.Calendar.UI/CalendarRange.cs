@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.Tasks;
+namespace Backlog.Modules.Calendar.UI;
 
 /// <summary>
 /// How much of the calendar is on screen, picked from the Month | Week control in its

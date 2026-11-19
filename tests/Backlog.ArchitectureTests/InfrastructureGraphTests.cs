@@ -46,7 +46,8 @@ public class InfrastructureGraphTests
             + "through Tasks' ITaskItems (local ADR 0050 §3). The twelfth is the Calendar's published surface, "
             + "for the joins under Calendar/ that answer its Plans layer and working-week ports, ICalendarPlans "
             + "and ICalendarCapacity, over Roadmap's abstractions, and its Events layer port, ICalendarEvents, "
-            + "over Events' read contract (local ADR 0055 §2)."),
+            + "over Events' read contract (local ADR 0055 §2), and its Tasks layer port, ICalendarTasks, over Tasks' "
+            + "ITaskItems (local ADR 0056 §2)."),
         ("Backlog.Infrastructure.Sqlite", 7,
             "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
             + "Planning, the Inbox, Sessions, Progress, Notifications and Events — each answering that module's own repository "

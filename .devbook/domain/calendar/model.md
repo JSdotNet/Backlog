@@ -34,12 +34,12 @@ classDiagram
         <<abstract>>
     }
     class TasksLayer {
-        <<layer>>
+        <<ICalendarTasksLayer>>
         bool Offered
         bool Available
         CalendarTasksDto Tasks
         SetDueDateAsync(task, day)
-        SetHoursAsync(task, day, hours)
+        SetPlannedHoursAsync(task, day, hours)
     }
     class PlansLayer {
         <<ICalendarPlansLayer>>
@@ -77,6 +77,7 @@ classDiagram
     class CalendarTasksDto {
         <<DTO>>
         CalendarTaskDto[] Tasks
+        CalendarHoursBlockDto[] Hours
         bool Available
     }
     class CalendarPlansDto {
@@ -142,8 +143,9 @@ classDiagram
 - The Tasks layer is built like the other two (local ADR 0056 §2). It reads the tasks
   with a due date in the window, narrowed by the window's repository scope, which the
   Calendar reads from the window and not from Tasks. No Tasks filter, open task or
-  selection reaches it. `ICalendarTasks`, `CalendarTasksDto` and the layer are not built,
-  and the code run may name them otherwise.
+  selection reaches it. Built as `ICalendarTasks` and `CalendarTasksDto` in the Calendar's
+  abstractions, with the layer behind `ICalendarTasksLayer` and the window's scope behind
+  `ICalendarWindowScope`.
 - A layer with no port behind it, or whose area is off, answers Off (`Available` false)
   and its choice is not offered. A read that fails leaves the layer empty but available,
   and the other layers stay drawn.

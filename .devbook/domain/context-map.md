@@ -170,8 +170,7 @@ flowchart LR
     %% Calendar. Local ADRs 0055 and 0056. It owns its grid, reads layers and
     %% owns no data. Adapters under Infrastructure.FileSystem/Calendar/ answer
     %% the Calendar's own ports over Tasks' published contract, Roadmap's
-    %% abstractions and Events' read contract. The Plans and Events layers are
-    %% built; the Tasks port is not, and Tasks still offers a part until it is.
+    %% abstractions and Events' read contract. All three layers are built.
     %% A write goes back through its source. See the dependency table in
     %% .devbook/domain/calendar/context.md.
     Tasks -->|"Customer/Supplier<br/>Tasks layer, due dates and hours, ICalendarTasks"| Calendar
@@ -200,7 +199,7 @@ flowchart LR
 | Repository Management | The pull request contract (`.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#readiness-verdict`, `.devbook/domain/repository-management/domain.md#merge-command`), through `IPullRequests` in `Backlog.Modules.RepositoryManagement.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
 | Tasks | `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9), from a session id or a pull request to its task | The desktop shell, for Repository Management's and Sessions' screens |
 | Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` | Sessions, Sync, Devbook, Tasks |
-| Tasks | `ITaskItems`, `ITaskLookup`, `ITaskStore` and `ITaskChangeSignal` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0056 §2) | The Calendar, through an adapter, for its Tasks layer |
+| Tasks | `ITaskItems`, `ITaskStore` and `ITaskChangeSignal` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0056 §2) | The Calendar, through an adapter, for its Tasks layer |
 | Events | The events read contract: `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions`, which answers the decided events and their key dates, under `.devbook/domain/events/domain.md#knowledge-event` (local ADR 0050) | The Calendar, through an adapter, for its Events layer |
 | Events | `IKnowledgeEventReplication` and `IEventAttachmentRequests` in `Backlog.Modules.Events.Abstractions`, under `.devbook/domain/events/domain.md#knowledge-event` and `.devbook/domain/events/domain.md#attachment-request` (local ADR 0050) | Sync, through `Backlog.Infrastructure.Sync` |
 | Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox, Events |
@@ -353,11 +352,9 @@ flowchart LR
   domain event.
 - `Calendar` owns its grid, reads layers and owns no data
   (`.devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md` and
-  `.devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md`, both
-  proposed). `Tasks`, `Roadmap Planning` and `Events` each answer a layer port of the
-  [Calendar](calendar/context.md) through an adapter. The Plans and Events ports are
-  built; the Tasks port is not, and until it is, Tasks offers the Tasks layer as a part
-  the Calendar hosts.
+  `.devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md`).
+  `Tasks`, `Roadmap Planning` and `Events` each answer a layer port of the
+  [Calendar](calendar/context.md) through an adapter. All three ports are built.
 
   Its writes go back through the source. The Calendar references no source and no
   source references it, so the edges make no cycle. The map draws one line from

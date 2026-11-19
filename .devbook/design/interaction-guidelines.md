@@ -1408,7 +1408,7 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
 | Popover button | `PopoverButton` in `Backlog.UI.Components/Overlays` | Storybook → *Overlays* → **PopoverButton** |
 | Press feedback, busy actions, scoped loading | `src/Core/Backlog.UI.Components`: `AppButton`, `TaskAction`, `ConfirmDialog` and more, below | Storybook → *Buttons*, *Overlays*, *Feedback* → **A region refreshing in place**, *File view* |
-| Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` and `TaskListView.razor` | Storybook → *Task list*, *Prompt tasks*, *Roadmap* and *Task calendar*, listed below |
+| Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` and `TaskListView.razor` | Storybook → *Task list*, *Prompt tasks* and *Roadmap*, listed below; the Calendar in the desktop web harness |
 
 - **Auto-save, debounce, indicator:** *Entry edit* shows a debounced text save
   while typing, an immediate save on a task toggle, and nothing while idle.
@@ -1435,15 +1435,17 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
     grip, the drop preview, the keyboard move and the announcement.
     `RoadmapTimeline` runs the same gesture against a time axis.
   - The edge autoscroll is one frame loop for every pointer drag. The Board's
-    card drag and the month calendar's drag (a tray item, a chip, a shelf plan)
-    hand themselves to it, the calendar through `window.backlogDragAutoscroll`.
+    card drag and the Calendar's drag (a chip, a shelf plan) hand themselves to
+    it, the Calendar through `window.backlogDragAutoscroll`.
   - The module screens are hosts, not owners: `TasksPane.razor` passes
     `Reorderable`/`OnReorder` and applies the move it is handed.
   - The review surfaces are:
     - *Task list* → **Reordering, by pointer and by key**;
     - *Prompt tasks*, for the link gesture the same pointer machinery drives;
     - *Roadmap* → **Moving a bar, and moving it without a mouse**;
-    - *Task calendar*, for a drag to a day scrolled out of view.
+    - the Calendar in the desktop web harness, for a drag to a day scrolled out
+      of view. Its grid is the Calendar module's, so it has no story (local
+      [ADR 0056](../arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) §1).
 
 Known gaps:
 
