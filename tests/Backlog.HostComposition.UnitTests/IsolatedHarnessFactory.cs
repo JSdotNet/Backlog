@@ -113,6 +113,7 @@ internal static class HarnessIsolation
         ("BACKLOG_DESKTOP_SESSION_SYNC_PATH", "session-sync", true),
         ("BACKLOG_DESKTOP_ANNOTATION_SYNC_PATH", "annotation-sync", true),
         ("BACKLOG_DESKTOP_BACKUP_STATE_PATH", "backup-state.json", false),
+        ("BACKLOG_DESKTOP_MCP_AUDIT_PATH", "mcp-audit.db", false),
         ("BACKLOG_DESKTOP_SYNC_SERVICE_SETTINGS_PATH", "sync-service.json", false),
         ("BACKLOG_AZURE_FOUNDRY_SETTINGS_PATH", "azure-foundry.settings.json", false),
         ("BACKLOG_FEATURE_SETTINGS_PATH", "feature.settings.json", false),

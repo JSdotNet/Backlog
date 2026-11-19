@@ -9,6 +9,7 @@ using Backlog.Desktop.Composition;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
@@ -71,6 +72,12 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
         builder.Environment.ContentRootPath,
         "BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH",
         Path.Combine("obj", "local-development", "device-credential.json")),
+    // A software key beside the credential, never the installed app's CNG key: a
+    // harness device bound to the real key would sign in as this PC's own app.
+    DeviceKeyStore = _ => DeviceKeyStoreFactory.CreateLocalDevelopmentStore(
+        builder.Environment.ContentRootPath,
+        "BACKLOG_DESKTOP_DEVICE_KEY_PATH",
+        Path.Combine("obj", "local-development", "device-key.json")),
     TaskSyncStateStore = _ => TaskSyncStateStoreFactory.CreateLocalDevelopmentStore(
         builder.Environment.ContentRootPath,
         "BACKLOG_DESKTOP_TASK_SYNC_STATE_PATH",
@@ -87,6 +94,11 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     BackupStatePath = Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_BACKUP_STATE_PATH") is { Length: > 0 } backupStatePath
         ? backupStatePath
         : Path.Combine(localDevelopment, "backup-state.json"),
+    // The same MCP audit records the app writes, in this worktree's own file: a shared
+    // one would list every worktree's harness calls as this harness's.
+    McpAuditLogPath = Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_MCP_AUDIT_PATH") is { Length: > 0 } mcpAuditPath
+        ? mcpAuditPath
+        : Path.Combine(localDevelopment, "mcp-audit.db"),
     // Resolved the way the desktop head resolves it, so the Settings page behaves the
     // same here; under Aspire with nothing entered that is this AppHost run's sync
     // resource. A shared file would point both harnesses at whatever one was told.
@@ -210,7 +222,7 @@ builder.Services.AddTaskConnector<HarnessTaskConnector>();
 // into a registration; here it would be one QA had to fetch out of a container
 // to drive a test, protecting a host that holds nothing the Origin check is not
 // already closing.
-builder.Services.AddBacklogMcpServer().WithHttpTransport();
+builder.Services.AddBacklogMcpServer(McpAudit.HarnessCaller).WithHttpTransport();
 // The bill for the Azure Foundry resource. When the settings are this session's
 // local seed, the query goes to the stand-in service beside the chat one — with a
 // token nothing signed, because the stand-in checks none — so the dashboard's
@@ -226,6 +238,10 @@ builder.Services.AddScoped<IShellWindows, BrowserTabShellWindows>();
 // What open_window opens and links to: no native window, and this harness's own
 // /window/{surfaceId} page at the address it listens on, with no token.
 builder.Services.AddSingleton<Backlog.Infrastructure.Mcp.ISurfaceWindowHost, HarnessSurfaceWindowHost>();
+// Windows Hello (local ADR 0058 §6): this harness has none to ask, so it answers not
+// available and an Allow is refused here. It keeps no grants and composes no access desk,
+// so request_access says that too.
+builder.Services.AddSingleton<Backlog.SharedKernel.IUserConsent, Backlog.SharedKernel.UnavailableUserConsent>();
 // This assembly's own pages, under Components/Pages: they exist only to be
 // driven — the shipped app has no route that throws on request.
 builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
@@ -369,6 +385,11 @@ app.UseWhen(
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;
         }
+
+        // No token, so no grant: the harness's caller holds every grantable scope, and the
+        // tools' scope policies (local ADR 0058 §4) still run against it. A principal already
+        // on the request — a test's — is left where it is.
+        if (context.User.Identity?.IsAuthenticated != true) context.User = McpScopePolicies.HarnessCaller;
 
         await next(context);
     }));

@@ -4,19 +4,19 @@
 // the same figures from hooks rather than tools; this is the forwarding half, and the app does
 // the counting — it reads the transcript the event names, so nothing here does.
 //
-// Endpoint: POST http://127.0.0.1:<port>/telemetry, beside the app's /mcp, with the same bearer
-// token. Port and token come from BACKLOG_MCP_PORT / BACKLOG_MCP_TOKEN — the variables the
-// repository's .mcp.json registration reads — else from the app's own settings.json.
+// Endpoint: POST http://127.0.0.1:<port>/telemetry, beside the app's /mcp, with a token for the
+// "Telemetry" grant (mcpServer.grants.telemetry, local ADR 0058, Phase 1), asked for per event
+// through the app's installed headers helper — see backlog-grant.mjs. BACKLOG_MCP_TOKEN is sent
+// only when no Telemetry grant is recorded. With neither, nothing is posted.
 //
 // Must never fail or slow the tool call it reports on: every error exits 0, an app that is not
 // running refuses the connection at once, and a hung one is abandoned after TIMEOUT_MS.
 
-import { readFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
+import { authorization, readEndpoint } from "./backlog-grant.mjs";
 
 const TIMEOUT_MS = 2000;
-const DEFAULT_PORT = 5757;
+// The share of TIMEOUT_MS the headers helper may take; the broker answers in milliseconds.
+const HELPER_TIMEOUT_MS = 1500;
 
 function readStdin() {
     return new Promise((resolve) => {
@@ -29,48 +29,26 @@ function readStdin() {
     });
 }
 
-// Where the app keeps settings.json: .NET's LocalApplicationData, then the Backlog folder.
-function settingsPath() {
-    const home = os.homedir();
-    const localData =
-        process.platform === "win32"
-            ? process.env.LOCALAPPDATA || path.join(home, "AppData", "Local")
-            : process.platform === "darwin"
-              ? path.join(home, "Library", "Application Support")
-              : process.env.XDG_DATA_HOME || path.join(home, ".local", "share");
-    return path.join(localData, "Backlog", "settings.json");
-}
-
-async function endpoint() {
-    let port = Number(process.env.BACKLOG_MCP_PORT) || null;
-    let token = process.env.BACKLOG_MCP_TOKEN || null;
-    if (!port || !token) {
-        try {
-            const mcp = JSON.parse(await readFile(settingsPath(), "utf8")).mcpServer || {};
-            port ||= Number(mcp.port) || null;
-            token ||= mcp.token || null;
-        } catch {
-            // No settings yet: the app has never served MCP on this machine.
-        }
-    }
-    return { url: `http://127.0.0.1:${port || DEFAULT_PORT}/telemetry`, token };
-}
-
 async function main() {
     const raw = await readStdin();
     const event = JSON.parse(raw);
     // The tool's output is the bulk of a PostToolUse payload and nothing the app records reads it.
     delete event.tool_response;
 
-    const { url, token } = await endpoint();
-    const headers = { "content-type": "application/json" };
-    if (token) headers.authorization = `Bearer ${token}`;
+    // One deadline for the token and the post together, so the hook stays well inside its 5 s.
+    const deadline = Date.now() + TIMEOUT_MS;
+    const target = await readEndpoint("telemetry", "/telemetry");
+    const { header } = await authorization(target, "Telemetry", { timeoutMs: HELPER_TIMEOUT_MS });
+    // No token is a refusal waiting to happen: the route answers 401 to a call without one.
+    if (!header) return;
 
-    await fetch(url, {
+    // A 401 or 403 — the grant revoked, or its scope switched off — is dropped like any other
+    // failure: the session goes on, and the next event asks for a fresh token.
+    await fetch(target.url, {
         method: "POST",
-        headers,
+        headers: { "content-type": "application/json", authorization: header },
         body: JSON.stringify(event),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(Math.max(250, deadline - Date.now())),
     });
 }
 

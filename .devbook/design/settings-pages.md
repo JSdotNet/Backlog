@@ -276,6 +276,7 @@ editor in place, under its row.
 |---|---|---|
 | Repositories | A `DataTable` row: alias with its colour mark, folder, devbook, account | An `Edit` button in the row, which reads `Done` while open |
 | GitHub accounts | The whole row is a button: avatar initial, login, a meta line | The row itself |
+| Agents (MCP server) | `AgentGrantRow`: name, a role · source · last-used line, scope chips | An `Edit scopes` button in the row, which reads `Done` while open |
 
 Rules:
 
@@ -302,6 +303,12 @@ Rules:
 - A list with nothing in it says so in a sentence, and what happens meanwhile,
   not with an empty table: *No account yet. Every call goes out as whichever
   account this machine is signed in as.*
+- The Agents card bends the editor rule: its editor is the agent's switches alone,
+  with no title of its own, and Revoke stays in the row's actions. A row's whole
+  editor is one set of switches, and the row already names the agent.
+- A destructive act on a row MUST be confirmed in place, in the row's own actions:
+  the sentence says what happens, then the act again and Keep. The Agents card's
+  Revoke asks *Revoke <name>? Its sessions lose access now.* No dialog opens.
 
 ## Phone Width
 
@@ -418,13 +425,14 @@ The checklist a module's page meets, each item from a chapter above:
 | Off state, badge values | `Settings.razor`, `SettingsBadges.cs` |
 | Module badge sources | `InboxRoutingRulesBadgeSource.cs`, `ConnectedTaskSourcesBadgeSource.cs`, `ModelPriceBadgeSource.cs`, `DevicePairingBadgeSource.cs`, each registered by its module's `Add…Settings` |
 | Card | `SettingsCard.razor`; `setting-columns` in the desktop `app.css` |
-| Expand in place | `RepositoriesSettingsPage.razor`, `GitHubAccountsSettingsPage.razor` |
+| Expand in place | `RepositoriesSettingsPage.razor`, `GitHubAccountsSettingsPage.razor`; the Agents card's `AgentGrantRow`, `AgentScopeSwitches` and `AgentRegistration` in `McpServerSettingsPage.razor` |
 
 The storybook shows the frame, the menu and the card on its *Settings frame*,
-*Settings menu* and *Settings card* pages. Each page's **Design rules** block
+*Settings menu* and *Settings card* pages, and the Agents card's parts on *Agents*. Each page's **Design rules** block
 links back to this chapter. The frame links to *Panel and Header* and
 *Headline*. The menu links to *Menu Groups*, *Badges and the Off State* and *Phone
-Width*. The card links to *Settings Card* and *Figure Tiles*.
+Width*. The card links to *Settings Card* and *Figure Tiles*. Agents links to
+*Lists That Expand in Place* and *Saved as You Go*.
 
 `SettingsTests` in `tests/Backlog.EndToEndTests` drives the screen on the
 desktop harness, and the `tests` of *Menu Groups*, *Card Titles and Search*, *Phone

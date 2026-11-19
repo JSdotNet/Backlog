@@ -73,6 +73,19 @@ builder.Services.AddOptions<SyncAttachmentOptions>()
 // Its settings (the cap and the audio allowlist) are bound and validated either way.
 builder.AddDictationTranscription();
 
+// Who may enrol a device (local ADR 0058 §1): the configured owner, signed in through
+// GitHub. Before AddSyncModule so the configured owner wins over the module's stand-in;
+// anywhere but Development the service refuses to start without it.
+builder.AddOwnerEnrolment();
+
+// The remote connector's authorization server (local ADR 0058 §8): its settings and token
+// issuer, on the same terms — before AddSyncModule, so the configured settings win.
+builder.AddConnectorAuthorization();
+
+// The remote /mcp endpoint the connector's tokens are for (local ADR 0058 §8): its own bearer
+// scheme, the inbox:capture policy and the MCP server with its one tool group.
+builder.AddRemoteMcpServer();
+
 builder.Services.AddSyncModule();
 
 // The module declares the port and the host implements it, so the signing key
@@ -103,6 +116,7 @@ app.UseStatusCodePages();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 // Development only. The document names every route and its shape, which is a
 // map of the surface handed to anyone who asks; a deployed sync service has no
@@ -112,9 +126,22 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi().AllowAnonymous();
 }
 
+// The GitHub OAuth App's registered callback, at the root rather than under the
+// sync group: the browser comes back here after the owner signs in.
+app.MapGitHubCallback();
+
+// The remote connector's authorization server, at the root for the same reason: claude.ai
+// finds it from the issuer, and RFC 8414 puts the metadata at the origin.
+app.MapAuthorizationServer();
+
+// The resource server those tokens are for, and its RFC 9728 metadata, at the root: the
+// /mcp URL is the tokens' audience (RFC 8707).
+app.MapRemoteMcp();
+
 var sync = app.MapGroup(SyncRoutes.Base);
 
 sync.MapDeviceEndpoints();
+sync.MapEnrolmentEndpoints();
 sync.MapInboxEndpoints();
 sync.MapTaskSyncEndpoints();
 sync.MapSessionSyncEndpoints();
@@ -124,6 +151,7 @@ sync.MapKnowledgeEventSyncEndpoints();
 sync.MapNotificationSyncEndpoints();
 sync.MapAttachmentSyncEndpoints();
 sync.MapTranscriptionEndpoints();
+sync.MapConnectorEndpoints();
 
 // The service saying what it is, and which build it is. No owner, no data,
 // nothing to protect — the commit is public history, and it is what lets a

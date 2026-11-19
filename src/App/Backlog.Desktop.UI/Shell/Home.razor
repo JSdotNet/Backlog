@@ -1065,6 +1065,8 @@
     private static readonly HashSet<string> PlacedTakeovers = new(StringComparer.Ordinal)
     {
         InboxSurfaceId, WeeklyReviewSurfaceId, SessionsSurfaceId, PullRequestsSurfaceId, DashboardSurfaceId, NotificationsSurfaceId, ToolsSurfaceId, AtlasSurfaceId,
+        // The agent request window is opened on a request, never from the header (local ADR 0058 §5).
+        global::Backlog.Desktop.UI.Mcp.AgentRequestSurface.SurfaceId,
     };
 
     /// <summary>

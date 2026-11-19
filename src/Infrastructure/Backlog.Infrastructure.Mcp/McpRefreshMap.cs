@@ -44,6 +44,9 @@ internal static class McpRefreshMap
     internal const string EventsPaneChanged =
         "IEventsPane.Changed, held on KnowledgeEventSaved: the Events pane, in the main window and popped out";
 
+    internal const string AgentChanges =
+        "IMcpGrantStore.Changed and IMcpAccessRequestStore.Changed, which McpAccessDesk.Changed relays: the MCP server settings page's Agents card and the agent request window";
+
     internal const string SessionsNotRefreshedYet =
         "Sessions pane: not refreshed yet - separate change (its list is read on request)";
 
@@ -81,8 +84,6 @@ internal static class McpRefreshMap
         [DevbookTools.CaptureNote] = BrainChanges,
 
         [DecisionTools.SetState] = SubjectStateChanges,
-        [DecisionTools.Approve] = SubjectStateChanges,
-        [DecisionTools.Accept] = SubjectStateChanges,
         [DecisionTools.PostNote] = AnnotationChanges,
         [DecisionTools.ResolveNote] = AnnotationChanges,
 
@@ -109,5 +110,11 @@ internal static class McpRefreshMap
         [WindowTools.OpenWindow] = NoData,
 
         [EventTools.AddKnowledgeEvent] = EventsPaneChanged,
+
+        // The agent grants (local ADR 0058 §5): a request, a grant, a trim or a revoke.
+        [AccessTools.RequestAccess] = AgentChanges,
+        [GrantTools.GrantAgent] = AgentChanges,
+        [GrantTools.EditAgentScopes] = AgentChanges,
+        [GrantTools.RevokeAgent] = AgentChanges,
     };
 }

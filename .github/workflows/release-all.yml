@@ -303,8 +303,6 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
           AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
-          # Only its presence is read; the value is never printed.
-          SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
           $required = [ordered]@{
@@ -313,7 +311,6 @@ jobs:
             AZURE_SUBSCRIPTION_ID  = $env:AZURE_SUBSCRIPTION_ID
             AZURE_RESOURCE_GROUP   = $env:AZURE_RESOURCE_GROUP
             AZURE_LOCATION         = $env:AZURE_LOCATION
-            SYNC_TOKEN_SIGNING_KEY = $env:SYNC_TOKEN_SIGNING_KEY
           }
           $missing = @($required.Keys | Where-Object { [string]::IsNullOrWhiteSpace($required[$_]) })
 
@@ -630,8 +627,8 @@ jobs:
       contents: read
       # The OIDC federated credential Deploy Sync signs in to Azure with.
       id-token: write
-    # Inherit, as Deploy All does: SYNC_TOKEN_SIGNING_KEY is an environment secret,
-    # resolved by the called workflow's job, which declares the environment.
+    # Inherit, as Deploy All does: an environment secret is resolved by the called
+    # workflow's job, which declares the environment.
     secrets: inherit
     with:
       mode: service

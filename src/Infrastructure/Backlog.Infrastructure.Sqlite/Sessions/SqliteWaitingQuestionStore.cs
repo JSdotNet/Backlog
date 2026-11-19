@@ -323,12 +323,13 @@ public sealed class SqliteWaitingQuestionStore : IWaitingQuestionStore
             new(Question, Header, [.. (Options ?? []).Select(option => new RelayOption(option.Label, option.Description))], MultiSelect);
     }
 
-    private sealed record StoredAnswer(List<string>? Choices, string? Text)
+    // FromDeviceId is absent from answers stored before it was kept, which read as null.
+    private sealed record StoredAnswer(List<string>? Choices, string? Text, Guid? FromDeviceId = null)
     {
         public static StoredAnswer? From(RelayAnswer? answer) =>
-            answer is null ? null : new StoredAnswer([.. answer.Choices], answer.Text);
+            answer is null ? null : new StoredAnswer([.. answer.Choices], answer.Text, answer.FromDeviceId);
 
-        public RelayAnswer ToAnswer() => new([.. Choices ?? []], Text);
+        public RelayAnswer ToAnswer() => new([.. Choices ?? []], Text) { FromDeviceId = FromDeviceId };
     }
 }
 

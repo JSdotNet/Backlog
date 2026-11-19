@@ -2,15 +2,16 @@
 
 ```meta
 date: 2026-10-15
-related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/11-risks-and-technical-debt.md#architectural-risks", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/tech/desktop.md#systemsecuritycryptographyprotecteddata", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/11-risks-and-technical-debt.md#architectural-risks", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/tech/desktop.md#systemsecuritycryptographyprotecteddata", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 c4: [backlog.desktop, backlog.mobile]
 c4-touches: [github, claude, azureFoundry, backlog.cloud]
 ```
 
 Every third-party credential Backlog keeps on a device is sealed by the operating
 system before it is written. On Windows that is DPAPI under the signed-in user. On
-Android it is the platform secure store. The one stated exception is the MCP
-server's own loopback token, which local ADR 0012 keeps in plaintext.
+Android it is the platform secure store. The MCP server's loopback token, which
+local ADR 0012 kept in plaintext, was the one stated exception until local ADR 0058
+retired it (§6).
 
 ## Status
 
@@ -89,9 +90,11 @@ flowchart LR
 | GitHub account and repository tokens | `GitHubSettingsStore` | DPAPI, per value | not composed |
 | Claude Admin API keys | `ClaudeSettingsStore` | DPAPI, per value | not composed |
 | Azure Foundry API key | `AzureFoundrySettingsStore` | DPAPI, per value | not composed |
+| MCP grant secrets (local ADR 0058 §3) | `FileMcpGrantStore` | DPAPI, per value | not composed |
 
 The three settings stores are desktop-only. Only the Windows head and the desktop
-web harness construct them, so they need no Android secure store.
+web harness construct them, and only the Windows head constructs the grant store,
+so none needs an Android secure store.
 
 ### 2. The envelope is on the value, not the file
 
@@ -101,9 +104,9 @@ web harness construct them, so they need no Android secure store.
 A sealed value is `dpapi:` followed by the base64 of a `ProtectedData` envelope
 under `CurrentUser` scope. Every other field stays legible JSON, so the clone
 directory, the endpoint and the account login can still be read and diagnosed.
-One helper, `SecretEnvelope`, does this for all three stores. It lives in the
-GitHub adapter and the Claude and Azure Foundry adapters compile it in, the way
-they share `IsoTimestamps`.
+One helper, `SecretEnvelope`, does this for all four stores. It lives in the
+GitHub adapter, and the Claude, Azure Foundry and file-system adapters compile it
+in, the way they share `IsoTimestamps`.
 
 ### 3. Plaintext from an earlier release is sealed on first read
 
@@ -136,15 +139,23 @@ and still maps a failure to `CredentialStoreFailed`. The Android store awaits th
 platform write instead of blocking on it. The DPAPI and in-memory stores have
 nothing to wait for and complete at once.
 
-### 6. The MCP token stays the one exception
+### 6. The MCP token was the one exception
 
 ```meta
 ```
 
-ADR 0012 keeps the MCP server's bearer token in plaintext in `settings.json`. That
-token only opens a loopback listener for the same user. Sealing it against that
+ADR 0012 kept the MCP server's bearer token in plaintext in `settings.json`. That
+token only opened a loopback listener for the same user. Sealing it against that
 same user would defend against nothing. Any new stored credential follows this
 record unless its own ADR states an exception the same way.
+
+**Amended 2026-11-11 by ADR 0058 §3, and built 2026-11-12: the exception is closed.**
+The shared token has left `settings.json`, which now holds only grant ids. Each agent
+registration holds a grant, whose secret the app seals like every other credential,
+and the token broker mints its 15-minute tokens in memory. No MCP credential is
+stored in plaintext. `BACKLOG_MCP_TOKEN` stays only as a development and CI escape
+hatch, read from the app's environment and accepted only under a hand-edited debug
+setting.
 
 ## Consequences
 
