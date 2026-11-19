@@ -405,6 +405,31 @@ public sealed class C4ZoomDeploymentTests : IDisposable
         Assert.All(explorer.FindAll("[role='tabpanel']"), panel => Assert.Equal("-1", panel.GetAttribute("tabindex")));
     }
 
+    /// <summary>On the surface the environments are a switch in the view heading, not
+    /// a tab strip over the picture, so the picture keeps that strip's height.</summary>
+    [Fact]
+    public void On_the_surface_the_environments_are_a_switch_in_the_view_heading()
+    {
+        var explorer = _context.Render<C4ZoomExplorer>(parameters => parameters
+            .Add(c => c.Workspace, Workspace)
+            .Add(c => c.HintDismissed, true)
+            .Add(c => c.Navigation, (RenderFragment)(builder => builder.AddContent(0, "nav")))
+            .Add(c => c.OpenView, new C4ZoomOpen("deployment-local")));
+
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-environments']"));
+        Assert.Empty(explorer.FindAll("[role='tabpanel']"));
+        Assert.Single(explorer.FindAll("[data-testid='c4-zoom-frame']"));
+
+        var choices = explorer.FindAll("[data-testid='c4-zoom-tools'] [data-testid='c4-zoom-environment-choice']");
+        Assert.Equal(["Local machine", "Azure"], choices.Select(choice => choice.TextContent.Trim()));
+        Assert.Equal("true", choices[0].GetAttribute("aria-checked"));
+
+        explorer.FindAll("[data-testid='c4-zoom-environment-choice']").Single(choice => choice.TextContent.Trim() == "Azure").Click();
+
+        Assert.Equal("deployment-azure", explorer.Instance.ViewKey);
+        Assert.Equal("true", explorer.FindAll("[data-testid='c4-zoom-environment-choice']").Single(choice => choice.TextContent.Trim() == "Azure").GetAttribute("aria-checked"));
+    }
+
     [Fact]
     public void Choosing_a_tab_switches_to_that_environment()
     {

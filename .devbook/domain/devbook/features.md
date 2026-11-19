@@ -632,7 +632,8 @@ Play walks every step on its own. With reduced motion asked for it still does, a
 the steps change without animation. A change of that preference while the surface is
 open takes effect at once.
 
-A deployment view puts its environments behind one tab list, and draws another
+A deployment view switches between its environments from one switch in the view
+heading, beside the overlay switch, and draws another
 environment as a dashed door into its own view. Every deployment node is framed and
 selectable however deep it nests, so a machine that holds only packages has a frame
 too. A selected deployment node shows what it is, and the container instances it

@@ -860,7 +860,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.C4DynamicPlaybackTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4ZoomDeploymentTests, unit:dotnet:Backlog.UI.Components.UnitTests.C4GroupBandExplorerTests.The_zoom_tab_draws_the_groups_as_bands]
 ```
 
-The system SHALL play a dynamic view one numbered step at a time, switch a deployment view between its environments behind one tab list with another environment drawn as a dashed door into its own view, show a selected deployment node's description, technology and the container instances it runs, each opening the container view, and draw the landscape's DSL groups as bands.
+The system SHALL play a dynamic view one numbered step at a time, switch a deployment view between its environments from one switch with another environment drawn as a dashed door into its own view, show a selected deployment node's description, technology and the container instances it runs, each opening the container view, and draw the landscape's DSL groups as bands.
 
 #### Scenario: Stepping a dynamic view
 

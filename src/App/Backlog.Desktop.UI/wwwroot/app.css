@@ -12898,9 +12898,25 @@ a.pull-request-detail-checks__name:hover {
    must not leave the pane, and the picture with it, short of the section's foot. */
 .devbook-stack__section > .devbook-pane--arc42:has(> .arc42-surface) {
     height: 100%;
-    /* A tighter edge than the other panes: the surface's columns carry their own
-       borders, so the pane's padding is only distance the picture gives up. */
-    padding: var(--spacing-sm);
+    /* No frame of its own: the zoom bar and the surface's columns each carry a
+       border, so a pane border around them only nests one box in another and its
+       padding is distance the picture gives up. */
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+}
+
+/* The section holding the surface: the pane clips and never scrolls the section,
+   so no gutter is kept for a scrollbar and the right edge matches the left. The
+   strip above sits closer, for the same reason the pane lost its frame. */
+.devbook-stack__section:has(> .devbook-pane--arc42 > .arc42-surface) {
+    padding-right: 0;
+    scrollbar-gutter: auto;
+}
+
+.devbook-stack:has(> .devbook-stack__body > .devbook-stack__section > .devbook-pane--arc42 > .arc42-surface) {
+    gap: var(--spacing-sm);
 }
 
 .devbook-stack__section > .devbook-pane--arc42 > .arc42-surface {
