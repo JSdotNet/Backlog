@@ -164,7 +164,7 @@ related: [".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/
 ```
 
 A note taken during a conference talk: what was said, the slide photo, the
-handout. It is a [note](../inbox/domain.md#note), written in the phone's Notes tab
+handout. It is a [note](../inbox/domain.md#note), written on the phone
 ([Notes on the phone](../inbox/features.md#notes-on-the-phone)). It is never
 called a session note, because Sessions is a bounded context of its own.
 
@@ -202,14 +202,20 @@ A recording made in the note is one more of its files: see
 
 ```meta
 type: sub-feature
-related: [".devbook/domain/capture/features.md#talk-note", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md", ".devbook/tech/mobile.md#android-mediarecorder"]
+related: [".devbook/domain/capture/features.md#talk-note", ".devbook/domain/inbox/domain.md#meeting", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md", ".devbook/tech/mobile.md#android-mediarecorder"]
 ```
 
-A meeting recorded into a [note](../inbox/domain.md#note) on the phone, kept
-going with the screen off, and sent to the desktop as a file on the note. It
-belongs to a note the way a slide photo does, so it adds no item kind, and it uses
-the editor the [talk note](#talk-note) describes. It records on the Android phone
-only.
+A meeting recorded on the phone, kept going with the screen off, and sent to the
+desktop as a file on its item. It uses the editor the [talk note](#talk-note)
+describes. It records on the Android phone only.
+
+A recording starts in one of two ways:
+
+- **Meeting** in the phone Inbox's **+** menu opens a new
+  [Meeting](../inbox/domain.md#meeting), an item of kind `meeting`, already
+  recording.
+- **Record** in an open [note](../inbox/domain.md#note) adds a recording to it,
+  the way a slide photo is added. The note stays of kind `note`.
 
 **Record** sits in the note editor's toolbar beside **Dictate** and **Photo**.
 The first press asks for the microphone, and on Android 13 and later for

@@ -11,6 +11,11 @@ public static partial class EventsErrors
     public static Error SeriesNotFound(Guid id) =>
         Error.NotFound("event_series.not_found", $"No event series has the id {id:D}.");
 
+    /// <summary>A series named by its name, where two or more series carry that name: which
+    /// one is meant cannot be told, so nothing is joined and nothing is started.</summary>
+    public static Error SeriesNameAmbiguous(string name) =>
+        Error.Conflict("event_series.ambiguous", $"More than one event series is named {name}; name the series by one that is unique.");
+
     public static Error NoteNotLinked() =>
         Error.Conflict("note_link.not_linked", "The event does not link that note.");
 

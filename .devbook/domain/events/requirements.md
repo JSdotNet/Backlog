@@ -145,6 +145,78 @@ The system SHALL show no Events pane while the `events` flag is off.
 - **When** the person opens the desktop shell
 - **Then** no Events pane is offered
 
+### Requirement: An assistant adds an event in one write
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#add-an-event-over-mcp]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneAddTests.A_title_alone_adds_one_spotted_event_with_no_dates_in_one_announced_save, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneAddTests.Every_field_is_set_in_one_save_with_typed_dates_and_reads_back, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneAddTests.An_end_before_the_start_is_refused_and_nothing_is_written, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneAddTests.A_time_with_no_offset_is_refused_and_nothing_is_written, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneAddTests.A_venue_and_online_together_are_refused_and_nothing_is_written, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneAddTests.A_negative_cost_or_one_with_no_currency_is_refused_and_nothing_is_written, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneAddTests.A_blank_title_is_refused_and_nothing_is_written, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneAddTests.A_series_named_in_another_casing_is_joined_and_none_is_started, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneAddTests.A_series_name_that_matches_none_starts_one_with_that_name_and_joins_it, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneAddTests.A_name_two_series_share_is_refused_and_nothing_is_written, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.EventToolsTests.A_title_alone_is_one_request_with_nothing_else_and_answers_the_spotted_event, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.EventToolsTests.Every_argument_maps_to_one_request_and_the_answer_carries_the_dates_as_iso_8601, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.EventToolsTests.A_start_is_read_as_iso_8601, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.EventToolsTests.A_date_that_is_not_iso_8601_is_refused_and_nothing_is_asked_of_the_pane, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.EventToolsTests.An_unknown_ticket_word_is_refused_and_nothing_is_asked_of_the_pane, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.EventToolsTests.A_refusal_from_the_module_reaches_the_caller_with_its_code]
+```
+
+The system SHALL add the event an assistant's `add_knowledge_event` call describes in one write, Spotted and with its dates from the source Typed, or write nothing when a rule refuses it.
+
+#### Scenario: Techorama from a mail
+
+- **Given** an assistant connected to the app's MCP server, with the `events` flag on
+- **When** it calls `add_knowledge_event` with the title "Techorama Belgium 2027", the series "Techorama" and the start `2027-05-12`
+- **Then** the pane lists a Spotted event "Techorama Belgium 2027" in the series Techorama, starting 12 May 2027, from the source Typed
+
+#### Scenario: A refused rule writes nothing
+
+- **Given** no series named "NDC"
+- **When** an assistant adds an event in the series "NDC" whose end comes before its start
+- **Then** the call is refused with `knowledge_event.dates_out_of_order`, and neither the event nor the series "NDC" exists
+
+#### Scenario: A series joined in another casing
+
+- **Given** a series named "Techorama"
+- **When** an assistant adds an event in the series "techorama"
+- **Then** the event joins Techorama, and no series is started
+
+#### Scenario: A name two series share
+
+- **Given** two series named "dotNET Friday"
+- **When** an assistant adds an event in the series "dotNET Friday"
+- **Then** the call is refused with `event_series.ambiguous`, and nothing is written
+
+### Requirement: The MCP tool is withdrawn while the area is off
+
+```meta
+type: requirement
+related: [.devbook/domain/events/context.md#events-area, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md]
+tests: unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BacklogMcpToolsTests.The_events_tool_follows_the_events_switch_and_nothing_else
+```
+
+The system SHALL leave `add_knowledge_event` out of the MCP server's tool list, and answer a call to it as an unknown tool, while the `events` flag is off.
+
+#### Scenario: Tool withdrawn
+
+- **Given** the `events` flag is off
+- **When** an assistant lists the MCP server's tools and calls `add_knowledge_event`
+- **Then** the list does not name it, and the call is answered `Unknown tool: 'add_knowledge_event'`
+
+### Requirement: An open pane shows a change made elsewhere
+
+```meta
+type: requirement
+related: [.devbook/arc42/08-crosscutting-concepts.md#change-notices]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.An_event_added_elsewhere_shows_in_the_open_list_without_a_reload, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_change_elsewhere_to_the_open_event_shows_and_keeps_what_the_person_is_typing, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_change_elsewhere_while_the_editor_has_a_write_out_reloads_the_list_and_is_kept_once_the_write_lands, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_change_elsewhere_landing_while_the_editors_answer_is_out_is_read_once_the_answer_is_in, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_change_elsewhere_skipped_during_a_write_that_is_refused_is_read_once_the_queue_is_empty, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.A_save_made_through_another_pane_reaches_this_one_until_it_unsubscribes, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.The_panes_own_saves_are_not_heard_back, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.A_change_saved_elsewhere_while_a_prep_task_is_filed_is_kept, integration:dotnet:Backlog.HostComposition.UnitTests.McpServerCompositionTests.An_event_added_over_mcp_reaches_an_events_pane_open_in_another_scope, integration:dotnet:Backlog.HostComposition.UnitTests.MauiDesktopCompositionTests.The_maui_head_builds_the_events_tool_and_an_open_events_pane_hears_what_it_adds]
+```
+
+The system SHALL show an event added or changed outside an open Events pane in that pane without a reload by hand, and SHALL keep what the person is typing in it.
+
+#### Scenario: Added over MCP while the pane is open
+
+- **Given** the Events pane open in a popped-out window
+- **When** an assistant adds "dotNET Friday, 27 November" over MCP
+- **Then** the pane lists it as Spotted, without a reload by hand
+
+#### Scenario: An edit in progress is kept
+
+- **Given** a Spotted event open in the pane, and the person typing a new title
+- **When** the event is marked Considering in another window
+- **Then** the pane shows it Considering, and the title field keeps what the person typed
+
 ### Requirement: The pane lists events by state, upcoming first
 
 ```meta
@@ -523,7 +595,7 @@ The system SHALL attach a Talk note chosen on the phone to the event once one of
 
 #### Scenario: A note from the keynote
 
-- **Given** a Going event and a Talk note "Keynote" in the phone's Notes tab
+- **Given** a Going event and a Talk note "Keynote" in the phone Inbox
 - **When** the person attaches the note to the event and a desktop syncs
 - **Then** the event links "Keynote" on every device
 

@@ -144,6 +144,7 @@ public class McpToolCreationTests
 
         Assert.Equal(
             [
+                EventTools.AddKnowledgeEvent,
                 InboxTools.ArchiveInboxItem,
                 NotificationTools.Ask,
                 GoalTools.AttachToGoal,
@@ -253,6 +254,10 @@ public class McpToolCreationTests
         Assert.Equal(["id", "repository", "sessionId"], schemas["link_session"]);
         Assert.Equal(["rawText", "repository"], schemas["create_item"]);
         Assert.Equal(["id", "repository", "references"], schemas["set_devbook_references"]);
+        Assert.Equal(
+            ["title", "series", "start", "end", "online", "venue", "link", "whatToLearn", "ticket", "costAmount", "costCurrency"],
+            schemas["add_knowledge_event"]);
+        Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "add_knowledge_event")));
         Assert.Equal(["id", "repository"], schemas["list_devbook_references"]);
 
         // find_item requires none of its arguments at the schema level, on
@@ -429,6 +434,7 @@ public class McpToolCreationTests
             [typeof(LoopTools)] = new LoopTools(new InMemoryLoopRegister()),
             [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications()),
             [typeof(InboxTools)] = new InboxTools(InboxToolsTests.FakeInbox.Over()),
+            [typeof(EventTools)] = new EventTools(new EventToolsTests.FakeEventsPane()),
             [typeof(WindowTools)] = new WindowTools(FakeSurfaceWindows.Catalog(), new FakeSurfaceWindows())
         };
 

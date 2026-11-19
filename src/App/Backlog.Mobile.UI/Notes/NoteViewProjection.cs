@@ -191,7 +191,8 @@ public sealed class NoteViewProjection : IDisposable
             cancellationToken);
 
     /// <summary>
-    /// Adds files to a note the phone holds and changes nothing else: the title and body are
+    /// Adds files to a note the phone holds and changes nothing else but a blank title, which is
+    /// named as a save names it (<see cref="TalkNoteTitle"/>): the title and body are
     /// the row's as it stands when the write is built, under the gate, so an edit that landed
     /// while the files were being readied is kept. A file the note already names is not added
     /// again, and when none is new nothing is written. Answers the row, or null for a note the
@@ -223,7 +224,13 @@ public sealed class NoteViewProjection : IDisposable
                 var now = _clock.GetUtcNow();
                 var stamp = now > current.UpdatedAt ? now : current.UpdatedAt.AddTicks(1);
 
-                return (new TaskChange(id, stamp, DeletedAt: null, current.Note with { Attachments = files }), [.. added.Select(file => file.Id)]);
+                // A note Record created empty has no title yet, and the desktop files no note
+                // without one: it is named the way a save names it, after its first file.
+                var title = string.IsNullOrWhiteSpace(current.Note.Title)
+                    ? TitleOf(null, current.Note.ContentMd, files)
+                    : current.Note.Title;
+
+                return (new TaskChange(id, stamp, DeletedAt: null, current.Note with { Title = title, Attachments = files }), [.. added.Select(file => file.Id)]);
             },
             cancellationToken);
 

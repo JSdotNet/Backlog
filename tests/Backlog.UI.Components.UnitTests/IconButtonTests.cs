@@ -4,8 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The icon-only control, as a button and as a link to a page of the app — the phone's
-/// Notifications bell (<c>.devbook/design/interaction-guidelines.md#phone-tab-bar</c>).
+/// The icon-only control, as a button and as a link to a page of the app, named by its label
+/// because its glyph names nothing (<c>.devbook/design/accessibility.md#iconography-accessibility</c>).
+/// The samples link a bell to a notifications page.
 /// </summary>
 public sealed class IconButtonTests
 {

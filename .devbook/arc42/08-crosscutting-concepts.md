@@ -469,11 +469,32 @@ These parts are built:
 - **Who may answer.** The sync API accepts a reply only from a device under the
   same owner, and the owner checks again. Any paired viewer may answer, critical
   questions included, unless the question says `answerOn: owner`.
-- **The flag is per device.** Off on a phone means no push and no Notifications bell. Off on a
+- **The flag is per device.** Off on a phone means no push and no Notifications tab. Off on a
   desktop means its sources fall back to toasts, and an MCP `ask` answers that
   notifications are not available.
 - **The sync service still scales to zero.** No connection to the sync service
   stays open. Web PubSub holds the desktop connections instead.
+
+## Change Notices
+
+```meta
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/domain/events/features.md#events-pane", ".devbook/domain/inbox/features.md#work-the-queue-over-mcp", ".devbook/domain/sessions/features.md#re-read-on-request"]
+```
+
+An open page shows a write made elsewhere because the module that owns the data
+raises a singleton notice on every save, whoever saves. The module's published port
+holds its `Changed` on that notice. An MCP call runs in a desktop scope of its own,
+and each window has its own scopes, so a scoped event would reach neither.
+
+- **A page ignores its own writes.** The Tasks and Events panes mark their own saves
+  and skip the notice they cause, so a reload never reads over a field being typed.
+- **Every MCP write tool names its notice.** `McpRefreshMap` in
+  `Backlog.Infrastructure.Mcp` maps each tool not marked read-only to the notice that
+  refreshes its pages, or the reason none does. `BacklogMcpToolsTests` fails for a
+  write tool missing from it.
+- **The exceptions are named in the map.** The session request queue is polled every
+  five seconds. The window tools change no data. The surface run tools do not refresh
+  the Sessions pane, which reads its runs on request.
 
 ## Feature Enablement
 

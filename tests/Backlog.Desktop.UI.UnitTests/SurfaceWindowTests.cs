@@ -1,7 +1,10 @@
 using Backlog.Desktop.UI.Shell;
+using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Services;
 using Backlog.Modules.Inbox.UI;
+using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Sessions.UI;
 using Backlog.Modules.Tasks.Services;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -275,6 +278,153 @@ public sealed class SurfaceWindowTests
 
         Assert.Equal(0, Volatile.Read(ref changed));
         Assert.Equal("Named before the window closed", Assert.Single(host.Pane.State.Rows).PreviewTitle);
+    }
+
+    /// <summary>A popped-out window's Sessions list hears a run file written by the
+    /// delivery surface's MCP tools, through the one process-wide run signal: the run
+    /// appears in place, and the window reads no sessions again for it.</summary>
+    [Fact]
+    public async Task A_run_written_outside_the_window_shows_in_its_sessions_list()
+    {
+        using var host = await CreateHostAsync();
+        var signal = new DeliveryRunChangeSignal();
+        var (sessions, runs) = AddSessions(host, signal, [PoppedRun("run-1")]);
+
+        var window = host.Render("sessions");
+        window.WaitForAssertion(
+            () => Assert.Equal(["run-1"], RunIds(window)),
+            TimeSpan.FromSeconds(10));
+
+        runs.Runs = [PoppedRun("run-2", minutesAgo: 1), PoppedRun("run-1")];
+        await Task.Run(signal.Raise, TestContext.Current.CancellationToken);
+
+        window.WaitForAssertion(
+            () => Assert.Equal(["run-2", "run-1"], RunIds(window)),
+            TimeSpan.FromSeconds(10));
+        Assert.Equal(1, sessions.Reads);
+    }
+
+    /// <summary>A Sessions window that closed stops listening: a run written after it
+    /// reads nothing.</summary>
+    [Fact]
+    public async Task A_closed_sessions_window_no_longer_reads_for_a_run_written_outside_it()
+    {
+        using var host = await CreateHostAsync();
+        var signal = new DeliveryRunChangeSignal();
+        var (sessions, runs) = AddSessions(host, signal, [PoppedRun("run-1")]);
+
+        var window = host.Render("sessions");
+        window.WaitForAssertion(
+            () => Assert.Equal(["run-1"], RunIds(window)),
+            TimeSpan.FromSeconds(10));
+        await host.Pane.Context.DisposeComponentsAsync();
+
+        await Task.Run(signal.Raise, TestContext.Current.CancellationToken);
+
+        // Long enough for a read the dispatcher had queued to start; none should.
+        await Task.Delay(TimeSpan.FromMilliseconds(500), TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, runs.Reads);
+        Assert.Equal(1, sessions.Reads);
+    }
+
+    private const string PoppedFolder = @"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825";
+
+    private static (PoppedSessionSource Sessions, PoppedRunSource Runs) AddSessions(Host host, IDeliveryRunChangeSignal signal, IReadOnlyList<DeliveryRun> runs)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var sessions = new PoppedSessionSource(
+        [
+            new AgentSession(
+                Id: "5905cf2d",
+                Kind: AgentSessionKind.Claude,
+                EnvironmentId: "tower",
+                Environment: "DEV-TOWER",
+                Title: "keen-bose-667825",
+                WorkingFolder: PoppedFolder,
+                Repository: null,
+                Branch: "claude/desktop-session-area",
+                StartedAt: now.AddHours(-2),
+                LastActivityAt: now.AddMinutes(-1),
+                State: AgentSessionState.Running,
+                TurnCount: 12,
+                Origin: AgentSessionOrigin.Local)
+        ]);
+        var source = new PoppedRunSource(runs);
+
+        var services = host.Pane.Context.Services;
+        services.AddSingleton(new ShellSurface("sessions", "Sessions", ShellSurfaceGroup.Takeover, 40, typeof(SessionsSurface)));
+        services.AddSingleton<IAgentSessionSource>(sessions);
+        services.AddSingleton<IDeliveryRunSource>(source);
+        services.AddSingleton(signal);
+
+        return (sessions, source);
+    }
+
+    private static DeliveryRun PoppedRun(string id, int minutesAgo = 10)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        return new DeliveryRun(
+            Id: id,
+            Dashboard: "orch-dashboard",
+            Worktree: DeliveryRunWorktrees.KeyOf(PoppedFolder)!,
+            WorktreeName: "keen-bose-667825",
+            EnvironmentId: "tower",
+            Environment: "DEV-TOWER",
+            SkillId: "orch-feature",
+            Title: "A run",
+            Status: "in_progress",
+            ChangeKind: "new-functionality",
+            References: [],
+            StartedAt: now.AddMinutes(-minutesAgo - 5),
+            UpdatedAt: now.AddMinutes(-minutesAgo),
+            Stages: [],
+            TokenUsage: null,
+            Context: null,
+            InsightsByCategory: [],
+            InsightsByServer: []);
+    }
+
+    private static string?[] RunIds(IRenderedComponent<SurfaceWindow> window) =>
+        [.. window.FindAll("[data-testid='sessions-run-card'] [data-testid='sessions-run']").Select(line => line.GetAttribute("data-run-id"))];
+
+    private sealed class PoppedSessionSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
+    {
+        private int _reads;
+
+        public int Reads => Volatile.Read(ref _reads);
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _reads);
+
+            return Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
+        }
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(cancellationToken);
+    }
+
+    private sealed class PoppedRunSource(IReadOnlyList<DeliveryRun> runs) : IDeliveryRunSource
+    {
+        private int _reads;
+        private volatile IReadOnlyList<DeliveryRun> _runs = runs;
+
+        public int Reads => Volatile.Read(ref _reads);
+
+        public IReadOnlyList<DeliveryRun> Runs
+        {
+            get => _runs;
+            set => _runs = value;
+        }
+
+        public Task<DeliveryRunCatalog> GetRunsAsync(CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _reads);
+
+            return Task.FromResult(new DeliveryRunCatalog(_runs, []));
+        }
     }
 
     /// <summary>

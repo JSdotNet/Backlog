@@ -1758,7 +1758,7 @@ The system SHALL refuse To Brain while no Brain folder is set up, say so, and le
 
 ```meta
 type: requirements
-related: [.devbook/domain/inbox/features.md#notes-on-the-phone]
+related: [.devbook/domain/inbox/features.md#notes-on-the-phone, .devbook/domain/inbox/domain.md#content-kind]
 ```
 
 ### Requirement: A note saves itself as it is written
@@ -1771,8 +1771,8 @@ The phone SHALL save a note a second after typing stops, with no save button, an
 
 #### Scenario: A new note
 
-- **Given** the phone's Notes tab is open
-- **When** the reader presses New note, types a title and a body, and stops typing
+- **Given** the phone Inbox is open
+- **When** the reader picks Note in the + menu, types a title and a body, and stops typing
 - **Then** the line at the top reads "Saved"
 
 #### Scenario: The app goes to the background before the second is up
@@ -1794,6 +1794,137 @@ The system SHALL bring a note made on the phone into the desktop Inbox as an ite
 - **Given** a note the phone saved
 - **When** the desktop syncs
 - **Then** the desktop Inbox shows it as a Note with its title
+
+### Requirement: The phone Inbox lists captures, notes and meetings together
+
+```meta
+type: requirement
+```
+
+The phone SHALL show in its Inbox, as one list, the captures it made that the desktop has not taken in and every note and meeting, each row with its kind's mark and name, and SHALL have no Notes tab.
+
+#### Scenario: Three kinds in one list
+
+- **Given** a capture the phone made that the desktop has not taken in, a note made on the desktop, and a meeting made on the phone
+- **When** the reader opens the phone Inbox
+- **Then** the list shows all three, marked Capture, Note and Meeting
+- **And** the tab bar holds no Notes tab
+
+#### Scenario: A capture the desktop took in
+
+- **Given** a capture and a note the phone made, both shown in the phone Inbox
+- **When** the desktop takes the capture in, and the phone pulls
+- **Then** the capture is gone from the phone Inbox and the note stays
+
+### Requirement: Kind chips narrow the phone Inbox
+
+```meta
+type: requirement
+```
+
+The phone SHALL offer the chips All, Captures, Notes and Meetings above its Inbox list, and show only the items of the chosen kind.
+
+#### Scenario: Only the meetings
+
+- **Given** the phone Inbox holds a capture, a note and a meeting
+- **When** the reader presses Meetings
+- **Then** the list shows only the meeting
+
+#### Scenario: Back to all
+
+- **Given** the phone Inbox filtered to Notes
+- **When** the reader presses All
+- **Then** the list shows the capture, the note and the meeting
+
+### Requirement: The + menu makes a note or a meeting
+
+```meta
+type: requirement
+```
+
+The phone SHALL offer Note and Meeting in its Inbox's + menu, while sharing from another app and the quick one-line field go on making a capture.
+
+#### Scenario: The menu
+
+- **Given** the phone Inbox is open
+- **When** the reader presses +
+- **Then** the menu offers Note and Meeting
+
+#### Scenario: The one-line field
+
+- **Given** the phone Inbox is open
+- **When** the reader types a line in the quick field and sends it
+- **Then** the list shows a new capture with its sync state
+
+### Requirement: The old Notes address opens the Inbox on notes
+
+```meta
+type: requirement
+```
+
+The phone SHALL open `/notes` as its Inbox filtered to Notes, and go on opening `/notes/new` and `/notes/{id}` in the note editor.
+
+#### Scenario: A saved link to the Notes list
+
+- **Given** a link to `/notes`
+- **When** the reader follows it
+- **Then** the phone Inbox opens with the Notes chip chosen
+
+#### Scenario: A link to one note
+
+- **Given** a link to `/notes/{id}` of an existing note
+- **When** the reader follows it
+- **Then** the note opens in the editor
+
+## Meetings on the phone
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#meetings, .devbook/domain/inbox/domain.md#meeting]
+```
+
+### Requirement: Meeting opens a meeting already recording
+
+```meta
+type: requirement
+```
+
+The phone SHALL open a new item of kind meeting with its recording running when the reader picks Meeting in the Inbox's + menu.
+
+#### Scenario: Starting a meeting
+
+- **Given** the phone Inbox is open and the microphone is allowed
+- **When** the reader picks Meeting in the + menu
+- **Then** the editor opens with the recording bar running
+- **And** the phone Inbox lists the item marked Meeting
+
+### Requirement: A meeting reaches the desktop as a meeting
+
+```meta
+type: requirement
+```
+
+The system SHALL bring a meeting made on the phone into the desktop Inbox as an item whose kind is meeting, and sync its edits both ways as a note's.
+
+#### Scenario: After the desktop syncs
+
+- **Given** a meeting the phone saved
+- **When** the desktop syncs
+- **Then** the desktop Inbox shows it with the meeting mark, and the Meetings chip counts it
+
+### Requirement: A note given a recording stays a note
+
+```meta
+type: requirement
+```
+
+The system SHALL keep the kind of a note the reader records into as note.
+
+#### Scenario: Recording into an existing note
+
+- **Given** a note on the phone
+- **When** the reader records into it and presses Stop
+- **Then** the phone Inbox and the desktop Inbox both still show it as a Note
 
 ## Recordings on a note
 
@@ -1909,7 +2040,7 @@ The phone SHALL save a recording whose note was deleted on the desktop while it 
 
 - **Given** a recording running on a note
 - **When** the desktop deletes the note, the phone pulls, and the reader presses Stop
-- **Then** the Notes tab holds a new note "Recording · <date>" with the recording on it
+- **Then** the phone Inbox holds a new note "Recording · <date>" with the recording on it
 
 ### Requirement: A downloaded recording is transcribed once per file
 
@@ -1918,7 +2049,7 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_pulled_note_with_a_recording_is_handed_to_the_queue, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.The_audio_sent_is_the_file_as_it_lies_with_its_type, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_sha256_already_transcribed_is_never_sent_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_recording_not_yet_downloaded_and_a_photo_are_not_sent, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.An_archived_note_is_not_written]
 ```
 
-The desktop SHALL send each downloaded recording on a note that is not archived to transcription, with no press, and never send a file whose sha256 it has already transcribed.
+The desktop SHALL send each downloaded recording the app made, on a note that is not archived, to transcription with no press, and never send a file whose sha256 it has already transcribed.
 
 #### Scenario: A note arrives with a recording
 
@@ -1938,11 +2069,31 @@ The desktop SHALL send each downloaded recording on a note that is not archived 
 - **When** the desktop takes up the note
 - **Then** it sends neither
 
+#### Scenario: A picked audio file
+
+- **Given** a note holding "standup.m4a", an audio file the reader picked onto it
+- **When** the desktop takes up the note
+- **Then** it sends nothing, and the file stays on the note
+
 #### Scenario: An archived note
 
 - **Given** an archived note with a downloaded recording
 - **When** the desktop takes up the note
 - **Then** it sends nothing and writes nothing
+
+### Requirement: A long M4A recording is transcribed in five-minute parts
+
+```meta
+type: requirement
+```
+
+The desktop SHALL transcribe an M4A recording of any length in parts of at most 5 minutes, as it does an AAC one.
+
+#### Scenario: A 40-minute recording from the browser
+
+- **Given** a note holding a 40-minute "Recording · <duration>" as one downloaded M4A file
+- **When** the transcription answers
+- **Then** `## Transcript` holds the text from start to end, headed by an offset about every five minutes
 
 ### Requirement: The transcript and summary are appended to the note as it stands
 
@@ -2016,25 +2167,48 @@ type: requirement
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_transcription_leaves_the_body_and_the_file_and_records_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_write_records_nothing_so_the_next_start_tries_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Nothing_is_sent_while_foundry_is_not_configured]
 ```
 
-When a recording cannot be transcribed or its sections cannot be saved, the desktop SHALL leave the note's body and the file as they were, keep no record of the sha256, and try the recording again on its next start.
+When a recording cannot be transcribed or its sections cannot be saved, the desktop SHALL leave the note's body and the file as they were, count a failed attempt for its sha256, and try it again on the note's next pull or the next start until three attempts have failed.
 
 #### Scenario: The transcription fails
 
 - **Given** a note whose body reads "Agenda." and a downloaded recording on it
 - **When** the transcription fails
 - **Then** the body still reads "Agenda.", the recording stays on the note, and nothing waits to push
+- **And** one failed attempt is counted for the recording
 
 #### Scenario: The save fails
 
 - **Given** a recording the transcription answered
 - **When** saving the note fails
-- **Then** no record of its sha256 is kept, so the next start sends it again
+- **Then** its sha256 is not marked transcribed and a failed attempt is counted, so the next start sends it again
 
 #### Scenario: Foundry is not configured
 
 - **Given** a desktop without Foundry configured
 - **When** a note with a downloaded recording arrives
-- **Then** nothing is sent, and the recording stays on the note
+- **Then** nothing is sent, the recording stays on the note, and no attempt is counted
+
+### Requirement: A recording that failed three times waits for Retry
+
+```meta
+type: requirement
+```
+
+After a recording's third failed attempt, the desktop SHALL stop sending it, show on the note's recording row that transcription failed with the last reason, and send it again only after the reader presses Retry.
+
+#### Scenario: The third failure
+
+- **Given** a recording that has failed twice
+- **When** its transcription fails a third time
+- **Then** the note's recording row reads that transcription failed, with the reason, and offers Retry
+- **And** the next pull and the next start send nothing
+
+#### Scenario: Retry
+
+- **Given** a recording whose row shows that transcription failed
+- **When** the reader presses Retry
+- **Then** the desktop sends the recording again on its next take-up of the note
+- **And** a success appends the sections and removes the file as for any recording
 
 ### Requirement: A note that lost its transcript is repaired
 
@@ -2071,13 +2245,13 @@ related: [.devbook/domain/inbox/features.md#notes-on-the-desktop]
 type: requirement
 ```
 
-The system SHALL bring an edit the desktop makes to a note to the phone's Notes list on the phone's next pull.
+The system SHALL bring an edit the desktop makes to a note to the phone Inbox on the phone's next pull.
 
 #### Scenario: Editing the body
 
 - **Given** a note the phone made, shown in the desktop Inbox
 - **When** the reader presses Edit note, changes the body, presses Save, and the phone pulls after the desktop syncs
-- **Then** the phone's Notes list shows the edited text
+- **Then** the phone Inbox shows the edited text
 
 ### Requirement: An archived note leaves the phone
 
@@ -2085,13 +2259,27 @@ The system SHALL bring an edit the desktop makes to a note to the phone's Notes 
 type: requirement
 ```
 
-The system SHALL take a note the desktop archives off the phone's Notes list on the phone's next pull.
+The system SHALL take a note the desktop archives off the phone Inbox on the phone's next pull.
 
 #### Scenario: Archiving on the desktop
 
-- **Given** a note shown in the desktop Inbox and in the phone's Notes list
+- **Given** a note shown in the desktop Inbox and in the phone Inbox
 - **When** the reader archives it on the desktop, and the phone pulls after the desktop syncs
-- **Then** the note is gone from the phone's Notes list
+- **Then** the note is gone from the phone Inbox
+
+### Requirement: Meetings have a mark and a chip of their own
+
+```meta
+type: requirement
+```
+
+The desktop Inbox SHALL show a meeting with a meeting mark and offer a Meetings kind chip beside the Notes one.
+
+#### Scenario: A note and a meeting
+
+- **Given** the desktop Inbox holds a note and a meeting
+- **When** the reader presses the Meetings chip
+- **Then** the list shows only the meeting, with the meeting mark
 
 ## Triage stays on the desktop
 
@@ -2100,8 +2288,8 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#triage-stays-on-the-desktop]
 ```
 
-> Every scenario starts from captures the phone made, because the phone's
-> Inbox tab shows only those until the desktop decides them.
+> Every scenario starts from captures the phone made. Beside notes and
+> meetings, they are the only items the phone Inbox shows.
 
 ### Requirement: The phone offers no triage
 
@@ -2109,17 +2297,17 @@ related: [.devbook/domain/inbox/features.md#triage-stays-on-the-desktop]
 type: requirement
 ```
 
-The phone SHALL offer no way to route, defer, accept or archive an Inbox Item, in its Inbox tab's list or on an item opened from it.
+The phone SHALL offer no way to route, defer, accept or archive an Inbox Item, in its Inbox list or on an item opened from it.
 
 #### Scenario: The list
 
-- **Given** the phone's Inbox tab shows two captures the phone made that the desktop has not decided
+- **Given** the phone Inbox shows two captures the phone made that the desktop has not decided
 - **When** the reader looks at the list
 - **Then** each row shows its sync state and none offers to route, defer, accept or archive
 
 #### Scenario: An opened item
 
-- **Given** the phone's Inbox tab shows a capture the phone made that the desktop has not decided
+- **Given** the phone Inbox shows a capture the phone made that the desktop has not decided
 - **When** the reader opens it
 - **Then** the capture is shown with no button to route, defer, accept or archive it
 
