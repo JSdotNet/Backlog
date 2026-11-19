@@ -34,7 +34,7 @@ public sealed class PullRequestStateBoundaryTests
 
     /// <summary>
     /// Every pull-request member of the adapter's public <c>IGitHubClient</c> whose name the
-    /// list above does not already hold: the REST and status reads by number, the read by
+    /// list above does not already hold: the REST read by number, the read by
     /// number the pinned list sends, the rules a branch requires, and the re-run of a
     /// failed job. ADR 0042 V1 forbids "a pull-request member of
     /// <c>Backlog.Infrastructure.GitHub</c>", not only of <c>GitHubIntegration</c>.
@@ -42,7 +42,6 @@ public sealed class PullRequestStateBoundaryTests
     private static readonly string[] ClientPullRequestMembers =
     [
         "GetPullRequestAsync",
-        "GetPullRequestStatusAsync",
         "ListPullRequestsAsync",
         "ReadRequiredApprovalsAsync",
         "RerunFailedJobsAsync"

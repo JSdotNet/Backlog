@@ -258,6 +258,29 @@ public sealed class DevToolListingTests : IDisposable
         Assert.Contains("The market-two marketplace could not be refreshed", catalog.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>Claude is asked what it has installed only after its marketplace
+    /// listing and every pull it named have run, in that order. Claude answers out of
+    /// its own clone of each marketplace, so asking first is asking about the last
+    /// refresh somebody else happened to run. The first pull is the slow one, so a
+    /// listing that started the installed-plugins question beside the pulls would
+    /// launch it before the second.</summary>
+    [Fact]
+    public async Task A_claude_listing_pulls_every_marketplace_before_asking_what_is_installed()
+    {
+        var runner = new ScriptedRunner { SlowCommand = "plugin marketplace update market-one" };
+
+        await Service(runner, concurrency: 5).ListAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [
+                "claude.cmd plugin marketplace list --json",
+                "claude.cmd plugin marketplace update market-one",
+                "claude.cmd plugin marketplace update market-two",
+                "claude.cmd plugin list --json"
+            ],
+            runner.Launches.Where(launch => launch.StartsWith("claude.cmd plugin ", StringComparison.Ordinal)));
+    }
+
     [Fact]
     public async Task A_caller_that_cancels_gets_its_cancellation_back()
     {

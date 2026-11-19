@@ -482,14 +482,6 @@ internal sealed class TasksPaneHost : IDisposable
                 : Task.FromException<GitHubPullRequest>(new GitHubException("Not Found"));
         }
 
-        public Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(
-            GitHubRepositoryRef repository,
-            int number,
-            CancellationToken cancellationToken = default) =>
-            PullRequestStatuses.TryGetValue(number, out var status)
-                ? Task.FromResult(status)
-                : Task.FromException<GitHubPullRequestStatus>(new GitHubException("Not Found"));
-
         public Task EnableAutoMergeAsync(GitHubRepositoryRef repository, string pullRequestId, GitHubMergeMethod method, CancellationToken cancellationToken = default) =>
             Act("enable", pullRequestId, status => status with { AutoMergeEnabled = true });
 

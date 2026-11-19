@@ -403,12 +403,3 @@ public sealed class AzureFoundryException : Exception
     /// unreachable, or an answer this client could not read.</summary>
     public int? StatusCode { get; }
 }
-
-public sealed class UnavailableAzureFoundryChatClient : IAzureFoundryChatClient
-{
-    public Task<AzureFoundryChatResponse> AskAsync(AzureFoundryChatRequest request, CancellationToken cancellationToken = default) =>
-        throw new AzureFoundryException("Azure Foundry AI support is not registered in this build.");
-
-    public Task<AzureFoundryPlanResponse> DraftPlanAsync(AzureFoundryPlanRequest request, CancellationToken cancellationToken = default) =>
-        throw new AzureFoundryException("Azure Foundry AI support is not registered in this build.");
-}

@@ -1712,21 +1712,6 @@ public static class EntryTextParser
         return string.Join('\n', lines.Skip(span.Start).Take(span.End - span.Start));
     }
 
-    public static string ReplaceSubItemText(string raw, int subItemIndex, string replacement)
-    {
-        if (subItemIndex < 0) return raw;
-
-        var normalized = Normalize(raw);
-        var lines = normalized.Split('\n').ToList();
-        var spans = LocateSubItems(normalized);
-        if (subItemIndex >= spans.Count) return raw;
-
-        var span = spans[subItemIndex];
-        var replacementLines = Normalize(replacement).Split('\n').ToList();
-        lines.RemoveRange(span.Start, span.End - span.Start);
-        lines.InsertRange(span.Start, replacementLines);
-        return string.Join('\n', lines);
-    }
     public static string WithArea(string raw, string? area) =>
         RewriteMetaLine(raw, area: area, updateArea: true);
 
@@ -2184,8 +2169,6 @@ public static class EntryTextParser
         bool updateRepoIds = false,
         int? effort = null,
         bool updateEffort = false,
-        EntryView? view = null,
-        bool updateView = false,
         Attachment? attachment = null,
         bool updateAttachment = false)
     {
@@ -2360,12 +2343,6 @@ public static class EntryTextParser
         {
             RemoveNamedToken(tokens, "files");
             if (attachment is { } attached) tokens.Add($"files:{attached.Path}");
-        }
-
-        if (updateView)
-        {
-            RemoveNamedToken(tokens, "view");
-            if (view is { } chosenView) tokens.Add($"view:{ViewToken(chosenView)}");
         }
 
         var metaLine = string.Join(' ', tokens.Select(token => $"`{token}`"));

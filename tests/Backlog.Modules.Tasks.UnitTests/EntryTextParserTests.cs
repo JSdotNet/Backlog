@@ -1250,28 +1250,6 @@ public class EntryTextParserTests
     }
 
     [Fact]
-    public void Replacing_sub_item_text_changes_only_that_chapter()
-    {
-        const string raw =
-            "# Parent\n" +
-            "`task` `*medium` `!draft` `@repo`\n\n" +
-            "## First\n" +
-            "Keep this.\n\n" +
-            "### Target\n" +
-            "Old target notes.\n\n" +
-            "## Last\n" +
-            "Keep last.\n";
-
-        var rewritten = EntryTextParser.ReplaceSubItemText(raw, 1, "### Updated target\nNew target notes.");
-
-        Assert.Contains("## First\nKeep this.", rewritten);
-        Assert.Contains("### Updated target\nNew target notes.", rewritten);
-        Assert.DoesNotContain("Old target notes.", rewritten);
-        Assert.Contains("## Last\nKeep last.", rewritten);
-        Assert.StartsWith("# Parent", rewritten);
-    }
-
-    [Fact]
     public void A_heading_written_without_a_space_is_not_a_sub_item()
     {
         var parsed = EntryTextParser.Parse("# Title\n\n##Nospace\n");
