@@ -59,6 +59,69 @@ public sealed class Arc42SurfaceTests : IDisposable
         Assert.Equal("High · planned", debt.Note);
     }
 
+    /// <summary>A record whose file carries no number — `package-management.md` — is
+    /// given one, after the highest a file carries, in the log's order and at the width
+    /// the numbered files use; its slug stays on the record for the tooltip.</summary>
+    [Fact]
+    public async Task An_unnumbered_record_is_numbered_after_the_highest_number_a_file_carries()
+    {
+        var unnumbered = new Dictionary<string, string>
+        {
+            ["adr/package-management.md"] = "# Package Management\n\nCentral packages.\n",
+            ["adr/zeta-sync.md"] = "# Zeta sync\n\nThe sync.\n"
+        };
+
+        var (catalog, _) = await LoadAsync(extra: unnumbered);
+
+        var decisions = Arc42Surface.Decisions(catalog);
+
+        Assert.Equal(["0003", "0005", "0006", "0007", "0008", "0004"], decisions.Select(record => record.Number));
+        var package = decisions.Single(record => record.Title == "Package Management");
+        Assert.False(package.Numbered);
+        Assert.Equal("package-management", package.Slug);
+        Assert.True(decisions.Single(record => record.Number == "0005").Numbered);
+    }
+
+    /// <summary>Find knows an unnumbered record by its slug, and never by the number the
+    /// log gave it: no file carries that number, so it is no identifier to search by or
+    /// to label the hit with.</summary>
+    [Fact]
+    public async Task Find_knows_an_unnumbered_record_by_its_slug_and_not_by_the_logs_number()
+    {
+        var unnumbered = new Dictionary<string, string>
+        {
+            ["adr/package-management.md"] = "# Package Management\n\nCentral packages.\n"
+        };
+
+        var (catalog, _) = await LoadAsync(extra: unnumbered);
+
+        var hit = Assert.Single(Arc42Surface.Find(catalog, null, "package-management"));
+        Assert.Equal(Arc42FindKind.Decision, hit.Kind);
+        Assert.Equal("Package Management", hit.Label);
+        Assert.Contains("package-management", hit.Detail, StringComparison.Ordinal);
+
+        Assert.Empty(Arc42Surface.Find(catalog, null, "0007"));
+        Assert.Empty(Arc42Surface.Find(catalog, null, "ADR 0007"));
+
+        // A numbered record is still found, and labelled, by its number.
+        Assert.Equal("ADR 0005 An Azure-hosted replica carries sync", Assert.Single(Arc42Surface.Find(catalog, null, "ADR 0005")).Label);
+    }
+
+    [Fact]
+    public async Task A_log_of_unnumbered_records_is_numbered_from_01()
+    {
+        var unnumbered = new Dictionary<string, string>
+        {
+            ["adr/package-management.md"] = "# Package Management\n\nCentral packages.\n",
+            ["adr/zeta-sync.md"] = "# Zeta sync\n\nThe sync.\n"
+        };
+
+        var (catalog, _) = await LoadAsync(extra: unnumbered, records: false);
+
+        Assert.Equal(["01", "02"], Arc42Surface.Decisions(catalog).Select(record => record.Number));
+        Assert.All(Arc42Surface.Decisions(catalog), record => Assert.False(record.Numbered));
+    }
+
     [Fact]
     public async Task A_chapters_links_are_its_views_the_decisions_citing_it_and_the_debt_on_its_elements()
     {
@@ -138,7 +201,12 @@ public sealed class Arc42SurfaceTests : IDisposable
         Assert.Equal("Find element, chapter, ADR, TDR", component.Find("[data-testid='arc42-surface-find'] input").GetAttribute("placeholder"));
         component.WaitForAssertion(() => Assert.Equal("System context", OpenLine(component)));
         Assert.Single(component.FindAll("[data-testid='c4-zoom-bar']"));
-        Assert.Equal("model", component.Find("[data-testid='arc42-surface-nav']").GetAttribute("data-mode"));
+
+        // One tree, its folds closed on the model.
+        Assert.Equal(Groups, NavGroups(component));
+        Assert.Equal("false", Expanded(component, "arc42-surface-all-chapters"));
+        Assert.Equal("false", Expanded(component, "arc42-surface-decisions"));
+        Assert.Equal("false", Expanded(component, "arc42-surface-debt"));
 
         var views = component.FindAll("[data-testid='arc42-surface-view']");
         Assert.Equal(["Systemcontext", "Containers5"], views.Select(view => string.Concat(view.TextContent.Where(character => !char.IsWhiteSpace(character)))));
@@ -150,7 +218,30 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         Assert.Equal("3 · 1 proposed", component.Find("[data-testid='arc42-surface-decisions-count']").TextContent);
         Assert.Equal("1", component.Find("[data-testid='arc42-surface-debt-count']").TextContent);
-        Assert.Equal("All 4 chapters", component.Find("[data-testid='arc42-surface-all-chapters']").TextContent);
+        Assert.Equal("4", component.Find("[data-testid='arc42-surface-chapters-total']").TextContent);
+    }
+
+    /// <summary>The arc42 group counts the lines it lists: a building block's file,
+    /// which has no number, is a line and so is counted.</summary>
+    [Fact]
+    public async Task The_arc42_group_counts_every_line_it_lists()
+    {
+        await using var harness = CreateHarness(extra: new Dictionary<string, string>
+        {
+            ["building-blocks/devbook.md"] = "# Devbook\n\nThe devbook building block.\n"
+        });
+        var component = harness.Render(null);
+        Settle(component);
+
+        component.WaitForAssertion(() =>
+        {
+            var lines = component.FindAll("[data-testid='arc42-surface-chapter']");
+            Assert.Equal(5, lines.Count);
+            Assert.Equal(lines.Count.ToString(System.Globalization.CultureInfo.InvariantCulture), component.Find("[data-testid='arc42-surface-chapters-total']").TextContent);
+        });
+
+        // Each line is one line: the full number and title are its tooltip.
+        Assert.Contains(component.FindAll("[data-testid='arc42-surface-chapter']"), line => line.GetAttribute("title") == "09 Architecture Decisions");
     }
 
     [Fact]
@@ -167,7 +258,7 @@ public sealed class Arc42SurfaceTests : IDisposable
         component.WaitForAssertion(() =>
         {
             Assert.Equal("containers-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
-            var document = Assert.Single(component.FindAll("[data-testid='arc42-surface-document']"));
+            var document = Assert.Single(component.FindAll(Documenting));
             Assert.Contains("05", document.TextContent, StringComparison.Ordinal);
             Assert.Contains("documented by 05", component.Find("[data-testid='arc42-surface-documented-by']").TextContent, StringComparison.Ordinal);
             Assert.Equal("Containers", OpenLine(component));
@@ -183,14 +274,21 @@ public sealed class Arc42SurfaceTests : IDisposable
         var component = harness.Render(null, asked);
         Settle(component);
 
+        // The arc42 group folds open in place: the picture stays up.
         await component.Find("[data-testid='arc42-surface-all-chapters']").ClickAsync(new());
+
+        component.WaitForAssertion(() => Assert.Equal("true", Expanded(component, "arc42-surface-all-chapters")));
+        Assert.Single(component.FindAll("[data-testid='c4-zoom-frame']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
+
+        await component.FindAll("[data-testid='arc42-surface-chapter']").Single(chapter => chapter.TextContent.Contains("01", StringComparison.Ordinal)).ClickAsync(new());
 
         component.WaitForAssertion(() => Assert.Contains("Goals.", component.Find("[data-testid='arc42-document']").TextContent, StringComparison.Ordinal));
         Assert.Contains(asked, link => link.Path.EndsWith("01-introduction.md", StringComparison.Ordinal));
 
-        // On the context view no chapter documents the view, so the first chapter opens;
-        // pick 05 from the chapter list.
-        Assert.Equal("chapters", component.Find("[data-testid='arc42-surface-nav']").GetAttribute("data-mode"));
+        // The same tree beside the chapter, the group still open; pick 05 from it.
+        Assert.Equal(Groups, NavGroups(component));
+        Assert.Equal("true", Expanded(component, "arc42-surface-all-chapters"));
         await component.FindAll("[data-testid='arc42-surface-chapter']").Single(chapter => chapter.TextContent.Contains("05", StringComparison.Ordinal)).ClickAsync(new());
 
         component.WaitForAssertion(() =>
@@ -210,13 +308,16 @@ public sealed class Arc42SurfaceTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='c4-zoom-step'][aria-current]"));
         Assert.Equal("ADR", component.Find("[data-testid='arc42-surface-chapter-adr']").TextContent.Split(' ')[^1]);
 
-        await component.Find("[data-testid='arc42-surface-back']").ClickAsync(new());
+        // No "Back to the C4 model": a view line is the way back to the picture.
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface-back']"));
+        await component.FindAll("[data-testid='arc42-surface-view']").Single(view => view.GetAttribute("data-view") == "context-backlog").ClickAsync(new());
 
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
             Assert.Single(component.FindAll("[data-testid='c4-zoom-frame']"));
-            Assert.Equal("model", component.Find("[data-testid='arc42-surface-nav']").GetAttribute("data-mode"));
+            Assert.Equal("System context", OpenLine(component));
+            Assert.Equal("false", Expanded(component, "arc42-surface-all-chapters"));
         });
     }
 
@@ -267,25 +368,36 @@ public sealed class Arc42SurfaceTests : IDisposable
         var component = harness.Render(null);
         Settle(component);
 
+        // Decisions folds open in place, the C4 views above it and the picture up.
         await component.Find("[data-testid='arc42-surface-decisions']").ClickAsync(new());
 
+        component.WaitForAssertion(() => Assert.Equal("true", Expanded(component, "arc42-surface-decisions")));
+        Assert.Single(component.FindAll("[data-testid='c4-zoom-frame']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-surface-view']"));
+
+        var records = component.FindAll(DecisionRecords);
+        Assert.Equal(4, records.Count);
+        Assert.Single(component.FindAll("[data-testid='arc42-surface-decision-log'] [data-testid='arc42-surface-record-note']"));
+
+        // Its Overview opens the decisions chapter beside the log.
+        await component.Find("[data-testid='arc42-surface-decisions-overview']").ClickAsync(new());
+
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("decisions", component.Find("[data-testid='arc42-surface-nav']").GetAttribute("data-mode"));
             Assert.Contains("The decision log.", component.Find("[data-testid='arc42-document']").TextContent, StringComparison.Ordinal);
+            Assert.Equal("page", component.Find("[data-testid='arc42-surface-decisions-overview']").GetAttribute("aria-current"));
+            Assert.Equal("true", Expanded(component, "arc42-surface-decisions"));
         });
 
-        var records = component.FindAll("[data-testid='arc42-surface-record']");
-        Assert.Equal(4, records.Count);
-        Assert.Single(component.FindAll("[data-testid='arc42-surface-record-note']"));
-
-        await records.Single(record => record.TextContent.Contains("0005", StringComparison.Ordinal)).ClickAsync(new());
+        await component.FindAll(DecisionRecords).Single(record => record.TextContent.Contains("0005", StringComparison.Ordinal)).ClickAsync(new());
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("decisions", component.Find("[data-testid='arc42-surface-nav']").GetAttribute("data-mode"));
+            Assert.Equal("true", Expanded(component, "arc42-surface-decisions"));
             Assert.Single(component.FindAll("[data-testid='arc42-record-model']"));
-            Assert.Equal("page", component.FindAll("[data-testid='arc42-surface-record']").Single(record => record.TextContent.Contains("0005", StringComparison.Ordinal)).GetAttribute("aria-current"));
+            Assert.Equal("page", component.FindAll(DecisionRecords).Single(record => record.TextContent.Contains("0005", StringComparison.Ordinal)).GetAttribute("aria-current"));
+            Assert.Single(component.FindAll("[data-testid='arc42-surface-nav'] [aria-current='page']"));
+            Assert.Equal(Groups, NavGroups(component));
         });
     }
 
@@ -303,7 +415,7 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         string[] Numbers() =>
         [
-            .. component.FindAll("[data-testid='arc42-surface-record'] .arc42-surface-nav__number").Select(number => number.TextContent.Trim())
+            .. component.FindAll($"{DecisionRecords} .arc42-surface-nav__number").Select(number => number.TextContent.Trim())
         ];
 
         var choices = component.FindAll("[data-testid='arc42-surface-decision-filter'] button");
@@ -319,6 +431,33 @@ public sealed class Arc42SurfaceTests : IDisposable
         Assert.Equal("true", component.Find("[data-testid='arc42-surface-decision-filter-accepted']").GetAttribute("aria-checked"));
     }
 
+    /// <summary>The filter's choice stays while the reader moves between records, and
+    /// a group the open record belongs to still folds by hand.</summary>
+    [Fact]
+    public async Task The_filter_keeps_its_choice_across_records_and_a_group_folds_by_hand()
+    {
+        await using var harness = CreateHarness();
+        var component = harness.Render(null);
+        Settle(component);
+
+        await component.Find("[data-testid='arc42-surface-decisions']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Equal("true", Expanded(component, "arc42-surface-decisions")));
+
+        await component.Find("[data-testid='arc42-surface-decision-filter-proposed']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(DecisionRecords)));
+
+        await component.Find(DecisionRecords).ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Contains("The schema decision.", component.Find("[data-testid='arc42-document']").TextContent, StringComparison.Ordinal));
+
+        Assert.Equal("true", component.Find("[data-testid='arc42-surface-decision-filter-proposed']").GetAttribute("aria-checked"));
+        Assert.Single(component.FindAll(DecisionRecords));
+
+        // Folded by hand with its record open, it stays folded, and the record stays open.
+        await component.Find("[data-testid='arc42-surface-decisions']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Equal("false", Expanded(component, "arc42-surface-decisions")));
+        Assert.Single(component.FindAll("[data-testid='arc42-document']"));
+    }
+
     [Fact]
     public async Task Technical_debt_opens_the_risks_chapter_beside_the_debt()
     {
@@ -330,11 +469,14 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("debt", component.Find("[data-testid='arc42-surface-nav']").GetAttribute("data-mode"));
-            Assert.Single(component.FindAll("[data-testid='arc42-surface-record']"));
+            Assert.Equal("true", Expanded(component, "arc42-surface-debt"));
+            Assert.Single(component.FindAll(DebtRecords));
         });
 
-        await component.Find("[data-testid='arc42-surface-record']").ClickAsync(new());
+        await component.Find("[data-testid='arc42-surface-debt-overview']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Contains("The risks.", component.Find("[data-testid='arc42-document']").TextContent, StringComparison.Ordinal));
+
+        await component.Find(DebtRecords).ClickAsync(new());
 
         component.WaitForAssertion(() =>
         {
@@ -385,7 +527,8 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("debt", component.Find("[data-testid='arc42-surface-nav']").GetAttribute("data-mode"));
+            Assert.Equal("true", Expanded(component, "arc42-surface-debt"));
+            Assert.Equal("page", component.Find(DebtRecords).GetAttribute("aria-current"));
             Assert.Contains("The debt.", component.Find("[data-testid='arc42-document']").TextContent, StringComparison.Ordinal);
         });
     }
@@ -409,13 +552,13 @@ public sealed class Arc42SurfaceTests : IDisposable
         Settle(component);
 
         await component.FindAll("[data-testid='arc42-surface-view']").Single(view => view.GetAttribute("data-view") == "containers-backlog").ClickAsync(new());
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-surface-document']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(Documenting)));
 
-        await component.Find("[data-testid='arc42-surface-document']").ClickAsync(new());
+        await component.Find(Documenting).ClickAsync(new());
 
         Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
         Assert.Equal("containers-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
-        Assert.Equal("model", component.Find("[data-testid='arc42-surface-nav']").GetAttribute("data-mode"));
+        Assert.Equal("Containers", OpenLine(component));
     }
 
     // ---- a record's state, from the subject store (local ADRs 0044 §5 and 0046) ----
@@ -472,7 +615,7 @@ public sealed class Arc42SurfaceTests : IDisposable
         component.WaitForAssertion(() =>
         {
             Assert.Equal("Planned", component.Find("[data-testid='arc42-record-lifecycle'] [aria-current='step']").TextContent);
-            Assert.Equal("High · planned", component.Find("[data-testid='arc42-surface-record-note']").TextContent);
+            Assert.Equal("High · planned", component.Find($"{DebtRecords} [data-testid='arc42-surface-record-note']").TextContent);
         });
 
         // Set the way the header's pick, a tool call over MCP or replication sets it:
@@ -482,7 +625,7 @@ public sealed class Arc42SurfaceTests : IDisposable
         component.WaitForAssertion(() =>
         {
             Assert.Equal("In progress", component.Find("[data-testid='arc42-record-lifecycle'] [aria-current='step']").TextContent);
-            Assert.Equal("High · in progress", component.Find("[data-testid='arc42-surface-record-note']").TextContent);
+            Assert.Equal("High · in progress", component.Find($"{DebtRecords} [data-testid='arc42-surface-record-note']").TextContent);
         });
     }
 
@@ -538,11 +681,30 @@ public sealed class Arc42SurfaceTests : IDisposable
         component.WaitForAssertion(() =>
         {
             Assert.Equal("Planned", component.Find("[data-testid='arc42-record-lifecycle'] [aria-current='step']").TextContent);
-            Assert.Equal("High · planned", component.Find("[data-testid='arc42-surface-record-note']").TextContent);
+            Assert.Equal("High · planned", component.Find($"{DebtRecords} [data-testid='arc42-surface-record-note']").TextContent);
         });
     }
 
     // ---- the harness ------------------------------------------------------------
+
+    /// <summary>The tree's groups, in order, whatever is open.</summary>
+    private static readonly string[] Groups = ["C4 views", "arc42", "Records"];
+
+    private const string DecisionRecords = "[data-testid='arc42-surface-decision-log'] [data-testid='arc42-surface-record']";
+
+    private const string DebtRecords = "[data-testid='arc42-surface-debt-log'] [data-testid='arc42-surface-record']";
+
+    /// <summary>The chapter lines marked as documenting the view the zoom is at.</summary>
+    private const string Documenting = "[data-testid='arc42-surface-chapter'][data-documents]";
+
+    private static string[] NavGroups(IRenderedComponent<Arc42DevbookPanel> component) =>
+    [
+        .. component.FindAll("[data-testid='arc42-surface-nav'] > .arc42-surface-nav__group h2")
+            .Select(heading => heading.QuerySelector(".arc42-surface-nav__fold-title")?.TextContent.Trim() ?? heading.TextContent.Trim())
+    ];
+
+    private static string? Expanded(IRenderedComponent<Arc42DevbookPanel> component, string testId) =>
+        component.Find($"[data-testid='{testId}']").GetAttribute("aria-expanded");
 
     /// <summary>The left navigation's open line — a view, a chapter or a record — as
     /// its label reads, without the count or tag beside it.</summary>
@@ -590,15 +752,17 @@ public sealed class Arc42SurfaceTests : IDisposable
         }
         """;
 
-    private async Task<(Arc42DevbookCatalog Catalog, C4Catalog C4)> LoadAsync(string references = References)
+    private async Task<(Arc42DevbookCatalog Catalog, C4Catalog C4)> LoadAsync(string references = References, IReadOnlyDictionary<string, string>? extra = null, bool records = true)
     {
-        await using var harness = CreateHarness(references: references);
+        await using var harness = CreateHarness(references: references, extra: extra, records: records);
         var store = harness.Context.Services.GetRequiredService<Arc42DevbookStore>();
         var c4 = harness.Context.Services.GetRequiredService<C4DevbookStore>();
         return (await store.LoadAsync(harness.RepositoryAlias), await c4.LoadAsync(harness.RepositoryAlias));
     }
 
-    private Harness CreateHarness(string references = References, bool embed = false, IDevbookSubjectStateStore? subjects = null, bool? status = null)
+    /// <param name="extra">More files of the folder, by their path under it.</param>
+    /// <param name="records">False leaves out the numbered ADRs and the guideline.</param>
+    private Harness CreateHarness(string references = References, bool embed = false, IDevbookSubjectStateStore? subjects = null, bool? status = null, IReadOnlyDictionary<string, string>? extra = null, bool records = true)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-surface-tests", Guid.NewGuid().ToString("N"));
         _roots.Add(root);
@@ -608,8 +772,12 @@ public sealed class Arc42SurfaceTests : IDisposable
         Directory.CreateDirectory(Path.Combine(arc42, "tdr"));
         Directory.CreateDirectory(Path.Combine(arc42, C4DevbookStore.ReferenceDirectory));
 
-        void Write(string relative, string text) =>
-            File.WriteAllText(Path.Combine(arc42, relative.Replace('/', Path.DirectorySeparatorChar)), text);
+        void Write(string relative, string text)
+        {
+            var file = Path.Combine(arc42, relative.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            File.WriteAllText(file, text);
+        }
 
         Write(C4DevbookStore.WorkspaceFile, Workspace);
         Write($"{C4DevbookStore.ReferenceDirectory}/{C4DevbookStore.ReferenceFile}", references);
@@ -619,12 +787,17 @@ public sealed class Arc42SurfaceTests : IDisposable
             + (embed ? "\n![Container Diagram](c4:containers-backlog)\n" : string.Empty));
         Write("09-architecture-decisions.md", "# 09. Architecture Decisions\n\nThe decision log.\n");
         Write("11-risks-and-technical-debt.md", "# 11. Risks and Technical Debt\n\nThe risks.\n");
-        Write("adr/guidelines/0004-guide.md", "# ADR 0004: A guideline adopted from elsewhere\n\nThe guideline.\n");
-        Write("adr/0003-store.md", "# ADR 0003: SQLite is the canonical store\n\nThe store decision.\n");
-        Write("adr/0005-replica.md",
-            "# ADR 0005: An Azure-hosted replica carries sync\n\n```meta\nc4: [backlog.cloud, backlog.cloudDb]\n```\n\nThe replica decision.\n");
-        Write("adr/0006-schema.md",
-            "# ADR 0006: Additive schema bootstrapping\n\n```meta\nstatus: proposed\nrelated: [\".arc42/05-building-block-view.md\"]\n```\n\nThe schema decision.\n");
+        if (records)
+        {
+            Write("adr/guidelines/0004-guide.md", "# ADR 0004: A guideline adopted from elsewhere\n\nThe guideline.\n");
+            Write("adr/0003-store.md", "# ADR 0003: SQLite is the canonical store\n\nThe store decision.\n");
+            Write("adr/0005-replica.md",
+                "# ADR 0005: An Azure-hosted replica carries sync\n\n```meta\nc4: [backlog.cloud, backlog.cloudDb]\n```\n\nThe replica decision.\n");
+            Write("adr/0006-schema.md",
+                "# ADR 0006: Additive schema bootstrapping\n\n```meta\nstatus: proposed\nrelated: [\".arc42/05-building-block-view.md\"]\n```\n\nThe schema decision.\n");
+        }
+
+        foreach (var (relative, text) in extra ?? new Dictionary<string, string>()) Write(relative, text);
         Write("tdr/0001-debt.md",
             "# TDR 0001: The mobile app has no offline queue\n\n```meta\nstatus: planned\nseverity: high\nc4: [backlog.mobile]\n```\n\nThe debt.\n");
 

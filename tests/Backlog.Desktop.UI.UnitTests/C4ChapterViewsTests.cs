@@ -195,8 +195,11 @@ public sealed class C4ChapterViewsTests : IDisposable
         component.WaitForAssertion(() =>
             Assert.Equal("context-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent));
 
-        // Back to the chapter through the left navigation's way to every chapter.
+        // Back to the chapter through the left navigation's arc42 group, folded open.
         await component.Find("[data-testid='arc42-surface-all-chapters']").ClickAsync(new());
+        component.WaitForAssertion(() =>
+            Assert.Equal("true", component.Find("[data-testid='arc42-surface-all-chapters']").GetAttribute("aria-expanded")));
+        await component.FindAll("[data-testid='arc42-surface-chapter']").Single(line => line.TextContent.Contains("05", StringComparison.Ordinal)).ClickAsync(new());
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapter-c4-open-zoom']")));
         await component.Find("[data-testid='arc42-chapter-c4-open-zoom']").ClickAsync(new());
 

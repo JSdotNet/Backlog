@@ -1,173 +1,197 @@
 @*
-    The architecture surface's left navigation (local ADR 0046): the design
-    has one left column on every screen, and what it lists follows what is open.
+    The architecture surface's left navigation (local ADR 0046): one tree, the same
+    groups in the same order whatever is open, so the reader never loses the way back.
 
-    - On the model: "C4 views" — every view once, the zoom chain indented under the
-      system it opens, then the dynamic and deployment views — "arc42 · documents
-      this view" with the way to every chapter, and "Records": the decisions with how
-      many are still proposed, and the technical debt.
-    - On a chapter: the arc42 chapters with their C4 / ADR / TDR badges.
-    - On a decision record, or the decisions chapter: the decision log, with the
-      design's status filter — All, Accepted, Proposed — over it.
-    - On a debt record, or the risks chapter: the debt.
+    - "C4 views" — every view once, the zoom chain indented under the system it opens —
+      then "Flows" and "Deployment": a line opens its view in the picture, and is the
+      way back to the picture from a document.
+    - "arc42" — a fold of every chapter, each with its C4 / ADR / TDR badges and the
+      chapters that document the open view marked. Folded on the model, open while a
+      chapter is.
+    - "Records" — "Decisions" and "Technical debt", each a fold with its count. Inside,
+      an "Overview" line opens the chapter that holds them (09, 11), then the records:
+      the decision log under its All / Accepted / Proposed filter.
+    - "Other views", last.
 
-    Every document list ends with the way back to the model. Which list is drawn, and
-    what each line does, is the panel's; this only draws them, each line a button
-    that reports what it names.
+    Opening a group folds it open in place and leaves the picture up; opening a
+    document folds open the group it belongs to. There was a version of this that
+    swapped the whole column for the decision log or the chapter list, with a "Back
+    to the C4 model" line as the only way out: the column stopped saying where the
+    reader was. What each line opens is the panel's; this only draws the tree, each
+    line a button that reports what it names.
 *@
 
-<nav class="arc42-surface-nav" aria-label="@AriaLabel" data-testid="arc42-surface-nav" data-mode="@Mode.ToString().ToLowerInvariant()">
-    @switch (Mode)
+<nav class="arc42-surface-nav" aria-label="Architecture" data-testid="arc42-surface-nav">
+    @foreach (var group in Views.Where(entry => entry.Group != C4ViewIndexGroup.Other).GroupBy(entry => entry.Group))
     {
-        case Arc42SurfaceMode.Model:
-            @foreach (var group in Views.Where(entry => entry.Group != C4ViewIndexGroup.Other).GroupBy(entry => entry.Group))
-            {
-                @ViewGroup(group.Key, [.. group])
-            }
+        @ViewGroup(group.Key, [.. group])
+    }
 
-            <section class="arc42-surface-nav__group" aria-labelledby="@Id("documents")" data-testid="arc42-surface-documents">
-                <h2 class="arc42-surface-nav__heading" id="@Id("documents")">arc42 · documents this view</h2>
-                @if (Documenting.Count == 0)
-                {
-                    <p class="arc42-surface-nav__none" data-testid="arc42-surface-documents-none">No chapter documents this view.</p>
-                }
-                @foreach (var citation in Documenting)
-                {
-                    <AppButton @key="citation.Reference"
-                               BaseClass="arc42-surface-nav__item"
-                               Variant="ButtonVariant.None"
-                               title="@citation.Reference"
-                               TestId="arc42-surface-document"
-                               OnClick="() => OnOpenDocument.InvokeAsync(citation.Reference)">
-                        @if (citation.Number is not null)
-                        {
-                            <span class="arc42-surface-nav__number">@citation.Number</span>
-                        }
-                        <span class="arc42-surface-nav__label">@citation.Title</span>
-                    </AppButton>
-                }
-                @AllChapters
-            </section>
-
-            <section class="arc42-surface-nav__group" aria-labelledby="@Id("records")" data-testid="arc42-surface-records">
-                <h2 class="arc42-surface-nav__heading" id="@Id("records")">Records</h2>
-                <AppButton BaseClass="arc42-surface-nav__item"
-                           Variant="ButtonVariant.None"
-                           TestId="arc42-surface-decisions"
-                           OnClick="() => OnShowDecisions.InvokeAsync()">
-                    <span class="arc42-surface-nav__label">Decisions</span>
-                    <span class="arc42-surface-nav__detail" data-testid="arc42-surface-decisions-count">@DecisionsDetail</span>
-                </AppButton>
-                <AppButton BaseClass="arc42-surface-nav__item"
-                           Variant="ButtonVariant.None"
-                           TestId="arc42-surface-debt"
-                           OnClick="() => OnShowDebt.InvokeAsync()">
-                    <span class="arc42-surface-nav__label">Technical debt</span>
-                    <span class="arc42-surface-nav__detail arc42-surface-nav__detail--debt" data-testid="arc42-surface-debt-count">@Debt.Count</span>
-                </AppButton>
-            </section>
-
-            @if (Views.Any(entry => entry.Group == C4ViewIndexGroup.Other))
-            {
-                @ViewGroup(C4ViewIndexGroup.Other, [.. Views.Where(entry => entry.Group == C4ViewIndexGroup.Other)])
-            }
-            break;
-
-        case Arc42SurfaceMode.Chapters:
-            <section class="arc42-surface-nav__group" aria-labelledby="@Id("chapters")" data-testid="arc42-surface-chapters">
-                <h2 class="arc42-surface-nav__heading" id="@Id("chapters")">arc42</h2>
-                @foreach (var chapter in Chapters)
-                {
-                    var open = Same(chapter.Path, OpenPath);
-                    <AppButton @key="chapter.Path"
-                               BaseClass="arc42-surface-nav__item"
-                               CssClass="@ItemClass(open)"
-                               Variant="ButtonVariant.None"
-                               aria-current="@(open ? "page" : null)"
-                               title="@chapter.Path"
-                               TestId="arc42-surface-chapter"
-                               OnClick="() => OnOpenDocument.InvokeAsync(chapter.Path)">
-                        @if (chapter.Number is not null)
-                        {
-                            <span class="arc42-surface-nav__number">@chapter.Number</span>
-                        }
-                        <span class="arc42-surface-nav__label">@chapter.Title</span>
-                        @if (chapter.Views > 0)
-                        {
-                            <Badge BaseClass="arc42-surface-nav__badge" Kind="c4" TestId="arc42-surface-chapter-c4">C4 @chapter.Views</Badge>
-                        }
-                        @if (chapter.Decisions > 0)
-                        {
-                            <Badge BaseClass="arc42-surface-nav__badge" Kind="adr" TestId="arc42-surface-chapter-adr">@chapter.Decisions ADR</Badge>
-                        }
-                        @if (chapter.Debt > 0)
-                        {
-                            <Badge BaseClass="arc42-surface-nav__badge" Kind="tdr" TestId="arc42-surface-chapter-tdr">@chapter.Debt TDR</Badge>
-                        }
-                    </AppButton>
-                }
-                @BackToModel
-            </section>
-            break;
-
-        case Arc42SurfaceMode.Decisions:
-            <section class="arc42-surface-nav__group" aria-labelledby="@Id("decisions")" data-testid="arc42-surface-decision-log">
-                <h2 class="arc42-surface-nav__heading" id="@Id("decisions")">Decisions · @Decisions.Count(record => !record.Guideline)</h2>
-
-                @* The status filter: one choice, counted over the local decisions the
-                   heading counts, and applied to the guidelines below them too. *@
-                <ButtonGroup Radio="true"
-                             CssClass="arc42-surface-nav__filter"
-                             AriaLabel="Status filter"
-                             TestId="arc42-surface-decision-filter">
-                    @foreach (var choice in StatusChoices)
+    <section class="arc42-surface-nav__group" data-testid="arc42-surface-chapters">
+        <FoldControl BaseClass="arc42-surface-nav__fold"
+                     HeadingLevel="2"
+                     HeadingCssClass="arc42-surface-nav__heading arc42-surface-nav__heading--fold"
+                     Expanded="@IsOpen(Fold.Chapters)"
+                     ExpandedChanged="@(expanded => SetOpen(Fold.Chapters, expanded))"
+                     TestId="arc42-surface-all-chapters">
+            <LabelContent>
+                <span class="arc42-surface-nav__fold-title">arc42</span>
+                <span class="arc42-surface-nav__detail" data-testid="arc42-surface-chapters-total">@ChapterLines</span>
+            </LabelContent>
+            <ChildContent>
+                <div class="arc42-surface-nav__folded" data-testid="arc42-surface-documents">
+                    @if (HasModel && Documenting.Count == 0)
                     {
-                        <ToggleButton @key="choice"
-                                      Pressed="@(_status == choice)"
-                                      PressedChanged="@(pressed => ChooseStatus(choice, pressed))"
-                                      BaseClass="btn btn--toggle btn--small"
-                                      TestId="@($"arc42-surface-decision-filter-{choice.ToString().ToLowerInvariant()}")">@choice @Decisions.Count(record => !record.Guideline && Keeps(choice, record))</ToggleButton>
+                        <p class="arc42-surface-nav__none" data-testid="arc42-surface-documents-none">No chapter documents this view.</p>
                     }
-                </ButtonGroup>
+                    @foreach (var chapter in Chapters)
+                    {
+                        var open = Owner(OpenPath) == Fold.Chapters && Same(chapter.Path, OpenPath);
+                        var citation = CitationOf(chapter.Path);
+                        <AppButton @key="chapter.Path"
+                                   BaseClass="arc42-surface-nav__item"
+                                   CssClass="@ItemClass(open, citation is null ? null : "arc42-surface-nav__item--documents")"
+                                   Variant="ButtonVariant.None"
+                                   aria-current="@(open ? "page" : null)"
+                                   title="@ChapterTooltip(chapter.Number, chapter.Title, citation)"
+                                   data-documents="@(citation is null ? null : "true")"
+                                   TestId="arc42-surface-chapter"
+                                   OnClick="() => OnOpenDocument.InvokeAsync(citation?.Reference ?? chapter.Path)">
+                            @if (chapter.Number is not null)
+                            {
+                                <span class="arc42-surface-nav__number">@chapter.Number</span>
+                            }
+                            <span class="arc42-surface-nav__label">@chapter.Title</span>
+                            @if (citation is not null)
+                            {
+                                <span class="arc42-surface-nav__mark" aria-hidden="true"></span>
+                                <span class="sr-only">, documents this view</span>
+                            }
+                            @if (chapter.Views > 0)
+                            {
+                                <Badge BaseClass="arc42-surface-nav__badge" Kind="c4" TestId="arc42-surface-chapter-c4">C4 @chapter.Views</Badge>
+                            }
+                            @if (chapter.Decisions > 0)
+                            {
+                                <Badge BaseClass="arc42-surface-nav__badge" Kind="adr" TestId="arc42-surface-chapter-adr">@chapter.Decisions ADR</Badge>
+                            }
+                            @if (chapter.Debt > 0)
+                            {
+                                <Badge BaseClass="arc42-surface-nav__badge" Kind="tdr" TestId="arc42-surface-chapter-tdr">@chapter.Debt TDR</Badge>
+                            }
+                        </AppButton>
+                    }
+                    @* A chapter the views map names that the folder does not have — renamed
+                       since — is still offered, so the map's mistake shows; opening it
+                       leaves the surface where it is. *@
+                    @foreach (var citation in Documenting.Where(citation => !Chapters.Any(chapter => Same(chapter.Path, citation.Path))))
+                    {
+                        <AppButton @key="citation.Reference"
+                                   BaseClass="arc42-surface-nav__item"
+                                   CssClass="arc42-surface-nav__item--documents"
+                                   Variant="ButtonVariant.None"
+                                   title="@ChapterTooltip(citation.Number, citation.Title, citation)"
+                                   data-documents="true"
+                                   TestId="arc42-surface-chapter"
+                                   OnClick="() => OnOpenDocument.InvokeAsync(citation.Reference)">
+                            @if (citation.Number is not null)
+                            {
+                                <span class="arc42-surface-nav__number">@citation.Number</span>
+                            }
+                            <span class="arc42-surface-nav__label">@citation.Title</span>
+                            <span class="arc42-surface-nav__mark" aria-hidden="true"></span>
+                            <span class="sr-only">, documents this view</span>
+                        </AppButton>
+                    }
+                </div>
+            </ChildContent>
+        </FoldControl>
+    </section>
 
-                @RecordList(Decisions.Where(record => !record.Guideline && Keeps(_status, record)), "ADR")
-                @if (Decisions.Any(record => record.Guideline && Keeps(_status, record)))
-                {
-                    <h3 class="arc42-surface-nav__subheading">Guidelines · @Decisions.Count(record => record.Guideline && Keeps(_status, record))</h3>
-                    @RecordList(Decisions.Where(record => record.Guideline && Keeps(_status, record)), "ADR")
-                }
-                @AllChapters
-                @BackToModel
-            </section>
-            break;
+    <section class="arc42-surface-nav__group" aria-labelledby="@Id("records")" data-testid="arc42-surface-records">
+        <h2 class="arc42-surface-nav__heading" id="@Id("records")">Records</h2>
 
-        case Arc42SurfaceMode.Debt:
-            <section class="arc42-surface-nav__group" aria-labelledby="@Id("debt")" data-testid="arc42-surface-debt-log">
-                <h2 class="arc42-surface-nav__heading" id="@Id("debt")">Technical debt · @Debt.Count</h2>
-                @RecordList(Debt, "TDR")
-                @AllChapters
-                @BackToModel
-            </section>
-            break;
+        <FoldControl BaseClass="arc42-surface-nav__fold arc42-surface-nav__fold--records"
+                     HeadingLevel="3"
+                     HeadingCssClass="arc42-surface-nav__fold-heading"
+                     Expanded="@IsOpen(Fold.Decisions)"
+                     ExpandedChanged="@(expanded => SetOpen(Fold.Decisions, expanded))"
+                     TestId="arc42-surface-decisions">
+            <LabelContent>
+                <span class="arc42-surface-nav__fold-title">Decisions</span>
+                <span class="arc42-surface-nav__detail" data-testid="arc42-surface-decisions-count">@DecisionsDetail</span>
+            </LabelContent>
+            <ChildContent>
+                <div class="arc42-surface-nav__folded" data-testid="arc42-surface-decision-log">
+                    @Overview(Arc42Surface.DecisionsChapter, "arc42-surface-decisions-overview")
+
+                    @if (Decisions.Count > 0)
+                    {
+                        @* The status filter: one choice, counted over the local decisions the
+                           trigger counts, and applied to the guidelines below them too. *@
+                        <ButtonGroup Radio="true"
+                                     CssClass="arc42-surface-nav__filter"
+                                     AriaLabel="Status filter"
+                                     TestId="arc42-surface-decision-filter">
+                            @foreach (var choice in StatusChoices)
+                            {
+                                <ToggleButton @key="choice"
+                                              Pressed="@(_status == choice)"
+                                              PressedChanged="@(pressed => ChooseStatus(choice, pressed))"
+                                              BaseClass="btn btn--toggle btn--small"
+                                              TestId="@($"arc42-surface-decision-filter-{choice.ToString().ToLowerInvariant()}")">@choice @Decisions.Count(record => !record.Guideline && Keeps(choice, record))</ToggleButton>
+                            }
+                        </ButtonGroup>
+                    }
+
+                    @RecordList(Decisions.Where(record => !record.Guideline && Keeps(_status, record)), "ADR")
+                    @if (Decisions.Any(record => record.Guideline && Keeps(_status, record)))
+                    {
+                        <h4 class="arc42-surface-nav__subheading">Guidelines · @Decisions.Count(record => record.Guideline && Keeps(_status, record))</h4>
+                        @RecordList(Decisions.Where(record => record.Guideline && Keeps(_status, record)), "ADR")
+                    }
+                </div>
+            </ChildContent>
+        </FoldControl>
+
+        <FoldControl BaseClass="arc42-surface-nav__fold arc42-surface-nav__fold--records"
+                     HeadingLevel="3"
+                     HeadingCssClass="arc42-surface-nav__fold-heading"
+                     Expanded="@IsOpen(Fold.Debt)"
+                     ExpandedChanged="@(expanded => SetOpen(Fold.Debt, expanded))"
+                     TestId="arc42-surface-debt">
+            <LabelContent>
+                <span class="arc42-surface-nav__fold-title">Technical debt</span>
+                <span class="arc42-surface-nav__detail arc42-surface-nav__detail--debt" data-testid="arc42-surface-debt-count">@Debt.Count</span>
+            </LabelContent>
+            <ChildContent>
+                <div class="arc42-surface-nav__folded" data-testid="arc42-surface-debt-log">
+                    @Overview(Arc42Surface.DebtChapter, "arc42-surface-debt-overview")
+                    @RecordList(Debt, "TDR")
+                </div>
+            </ChildContent>
+        </FoldControl>
+    </section>
+
+    @if (Views.Any(entry => entry.Group == C4ViewIndexGroup.Other))
+    {
+        @ViewGroup(C4ViewIndexGroup.Other, [.. Views.Where(entry => entry.Group == C4ViewIndexGroup.Other)])
     }
 </nav>
 
 @code {
     private readonly string _id = "arc42-surface-nav-" + Guid.NewGuid().ToString("N");
 
-    /// <summary>Which list is drawn.</summary>
-    [Parameter]
-    public Arc42SurfaceMode Mode { get; set; }
-
     /// <summary>The model's views, as <see cref="C4ViewIndex"/> lists them.</summary>
     [Parameter]
     public IReadOnlyList<C4ViewIndexEntry> Views { get; set; } = [];
 
-    /// <summary>Where the zoom is: the line marked open.</summary>
+    /// <summary>Where the zoom is: the line marked open while no document is.</summary>
     [Parameter]
     public C4ZoomLocation? Location { get; set; }
 
-    /// <summary>The chapters that document the open view.</summary>
+    /// <summary>The chapters that document the view the zoom is at, marked on the
+    /// chapter list.</summary>
     [Parameter]
     public IReadOnlyList<Arc42SurfaceCitation> Documenting { get; set; } = [];
 
@@ -180,12 +204,13 @@
     [Parameter]
     public IReadOnlyList<Arc42SurfaceRecord> Debt { get; set; } = [];
 
-    /// <summary>The document open, marked on the document lists.</summary>
+    /// <summary>The document open in place of the picture, or null while the picture
+    /// is up. Marked where it sits, and its group folded open.</summary>
     [Parameter]
     public string? OpenPath { get; set; }
 
-    /// <summary>Whether there is a model to go back to. Without one the surface is the
-    /// chapters alone, and the way back is left out.</summary>
+    /// <summary>Whether there is a model. Without one the surface is the chapters
+    /// alone: no view groups, and the chapter list open.</summary>
     [Parameter]
     public bool HasModel { get; set; } = true;
 
@@ -197,26 +222,6 @@
     [Parameter]
     public EventCallback<string> OnOpenDocument { get; set; }
 
-    [Parameter]
-    public EventCallback OnShowChapters { get; set; }
-
-    [Parameter]
-    public EventCallback OnShowDecisions { get; set; }
-
-    [Parameter]
-    public EventCallback OnShowDebt { get; set; }
-
-    [Parameter]
-    public EventCallback OnBackToModel { get; set; }
-
-    private string AriaLabel => Mode switch
-    {
-        Arc42SurfaceMode.Chapters => "arc42 chapters",
-        Arc42SurfaceMode.Decisions => "Decision log",
-        Arc42SurfaceMode.Debt => "Technical debt",
-        _ => "Architecture"
-    };
-
     private string DecisionsDetail
     {
         get
@@ -227,7 +232,83 @@
         }
     }
 
+    /// <summary>What the arc42 trigger counts: every line its list draws — the chapters,
+    /// a building block's file among them, and a chapter the views map names that the
+    /// folder lacks — so the count is the rows the reader sees.</summary>
+    private int ChapterLines => Chapters.Count + Documenting.Count(citation => !Chapters.Any(chapter => Same(chapter.Path, citation.Path)));
+
+    /// <summary>A chapter line's tooltip: its number and full title, which the line cuts
+    /// with an ellipsis, and the section the views map names when it documents the view.</summary>
+    private static string ChapterTooltip(string? number, string title, Arc42SurfaceCitation? citation)
+    {
+        var name = number is null ? title : $"{number} {title}";
+        return citation is null ? name : $"{name} · documents this view ({citation.Reference})";
+    }
+
     private string Id(string part) => $"{_id}-{part}";
+
+    // ---- the folds -----------------------------------------------------------------
+
+    /// <summary>The groups that fold.</summary>
+    private enum Fold
+    {
+        Chapters,
+        Decisions,
+        Debt
+    }
+
+    private readonly Dictionary<Fold, bool> _open = [];
+    private bool _initialised;
+    private bool _seenHasModel;
+    private string? _seenOpenPath;
+
+    private bool IsOpen(Fold fold) => _open.TryGetValue(fold, out var open) && open;
+
+    private void SetOpen(Fold fold, bool open) => _open[fold] = open;
+
+    /// <summary>
+    /// The folds follow what is opened, and are the reader's otherwise: a document opened
+    /// folds open its group; back on the picture the chapter list folds away again; a
+    /// group folded by hand stays as it was left until the next document. Without a
+    /// model the chapter list is the surface, so it starts open.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        var pathChanged = !_initialised || !SamePath(OpenPath, _seenOpenPath);
+        if (!_initialised || HasModel != _seenHasModel)
+        {
+            _open[Fold.Chapters] = !HasModel;
+        }
+
+        if (pathChanged || !_initialised || HasModel != _seenHasModel)
+        {
+            if (Owner(OpenPath) is { } owner) _open[owner] = true;
+            else if (OpenPath is null && HasModel) _open[Fold.Chapters] = false;
+        }
+
+        _initialised = true;
+        _seenHasModel = HasModel;
+        _seenOpenPath = OpenPath;
+    }
+
+    /// <summary>The group a document belongs to: a decision record or the decisions
+    /// chapter to Decisions, a debt record or the risks chapter to Technical debt, any
+    /// other chapter to arc42.</summary>
+    private static Fold? Owner(string? path)
+    {
+        if (path is null) return null;
+        if (Arc42DevbookCatalog.IsArchitectureDecision(path)) return Fold.Decisions;
+        if (Arc42DevbookCatalog.IsDebtRecord(path)) return Fold.Debt;
+
+        return C4ElementInspection.NumberOf(path) switch
+        {
+            Arc42Surface.DecisionsChapter => Fold.Decisions,
+            Arc42Surface.DebtChapter => Fold.Debt,
+            _ => Fold.Chapters
+        };
+    }
+
+    // ---- the decision log's filter -------------------------------------------------
 
     /// <summary>What the decision log's filter keeps.</summary>
     private enum DecisionStatus
@@ -255,7 +336,10 @@
         _ => true
     };
 
-    /// <summary>One group of the views list, under its heading.</summary>
+    // ---- the lines -----------------------------------------------------------------
+
+    /// <summary>One group of the views list, under its heading. A line is marked open
+    /// only while the picture is up: with a document open, the document's line is.</summary>
     private RenderFragment ViewGroup(C4ViewIndexGroup key, IReadOnlyList<C4ViewIndexEntry> entries) => @<text>
         @{ var groupId = Id($"views-{key.ToString().ToLowerInvariant()}"); }
         <section class="arc42-surface-nav__group"
@@ -265,7 +349,7 @@
             <h2 class="arc42-surface-nav__heading" id="@groupId">@GroupTitle(key)</h2>
             @foreach (var entry in entries)
             {
-                var open = entry.IsOpen(Location?.ViewKey, Location?.CodeComponentId);
+                var open = OpenPath is null && entry.IsOpen(Location?.ViewKey, Location?.CodeComponentId);
                 <AppButton @key="(entry.ViewKey, entry.CodeComponentId)"
                            BaseClass="arc42-surface-nav__item"
                            CssClass="@ItemClass(open, $"arc42-surface-nav__item--line arc42-surface-nav__item--depth-{Math.Min(entry.Depth, 4)}")"
@@ -302,21 +386,35 @@
     private static bool Same(string path, string? other) =>
         other is not null && string.Equals(C4ViewEntry.FileOf(path), C4ViewEntry.FileOf(other), StringComparison.OrdinalIgnoreCase);
 
-    private RenderFragment AllChapters => @<AppButton BaseClass="arc42-surface-nav__link"
-                                                      Variant="ButtonVariant.None"
-                                                      TestId="arc42-surface-all-chapters"
-                                                      OnClick="() => OnShowChapters.InvokeAsync()">All @Chapters.Count(chapter => chapter.Number is not null) chapters</AppButton>;
+    private static bool SamePath(string? path, string? other) =>
+        path is null ? other is null : Same(path, other);
 
-    private RenderFragment BackToModel => @<text>
-        @if (HasModel)
+    private Arc42SurfaceCitation? CitationOf(string path) =>
+        Documenting.FirstOrDefault(citation => Same(path, citation.Path));
+
+    /// <summary>The first line of a records fold: the chapter that holds them — 09 for
+    /// the decisions, 11 for the debt — when the folder has it.</summary>
+    private RenderFragment Overview(string number, string testId) => @<text>
+        @if (Chapters.FirstOrDefault(chapter => chapter.Number == number) is { } chapter)
         {
-            <AppButton BaseClass="arc42-surface-nav__link arc42-surface-nav__link--back"
+            var open = Same(chapter.Path, OpenPath);
+            <AppButton BaseClass="arc42-surface-nav__item"
+                       CssClass="@ItemClass(open, "arc42-surface-nav__item--overview")"
                        Variant="ButtonVariant.None"
-                       TestId="arc42-surface-back"
-                       OnClick="() => OnBackToModel.InvokeAsync()">Back to the C4 model</AppButton>
+                       aria-current="@(open ? "page" : null)"
+                       title="@($"{chapter.Number} {chapter.Title}")"
+                       TestId="@testId"
+                       OnClick="() => OnOpenDocument.InvokeAsync(chapter.Path)">
+                <span class="arc42-surface-nav__label">Overview</span>
+                <span class="arc42-surface-nav__detail">@chapter.Number</span>
+            </AppButton>
         }
     </text>;
 
+    /// <summary>A record per line: its number, small, then its title on one line cut
+    /// with an ellipsis — never broken inside a word — and the note on a line of its
+    /// own under it. The whole "ADR 0005 Title", and the file it is, is the tooltip;
+    /// the cut is the stylesheet's, so the text stays whole for a screen reader.</summary>
     private RenderFragment RecordList(IEnumerable<Arc42SurfaceRecord> records, string kind) => @<text>
         @foreach (var record in records)
         {
@@ -326,7 +424,8 @@
                        CssClass="@ItemClass(open, "arc42-surface-nav__item--record")"
                        Variant="ButtonVariant.None"
                        aria-current="@(open ? "page" : null)"
-                       title="@($"{kind} {record.Number}")"
+                       title="@($"{kind} {record.Number} {record.Title} · {record.Slug}")"
+                       data-numbered="@(record.Numbered ? null : "false")"
                        TestId="arc42-surface-record"
                        OnClick="() => OnOpenDocument.InvokeAsync(record.Path)">
                 <span class="arc42-surface-nav__number">@record.Number</span>
