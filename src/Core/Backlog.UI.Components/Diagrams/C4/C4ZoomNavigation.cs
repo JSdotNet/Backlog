@@ -58,7 +58,7 @@ public sealed record C4ZoomBarState(IReadOnlyList<C4ZoomStep> Steps, IReadOnlyLi
 }
 
 /// <summary>
-/// The navigation of the C4 zoom tab: which view it opens on, what each zoom bar step
+/// The navigation of the C4 zoom navigation: which view it opens on, what each zoom bar step
 /// is about, and where zooming in and out goes.
 /// <para>
 /// Pure, and derived from the workspace each time, by the same rule as
@@ -68,7 +68,8 @@ public sealed record C4ZoomBarState(IReadOnlyList<C4ZoomStep> Steps, IReadOnlyLi
 /// </para>
 /// <para>
 /// It walks one level at a time — System context, Containers, Components, Code — where
-/// the C4 tab's drill goes straight from a system to its containers. Landscape sits
+/// a drill (<see cref="C4Exploration.DrillViewKey"/>) goes straight from a system to its
+/// containers. Landscape sits
 /// above level 1 and Dynamic and Deployment beside level 2, which is why they are
 /// offered under <c>Also</c> and never as a step.
 /// </para>
@@ -81,7 +82,7 @@ public static class C4ZoomNavigation
     public const string PickComponent = "pick a component";
 
     /// <summary>The view the tab opens on: the first System context view, in the
-    /// level order the C4 tab lists views in, or the first view of any kind when the
+    /// level order <see cref="C4Exploration.OrderedViews"/> lists views in, or the first view of any kind when the
     /// workspace declares no context view.</summary>
     public static C4View? StartView(C4Workspace workspace)
     {
@@ -217,8 +218,8 @@ public static class C4ZoomNavigation
     /// Where zooming into an element goes, or null when there is nothing deeper.
     /// <para>
     /// From a landscape a system opens its context view, which is level 1; everywhere
-    /// else it is the C4 tab's own drill — a system's containers, a container's
-    /// components — so the two tabs never disagree about what is below a box.
+    /// else it is the model's own drill (<see cref="C4Exploration.DrillViewKey"/>) — a
+    /// system's containers, a container's components.
     /// </para>
     /// </summary>
     public static string? ZoomInView(C4Workspace workspace, C4View view, string elementId)

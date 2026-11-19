@@ -67,6 +67,12 @@ public interface IClaudeApiRequestStore
 
     /// <summary>The stored requests, oldest first — every one, or one session's.</summary>
     Task<IReadOnlyList<ClaudeApiRequest>> ListAsync(string? sessionId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>The stored requests at or after <paramref name="from"/>, every session's,
+    /// oldest first. A store that can bound the read itself overrides this; by default it
+    /// reads every request and filters them.</summary>
+    async Task<IReadOnlyList<ClaudeApiRequest>> ListSinceAsync(DateTimeOffset from, CancellationToken cancellationToken = default) =>
+        [.. (await ListAsync(cancellationToken: cancellationToken).ConfigureAwait(false)).Where(request => request.Timestamp >= from)];
 }
 
 /// <summary>

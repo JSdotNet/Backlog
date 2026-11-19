@@ -175,6 +175,28 @@ public sealed class DevbookPaneBrainLinkTests
         });
     }
 
+    /// <summary>The Inbox's queue health opens the Brain at its inbox area: an area
+    /// folder with its trailing slash is that area's tab, with its first note open.</summary>
+    [Fact]
+    public async Task An_area_folder_asked_for_opens_that_areas_tab()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        harness.WriteNote(BrainConventions.FileName, "## Areas\n\n- Work — `work`\n- Inbox — `_inbox`\n");
+        harness.WriteNote("work/plan.md", "# Plan\n\nThe plan's own words.\n");
+        harness.WriteNote("_inbox/idea.md", "# Idea\n\nStill to file.\n");
+
+        var component = harness.RenderBrain();
+        component.WaitForAssertion(() =>
+            Assert.Contains("The plan's own words.", component.Find("[data-testid='brain-note']").TextContent, StringComparison.Ordinal));
+
+        component.Render(parameters => parameters
+            .Add(pane => pane.RepositoryAlias, string.Empty)
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest("_inbox/", 1)));
+
+        component.WaitForAssertion(() =>
+            Assert.Contains("Still to file.", component.Find("[data-testid='brain-note']").TextContent, StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task A_host_that_cannot_switch_the_pane_lists_the_notes_as_text()
     {

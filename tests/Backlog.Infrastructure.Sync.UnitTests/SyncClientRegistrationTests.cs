@@ -3,6 +3,7 @@ using System.Net;
 using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.DevbookSubjects;
 using Backlog.Infrastructure.Sync.Extensions;
+using Backlog.Infrastructure.Sync.KnowledgeEvents;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks;
@@ -370,6 +371,7 @@ public class SyncClientRegistrationTests
     [InlineData(nameof(SessionSyncClient))]
     [InlineData(nameof(AnnotationSyncClient))]
     [InlineData(nameof(DevbookSubjectSyncClient))]
+    [InlineData(nameof(KnowledgeEventSyncClient))]
     public async Task A_push_that_fails_is_sent_once(string client)
     {
         var wire = new StubHttpMessageHandler((_, _) => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
@@ -389,6 +391,7 @@ public class SyncClientRegistrationTests
     [InlineData(nameof(SessionSyncClient))]
     [InlineData(nameof(AnnotationSyncClient))]
     [InlineData(nameof(DevbookSubjectSyncClient))]
+    [InlineData(nameof(KnowledgeEventSyncClient))]
     public async Task A_pull_that_fails_is_retried(string client)
     {
         var wire = new StubHttpMessageHandler((_, _) => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
@@ -409,6 +412,7 @@ public class SyncClientRegistrationTests
     [InlineData(nameof(SessionSyncClient))]
     [InlineData(nameof(AnnotationSyncClient))]
     [InlineData(nameof(DevbookSubjectSyncClient))]
+    [InlineData(nameof(KnowledgeEventSyncClient))]
     public void A_push_is_given_one_long_attempt(string client)
     {
         using var provider = ReplicationHost(client, new StubHttpMessageHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK)));
@@ -436,6 +440,7 @@ public class SyncClientRegistrationTests
     [InlineData(nameof(SessionSyncClient))]
     [InlineData(nameof(AnnotationSyncClient))]
     [InlineData(nameof(DevbookSubjectSyncClient))]
+    [InlineData(nameof(KnowledgeEventSyncClient))]
     public async Task A_push_the_pipeline_times_out_is_an_unreachable_result(string client)
     {
         using var provider = ReplicationHost(client, new HangingHandler(), options =>
@@ -455,7 +460,7 @@ public class SyncClientRegistrationTests
     private static string PipelineOptions(string client) => client + "-standard";
 
     /// <summary>
-    /// The four replication clients as a desktop head composes them, under the
+    /// The five replication clients as a desktop head composes them, under the
     /// pipeline <c>AddServiceDefaults()</c> puts on every client, with only the
     /// wire under <paramref name="client"/> swapped and its retry delay zeroed so a
     /// retry costs no time. No credential is stored, so the requests go out
@@ -473,6 +478,7 @@ public class SyncClientRegistrationTests
         services.AddSessionSyncClient(SyncAddress);
         services.AddAnnotationSyncClient(SyncAddress);
         services.AddDevbookSubjectSyncClient(SyncAddress);
+        services.AddKnowledgeEventSyncClient(SyncAddress);
         services.AddHttpClient(client).ConfigurePrimaryHttpMessageHandler(() => wire);
         services.PostConfigure<HttpStandardResilienceOptions>(PipelineOptions(client), options =>
         {
@@ -493,6 +499,7 @@ public class SyncClientRegistrationTests
             nameof(SessionSyncClient) => await provider.GetRequiredService<SessionSyncClient>().PushAsync([], cancellationToken),
             nameof(AnnotationSyncClient) => await provider.GetRequiredService<AnnotationSyncClient>().PushAsync([], cancellationToken),
             nameof(DevbookSubjectSyncClient) => await provider.GetRequiredService<DevbookSubjectSyncClient>().PushAsync([], cancellationToken),
+            nameof(KnowledgeEventSyncClient) => await provider.GetRequiredService<KnowledgeEventSyncClient>().PushAsync([], cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(client), client, null)
         };
     }
@@ -507,6 +514,7 @@ public class SyncClientRegistrationTests
             nameof(SessionSyncClient) => await provider.GetRequiredService<SessionSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
             nameof(AnnotationSyncClient) => await provider.GetRequiredService<AnnotationSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
             nameof(DevbookSubjectSyncClient) => await provider.GetRequiredService<DevbookSubjectSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
+            nameof(KnowledgeEventSyncClient) => await provider.GetRequiredService<KnowledgeEventSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(client), client, null)
         };
     }

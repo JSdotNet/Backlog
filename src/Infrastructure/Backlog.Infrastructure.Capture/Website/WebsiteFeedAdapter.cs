@@ -150,7 +150,7 @@ internal sealed partial class WebsiteFeedAdapter(FeedFetcher fetcher) : ICapture
     {
         foreach (Match tag in LinkTag().Matches(html))
         {
-            var attributes = AttributesOf(tag.Value);
+            var attributes = HtmlAttributes.Of(tag.Value);
 
             if (!attributes.TryGetValue("rel", out var rel) || !IsAlternate(rel)) continue;
             if (!attributes.TryGetValue("type", out var type) || !IsFeedType(type)) continue;
@@ -170,7 +170,7 @@ internal sealed partial class WebsiteFeedAdapter(FeedFetcher fetcher) : ICapture
     {
         foreach (Match tag in AnchorTag().Matches(html))
         {
-            var attributes = AttributesOf(tag.Value);
+            var attributes = HtmlAttributes.Of(tag.Value);
 
             if (!attributes.TryGetValue("href", out var href) || string.IsNullOrWhiteSpace(href)) continue;
             if (!Uri.TryCreate(page, href.Trim(), out var url) || !SourceTargets.IsFetchable(url)) continue;
@@ -183,20 +183,6 @@ internal sealed partial class WebsiteFeedAdapter(FeedFetcher fetcher) : ICapture
         }
 
         return null;
-    }
-
-    /// <summary>First occurrence wins, and a repeated attribute — untrusted
-    /// markup does that — is not an exception.</summary>
-    private static Dictionary<string, string> AttributesOf(string tag)
-    {
-        var attributes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (Match attribute in Attribute().Matches(tag))
-        {
-            attributes.TryAdd(attribute.Groups["name"].Value, attribute.Groups["value"].Value);
-        }
-
-        return attributes;
     }
 
     /// <summary>rel is a space-separated list; "alternate" anywhere in it counts.</summary>
@@ -213,9 +199,4 @@ internal sealed partial class WebsiteFeedAdapter(FeedFetcher fetcher) : ICapture
 
     [GeneratedRegex(@"<a\b[^>]*>", RegexOptions.IgnoreCase)]
     private static partial Regex AnchorTag();
-
-    /// <summary>One attribute, quoted either way or not at all. The unquoted
-    /// form stops at whitespace or the tag's end.</summary>
-    [GeneratedRegex(@"(?<name>[\w:-]+)\s*=\s*(?:""(?<value>[^""]*)""|'(?<value>[^']*)'|(?<value>[^\s>/]+))")]
-    private static partial Regex Attribute();
 }

@@ -422,26 +422,26 @@ type: requirement
 related: [.devbook/domain/notifications/domain.md#acknowledgement, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
 ```
 
-The system SHALL let any paired viewer acknowledge an open alert, mark it Acknowledged only when its owner takes the acknowledgement, then move it from every device's open stack to settled in its list.
+The system SHALL let any paired viewer acknowledge an open alert, mark it Acknowledged only when its owner takes the acknowledgement, then move it from every device's open stack to settled.
 
 #### Scenario: Dismissing an alert on the phone
 
 - **Given** Desktop A owns an open alert, and the phone and Desktop B are paired
 - **When** the person taps Dismiss on the alert in the phone's pager
 - **Then** the alert leaves the phone's stack at once, Desktop A marks it Acknowledged, and it leaves Desktop A's open notifications, its Windows notification and Desktop B's open notifications
-- **And** the phone's list keeps it, reading "Acknowledged on this phone"
+- **And** its detail on the phone reads "Acknowledged on this phone"
 
 #### Scenario: The owner is offline
 
 - **Given** Desktop A owns an open alert and is asleep
 - **When** the person taps Dismiss on the phone
-- **Then** the alert leaves the phone's stack, the phone's list reads "delivers on wake", and Desktop A marks it Acknowledged when it wakes
+- **Then** the alert leaves the phone's stack, its detail on the phone reads "delivers on wake", and Desktop A marks it Acknowledged when it wakes
 
 #### Scenario: The phone is offline
 
 - **Given** the phone has no network
 - **When** the person taps Dismiss on an open alert
-- **Then** the acknowledgement waits in the device outbox, the alert leaves the phone's stack, and the list reads "Sending" until the outbox delivers it
+- **Then** the acknowledgement waits in the device outbox, the alert leaves the phone's stack, and its detail reads "Sending" until the outbox delivers it
 
 #### Scenario: The alert closed first
 
@@ -501,19 +501,19 @@ type: requirement
 related: [.devbook/domain/notifications/domain.md#origin, .devbook/domain/notifications/context.md#owner-screens]
 ```
 
-The system SHALL let the person narrow both views of the phone's Notifications tab by From, the system a notification came from, and by Repository, the repository its owner published or the Brain, and SHALL keep a notification whose repository is not known under every Repository choice.
+The system SHALL let the person narrow the pager on the phone's Notifications screen by From, the system a notification came from, and by Repository, the repository its owner published or the Brain, and SHALL keep a notification whose repository is not known under every Repository choice.
 
 #### Scenario: Picking a system
 
 - **Given** the phone holds open questions from Claude Code and from spec-manager
 - **When** the person picks Claude Code under From
-- **Then** the list shows only Claude Code's notifications, and the pager's stack, its position and its end screen count only Claude Code's waiting questions
+- **Then** the pager's stack, its position and its end screen count only Claude Code's waiting questions
 
 #### Scenario: Picking the Brain
 
 - **Given** the phone holds a pairing question and a question about the repository "Backlog"
 - **When** the person picks Brain under Repository
-- **Then** both views show the pairing question and not the one about "Backlog"
+- **Then** the pager shows the pairing question and not the one about "Backlog"
 
 #### Scenario: A repository not known
 
@@ -525,20 +525,27 @@ The system SHALL let the person narrow both views of the phone's Notifications t
 
 ```meta
 type: requirement
+related: [.devbook/domain/notifications/requirements.md#requirement-phone-filters-never-hide-what-waits]
 ```
 
-The system SHALL show beside each option of a phone filter how many notifications it would keep under the other filter, and SHALL not show a filter with fewer than two options.
+The system SHALL show beside each option of a phone filter how many waiting notifications it would keep under the other filter, and SHALL not show a filter with fewer than two options.
 
 #### Scenario: Counts under the other filter
 
-- **Given** Repository is set to "Backlog", which holds two Claude Code notifications and one from spec-manager
+- **Given** Repository is set to "Backlog", which holds two waiting Claude Code notifications and one from spec-manager
 - **When** the person opens From
 - **Then** Claude Code reads 2 and spec-manager reads 1
+
+#### Scenario: A settled notification
+
+- **Given** the only spec-manager notification on the phone has been answered
+- **When** the person opens From
+- **Then** spec-manager is still offered and reads 0
 
 #### Scenario: One system only
 
 - **Given** every notification on the phone came from Claude Code
-- **When** the person opens the Notifications tab
+- **When** the person opens the Notifications screen
 - **Then** no From filter is shown
 
 ### Requirement: The phone remembers its filters until the person clears them
@@ -547,19 +554,19 @@ The system SHALL show beside each option of a phone filter how many notification
 type: requirement
 ```
 
-The system SHALL keep the phone's From and Repository choices on the device across both views and across restarts, and SHALL set both back to All when the person presses Clear filters.
+The system SHALL keep the phone's From and Repository choices on the device across restarts, and SHALL set both back to All when the person presses Clear filters.
 
 #### Scenario: Filters survive a restart
 
 - **Given** the person picked Claude Code under From
-- **When** they close the app and open it again on the Notifications tab
-- **Then** From still reads Claude Code, in the pager and in the list
+- **When** they close the app and open it again on the Notifications screen
+- **Then** From still reads Claude Code, and the pager holds only Claude Code's waiting questions
 
 #### Scenario: A filter that leaves nothing
 
-- **Given** the person picked a repository whose notifications have all been closed
-- **When** the tab has nothing left to show
-- **Then** it shows an empty state with Clear filters instead of "No notifications", and pressing Clear filters shows every notification again
+- **Given** the person picked a system no notification on the phone comes from any longer
+- **When** the screen has nothing left to show
+- **Then** it shows an empty state with Clear filters instead of "No notifications", and pressing Clear filters brings the pager back with everything that waits
 
 ### Requirement: Phone filters never hide what waits
 
@@ -567,13 +574,19 @@ The system SHALL keep the phone's From and Repository choices on the device acro
 type: requirement
 ```
 
-The system SHALL count every open question in the tab's waiting count and SHALL push every notification to the phone, whatever the phone's filters hold.
+The system SHALL mark the phone's filter button, to the eye and in its accessible name, while a filter narrows the screen, SHALL show on it how many items waiting on the person the filters leave out, and SHALL push every notification to the phone, whatever the phone's filters hold.
 
 #### Scenario: A question outside the filter
 
-- **Given** the person picked spec-manager under From
+- **Given** the person picked spec-manager under From, which leaves out two of three waiting notifications
 - **When** Desktop A publishes a Claude Code question
-- **Then** the phone's tray shows it, and the waiting count counts it, though neither view lists it
+- **Then** the phone's tray shows it and the filter button reads 3, though the pager does not hold it
+
+#### Scenario: A filter that leaves nothing waiting out
+
+- **Given** every waiting notification came from Claude Code, and a settled one from spec-manager
+- **When** the person picks Claude Code under From
+- **Then** the filter button shows and says that filters are on, and carries no number
 
 ### Requirement: Android is the only phone platform
 
@@ -610,16 +623,17 @@ related: [.devbook/domain/notifications/features.md#asking-from-the-contexts, .d
 ```meta
 type: requirement
 related: [.devbook/domain/tasks/requirements.md#requirement-a-follow-up-is-filed-once-after-the-gated-entry]
-tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_first_gate_report_with_a_handoff_asks_to_approve_the_run_with_the_handoff_as_its_body, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_that_goes_in_progress_with_no_links_and_no_handoff_asks_nothing_until_a_report_carries_one, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_handoff_longer_than_the_body_holds_is_cut_to_fit_and_ends_with_a_line_that_says_so, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_its_entry_is_offered_approve_approve_with_a_follow_up_revise_and_reject, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_no_entry_is_offered_approve_revise_and_reject_with_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_reported_twice_with_its_handoff_asks_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.After_a_revise_round_the_gate_asks_again_with_only_the_new_attempts_handoff, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Re_reporting_the_gate_after_it_was_approved_asks_nothing_more, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_answer_is_recorded_on_the_run_as_its_gate_decision, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Approve_with_a_follow_up_files_one_entry_after_the_gated_entry_and_records_its_id, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_answer_delivered_twice_leaves_the_run_unchanged_and_files_no_second_entry, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_whose_gated_entry_is_gone_records_the_approval_with_the_words_and_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_replayed_answer_changes_nothing_and_the_next_gate_asks_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_decision_the_desktop_recorded_after_the_question_wins_over_a_late_answer_and_files_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_desktop_decision_taken_while_the_follow_up_is_filed_stands, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_gate_moving_on_at_the_desktop_closes_the_unanswered_question, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Get_run_carries_the_gate_decision_the_answer_chosen_and_the_follow_up_entry]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_first_gate_report_with_a_handoff_asks_to_approve_the_run_with_the_handoff_as_its_body, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_that_goes_in_progress_with_no_links_and_no_handoff_asks_nothing_until_a_report_carries_one, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_handoff_longer_than_the_body_holds_is_cut_to_fit_and_ends_with_a_line_that_says_so, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_its_entry_is_offered_approve_approve_with_a_follow_up_revise_and_a_quiet_dismiss, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_no_entry_is_offered_approve_revise_and_a_quiet_dismiss_with_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_body_carries_neither_the_repository_nor_what_each_answer_does, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Dismiss_records_nothing_on_the_runs_approval_and_marks_the_question_dismissed, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_replayed_dismiss_leaves_the_run_unchanged, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_dismiss_after_a_desktop_decision_leaves_that_decision_standing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_dismissed_question_is_not_asked_again_or_closed_for_the_same_attempt, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_new_attempt_after_a_dismiss_asks_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_revise_round_decided_at_the_desktop_after_a_dismiss_asks_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_reported_twice_with_its_handoff_asks_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.After_a_revise_round_the_gate_asks_again_with_only_the_new_attempts_handoff, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Re_reporting_the_gate_after_it_was_approved_asks_nothing_more, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_answer_is_recorded_on_the_run_as_its_gate_decision, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Approve_with_a_follow_up_files_one_entry_after_the_gated_entry_and_records_its_id, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_answer_delivered_twice_leaves_the_run_unchanged_and_files_no_second_entry, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_whose_gated_entry_is_gone_records_the_approval_with_the_words_and_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_replayed_answer_changes_nothing_and_the_next_gate_asks_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_decision_the_desktop_recorded_after_the_question_wins_over_a_late_answer_and_files_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_desktop_decision_taken_while_the_follow_up_is_filed_stands, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_gate_moving_on_at_the_desktop_closes_the_unanswered_question, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_link_only_the_desktop_can_open_is_left_out_and_a_web_link_is_listed_after_the_pull_request, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.With_only_desktop_only_links_the_body_has_no_review_links_heading, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_report_with_only_desktop_only_links_and_no_handoff_still_asks_once, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Get_run_carries_the_gate_decision_the_answer_chosen_and_the_follow_up_entry]
 ```
 
-The system SHALL ask "Approve the validation of *run*?" with the run's gate handoff as its body and the choices Approve, Approve + follow-up, Revise and Reject when a delivery run's Personal Validation stage first reports a handoff, and SHALL record the answer on the run as its gate decision.
+The system SHALL ask "Approve the validation of *run*?" with the run's gate handoff as its body and the choices Approve, Approve + follow-up, Revise and Dismiss when a delivery run's Personal Validation stage first reports a handoff, with up to six of the run's evidence screenshots before the handoff, SHALL record the answer on the run as its gate decision, and SHALL record nothing on the run when the answer is Dismiss.
 
 #### Scenario: The handoff is the body
 
 - **Given** a delivery run on Desktop A whose Personal Validation stage is in progress
 - **When** the stage reports its review links, what to check, the acceptance criteria and the evidence paths
 - **Then** Desktop A asks the question with all four as text in its body, and the title and summary carry none of it
+- **And** the body names neither the repository, which the origin shows, nor what each answer does
 
 #### Scenario: A gate that reports no handoff yet
 
@@ -632,6 +646,26 @@ The system SHALL ask "Approve the validation of *run*?" with the run's gate hand
 - **Given** a gate handoff longer than 32 KB
 - **When** the question is asked
 - **Then** the body holds the handoff cut to fit, ending with a line that says it was truncated
+
+#### Scenario: A link only the desktop can open is left out
+
+- **Given** a gate that reports a link to the running app on `localhost`, a `file:` evidence link and a web link
+- **When** the question is asked
+- **Then** its body lists the web link alone, and with no web link it has no review links section; the run's own panel at the desktop still lists every link
+
+#### Scenario: The run's screenshots open the body
+
+- **Given** a delivery run whose stages reported eight `png` evidence screenshots under 5 MB, a 7 MB `png` and a `.webm` recording
+- **When** the question is asked
+- **Then** its body opens with the six newest of the eight `png` screenshots, unchanged, before the handoff text, and the 7 MB screenshot and the recording stay in the run's panel at the desktop
+- **And** the stage report that asked it finished before any screenshot was uploaded
+
+#### Scenario: The phone shows the screenshots
+
+- **Given** a Personal Validation question with two screenshots, pulled by the phone
+- **When** the person opens it
+- **Then** the phone shows both images above the handoff
+- **And** an image it cannot fetch, or one whose bytes do not match the hash the question lists, shows its file name in its place
 
 #### Scenario: Approved from the phone
 
@@ -657,9 +691,9 @@ The system SHALL ask "Approve the validation of *run*?" with the run's gate hand
 - **When** the person answers Revise with "The toast overlaps the header"
 - **Then** the run records a rejection with those words, and the flow starts a revise round
 
-#### Scenario: Rejected
+#### Scenario: Rejected from an earlier question
 
-- **Given** a delivery run at Personal Validation
+- **Given** a validation question an earlier build asked, which still offered Reject
 - **When** the person answers Reject
 - **Then** the run records a rejection with none of the person's words, and `execute-plan` blocks the entry instead of starting a revise round
 
@@ -667,7 +701,13 @@ The system SHALL ask "Approve the validation of *run*?" with the run's gate hand
 
 - **Given** a delivery run whose file names neither an entry id nor a plan and item
 - **When** its Personal Validation stage reports a handoff
-- **Then** the question offers Approve, Revise and Reject, and no Approve + follow-up
+- **Then** the question offers Approve, Revise and Dismiss, and no Approve + follow-up
+
+#### Scenario: Dismissed
+
+- **Given** a run at Personal Validation with its question open
+- **When** the person answers Dismiss
+- **Then** nothing is recorded on the run's approval, and the question is answered on every device and not asked again for that attempt
 
 #### Scenario: The desktop decided first
 
@@ -704,6 +744,42 @@ The system SHALL raise an info alert about a remark left on a Devbook chapter on
 - **Given** the person leaves a remark on "Storage and sync" on Desktop B
 - **When** the remark syncs to Desktop A
 - **Then** Desktop A raises an info alert about the remark that links to the chapter
+
+### Requirement: A schedule or loop session that needs the person raises one alert
+
+```meta
+type: requirement
+related: [.devbook/domain/sessions/requirements.md#schedules-and-their-runs, .devbook/domain/sessions/requirements.md#loop-sessions]
+```
+
+The system SHALL publish one Alert per cause when a schedule or a loop session needs the person, attributed to "Backlog · &lt;repository&gt; · Schedules" or "Backlog · Sessions", and SHALL close it when Sessions reports the cause cleared.
+
+#### Scenario: The dispatcher stopped
+
+- **Given** the Manager's session is archived while three session requests wait
+- **When** Sessions publishes the alert
+- **Then** the centre and Windows show "Session dispatcher stopped" from "Backlog · Sessions", with Open Sessions and Acknowledge
+
+#### Scenario: The dispatcher is back
+
+- **Given** an Open "Session dispatcher stopped" alert
+- **When** a Manager checks in again
+- **Then** the alert closes on every viewer
+
+### Requirement: An alert's actions stay on its owner
+
+```meta
+type: requirement
+related: [.devbook/domain/notifications/domain.md#alert-action]
+```
+
+The system SHALL offer an alert's actions only on its owner desktop, and only its acknowledgement on every other device.
+
+#### Scenario: A schedule alert on the phone
+
+- **Given** an Open schedule alert that offers Open run and Open Schedules on the owner desktop
+- **When** the person opens it on the paired phone
+- **Then** the phone offers Dismiss alone
 
 ## Closing a notification
 

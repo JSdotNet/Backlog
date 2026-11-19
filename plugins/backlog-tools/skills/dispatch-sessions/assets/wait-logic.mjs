@@ -4,6 +4,13 @@
 
 export const ROUTE = "/session-requests/wait";
 
+// The route with the Manager's own session id as `sessionId`, so the app counts each wait as that
+// loop's check-in (local ADR 0051 §3); without one, the bare route, which checks nothing in.
+export function waitRoute(sessionId) {
+    const session = String(sessionId ?? "").trim();
+    return session ? `${ROUTE}?sessionId=${encodeURIComponent(session)}` : ROUTE;
+}
+
 // What a call that could not get the Manager grant's token means: said once, like a refusal,
 // and asked for again after retryMs. `reason` is the sentence backlog-grant.mjs gave.
 export function noToken(reason, { retryMs }) {

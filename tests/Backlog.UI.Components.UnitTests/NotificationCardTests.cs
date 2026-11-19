@@ -249,6 +249,65 @@ public sealed class NotificationCardTests
     }
 
     [Fact]
+    public void A_quiet_choice_draws_as_a_small_ghost_action_after_the_buttons_and_answers_at_once()
+    {
+        using var context = Context();
+        NotificationCardReply? reply = null;
+        var spec = new NotificationCardAnswerSpec(
+        [
+            new NotificationCardChoice("approve", "Approve", NotificationCardChoiceStyle.Primary),
+            new NotificationCardChoice("reject", "Reject", NotificationCardChoiceStyle.Destructive),
+            new NotificationCardChoice("dismiss", "Dismiss", Quiet: true)
+        ]);
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(spec))
+            .Add(c => c.OnAnswer, r => reply = r));
+
+        var row = card.Find("[data-testid='notification-card-choices']");
+        Assert.Null(row.QuerySelector("[data-testid='notification-card-choice-dismiss']"));
+        Assert.Equal(2, row.QuerySelectorAll(".btn").Length);
+
+        var dismiss = card.Find("[data-testid='notification-card-quiet-choices'] [data-testid='notification-card-choice-dismiss']");
+        Assert.Contains("btn--ghost", dismiss.ClassList);
+        Assert.Contains("btn--small", dismiss.ClassList);
+
+        dismiss.Click();
+
+        Assert.Equal(["dismiss"], reply!.ChoiceIds);
+        Assert.Null(reply.Text);
+    }
+
+    [Fact]
+    public void A_quiet_choice_stays_last_below_the_words_a_choice_asks_for()
+    {
+        using var context = Context();
+        var spec = Validation with { Choices = [.. Validation.Choices, new NotificationCardChoice("dismiss", "Dismiss", Quiet: true)] };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(spec)));
+        card.Find("[data-testid='notification-card-choice-revise']").Click();
+
+        Assert.NotNull(card.Find("[data-testid='notification-card-choice-text']"));
+        var last = card.FindAll("[data-testid='notification-card-answer'] button, [data-testid='notification-card-answer'] textarea")[^1];
+        Assert.Equal("notification-card-choice-dismiss", last.GetAttribute("data-testid"));
+    }
+
+    [Fact]
+    public void A_quiet_choice_does_not_count_towards_the_wrapping_grid()
+    {
+        using var context = Context();
+        var spec = new NotificationCardAnswerSpec(
+        [
+            .. Enumerable.Range(1, 6).Select(n => new NotificationCardChoice($"c{n}", $"Choice {n}")),
+            new NotificationCardChoice("dismiss", "Dismiss", Quiet: true)
+        ]);
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(spec)));
+
+        Assert.DoesNotContain("notification-card__actions--many", card.Find("[data-testid='notification-card-choices']").ClassList);
+    }
+
+    [Fact]
     public void Seven_or_eight_choices_lay_out_as_a_wrapping_grid_and_fewer_stay_one_row()
     {
         using var context = Context();
@@ -336,6 +395,39 @@ public sealed class NotificationCardTests
         Assert.True(acknowledged);
         Assert.Equal("Alert", card.Find("[data-testid='notification-card-kind']").TextContent);
         Assert.Empty(card.FindAll("[data-testid='notification-card-severity']"));
+        Assert.Empty(card.FindAll("[data-testid='notification-card-action']"));
+    }
+
+    [Fact]
+    public void An_alerts_actions_lead_acknowledge_and_raise_the_one_pressed()
+    {
+        using var context = Context();
+        NotificationCardAction? pressed = null;
+        var openSessions = new NotificationCardAction("Open Sessions", "backlog://window/sessions?session=loop-1");
+        var model = Alert() with { Actions = [openSessions, new NotificationCardAction("Open Schedules", "backlog://window/sessions?page=schedules")] };
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, model)
+            .Add(c => c.OnAction, action => pressed = action));
+
+        var buttons = card.FindAll("[data-testid='notification-card-answer'] button");
+        Assert.Equal(["Open Sessions", "Open Schedules", "Acknowledge"], buttons.Select(button => button.TextContent.Trim()));
+
+        card.FindAll("[data-testid='notification-card-action']")[0].Click();
+
+        Assert.Equal(openSessions, pressed);
+    }
+
+    [Fact]
+    public void A_settled_alert_offers_no_actions()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(
+            c => c.Model,
+            Alert() with { State = NotificationCardState.Acknowledged, Actions = [new NotificationCardAction("Open run", "backlog://window/sessions?session=run-1")] }));
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-action']"));
     }
 
     [Fact]

@@ -45,6 +45,22 @@
         attempt(focusFrames);
     };
 
+    // backlogFocus, but only for a focus that is lost: on nothing, on an element
+    // already taken out of the page, or inside one of `heldBy` — a control the
+    // render that asks is removing. A focus the reader has put somewhere else (an
+    // outside click that closed a menu) is left where it is. Checked when the call
+    // arrives, before the frames backlogFocus may wait for the element.
+    window.backlogFocusIfLost = (id, ...heldBy) => {
+        const focused = document.activeElement;
+        const lost = !focused
+            || focused === document.body
+            || focused === document.documentElement
+            || !focused.isConnected
+            || heldBy.some((selector) => focused.closest?.(selector));
+
+        if (lost) window.backlogFocus(id);
+    };
+
     // A list opened on one row — the pull requests list from a task's card — has to
     // show that row, which may sit far down a long table. The nearest scroll
     // container is scrolled until the row is inside it, and nothing above that: the
@@ -1361,6 +1377,18 @@
 
             attempt(focusFrames);
         }
+    };
+
+    // The text the reader has selected inside `element`, or null when nothing is
+    // selected or the selection starts outside it — the line a Brain note's
+    // Create task takes as its title.
+    window.backlogSelectedText = (element) => {
+        const selection = window.getSelection?.();
+        if (!element || !selection || selection.isCollapsed || selection.rangeCount === 0) return null;
+        if (!element.contains(selection.anchorNode)) return null;
+
+        const text = selection.toString();
+        return text && text.trim().length > 0 ? text : null;
     };
 
     window.backlogClipboard = {
@@ -2791,7 +2819,7 @@
         event.preventDefault();
     });
 
-    // Single-letter shortcuts over a pane — the Inbox's j/k/a/d/l/r/g/t/x/u today.
+    // Single-letter shortcuts over a pane — the Inbox's j/k/a/d/l/r/b/s/n/w/g/t/x/u today.
     // A letter is a shortcut only where it cannot be typing, and that has to be
     // decided here, at the keydown, for the reason the tag picker's keys are: a
     // server-side `@onkeydown:preventDefault` is rendered after the handler that
@@ -2813,8 +2841,8 @@
     // Escape is passed on without its default refused: it has none worth
     // stopping, and a pane handler may still want to hear it bubble.
     const shortcutPanes = new Map();
-    const SHORTCUT_PANE_KEYS = new Set(['j', 'k', 'a', 'd', 'l', 'r', 'b', 'g', 't', 'x', 'u', 'U', '?', 'Escape']);
-    const TYPING_TARGETS = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]';
+    const SHORTCUT_PANE_KEYS = new Set(['j', 'k', 'a', 'd', 'l', 'r', 'b', 's', 'n', 'w', 'e', 'g', 't', 'x', 'u', 'U', '?', 'Escape']);
+    const TYPING_TARGETS = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"], dialog';
     let lastShortcutPane = null;
 
     window.backlogPaneShortcuts = {
@@ -2924,10 +2952,10 @@
     //
     // A pressed first chip — a pressed plan, which the state puts first whether
     // "Open in Tasks" showed it or the reader pressed it — also gets its own width
-    // reserved, as `--tag-strip-lead`: the strip only takes what the other groups
-    // leave, and with every repository in scope that can be nothing, which would
-    // clip the one chip that says why the list is short. Reserved, the bar wraps a
-    // group onto its next row instead.
+    // reserved, as `--tag-strip-lead`: the strip has a row of its own on the Tasks
+    // bar, but shares it with the More toggle, and a column narrower than the pair
+    // would clip the one chip that says why the list is short. Reserved, the strip
+    // keeps that chip whole.
     //
     // The first child is not always the chip itself: a host may fuse a pressed chip
     // with a control of its own in one wrapper (the Tasks bar pairs a pressed plan
@@ -3130,6 +3158,111 @@
         },
         dispose(key) {
             backlogPaneOwners.delete(key);
+        }
+    };
+
+    // An open PopoverButton's outside click, heard on the window rather than by its
+    // backdrop. The backdrop is `position: fixed; inset: 0`, which is the whole
+    // window only while no ancestor is a containing block for it — and a query
+    // container is one, so inside the Tasks list column the backdrop covered the
+    // column and a click in the entry beside it reached whatever it landed on.
+    //
+    // Capture on the window runs before any handler in the page, Blazor's
+    // included. A pointer press that starts outside the component is taken there
+    // — its down, up and click never reach the page, and the click's default
+    // (a link's navigation) is cancelled — and the click closes the panel: the
+    // contract's "an outside click only closes". Focus still moves where the press
+    // put it, since nothing cancels the pointer's own default. A press inside the
+    // component, the backdrop among it, is left alone: the backdrop's own click
+    // closes the panel as before. A click with no press before it is a key's, which
+    // the backdrop never caught either, so it is let through.
+    //
+    // Only a primary press arms the watch, and anything that means its click is not
+    // coming disarms it — a cancelled pointer (a touch pan), a context menu (Ctrl
+    // and a press on a Mac), a drag, a key. Left armed, the next Enter on a control
+    // outside would be taken for the click and swallowed.
+    const backlogPopoverWatches = new Map();
+
+    window.backlogPopoverOutside = {
+        watch(id, root, dotnet, method) {
+            this.unwatch(id);
+            if (!root || !dotnet) return;
+
+            let armed = false;
+            const outside = (event) => event.target instanceof Node && !root.contains(event.target);
+            const onPress = (event) => {
+                armed = event.button === 0 && outside(event);
+                if (armed) event.stopPropagation();
+            };
+            const onRest = (event) => {
+                if (armed) event.stopPropagation();
+            };
+            const onDisarm = () => {
+                armed = false;
+            };
+            const onClick = (event) => {
+                if (!armed) return;
+                armed = false;
+                event.preventDefault();
+                event.stopPropagation();
+                dotnet.invokeMethodAsync(method).catch(() => undefined);
+            };
+
+            const listeners = [
+                ['pointerdown', onPress],
+                ['mousedown', onRest],
+                ['pointerup', onRest],
+                ['mouseup', onRest],
+                ['click', onClick],
+                ['pointercancel', onDisarm],
+                ['contextmenu', onDisarm],
+                ['dragstart', onDisarm],
+                ['keydown', onDisarm],
+            ];
+            for (const [name, listener] of listeners) window.addEventListener(name, listener, true);
+            backlogPopoverWatches.set(id, () => {
+                for (const [name, listener] of listeners) window.removeEventListener(name, listener, true);
+            });
+        },
+        unwatch(id) {
+            backlogPopoverWatches.get(id)?.();
+            backlogPopoverWatches.delete(id);
+        }
+    };
+
+    // Whether an element is at or under a width, told to .NET when that answer
+    // changes and never otherwise. For a layout a container query cannot do: a
+    // query restyles an element but never moves it to another parent, so a host
+    // that draws a different shape on a narrow column — the Tasks bar folding Source
+    // and Type into one Filter menu below the 48rem step its stylesheet keys on —
+    // has to hear the crossing and render it. The threshold is the host's, in rem,
+    // the same number as its query's, so the two flip together. A box of no width
+    // is not on screen (a takeover hid it) and says nothing either way.
+    const backlogWidthWatches = new Map();
+
+    window.backlogWidthWatch = {
+        watch(id, element, dotnet, method, thresholdRem) {
+            this.unwatch(id);
+            if (!element || !dotnet || typeof ResizeObserver !== 'function') return;
+
+            let reported = null;
+            const observer = new ResizeObserver((entries) => {
+                const width = entries[entries.length - 1].contentRect.width;
+                if (width <= 0) return;
+
+                const narrow = width <= thresholdRem * backlogRootFontSize();
+                if (narrow === reported) return;
+
+                reported = narrow;
+                dotnet.invokeMethodAsync(method, narrow).catch(() => undefined);
+            });
+
+            observer.observe(element);
+            backlogWidthWatches.set(id, observer);
+        },
+        unwatch(id) {
+            backlogWidthWatches.get(id)?.disconnect();
+            backlogWidthWatches.delete(id);
         }
     };
 
@@ -7338,371 +7471,17 @@
 
 (() => {
     /*
-        The C4 explorer's viewer.
+        The C4 zoom navigation's viewer.
 
         Everything here is about a diagram somebody else drew. C4DiagramView renders a
         C4 view through C4SvgWriter into a static SVG and hands it over; this adds the
-        exploration layer over the top — pan and zoom, a minimap, presentation mode, a
-        click target on every element, and a dimming pass for the Highlighter.
-
-        It works on the SVG's own `viewBox` rather than on a CSS transform. The viewBox
-        is what C4SvgWriter already sizes the picture with, so zoom-to-fit is a copy of
-        the original numbers, panning is arithmetic on them, and the minimap only has
-        to draw the same SVG at its full extent with a rectangle where the viewBox now
-        sits. A CSS transform would have needed all of that translated back out of a
-        matrix, and would have blurred the text on the way.
+        reading layer over the top: one press selects a card, and the zoom is a
+        double-click, the card's Zoom in chip, or Enter.
 
         The bridge back to the model is the node id. C4SvgWriter writes each element
         as `<g class="node ..." id="<svg id>-<alias>">`, and the alias is the one this
-        repository's own writer produced — so stripping the svg id off the front is
+        repository's own writer produced, so stripping the svg id off the front is
         the whole of the lookup, and no text matching is involved anywhere.
-    */
-
-    const explorers = new Map();
-
-    // Per drawn SVG element: the extent it was drawn at, and the box the reader
-    // last left it showing. Keyed on the element, because the element is what
-    // says whether the picture changed: Blazor leaves unchanged markup in place
-    // and replaces the element when the markup changes. Reading the home back
-    // off an element this viewer had already zoomed made Fit return to the last
-    // zoom and measured the zoom limits from a home that moved with every step.
-    const viewports = new WeakMap();
-
-    const MIN_SCALE = 0.2;
-    const MAX_SCALE = 8;
-
-    function nodeAlias(svg, group) {
-        const prefix = svg.id ? svg.id + '-' : '';
-        const id = group.id || '';
-        return prefix && id.startsWith(prefix) ? id.slice(prefix.length) : id;
-    }
-
-    function readViewBox(svg) {
-        const raw = (svg.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
-        if (raw.length !== 4 || raw.some(Number.isNaN)) {
-            // C4SvgWriter always writes one; this is the honest fallback rather
-            // than NaN arithmetic that silently blanks the picture.
-            const box = svg.getBBox ? svg.getBBox() : { x: 0, y: 0, width: 100, height: 100 };
-            return { x: box.x, y: box.y, w: box.width || 100, h: box.height || 100 };
-        }
-
-        return { x: raw[0], y: raw[1], w: raw[2], h: raw[3] };
-    }
-
-    function writeViewBox(svg, box) {
-        svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.w} ${box.h}`);
-    }
-
-    window.backlogC4Explorer = {
-        /**
-         * Takes over a rendered diagram. Safe to call again for the same id — the
-         * previous attachment is torn down first — and for the same SVG element,
-         * which keeps the home it was first attached with and the box it was left
-         * at, rather than reading its zoomed viewBox back as the whole picture.
-         */
-        attach(id, frameSelector, reference, viewKey, drillable) {
-            this.dispose(id);
-
-            const frame = document.querySelector(frameSelector);
-            const svg = frame?.querySelector('svg');
-            if (!frame || !svg) return false;
-
-            // The explorer owns the box. C4SvgWriter already sizes the svg to its
-            // frame; this is repeated so a picture whose writer capped its own
-            // width still fills a tall frame.
-            svg.removeAttribute('style');
-            svg.setAttribute('width', '100%');
-            svg.setAttribute('height', '100%');
-            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-
-            // Only the boxes that lead somewhere are marked, and only those get the
-            // hand cursor and the hover outline. Marking all of them was a promise
-            // the click could not keep: most elements have no deeper view — a
-            // component is a leaf, and a container without a component view has
-            // nothing declared — so the pointer invited a click that did nothing and
-            // made the whole gesture read as broken.
-            const drills = new Set(Array.isArray(drillable) ? drillable : []);
-            svg.querySelectorAll('g.node').forEach(group => {
-                group.classList.toggle('c4-drillable', drills.has(nodeAlias(svg, group)));
-            });
-
-            let viewport = viewports.get(svg);
-            if (!viewport) {
-                viewport = { home: readViewBox(svg), box: null };
-                viewports.set(svg, viewport);
-            }
-
-            const home = viewport.home;
-            let box = viewport.box ? { ...viewport.box } : { ...home };
-
-            // The last percent .NET was told, so a pan, which leaves the zoom where
-            // it was, costs no interop call per pointer move.
-            let reportedPercent = null;
-
-            const minimap = frame.closest('.c4-explorer__stage')?.querySelector('[data-c4-minimap]') ?? null;
-            let lens = null;
-
-            if (minimap) {
-                // The minimap is the same SVG again, frozen at full extent, with a
-                // rectangle for where the reader is. A clone rather than a <use>,
-                // because <use> would inherit the live viewBox and show nothing but
-                // itself.
-                const copy = svg.cloneNode(true);
-                copy.removeAttribute('id');
-                copy.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
-                writeViewBox(copy, home);
-                copy.setAttribute('width', '100%');
-                copy.setAttribute('height', '100%');
-
-                lens = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                lens.setAttribute('class', 'c4-minimap__lens');
-                copy.appendChild(lens);
-
-                minimap.replaceChildren(copy);
-            }
-
-            function drawLens() {
-                if (!lens) return;
-                lens.setAttribute('x', box.x);
-                lens.setAttribute('y', box.y);
-                lens.setAttribute('width', Math.max(box.w, 1));
-                lens.setAttribute('height', Math.max(box.h, 1));
-            }
-
-            function apply() {
-                writeViewBox(svg, box);
-                viewport.box = box;
-                drawLens();
-
-                const percent = Math.round((home.w / box.w) * 100);
-                if (percent === reportedPercent) return;
-
-                reportedPercent = percent;
-                reference?.invokeMethodAsync('ZoomChanged', percent);
-            }
-
-            function clampScale(next) {
-                const scale = home.w / next.w;
-                if (scale < MIN_SCALE || scale > MAX_SCALE) return false;
-                return true;
-            }
-
-            // ---- zoom ----------------------------------------------------------
-
-            function zoomAt(factor, clientX, clientY) {
-                const rect = svg.getBoundingClientRect();
-                if (!rect.width || !rect.height) return;
-
-                // Zoom about the pointer: the point under the cursor is the one that
-                // must not move, which is what makes wheel-zoom feel like a map.
-                const fx = (clientX - rect.left) / rect.width;
-                const fy = (clientY - rect.top) / rect.height;
-
-                const next = {
-                    w: box.w / factor,
-                    h: box.h / factor,
-                    x: box.x + (box.w - box.w / factor) * fx,
-                    y: box.y + (box.h - box.h / factor) * fy
-                };
-
-                if (!clampScale(next)) return;
-                box = next;
-                apply();
-            }
-
-            function zoomBy(factor) {
-                const rect = svg.getBoundingClientRect();
-                zoomAt(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
-            }
-
-            const onWheel = (event) => {
-                if (!event.ctrlKey && Math.abs(event.deltaY) < 1) return;
-                event.preventDefault();
-                zoomAt(event.deltaY < 0 ? 1.15 : 1 / 1.15, event.clientX, event.clientY);
-            };
-
-            // ---- pan -----------------------------------------------------------
-
-            // `node` is the shape the gesture started on, and it is the whole reason
-            // activation happens on pointerup rather than on click.
-            //
-            // Capturing the pointer is what makes panning survive the cursor leaving
-            // the frame — and it also redirects the subsequent `click` to the capture
-            // target. So the click arrives on the frame div, `closest('g.node')` finds
-            // nothing, and clicking a card did nothing at all. Remembering what was
-            // under the pointer when it went down is immune to that, and it is more
-            // correct anyway: a press that starts on a card and ends on one is a click
-            // on the card the reader aimed at.
-            const drag = { active: false, x: 0, y: 0, moved: 0, node: null };
-
-            const onPointerDown = (event) => {
-                if (event.button !== 0) return;
-                drag.active = true;
-                drag.x = event.clientX;
-                drag.y = event.clientY;
-                drag.moved = 0;
-                drag.node = event.target.closest?.('g.node') ?? null;
-                frame.setPointerCapture?.(event.pointerId);
-                frame.classList.add('is-panning');
-            };
-
-            const onPointerMove = (event) => {
-                if (!drag.active) return;
-
-                const rect = svg.getBoundingClientRect();
-                if (!rect.width || !rect.height) return;
-
-                const dx = event.clientX - drag.x;
-                const dy = event.clientY - drag.y;
-                drag.moved += Math.abs(dx) + Math.abs(dy);
-                drag.x = event.clientX;
-                drag.y = event.clientY;
-
-                box = {
-                    ...box,
-                    x: box.x - dx * (box.w / rect.width),
-                    y: box.y - dy * (box.h / rect.height)
-                };
-
-                apply();
-            };
-
-            const endDrag = (event) => {
-                if (!drag.active) return;
-
-                drag.active = false;
-                frame.releasePointerCapture?.(event.pointerId);
-                frame.classList.remove('is-panning');
-
-                // A press that moved is a pan, not a click. Without this, dragging
-                // across the picture opens whatever happened to be under the finger
-                // when it went down.
-                if (event.type !== 'pointerup' || drag.moved > 4) { drag.node = null; return; }
-
-                const group = drag.node;
-                drag.node = null;
-                if (!group) return;
-
-                const now = performance.now();
-                if (now - activatedAt < 500) return;
-
-                const alias = nodeAlias(svg, group);
-                if (!alias) return;
-
-                activatedAt = now;
-
-                // The view is named as well as the node. What the reader pressed is a
-                // box on *this* picture, and by the time the message lands the explorer
-                // may have moved on — in which case the press meant nothing and is
-                // dropped rather than applied to whatever is showing now.
-                reference?.invokeMethodAsync('NodeActivated', alias, viewKey ?? null);
-            };
-
-            // ---- drill in ------------------------------------------------------
-
-            // The last activation, so a second one on its heels is ignored.
-            //
-            // Drilling is one press here and a double-click in c4hero, and a reader who
-            // brings that habit would otherwise descend two levels at once — the second
-            // press landing on the newly drawn diagram before they have seen the first.
-            // The same window covers the render race: while the next view is being
-            // drawn the old SVG is still on screen and still listening.
-            let activatedAt = 0;
-
-            frame.addEventListener('wheel', onWheel, { passive: false });
-            frame.addEventListener('pointerdown', onPointerDown);
-            frame.addEventListener('pointermove', onPointerMove);
-            frame.addEventListener('pointerup', endDrag);
-            frame.addEventListener('pointercancel', endDrag);
-
-            explorers.set(id, {
-                svg,
-                frame,
-                home,
-                get box() { return box; },
-                set box(value) { box = value; },
-                apply,
-                zoomBy,
-                detach() {
-                    frame.removeEventListener('wheel', onWheel);
-                    frame.removeEventListener('pointerdown', onPointerDown);
-                    frame.removeEventListener('pointermove', onPointerMove);
-                    frame.removeEventListener('pointerup', endDrag);
-                    frame.removeEventListener('pointercancel', endDrag);
-                }
-            });
-
-            apply();
-            return true;
-        },
-
-        /** Back to the whole picture. The viewBox C4SvgWriter drew is the
-         *  definition of "fits", so this is a copy rather than a measurement. */
-        fit(id) {
-            const state = explorers.get(id);
-            if (!state) return;
-            state.box = { ...state.home };
-            state.apply();
-        },
-
-        zoom(id, factor) {
-            explorers.get(id)?.zoomBy(factor);
-        },
-
-        /**
-         * Marks which nodes the Highlighter matched and which the search found.
-         * Classes rather than inline style, so the dimming is themeable and one
-         * selector turns the whole effect off.
-         */
-        highlight(id, matched, focused) {
-            const state = explorers.get(id);
-            if (!state) return;
-
-            const dim = Array.isArray(matched);
-            const wanted = new Set(dim ? matched : []);
-            const focus = new Set(Array.isArray(focused) ? focused : []);
-
-            state.svg.querySelectorAll('g.node').forEach(group => {
-                const alias = nodeAlias(state.svg, group);
-                group.classList.toggle('c4-dimmed', dim && !wanted.has(alias));
-                group.classList.toggle('c4-focused', focus.has(alias));
-            });
-        },
-
-        /** Centres one element and leaves the zoom alone — a search hit should move
-         *  the reader to the box, not decide how close they stand to it. */
-        reveal(id, alias) {
-            const state = explorers.get(id);
-            if (!state || !alias) return;
-
-            const prefix = state.svg.id ? state.svg.id + '-' : '';
-            const group = state.svg.querySelector(`g.node[id="${CSS.escape(prefix + alias)}"]`);
-            if (!group || !group.getBBox) return;
-
-            const box = group.getBBox();
-            state.box = {
-                ...state.box,
-                x: box.x + box.width / 2 - state.box.w / 2,
-                y: box.y + box.height / 2 - state.box.h / 2
-            };
-            state.apply();
-        },
-
-        dispose(id) {
-            const state = explorers.get(id);
-            state?.detach();
-            explorers.delete(id);
-        }
-    };
-
-    /*
-        The C4 zoom tab's viewer.
-
-        Separate from the C4 tab's viewer above on purpose: the two tabs stand side by
-        side until the zoom tab is validated (local ADR 0046), and nothing the zoom tab
-        needs may change how the C4 tab behaves. The C4 tab drills on one press; here
-        one press selects and the zoom is a double-click, the card's Zoom in chip, or
-        Enter.
 
         Every listener sits on the diagram's own frame, never on the document. Enter
         and Backspace are moves only while focus is inside the picture, so a reader
@@ -7710,10 +7489,15 @@
         is cancelled here rather than from Blazor because a state-bound
         preventDefault is always one key late.
 
-        The selection ring is a class this viewer puts on the card, the same way the
-        C4 tab's search ring is: the SVG is one string of markup and Blazor leaves it
-        alone while it is unchanged.
+        The selection ring is a class this viewer puts on the card: the SVG is one
+        string of markup and Blazor leaves it alone while it is unchanged.
     */
+
+    function nodeAlias(svg, group) {
+        const prefix = svg.id ? svg.id + '-' : '';
+        const id = group.id || '';
+        return prefix && id.startsWith(prefix) ? id.slice(prefix.length) : id;
+    }
 
     const zooms = new Map();
 
@@ -7737,8 +7521,8 @@
 
     // The relationships into and out of the selected card, lit in the primary
     // colour with their own arrowhead, and the rest dimmed while a card is
-    // selected. Only a picture written with C4SvgOptions.EdgeEnds names the ends
-    // of its lines, so any other picture is left exactly as drawn.
+    // selected. A picture whose lines name no ends, the empty view, is left
+    // exactly as drawn.
     function markRelated(svg, alias) {
         const ends = svg.querySelectorAll('[data-c4-from]');
         if (ends.length === 0) return;
@@ -8106,4 +7890,18 @@
         },
         true
     );
+
+    // An audio file the host holds, handed over as a stream and played from a
+    // blob URL. Not a data: URI: a recording runs to 24 MB, which as base64 would
+    // cross the Blazor Server circuit as one string and sit in the DOM. The URL
+    // lives until the player that asked for it is disposed and releases it.
+    window.backlogAudio = {
+        open: async (streamRef, contentType) => {
+            const bytes = await streamRef.arrayBuffer();
+            return URL.createObjectURL(new Blob([bytes], { type: contentType }));
+        },
+        release: url => {
+            if (url) URL.revokeObjectURL(url);
+        }
+    };
 })();

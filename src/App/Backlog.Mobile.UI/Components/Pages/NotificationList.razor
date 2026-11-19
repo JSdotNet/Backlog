@@ -2,157 +2,67 @@
 @using Backlog.Mobile.UI.Components.Notifications
 @using Backlog.Mobile.UI.Notifications
 @inject NotificationViewProjection Notifications
-@inject DeviceOutbox Outbox
 @inject AppLifecycle Lifecycle
 @inject TimeProvider Clock
-@inject NavigationManager Navigation
 @inject INotificationFilterStore FilterStore
 @implements IDisposable
 
 <PageTitle>Notifications</PageTitle>
 
 @*
-    The phone's notifications (.devbook/domain/notifications/context.md), in two
-    views the heading switches between. The pager (NotificationPager) is the default:
-    one open item waiting on the person per screen, oldest first. The list
-    (?view=list) is every alert and question the paired desktops published, open
-    ones first, then the settled ones as history, as the proposal's phone mockup
-    draws them. Either way a question is answered right on its card, and the title
-    opens the whole notification with its Markdown body.
+    The phone's notifications (.devbook/domain/notifications/context.md), one open
+    item waiting on the person per screen, oldest first (NotificationPager). A
+    question is answered right on its card, and the title opens the whole
+    notification with its Markdown body.
 
     The feed is pulled when the page opens and whenever the app comes back to the
     front, and every 30 seconds while a reply made here waits for its owner to
     accept it — the poll the proposal sets until a push wakes the phone. What the
     phone last pulled is drawn first, so a phone with no signal still shows it.
-    Both views share that feed. The view is in the address (?view=list), switched in
-    place rather than as a new history entry, and the list hands it to the detail so
-    the detail's back link returns to the list.
+    There is no refresh button: those pulls are the refresh.
 
-    Both views are narrowed by the same From and Repository filters
-    (features.md#answering-from-another-device): From by the system a notification
-    came from, the desktop centre's rule; Repository by the repository its owner
-    published (local ADR 0039 §6), one it could not work out kept under every choice.
-    Each option counts what it would keep under the other filter, and a filter with
-    fewer than two options is not drawn. The choices are kept on the device, not in
-    the address. The lede and the tab's badge stay global: a filter never hides what
-    waits.
+    Everything above the card is one row: the filter button, then the pager's
+    Previous, position and Next. The From and Repository filters
+    (features.md#answering-from-another-device) sit in the filter button's panel:
+    From by the system a notification came from, the desktop centre's rule;
+    Repository by the repository its owner published (local ADR 0039 §6), one it
+    could not work out kept under every choice. Each option counts what waits among
+    what it would keep under the other filter — a settled notification adds
+    nothing, so every number on the tab counts the kind of item the pager's stack
+    holds (NotificationStack.IsWaiting) — and a filter with fewer than two options
+    is not drawn. The choices are kept on the device, not in the address.
+
+    A filter never hides what waits unseen: while one narrows the tab, the button
+    looks pressed and wears the number of waiting items the filters leave out, and
+    its name says both — "filters on", and how many wait elsewhere. When the filters
+    leave nothing the pager stays, showing "Nothing matches these filters" in place
+    of its stack, so the button keeps its place and its open panel.
 *@
 
 @{
-    // One read of the feed per render: the lede, the filters and both views all draw from it.
+    // One read of the feed per render: the filters and the pager both draw from it.
     _view = Snapshot();
 }
 
-<header class="notifications-heading">
-    <div class="notifications-heading__titles">
-        <span class="notifications-heading__lede" data-testid="notifications-count">@CountLabel</span>
-        @* The tab bar names the page on screen; the heading is kept for screen readers. *@
-        <h1 class="sr-only">Notifications</h1>
-    </div>
-    <span class="notifications-heading__actions">
-        <AppButton Variant="ButtonVariant.Ghost" CssClass="notifications-heading__toggle" TestId="notifications-view-toggle"
-                   OnClick="ToggleView">@(ShowsList ? "One at a time" : "List")</AppButton>
-        <IconButton AriaLabel="Refresh notifications" Title="Refresh notifications" Disabled="_pulling"
-                    OnClick="PullAsync" CssClass="notifications-heading__refresh" TestId="notifications-refresh">
-            <RefreshCwIcon Size="16" />
-        </IconButton>
-    </span>
-</header>
+@* The tab bar names the page on screen; the heading is kept for screen readers. *@
+<h1 class="sr-only">Notifications</h1>
 
 @if (_pullNotice is not null)
 {
     <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="notifications-pull-notice" />
 }
 
-@if (ShowsFilters)
+@if (Items is { Count: 0 } && !_pulled && !FilteredToNothing)
 {
-    <div class="notifications-filters" data-testid="notifications-filters">
-        @if (ShowsFrom)
-        {
-            <SelectField CurrentValue="@_filter.From"
-                         Options="@_view.FromOptions"
-                         Label="From"
-                         Form="true"
-                         IncludeEmptyOption="true"
-                         EmptyLabel="@($"All ({_view.FromAll})")"
-                         CssClass="notifications-filters__filter"
-                         TestId="notifications-filter-from"
-                         OnChanged="ChooseFrom" />
-        }
-        @if (ShowsRepository)
-        {
-            <SelectField CurrentValue="@_view.RepositoryValue"
-                         Options="@_view.RepositoryOptions"
-                         Label="Repository"
-                         Form="true"
-                         IncludeEmptyOption="true"
-                         EmptyLabel="@($"All ({_view.RepositoryAll})")"
-                         CssClass="notifications-filters__filter"
-                         TestId="notifications-filter-repository"
-                         OnChanged="ChooseRepository" />
-        }
-        @if (_filter.IsActive)
-        {
-            <AppButton Variant="ButtonVariant.Ghost" CssClass="notifications-filters__clear"
-                       TestId="notifications-clear-filters" OnClick="ClearFilters">Clear filters</AppButton>
-        }
-    </div>
-}
-
-@if (FilteredToNothing)
-{
-    @* The filters left nothing: say so, with the way back, rather than "No notifications". *@
-    <EmptyState Title="Nothing matches these filters"
-                Description="Notifications from elsewhere are still here."
-                TestId="notifications-filtered-empty">
-        <Action>
-            <AppButton Variant="ButtonVariant.Secondary" TestId="notifications-filtered-clear" OnClick="ClearFilters">Clear filters</AppButton>
-        </Action>
-    </EmptyState>
-}
-else if (!ShowsList)
-{
-    @if (Items is { Count: 0 } && !_pulled)
-    {
-        <Spinner Label="Loading notifications" />
-    }
-    else
-    {
-        <NotificationPager Notifications="Items" Filter="_filter" OnShowList="ShowList" />
-    }
+    <Spinner Label="Loading notifications" />
 }
 else
 {
-    <section class="notifications" aria-label="Notifications">
-        @if (Items.Count == 0)
-        {
-            @if (_pulled)
-            {
-                <EmptyState Title="No notifications"
-                            Description="Questions and alerts from your desktops show up here."
-                            TestId="notifications-empty" />
-            }
-            else
-            {
-                <Spinner Label="Loading notifications" />
-            }
-        }
-        else
-        {
-            <ul class="notifications__list" data-testid="notifications-list">
-                @foreach (var item in Items)
-                {
-                    <li @key="item.Id">
-                        <PhoneNotificationCard Notification="item"
-                                               Href="@($"notifications/{item.Id}?view=list")"
-                                               Busy="@(_replying == item.Id)"
-                                               OnReply="pick => ReplyAsync(item.Id, pick)"
-                                               OnRetry="RetryAsync" />
-                    </li>
-                }
-            </ul>
-        }
-    </section>
+    @* The pager stays mounted when the filters leave nothing: it shows FilteredEmpty in its
+       surface, so the filter button in its row is the same one, its panel still open. *@
+    <NotificationPager Notifications="Items"
+                       Leading="@(ShowsFilters ? FilterControl : null)"
+                       Replacement="@(FilteredToNothing ? FilteredEmpty : null)" />
 }
 
 @code {
@@ -162,7 +72,6 @@ else
     private bool _pulling;
     private bool _pulled;
     private string? _pullNotice;
-    private Guid? _replying;
     private ITimer? _poll;
     private NotificationFilter _filter = NotificationFilter.None;
 
@@ -172,7 +81,7 @@ else
     /// <summary>Every notification the phone holds — what the filters' options and counts are over.</summary>
     private IReadOnlyList<PhoneNotification> All => _view.All;
 
-    /// <summary>What both views show: <see cref="All"/> as the filters narrow it.</summary>
+    /// <summary>What the pager is handed: <see cref="All"/> as the filters narrow it.</summary>
     private IReadOnlyList<PhoneNotification> Items => _view.Items;
 
     private bool ShowsFrom => _view.FromOptions.Count >= 2 || !string.IsNullOrEmpty(_filter.From);
@@ -183,9 +92,84 @@ else
 
     private bool FilteredToNothing => _filter.IsActive && All.Count > 0 && Items.Count == 0;
 
+    /// <summary>How many waiting items the filters leave out — the filter button's badge.</summary>
+    private int Hidden => _filter.IsActive ? _view.Waiting - _view.WaitingKept : 0;
+
+    /// <summary>The filter button's name. Whether a filter is in force is said, not only drawn
+    /// in gold, and so is how many waiting items it leaves out.</summary>
+    private string FilterName => (_filter.IsActive, Hidden) switch
+    {
+        (false, _) => "Filter notifications",
+        (true, 0) => "Filter notifications, filters on",
+        (true, var hidden) => $"Filter notifications, filters on, {hidden} waiting elsewhere",
+    };
+
+    /// <summary>What the pager's surface shows when the filters leave nothing: say so, with the
+    /// way back, rather than "No notifications".</summary>
+    private RenderFragment FilteredEmpty => @<EmptyState Title="Nothing matches these filters"
+                                                         Description="Notifications from elsewhere are still here."
+                                                         TestId="notifications-filtered-empty">
+        <Action>
+            <AppButton Variant="ButtonVariant.Secondary" TestId="notifications-filtered-clear" OnClick="ClearFilters">Clear filters</AppButton>
+        </Action>
+    </EmptyState>;
+
+    private string FilterTriggerClass => _filter.IsActive
+        ? "btn btn--icon notifications-filters__trigger notifications-filters__trigger--active"
+        : "btn btn--icon notifications-filters__trigger";
+
+    /// <summary>The filter button and its panel: the pager's leading control, whatever the
+    /// pager's surface shows.</summary>
+    private RenderFragment FilterControl => @<PopoverButton AriaLabel="@FilterName"
+                                                            TriggerBaseClass="@FilterTriggerClass"
+                                                            PanelCssClass="notifications-filters__panel"
+                                                            CssClass="notifications-filters"
+                                                            TestId="notifications-filters">
+        <Trigger>
+            <ListFilterIcon Size="20" />
+            @if (Hidden > 0)
+            {
+                <Badge Kind="notification" Slug="waiting" CssClass="notifications-filters__hidden"
+                       TestId="notifications-filters-hidden">@Hidden</Badge>
+            }
+        </Trigger>
+        <ChildContent>
+            @if (ShowsFrom)
+            {
+                @* The All option names what it spans, so the two selects never read the same. *@
+                <SelectField CurrentValue="@_filter.From"
+                             Options="@_view.FromOptions"
+                             Label="From"
+                             Form="true"
+                             IncludeEmptyOption="true"
+                             EmptyLabel="@($"All systems ({_view.FromAll})")"
+                             CssClass="notifications-filters__filter"
+                             TestId="notifications-filter-from"
+                             OnChanged="ChooseFrom" />
+            }
+            @if (ShowsRepository)
+            {
+                <SelectField CurrentValue="@_view.RepositoryValue"
+                             Options="@_view.RepositoryOptions"
+                             Label="Repository"
+                             Form="true"
+                             IncludeEmptyOption="true"
+                             EmptyLabel="@($"All repos ({_view.RepositoryAll})")"
+                             CssClass="notifications-filters__filter"
+                             TestId="notifications-filter-repository"
+                             OnChanged="ChooseRepository" />
+            }
+            @if (_filter.IsActive)
+            {
+                <AppButton Variant="ButtonVariant.Ghost" CssClass="notifications-filters__clear"
+                           TestId="notifications-clear-filters" OnClick="ClearFilters">Clear filters</AppButton>
+            }
+        </ChildContent>
+    </PopoverButton>;
+
     /// <summary>
     /// Reads the projection once and works out everything this render draws from that one
-    /// read — the list, the options and every count — so a pull landing mid-render cannot put
+    /// read — the stack, the options and every count — so a pull landing mid-render cannot put
     /// them out of step, and the projection, which rebuilds on every read, is read once.
     /// </summary>
     private FilteredView Snapshot()
@@ -204,7 +188,8 @@ else
             NotificationFilters.RepositoryOption(repositories, _filter.Repository),
             NotificationFilters.CountFrom(all, _filter, from: null),
             NotificationFilters.CountRepository(all, _filter, repository: null),
-            all.Count(notification => notification.Standing == NotificationStanding.Answerable));
+            NotificationFilters.CountWaiting(all, _filter),
+            NotificationFilters.CountWaiting(all, NotificationFilter.None));
     }
 
     /// <summary>One render's read of the feed and what the filters make of it.</summary>
@@ -212,8 +197,9 @@ else
     /// option's casing.</param>
     /// <param name="FromAll">What From's All keeps under the Repository choice.</param>
     /// <param name="RepositoryAll">What Repository's All keeps under the From choice.</param>
-    /// <param name="Waiting">The open questions this phone could answer, every one of them —
-    /// the lede never counts through the filters.</param>
+    /// <param name="WaitingKept">What waits among what the filters keep: the pager's total,
+    /// outside the pause that confirms a reply.</param>
+    /// <param name="Waiting">Everything waiting on the person, whatever the filters hold.</param>
     private sealed record FilteredView(
         IReadOnlyList<PhoneNotification> All,
         IReadOnlyList<PhoneNotification> Items,
@@ -222,23 +208,11 @@ else
         string? RepositoryValue,
         int FromAll,
         int RepositoryAll,
+        int WaitingKept,
         int Waiting)
     {
-        public static FilteredView Empty { get; } = new([], [], [], [], null, 0, 0, 0);
+        public static FilteredView Empty { get; } = new([], [], [], [], null, 0, 0, 0, 0);
     }
-
-    /// <summary>Which view the address names: <c>list</c>, or the pager by default.</summary>
-    [SupplyParameterFromQuery(Name = "view")]
-    public string? View { get; set; }
-
-    private bool ShowsList => string.Equals(View, "list", StringComparison.Ordinal);
-
-    private string CountLabel => _view.Waiting switch
-    {
-        0 => "Nothing waiting for you",
-        1 => "1 question waiting",
-        var count => $"{count} questions waiting"
-    };
 
     protected override void OnInitialized()
     {
@@ -269,7 +243,6 @@ else
     {
         if (_pulling) return;
         _pulling = true;
-        StateHasChanged();
 
         try
         {
@@ -288,28 +261,6 @@ else
         }
     }
 
-    private async Task ReplyAsync(Guid id, NotificationAnswerPick pick)
-    {
-        _replying = id;
-
-        try
-        {
-            await Notifications.ReplyAsync(id, pick.ChoiceIds, pick.Text, pick.Note);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // The phone could not keep the reply — its own file, not the network, which the
-            // outbox rides out. Said where the pull's notice goes; the card can be answered again.
-            _pullNotice = NotificationStandings.CouldNotKeepAnswer;
-        }
-        finally
-        {
-            _replying = null;
-        }
-    }
-
-    private Task RetryAsync(Guid entryId) => Outbox.RetryAsync(entryId);
-
     private void ChooseFrom(string? from) => SetFilter(_filter with { From = string.IsNullOrEmpty(from) ? null : from });
 
     private void ChooseRepository(string? repository) =>
@@ -317,17 +268,12 @@ else
 
     private void ClearFilters() => SetFilter(NotificationFilter.None);
 
-    // Kept on the device as it changes, so the other view and the next launch open on it.
+    // Kept on the device as it changes, so the next launch opens on it.
     private void SetFilter(NotificationFilter filter)
     {
         _filter = filter;
         FilterStore.Current = filter;
     }
-
-    // Replace, so Back leaves the tab instead of walking back through every switch.
-    private void ToggleView() => Navigation.NavigateTo(ShowsList ? "notifications" : "notifications?view=list", replace: true);
-
-    private void ShowList() => Navigation.NavigateTo("notifications?view=list", replace: true);
 
     public void Dispose()
     {

@@ -1,0 +1,156 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    Plays an audio file the host holds — a meeting recording on a note. The
+    browser's own player, so play, pause, seeking and the keyboard come with it,
+    named for the file it plays.
+
+    The bytes reach it as a stream turned into a blob URL after the first render,
+    never as a data: URI: a recording runs to 24 MB, and in the web harnesses a
+    data: URI that size crosses the circuit as one string. Until the URL is back
+    the player is drawn without a source. A file that is no longer there, or one
+    that could not be loaded, says so in words instead — never a control that
+    will not play. The URL is released when the player goes.
+
+    One player plays one file: a host that shows another file keys a new one.
+*@
+
+@if (_notice is not null)
+{
+    <span class="@NoticeClassValue" data-testid="@MissingTestId">@_notice</span>
+}
+else
+{
+    <audio class="@ClassValue"
+           controls
+           preload="metadata"
+           src="@_url"
+           aria-label="@AriaLabel"
+           data-ready="@(_url is null ? "false" : "true")"
+           data-testid="@TestId"
+           @attributes="AdditionalAttributes"></audio>
+}
+
+@code {
+    private readonly CancellationTokenSource _disposing = new();
+    private string? _url;
+
+    /// <summary>The words drawn in the player's place, or null while it plays.</summary>
+    private string? _notice;
+    private bool _disposed;
+
+    [Parameter, EditorRequired]
+    public AudioSource Source { get; set; } = default!;
+
+    /// <summary>The player's accessible name: "Play Recording · 47:12".</summary>
+    [Parameter, EditorRequired]
+    public string AriaLabel { get; set; } = string.Empty;
+
+    /// <summary>What it says when the file is no longer there to play.</summary>
+    [Parameter]
+    public string MissingText { get; set; } = "This recording is not on this device any more.";
+
+    /// <summary>What it says when the bytes could not be loaded for any other reason.</summary>
+    [Parameter]
+    public string FailedText { get; set; } = "This recording could not be loaded.";
+
+    /// <summary>Appended to the player, and to the words that replace it, so a host
+    /// lays either out the same way.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? MissingTestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "audio-player" : $"audio-player {CssClass}";
+
+    private string NoticeClassValue => string.IsNullOrWhiteSpace(CssClass) ? "audio-player__missing" : $"audio-player__missing {CssClass}";
+
+    /// <summary>After the first render, because prerendered there is no browser to
+    /// hold the blob.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        // Taken now: disposing the page disposes the source of it.
+        var cancellation = _disposing.Token;
+        string? url;
+        try
+        {
+            var stream = await Source.Open(cancellation);
+            if (stream is null)
+            {
+                ShowNotice(MissingText);
+                return;
+            }
+
+            // Not cancelled with the player: a URL that arrives after it went is
+            // released below, where a cancelled call would leave the blob behind.
+            using var reference = new DotNetStreamReference(stream);
+            url = await Js.InvokeAsync<string?>("backlogAudio.open", reference, Source.ContentType);
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException
+            || (ex is OperationCanceledException && cancellation.IsCancellationRequested))
+        {
+            // The player or its page went; there is nobody to tell.
+            return;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JSException
+            or OperationCanceledException)
+        {
+            // An interop timeout cancels without the player going: say so, as for a failure.
+            ShowNotice(FailedText);
+            return;
+        }
+
+        if (_disposed)
+        {
+            // Gone while the bytes were on their way: nobody else will release it.
+            await ReleaseAsync(url);
+            return;
+        }
+
+        _url = url;
+        StateHasChanged();
+    }
+
+    private void ShowNotice(string words)
+    {
+        if (_disposed) return;
+
+        _notice = words;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+
+        _disposed = true;
+        await _disposing.CancelAsync();
+        _disposing.Dispose();
+        await ReleaseAsync(_url);
+        _url = null;
+    }
+
+    private async Task ReleaseAsync(string? url)
+    {
+        if (url is null) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogAudio.release", url);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page went with the circuit, and the blob with the page.
+        }
+    }
+}

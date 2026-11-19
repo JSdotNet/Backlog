@@ -61,7 +61,9 @@
     </Story>
 
     <Story Name="A choice that takes text"
-           Description="A set answer that needs the person's words with it, as Revise and Approve + follow-up do on the Personal Validation question. Pressing it sends nothing: it opens a plain-text box under the buttons, and Send stays disabled until the box holds text. The reply then carries the choice and the words. Cancel puts the box away, and a plain choice still answers at once."
+           Description="A set answer that needs the person's words with it, as Revise and Approve + follow-up do on the Personal Validation question. Pressing it sends nothing: it opens a plain-text box under the buttons, and Send stays disabled until the box holds text. The reply then carries the choice and the words. Cancel puts the box away, and a plain choice still answers at once.
+
+Dismiss is a quiet choice: a small ghost text action on its own line after the buttons, right-aligned, so withdrawing the question takes little room. It answers at once, like any plain choice."
            Code="@TakesTextCode">
         <NotificationCard Model="@TakesText" TestId="notification-card-takes-text" OnAnswer="@Answered" />
     </Story>
@@ -76,6 +78,12 @@
            Description="An alert informs, and nothing waits on it: Acknowledge is the only control. An info alert carries no severity badge; warning and critical do."
            Code="@AlertCode">
         <NotificationCard Model="@Alert" TestId="notification-card-alert" OnAcknowledge="@Acknowledged" />
+    </Story>
+
+    <Story Name="An alert with actions"
+           Description="An alert may offer what it is about to open, before Acknowledge: a held schedule offers Open run and Open Schedules, a loop session that stopped Open Sessions. The card raises the action pressed; the host opens it, and the alert stays open until it is acknowledged or its cause clears."
+           Code="@AlertActionsCode">
+        <NotificationCard Model="@HeldSchedule" TestId="notification-card-alert-actions" OnAcknowledge="@Acknowledged" OnAction="@Opened" />
     </Story>
 
     <Story Name="A refused answer"
@@ -219,7 +227,7 @@
             new NotificationCardChoice("approve", "Approve", NotificationCardChoiceStyle.Primary),
             new NotificationCardChoice("approve-follow-up", "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?"),
             new NotificationCardChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
-            new NotificationCardChoice("reject", "Reject", NotificationCardChoiceStyle.Destructive)
+            new NotificationCardChoice("dismiss", "Dismiss", Quiet: true)
         ]),
         NotificationCardState.Open);
 
@@ -258,6 +266,24 @@
         "1 h ago",
         null,
         NotificationCardState.Open);
+
+    private static readonly NotificationCardModel HeldSchedule = new(
+        "held-sweep",
+        NotificationCardKind.Alert,
+        NotificationCardSeverity.Warning,
+        "Issue sweep is held",
+        "An earlier run is not archived, so each run skips itself.",
+        "Each run of **Issue sweep** skips itself while an earlier run's session is not archived.",
+        "Sessions",
+        "5 h ago",
+        null,
+        NotificationCardState.Open,
+        Origin: new NotificationCardOrigin("Backlog", "Schedules", Asker: NotificationCardAsker.System),
+        Actions:
+        [
+            new NotificationCardAction("Open run", "backlog://window/sessions?session=run-1"),
+            new NotificationCardAction("Open Schedules", "backlog://window/sessions?page=schedules")
+        ]);
 
     private static readonly NotificationCardModel WithOrigin = new(
         "rounding",
@@ -340,6 +366,8 @@
 
     private void Acknowledged() => _last = "acknowledged";
 
+    private void Opened(NotificationCardAction action) => _last = "opened " + action.Target;
+
     private const string SingleCode = """
         <NotificationCard Model="@question" OnAnswer="AnswerAsync" Busy="@_busy" ErrorMessage="@_error" />
 
@@ -413,8 +441,9 @@
         // question.Answer = new NotificationCardAnswerSpec(
         // [
         //     new("approve", "Approve", NotificationCardChoiceStyle.Primary),
+        //     new("approve-follow-up", "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?"),
         //     new("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
-        //     new("reject", "Reject", NotificationCardChoiceStyle.Destructive)
+        //     new("dismiss", "Dismiss", Quiet: true)
         // ]);
         // The reply: ChoiceIds ["revise"], Text "The toast overlaps the header".
         """;
@@ -431,6 +460,12 @@
 
     private const string AlertCode = """
         <NotificationCard Model="@alert" OnAcknowledge="AcknowledgeAsync" />
+        """;
+
+    private const string AlertActionsCode = """
+        <NotificationCard Model="@(alert with { Actions = [new("Open run", runLink), new("Open Schedules", schedulesLink)] })"
+                          OnAction="OpenAsync"
+                          OnAcknowledge="AcknowledgeAsync" />
         """;
 
     private const string RefusedCode = """

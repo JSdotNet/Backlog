@@ -878,6 +878,7 @@ this chapter only reads them.
 
 | The title starts with | Session Purpose | Plan tag | Plan State | Shown title |
 | --- | --- | --- | --- | --- |
+| `📡 X` or `🧠 X` | Agent | none | none | X |
 | `ARTIFACT: X` | Artifact | none | none | X |
 | `DESIGN: X` | Design | none | none | X |
 | `PLAN: +tag — X` or `PLAN: X` | Plan | tag, where written | Draft | X |
@@ -886,6 +887,7 @@ this chapter only reads them.
 | `HOLD: X` | Hold | none | none | X |
 | `+tag:execute-plan [@repo]` | Plan run | tag | none | `execute-plan [@repo]` |
 | `tag:n - X` | Entry, step n | tag | none | `n - X` |
+| `n - X`, started by a Plan run | Entry, step n | the Plan run's tag | none | `n - X` |
 | anything else | Other | none | none | the whole title |
 
 A row whose session is a desktop scheduled task's run, or a schedule's row, is
@@ -901,6 +903,11 @@ The reading follows these rules:
   is. A malformed tag leaves a Plan session without one.
 - An unnumbered `tag - X` stays Other, because nothing tells it apart from an ordinary
   title.
+- execute-plan names an entry's session `n - X`, because the desktop app's sidebar
+  already nests it under the `+tag:execute-plan` session that started it. The desktop
+  record's `spawnedFrom` names that parent. A numbered `n - X` is an Entry only when its
+  parent's title reads as a Plan run, and it takes that run's tag. Under any other
+  parent, or none, it stays Other. A `tag:n - X` keeps its own tag whatever its parent.
 - Two tags name one plan when they match ignoring case, with one leading `+` lifted.
   An entry writes the bare tag and a plan run keeps the `+`, so both land under one plan.
 
@@ -913,6 +920,13 @@ Tasks.
 
 Artifact, Design, Plan, Research and Hold are **standing** purposes: a session with one
 is kept until it is archived, and When draws it above the days.
+
+**Agent** is the purpose of a loop session, the one
+[`standing-session.md`](../../../plugins/backlog-tools/resources/standing-session.md) titles
+with its icon: `📡 SESSION DISPATCHER` or `🧠 BRAIN TENDER`. Here Agent names a purpose. The
+[Agent](#agent) enum names the assistant that ran a session, and the two never stand in for each
+other. An Agent session sits in the Agents section that leads every grouping
+([Session Grouping](#session-grouping)), and the [Loop Register](#loop-register) reads its state.
 
 The reading has two limits:
 
@@ -1252,6 +1266,12 @@ entries by step. Each part keeps most recently active first. Under When, a stand
 session sits in Live now while it runs and returns to Standing after. A Scheduled row is
 never standing, so it keeps its day.
 
+**An Agents section leads the list.** Before any grouping, `AgentsFirst` takes every row whose
+Session Purpose is Agent out of its section. It puts them in one leading "Agents" section, key
+`agents`, the dispatcher before the Brain tender and each most recently active first. It drops no
+row and, with no Agent session in the view, draws no section. Every grouping applies it, None included
+(local [ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)).
+
 **In the Open view, the scheduled runs close the list.** After any grouping,
 `ScheduledApart` takes every row whose session is a run of a desktop scheduled task
 out of its section. It puts them in one trailing "Scheduled" section, key `scheduled`,
@@ -1294,8 +1314,8 @@ never starts a session itself (local
 The queue is this machine's: a request names a clone folder on this machine, and is
 kept in the app's local database. It does not replicate.
 
-Invocation semantics: command-oriented. A click creates a request and the person
-cancels it. A dispatcher reads the next request on the listener's long poll, claims it and reports its session through the MCP listener.
+Invocation semantics: command-oriented. A click creates a request, and the person
+moves it in the queue or cancels it. A dispatcher reads the next request on the listener's long poll, claims it and reports its session through the MCP listener.
 `link_session` from the started session links it.
 
 | Dispatcher call | What it does |
@@ -1303,15 +1323,37 @@ cancels it. A dispatcher reads the next request on the listener's long poll, cla
 | `GET /session-requests/wait` | Answers one item at once, or holds the call up to 50 seconds and answers `204`. |
 | `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. |
 | `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. |
-| `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
+| `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts, and says whether the queue is paused. Requested ones come in queue order. |
 
-- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it.
-- **`claim_session_request`:** The holder asking again is told it holds it; the lease is not renewed.
+- **`GET /session-requests/wait`:** The item is an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the Requested request at the head of the queue (`kind: request`, its entry-or-plan kind as `requestKind`). The route hands the item out without claiming it. A Manager names its own session as `sessionId`, and the call is its [dispatch wait](#loop-register). Every call it lets in is also [Dispatcher Contact](#dispatcher-contact): held while the call is held, heard again when it is answered. A `404` while the flag is off records nothing.
+- **`claim_session_request`:** The holder asking again is told it holds it; the lease is not renewed. While the queue is paused, every other claim is refused with "The session queue is paused."
 - **`mark_session_request`:** Only the dispatcher holding the claim may mark it. Its `started` still counts after its lease ran out while nobody else claimed the request.
 
 Every answer carries the request's brief, built by the server from its kind and id, which a
 dispatcher passes on and never writes. All four sit behind the
 `session-requests` flag: off, the route answers `404` and the tools leave the endpoint.
+
+**Queue order.** The person sets the order of the Requested requests in the Tasks
+filter bar's session queue. Entry and plan requests share one order across every
+repository on this machine. A new request joins at the end, and one the person never
+moved keeps its place by when it was asked. [Only a Requested request
+moves](domain.invariants.md#invariant-only-a-requested-request-moves): a Claimed or
+Started one is already being acted on. Only the app reorders: no dispatcher call moves a
+request (local ADR 0038 §4).
+
+**Paused.** The person can pause the queue as a whole and resume it, in the app only;
+no dispatcher call pauses or resumes it. [A paused queue hands out no
+request](domain.invariants.md#invariant-a-paused-queue-hands-out-no-request): the route
+answers no `kind: request` item and every claim is refused, so a dispatcher starts
+nothing new. Everything else goes on as before:
+
+- answer deliveries are still handed out;
+- a claim already held still reports `started` and still releases;
+- the person can still queue a request and cancel one.
+
+Resumed, the route hands out the Requested request at the head of the queue again. The paused state is
+this machine's, kept in the app's local database beside the requests: it survives a
+restart and does not replicate, and a queue never paused reads as running.
 
 ### Session Request
 
@@ -1328,7 +1370,9 @@ A person's ask for a session that runs one entry or one plan. It carries:
 - the **repository**, as `owner/name`, and its **clone folder** on this machine;
 - its **state**, and while Claimed, the dispatcher that claimed it and the lease's end;
 - once Started, the **session id** the dispatcher reported;
-- when the person asked, which orders the queue.
+- when the person asked;
+- its **place in the queue**, once the person moved a request. A request with none is
+  ordered by when it was asked.
 
 [It carries nothing of the entry's text](domain.invariants.md#invariant-a-request-carries-no-entry-text):
 the brief a dispatcher hands the new session is fixed by its kind.
@@ -1336,7 +1380,10 @@ the brief a dispatcher hands the new session is fixed by its kind.
 | Kind | Brief |
 | --- | --- |
 | Entry request | `/backlog-tools:run-plan-item entry `<id>`:` |
-| Plan request | `/backlog-tools:execute-plan +<tag>` |
+| Plan request | `/backlog-tools:execute-plan +<tag> branch` |
+
+A plan session always runs unattended: it lands every entry on the plan's integration
+branch and asks the person nothing.
 
 **States.**
 
@@ -1350,11 +1397,13 @@ stateDiagram-v2
   Started --> Linked: the session calls link_session
   Requested --> Cancelled: the person cancels it
   Claimed --> Cancelled: the person cancels it
+  Started --> Cancelled: the person clears it, its session never linked
   Linked --> [*]
   Cancelled --> [*]
 ```
 
-- **Requested.** Waiting for a dispatcher. The long poll hands out the oldest first.
+- **Requested.** Waiting for a dispatcher. The long poll hands out the one at the head
+  of the queue, and the person may move it.
 - **Claimed.** One dispatcher holds it. The dispatcher may release it back to
   Requested before the lease ends. [Only a Requested request can be
   claimed](domain.invariants.md#invariant-only-a-requested-request-can-be-claimed),
@@ -1362,7 +1411,13 @@ stateDiagram-v2
 - **Started.** The dispatcher reported the session it started.
 - **Linked.** The started session called `link_session`. For a plan request, on any
   entry of its plan.
-- **Cancelled.** The person cancelled it.
+- **Cancelled.** The person cancelled it. A Started request can be cancelled too, when
+  its session never called `link_session`. That stops no session, and a later
+  `link_session` links nothing.
+
+A pause is not a state of the request. It belongs to the [queue](#session-request-queue):
+pausing or resuming changes no request's state, and a request queued while paused is
+Requested.
 
 **The lease.** A claim holds the request for two minutes. [A lease that runs out
 returns the request to Requested](domain.invariants.md#invariant-a-lapsed-claim-returns-the-request-to-requested)
@@ -1383,7 +1438,9 @@ it waits for a dispatcher until the person cancels it. Linked and Cancelled are 
 
 A **dispatcher** is whatever claims requests and starts their sessions. The first is
 the **Manager session**, a long-lived Claude Desktop session running a skill; a direct
-launch from the app is a later one. The context records a dispatcher only as the claim it made.
+launch from the app is a later one. The context records a dispatcher only as the claim it
+made and, anonymously, as [Dispatcher Contact](#dispatcher-contact): when any dispatcher
+last waited on the route.
 
 ## Question Relay
 
@@ -1590,6 +1647,157 @@ The settings are kept in the desktop's workspace settings file and edited on the
 Notifications settings page. Away after and notify after take whole minutes (1 to
 480), and dialog wait takes whole hours (1 to 24). A value outside those bounds is
 refused with the setting named.
+
+## Schedule Register
+
+```meta
+type: aggregate
+related: [.devbook/arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md, .devbook/domain/sessions/features.md#schedules-and-their-runs, .devbook/domain/sessions/requirements.md#schedules-and-their-runs]
+aliases: [ScheduleRegister, schedule, scheduled run report]
+```
+
+The schedules this machine runs, as their runs reported them. It is evidence the runs send
+about themselves, beside the records the agents leave. A run reports its start and its finish
+through the MCP listener, from the `backlog-tools` hook pair of local
+[ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md).
+The register never reads Claude Desktop's own schedule or run files.
+
+A schedule enters the register with its first start report, keyed by its schedule id. That
+report carries the schedule's title, repository and cron, which a later report updates. The
+register is this machine's, kept in the app's local database, and does not replicate.
+
+Invocation semantics: command-oriented for the reports, query-oriented for the states. A
+reading combines the reports with the session records the [Session Log](#session-log) reads, to
+tell whether a run's session is archived, and with the clock, to tell a missed due time.
+
+### Scheduled Run
+
+```meta
+type: entity
+aliases: [ScheduledRun, run report]
+```
+
+One run of a schedule, identified by its session id. It holds:
+
+- when it reported its start;
+- when it reported its finish, with its verdict;
+- the Needs-you lines its summary listed, in order;
+- for a skipped run, that it skipped itself and which earlier run held it.
+
+A run with a start and no finish reads No summary yet. A finish without a start is kept, because
+the start report can be lost while the run goes on.
+
+### Scheduled Run State
+
+```meta
+type: enum
+aliases: [ScheduledRunState, schedule state]
+```
+
+What a run, and the schedule whose latest run it is, needs from the person:
+`needs-you`, `held`, `failed`, `missed`, `review-ready`, `handled`, `no-summary-yet`.
+
+- **Needs you** and **Review ready** hold only while the run's session is not archived.
+- **Held** is the schedule's while its runs skip themselves for an unarchived run. Each skipped
+  run reads Skipped, a line under the schedule.
+- **Missed** is the schedule's alone. A schedule reads it 30 minutes past its cron's due time
+  with no start report since. Backlog takes every schedule that has reported as enabled.
+- **Handled** is any run whose session is archived, whatever it reported. A failed run also
+  reads Handled once a later run of its schedule finished Review ready: one that began later and
+  finished no earlier than the failure. Archiving is read first, so it wins when both apply.
+  A failed run Handled by a later run is still unarchived, so a skip can still name it as its
+  holder.
+
+The states are a reading, never stored, as the [Liveness Assessment](#liveness-assessment)'s are.
+
+## Loop Register
+
+```meta
+type: aggregate
+related: [.devbook/arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md, .devbook/domain/sessions/features.md#loop-sessions, .devbook/domain/sessions/requirements.md#loop-sessions, .devbook/domain/sessions/domain.md#session-request-queue]
+aliases: [LoopRegister, loop session, check_in]
+```
+
+The loop sessions this machine runs and their latest check-ins. A **loop session** is a session
+whose Session Purpose is Agent: the Manager of local
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
+and the Brain tender, both under `/loop`. The goal tracker also runs under `/loop` but never
+checks in, so the register never holds it.
+
+A loop checks in two ways:
+
+- **`check_in`**, an MCP tool it calls on every tick, with its state, its heartbeat and its
+  limits;
+- **the dispatch wait**, a Manager's call to `GET /session-requests/wait`.
+
+The answer to `check_in` carries the `pause`, `resume` or `stop` the person last set. A
+dispatcher's answer also carries the work waiting for it and, where Backlog measures one, the
+[Capacity Reading](#capacity-reading) against the limits it sent. Setting the person's wish is the
+register's one command. The loop obeys it, and this context still never stops a session.
+
+Invocation semantics: command-oriented for a check-in and for the person's wish, query-oriented
+for the states. The register keeps the latest check-in per session, in memory and in the app's
+local database.
+
+### Loop Check-in
+
+```meta
+type: value-object
+aliases: [LoopCheckIn, check-in, heartbeat]
+```
+
+One check-in: the session id, when it arrived, the loop's own state as it says it, its heartbeat
+and its limits. A limit the loop leaves out is Backlog's default. A dispatcher's check-in also
+keeps the [Capacity Reading](#capacity-reading) Backlog took when it arrived, and the number of
+session requests then waiting. None wait while the queue is paused, and the number is unknown
+when the queue could not be read.
+
+A dispatch wait is a check-in with only the session and the time. It moves the time of the
+session's last `check_in` and keeps the rest, its limits and reading included. It also keeps
+when that `check_in` arrived, because what the check-in said about holding stands only until
+its own heartbeat has passed. A wait for a session that never called `check_in` records
+nothing. Equality is by all its parts.
+
+### Capacity Reading
+
+```meta
+type: value-object
+aliases: [CapacityReading, capacity, room]
+```
+
+How much room the machine has, measured by Backlog itself at a check-in:
+
+- the dispatched sessions working, with Waiting sessions not counted;
+- plan usage, the [Weekly Usage](#weekly-usage) estimate's share of the calibrated weekly limit;
+- CPU, its busy share over the last 30 seconds;
+- free memory.
+
+Plan usage reads unavailable until a weekly refusal sizes the limit. Against the limits the loop
+checked in with, it says whether there is room, and which limit is reached when there is none. A
+figure Backlog cannot read is left out and holds nothing back. Equality is by its parts.
+
+### Loop State
+
+```meta
+type: enum
+aliases: [LoopState]
+```
+
+How a loop session is doing: `listening`, `holding`, `stalled`, `not-running`.
+
+- **Listening:** it checks in, and nothing holds it.
+- **Holding:** it checks in, work waits, and its [Capacity Reading](#capacity-reading) has no
+  room. Where that reading cannot decide, the loop's own word that it holds decides. A reading
+  cannot decide when there is none, when a figure reads unavailable and no limit is reached, or
+  when a limit is reached and the work waiting is unknown. Either holds only until the last
+  `check_in`'s own heartbeat has passed.
+- **Stalled:** the [Liveness Assessment](#liveness-assessment) finds its process alive, and
+  nothing checked in past its heartbeat plus 10 minutes.
+- **Not running:** it has no process, or its session is archived.
+
+A dispatch wait keeps a loop off Stalled, but not Holding. The Brain tender has no queue, so it
+never reads Holding. Like a session's state, a loop's state is a
+reading, never stored.
 
 ## Session Activity Publishing
 
@@ -1959,3 +2167,21 @@ related: [.devbook/domain/sessions/domain.md#stage-resolution, .devbook/domain/s
 One more pass a run makes after a person asks for changes at the gate, the Personal
 Validation stage. Work done under the gate is a revise round's. A stage re-entered for
 a revise round counts it among its re-entries.
+
+### Dispatcher Contact
+
+```meta
+type: term
+aliases: [DispatcherContact, dispatcher contact, silent dispatcher]
+related: [.devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
+```
+
+When a dispatcher last reached this app on the wait route: now, while a call is held.
+It is kept in memory, on this desktop only, and forgotten on restart, which reads as
+"not heard since the app started". It names no dispatcher, because the route is called
+with the listener's token alone.
+
+A dispatcher is **silent** after two minutes without contact, counted from the app's
+start when none came. Two minutes is longer than the route's 50-second hold, so a
+dispatcher between two calls never reads as gone. Not [Presence](#presence), which is
+the person's.

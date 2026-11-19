@@ -8,7 +8,8 @@ namespace Backlog.Mobile.UI.UnitTests;
 /// The phone's From and Repository filters over its Notifications tab
 /// (<c>.devbook/domain/notifications/requirements.md</c> — "The phone filters its notifications by
 /// system and repository", "Each phone filter counts what it keeps and shows only a real choice"):
-/// the options, what each choice keeps, and the counts under the other filter.
+/// the options, what each choice keeps, and the counts of what waits — under the other filter, and
+/// in all.
 /// </summary>
 public sealed class NotificationFiltersTests
 {
@@ -173,5 +174,58 @@ public sealed class NotificationFiltersTests
         Assert.Equal(2, NotificationFilters.CountRepository(items, filter, "Backlog"));
         Assert.Equal(2, NotificationFilters.CountRepository(items, filter, NotificationFilters.Brain));
         Assert.Equal(3, NotificationFilters.CountRepository(items, filter, repository: null));
+    }
+
+    // Counts are of what waits (the waiting count's rule, NotificationStack.IsWaiting)
+
+    private static PhoneNotification As(PhoneNotification notification, NotificationStanding standing) =>
+        notification with { Standing = standing };
+
+    [Fact]
+    public void A_settled_notification_adds_nothing_to_any_option_count()
+    {
+        var items = new[]
+        {
+            Phone("Open", "Claude Code", Backlog),
+            As(Phone("Answered", "Claude Code", Backlog), NotificationStanding.AnsweredElsewhere),
+            As(Phone("Sent", "Claude Code", Backlog), NotificationStanding.AwaitingOwner),
+            As(Phone("Closed", "spec-manager", Fincent), NotificationStanding.Closed),
+        };
+
+        Assert.Equal(1, NotificationFilters.CountFrom(items, NotificationFilter.None, "Claude Code"));
+        Assert.Equal(0, NotificationFilters.CountFrom(items, NotificationFilter.None, "spec-manager"));
+        Assert.Equal(1, NotificationFilters.CountFrom(items, NotificationFilter.None, from: null));
+        Assert.Equal(1, NotificationFilters.CountRepository(items, NotificationFilter.None, "Backlog"));
+        Assert.Equal(0, NotificationFilters.CountRepository(items, NotificationFilter.None, "fincent"));
+        Assert.Equal(1, NotificationFilters.CountRepository(items, NotificationFilter.None, repository: null));
+    }
+
+    [Fact]
+    public void An_open_alert_a_rejected_reply_and_an_owner_only_question_count_as_waiting()
+    {
+        var items = new[]
+        {
+            As(Phone("Disk almost full", "Backlog", Backlog), NotificationStanding.Alert),
+            As(Phone("Deploy from the desktop?", "Claude Code", Backlog), NotificationStanding.OwnerOnly),
+            As(Phone("Try again?", "Claude Code", Backlog), NotificationStanding.Rejected),
+        };
+
+        Assert.Equal(3, NotificationFilters.CountFrom(items, NotificationFilter.None, from: null));
+        Assert.Equal(3, NotificationFilters.CountWaiting(items, NotificationFilter.None));
+    }
+
+    [Fact]
+    public void The_waiting_count_is_what_waits_among_what_the_filter_keeps()
+    {
+        var items = new[]
+        {
+            Phone("A", "Claude Code", Backlog), Phone("B", "Claude Code", Fincent), Phone("C", "spec-manager", Backlog),
+            As(Phone("D", "Claude Code", Backlog), NotificationStanding.AnsweredHere),
+        };
+
+        Assert.Equal(3, NotificationFilters.CountWaiting(items, NotificationFilter.None));
+        Assert.Equal(2, NotificationFilters.CountWaiting(items, new NotificationFilter("Claude Code", null)));
+        Assert.Equal(1, NotificationFilters.CountWaiting(items, new NotificationFilter("Claude Code", "Backlog")));
+        Assert.Equal(0, NotificationFilters.CountWaiting(items, new NotificationFilter("Copilot", null)));
     }
 }

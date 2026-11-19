@@ -99,6 +99,30 @@ public sealed class InboxDesktopStateTests : IDisposable
     public void Waited_says_the_span_in_words(int hours, int minutes, string expected) =>
         Assert.Equal(expected, InboxDesktopState.Waited(TimeSpan.FromHours(hours) + TimeSpan.FromMinutes(minutes)));
 
+    /// <summary>A write outside the pane is passed on once the first snapshot is in —
+    /// before it, the first load reads the write anyway — and not after the state is
+    /// disposed, when no pane is left to reload.</summary>
+    [Fact]
+    public async Task A_write_outside_the_pane_is_announced_only_while_a_loaded_state_listens()
+    {
+        var signal = new Backlog.Modules.Inbox.Services.InboxChangeSignal();
+        var state = new InboxDesktopState(
+            new FakeInboxItems(), new GitHubSettingsStore(Path.Combine(_root, "github.json")), writesElsewhere: signal);
+        var announced = 0;
+        state.WrittenElsewhere += () => announced++;
+
+        signal.Raise();
+        Assert.Equal(0, announced);
+
+        await state.ReloadAsync();
+        signal.Raise();
+        Assert.Equal(1, announced);
+
+        state.Dispose();
+        signal.Raise();
+        Assert.Equal(1, announced);
+    }
+
     [Fact]
     public async Task An_older_reload_that_finishes_after_a_newer_one_is_ignored()
     {
@@ -180,6 +204,36 @@ public sealed class InboxDesktopStateTests : IDisposable
 
         Assert.Equal(0, state.SelectionCount);
         Assert.Equal(["Put aside"], state.VisibleItems.Select(item => item.Title));
+    }
+
+    /// <summary>A jump by id — an event's Talk note — opens the item in the slice it is
+    /// filed in, so the rows around it are its own; an id the Inbox does not hold leaves
+    /// the Inbox as it stood.</summary>
+    [Fact]
+    public async Task Opening_an_item_by_id_opens_the_slice_it_is_filed_in_and_selects_it()
+    {
+        var inbox = new FakeInboxItems();
+        var talks = inbox.SeedList("Talks");
+        var filed = inbox.Seed("Keynote: Aspire in production", kind: Backlog.Modules.Inbox.Abstractions.ContentKind.Note, listId: talks.Id);
+        var deferred = inbox.Seed("Put aside", status: Backlog.Modules.Inbox.Abstractions.InboxStatus.Deferred);
+        var unfiled = inbox.Seed("In the inbox");
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        await state.ReloadAsync();
+
+        Assert.True(state.OpenItem(filed.Id));
+        Assert.Equal(InboxDesktopState.ListNavId(talks.Id), state.SelectedSliceId);
+        Assert.Equal(filed.Id, state.SelectedItem?.Id);
+
+        Assert.True(state.OpenItem(deferred.Id));
+        Assert.Equal(InboxDesktopState.DeferredSliceId, state.SelectedSliceId);
+        Assert.Equal(deferred.Id, state.SelectedItem?.Id);
+
+        Assert.True(state.OpenItem(unfiled.Id));
+        Assert.Equal(InboxDesktopState.InboxSliceId, state.SelectedSliceId);
+        Assert.Equal(unfiled.Id, state.SelectedItem?.Id);
+
+        Assert.False(state.OpenItem(Guid.NewGuid()));
+        Assert.Equal(unfiled.Id, state.SelectedItem?.Id);
     }
 
     // --- Tag options ----------------------------------------------------------

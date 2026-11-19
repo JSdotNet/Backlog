@@ -7,7 +7,7 @@ using Backlog.UI.Components.Diagrams.C4;
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
-/// The Code level of the C4 zoom tab, read for the Devbook (local ADR 0046 §3): which
+/// The Code level of the C4 zoom navigation, read for the Devbook (local ADR 0046 §3): which
 /// components have code folders, their types read from the source by
 /// <see cref="CSharpCodeReader"/>, and the decision and debt records linked to them.
 /// <para>
@@ -19,7 +19,7 @@ namespace Backlog.Desktop.UI.Devbook;
 public sealed partial class C4DevbookCode(CSharpCodeReader reader, IFolderEditorLauncher launcher)
 {
     /// <summary>
-    /// What the zoom tab is handed for one catalog: a component has code when its
+    /// What the zoom navigation is handed for one catalog: a component has code when its
     /// building block names folders and the folder sits on a repository to read them
     /// from.
     /// </summary>

@@ -158,11 +158,11 @@ with a line saying why it is not newer.
 
 ```meta
 type: sub-feature
-related: [".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/domain/inbox/features.md#notes-on-the-phone", ".devbook/domain/inbox/domain.md#note", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
+related: [".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/domain/inbox/features.md#notes-on-the-phone", ".devbook/domain/inbox/domain.md#note", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/domain/events/features.md#attach-a-talk-note"]
 ```
 
 A note taken during a conference talk: what was said, the slide photo, the
-handout. It is a [note](../inbox/domain.md#note), written in the phone's Notes tab
+handout. It is a [note](../inbox/domain.md#note), written on the phone
 ([Notes on the phone](../inbox/features.md#notes-on-the-phone)). It is never
 called a session note, because Sessions is a bounded context of its own.
 
@@ -189,6 +189,60 @@ names it. A file already sent is never sent again, and a failed one is
 retried on its own. A note saved without a title is named after the first line of
 its body. With no body, it is "Photo · <date>" when a picture is attached, else the
 first file's name.
+
+While the phone holds a knowledge event, the note's page offers to attach the note to
+one: see Events' [Attach a Talk note](../events/features.md#attach-a-talk-note).
+
+A recording made in the note is one more of its files: see
+[Meeting recording](#meeting-recording).
+
+### Meeting recording
+
+```meta
+type: sub-feature
+related: [".devbook/domain/capture/features.md#talk-note", ".devbook/domain/inbox/domain.md#meeting", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md", ".devbook/tech/mobile.md#android-mediarecorder"]
+```
+
+A meeting recorded on the phone, kept going with the screen off, and sent to the
+desktop as a file on its item. It uses the editor the [talk note](#talk-note)
+describes. It records on the Android phone only.
+
+A recording starts in one of two ways:
+
+- **Meeting** in the phone Inbox's **+** menu opens a new
+  [Meeting](../inbox/domain.md#meeting), an item of kind `meeting`, already
+  recording.
+- **Record** in an open [note](../inbox/domain.md#note) adds a recording to it,
+  the way a slide photo is added. The note stays of kind `note`.
+
+**Record** sits in the note editor's toolbar beside **Dictate** and **Photo**.
+The first press asks for the microphone, and on Android 13 and later for
+notifications. While it records, two places show the timer with **Pause** and
+**Stop**:
+
+- a recording bar in the note;
+- an ongoing notification, which keeps the recording going with the phone in a
+  pocket.
+
+Typing and photos keep working while it records, and land on the same note.
+**Stop** attaches the file to the note as "Recording · <duration>", with its type
+and size, and it plays back in place. Cloud sync takes AAC audio as a note file
+beside pictures, PDFs, text and Office files. The note then syncs as it does today, the
+file first; the desktop's Inbox item shows it with a player.
+
+There is no consent prompt. The ongoing notification and Android's own
+microphone dot are the only sign that the phone is recording.
+
+Once the file has downloaded to a desktop with Foundry configured, the desktop
+transcribes it with nobody pressing a button, once per file. It appends
+`## Transcript` and `## Summary`, the summary ending in the action items as
+`- [ ]` lines, to the note's body, then removes the recording from the note, so
+sync releases it from the attachment store. The transcript is what remains of the
+meeting.
+
+[Recordings on a note](../inbox/requirements.md#recordings-on-a-note) holds what
+a recording promises when it runs long, is cut off or loses its note, and what
+its transcription promises.
 
 ### Share-sheet and shortcuts
 
@@ -222,8 +276,9 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 The reader runs the monitors on demand from the Inbox, without waiting for a
 schedule. A folded Sources panel on the Inbox pane, beside the button that
 runs them, sets which sources are watched and what each one looks at. The sources
-are YouTube, website and email; the targets are channels, URLs and senders. A
-source is off until switched on.
+are YouTube, website, event page and email; the targets are channels, URLs, page
+URLs and senders. A source is off until switched on, and the event page source
+shows only while the [Events area](../events/context.md#events-area) is on.
 
 A run answers per source. It says how many new captures it delivered, or that no
 `Source Adapter` exists for that source yet. A source that cannot be watched says
@@ -258,6 +313,83 @@ the Inbox. It finds the feed through `<link rel=alternate>`, a feed link on the
 same host, or a well-known path. A site with no feed has no fallback yet: the
 monitor does not compare the page between runs. There is no folder filing and no
 `#capture/web/{domain}` auto-tag yet.
+
+### Event page monitor
+
+```meta
+type: sub-feature
+feature-flag: [.devbook/domain/inbox/context.md#inbox-pane, .devbook/domain/events/context.md#events-area]
+related: [.devbook/domain/capture/requirements.md#event-page-monitor, .devbook/domain/capture/domain.md#event-facts, .devbook/domain/capture/context.md#capture-sources, .devbook/domain/events/features.md#to-event-route, .devbook/domain/inbox/features.md#route-to-event]
+```
+
+```mermaid
+flowchart TD
+    Page[A watched event page] --> S1{Upcoming schema.org event on the page?}
+    S1 -- yes --> Dates[Item with dates and place]
+    S1 -- no --> S2{Upcoming schema.org event one registration link away?}
+    S2 -- yes --> Dates
+    S2 -- no --> S3{Upcoming date pattern in the page text?}
+    S3 -- yes --> Dates
+    S3 -- no --> Any{Did any step read a date?}
+    Any -- yes --> Passed[No item: the run says the edition passed]
+    Any -- no --> Link[Item with the page link only]
+```
+
+Watches the pages where organisers announce their events, and brings each new
+edition into the Inbox for the person to route [To Event](../inbox/features.md#route-to-event).
+It is a capture source of its own, `event_page`. Its targets are page URLs, kept in
+the Inbox's Sources panel the way YouTube channels are. It shows only while the
+[Events area](../events/context.md#events-area) is on.
+
+The monitor reads each page by fixed rules and asks no AI model. It stops at the first step that
+gives an edition still to come:
+
+1. A schema.org event in the page's structured data.
+2. One hop to a registration link, and the schema.org event on that page. A
+   registration link points at an Eventbrite host, or its text says *register*,
+   *registreer* or *tickets*.
+3. A date pattern in the page text, with English or Dutch month names, such as
+   `26 - 28 OCT 2026`. A date with a year is read day first or month first, as in
+   `November 27, 2026`. The page text includes what its images say in their `alt`
+   and `title`, because Techorama shows its dates only there.
+4. No date found: the item arrives with only the page link.
+
+The dates and place it found ride with the capture as its
+[Event Facts](domain.md#event-facts). A date has a time and a UTC offset only when the
+source gave them. An edition whose end date has passed is skipped, and the read goes on
+to the next step. An organiser's page often still carries last edition's event, or
+links its listing, while its text already names the next date. When no step finds an
+edition to come, the run says the latest edition it read has passed.
+
+Each edition is delivered once. Its external id is the listing id when the
+registration page has one. Otherwise it is the page URL, the year and the place, so
+next year's edition on the same page is a new item. Two upcoming schema.org events
+can share that id. Then the one that starts first keeps it. A later one whose own
+`url` differs from the first's adds that URL to its id.
+
+- **Why:** before the URL counted, the first upcoming edition was delivered under the
+  plain id. When it passes, the next one takes the plain id over. That one already
+  arrived under its URL, so nothing arrives twice.
+
+The monitor runs only when the person presses [Run capture now](#run-capture-now).
+[Scheduled scans](#scheduled-scans) does not cover it.
+
+- **Known limit:** a date that moves after its edition was delivered is not
+  noticed. A run only asks whether an external id is already known.
+- **Known limit:** a page whose layout changes can hide its dates. The item then
+  arrives with only the page link, which is the visible symptom.
+- **Known limit:** after a passed edition, the text step takes the first date to come
+  in the page text. That may be a date that is not an edition, such as a deadline for
+  talks.
+- **Known limit:** two editions in the same year and place, with no listing id and no
+  `url` of their own, share an external id. Only the first is delivered.
+- **Known limit:** an edition that first appears after the previous one in its year
+  and place has passed takes the plain id. That id is already known, so the edition is
+  not delivered.
+- **Known limit:** an edition added before one already delivered starts first, so it
+  takes the plain id and is not delivered. The later one then arrives a second time.
+  A page that listed its newest edition first when the URL began to count does the
+  same once.
 
 ### News email ingestion
 

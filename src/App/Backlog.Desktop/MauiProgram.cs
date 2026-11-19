@@ -18,6 +18,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Logging;
+using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Devbook;
@@ -50,6 +51,13 @@ public static class MauiProgram
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+            })
+            .ConfigureMauiHandlers(handlers =>
+            {
+#if WINDOWS
+                // A popped-out window's title bar toggles (local ADR 0043 §4).
+                handlers.AddHandler<CaptionToggle, CaptionToggleHandler>();
+#endif
             });
 
         builder.Services.AddMauiBlazorWebView();
@@ -247,6 +255,9 @@ public static class MauiProgram
         // What a backlog:// link opens (local ADR 0043 §7): BacklogLinkInstance hands it
         // the link the app was launched with and every one redirected here later.
         builder.Services.TryAddSingleton<BacklogLinkActivation>();
+        // Starting at sign-in (local ADR 0043 §5): the packaged head's MSIX startup
+        // task, which an unpackaged build answers as unavailable.
+        builder.Services.TryAddSingleton<IStartupRegistration, WindowsStartupRegistration>();
         // The Brain card's Browse: this head has a window to open the Windows
         // folder picker over, so it is the one host that registers one. One per
         // window, so it stands over the window whose Settings asked for it.
@@ -261,6 +272,9 @@ public static class MauiProgram
         // "away after" read from the workspace settings on every question. This head's
         // own, because only it can read Windows input; presence never leaves the desktop.
         builder.Services.TryAddSingleton<IInputActivity, WindowsInputActivity>();
+        // This machine's CPU and free memory for a loop's capacity reading (local ADR 0051
+        // §4). This head's own, as the input is; on every other head both read unavailable.
+        builder.Services.TryAddSingleton<IMachineLoad, WindowsMachineLoad>();
         builder.Services.TryAddSingleton<IPresence>(sp =>
         {
             var settings = sp.GetRequiredService<WorkspaceSettingsStore>();
@@ -344,8 +358,16 @@ public static class MauiProgram
         // And annotation replication's loop, the third sibling, on the same terms.
         _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
+        // And the Inbox's transcription of meeting recordings (local ADR 0049): started
+        // here, for the reason the sync loops are, so a recording that came down while the
+        // app was closed — or failed last time — is tried on this start.
+        app.Services.GetRequiredService<Backlog.Modules.Inbox.Services.InboxRecordingTranscriptionWorker>().Start();
+
         // And devbook subject state's loop, the annotations' sibling, on the same terms.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
+
+        // And knowledge event replication's loop (local ADR 0050 §2), on the same terms.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.KnowledgeEventSyncWorker>();
 
         // And the one-time devbook import, on the same terms: it reads each repository's
         // default branch once into the two stores above, and a worker nobody resolves
@@ -367,6 +389,16 @@ public static class MauiProgram
         // repository or product syncs on its own interval only while this exists.
         _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 
+        // And the session queue's completion sweep (local ADR 0038 §3), on the same
+        // terms: it closes a request whose entry or plan the person finished, at start
+        // and after every task write.
+        _ = app.Services.GetRequiredService<SessionRequestCompletion>();
+
+        // And the Desktop clock of the Events area, on the same terms: it files a harvest task
+        // the day after a Going event ends, at start and when the local day turns, and checks
+        // the `events` flag itself, so it is resolved whether the area is on or off.
+        _ = app.Services.GetRequiredService<Backlog.Modules.Events.Services.HarvestTaskWorker>();
+
         // And the spec-manager question source, on the same terms: while signed in to
         // spec-manager it holds the notification stream and brings the product's questions
         // in as notifications; a singleton nobody resolves asks nothing.
@@ -375,6 +407,14 @@ public static class MauiProgram
         // And the question relay's escalation timer (local ADR 0041): it publishes a waiting
         // question still open in its session once the notify delay passes.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
+
+        // And the schedule and loop alerts' sweep (local ADR 0051 §5): it raises an alert when a
+        // schedule or a loop session needs the person and closes it once the cause clears.
+        app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.SessionAlertPublisher>().Start();
+
+        // And the run subject watch: an open Personal Validation question closes once its run's
+        // pull request merged or closed, or its sessions are all archived, while the app runs.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.RunSubjectWatch>();
 
         // And the Windows notifications, before the notifications startup pass below: listening
         // first, so a notification that pass closes takes its Windows notification down with it.
@@ -471,7 +511,11 @@ public static class MauiProgram
         // And the backlog:// links (local ADR 0043 §7): the one this launch carried and
         // any redirected here since the App constructor claimed the instance, held until
         // the main window is up.
-        BacklogLinkInstance.Attach(app.Services.GetRequiredService<BacklogLinkActivation>());
+        // A plain launch redirected here brings the main window back from the tray
+        // (local ADR 0043 §5).
+        BacklogLinkInstance.Attach(
+            app.Services.GetRequiredService<BacklogLinkActivation>(),
+            app.Services.GetRequiredService<ShellWindows>().ActivateMainWindow);
 
         return app;
     }

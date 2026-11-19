@@ -48,6 +48,14 @@ public sealed record PushTasksCommand(OwnerScope Scope, IReadOnlyList<TaskChange
 /// that syncs both ways (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>),
 /// and its tombstone is what the desktop pushes when it archives or deletes one.
 /// </para>
+/// <para>
+/// <b>A note edit that drops a file releases that file</b> (local ADR 0049, amending ADR
+/// 0014): the desktop removes a meeting recording from its note once the transcript is
+/// written. The dropped files are read from the note the replica held before the push,
+/// so a pushed note can only release what that note named, and released only when the
+/// note the replica holds after it no longer names them — an edit refused as stale
+/// releases nothing.
+/// </para>
 /// </summary>
 public sealed partial class PushTasksCommandHandler(
     ITaskReplica replica,
@@ -72,6 +80,7 @@ public sealed partial class PushTasksCommandHandler(
         activity?.SetTag(SyncTelemetry.BatchSizeTag, command.Changes.Count);
 
         var withdrawn = await CapturesWithFiles(command, cancellationToken);
+        var dropping = await NotesDroppingFiles(command, cancellationToken);
 
         int accepted;
         try
@@ -91,6 +100,7 @@ public sealed partial class PushTasksCommandHandler(
         }
 
         await ReleaseLanded(command.Scope.OwnerId, withdrawn, cancellationToken);
+        await ReleaseDropped(command.Scope.OwnerId, dropping, cancellationToken);
 
         return new PushTasksResponse(accepted);
     }
@@ -106,6 +116,46 @@ public sealed partial class PushTasksCommandHandler(
                 await release.Release(owner, capture, cancellationToken);
             }
         }
+    }
+
+    /// <summary>Releases each file a note edit dropped, once the note the replica holds no
+    /// longer names it. A failed push releases none: nothing was confirmed dropped, and the
+    /// device sends the edit again.</summary>
+    private async Task ReleaseDropped(OwnerId owner, List<(TaskChange Held, IReadOnlyList<AttachmentMetadata> Dropped)> dropping, CancellationToken cancellationToken)
+    {
+        foreach (var (held, dropped) in dropping)
+        {
+            if (await replica.Find(owner, held.Id, cancellationToken) is not { Change: { DeletedAt: null } stored }) continue;
+
+            var named = (stored.Task.Attachments ?? []).Select(attachment => attachment.Id).ToHashSet();
+            var gone = dropped.Where(attachment => !named.Contains(attachment.Id)).ToList();
+            if (gone.Count > 0) await release.Release(owner, held with { Task = held.Task with { Attachments = gone } }, cancellationToken);
+        }
+    }
+
+    /// <summary>The live notes this push edits to name fewer files than the replica holds,
+    /// with the files they drop. One read per note edit in the batch, read only for a
+    /// payload that says it is a note, and none for anything else.</summary>
+    private async Task<List<(TaskChange Held, IReadOnlyList<AttachmentMetadata> Dropped)>> NotesDroppingFiles(PushTasksCommand command, CancellationToken cancellationToken)
+    {
+        var notes = new List<(TaskChange, IReadOnlyList<AttachmentMetadata>)>();
+
+        foreach (var change in command.Changes)
+        {
+            if (change.DeletedAt is not null || change.Task.Type != NoteType) continue;
+
+            if (await replica.Find(command.Scope.OwnerId, change.Id, cancellationToken) is
+                {
+                    Change: { DeletedAt: null, Task: { Type: NoteType, Attachments.Count: > 0 } } held,
+                })
+            {
+                var kept = (change.Task.Attachments ?? []).Select(attachment => attachment.Id).ToHashSet();
+                var dropped = held.Task.Attachments!.Where(attachment => !kept.Contains(attachment.Id)).ToList();
+                if (dropped.Count > 0) notes.Add((held, dropped));
+            }
+        }
+
+        return notes;
     }
 
     /// <summary>

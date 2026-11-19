@@ -31,7 +31,9 @@ public sealed class McpToolScopesTests
 
     [Fact]
     public void Inbox_capture_is_write_only_and_serves_no_read() =>
-        Assert.DoesNotContain(McpScopes.InboxCapture, McpToolScopes.All.Values);
+        Assert.Equal(
+            [InboxTools.CaptureToInbox],
+            McpToolScopes.All.Where(pair => pair.Value == McpScopes.InboxCapture).Select(pair => pair.Key));
 
     [Theory]
     [InlineData("find_item", McpScopes.TasksRead)]

@@ -345,13 +345,10 @@ public sealed class DomainRequirementsTests
         Assert.Equal(2, group.Requirements.Count);
     }
 
-    [Fact]
-    public void The_page_opens_on_a_card_counting_the_rules_its_features_lean_on()
+    // Two features leaning on the Task's rules: one on both, one on the same
+    // two through the aggregate — two distinct rules, not four.
+    private static IReadOnlyList<DomainRequirementGroup> LeaningGroups()
     {
-        using var context = new BunitContext();
-        context.JSInterop.Mode = JSRuntimeMode.Loose;
-        // Two features leaning on the Task's rules: one on both, one on the same
-        // two through the aggregate — two distinct rules, not four.
         var requirements = DomainUnits.Parse("""
             # Requirements
 
@@ -381,12 +378,20 @@ public sealed class DomainRequirementsTests
 
             The system SHALL show each time.
             """, ".devbook/domain/planning/requirements.md");
-        var groups = DomainRequirements.Groups(requirements,
+        return DomainRequirements.Groups(requirements,
         [
             DomainUnits.Parse(PlanningDomain, ".devbook/domain/planning/domain.md"),
             DomainUnits.Parse(PlanningInvariants, ".devbook/domain/planning/domain.invariants.md"),
             requirements
         ]);
+    }
+
+    [Fact]
+    public void The_page_opens_on_a_card_counting_the_rules_its_features_lean_on()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var groups = LeaningGroups();
         Assert.Equal(2, groups.Count(group => group.AlwaysTrue.Any(unit => unit.Listed.Count > 0)));
         // The groups list four rules between them, two of them twice: the card counts two.
         Assert.Equal(4, groups.Sum(group => group.AlwaysTrue.Sum(unit => unit.Listed.Count)));
@@ -401,7 +406,30 @@ public sealed class DomainRequirementsTests
         Assert.Equal("2 rules · on Domain", card.QuerySelector("[data-testid='domain-requirements-rules-tally']")!.TextContent.Trim());
         Assert.StartsWith("What the model never lets happen, whoever changes it.", card.QuerySelector(".domain-requirements__card-text")!.TextContent.Trim(), StringComparison.Ordinal);
         Assert.Empty(card.QuerySelectorAll("button, a"));
+        Assert.Equal("DIV", card.TagName);
         Assert.DoesNotContain("domain-requirements__card--requirement", card.ClassList);
+    }
+
+    [Fact]
+    public void The_rule_card_opens_the_domain_page_on_always_true()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        DomainAlwaysTrueLink? opened = null;
+        var view = context.Render<DomainRequirementsView>(parameters => parameters
+            .Add(p => p.Groups, LeaningGroups())
+            .Add(p => p.OnOpenAlwaysTrue, link => opened = link));
+
+        var card = view.Find("[data-testid='domain-requirements-rules-summary']");
+        Assert.Equal("BUTTON", card.TagName);
+        Assert.Contains("domain-requirements__card--link", card.ClassList);
+        Assert.Equal("2 rules · on Domain", card.QuerySelector("[data-testid='domain-requirements-rules-tally']")!.TextContent.Trim());
+
+        card.Click();
+
+        Assert.Equal(".devbook/domain/planning/domain.md", opened!.DocumentPath);
+        Assert.Equal("task", opened.UnitKey);
+        Assert.Null(opened.Rule);
     }
 
     [Fact]

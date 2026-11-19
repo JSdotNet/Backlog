@@ -525,6 +525,96 @@ public sealed class McpServerWorkerTests : IDisposable
             Task.FromResult<IReadOnlyList<McpAuditRecord>>([.. Records.AsEnumerable().Reverse().Take(count)]);
     }
 
+    /// <summary>The report route a scheduled run's hook posts to (local ADR 0051 §1) needs
+    /// <c>runs:write</c> (local ADR 0058 §4): refused without a token or with a wrong one, and
+    /// forbidden to the telemetry grant, recording nothing; recorded under the delivery grant.</summary>
+    [Fact]
+    public async Task The_schedule_run_report_refuses_a_missing_wrong_or_unscoped_token_and_records_under_the_delivery_grant()
+    {
+        var register = new InMemoryScheduleRegister();
+        var grants = new FileMcpGrantStore(Path.Combine(_root, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var tokens = new McpGrantTokens(grants, TimeProvider.System);
+        var services = new GatedProvider(new ServiceCollection()
+            .AddSingleton<IScheduleRegister>(register)
+            .AddSingleton<IAppFeatureSettings>(new SessionRequestsOn())
+            .AddSingleton(tokens)
+            .BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var token = tokens.Mint(grants.Create("Backlog delivery", McpTokenRetirement.DeliveryScopes, "test").Id).Token!.Value;
+        var telemetry = tokens.Mint(grants.Create("Telemetry", [McpScopes.TelemetryWrite], "test").Id).Token!.Value;
+
+        using (var response = await client.SendAsync(Report(null), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Report(token + "-wrong"), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Report(telemetry), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        Assert.Equal(0, register.Recorded);
+
+        using (var response = await client.SendAsync(Report(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+            Assert.Contains("\"no-summary-yet\"", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        }
+
+        Assert.Equal(1, register.Recorded);
+    }
+
+    private static HttpRequestMessage Report(string? token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, ScheduleRunReportEndpoint.RoutePath)
+        {
+            Content = new StringContent("""{"scheduleId":"weekly-update","sessionId":"run-1","event":"started"}""", System.Text.Encoding.UTF8, "application/json"),
+        };
+        if (token is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return request;
+    }
+
+    /// <summary>
+    /// A dispatcher's wait is recorded in the app's own dispatcher contact, not in a copy
+    /// the listener made for itself (local ADR 0038 §4): the record the Tasks pane reads is
+    /// the one the route wrote.
+    /// </summary>
+    [Fact]
+    public async Task A_dispatchers_wait_is_recorded_in_the_apps_own_dispatcher_contact()
+    {
+        var queue = new InMemorySessionRequestStore();
+        queue.Add(SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", DateTimeOffset.UtcNow));
+        var contact = new DispatcherContact();
+        var services = new GatedProvider(new ServiceCollection()
+            .AddSingleton<ISessionRequestStore>(queue)
+            .AddSingleton<IAppFeatureSettings>(new SessionRequestsOn())
+            .AddSingleton(contact)
+            .BuildServiceProvider());
+        var settings = EscapeHatchSettings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+
+        using var response = await client.SendAsync(Wait(EnvironmentToken), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(contact.LastHeardAt);
+    }
+
     private static HttpRequestMessage Wait(string? token)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, SessionRequestWaitEndpoint.RoutePath);

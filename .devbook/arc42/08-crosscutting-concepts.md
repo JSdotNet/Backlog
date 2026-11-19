@@ -6,7 +6,7 @@
 ## Storage and Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/arc42/06-runtime-view.md#talk-note-attach"]
 ```
 
 - **Local-first, one canonical local store.** The desktop's own store is the single
@@ -38,6 +38,8 @@ Optional cloud sync carries this state between a person's devices. Every kind ri
 | Session records | a record in the `sessions` container | not reconciled: one machine writes each ([Session Record Sync](#session-record-sync)) | local ADR 0005 |
 | Remarks on devbook chapters | a remark in the `annotations` container | the task container's last-write-wins and tombstone terms | local ADR 0011 |
 | Devbook subject state | one document per subject in the `devbookSubjects` container, under an id every device derives alike | the later `updatedAt` wins whole, a tie changes nothing, and nothing is deleted | local ADR 0044 |
+| Knowledge event, event series and the `events` switch | a document in the `knowledgeEvents` container, kind `knowledge-event`, `event-series` or `events-area` (one per owner) | the later `updatedAt` wins whole, a tie changes nothing, and nothing is deleted | local ADR 0050 |
+| Event attachment request | kind `event-attachment-request` in `tasks`, written by the phone | a desktop with Events on applies it, then tombstones it; others hold it | local ADR 0050, on ADR 0035 §8's terms |
 | Notifications and replies | a notification in the `notifications` container, a reply in `notificationReplies` | not reconciled; see [Notifications](#notifications) | local ADR 0039 |
 
 - **The phone's impediment edits go through the device outbox.**
@@ -95,11 +97,12 @@ found. `spend-cache` holds Claude Code days and Copilot months that are over.
 established. Each is keyed per author, login, actor or file, so a second identity
 never reads the first's. None may sit under the workspace root: a per-machine cache carried by a file-sync product is the hazard `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` removes.
 
-- **Eight containers in the cloud.** Six are replicas, all partitioned on `/ownerId`:
+- **Nine containers in the cloud.** Seven are replicas, all partitioned on `/ownerId`:
   - `tasks`
   - `sessions`
   - `annotations`
   - `devbookSubjects`
+  - `knowledgeEvents`
   - `notifications`
   - `notificationReplies`
 
@@ -109,7 +112,8 @@ never reads the first's. None may sit under the workspace root: a per-machine ca
   whole session records after 12 months, set on the `sessions` container. It
   expires a notification 30 days after it settled, and an unprocessed reply after
   30 days, both stamped per document. The `devbookSubjects` container has no TTL,
-  because a subject's state is never deleted. Nothing reaps, so no scheduled job can fail silently.
+  because a subject's state is never deleted. Nor has `knowledgeEvents`, because
+  an event is never deleted on the feed. Nothing reaps, so no scheduled job can fail silently.
 - **The sync service, not the store, keeps a device inside its own data.** The
   service holds an account-scoped managed identity and can see every partition of
   every container. Service code confines a device: it reads the `ownerId` out of
@@ -415,7 +419,7 @@ These parts are built:
   exchange, and the desktops' Web PubSub nudge.
 - **The first publishers:** a run's Personal Validation, the device that redeemed a
   pairing code, and a remark left on another device.
-- **The screens:** the desktop's notification centre and the phone's list and answer
+- **The screens:** the desktop's notification centre and the phone's pager and answer
   screens.
 - **The Android phone push:** deployed on 2026-11-04. No push reaches a phone until the
   hub has its FCM credential.
@@ -465,11 +469,32 @@ These parts are built:
 - **Who may answer.** The sync API accepts a reply only from a device under the
   same owner, and the owner checks again. Any paired viewer may answer, critical
   questions included, unless the question says `answerOn: owner`.
-- **The flag is per device.** Off on a phone means no push and no list. Off on a
+- **The flag is per device.** Off on a phone means no push and no Notifications tab. Off on a
   desktop means its sources fall back to toasts, and an MCP `ask` answers that
   notifications are not available.
 - **The sync service still scales to zero.** No connection to the sync service
   stays open. Web PubSub holds the desktop connections instead.
+
+## Change Notices
+
+```meta
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/domain/events/features.md#events-pane", ".devbook/domain/inbox/features.md#work-the-queue-over-mcp", ".devbook/domain/sessions/features.md#re-read-on-request"]
+```
+
+An open page shows a write made elsewhere because the module that owns the data
+raises a singleton notice on every save, whoever saves. The module's published port
+holds its `Changed` on that notice. An MCP call runs in a desktop scope of its own,
+and each window has its own scopes, so a scoped event would reach neither.
+
+- **A page ignores its own writes.** The Tasks and Events panes mark their own saves
+  and skip the notice they cause, so a reload never reads over a field being typed.
+- **Every MCP write tool names its notice.** `McpRefreshMap` in
+  `Backlog.Infrastructure.Mcp` maps each tool not marked read-only to the notice that
+  refreshes its pages, or the reason none does. `BacklogMcpToolsTests` fails for a
+  write tool missing from it.
+- **The exceptions are named in the map.** The session request queue is polled every
+  five seconds. The window tools change no data. The surface run tools do not refresh
+  the Sessions pane, which reads its runs on request.
 
 ## Feature Enablement
 

@@ -94,8 +94,8 @@ sequenceDiagram
 
   The last three skip the pending wait and give a parked entry its attempts back.
 - **The list outlives the service.** Every successful pull is kept in the same file with its time. A failed pull, including 503 `sync.replica_unavailable` while the Cosmos emulator warms up, shows that list with one line saying why it is not newer.
-- **Only the phone's own captures.** The Inbox tab lists captures from the phone channel (`mobile`) until the desktop takes each in. The phone sends no acknowledgement or other decision: triage stays on the desktop (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`).
-- **Notes come back.** Notes are the one Inbox kind the phone also pulls, on the task feed (**Mobile Note Sync**).
+- **The phone's own captures, plus its notes and meetings.** The Inbox tab lists captures from the phone channel (`mobile`) until the desktop takes each in, beside the synced notes and meetings, which stay. The phone sends no acknowledgement or other decision: triage stays on the desktop (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`).
+- **Notes and meetings come back.** Notes and meetings are the Inbox kinds the phone also pulls, on the task feed (**Mobile Note Sync**).
 
 ## Capture Attachments
 
@@ -163,6 +163,78 @@ sequenceDiagram
 - **Held while the service is newer.** A 426 on any request is the phone's own answer (**Mobile Capture and Sync**). The entry keeps its place, attempts and uploaded files until the verdict is next due.
 - **Released on delivery.** The phone deletes the files once the capture is taken (201, or 200 for a known id).
 - **Status from the outbox.** *synced* once the entry is gone, *uploading i of n* during an attempt, *waiting* otherwise, *waiting — tap to retry* once parked.
+
+## Meeting Recording
+
+```meta
+related: [".devbook/domain/capture/features.md#meeting-recording", ".devbook/domain/inbox/domain.md#meeting", ".devbook/domain/inbox/requirements.md#recordings-on-a-note", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md", ".devbook/tech/mobile.md#android-mediarecorder", ".devbook/tech/cloud.md#gpt-4o-transcribe"]
+```
+
+A meeting is an Inbox item of content kind `meeting`: the phone's Inbox **+** menu opens a new one already recording. Its recording reaches the desktop as one more of its files, and the desktop turns it into text in its body. A note that is given a recording later stays a note and is transcribed the same way. The journey after Stop is the staged note-file upload of **Talk Note Upload**, and the note itself syncs as **Mobile Note Sync** describes. Local ADR 0048 decides the recording, local ADR 0049 the transcription; both are built.
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant Editor as Note editor
+    participant Rec as RecordingService
+    participant Files as notes/recordings
+    participant Outbox as SQLite Outbox
+    participant Sync as Sync Service
+    participant Desk as Desktop
+    participant Worker as Transcription worker
+    participant Foundry as Azure Foundry
+
+    ME->>Editor: Record
+    Editor->>Rec: Start (foreground service, type microphone)
+    Rec->>Files: AAC ADTS stream, 16 kHz mono, 32 kbps
+    Rec-->>ME: Ongoing notification: timer, Pause, Stop
+
+    opt File reaches 24 MB
+        Rec->>Files: Close the part, open "part 2" with no gap
+    end
+
+    ME->>Editor: Stop
+    Rec->>Files: Close the file
+    Rec-->>Editor: File, duration, size, sha256
+    Editor->>Outbox: Note document + file, staged
+    Editor-->>ME: "Recording · duration" plays in place
+
+    loop Each file not yet uploaded
+        Outbox->>Sync: PUT /api/sync/attachments/{id} (checkpointed, retried alone)
+    end
+    Outbox->>Sync: POST /api/sync/tasks (type note, names the file)
+    Desk->>Sync: Pull the note, download the file
+    Desk-->>ME: Inbox item with a player
+    Desk->>Worker: Queue the note
+
+    alt sha256 already transcribed
+        Worker->>Desk: Append the kept sections if missing, remove the file
+    else New recording, Foundry configured
+        Worker->>Worker: Remux ADTS to M4A parts of at most 5 min
+        loop Each part, in order
+            Worker->>+Foundry: Transcribe (gpt-4o-transcribe, prompt = tail of the part before)
+            Foundry-->>-Worker: Text, headed [hh:mm:ss] by the worker
+        end
+        Worker->>+Foundry: Summarize the transcript (chat deployment)
+        Foundry-->>-Worker: Summary, decisions, - [ ] action items
+        Worker->>Desk: Re-read the note, append ## Transcript + ## Summary, remove the file, keep the sha256
+    else A part or the summary failed
+        Worker-->>Desk: Nothing changes; tried again on the next pull or start
+    end
+
+    Desk->>Sync: POST /api/sync/tasks (note no longer names the file)
+    Sync->>Sync: Release the dropped file's blob
+```
+
+- **Started in the foreground.** Android 11 and later let a microphone service start only while the app is on screen, so Record starts it from the open note.
+- **A stream, not a container.** The file is an ADTS stream of self-contained AAC frames (local ADR 0048), so whatever was written before the app ended plays.
+- **Recovered on start.** A file left in `notes/recordings/` by an ended recording is attached to its note as "Recording (interrupted)" the next time the app starts.
+- **Paused by a call.** A phone call takes the microphone; the recording pauses and resumes only on Resume.
+- **A note gone mid-recording.** When the pull hides the note because the desktop deleted it, the recording runs on and Stop saves it to a new note "Recording · <date>".
+- **The upload is the existing one.** Each part is a note file: uploaded over any connection before the note that names it, checkpointed and retried on its own. A 409, 413 or 415 on a part sets the whole note aside, as for any file. The sync service allows `audio/aac`, `audio/mp4` and `audio/x-m4a`; the deployed service must carry that before a phone build that records ships.
+- **Transcribed once, on the desktop.** `InboxRecordingTranscriptionWorker` takes one note at a time, queued by the pull that brought a recording down and, on start, for every open note with one. `TranscribeRecordingsCommand` keeps each transcribed sha256 with its sections, so a file is never sent twice. Without Foundry configured, nothing is sent and the recording stays.
+- **Appended, never replaced.** The note is read again after Foundry answers, so a phone edit that arrived meanwhile is kept. A later file of a rolled-over recording appends `## Transcript (part 2)`.
+- **The audio goes with the transcript.** The same save removes the file from the note; the pushed note releases its blob, as **Mobile Note Sync** says. A phone edit that names the file again is repaired from the kept sections on the next pull.
 
 ## Mobile My Day and Task Push
 
@@ -437,21 +509,21 @@ sequenceDiagram
 ## Mobile Note Sync
 
 ```meta
-related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/features.md#notes", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#capture-attachments", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md"]
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/features.md#notes", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#capture-attachments", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md"]
 ```
 
-A note (`.devbook/domain/inbox/domain.md#note`) is the one Inbox item that syncs both ways. The phone pulls every note and pushes those it creates or edits; the desktop pushes its own edits and a tombstone on archive or delete. Both sides are built. `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md` records why notes ride the task feed.
+A note (`.devbook/domain/inbox/domain.md#note`) and a meeting are the Inbox items that sync both ways; a meeting travels as a note does. The phone pulls every note and pushes those it creates or edits; the desktop pushes its own edits and a tombstone on archive or delete. Both sides are built. `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md` records why notes ride the task feed.
 
 ![A note syncing both ways](c4:mobile-note-sync)
 
 The phone's tab upserts the `note_view` row with `UpdatedAt` now and server stamp 0. It queues an outbox entry of kind `note` holding the whole document and posts it to `POST /api/sync/tasks` with type `note` and the same id each attempt, answered 200. The desktop pulls it with `GET /api/sync/tasks?since=cursor`, and the Inbox intake creates or updates the item, the later `UpdatedAt` winning. Desktop edits, archives and deletes go back as a note document or tombstone, which the phone folds into `note_view` on its next pull.
 
 - **A third document kind.** A note travels as a task-shaped document in the `tasks` container with `type: "note"` under the Inbox item's id, following `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`. Unlike a capture, nobody acknowledges a note away: the desktop takes it in and keeps pushing it.
-- **Pulled with the task feed.** The phone folds every `note`-type document from `GET /api/sync/tasks?since=` into `note_view` as it folds tasks. The later `UpdatedAt` wins, an equal stamp goes to the higher server timestamp, and a `DeletedAt` hides the row. The note pull keeps its own cursor beside `task_view`'s. The task fold skips notes; the Notes tab reads and searches `note_view` on the phone.
+- **Pulled with the task feed.** The phone folds every `note`-type document from `GET /api/sync/tasks?since=` into `note_view` as it folds tasks. The later `UpdatedAt` wins, an equal stamp goes to the higher server timestamp, and a `DeletedAt` hides the row. The note pull keeps its own cursor beside `task_view`'s. The task fold skips notes; the Inbox tab reads and searches `note_view` on the phone, beside its own captures.
 - **Pushed through the outbox.** The row is written at once, and the entry takes every outbox entry's order, backoff and waiting marker. A retry is idempotent. Each edit is its own entry, so offline edits go out in order. An edit is never stamped earlier than the copy it replaces, so a slow phone clock cannot undo it.
 - **The desktop owns triage.** Its merge hands each `note` document to the Inbox's note port, which creates the item or applies the later edit by the note's `edited_at`. On each push the desktop sends every live note it changed itself and has not pushed yet. A flag tracks these rather than a watermark, because a note's stamp may come from the phone's clock. A note it only pulled is never sent back. A local change is stamped after the copy it replaces, whatever the clocks say.
 - **Archive and delete.** The acknowledgement outbox pushes the tombstone as a `note` document, and the phone drops the row on its next pull. A phone edit arriving after the archive or deletion leaves it standing and owes the tombstone again under a later stamp. The deleted id is kept, so no later copy remakes it. The phone never pushes a tombstone.
-- **Files keep their own path.** Photos and files travel as **Capture Attachments** describes, uploaded before the note document that names them; an edit uploads only added files. The service releases them when it takes the note's tombstone, as for a capture.
+- **Files keep their own path.** Photos and files travel as **Capture Attachments** describes, uploaded before the note document that names them; an edit uploads only added files. The service releases them when it takes the note's tombstone, as for a capture. A note edit that drops a file releases that file: `PushTasksCommand` reads the dropped files from the copy the replica held before the push and releases only those the note the replica holds after it no longer names, so an edit refused as stale releases nothing (local ADR 0049 amending ADR 0014).
 
 ## Notification Reply
 
@@ -497,6 +569,65 @@ sequenceDiagram
 - **The answer survives a restart.** Desktop A stores the accepted answer in SQLite before calling the source's handler and replays it to a handler that was not running. The handler must therefore accept the same answer twice.
 - **A late reply is rejected with its reason.** A reply to a question already answered or closed is rejected, and the phone shows which answer won.
 
+## Talk Note Attach
+
+```meta
+related: [".devbook/domain/events/features.md#attach-a-talk-note", ".devbook/domain/events/domain.md#attachment-request", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/05-building-block-view.md#mobile-app"]
+```
+
+The phone writes no knowledge event, so it attaches a Talk note by asking a
+desktop. The request rides the task feed, as the phone's impediment edit does
+(ADR 0035 §8), and the answer comes back on the `knowledgeEvents` feed. Local
+ADR 0050 records the decision. The scenario is built.
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant Phone as Phone (note page)
+    participant Outbox as SQLite Outbox
+    participant Sync as Sync Service
+    participant Merge as Desktop task sync<br/>(TaskReplicaMerge)
+    participant Events as Events<br/>(IEventAttachmentRequests)
+    participant Worker as KnowledgeEventSyncWorker
+
+    ME->>Phone: Attach the note to an event
+    Phone->>Outbox: Entry (kind=event-attachment-request: event id, note id, note title)
+    Outbox->>+Sync: POST /api/sync/tasks (same request id each attempt)
+    Sync-->>-Outbox: 200, entry deleted
+    Merge->>Sync: GET /api/sync/tasks?since=cursor
+    Merge->>+Events: ApplyAsync(request)
+    alt Attached
+        Events->>Events: Add a Talk Note Link, save the event
+    else Already attached or incomplete
+        Events->>Events: Write nothing
+    end
+    Events-->>-Merge: Outcome
+    Merge->>Sync: Next task push: the request's tombstone
+    Worker->>Sync: POST /api/sync/knowledge-events (the changed event)
+    Phone->>Sync: GET /api/sync/knowledge-events?since=cursor
+    Phone-->>ME: The note reads attached to the event
+```
+
+- **No document answers the request.** The note reads attached once the pulled
+  event carries its Talk Note Link. Until then the note's Event section shows the
+  outbox state of the request.
+- **Every answer but one retires the request.** Attached, already attached and
+  incomplete each queue a tombstone, so a second desktop or a second tap links
+  nothing twice.
+- **An unknown event defers the request.** A desktop that holds no event by that
+  id yet keeps the request and offers it again after each pull.
+- **A desktop without Events holds the request.** A head without the port leaves
+  it on the replica for another desktop. With the `events` area off, a desktop
+  defers it and applies it once the area is on again.
+- **A deferred request survives a restart.** The desktop keeps it in
+  `held-attachment-requests.json`, beside the knowledge event feed's progress.
+  It lets go once Events answers it, another desktop's tombstone arrives, or
+  the request proves unreadable.
+- **The answer leaves within seconds.** On a paired desktop with sync and the
+  `events` area on, every Events save starts a knowledge event cycle a few
+  seconds later. That includes the applied request. The footer's Sync runs
+  that loop too.
+
 ## Main Window Close, Hide and Quit
 
 ```meta
@@ -504,7 +635,7 @@ related: [".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#5-eac
 ```
 
 Closing the desktop app's main window hides it to a notification-area icon, so the process
-and its MCP listener keep running. Local ADR 0043 §5 records the decision. It is not built yet.
+and its MCP listener keep running. Local ADR 0043 §5 records the decision, and it is built.
 
 ```mermaid
 stateDiagram-v2

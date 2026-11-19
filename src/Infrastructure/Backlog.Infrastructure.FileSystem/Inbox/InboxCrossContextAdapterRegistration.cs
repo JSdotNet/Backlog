@@ -1,5 +1,7 @@
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -46,6 +48,11 @@ public static class InboxCrossContextAdapterRegistration
         // this with the target over the Brain's note writer (local ADR 0040).
         services.TryAddScoped<IInboxBrainTarget, NoBrainTarget>();
 
+        // To Event, over Events' published contract and its flag. Both optional:
+        // a host that composed neither leaves the route withdrawn.
+        services.TryAddScoped<IInboxEventTarget>(sp =>
+            new InboxEventTarget(sp.GetService<IKnowledgeEvents>(), sp.GetService<IAppFeatureSettings>()));
+
         // Where an item's files are kept: under the workspace's inbox folder,
         // read per call so a moved workspace takes them along. A singleton,
         // because the sync loop's intake resolves it from the root provider; the
@@ -53,6 +60,11 @@ public static class InboxCrossContextAdapterRegistration
         // registered with them because both hosts that call this own a workspace.
         services.TryAddSingleton<IInboxAttachmentFiles>(sp =>
             new WorkspaceInboxAttachmentFiles(() => sp.GetRequiredService<WorkspaceSettingsStore>().InboxDirectory));
+
+        // The recordings transcribed here, beside those files and for the same reasons
+        // (local ADR 0049 §1): the background worker resolves it from the root provider.
+        services.TryAddSingleton<IInboxTranscriptionRecords>(sp =>
+            new FileInboxTranscriptionRecords(() => sp.GetRequiredService<WorkspaceSettingsStore>().InboxDirectory));
 
         return services;
     }

@@ -74,6 +74,11 @@ public sealed class TasksPlanSessionRequests : IDisposable
         return IsOffered && key.Length > 0 && _open.TryGet(key, out var request) ? request : null;
     }
 
+    /// <summary>Every request a plan has open, by its tag without the sigil — empty
+    /// while the action is not offered.</summary>
+    public IReadOnlyDictionary<string, EntrySessionRequest> Open =>
+        IsOffered ? _open.Current : new Dictionary<string, EntrySessionRequest>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Where the plan tagged <paramref name="tag"/> is filed — its roadmap item's
     /// own spelling of the tag and the repository aliases it names — or null when no
     /// roadmap item carries the tag (or none has been read yet).</summary>
@@ -170,10 +175,11 @@ public sealed class TasksPlanSessionRequests : IDisposable
     }
 
     /// <summary>Cancels the request the plan tagged <paramref name="tag"/> is waiting
-    /// on, while it is still Requested. Answers whether it was cancelled.</summary>
+    /// on, while it is Requested, or Started with a session that never linked. Answers
+    /// whether it was cancelled.</summary>
     public async Task<bool> CancelAsync(string? tag)
     {
-        if (_port is null || Busy || OpenFor(tag) is not { State: EntrySessionRequestState.Requested } request) return false;
+        if (_port is null || Busy || OpenFor(tag) is not { State: EntrySessionRequestState.Requested or EntrySessionRequestState.Started } request) return false;
 
         Busy = true;
         _open.Supersede();
@@ -183,7 +189,7 @@ public sealed class TasksPlanSessionRequests : IDisposable
         try
         {
             var cancelled = await _port.CancelAsync(request.Id);
-            if (!cancelled) Error = "The session has already started, so the request can no longer be cancelled.";
+            if (!cancelled) Error = "The request has moved on, so it can no longer be cancelled.";
             return cancelled;
         }
         catch (Exception)
@@ -201,6 +207,19 @@ public sealed class TasksPlanSessionRequests : IDisposable
 
             if (!_open.IsDisposed) Changed?.Invoke();
         }
+    }
+
+    /// <summary>Reads the open requests back whatever a poll on its way would answer, as
+    /// a press that moved them elsewhere does — the session queue's Move, whose order spans
+    /// the plan requests too — and redraws.</summary>
+    public async Task ReadBackAsync()
+    {
+        if (_port is null || _open.IsDisposed || !_port.IsOffered) return;
+
+        _open.Supersede();
+        await _open.ReadBackAsync();
+
+        if (!_open.IsDisposed) Changed?.Invoke();
     }
 
     public void Dispose()

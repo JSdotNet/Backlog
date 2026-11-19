@@ -36,6 +36,14 @@ dispatcher outside this context starts the session (local
 [ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)).
 The request is the context's one command, and it still never starts a session itself.
 
+Two more records are sent by sessions about themselves (local
+[ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)).
+A scheduled run reports its start and finish to the
+[Schedule Register](domain.md#schedule-register). A loop session checks in with the
+[Loop Register](domain.md#loop-register), whose answer carries the pause, resume or stop the
+person set. The loop obeys it, so this context still never stops a session. Both are read with
+the agents' records, never instead of them.
+
 An optional Collections MCP can add a second kind of evidence: sanitized activity
 updates that a configured session reports as it moves. Those updates are an
 **enrichment layer**, not a second authority. They say more about what a known
@@ -78,6 +86,9 @@ off withdraws the area everywhere else too:
 
 - the `list_sessions` and `list_run_usage` tools and the eight delivery-surface operations
   leave the MCP endpoint;
+- the scheduled-run report tools and `check_in` leave it too, and the Schedules page, the
+  Agents section and their alerts go (local
+  [ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md));
 - the dashboard's hours worked and the roadmap's actual hours stop reading agent
   activity.
 
@@ -99,10 +110,12 @@ default: off
 related: [".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md"]
 ```
 
-Turning it on offers a queue icon on an entry and on a plan's roadmap item, maps
-`GET /session-requests/wait` on the MCP listener, and adds the tools a dispatcher
-claims and reports with. Off, the action is not shown, the route answers `404` and the
-tools leave the endpoint.
+Turning it on offers a queue icon on an entry and on a plan's roadmap item, marks each
+plan chip on the Tasks filter bar whose plan waits for a session, and shows the filter
+bar's session queue. It maps `GET /session-requests/wait` on the MCP listener and
+records each dispatcher's wait there as contact, and adds the tools a dispatcher claims
+and reports with. Off, the action, the marks and the queue are not shown, the route
+answers `404` and records nothing, and the tools leave the endpoint.
 
 It is off by default while the dispatchers are built
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).

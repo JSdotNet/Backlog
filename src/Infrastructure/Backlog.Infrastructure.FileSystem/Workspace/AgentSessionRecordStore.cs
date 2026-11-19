@@ -26,7 +26,14 @@ public sealed class AgentSessionRecordStore(Func<string> root) : IAgentSessionRe
     private readonly Func<string> _root = root ?? throw new ArgumentNullException(nameof(root));
     private readonly Lock _gate = new();
 
-    public IReadOnlyList<AgentSessionRecord> All()
+    public IReadOnlyList<AgentSessionRecord> All() => ReadFiles(from: null);
+
+    /// <summary>A record is written whenever a reading amends it, so a file last written
+    /// before <paramref name="from"/> holds nothing folded in after it: it is skipped
+    /// unread, by its write time alone.</summary>
+    public IReadOnlyList<AgentSessionRecord> AmendedSince(DateTimeOffset from) => ReadFiles(from.UtcDateTime);
+
+    private List<AgentSessionRecord> ReadFiles(DateTime? from)
     {
         var folder = _root();
 
@@ -34,9 +41,11 @@ public sealed class AgentSessionRecordStore(Func<string> root) : IAgentSessionRe
 
         var records = new List<AgentSessionRecord>();
 
-        foreach (var file in Directory.EnumerateFiles(folder, "*.json"))
+        foreach (var file in new DirectoryInfo(folder).EnumerateFiles("*.json"))
         {
-            if (Read(file) is { } record) records.Add(record);
+            if (from is { } bound && file.LastWriteTimeUtc < bound) continue;
+
+            if (Read(file.FullName) is { } record) records.Add(record);
         }
 
         return records;

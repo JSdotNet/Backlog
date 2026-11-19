@@ -26,12 +26,12 @@ aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions, Duplicate
 ```mermaid
 stateDiagram-v2
     [*] --> Unprocessed : Capture delivers item / typed by hand
-    Unprocessed --> Routed : Route to Tasks / Create plan / To Brain
+    Unprocessed --> Routed : Route to Tasks / Create plan / To Brain / To Event
     Unprocessed --> Deferred : Defer for later review
     Unprocessed --> Archived : Dismiss / not actionable
     Deferred --> Deferred : Change the review date
     Deferred --> Unprocessed : Review date reached / Return to inbox
-    Deferred --> Routed : Route to Tasks / Create plan / To Brain
+    Deferred --> Routed : Route to Tasks / Create plan / To Brain / To Event
     Deferred --> Archived : Dismissed after deferral
     Routed --> Unprocessed : Undo (return to the inbox)
     Archived --> Unprocessed : Undo (restore)
@@ -168,18 +168,19 @@ type: value-object
 aliases: [RoutingTarget, InboxRoutingDto]
 ```
 
-The destination chosen during triage. It holds four fields:
+The destination chosen during triage. It holds five fields:
 
-- `domain`: the target, which is tasks, devbook for the To Brain route, or
-  archive;
+- `domain`: the target, which is tasks, devbook for the To Brain route, events
+  for the To Event route, or archive;
 - `repo_ids`: the repositories the item was assigned when it was routed;
 - `task_ids`: the entries Tasks created for it, one per repository, or one when
   no repository was assigned;
+- `event_id`: the knowledge event Events made for it, on the events route only;
 - `routed_at`: when it was routed.
 
-It is immutable once set, and equality is by value. The task ids name
-aggregates in another context that may since have been deleted there, which is
-why they are ids and not references.
+It is immutable once set, and equality is by value. The task ids and the event
+id name aggregates in another context that may since have been deleted there,
+which is why they are ids and not references.
 
 ### Tag
 
@@ -210,6 +211,20 @@ facts, because a link shared by a colleague and the same link clipped alone
 mean different things to the reader triaging them. The channel is provenance
 mirrored from Capture; the person is provenance the channel cannot carry. It is
 immutable once set, and equality is by value.
+
+### Event Facts
+
+```meta
+type: value-object
+related: [.devbook/domain/capture/domain.md#event-facts, .devbook/domain/inbox/features.md#route-to-event]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.An_event_page_capture_keeps_its_facts_on_the_item, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.A_capture_from_any_other_source_has_no_facts, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteInboxRepositoryTests.An_items_event_facts_and_its_event_come_back_whole, unit:dotnet:Backlog.Infrastructure.Capture.UnitTests.InboxCaptureDeliveryTests.An_event_page_captures_facts_travel_to_the_intake]
+```
+
+The dates, place and watched page an event page capture found, mirrored from
+Capture's [Event Facts](../capture/domain.md#event-facts). The item keeps them as
+provenance, unchanged, and hands them over when it is routed
+[To Event](features.md#route-to-event). An item from any other source has none.
+Equality is by value.
 
 ### Attachment
 
@@ -268,7 +283,7 @@ change is a new attachment that only the item swaps in.
 
 ```meta
 type: enum
-related: [.devbook/domain/inbox/domain.md#note]
+related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/domain.md#meeting]
 aliases: [ContentKind, CaptureKinds, kind, KindSlug]
 ```
 
@@ -277,11 +292,14 @@ It is distinct from `Capture Source`, which says how it arrived:
 
 - `text` — a plain thought waiting to be sorted; the kind every source can
   produce and the kind an item is until somebody says otherwise.
-- `note` — a [Note](#note) the person keeps and edits. Created on the phone's
-  Notes tab or as a note from any device, it syncs both ways with the phone.
-  An item is a note because it was created as one. Classification never infers
-  it from the text, and a note document never turns an item of another kind
-  into one.
+- `note` — a [Note](#note) the person keeps and edits. Created with **Note**
+  in the phone Inbox's **+** menu or as a note from any device, it syncs both
+  ways with the phone. An item is a note because it was created as one.
+  Classification never infers it from the text, and a note document never
+  turns an item of another kind into one.
+- `meeting` — a [Meeting](#meeting): a note started by recording a meeting on
+  the phone. It syncs both ways like a note, and is a meeting because it was
+  created as one.
 - `article` — a web page worth reading, clipped or linked.
 - `link` — a bare URL not yet known to be an article.
 - `youtube` — a video, from the YouTube monitor or a shared link.
@@ -293,8 +311,8 @@ It is distinct from `Capture Source`, which says how it arrived:
 - `claude-artifact` — an artifact a Claude session produced and shared.
 
 The set will grow. A kind nobody has drawn yet is shown as its plain word.
-Seven of the kinds are [collected material](#collected-material). `note` is the
-only kind that changes after it is captured.
+Seven of the kinds are [collected material](#collected-material). `note` and
+`meeting` are the kinds that change after they are captured.
 
 ### Inbox Status
 
@@ -322,7 +340,7 @@ aliases: [CaptureSource, source, channel]
 ```
 
 Origin of the item, mirrored from Capture as provenance: `mobile`, `youtube`,
-`website`, `email`, `web_clipper`, `ide`, `manual`, `import`. `manual` is the
+`website`, `event_page`, `email`, `web_clipper`, `ide`, `manual`, `import`. `manual` is the
 channel of a [Capture (manual)](#capture-manual). `import` is the channel of an
 item read from an import manifest, which can arrive filed in the Inbox
 List the manifest names. It is still `unprocessed`, because filing is not
@@ -445,6 +463,13 @@ refused when no Brain folder is set up, and a failed write leaves the item
 unrouted. A note routed To Brain stays on the phone as the Inbox note it was,
 as one routed to Tasks does.
 
+**To Event** hands the item's title, link and [Event Facts](#event-facts) to
+Events, which makes a Spotted knowledge event in the Series of its watched page,
+or in a new one ([Route to Event](features.md#route-to-event)). It records the
+routing target as `events`, with the event's id and no task. Events is asked
+first, and the item is routed only once the event exists. The route is withdrawn
+while the [Events area](../events/context.md#events-area) is off.
+
 ## Classification
 
 ```meta
@@ -528,7 +553,7 @@ shape is stable although the destination-specific fields differ.
 ### Payload
 
 - `inbox_item_id` - originating Inbox Item identifier.
-- `route` - `tasks` or `devbook`.
+- `route` - `tasks`, `devbook` or `events`.
 - `note_path` - the note the `devbook` route wrote, relative to the Brain's
   root; answered by Devbook rather than sent to it.
 - `title` - normalized title.
@@ -539,6 +564,8 @@ shape is stable although the destination-specific fields differ.
   one untargeted task when empty.
 - `type` - requested task type when routing to Tasks.
 - `topic` - requested knowledge topic when routing To Brain.
+- `event` - the item's `Event Facts` when routing To Event; `event_id`, the
+  event Events made, is answered by Events rather than sent to it.
 - `source_inbox_id` - preserved source id for traceability.
 - `triaged_at` - time of the routing decision.
 
@@ -549,6 +576,9 @@ shape is stable although the destination-specific fields differ.
 - Devbook, which writes a `Knowledge Note` into the Brain's inbox area for the
   `devbook` route, through the in-process `IInboxBrainTarget` port
   (realised as `InboxBrainNoteRequestDto`), not an event.
+- Events, which makes a Spotted `Knowledge Event` for the `events` route,
+  through an in-process port in `Backlog.Modules.Inbox.Abstractions` answered by
+  an adapter over Events' intake, not an event.
 
 ### Published language rules
 
@@ -602,12 +632,12 @@ the Capture context, which arrives from a device through sync.
 
 ```meta
 type: term
-aliases: [note, NoteItem, Notes tab]
-related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/features.md#notes, .devbook/domain/capture/features.md#talk-note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
+aliases: [note, NoteItem]
+related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/domain.md#meeting, .devbook/domain/inbox/features.md#notes, .devbook/domain/capture/features.md#talk-note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
 ```
 
 An Inbox Item of `Content Kind` `note`: text the person keeps and returns to,
-such as what was said in a meeting or a list they add to. A note syncs both
+such as what was said in a talk or a list they add to. A note syncs both
 ways between the desktop and the phone, and either side may edit it. A `text`
 item is different: it is a thought waiting to be sorted, and the phone forgets
 it once the desktop takes it in.
@@ -619,7 +649,23 @@ it between machines, never the task feed, so the phone does not see it
 (local ADRs 0025 and 0026). Triaging a note
 [To Brain](features.md#route-to-brain) writes a Brain note from it. The
 Capture context's [talk note](../capture/features.md#talk-note) is a note
-written in the Notes tab.
+written on the phone.
+
+A recording added to a note later leaves it a note. Only an item started as a
+meeting is a [Meeting](#meeting).
+
+### Meeting
+
+```meta
+type: term
+aliases: [meeting]
+related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/domain.md#note, .devbook/domain/capture/features.md#meeting-recording, .devbook/domain/inbox/features.md#meetings]
+```
+
+An Inbox Item of `Content Kind` `meeting`: a note the phone starts with a
+[meeting recording](../capture/features.md#meeting-recording) already running.
+It syncs, edits and is triaged exactly as a [Note](#note) does. Its body is the
+reader's notes, and the desktop appends the transcript and summary to it.
 
 ### Plan tag
 

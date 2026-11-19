@@ -97,6 +97,33 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task An_alerts_stored_actions_read_back_in_order()
+    {
+        NotificationAction[] actions =
+        [
+            new("Open run", "backlog://window/sessions?session=run-1"),
+            new("Open Schedules", "backlog://window/sessions?page=schedules")
+        ];
+        var alert = Notification.Publish(
+            Guid.NewGuid(),
+            Owner,
+            new NotificationDraft(new NotificationSource("sessions", "held:schedule:sweep:run-1"), null, NotificationKind.Alert, NotificationSeverity.Warning, "Issue sweep is held", "", "", Actions: actions),
+            Now).Value;
+
+        await _repository.SaveAsync(alert, Cancellation);
+
+        Assert.Equal(actions, (await _repository.GetAsync(alert.Id, Cancellation))!.Actions);
+        Assert.Empty((await _repository.GetAsync((await SavedQuestionIdAsync()), Cancellation))!.Actions);
+    }
+
+    private async Task<Guid> SavedQuestionIdAsync()
+    {
+        var question = Question();
+        await _repository.SaveAsync(question, Cancellation);
+        return question.Id;
+    }
+
+    [Fact]
     public async Task The_centre_read_holds_every_open_row_and_the_rows_written_since_newest_first()
     {
         var older = Question(Now.AddMinutes(-5));
@@ -210,6 +237,36 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
 
         Assert.All(read!.AnswerSpec!.Choices, choice => Assert.False(choice.TakesText));
         Assert.All(read.AnswerSpec.Choices, choice => Assert.Null(choice.Placeholder));
+        Assert.All(read.AnswerSpec.Choices, choice => Assert.False(choice.Quiet));
+    }
+
+    [Fact]
+    public async Task A_quiet_choice_reads_back_quiet()
+    {
+        var question = Notification.Publish(
+            Guid.NewGuid(),
+            Owner,
+            new NotificationDraft(
+                new NotificationSource("sessions", "run-58"),
+                Session,
+                NotificationKind.Question,
+                NotificationSeverity.Info,
+                "Approve the validation of run-58?",
+                "Personal Validation",
+                "Check the toast.",
+                new AnswerSpec(
+                [
+                    new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
+                    new AnswerChoice("dismiss", "Dismiss", Quiet: true)
+                ])),
+            Now).Value;
+
+        await _repository.SaveAsync(question, Cancellation);
+        var read = await _repository.GetAsync(question.Id, Cancellation);
+
+        Assert.Equal(
+            [("approve", false), ("dismiss", true)],
+            read!.AnswerSpec!.Choices.Select(choice => (choice.Id, choice.Quiet)));
     }
 
     [Fact]

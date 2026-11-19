@@ -1,7 +1,7 @@
 @using System.Globalization
 
 @*
-    Level 4 of the C4 zoom tab: one component's code, drawn from the source when it is
+    Level 4 of the C4 zoom navigation: one component's code, drawn from the source when it is
     opened (local ADR 0046 §3). Nothing here is authored.
 
     A class box per type — its stereotype, its name and its members, the public ones
@@ -268,7 +268,7 @@
     [Parameter]
     public string? TestId { get; set; } = "c4-code";
 
-    /// <summary>Takes the keyboard when it first draws: the zoom tab opens this level in
+    /// <summary>Takes the keyboard when it first draws: the zoom navigation opens this level in
     /// place of the picture that had it, which would otherwise drop it to the page.</summary>
     [Parameter]
     public bool FocusOnOpen { get; set; }

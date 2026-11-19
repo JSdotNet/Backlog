@@ -147,6 +147,7 @@ sync.MapTaskSyncEndpoints();
 sync.MapSessionSyncEndpoints();
 sync.MapAnnotationSyncEndpoints();
 sync.MapDevbookSubjectSyncEndpoints();
+sync.MapKnowledgeEventSyncEndpoints();
 sync.MapNotificationSyncEndpoints();
 sync.MapAttachmentSyncEndpoints();
 sync.MapTranscriptionEndpoints();

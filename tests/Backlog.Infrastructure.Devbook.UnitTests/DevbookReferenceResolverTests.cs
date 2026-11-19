@@ -302,6 +302,35 @@ public sealed class DevbookReferenceResolverTests : IDisposable
         Assert.False(answer.IsBroken);
     }
 
+    /// <summary>A note in the owner's Brain (local ADR 0053 §1 and §6) is never looked
+    /// up in the repository's devbook, even one with a database that could answer: it
+    /// comes back marked as a Brain note nobody here looked at, its path the note's
+    /// path inside the Brain.</summary>
+    [Fact]
+    public async Task A_brain_address_is_never_looked_up_in_the_repository_devbook()
+    {
+        BuildDatabase();
+
+        var answers = await Resolver().ResolveAsync(Alias, ["#brain:projects/sync.md#later", TasksPage], TestContext.Current.CancellationToken);
+
+        Assert.Collection(
+            answers,
+            brain =>
+            {
+                Assert.True(brain.IsBrainNote);
+                Assert.Equal(DevbookReferenceState.Unverified, brain.State);
+                Assert.Equal("projects/sync.md", brain.Path);
+                Assert.Equal("later", brain.Anchor);
+                Assert.Null(brain.Folder);
+                Assert.False(brain.IsBroken);
+            },
+            page =>
+            {
+                Assert.False(page.IsBrainNote);
+                Assert.Equal(DevbookReferenceState.Page, page.State);
+            });
+    }
+
     // --- the picker -----------------------------------------------------------
 
     [Fact]

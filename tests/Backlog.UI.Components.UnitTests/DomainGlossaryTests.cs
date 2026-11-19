@@ -370,4 +370,125 @@ public sealed class DomainGlossaryTests
         Assert.Equal("Glossary", page.Find("[data-testid='domain-units-bar'] [role='tab'][aria-selected='true']").TextContent.Trim());
         Assert.Contains("Invoice", page.FindAll("[data-testid='domain-glossary-term']").Select(row => row.GetAttribute("data-term")));
     }
+
+    [Fact]
+    public void A_rows_first_sentence_keeps_its_links_and_follows_them_against_its_own_file()
+    {
+        var file = DomainUnits.Parse(
+            Domain.Replace("Whoever places the order.", "Whoever places the [order](domain.md#order) through `checkout`. Never a guest.", StringComparison.Ordinal),
+            DomainPath);
+        var customer = DomainGlossaryIndex.Entries([file]).Single(entry => entry.Title == "Customer");
+        Assert.Equal("Whoever places the order through checkout.", customer.Summary);
+        Assert.Equal("Whoever places the [order](domain.md#order) through `checkout`.", customer.SummaryMarkdown);
+
+        DevbookReference? followed = null;
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var page = context.Render<DomainGlossary>(parameters => parameters
+            .Add(p => p.Chapter, Language(file))
+            .Add(p => p.Files, [file])
+            .Add(p => p.DocumentPath, DomainPath)
+            .Add(p => p.DebounceMilliseconds, 0)
+            .Add(p => p.OnNavigate, reference => followed = reference));
+
+        var summary = page.Find("[data-testid='domain-glossary-term'][data-term='Customer'] [data-testid='domain-glossary-summary']");
+        Assert.Equal("Whoever places the order through checkout.", summary.TextContent.Trim());
+        Assert.Equal("checkout", summary.QuerySelector("code")!.TextContent);
+
+        var link = summary.QuerySelector("button.devbook-ref")!;
+        Assert.Equal("order", link.TextContent);
+        link.Click();
+        Assert.Equal(".devbook/domain/ordering/domain.md", followed?.Path);
+        Assert.Equal("order", followed?.Slug);
+    }
+
+    [Fact]
+    public void A_model_chapter_opens_the_model_on_fields_and_a_term_does_not()
+    {
+        const string ModelPath = ".devbook/domain/ordering/model.md";
+        DevbookReference? followed = null;
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var page = context.Render<DomainGlossary>(parameters => parameters
+            .Add(p => p.Chapter, Language(File))
+            .Add(p => p.Files, [File])
+            .Add(p => p.DocumentPath, DomainPath)
+            .Add(p => p.ModelPaths, [ModelPath])
+            .Add(p => p.DebounceMilliseconds, 0)
+            .Add(p => p.OnNavigate, reference => followed = reference));
+
+        var order = page.Find("[data-testid='domain-glossary-term'][data-term='Order'] [data-testid='domain-glossary-summary']");
+        Assert.Equal("A customer's request for goods. Open the model.", order.TextContent.Trim());
+
+        var link = order.QuerySelector("[data-testid='domain-glossary-model']")!;
+        Assert.Equal("Open the model for Order", link.GetAttribute("aria-label"));
+        link.Click();
+        Assert.Equal($"{ModelPath}#fields", followed?.Raw);
+
+        page.Find("[data-testid='domain-glossary-term'][data-term='OrderPlaced'] [data-testid='domain-glossary-model']").Click();
+        Assert.Equal($"{ModelPath}#orderplaced", followed?.Raw);
+
+        Assert.Empty(page.FindAll("[data-testid='domain-glossary-term'][data-term='Customer'] [data-testid='domain-glossary-model']"));
+    }
+
+    [Fact]
+    public void Each_row_opens_the_model_file_its_own_domain_file_pairs_with()
+    {
+        DevbookReference? followed = null;
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var page = context.Render<DomainGlossary>(parameters => parameters
+            .Add(p => p.Chapter, Language(File))
+            .Add(p => p.Files, [File, SplitFile])
+            .Add(p => p.DocumentPath, DomainPath)
+            .Add(p => p.ModelPaths, [".devbook/domain/ordering/model.md", ".devbook/domain/ordering/model.invoice.md"])
+            .Add(p => p.DebounceMilliseconds, 0)
+            .Add(p => p.OnNavigate, reference => followed = reference));
+
+        page.Find("[data-testid='domain-glossary-term'][data-term='Invoice'] [data-testid='domain-glossary-model']").Click();
+        Assert.Equal(".devbook/domain/ordering/model.invoice.md#fields", followed?.Raw);
+
+        page.Find("[data-testid='domain-glossary-term'][data-term='Order'] [data-testid='domain-glossary-model']").Click();
+        Assert.Equal(".devbook/domain/ordering/model.md#fields", followed?.Raw);
+    }
+
+    [Fact]
+    public void With_no_model_file_or_nowhere_to_go_no_row_links_to_the_model()
+    {
+        using var context = new BunitContext();
+        var page = Render(context, File);
+
+        Assert.Empty(page.FindAll("[data-testid='domain-glossary-model']"));
+        Assert.Equal("A customer's request for goods.", page.Find("[data-testid='domain-glossary-term'][data-term='Order'] [data-testid='domain-glossary-summary']").TextContent.Trim());
+
+        // A Model file but no OnNavigate: no link, not an inert reference either.
+        var unfollowable = context.Render<DomainGlossary>(parameters => parameters
+            .Add(p => p.Chapter, Language(File))
+            .Add(p => p.Files, [File])
+            .Add(p => p.DocumentPath, DomainPath)
+            .Add(p => p.ModelPaths, [".devbook/domain/ordering/model.md"])
+            .Add(p => p.DebounceMilliseconds, 0));
+        Assert.Empty(unfollowable.FindAll("[data-testid='domain-glossary-model']"));
+        Assert.DoesNotContain("Open the model", unfollowable.Markup, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(".devbook/domain/ordering/domain.invoice.md", ".devbook/domain/ordering/model.invoice.md")]
+    [InlineData(".devbook/domain/ordering/domain.md", ".devbook/domain/ordering/model.md")]
+    [InlineData(".devbook/domain/ordering/domain.billing.md", ".devbook/domain/ordering/model.md")]
+    public void A_domain_file_pairs_with_its_named_model_file_else_model_md(string domain, string model)
+    {
+        Assert.Equal(model, DomainUnits.ModelFileFor(domain, [".devbook/domain/ordering/model.invoice.md", ".devbook/domain/ordering/model.md"]));
+    }
+
+    [Fact]
+    public void Each_model_kind_names_the_tab_it_opens_on()
+    {
+        var entries = DomainGlossaryIndex.Entries([File]).ToDictionary(entry => entry.Title + "/" + entry.Kind);
+
+        Assert.Equal(DomainModelTabs.Fields, entries["Order/aggregate"].ModelAnchor);
+        Assert.Equal(DomainModelTabs.Fields, entries["Order Line/entity"].ModelAnchor);
+        Assert.Equal("orderplaced", entries["OrderPlaced/domain-event"].ModelAnchor);
+        Assert.Null(entries["Customer/term"].ModelAnchor);
+    }
 }

@@ -30,7 +30,65 @@ public enum EntrySessionRequestState
 /// <param name="Id">The request's own id, which Cancel names.</param>
 /// <param name="State">Where it stands now.</param>
 /// <param name="Repository">The repository it asks for, as <c>owner/name</c>.</param>
-public sealed record EntrySessionRequest(Guid Id, EntrySessionRequestState State, string Repository);
+/// <param name="RequestedAt">When the person asked.</param>
+/// <param name="QueuePosition">Where a Requested request stands in the one queue of
+/// entry and plan requests, 0 for the one a dispatcher is handed next; null while
+/// Claimed or Started, when its place no longer means anything.</param>
+public sealed record EntrySessionRequest(
+    Guid Id,
+    EntrySessionRequestState State,
+    string Repository,
+    DateTimeOffset RequestedAt,
+    int? QueuePosition = null);
+
+/// <summary>
+/// The session queue's Reorder (local ADR 0038 §4, amended): the person moves a
+/// Requested request — an entry's or a plan's, they share one queue — to another place
+/// among the Requested ones, and a dispatcher is handed them in that order. Only the
+/// app moves a request; no MCP tool does.
+/// <para>
+/// Tasks' own port for the reason <see cref="IEntrySessionRequests"/> is one; a host that
+/// composes no queue answers with one that is never offered and refuses every move.
+/// </para>
+/// </summary>
+public interface ISessionQueueOrder
+{
+    /// <summary>Whether moving is offered: a queue is composed and the
+    /// <c>session-requests</c> switch is on, read live.</summary>
+    bool IsOffered { get; }
+
+    /// <summary>Moves the request <paramref name="requestId"/> to
+    /// <paramref name="toIndex"/> among the Requested requests, 0 being the head.
+    /// Answers whether it moved — false once a dispatcher has claimed it, or when no
+    /// such request is held.</summary>
+    Task<bool> MoveAsync(Guid requestId, int toIndex, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Dispatcher contact as the Tasks screens draw it (local ADR 0038 §4): when a dispatcher
+/// last reached this application, and whether it has gone silent — more than two minutes
+/// without contact, counted from the application's start when none ever came. Tasks' own
+/// copy, for the reason <see cref="EntrySessionRequestState"/> is one.
+/// </summary>
+/// <param name="LastHeardAt">The last contact, now while a dispatcher's call is held
+/// open; null when none came since the application started.</param>
+/// <param name="IsSilent">Whether no dispatcher has been heard for longer than the
+/// silence threshold. False where the host keeps no record, which has nothing to say.</param>
+public sealed record DispatcherContactReading(DateTimeOffset? LastHeardAt, bool IsSilent)
+{
+    /// <summary>The reading of a host that keeps no record: nothing heard, nothing to warn of.</summary>
+    public static DispatcherContactReading Unknown { get; } = new(null, false);
+
+    /// <summary>Whether the queue warns that nobody is there to answer
+    /// <paramref name="open"/>: the dispatcher is silent and at least one request still
+    /// waits Requested. A Claimed or Started request has a dispatcher already.</summary>
+    public bool WarnsFor(IEnumerable<EntrySessionRequest> open)
+    {
+        ArgumentNullException.ThrowIfNull(open);
+
+        return IsSilent && open.Any(request => request.State == EntrySessionRequestState.Requested);
+    }
+}
 
 /// <summary>
 /// The Start session action's port (local ADR 0038 §1): queue a session request for
@@ -50,6 +108,19 @@ public interface IEntrySessionRequests
     /// switch, read live, so turning it on or off shows or hides it on the next
     /// render.</summary>
     bool IsOffered { get; }
+
+    /// <summary>When a dispatcher last reached this application, for the whole queue —
+    /// entry and plan requests alike. An in-memory read, cheap enough for every render.</summary>
+    DispatcherContactReading DispatcherContact { get; }
+
+    /// <summary>Whether the person has paused the whole queue — entry and plan requests
+    /// alike — so a dispatcher starts nothing new until it is resumed. Never throws for
+    /// an unreadable queue: what could not be read reads as running.</summary>
+    Task<bool> IsPausedAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Pauses or resumes the whole queue. Every request stays where it is, a
+    /// claim already held is not revoked, and a press still queues or cancels one.</summary>
+    Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default);
 
     /// <summary>The open request of each entry that has one — Requested, Claimed or
     /// Started — keyed by entry id. Never throws for an unreadable queue: what could

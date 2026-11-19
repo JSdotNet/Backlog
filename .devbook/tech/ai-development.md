@@ -115,7 +115,7 @@ rating: adopted
 type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins"]
 related: [".devbook/tech/ai-development.md#delivery-surfaces", ".devbook/tech/ai-development.md#subagents"]
-version: "1.18.0"
+version: "1.37.0"
 date: 2026-10-06
 ```
 
@@ -137,14 +137,14 @@ through, and the stack config they read.
 rating: trial
 type: plugin
 depends-on: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/ai-development.md#claude-code"]
-version: "1.18.0"
+version: "1.34.0"
 date: 2026-10-06
 ```
 
 The `delivery-schedule` plugin: a catalog of `schedule-*` entry points and the
 skills that register them with the host's scheduler.
 
-- **Used for** — the eleven schedules selected under `components.schedule` in
+- **Used for** — the ten schedules selected under `components.schedule` in
   `.devbook/config.json`, registered as Claude Code routines on 2026-09-25 and
   2026-09-26.
 - **Why `trial`** — the schedules have fired only a handful of times, with no
@@ -236,17 +236,20 @@ rating: adopted
 type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#claude-code-hooks"]
 related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
-version: "0.17.0"
+version: "0.39.0"
 ```
 
 This repository's own plugin, `plugins/backlog-tools`, with a Claude Code manifest.
 
-- **Used for** — five skills:
-  - `import-plan`
-  - `run-plan-item`
-  - `execute-plan`
-  - `import-inbox`
-  - `handle-remarks`
+- **Used for** — thirteen skills:
+  - plans: `import-plan`, `run-plan-item`, `execute-plan`, `final-check`,
+    `close-merged`
+  - the Inbox: `import-inbox`
+  - the devbook: `handle-remarks`, `devbook-sweep`
+  - sessions: `dispatch-sessions`
+  - goals: `track-goals`
+  - the Brain: `tend-brain`
+  - reviews: `weekly-review`, `weekly-cost-analysis`
 
   It also ships three hooks: the plan-item nudge, the telemetry forwarder, and
   `hooks/register.tsx`, which draws the plan-progress band and pane. It is installed
@@ -261,14 +264,14 @@ rating: adopted
 type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/shared.md#nodejs"]
 related: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/shared.md#net-aspire", ".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/tooling.md#devbook-tech-inventory-scripts", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
-version: "1.24.0"
+version: "1.37.0"
 date: 2026-10-13
 ```
 
 The `devbook` plugin from `JSdotNet/devbook`, which owns the devbook folder
 convention and the repository procedures.
 
-- **Used for** — all five folders under `.devbook/` at contract 30, and:
+- **Used for** — all five folders under `.devbook/` at contract 38, and:
   - the folder rules installed as `.agents/rules/devbook-*.md`, with a wrapper
     per host;
   - the checker at `.devbook/_tools/devbook-meta/`, the inventory scripts at

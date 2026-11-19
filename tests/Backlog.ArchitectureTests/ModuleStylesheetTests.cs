@@ -120,6 +120,21 @@ public class ModuleStylesheetTests
             [
                 "src/App/Backlog.Desktop/wwwroot/index.html",
                 "src/Harness/Backlog.Desktop.WebHarness/Components/App.razor"
+            ]),
+        new(
+            "Events",
+            "src/Modules/Events/Backlog.Modules.Events.UI/wwwroot/events.css",
+            "_content/Backlog.Modules.Events.UI/events.css",
+            [".events-"],
+            [],
+            // A new stylesheet, never in app.css, so the shell keeps no rule of it.
+            [],
+            // The Events takeover renders on the desktop only: the MAUI head, the web
+            // harness and a window of its own (local ADR 0043 §4).
+            [
+                "src/App/Backlog.Desktop/wwwroot/index.html",
+                "src/Harness/Backlog.Desktop.WebHarness/Components/App.razor",
+                "src/App/Backlog.Desktop.UI/Shell/SurfaceWindowDocument.razor"
             ])
     ];
 

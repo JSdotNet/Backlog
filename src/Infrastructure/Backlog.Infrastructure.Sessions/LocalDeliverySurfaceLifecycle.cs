@@ -33,6 +33,9 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     private readonly Func<INotifications?>? _notifications;
     private readonly ILogger _logger;
     private readonly ISessionRepositoryResolver? _repositories;
+    private readonly Func<ISessionPullRequestStates?>? _pullRequests;
+    private readonly TimeProvider _clock;
+    private readonly IDeliveryRunChangeSignal? _changes;
 
     /// <summary>What a host composes: the dashboards' folders under the signed-in
     /// profile, this device's identity, whatever is showing the application — which
@@ -41,14 +44,21 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     /// verdicts either way. And Notifications, told when a run finishes so a question
     /// about it closes — nothing, on a host that composed no notifications. And which
     /// registered clone a worktree lies in, for the run's question when the run sent no
-    /// repository — nothing, on a head without a repository list.</summary>
+    /// repository — nothing, on a head without a repository list. And what state a pull
+    /// request is in, so a run whose pull request already ended asks no question — nothing,
+    /// on a host that reads no GitHub. And the clock that budget is kept by: the system's,
+    /// unless a test passes its own. And the signal an open Sessions pane re-reads its runs
+    /// on, raised after every write — nothing, on a host that composed no pane to tell.</summary>
     internal LocalDeliverySurfaceLifecycle(
         IDeviceIdentitySource identity,
         ISessionsSurfaceActivator? shell = null,
         IDevbookSyncVerdicts? verdicts = null,
         Func<INotifications?>? notifications = null,
         ILogger? logger = null,
-        ISessionRepositoryResolver? repositories = null)
+        ISessionRepositoryResolver? repositories = null,
+        Func<ISessionPullRequestStates?>? pullRequests = null,
+        TimeProvider? clock = null,
+        IDeliveryRunChangeSignal? changes = null)
         : this(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"),
             IdOf(identity),
@@ -57,7 +67,10 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
             verdicts,
             notifications,
             logger,
-            repositories)
+            repositories,
+            pullRequests,
+            clock,
+            changes)
     {
     }
 
@@ -71,7 +84,10 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         IDevbookSyncVerdicts? verdicts = null,
         Func<INotifications?>? notifications = null,
         ILogger? logger = null,
-        ISessionRepositoryResolver? repositories = null)
+        ISessionRepositoryResolver? repositories = null,
+        Func<ISessionPullRequestStates?>? pullRequests = null,
+        TimeProvider? clock = null,
+        IDeliveryRunChangeSignal? changes = null)
     {
         _store = new DeliveryRunStore(home);
         _reader = new DeliveryRunReader(home, environmentId, environment);
@@ -80,7 +96,14 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         _notifications = notifications;
         _logger = logger ?? NullLogger.Instance;
         _repositories = repositories;
+        _pullRequests = pullRequests;
+        _clock = clock ?? TimeProvider.System;
+        _changes = changes;
     }
+
+    /// <summary>The signal this lifecycle raises, so the registration can be shown to hand
+    /// it the one every window listens on.</summary>
+    internal IDeliveryRunChangeSignal? Changes => _changes;
 
     private static string IdOf(IDeviceIdentitySource identity)
     {
@@ -155,7 +178,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
                 if (changed)
                 {
                     resumed["updatedAt"] = Now();
-                    await _store.WriteAsync(worktree, id, resumed, cancellationToken).ConfigureAwait(false);
+                    await WriteAsync(worktree, id, resumed, cancellationToken).ConfigureAwait(false);
                 }
             }
 
@@ -198,7 +221,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         WithSession(run, sessionId);
         WithOrigin(run, trigger, schedule, repository);
 
-        await _store.WriteAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
+        await WriteAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
 
         return new DeliveryRunStarted(runId, Resumed: false, SessionTitle(run));
     }
@@ -491,7 +514,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         // run in the same write. What this call passes, not what the stage holds: an
         // earlier attempt's links and output are still on it.
         await ValidationQuestions.OnStageAsync(
-            run, Text(stage, "name") ?? string.Empty, previousStatus, status, output, links, worktree, runId, _notifications, _logger, _repositories, cancellationToken).ConfigureAwait(false);
+            run, Text(stage, "name") ?? string.Empty, previousStatus, status, output, links, worktree, runId, _notifications, _logger, _repositories, _pullRequests, _clock, cancellationToken).ConfigureAwait(false);
 
         WritePhaseDoneCounts(run);
 
@@ -656,12 +679,14 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         var step = ValidationQuestions.Decide(run, answer);
         if (step.Kind is not ValidationAnswerKind.Record) return step;
 
-        if (ValidationQuestions.Record(run, answer) is not ValidationRecord.Unchanged)
+        var recorded = ValidationQuestions.Record(run, answer);
+
+        if (recorded is not ValidationRecord.Unchanged)
         {
             await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
         }
 
-        return step;
+        return step with { Recorded = recorded };
     }
 
     /// <summary>
@@ -757,7 +782,21 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     {
         run["updatedAt"] = Now();
 
-        return _store.WriteAsync(worktree, runId, run, cancellationToken);
+        return WriteAsync(worktree, runId, run, cancellationToken);
+    }
+
+    /// <summary>
+    /// The one way this class writes a run file, so every write raises the change signal
+    /// and nothing else does: a read, or a call refused before it wrote, has nothing for
+    /// an open pane to re-read. Raised once the write has landed — a listener that
+    /// re-reads at once finds the new file — and still under the run's gate where the
+    /// caller holds it, which costs nothing: a listener only queues its re-read.
+    /// </summary>
+    private async Task WriteAsync(string worktree, string runId, JsonObject run, CancellationToken cancellationToken)
+    {
+        await _store.WriteAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
+
+        _changes?.Raise();
     }
 
     /// <summary>A stage as the run begins: named, pending, and nothing claimed about

@@ -1,9 +1,14 @@
 @page "/notes/new"
 @page "/notes/{Id:guid}"
 @using System.Globalization
+@using Backlog.Mobile.UI.Components.Events
+@using Backlog.Mobile.UI.Events
 @using Backlog.Mobile.UI.Notes
+@using Backlog.Mobile.UI.Recordings
 @using Backlog.Mobile.UI.TalkNotes
 @inject NoteViewProjection Notes
+@inject EventViewProjection EventView
+@inject EventNoteAttachments EventAttachments
 @inject DeviceOutbox Outbox
 @inject TalkNoteFiles Files
 @inject TalkNoteComposer Composer
@@ -11,6 +16,7 @@
 @inject ISpeechTranscriber Speech
 @inject TimeProvider Clock
 @inject AppLifecycle Lifecycle
+@inject NoteRecordingSession Recording
 @implements IDisposable
 
 @*
@@ -31,6 +37,23 @@
     trip to another tab is the note itself, and the scoped draft is left to the
     capture sheet. Files picked and not yet saved wait on its strip; a refused one
     stays there, saying why, until it is taken off.
+
+    While the phone holds a knowledge event, a saved note can be attached to one
+    (.devbook/domain/events/features.md#attach-a-talk-note): the picker offers the
+    upcoming events first, then the past ones, and Attach queues one attachment
+    request through the outbox (EventNoteAttachments). The note itself does not
+    change. Under the picker the section says where the request stands: waiting
+    to send while the outbox holds it, with the reason and a way to try again once
+    the outbox has parked it, with the reason once the service refused it, sent
+    once it has left - kept by this page, because the event only says so when a
+    desktop has applied the request and pushed the event back - and attached once
+    the event's notes name the note. The section is drawn only when it has one of
+    those to show.
+
+    Record records a meeting into the note (features.md#meeting-recording). The
+    recording is NoteRecordingSession's, not this page's: leaving the note does
+    not stop it, the bar is back when the note opens again, and Stop attaches the
+    file as "Recording · <duration>" through the note's own outbox path.
 *@
 
 <PageTitle>@(string.IsNullOrWhiteSpace(_draft.Title) ? "Note" : _draft.Title)</PageTitle>
@@ -50,8 +73,12 @@ else
     <NoteEditor Title="@_draft.Title" TitleChanged="OnTitleChanged"
                 Body="@_draft.Body" BodyChanged="OnBodyChanged"
                 When="@When" State="_state" Waiting="@_waiting" OnBlur="FlushAsync"
-                TestId="note-editor">
+                CssClass="note-page" TestId="note-editor">
         <Tools>
+            @* One row of tiles pinned above the tab bar, each a glyph over a short
+               word so five fit across 360px. A tile whose word is shorter than what
+               it does keeps the whole act as its name, so a screen reader still
+               hears "Take photo" where the eye reads "Photo". *@
             @* Dictation appends to the body, as it does to the Inbox's quick
                capture: nothing goes into the note that was not heard first. *@
             <ToggleButton Pressed="_listening"
@@ -60,17 +87,34 @@ else
                           AriaLabel="@(_listening ? "Stop dictating" : "Dictate into the note")"
                           Title="@(_listening ? "Stop dictating" : "Dictate into the note")"
                           TestId="note-speech-toggle">
-                <MicIcon />
+                <MicIcon Size="20" />Dictate
             </ToggleButton>
+            @* One recording at a time, on any note: while one runs, its controls are
+               on its bar, and Record stays disabled everywhere. *@
+            <AppButton Disabled="@(_recordSupported != true || Recording.NoteId is not null)"
+                       Busy="_recordStarting" BusyLabel="Starting the recording"
+                       OnClick="RecordAsync" TestId="note-record">
+                <Icon><CircleDotIcon Size="20" /></Icon>
+                <ChildContent>Record</ChildContent>
+            </AppButton>
             @if (_canTakePhoto)
             {
-                <AppButton Size="ButtonSize.Small" Disabled="_picking" OnClick="() => PickAsync(Picker.TakePhotoAsync)"
-                           TestId="note-take-photo">Take photo</AppButton>
+                <AppButton Disabled="_picking" OnClick="() => PickAsync(Picker.TakePhotoAsync)"
+                           aria-label="Take photo" title="Take photo" TestId="note-take-photo">
+                    <Icon><CameraIcon Size="20" /></Icon>
+                    <ChildContent>Photo</ChildContent>
+                </AppButton>
             }
-            <AppButton Size="ButtonSize.Small" Disabled="_picking" OnClick="() => PickAsync(Picker.PickPicturesAsync)"
-                       TestId="note-choose-pictures">Choose pictures</AppButton>
-            <AppButton Size="ButtonSize.Small" Disabled="_picking" OnClick="() => PickAsync(Picker.PickFilesAsync)"
-                       TestId="note-choose-files">Choose files</AppButton>
+            <AppButton Disabled="_picking" OnClick="() => PickAsync(Picker.PickPicturesAsync)"
+                       aria-label="Choose pictures" title="Choose pictures" TestId="note-choose-pictures">
+                <Icon><ImageIcon Size="20" /></Icon>
+                <ChildContent>Pictures</ChildContent>
+            </AppButton>
+            <AppButton Disabled="_picking" OnClick="() => PickAsync(Picker.PickFilesAsync)"
+                       aria-label="Choose files" title="Choose files" TestId="note-choose-files">
+                <Icon><PaperclipIcon Size="20" /></Icon>
+                <ChildContent>Files</ChildContent>
+            </AppButton>
         </Tools>
         <ChildContent>
             @if (Picker is WebAttachmentPicker web)
@@ -81,6 +125,18 @@ else
             @if (_speechStatus is not null)
             {
                 <Alert Message="@_speechStatus" Role="status" BaseClass="capture__status" TestId="note-speech-status" />
+            }
+
+            @if (_recordError is not null)
+            {
+                <Alert Message="@_recordError" BaseClass="error" TestId="note-record-error" />
+            }
+
+            @if (_row is { } recorded)
+            {
+                @* Re-renders itself on the session's ticks; this page only on a
+                   recording starting or ending, which Record's state follows. *@
+                <NoteRecordingBar NoteId="recorded.Id" TestId="note-recording" />
             }
 
             @if (_error is not null)
@@ -101,6 +157,45 @@ else
             {
                 <Alert Message="The files marked above are not attached and will not go with the note. Remove them to clear the list."
                        Role="status" BaseClass="capture__notice" TestId="note-refused-notice" />
+            }
+
+            @if (_row is not null && (_attachedTo.Count > 0 || _standing is not null || _eventChoices.Count > 0))
+            {
+                <section class="note-page__event" aria-labelledby="note-event-title" data-testid="note-event">
+                    <h2 class="note-page__event-title" id="note-event-title">Event</h2>
+                    @foreach (var linked in _attachedTo)
+                    {
+                        <a class="note-page__event-link" href="@EventText.Href(linked.Id)" data-testid="note-event-attached">
+                            <CalendarIcon Size="16" />
+                            <span>Attached to @linked.Title</span>
+                        </a>
+                    }
+                    @if (_standing is { RetryId: { } retryId } stuck)
+                    {
+                        <Alert Message="@stuck.Message" Role="status" BaseClass="capture__notice" TestId="note-event-pending"
+                               ActionLabel="Try again" OnAction="() => Outbox.RetryAsync(retryId)" ActionTestId="note-event-retry" />
+                    }
+                    else if (_standing is { } standing)
+                    {
+                        <Alert Message="@standing.Message" Role="status" BaseClass="capture__notice" TestId="note-event-pending" />
+                    }
+                    @if (_eventChoices.Count > 0)
+                    {
+                        <div class="note-page__event-pick">
+                            <SelectField CurrentValue="@_eventChoice?.ToString("D")"
+                                         Options="@([.. _eventChoices.Select(item => new SelectorOption(item.Id.ToString("D"), EventText.Option(item)))])"
+                                         Label="Attach to event"
+                                         Form="true"
+                                         IncludeEmptyOption="true"
+                                         EmptyLabel="Choose an event"
+                                         CssClass="note-page__event-select"
+                                         TestId="note-event-select"
+                                         OnChanged="ChooseEvent" />
+                            <AppButton Size="ButtonSize.Small" Disabled="@(_eventChoice is null)" Busy="_attaching"
+                                       OnClick="AttachToEventAsync" TestId="note-event-attach">Attach</AppButton>
+                        </div>
+                    }
+                </section>
             }
         </ChildContent>
     </NoteEditor>
@@ -145,6 +240,35 @@ else
     private bool _canTakePhoto;
     private bool _picking;
 
+    /// <summary>The event chosen in the attach picker, not yet attached.</summary>
+    private Guid? _eventChoice;
+
+    private bool _attaching;
+
+    /// <summary>The event this page last asked to attach the note to. Kept here because,
+    /// once the request has left the outbox, nothing on the phone says it was sent until a
+    /// desktop has applied it and pushed the event back.</summary>
+    private Guid? _sentTo;
+
+    /// <summary>The events whose notes name this note, the ones the picker offers, and what
+    /// the section says of a request: read when the note, the events or the outbox change
+    /// rather than on every keystroke's render, because each read walks every held event.</summary>
+    private IReadOnlyList<PhoneEvent> _attachedTo = [];
+
+    private IReadOnlyList<PhoneEvent> _eventChoices = [];
+
+    private EventStanding? _standing;
+
+    private bool? _recordSupported;
+    private bool _recordStarting;
+
+    /// <summary>Why Record did not start, such as a refused microphone. No bar goes with it.</summary>
+    private string? _recordError;
+
+    /// <summary>The note being recorded into as this page last drew Record, so a tick of
+    /// the timer or the level does not draw the page again.</summary>
+    private Guid? _recordingNote;
+
     /// <summary>The note's id; absent on <c>/notes/new</c> until the first save.</summary>
     [Parameter]
     public Guid? Id { get; set; }
@@ -160,7 +284,9 @@ else
             attachment.Name,
             AttachmentRules.Describe(attachment.ContentType),
             AttachmentRules.DescribeSize(attachment.SizeBytes),
-            AttachmentRules.IsPicture(attachment.ContentType)))
+            AttachmentRules.IsPicture(attachment.ContentType),
+            IsAudio: AttachmentRules.IsAudio(attachment.ContentType),
+            Audio: PlaybackOf(attachment.ContentType, Files.OutboxPath(attachment.Id))))
     ];
 
     private IReadOnlyList<AttachmentTile> PendingTiles =>
@@ -171,14 +297,27 @@ else
             AttachmentRules.Describe(attachment.ContentType),
             AttachmentRules.DescribeSize(attachment.SizeBytes),
             attachment.IsPicture,
-            attachment.Refusal))
+            attachment.Refusal,
+            AttachmentRules.IsAudio(attachment.ContentType),
+            PlaybackOf(attachment.ContentType, attachment.StagedPath)))
     ];
+
+    /// <summary>A recording plays on its tile while its bytes are on the phone: on the
+    /// strip, or in the outbox until the note reaches the service, which takes them
+    /// from there (local ADR 0014). Once delivered the tile only describes it.</summary>
+    private static AudioSource? PlaybackOf(string contentType, string path) =>
+        AttachmentRules.IsAudio(contentType) && !string.IsNullOrEmpty(path) && File.Exists(path)
+            ? new AudioSource(contentType, _ => Task.FromResult(TalkNoteFiles.OpenIfPresent(path)))
+            : null;
 
     protected override void OnInitialized()
     {
         Outbox.Changed += OnOutboxChanged;
         Notes.Changed += OnNotesChanged;
+        EventView.Changed += OnEventsChanged;
         Lifecycle.Paused += OnPaused;
+        Recording.Changed += OnRecordingChanged;
+        _recordingNote = Recording.NoteId;
         if (Picker is WebAttachmentPicker web) web.Unrequested += OnUnrequestedAsync;
     }
 
@@ -202,7 +341,10 @@ else
         _row = null;
         _missing = false;
         _error = null;
+        _recordError = null;
         _state = SaveState.Idle;
+        _eventChoice = null;
+        _sentTo = null;
 
         if (Id is { } noteId)
         {
@@ -218,6 +360,7 @@ else
         }
 
         RefreshWaiting();
+        RefreshEvents();
     }
 
     /// <summary>Asked after the first render, as the Inbox asks: prerendered on
@@ -228,18 +371,22 @@ else
 
         _canTakePhoto = await Picker.CanTakePhotoAsync();
         _speechSupported = await Speech.IsSupportedAsync();
+        _recordSupported = await Recording.IsSupportedAsync();
         StateHasChanged();
     }
 
     /// <summary>Leaving the page ends dictation — words the device heard still
     /// arrive, a recording is not sent — and flushes what is still pending: the
-    /// note is a singleton's, so the write outlives this page.</summary>
+    /// note is a singleton's, so the write outlives this page. A meeting recording
+    /// is not stopped: the session holds it, and Stop attaches it from wherever.</summary>
     public void Dispose()
     {
         _disposed = true;
         Outbox.Changed -= OnOutboxChanged;
         Notes.Changed -= OnNotesChanged;
+        EventView.Changed -= OnEventsChanged;
         Lifecycle.Paused -= OnPaused;
+        Recording.Changed -= OnRecordingChanged;
         if (Picker is WebAttachmentPicker web) web.Unrequested -= OnUnrequestedAsync;
 
         _debounce?.Dispose();
@@ -268,6 +415,7 @@ else
         _ = InvokeAsync(() =>
         {
             RefreshWaiting();
+            RefreshStanding();
             StateHasChanged();
         });
     }
@@ -293,6 +441,119 @@ else
                 StateHasChanged();
             }
         });
+    }
+
+    /// <summary>A pull brought events: the picker's choices, the attach section itself and
+    /// what it says of a request sent may all have changed.</summary>
+    private void OnEventsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed) return;
+
+            RefreshEvents();
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>
+    /// Reads the attach section from the held events: the ones linking this note, the picker's
+    /// choices, and the request's standing. Nothing while the note is unsaved or the phone holds
+    /// no event.
+    /// </summary>
+    private void RefreshEvents()
+    {
+        if (_row is not { } saved || !EventView.IsOffered)
+        {
+            _attachedTo = [];
+            _eventChoices = [];
+        }
+        else
+        {
+            _attachedTo = EventView.LinkingNote(saved.Id);
+            _eventChoices = EventText.AttachChoices(EventView.Upcoming(), EventView.Held(), _attachedTo.Select(item => item.Id).ToHashSet());
+        }
+
+        if (_eventChoice is { } chosen && !_eventChoices.Any(item => item.Id == chosen)) _eventChoice = null;
+
+        RefreshStanding();
+    }
+
+    private void ChooseEvent(string? value) =>
+        _eventChoice = Guid.TryParse(value, out var eventId) ? eventId : null;
+
+    /// <summary>
+    /// Where the note's latest attachment request stands, or null when there is nothing to
+    /// say: waiting to send while the outbox holds it - with the reason and a way to try again
+    /// once the outbox has parked it, with the reason once the service refused it, which only a
+    /// new request answers - sent once it has left, and nothing once the event lists the note:
+    /// the "Attached to" line says that. Nothing while the phone holds no event.
+    /// </summary>
+    private void RefreshStanding()
+    {
+        _standing = null;
+        if (_row is not { } saved || !EventView.IsOffered) return;
+
+        bool Attached(Guid eventId) => _attachedTo.Any(item => item.Id == eventId);
+        string TitleOf(Guid eventId) => EventView.Find(eventId)?.Title ?? "the event";
+
+        if (EventAttachments.PendingFor(saved.Id) is { } pending && !Attached(pending.EventId))
+        {
+            var entry = pending.Entry;
+            var title = TitleOf(pending.EventId);
+
+            _standing = entry switch
+            {
+                { Refused: true } => new($"{title} could not take this note: {entry.LastError} Attach it again to send a new request.", null),
+                { IsParked: true } => new($"Not sent yet: this note will be attached to {title}. {entry.LastError}", entry.Id),
+                _ => new($"Waiting to send: this note will be attached to {title}.", null),
+            };
+            return;
+        }
+
+        if (_sentTo is { } sent && !Attached(sent))
+        {
+            _standing = new($"Sent. {TitleOf(sent)} lists this note once a desktop has applied it.", null);
+        }
+    }
+
+    /// <summary>
+    /// Queues the request to attach this note to the chosen event, with the note's title as it
+    /// reads now. A save still waiting is flushed first, so the title sent is the one on screen.
+    /// </summary>
+    private async Task AttachToEventAsync()
+    {
+        if (_eventChoice is not { } eventId || _attaching) return;
+
+        _attaching = true;
+
+        // The route may turn to another note while the save is flushed: the request is for the
+        // note on screen when Attach was tapped, never for the one after it.
+        var generation = _generation;
+        var noteId = _row?.Id;
+
+        try
+        {
+            await FlushAsync();
+            if (generation != _generation || _row is not { } row || row.Id != noteId) return;
+
+            await EventAttachments.AttachAsync(eventId, row.Id, row.Title);
+            if (generation != _generation) return;
+
+            _sentTo = eventId;
+            _eventChoice = null;
+            RefreshStanding();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            if (generation == _generation) _error = $"Couldn't attach the note to the event: {ex.Message}";
+        }
+        finally
+        {
+            _attaching = false;
+        }
     }
 
     private void OnTitleChanged(string value)
@@ -394,10 +655,12 @@ else
                 _prepared.Remove(file.Id);
             }
 
+            var first = _row?.Id != saved.Id;
             _row = saved;
             _error = null;
             _state = _dirty ? SaveState.Saving : SaveState.Saved;
             RefreshWaiting();
+            if (first) RefreshEvents();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -488,6 +751,93 @@ else
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Records into this note. A new note is created first, with whatever is typed,
+    /// so the recording's files carry its id; the microphone is asked for by the
+    /// recorder on the first press. A start that fails says why beside the tools
+    /// and draws no bar.
+    /// </summary>
+    private async Task RecordAsync()
+    {
+        _recordStarting = true;
+        _recordError = null;
+
+        try
+        {
+            if (await NoteToRecordIntoAsync() is not { } noteId) return;
+
+            if (!await Recording.StartAsync(noteId))
+            {
+                _recordError = Recording.Error ?? "The recording did not start.";
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _recordError = $"Couldn't start the recording: {ex.Message}";
+        }
+        finally
+        {
+            _recordStarting = false;
+        }
+    }
+
+    /// <summary>
+    /// The note a recording goes into: this one, created now when it is new. Typed
+    /// words are saved the usual way first; a note with nothing in it is created
+    /// empty, under the save gate so a save running now cannot create a second.
+    /// Null when the note could not be written, which the page already says.
+    /// </summary>
+    private async Task<Guid?> NoteToRecordIntoAsync()
+    {
+        if (_row is null && _draft.HasContent)
+        {
+            _dirty = true;
+            await FlushAsync();
+        }
+
+        if (_row is { } saved) return saved.Id;
+        if (_draft.HasContent) return null;
+
+        await _saveGate.WaitAsync();
+        try
+        {
+            if (_row is null)
+            {
+                var generation = _generation;
+                var created = await Notes.CreateAsync(_draft.Title, _draft.Body);
+                if (generation != _generation) return null;
+
+                _row = created;
+                _state = SaveState.Saved;
+                RefreshWaiting();
+            }
+
+            return _row.Id;
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// A recording starting or ending anywhere, which enables or disables Record. Raised
+    /// off the render thread and on every tick of the timer, so marshalled and filtered:
+    /// the bar draws the ticks itself.
+    /// </summary>
+    private void OnRecordingChanged()
+    {
+        if (_disposed || Recording.NoteId == _recordingNote) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed || Recording.NoteId == _recordingNote) return;
+
+            _recordingNote = Recording.NoteId;
+            StateHasChanged();
+        });
+    }
+
     private async Task OnSpeechToggledAsync(bool pressed)
     {
         if (!pressed)
@@ -547,4 +897,8 @@ else
 
         if (!_disposed) await InvokeAsync(StateHasChanged);
     }
+
+    /// <summary>What the attach section says of the note's request, and the outbox entry a
+    /// "Try again" restarts once the outbox has parked it.</summary>
+    private sealed record EventStanding(string Message, Guid? RetryId);
 }

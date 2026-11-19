@@ -3,7 +3,7 @@
   <!--
     Cross-cutting file-system adapter: the settings, feature flags and knowledge
     folders that genuinely are files on local disk, plus the cross-context joins
-    under Roadmap/, Dashboard/ and Inbox/ that only an adapter seeing both sides
+    under Roadmap/, Calendar/, Dashboard/ and Inbox/ that only an adapter seeing both sides
     may hold. The tasks, the roadmap plan and the inbox all live in
     Backlog.Infrastructure.Sqlite. Implements ports declared by the modules and by
     the shared kernel; no module may reference this project except through its
@@ -44,6 +44,21 @@
          request shape. The published surface only: the adapter answers the Inbox's
          port and asks Tasks through ITaskItems, and needs neither aggregate. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+    <!-- Events' published surface, for three joins: the Inbox join's To Event route, where
+         an inbox item routed To Event becomes a Spotted knowledge event through
+         IKnowledgeEvents while Events' flag is on; the joins under Events/, where an event's
+         prep task is filed and its task chips read through Tasks' ITaskItems, to answer
+         Events' IEventTaskTarget (local ADR 0050 §3); and the Calendar join below, which
+         answers the Calendar's Events layer over Events' read contract. The published surface only: no
+         adapter sees a knowledge event or its repository, though the implementation is
+         reachable through the Sqlite adapter below. -->
+
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
+    <!-- The Calendar's published surface, for the joins under Calendar/ that answer its
+         Plans layer and working-week ports, ICalendarPlans and ICalendarCapacity, over
+         Roadmap's abstractions, and its Events layer port, ICalendarEvents, over Events'
+         read contract (local ADR 0055 §2). The published surface only. -->
+    <ProjectReference Include="..\..\Modules\Calendar\Backlog.Modules.Calendar.Abstractions\Backlog.Modules.Calendar.Abstractions.csproj" />
     <!-- The cross-context join under Dashboard/ - the Sessions context supplies the
          assistant-session facts the Dashboard's sessions part reports on. Two
          published surfaces and no implementation: the adapter is the only thing in

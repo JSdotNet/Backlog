@@ -3,6 +3,7 @@ using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.Composition;
 using Backlog.UI.Components.AppUpdate;
@@ -265,6 +266,10 @@ var app = builder.Build();
 // can test against the harness.
 _ = app.Services.GetRequiredService<TaskSyncWorker>();
 
+// And the Inbox's transcription of meeting recordings (local ADR 0049), started as the
+// desktop head starts it, against the harness's local Foundry stand-in.
+app.Services.GetRequiredService<Backlog.Modules.Inbox.Services.InboxRecordingTranscriptionWorker>().Start();
+
 // And session replication's own loop, for the same reason and with the same
 // failure if it is left out. A sibling rather than a second exchange inside the
 // worker above: see SessionSyncWorker for why one loop over two independently
@@ -277,6 +282,9 @@ _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
 // And devbook subject state's loop, the annotations' sibling, on the same terms.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
+
+// And knowledge event replication's loop (local ADR 0050 §2), on the same terms.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.KnowledgeEventSyncWorker>();
 
 // And the one-time devbook import, on the same terms and for the same reason the
 // desktop head resolves it.
@@ -297,12 +305,26 @@ _ = app.Services.GetRequiredService<BackupWorker>();
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 
+// And the session queue's completion sweep, for the same reason the desktop head
+// resolves it.
+_ = app.Services.GetRequiredService<SessionRequestCompletion>();
+
+// And the Desktop clock of the Events area, on the same terms and for the same reason the
+// desktop head resolves it.
+_ = app.Services.GetRequiredService<Backlog.Modules.Events.Services.HarvestTaskWorker>();
+
 // And the spec-manager question source, on the same terms and for the same reason the
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
 
 // And the question relay's escalation timer (local ADR 0041), as the desktop head starts it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
+
+// And the schedule and loop alerts' sweep (local ADR 0051 §5), as the desktop head starts it.
+app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.SessionAlertPublisher>().Start();
+
+// And the run subject watch, as the desktop head starts it.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.RunSubjectWatch>();
 
 // And the notifications startup pass, on the same terms and for the same reason the desktop
 // head starts it.
@@ -345,6 +367,8 @@ app.UseWhen(
         || context.Request.Path.StartsWithSegments(ClaudeCodeLogsEndpoint.RoutePath)
         // And the session-request long poll a dispatcher waits on (local ADR 0038).
         || context.Request.Path.StartsWithSegments(SessionRequestWaitEndpoint.RoutePath)
+        // And the report a scheduled run's hook posts (local ADR 0051).
+        || context.Request.Path.StartsWithSegments(ScheduleRunReportEndpoint.RoutePath)
         // And the question relay's hook script (local ADR 0041).
         || context.Request.Path.StartsWithSegments(AskBacklogHook.RoutePath),
     branch => branch.Use(async (context, next) =>
@@ -430,7 +454,10 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
             TimeProvider.System,
             context.RequestAborted,
             questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
-            sessions: context.RequestServices.GetService<IAgentSessionSource>());
+            sessions: context.RequestServices.GetService<IAgentSessionSource>(),
+            sessionId: context.Request.Query["sessionId"].ToString(),
+            loops: context.RequestServices.GetService<ILoopRegister>(),
+            contact: context.RequestServices.GetService<DispatcherContact>());
     }
     catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
     {
@@ -438,11 +465,35 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
     }
 
     context.Response.StatusCode = reply.StatusCode;
-    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+    if (reply.Failure is not null && reply.StatusCode == 503) app.Logger.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+    else if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.");
     if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
     if (reply.Body.Length == 0) return;
 
     context.Response.ContentType = SessionRequestWaitEndpoint.Reply.ContentType;
+    await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
+});
+
+// And the report a scheduled run's hook posts (local ADR 0051 §1), into this harness's
+// backlog.db. No token here, for the reason the MCP endpoint has none; 404 while the
+// sessions flag is off.
+app.MapPost(ScheduleRunReportEndpoint.RoutePath, async context =>
+{
+    var reply = await ScheduleRunReportEndpoint.AcceptAsync(
+        context.Request.Body,
+        context.Request.ContentLength,
+        context.RequestServices.GetRequiredService<IScheduleRegister>(),
+        context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
+        context.RequestServices.GetService<IAgentSessionSource>(),
+        TimeProvider.System,
+        context.RequestAborted);
+
+    context.Response.StatusCode = reply.StatusCode;
+    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "A scheduled run's report could not be recorded; the hook was asked to retry.");
+    if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    if (reply.Body.Length == 0) return;
+
+    context.Response.ContentType = ScheduleRunReportEndpoint.Reply.ContentType;
     await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
 });
 

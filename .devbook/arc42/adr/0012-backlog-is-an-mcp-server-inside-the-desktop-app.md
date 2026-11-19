@@ -3,8 +3,8 @@
 ```meta
 date: 2026-11-12
 related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/guidelines/0007-minimal-apis-over-controllers.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/devbook/features.md#remarks-on-a-chapter", ".devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
-c4: [backlog.desktop]
-c4-touches: [backlog.mobile, backlog.desktop.backlogModule, backlog.desktop.sessions]
+c4: [backlog.desktop.mcp]
+c4-touches: [backlog.mobile, backlog.desktop.tasks, backlog.desktop.sessions]
 ```
 
 ## Status
@@ -498,6 +498,7 @@ day this record was accepted. A row marked **Built** is one the plan has closed.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | Built: the MCP listener outlives the main window. Closing the window hides it to the tray and the listener keeps answering; Quit, sign-out, shutdown and an MSIX update still stop it. | Plan `tray-keep-alive`, step 5 (`review-plan`), checked what landed. |
 | 2026-11-12 | Retired §1's shared, question-hook and telemetry tokens and Rotate: the app creates its three grants, rewrites the registrations that carry a retired token to the headers helper, and drops the tokens. `BACKLOG_MCP_TOKEN` is accepted only under a hand-edited debug setting. | Plan `zero-trust-auth`, ADR 0058 Phase 1: no long-lived MCP secret sits in a file. |
 | 2026-11-12 | Built §1's scope policies: every tool and route requires one ADR 0058 §4 scope by a named policy under fallback-deny, every admitted request carries a principal, and the audit names the grant. | Plan `zero-trust-auth` entry 8, ADR 0058 Phase 1. |
 | 2026-11-11 | Built §1's token broker and grants beside the shared token: a named pipe for the person's SID alone mints 15-minute JWTs for grants in `mcp-grants.json`, and the listener refuses an expired token or one older than its grant's version. | Plan `zero-trust-auth` entry 7, ADR 0058 Phase 1. |

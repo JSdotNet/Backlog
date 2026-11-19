@@ -7,11 +7,11 @@
            Guidelines="@Rules">
 
     <Story Name="One page"
-           Description="The neighbours come first, then the Overview under a rule. Its header is `context.md`'s own block and the context map's subdomain type, the name and the boundary's lead. The Inside card is the *Inside the boundary:* paragraph; the Outside card reads each *…, which [X] answers* clause as a question with a link to who answers it. Each tile is a kind in its tone and opens its first unit. The proof cards open Requirements and the Always true tab. How settled is one bar. A switch's Gates are the features its `related` names. Tasks raises a domain event, so Read it through a question offers Events after Model, opening `model.md#events`, and Model asks only what it is made of. The badges are information, so they are neutral outlines. Every link here writes what it followed below the page."
+           Description="The neighbours come first, then the Overview under a rule. Its header is `context.md`'s own block and the context map's subdomain type, the name and the boundary's lead. The Inside card is the *Inside the boundary:* paragraph; the Outside card reads each *…, which [X] answers* clause as a question with a link to who answers it. Each tile is a kind in its tone and opens its first unit. The proof cards count promises and their scenarios, and guarantees and those still open; each says how many are linked to a test, as the Requirements page and Always true count them, and opens Requirements or the Always true tab. How settled is one bar. A switch's Gates are the features its `related` names. Tasks raises a domain event, so Read it through a question offers Events after Model, opening `model.md#events`, and Model asks only what its one aggregate is made of: “What is a task made of?”. The deployment badge is `context.md`'s own word, Module, and the neighbours' middle card reads the same: Core · module · draft. The badges are information, so they are neutral outlines. Every link here writes what it followed below the page."
            Code="@ContextCode"
            Source="@Context"
            SourceLabel="context.md">
-        <DomainContextView ContextName="Tasks" Overview="@Overview" Neighbours="@Neighbours" DocumentPath="@ContextPath"
+        <DomainContextView ContextName="Tasks" ContextSummary="Core · module · draft" Overview="@Overview" Neighbours="@Neighbours" DocumentPath="@ContextPath"
                            OnNavigate="@(reference => _followed = reference.Raw)"
                            OnOpenAlwaysTrue="@(unit => _followed = $"{unit.Reference} (Always true)")"
                            TestId="story-domain-context-page" />
@@ -19,7 +19,7 @@
     </Story>
 
     <Story Name="A context that raises no event"
-           Description="The same context with a `model.md` and no `domain-event` chapter: Read it through a question offers no Events, and Model keeps its whole question — what it is made of, and what it tells other contexts."
+           Description="The same context with a `model.md` and no `domain-event` chapter: Read it through a question offers no Events, and Model asks only what a task is made of: nothing is told to other contexts, so nothing asks it."
            Code="@NoEventsCode">
         <DomainContextView ContextName="Tasks" Overview="@NoEvents" DocumentPath="@ContextPath" TestId="story-domain-context-page-no-events" />
     </Story>
@@ -230,6 +230,7 @@
 
     private const string ContextCode = """
         <DomainContextView ContextName="@context.DisplayName"
+                           ContextSummary="@DomainViewContextPage.Summary(mapKind, overview.Deployment, context.Status)"
                            Overview="@(DomainContextOverview.Read(contextMd, contextPath, otherFilesWithPaths) with { Subdomain = mapKind })"
                            Neighbours="@DomainNeighbours.Read(dependenciesMd, dependenciesPath)"
                            DocumentPath="@contextPath"

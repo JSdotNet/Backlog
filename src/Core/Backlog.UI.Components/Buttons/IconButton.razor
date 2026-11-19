@@ -5,8 +5,45 @@
     BaseClass hands the whole class name to a host that already dresses its own
     icon buttons. `.btn--icon` carries a 2rem minimum, so appending it to a
     tighter row action would grow the row rather than adopt the component.
+
+    Given an Href it is a link to a page of the app instead, wearing the same
+    classes: a glyph that opens a route must be a link a screen reader announces
+    as going somewhere, and it must say when its page is the one on screen. NavLink does the matching, the
+    way TabBar's tabs do, so "is this the current page" has one answer across the
+    shell and survives a deep link and a back press. While current it carries
+    aria-current="page" and CurrentCssClass. Match defaults to a prefix, so the
+    link stays current on the pages under its address. A disabled link has no
+    href, since an anchor has no disabled state of its own, and says so on
+    aria-disabled.
 *@
 
+@if (Href is not null && Disabled)
+{
+    <a class="@ClassValue"
+       data-testid="@TestId"
+       aria-label="@AriaLabel"
+       title="@TitleValue"
+       role="link"
+       aria-disabled="true"
+       @attributes="AdditionalAttributes">
+        <span aria-hidden="true">@ChildContent</span>
+    </a>
+}
+else if (Href is not null)
+{
+    <NavLink class="@ClassValue"
+             ActiveClass="@CurrentCssClass"
+             href="@Href"
+             Match="@Match"
+             data-testid="@TestId"
+             aria-label="@AriaLabel"
+             title="@TitleValue"
+             @attributes="AdditionalAttributes">
+        <span aria-hidden="true">@ChildContent</span>
+    </NavLink>
+}
+else
+{
 <button type="button"
         class="@ClassValue"
         data-testid="@TestId"
@@ -17,6 +54,7 @@
         @attributes="AdditionalAttributes">
     <span aria-hidden="true">@ChildContent</span>
 </button>
+}
 
 @code {
     [Parameter, EditorRequired]
@@ -31,8 +69,23 @@
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
+    /// <summary>Ignored while <see cref="Href"/> is set: a link navigates.</summary>
     [Parameter]
     public EventCallback<MouseEventArgs> OnClick { get; set; }
+
+    /// <summary>An app route, relative to the base address. Set, the control is a
+    /// link rather than a button.</summary>
+    [Parameter]
+    public string? Href { get; set; }
+
+    /// <summary>How the link decides it is current. The default, a prefix, keeps it
+    /// current on the pages under <see cref="Href"/>.</summary>
+    [Parameter]
+    public NavLinkMatch Match { get; set; } = NavLinkMatch.Prefix;
+
+    /// <summary>The class a link wears while its page is on screen.</summary>
+    [Parameter]
+    public string CurrentCssClass { get; set; } = "btn--icon-current";
 
     [Parameter]
     public string? CssClass { get; set; }

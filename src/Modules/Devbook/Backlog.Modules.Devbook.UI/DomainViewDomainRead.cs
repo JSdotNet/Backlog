@@ -18,6 +18,10 @@ internal sealed record DomainViewDomainRead(
     /// <see langword="null"/> when the context has none.</summary>
     public string? ModelPath { get; init; }
 
+    /// <summary>Every Model file of the context (<see cref="ModelPathsOf"/>), which
+    /// the Glossary pairs each row's own domain file with.</summary>
+    public IReadOnlyList<string> ModelPaths { get; init; } = [];
+
     /// <summary>The domain's name as its context map heads it — "Backlog" — which
     /// a unit's events say the rest of hears (<see cref="DomainNameOf"/>), or
     /// <see langword="null"/> for "the domain".</summary>
@@ -26,26 +30,28 @@ internal sealed record DomainViewDomainRead(
     public static DomainViewDomainRead Failed(string problem) => new(null, [], [], [], "the context", problem);
 
     /// <summary>
-    /// The Model file the opened domain file is built in: for a split
-    /// <c>domain.&lt;name&gt;.md</c> the <c>model.&lt;name&gt;.md</c> beside it when
-    /// there is one; otherwise, and for <c>domain.md</c>, the context's
-    /// <c>model.md</c>, else its first Model file.
+    /// The Model file the opened domain file is built in, by the pairing
+    /// <see cref="DomainUnits.ModelFileFor"/> applies — the Glossary's "Open the
+    /// model" uses the same one: by name first, then the file's <c>related</c> at
+    /// every level, then the context's <c>model.md</c>, else its first Model file.
     /// </summary>
-    public static string? ModelFor(DomainDevbookDocument page, IEnumerable<DomainDevbookDocument> documents)
+    /// <param name="page">The opened domain file.</param>
+    /// <param name="documents">The context's documents.</param>
+    /// <param name="parsed">The opened file as read, whose <c>related</c> entries
+    /// decide when no name matches. Unset, they are not consulted.</param>
+    public static string? ModelFor(DomainDevbookDocument page, IEnumerable<DomainDevbookDocument> documents, DomainChapterFile? parsed = null)
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(documents);
 
-        var models = documents.Where(d => d.Kind == DomainDevbookDocumentKind.Model).ToList();
-        var name = FileName(page.Path);
-        if (name.StartsWith("domain.", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(name, "domain.md", StringComparison.OrdinalIgnoreCase)
-            && models.FirstOrDefault(d => string.Equals(FileName(d.Path), "model." + name["domain.".Length..], StringComparison.OrdinalIgnoreCase)) is { } split)
-        {
-            return split.Path;
-        }
+        return DomainUnits.ModelFileFor(page.Path, ModelPathsOf(documents), parsed);
+    }
 
-        return (models.FirstOrDefault(d => string.Equals(FileName(d.Path), "model.md", StringComparison.OrdinalIgnoreCase)) ?? models.FirstOrDefault())?.Path;
+    /// <summary>The context's Model files, in the order the context lists them.</summary>
+    public static IReadOnlyList<string> ModelPathsOf(IEnumerable<DomainDevbookDocument> documents)
+    {
+        ArgumentNullException.ThrowIfNull(documents);
+        return [.. documents.Where(d => d.Kind == DomainDevbookDocumentKind.Model).Select(d => d.Path)];
     }
 
     /// <summary>The context map's heading as the domain's name, or
@@ -56,11 +62,5 @@ internal sealed record DomainViewDomainRead(
     {
         var title = contextMapTitle?.Trim();
         return string.IsNullOrEmpty(title) || title.Replace('-', ' ').Contains("context map", StringComparison.OrdinalIgnoreCase) ? null : title;
-    }
-
-    private static string FileName(string path)
-    {
-        var normalized = path.Replace('\\', '/');
-        return normalized[(normalized.LastIndexOf('/') + 1)..];
     }
 }

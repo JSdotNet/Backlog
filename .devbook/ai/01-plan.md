@@ -57,14 +57,17 @@ substage: [specify/break-down]
 feeds: [".devbook/ai/02-code.md#plan-items-pasted-into-a-session: prompt entries"]
 evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#backlog-tools-plugin"]
-related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
+related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/arc42/adr/0053-a-plan-or-a-task-may-reference-a-brain-note.md"]
 date: 2026-09-25
 ```
 
 `import-plan` turns an agreed specification into a Backlog import plan: one `plan` entry,
 which Import turns into a Roadmap Item, and the step entries under it. An agent session runs
 a `prompt` step; only a person does a `task` or `test` step. Each step's `after:` field
-orders it behind the steps it waits for.
+orders it behind the steps it waits for. The specification may be a project note in the
+person's Brain, `#brain:projects/<note>.md`: the skill reads it through the knowledge read
+tool under `#brain`, and the `plan` entry and its steps name it by that address (local
+ADR 0053).
 
 - **Used for** — breaking a multi-session feature into roadmap items and the prompts that
   deliver them, with a review page beside the raw plan.
@@ -72,7 +75,8 @@ orders it behind the steps it waits for.
 - **Evidence** — the roadmap import decision (local ADR 0013) and the plans run through it,
   `devbook-adoption` among them.
 - **Limits** — user-invoked only (`disable-model-invocation`); an agent never writes a plan
-  on its own initiative, and the skill never talks to the app or to GitHub.
+  on its own initiative, and the skill never writes to the app or talks to GitHub; its one
+  call to the app reads a Brain note source.
 
 ## Estimate against landed work
 

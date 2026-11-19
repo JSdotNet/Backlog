@@ -52,6 +52,7 @@ public class McpToolCreationTests
         DevbookTools.ListKnowledgeContexts,
         DevbookTools.ReadKnowledgeChapter,
         DevbookTools.ListAnnotations,
+        DevbookTools.ListBrainReviews,
         DecisionTools.GetState,
         SyncDirectionTools.ListSyncDirections,
         DecisionTools.ListNotes,
@@ -63,6 +64,7 @@ public class McpToolCreationTests
         InboxTools.ReadInboxItem,
         GoalTools.ListGoals,
         GrantTools.ListAgentRequests,
+        GoalTools.ReadIterations,
         SessionRequestTools.ListSessionRequests,
         SessionRequestTools.ListDeliveries
     ];
@@ -143,10 +145,13 @@ public class McpToolCreationTests
 
         Assert.Equal(
             [
+                EventTools.AddKnowledgeEvent,
                 InboxTools.ArchiveInboxItem,
                 NotificationTools.Ask,
                 GoalTools.AttachToGoal,
                 DevbookTools.CaptureNote,
+                InboxTools.CaptureToInbox,
+                LoopTools.CheckIn,
                 SessionRequestTools.ClaimDelivery,
                 SessionRequestTools.ClaimSessionRequest,
                 NotificationTools.Close,
@@ -172,6 +177,7 @@ public class McpToolCreationTests
                 WindowTools.OpenWindow,
                 ImpedimentTools.RaiseImpediment,
                 SurfaceTools.RecordPrompt,
+                ScheduleTools.ReportScheduleRun,
                 AccessTools.RequestAccess,
                 DevbookTools.ResolveAnnotation,
                 GrantTools.RevokeAgent,
@@ -220,6 +226,10 @@ public class McpToolCreationTests
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "link_to_impediment")));
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "unlink_from_impediment")));
         Assert.Empty(schemas["list_goals"]);
+
+        // Without a length the person's own setting applies, so nothing is required.
+        Assert.Equal(["length"], schemas["read_iterations"]);
+        Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "read_iterations")));
         Assert.Equal(["title", "dueDate", "outcome"], schemas["create_goal"]);
         Assert.Equal(["id", "title", "outcome", "dueDate"], schemas["update_goal"]);
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "update_goal")));
@@ -247,6 +257,10 @@ public class McpToolCreationTests
         Assert.Equal(["id", "repository", "sessionId"], schemas["link_session"]);
         Assert.Equal(["rawText", "repository"], schemas["create_item"]);
         Assert.Equal(["id", "repository", "references"], schemas["set_devbook_references"]);
+        Assert.Equal(
+            ["title", "series", "start", "end", "online", "venue", "link", "whatToLearn", "ticket", "costAmount", "costCurrency"],
+            schemas["add_knowledge_event"]);
+        Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "add_knowledge_event")));
         Assert.Equal(["id", "repository"], schemas["list_devbook_references"]);
 
         // find_item requires none of its arguments at the schema level, on
@@ -261,6 +275,7 @@ public class McpToolCreationTests
         Assert.Equal(["repository", "chapterPath"], schemas["list_annotations"]);
         Assert.Equal(["repository", "note"], schemas["resolve_annotation"]);
         Assert.Equal(["title", "body"], schemas["capture_note"]);
+        Assert.Equal(["on"], schemas["list_brain_reviews"]);
         Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "capture_note")));
 
         // devbook.decision@1's arguments and nothing else: who decided and when are
@@ -339,6 +354,10 @@ public class McpToolCreationTests
         Assert.Equal(["id", "outcome", "dispatcher"], schemas["mark_delivery"]);
         Assert.Equal(["state"], schemas["list_deliveries"]);
         Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_deliveries")));
+
+        // A scheduled run's report: its two ids and its event are required, the rest optional (local ADR 0051 §1).
+        Assert.Equal(["scheduleId", "sessionId", "event", "title", "repository", "cron", "verdict", "needsYou", "heldBy"], schemas["report_schedule_run"]);
+        Assert.Equal(["scheduleId", "sessionId", "event"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "report_schedule_run")));
     }
 
     /// <summary>
@@ -421,12 +440,15 @@ public class McpToolCreationTests
                 new FakeAgentSessionSource(AgentSessionCatalog.Empty),
                 new FakeClaudeApiRequestStore()),
             [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments(), new FakeRepositoryDirectory()),
-            [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
+            [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory(), new FakeStandUp()),
             [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore()),
+            [typeof(ScheduleTools)] = new ScheduleTools(new InMemoryScheduleRegister()),
+            [typeof(LoopTools)] = new LoopTools(new InMemoryLoopRegister()),
             [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications()),
             [typeof(InboxTools)] = new InboxTools(InboxToolsTests.FakeInbox.Over()),
             [typeof(WindowTools)] = new WindowTools(FakeSurfaceWindows.Catalog(), new FakeSurfaceWindows()),
             [typeof(AccessTools)] = new AccessTools(new McpCallContext()),
+            [typeof(EventTools)] = new EventTools(new EventToolsTests.FakeEventsPane()),
             [typeof(GrantTools)] = new GrantTools(new McpCallContext())
         };
 

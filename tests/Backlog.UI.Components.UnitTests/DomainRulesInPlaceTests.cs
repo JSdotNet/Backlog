@@ -232,79 +232,6 @@ public sealed class DomainRulesInPlaceTests
         Assert.Equal(2, page.Find("[data-testid='domain-glossary-term'][data-term='Order Line']").QuerySelectorAll("[data-testid='domain-rule-list-rule']").Length);
     }
 
-    private const string FlowPath = ".devbook/domain/ordering/flow.md";
-
-    [Fact]
-    public void A_lifecycle_the_invariants_name_shows_its_rules_under_it_and_a_card_behind_its_count()
-    {
-        using var context = Context();
-        var rules = DomainUnits.Parse("""
-            # Invariants
-
-            ## Order
-
-            ```meta
-            type: invariants
-            related: [.devbook/domain/ordering/domain.md#order]
-            ```
-
-            ### How an order moves
-
-            ```meta
-            type: invariants
-            related: [.devbook/domain/ordering/domain.md#order, .devbook/domain/ordering/flow.md#order-lifecycle]
-            ```
-
-            #### Invariant: A new order starts open
-
-            ```meta
-            type: invariant
-            ```
-
-            An order starts open.
-
-            ### Paying
-
-            ```meta
-            type: invariants
-            related: [.devbook/domain/ordering/flow.md#paid]
-            ```
-
-            #### Invariant: A paid order is not paid again
-
-            ```meta
-            type: invariant
-            ```
-
-            A paid order refuses a second payment.
-            """, InvariantsPath);
-        var flow = DomainUnits.Parse("""
-            # Flow
-
-            ## Order lifecycle
-
-            How an order moves.
-
-            ## Beside the status
-
-            ### Paid
-
-            Whether the order is paid.
-            """, FlowPath);
-        var catalog = DomainRuleCatalog.Of([Page], [rules]);
-
-        var page = context.Render<DomainFlowPage>(parameters => parameters
-            .Add(p => p.File, flow)
-            .Add(p => p.RulesAbout, catalog.About));
-
-        var lifecycle = page.Find("[data-testid='domain-flow-rules']");
-        Assert.Equal(["A new order starts open."], lifecycle.QuerySelectorAll("[data-testid='domain-rule-list-claim']").Select(claim => claim.TextContent.Trim()));
-
-        var card = page.Find("[data-testid='domain-flow-card'][data-card='paid']");
-        card.QuerySelector("[data-testid='domain-flow-card-rules']")!.Click();
-        Assert.Single(page.Find("[data-testid='domain-flow-card'][data-card='paid']").QuerySelectorAll("[data-testid='domain-rule-list-rule']"));
-    }
-
     [Fact]
     public void A_fields_rule_count_opens_the_fields_rules_in_place_marked()
     {
@@ -438,6 +365,63 @@ public sealed class DomainRulesInPlaceTests
         count.Click();
 
         Assert.Equal(2, view.Find("[data-testid='domain-model-rule-list']").QuerySelectorAll("[data-testid='domain-rule-list-rule']").Length);
+    }
+
+    private static DomainServiceInvocation Pricing(params string[] related) =>
+        new("Pricing", $"{DomainPath}#pricing", "Prices an order.", "Called at checkout.")
+        {
+            References = [$"{DomainPath}#pricing", .. related]
+        };
+
+    [Fact]
+    public void A_service_relies_on_the_rules_about_what_it_names_grouped_as_always_true_groups_them()
+    {
+        var order = DomainServiceReliance.Of(Pricing($"{DomainPath}#order"), Catalog);
+
+        // The unit's own group, then another concept's by its heading as
+        // written, each with its count.
+        Assert.Equal(["Order (3)", "Order · Order Line (2)"], order.Select(reliance => reliance.Label));
+        Assert.Equal("Order Line", order[1].Group);
+        Assert.Equal(["A line has a quantity", "Lines change through the order"], order[1].Rules.Select(rule => rule.Title));
+
+        var line = Assert.Single(DomainServiceReliance.Of(Pricing($"{DomainPath}#order-line"), Catalog));
+        Assert.Equal("Order · Order Line (2)", line.Label);
+
+        Assert.Empty(DomainServiceReliance.Of(Pricing(), Catalog));
+        Assert.Empty(DomainServiceReliance.Of(Pricing($"{DomainPath}#order"), null));
+    }
+
+    [Fact]
+    public void How_a_service_runs_says_what_it_relies_on_and_opens_those_rules_in_place()
+    {
+        using var context = Context();
+        DomainAlwaysTrueLink? opened = null;
+        var view = context.Render<DomainServiceInvocations>(p => p
+            .Add(v => v.Services, [Pricing($"{DomainPath}#order-line")])
+            .Add(v => v.RuleCatalog, Catalog)
+            .Add(v => v.OnOpenRule, link => opened = link));
+
+        var relies = view.Find("[data-testid='domain-service-relies']");
+        Assert.Equal("Relies on", relies.QuerySelector("dt")!.TextContent.Trim());
+        var toggle = relies.QuerySelector("[data-testid='domain-service-rules']")!;
+        Assert.Equal("Order · Order Line (2)", toggle.TextContent.Trim());
+        Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
+        Assert.Empty(view.FindAll("[data-testid='domain-service-rule-list']"));
+
+        toggle.Click();
+        var list = view.Find("[data-testid='domain-service-rule-list']");
+        Assert.Equal(list.Id, view.Find("[data-testid='domain-service-rules']").GetAttribute("aria-controls"));
+        Assert.Equal(2, list.QuerySelectorAll("[data-testid='domain-rule-list-rule']").Length);
+
+        view.FindAll("[data-testid='domain-rule-list-toggle']")[0].Click();
+        view.Find("[data-testid='domain-rule-list-open']").Click();
+        Assert.Equal($"{InvariantsPath}#invariant-a-line-has-a-quantity", opened!.Rule);
+
+        // A service that names nothing with rules has no Relies on row.
+        var none = context.Render<DomainServiceInvocations>(p => p
+            .Add(v => v.Services, [Pricing()])
+            .Add(v => v.RuleCatalog, Catalog));
+        Assert.Empty(none.FindAll("[data-testid='domain-service-relies']"));
     }
 
     [Fact]

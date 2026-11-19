@@ -5,6 +5,7 @@ using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
 
@@ -66,31 +67,32 @@ public static class RoadmapCrossContextAdapterRegistration
         // taking the backlog in the constructor deadlocks the scope, as for the
         // finished work below. The session source is optional: it dates work its entry
         // left undated, and a host without one draws the entries' own dates, as before.
+        //
+        // The Brain's notes are read through Roadmap's own port (local ADR 0053): none
+        // in a host without a Brain, the Brain's database where its adapters replace
+        // this empty answer. A singleton either way — it holds no scoped service.
+        services.TryAddSingleton<IRoadmapBrainNotes, NoRoadmapBrainNotes>();
         services.AddScoped<IRoadmapItemRollup>(sp =>
             new RoadmapItemRollupService(
                 () => sp.GetRequiredService<ITaskItems>(),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
                 sp.GetService<IAgentSessionSource>(),
-                sp.GetService<TimeProvider>()));
+                sp.GetService<TimeProvider>(),
+                sp.GetService<IRoadmapBrainNotes>()));
+
+        // A finished plan's project note and its move to the archive (local ADR 0052 §5),
+        // scoped as the rollup it reads is. The Brain's areas are its adapter's answer:
+        // a host that composed no Brain has none, so nothing is ever finished there.
+        services.AddScoped<IRoadmapProjectNoteArchive>(sp =>
+            new RoadmapProjectNoteArchive(
+                sp.GetRequiredService<IRoadmapPlanning>(),
+                sp.GetRequiredService<IRoadmapItemRollup>(),
+                sp.GetService<IRoadmapProjectNotes>(),
+                sp.GetService<ShellNavigationStore>()));
 
         // The shelf of plans not yet on the roadmap reads the backlog the same way,
         // so it is scoped for the same reason: ITaskItems is.
         services.AddScoped<IImportedPlanSource, ImportedPlanSource>();
-
-        // The Tasks Calendar's plans, read and started through Roadmap's own ports —
-        // scoped, because every one of them is. The view choice is kept in the shell's
-        // per-device file when the host composed one; the work and pace signals are what
-        // the band redraws on, so the Calendar hears them too.
-        services.AddScoped<ICalendarPlans>(sp =>
-            new RoadmapCalendarPlans(
-                sp.GetRequiredService<IRoadmapPlanning>(),
-                sp.GetRequiredService<IRoadmapItemRollup>(),
-                sp.GetRequiredService<IPlanningVelocity>(),
-                sp.GetRequiredService<IImportedPlanSource>(),
-                sp.GetService<IAppFeatureSettings>(),
-                sp.GetService<ShellNavigationStore>(),
-                sp.GetService<IRoadmapWorkChanges>(),
-                sp.GetService<IPlanningPace>()));
 
         // The finished work a measured pace is counted from, read from the backlog —
         // scoped because ITaskItems is, and resolving it per call because the backlog's
@@ -110,12 +112,6 @@ public static class RoadmapCrossContextAdapterRegistration
         // reads through to the store on every call, so a pace changed on the roadmap
         // is live without a restart.
         services.AddSingleton<IPlanningVelocitySettings, PlanningVelocitySource>();
-
-        // The hours a Calendar day is set against: the roadmap's working week and days
-        // off, read through the settings port above and never written. A singleton over
-        // that singleton. Planned hours go nowhere the other way.
-        services.AddSingleton<ICalendarCapacity>(sp =>
-            new RoadmapCalendarCapacity(sp.GetRequiredService<IPlanningVelocitySettings>()));
 
         // The same file is the pace document that travels between devices (local ADR
         // 0018): Roadmap's replication port reads and writes it through its store

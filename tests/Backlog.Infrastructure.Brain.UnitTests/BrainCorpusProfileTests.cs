@@ -72,6 +72,35 @@ public class BrainCorpusProfileTests : IDisposable
     }
 
     [Fact]
+    public void A_files_review_is_kept_as_written_after_the_other_fields()
+    {
+        var dated = new FakeNode { ["review"] = "2026-11-20", Lists = { ["tasks"] = ["t-1"] } };
+        var unreadable = new FakeNode { ["review"] = "next week" };
+
+        BrainCorpusProfile.Instance.ApplyNodeFields(dated, "areas");
+        BrainCorpusProfile.Instance.ApplyNodeFields(unreadable, "areas");
+
+        Assert.Equal(["para", "tasks", "review"], dated.Added.Keys);
+        Assert.Equal(["2026-11-20"], dated.Added["review"]);
+
+        // Kept, not refused: the reader reports it as a warning.
+        Assert.Equal(["next week"], unreadable.Added["review"]);
+    }
+
+    [Fact]
+    public void A_headings_review_or_an_empty_one_is_not_kept()
+    {
+        var heading = new FakeNode { IsFile = false, ["review"] = "2026-11-20" };
+        var empty = new FakeNode { ["review"] = "" };
+
+        BrainCorpusProfile.Instance.ApplyNodeFields(heading, folder: null);
+        BrainCorpusProfile.Instance.ApplyNodeFields(empty, "areas");
+
+        Assert.False(heading.Added.ContainsKey("review"));
+        Assert.False(empty.Added.ContainsKey("review"));
+    }
+
+    [Fact]
     public void The_folders_are_the_declared_ones_first_then_the_discovered_ones()
     {
         Write("CONVENTIONS.md", "# Conventions\n\n## Areas\n\n| Area | Folder |\n|---|---|\n| Work | work |\n| Design | design |\n");
@@ -138,6 +167,8 @@ public class BrainCorpusProfileTests : IDisposable
     private sealed class FakeNode : IDevbookNodeFields
     {
         private readonly Dictionary<string, string> _scalars = new(StringComparer.Ordinal);
+
+        public bool IsFile { get; init; } = true;
 
         public Dictionary<string, IReadOnlyList<string>> Lists { get; } = new(StringComparer.Ordinal);
 

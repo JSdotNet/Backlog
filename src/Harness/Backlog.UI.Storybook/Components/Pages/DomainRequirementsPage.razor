@@ -7,13 +7,20 @@
            Guidelines="@Rules">
 
     <Story Name="Features beside the page"
-           Description="An unsplit `requirements.md` with two features. The summary row holds both cards: the Requirement card and What is always true, counting the Order's rules the features lean on. The list names each with how many of its requirements are tested, and a bar; Checkout is open, and its heading shows the New checkout flag chip after the feature link — follow it to its chapter. Its intro no longer says where the invariants are — What is always true lists the Order's rules under its heading, three before the rest. Press a rule to read where it is enforced and follow it to its row on Always true."
+           Description="An unsplit `requirements.md` with two features. The summary row holds both cards: the Requirement card and What is always true, counting the Order's rules the features lean on — a dashed card, which opens the Domain page on the Order's Always true tab. The list names each with how many of its requirements are tested, and a bar; Checkout is open, and its heading shows the New checkout flag chip after the feature link — follow it to its chapter. Its intro no longer says where the invariants are — What is always true lists the Order's rules under its heading, three before the rest. Press a rule to read where it is enforced and follow it to its row on Always true."
            Code="@ListCode"
            Source="@Unsplit">
         <DomainRequirementsView Groups="@DomainRequirements.Groups(UnsplitFile, Files)" @bind-ActiveGroup="_active" OnOpenAlwaysTrue="Open" OnNavigate="@(reference => _followed = reference.Raw)" TestId="story-domain-requirements-list" />
         @if (_opened is { } opened)
         {
-            <p>Opened <code>@opened.Reference</code> on Always true, at <code>@opened.Rule</code>.</p>
+            @if (opened.Rule is { } rule)
+            {
+                <p>Opened <code>@opened.Reference</code> on Always true, at <code>@rule</code>.</p>
+            }
+            else
+            {
+                <p>Opened <code>@opened.Reference</code> on Always true, at its top.</p>
+            }
         }
         @if (_followed is { } followed)
         {

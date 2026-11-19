@@ -350,6 +350,15 @@ public sealed record AgentSession(
     /// terms as <see cref="Archived"/>.
     /// </summary>
     public string? DesktopSessionId { get; init; }
+
+    /// <summary>
+    /// The sidebar name of the session that started this one — the desktop record its
+    /// <c>spawnedFrom</c> names — or null where none started it or the store holds no
+    /// record of that one. What an <c>execute-plan</c> entry titled <c>n - X</c> takes its
+    /// plan tag from (<see cref="SessionTitles.Of"/>); local-only on the same terms as
+    /// <see cref="Archived"/>.
+    /// </summary>
+    public string? ParentDesktopTitle { get; init; }
 }
 
 /// <summary>
@@ -1008,6 +1017,42 @@ public static class AgentSessionGroups
                 Scheduled,
                 [.. sections.SelectMany(section => section.Rows).Where(IsScheduled).OrderByDescending(row => row.LastActivityAt)],
                 ScheduledKey)
+        ];
+    }
+
+    /// <summary>The heading over the loop sessions; see <see cref="AgentsFirst"/>.</summary>
+    public const string Agents = "Agents";
+
+    /// <summary>The key of the section <see cref="AgentsFirst"/> opens the list with.</summary>
+    public const string AgentsKey = "agents";
+
+    /// <summary>
+    /// The same sections, with every loop session — a row whose title reads
+    /// <see cref="SessionPurpose.Agent"/> — taken out of the section it was in and put in
+    /// one leading <see cref="Agents"/> section, in the order the sections held them
+    /// (local ADR 0051 §6: an Agents section always leads the Sessions list).
+    /// <para>
+    /// A step after the grouping and after <see cref="ScheduledApart"/>, for the reason
+    /// that one is: it applies under every grouping. It moves rows and never drops one; a
+    /// section the move left empty is dropped, and a section it took nothing from is the
+    /// same instance, so a surface that tells the Scheduled section by reference still
+    /// can. With no loop session the sections come back as they were.
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<AgentSessionGroup> AgentsFirst(IReadOnlyList<AgentSessionGroup> sections)
+    {
+        ArgumentNullException.ThrowIfNull(sections);
+
+        static bool IsAgent(SessionRow row) => SessionTitles.Of(row).Purpose is SessionPurpose.Agent;
+
+        if (!sections.Any(section => section.Rows.Any(IsAgent))) return sections;
+
+        return
+        [
+            new AgentSessionGroup(Agents, [.. sections.SelectMany(section => section.Rows).Where(IsAgent)], AgentsKey),
+            .. sections
+                .Select(section => section.Rows.Any(IsAgent) ? section with { Rows = [.. section.Rows.Where(row => !IsAgent(row))] } : section)
+                .Where(section => section.Rows.Count > 0)
         ];
     }
 

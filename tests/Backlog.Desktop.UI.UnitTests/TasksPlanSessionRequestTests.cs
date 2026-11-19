@@ -110,7 +110,7 @@ public sealed class TasksPlanSessionRequestTests
         var (host, queue) = await HostAsync();
         using var _host = host;
         queue.IsOffered = false;
-        queue.Open["alpha"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog);
+        queue.Open["alpha"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
 
         var pane = host.Render();
 
@@ -194,7 +194,7 @@ public sealed class TasksPlanSessionRequestTests
     {
         var (host, queue) = await HostAsync();
         using var _host = host;
-        queue.Open["alpha"] = new EntrySessionRequest(Guid.NewGuid(), state, Backlog);
+        queue.Open["alpha"] = new EntrySessionRequest(Guid.NewGuid(), state, Backlog, DateTimeOffset.UnixEpoch);
 
         var pane = host.Render();
 
@@ -214,7 +214,7 @@ public sealed class TasksPlanSessionRequestTests
         var (host, queue) = await HostAsync();
         using var _host = host;
         var id = Guid.NewGuid();
-        queue.Open["alpha"] = new EntrySessionRequest(id, EntrySessionRequestState.Requested, Backlog);
+        queue.Open["alpha"] = new EntrySessionRequest(id, EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
 
         var pane = host.Render();
         pane.WaitForElement("[data-testid='tag-filter-plan-session-cancel']").Click();
@@ -346,6 +346,222 @@ public sealed class TasksPlanSessionRequestTests
         Assert.Equal(["backlog", "tools"], requests.RepositoriesOf("+alpha")!.Repositories);
     }
 
+    // --- The waiting mark on every plan chip, and the plans in the queue ------
+
+    /// <summary>The chip's element id, as the pane writes it: hex of the lower-cased value.</summary>
+    private static string ChipSelector(string tag) =>
+        "#tag-filter-option-" + Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(tag.ToLowerInvariant()));
+
+    [Theory]
+    [InlineData(EntrySessionRequestState.Requested)]
+    [InlineData(EntrySessionRequestState.Claimed)]
+    [InlineData(EntrySessionRequestState.Started)]
+    public async Task An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so(EntrySessionRequestState state)
+    {
+        var (host, queue) = await HostAsync(pressPlan: false);
+        using var _host = host;
+        queue.Open["alpha"] = new EntrySessionRequest(Guid.NewGuid(), state, Backlog, DateTimeOffset.UnixEpoch);
+
+        var pane = host.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            var chip = pane.Find(ChipSelector("+alpha"));
+            Assert.Equal("false", chip.GetAttribute("aria-pressed"));
+            Assert.NotNull(chip.QuerySelector("[data-testid='tag-filter-plan-waiting']"));
+            Assert.Contains("Waiting for a session in " + Backlog, chip.GetAttribute("title"), StringComparison.Ordinal);
+            Assert.Contains("Waiting for a session in " + Backlog, chip.QuerySelector(".sr-only")!.TextContent, StringComparison.Ordinal);
+        });
+
+        // The other plan has nothing open and no mark.
+        var other = pane.Find(ChipSelector("+zeta"));
+        Assert.Null(other.QuerySelector("[data-testid='tag-filter-plan-waiting']"));
+        Assert.DoesNotContain("Waiting for a session", other.GetAttribute("title"), StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='tag-filter-plan-session-request']"));
+    }
+
+    [Fact]
+    public async Task The_pressed_plan_keeps_its_waiting_chip_and_wears_no_mark_while_another_waiting_plan_does()
+    {
+        var (host, queue) = await HostAsync();
+        using var _host = host;
+        queue.Open["alpha"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
+        queue.Open["zeta"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
+
+        var pane = host.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotNull(pane.Find("[data-testid='tag-filter-plan-pair'] [data-testid='tag-filter-plan-session-chip']"));
+            Assert.Null(pane.Find(ChipSelector("+alpha")).QuerySelector("[data-testid='tag-filter-plan-waiting']"));
+            Assert.NotNull(pane.Find(ChipSelector("+zeta")).QuerySelector("[data-testid='tag-filter-plan-waiting']"));
+        });
+    }
+
+    [Fact]
+    public async Task With_the_switch_off_no_chip_carries_the_mark_and_the_bar_has_no_queue()
+    {
+        var (host, queue) = await HostAsync(pressPlan: false);
+        using var _host = host;
+        queue.IsOffered = false;
+        queue.Open["alpha"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
+
+        var pane = host.Render();
+        pane.WaitForElement(ChipSelector("+alpha"));
+
+        Assert.Empty(pane.FindAll("[data-testid='tag-filter-plan-waiting']"));
+        Assert.Empty(pane.FindAll("[data-testid='session-queue']"));
+    }
+
+    [Fact]
+    public async Task Following_a_plan_row_presses_the_plan_s_chip_and_closes_the_panel()
+    {
+        var (host, queue) = await HostAsync(pressPlan: false);
+        using var _host = host;
+        queue.Open["alpha"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Claimed, Backlog, DateTimeOffset.UnixEpoch);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal(
+            "Session queue, 1 waiting",
+            pane.Find("[data-testid='session-queue-button']").GetAttribute("aria-label")));
+        pane.Find("[data-testid='session-queue-button']").Click();
+
+        var jump = pane.WaitForElement("[data-testid='session-queue-jump']");
+        Assert.Equal("+alpha", jump.TextContent.Trim());
+        Assert.Contains($"{Backlog} · Claimed", pane.Find("[data-testid='session-queue-meta']").TextContent, StringComparison.Ordinal);
+        jump.Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("+alpha", host.State.SelectedPlan);
+            Assert.Empty(pane.FindAll("[data-testid='session-queue-panel']"));
+            Assert.NotNull(pane.Find("[data-testid='tag-filter-plan-pair'] [data-testid='tag-filter-plan-session-chip']"));
+        });
+    }
+
+    [Fact]
+    public async Task Following_the_plan_already_pressed_leaves_it_pressed()
+    {
+        var (host, queue) = await HostAsync();
+        using var _host = host;
+        queue.Open["alpha"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Started, Backlog, DateTimeOffset.UnixEpoch);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='tag-filter-plan-session-chip']")));
+        pane.Find("[data-testid='session-queue-button']").Click();
+        pane.WaitForElement("[data-testid='session-queue-jump']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='session-queue-panel']"));
+            Assert.Equal("+alpha", host.State.SelectedPlan);
+        });
+    }
+
+    [Fact]
+    public async Task Cancel_in_the_panel_withdraws_the_plan_s_request()
+    {
+        var (host, queue) = await HostAsync(pressPlan: false);
+        using var _host = host;
+        var id = Guid.NewGuid();
+        queue.Open["alpha"] = new EntrySessionRequest(id, EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal(
+            "Session queue, 1 waiting",
+            pane.Find("[data-testid='session-queue-button']").GetAttribute("aria-label")));
+        pane.Find("[data-testid='session-queue-button']").Click();
+        pane.WaitForElement("[data-testid='session-queue-cancel']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(id, Assert.Single(queue.Cancelled));
+            Assert.Empty(pane.FindAll("[data-testid='session-queue-row']"));
+            Assert.Empty(pane.FindAll("[data-testid='tag-filter-plan-waiting']"));
+        });
+    }
+
+    [Fact]
+    public async Task Cancel_in_the_panel_clears_a_Started_plan_request_whose_session_never_linked()
+    {
+        var (host, queue) = await HostAsync(pressPlan: false);
+        using var _host = host;
+        var id = Guid.NewGuid();
+        queue.Open["alpha"] = new EntrySessionRequest(id, EntrySessionRequestState.Started, Backlog, DateTimeOffset.UnixEpoch);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal(
+            "Session queue, 1 waiting",
+            pane.Find("[data-testid='session-queue-button']").GetAttribute("aria-label")));
+        pane.Find("[data-testid='session-queue-button']").Click();
+        pane.WaitForElement("[data-testid='session-queue-cancel']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(id, Assert.Single(queue.Cancelled));
+            Assert.Empty(pane.FindAll("[data-testid='session-queue-row']"));
+        });
+    }
+
+    [Fact]
+    public async Task Entry_and_plan_requests_share_one_queue_oldest_first()
+    {
+        var (host, plans) = await HostAsync(pressPlan: false);
+        using var _host = host;
+        var entries = new TasksSessionRequestTests.FakeEntrySessionRequests();
+        host.Context.Services.AddSingleton<IEntrySessionRequests>(entries);
+        var row = host.State.Rows.First(candidate => candidate.RawText.StartsWith("# Tidy it", StringComparison.Ordinal));
+        entries.Open[row.Id!.Value] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch.AddMinutes(1));
+        plans.Open["alpha"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal(
+            "Session queue, 2 waiting",
+            pane.Find("[data-testid='session-queue-button']").GetAttribute("aria-label")));
+        pane.Find("[data-testid='session-queue-button']").Click();
+
+        var names = pane.FindAll("[data-testid='session-queue-jump']").Select(jump => jump.TextContent.Trim()).ToList();
+        Assert.Equal(["+alpha", row.PreviewTitle], names);
+    }
+
+    [Fact]
+    public async Task Entry_and_plan_requests_interleave_by_queue_position_and_a_plan_moves_above_an_entry()
+    {
+        var (host, plans) = await HostAsync(pressPlan: false);
+        using var _host = host;
+        var entries = new TasksSessionRequestTests.FakeEntrySessionRequests();
+        entries.Order.Plans = plans;
+        host.Context.Services.AddSingleton<IEntrySessionRequests>(entries);
+        host.Context.Services.AddSingleton<ISessionQueueOrder>(entries.Order);
+        host.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        var row = host.State.Rows.First(candidate => candidate.RawText.StartsWith("# Tidy it", StringComparison.Ordinal));
+        var planId = Guid.NewGuid();
+
+        // The plan was asked for first, but the entry stands ahead of it in the queue.
+        entries.Open[row.Id!.Value] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch.AddMinutes(1), 0);
+        plans.Open["alpha"] = new EntrySessionRequest(planId, EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch, 1);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal(
+            "Session queue, 2 waiting",
+            pane.Find("[data-testid='session-queue-button']").GetAttribute("aria-label")));
+        pane.Find("[data-testid='session-queue-button']").Click();
+
+        Assert.Equal([row.PreviewTitle, "+alpha"], Names(pane));
+
+        pane.FindAll("[data-testid='session-queue-row']")[1].QuerySelector("[data-testid='session-queue-move-top']")!.Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal((planId, 0), Assert.Single(entries.Order.Moved));
+            Assert.Equal(["+alpha", row.PreviewTitle], Names(pane));
+            Assert.Equal("Moved to position 1 of 2.", pane.Find("[data-testid='session-queue-announcement']").TextContent);
+        });
+    }
+
+    private static List<string?> Names(IRenderedComponent<TasksPane> pane) =>
+        [.. pane.FindAll("[data-testid='session-queue-jump']").Select(jump => jump.TextContent.Trim())];
+
     // --- The offer on its own -------------------------------------------------
 
     [Fact]
@@ -361,7 +577,7 @@ public sealed class TasksPlanSessionRequestTests
 
     /// <summary>The port, in memory: where each plan is filed, what was asked and
     /// cancelled, and what is open, which a test sets as a dispatcher would.</summary>
-    private sealed class FakePlanTagSessionRequests : IPlanTagSessionRequests
+    internal sealed class FakePlanTagSessionRequests : IPlanTagSessionRequests
     {
         public event Action? PlanChanged;
 
@@ -414,7 +630,7 @@ public sealed class TasksPlanSessionRequestTests
             Asked.Add((planTag, repository, cloneFolder));
             if (Gate is { } gate) await gate.Task;
 
-            var request = Open.TryGetValue(planTag, out var open) ? open : new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, repository);
+            var request = Open.TryGetValue(planTag, out var open) ? open : new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, repository, DateTimeOffset.UnixEpoch);
             Open[planTag] = request;
             return request;
         }
@@ -422,7 +638,7 @@ public sealed class TasksPlanSessionRequestTests
         public Task<bool> CancelAsync(Guid requestId, CancellationToken cancellationToken = default)
         {
             var held = Open.FirstOrDefault(pair => pair.Value.Id == requestId);
-            if (held.Value is not { State: EntrySessionRequestState.Requested }) return Task.FromResult(false);
+            if (held.Value is not { State: EntrySessionRequestState.Requested or EntrySessionRequestState.Started }) return Task.FromResult(false);
 
             Cancelled.Add(requestId);
             Open.Remove(held.Key);

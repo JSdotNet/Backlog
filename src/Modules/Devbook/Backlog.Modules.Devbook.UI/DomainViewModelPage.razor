@@ -25,6 +25,7 @@
                      Rules="@_rules"
                      RuleCatalog="@_catalog"
                      OnOpenAlwaysTrue="OnOpenAlwaysTrue"
+                     OnOpenMove="OnOpenMove"
                      Profiles="@_profiles"
                      Title="@_title"
                      Context="@_context"
@@ -60,6 +61,11 @@ else if (_problem is not null)
     /// unit's Always true tab.</summary>
     [Parameter]
     public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
+
+    /// <summary>A move an event fires on, followed from Events to the lifecycle
+    /// on the Domain page that draws it.</summary>
+    [Parameter]
+    public EventCallback<DomainEventMove> OnOpenMove { get; set; }
 
     private DomainDevbookStore? _store;
     private IReadOnlyList<DomainModelFence>? _fences;
@@ -197,16 +203,11 @@ else if (_problem is not null)
         var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies) is { } table
             ? TryReadText(view, table.Path)
             : null;
-        // The moves an event fires on: the lifecycles the domain files draw, and a
-        // legacy flow file's beside them.
-        var flows = context.Documents
-            .Where(d => d.Kind == DomainDevbookDocumentKind.Flow)
-            .Select(d => TryReadText(view, d.Path) is { } text ? DomainUnits.Parse(text, d.Path) : null)
-            .OfType<DomainChapterFile>();
+        // The moves an event fires on: the lifecycles the domain files draw.
         var chapters = DomainChapterContracts.Read(sources) with
         {
             Listens = DomainEventIndex.Listens(dependencies, context.DisplayName, context.Slug),
-            Moves = DomainEventIndex.Moves(own.Concat(flows))
+            Moves = DomainEventIndex.Moves(own)
         };
         var references = DomainUnits.ModelReferences(own);
 

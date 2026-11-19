@@ -165,6 +165,12 @@ public sealed class InboxItem
 
     public RoutingTarget? Routing { get; private set; }
 
+    /// <summary>What an event page capture found — dates, place, the watched page —
+    /// or null for an item from any other source. Provenance, like
+    /// <see cref="SourceUrl"/>: set when the item is made and never edited
+    /// (<c>.devbook/domain/inbox/domain.md#event-facts</c>).</summary>
+    public InboxEventFacts? EventFacts { get; private set; }
+
     /// <summary>True when <see cref="Id"/> is a replica capture id — the item
     /// arrived through sync, and the replica will want to hear what became of it.</summary>
     public bool ReplicaBacked { get; }
@@ -626,6 +632,27 @@ public sealed class InboxItem
     }
 
     /// <summary>
+    /// Records that the item became a Spotted knowledge event — To Event
+    /// (<c>.devbook/domain/inbox/features.md#route-to-event</c>). The same terminal
+    /// step <see cref="RouteToBrain"/> is, exactly once and only from an item not
+    /// archived, with <see cref="RoutingDomain.Events"/> as its domain, the event's
+    /// id, and no repository or task.
+    /// </summary>
+    public void RouteToEvent(Guid eventId, DateTimeOffset now)
+    {
+        if (eventId == Guid.Empty) throw new ArgumentException("An event id is required.", nameof(eventId));
+        if (IsRouted) throw new InvalidInboxTransitionException(Status, "routed again");
+        if (Status is InboxStatus.Archived) throw new InvalidInboxTransitionException(Status, "routed");
+
+        Routing = new RoutingTarget(RoutingDomain.Events, [], [], now, eventId);
+        Status = InboxStatus.Triaged;
+        DeferredUntil = null;
+
+        if (ReplicaBacked && !IsNote) ReplicaAckPending = true;
+        Touch(now);
+    }
+
+    /// <summary>
     /// Records that the item is already a task the backlog has — "Link to
     /// task…" — rather than making it one. The same routing a route records,
     /// naming that one task, so the item leaves the queue as decided and says
@@ -754,6 +781,45 @@ public sealed class InboxItem
     }
 
     /// <summary>
+    /// Writes a meeting recording's transcript onto the note and takes the recording off it,
+    /// in one change (local ADR 0049 §5, §6): <paramref name="sectionsMd"/> is appended to
+    /// the end of the body unless the body already holds it, and the file is removed from
+    /// the note's files when it is still there. Never replaces the body. Answers whether
+    /// anything changed; a change is stamped after the copy it replaces and pushed, so the
+    /// replica releases the file's blob and the phone drops it.
+    /// <para>
+    /// The same call repairs a phone edit that dropped the sections or named the file again:
+    /// whatever is already as it should be is left alone, so a second call changes nothing.
+    /// </para>
+    /// </summary>
+    public bool AppendTranscript(Guid attachmentId, string sectionsMd, DateTimeOffset now)
+    {
+        if (!IsNote) throw new InvalidInboxTransitionException(Status, "given a transcript");
+        ArgumentException.ThrowIfNullOrWhiteSpace(sectionsMd);
+        if (Status is InboxStatus.Archived) return false;
+
+        var sections = sectionsMd.Trim();
+        var changed = false;
+
+        // Compared with line endings set aside: a phone that saved the body with CRLF still
+        // holds the sections, and appending them again would write them twice.
+        if (!BodyMd.ReplaceLineEndings("\n").Contains(sections.ReplaceLineEndings("\n"), StringComparison.Ordinal))
+        {
+            BodyMd = BodyMd.Length == 0 ? sections : BodyMd.TrimEnd() + "\n\n" + sections;
+            changed = true;
+        }
+
+        if (_attachments.RemoveAll(attachment => attachment.Id == attachmentId) > 0) changed = true;
+
+        if (!changed) return false;
+
+        EditedAt = NextEdit(now);
+        NotePushPending = true;
+        Touch(now);
+        return true;
+    }
+
+    /// <summary>
     /// Takes the phone's copy of a note, pulled from the replica, when it is the
     /// later one: its stamp after <see cref="EditedAt"/>. Answers whether it
     /// changed anything. The stamp is the note's, not this machine's clock, so
@@ -848,6 +914,12 @@ public sealed class InboxItem
     public bool Deleted { get; private set; }
 
     // --- Rehydration --------------------------------------------------------
+
+    /// <summary>Keeps what an event page capture found, on intake or on load. Empty
+    /// facts are kept as none. Not an edit: the facts are what the capture was,
+    /// so nothing is stamped.</summary>
+    public void LoadEventFacts(InboxEventFacts? facts) =>
+        EventFacts = facts is null || facts.IsEmpty ? null : facts;
 
     /// <summary>
     /// Restores the tags a persisted item was written with, as they are. No

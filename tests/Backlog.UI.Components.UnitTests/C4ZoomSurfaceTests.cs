@@ -191,8 +191,8 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         Assert.Contains("c4-zoom-explorer__surface--code", surface.ClassList);
     }
 
-    /// <summary>The explorer asks for edge ends, so its viewer can light the selected
-    /// card's relationships; the classic C4 tab never does (C4SvgWriterTests).</summary>
+    /// <summary>The picture names the ends of every line, so the viewer can light the
+    /// selected card's relationships (C4SvgWriterTests).</summary>
     [Fact]
     public async Task The_picture_names_the_ends_of_its_lines_so_the_selected_cards_can_be_lit()
     {

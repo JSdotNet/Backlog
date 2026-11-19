@@ -114,4 +114,28 @@ public interface IInboxBacklogTarget
     /// backlog no longer has is skipped, since it is already what the undo asks.
     /// </summary>
     Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// <see cref="DeleteRoutedTasksAsync(IReadOnlyList{Guid}, CancellationToken)"/>
+    /// for a route that may have made its entries Done. With
+    /// <paramref name="madeDone"/> — undoing Done now, whose one entry was born
+    /// Done and ticked — Done is what the route made and is deleted too; archived
+    /// still refuses. A target that never makes a Done entry answers the plain
+    /// delete.
+    /// </summary>
+    Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, bool madeDone, CancellationToken cancellationToken = default) =>
+        DeleteRoutedTasksAsync(taskIds, cancellationToken);
+
+    /// <summary>
+    /// Undoing Create plan with a project note: as
+    /// <see cref="DeleteRoutedTasksAsync(IReadOnlyList{Guid}, CancellationToken)"/>,
+    /// and the Roadmap Item the plan's <c>plan</c> entry laid out goes too — all or
+    /// none. Refused with <see cref="InboxErrors.UndoPlanEdited"/> once a person has
+    /// changed that item, and with <see cref="InboxErrors.UndoTaskStarted"/> once a
+    /// task has started; either leaves the tasks and the item in place. No item
+    /// under the tag is already what the undo asks. A target with no roadmap
+    /// answers the plain delete.
+    /// </summary>
+    Task<Result> DeleteRoutedPlanAsync(IReadOnlyList<Guid> taskIds, InboxLaidOutPlanDto plan, CancellationToken cancellationToken = default) =>
+        DeleteRoutedTasksAsync(taskIds, cancellationToken);
 }

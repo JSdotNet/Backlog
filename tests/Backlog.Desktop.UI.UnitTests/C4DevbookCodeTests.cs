@@ -143,8 +143,6 @@ public sealed class C4DevbookCodeTests : IDisposable
         _roots.Add(scratch);
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(scratch, "features", "features.json"));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Zoom, true));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(scratch, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -159,7 +157,7 @@ public sealed class C4DevbookCodeTests : IDisposable
     private async Task<C4Catalog> LoadAsync(string clone)
     {
         var (features, _, folders, _, alias) = Sources(clone);
-        using var store = new C4DevbookStore(features, folders);
+        using var store = new C4DevbookStore(folders);
         return await store.LoadAsync(alias);
     }
 
@@ -293,7 +291,7 @@ public sealed class C4DevbookCodeTests : IDisposable
     {
         var (features, _, folders, _, repositoryAlias) = Sources(clone);
         alias = repositoryAlias;
-        var store = new C4DevbookStore(features, folders);
+        var store = new C4DevbookStore(folders);
         _stores.Add(store);
         return store;
     }

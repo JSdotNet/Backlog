@@ -3,7 +3,7 @@
 ```meta
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/07-deployment-view.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/domain/tasks/domain.md#task"]
 c4: [backlog.taskStore, backlog.desktop.persistence]
-c4-touches: [backlog.desktop.backlogModule]
+c4-touches: [backlog.desktop.tasks]
 ```
 
 ## Status

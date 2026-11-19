@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Reflection;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
@@ -45,6 +46,7 @@ public class BacklogMcpToolsTests
                 "list_annotations",
                 "resolve_annotation",
                 "capture_note",
+                "list_brain_reviews",
 
                 // devbook.decision@1's operations bar approve and accept, which
                 // are the person's in the app (local ADR 0058 §7) — two on state,
@@ -77,14 +79,19 @@ public class BacklogMcpToolsTests
                 // The measured usage of every run, beside the surface rather than on it.
                 "list_run_usage",
 
+                // A scheduled run's report (local ADR 0051).
+                "report_schedule_run",
+
                 // Progress's impediments: raise, move, link and unlink what they hold back (local ADR 0035).
                 "raise_impediment",
                 "set_impediment_state",
                 "link_to_impediment",
                 "unlink_from_impediment",
 
-                // Progress's goals: read, set, edit, attach, detach, delete (local ADR 0035).
+                // Progress's goals: read them and their iterations, set, edit, attach, detach,
+                // delete (local ADR 0035).
                 "list_goals",
+                "read_iterations",
                 "create_goal",
                 "update_goal",
                 "attach_to_goal",
@@ -101,16 +108,23 @@ public class BacklogMcpToolsTests
                 "mark_delivery",
                 "list_deliveries",
 
+                // The loop sessions' two-way check-in (local ADR 0051 §3).
+                "check_in",
+
                 // Notifications' four (local ADR 0039).
                 "notify",
                 "ask",
                 "get_answer",
                 "close",
 
-                // The Inbox's captures: list, read, archive once filed.
+                // The Inbox's captures: list, read, archive once filed, and capture an action (local ADR 0054).
                 "list_inbox_items",
                 "read_inbox_item",
                 "archive_inbox_item",
+                "capture_to_inbox",
+
+                // Events: add a knowledge event as the pane's Add does (local ADR 0050).
+                "add_knowledge_event",
 
                 // The surface windows (local ADR 0043 §7).
                 "open_window",
@@ -145,12 +159,16 @@ public class BacklogMcpToolsTests
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Usage.FeatureKey);
+        Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Schedules.FeatureKey);
+        Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Loops.FeatureKey);
         // Progress has no switch: its impediment and goal tools ride the always-on Tasks key.
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Impediments.FeatureKey);
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Goals.FeatureKey);
         // The dispatcher tools have the queue's own key, off by default (local ADR 0038 §5).
         Assert.Equal(SessionFeatures.SessionRequests, BacklogMcpTools.SessionRequests.FeatureKey);
         Assert.Equal(NotificationsFeatures.Notifications, BacklogMcpTools.Notifications.FeatureKey);
+        // Events is withdrawn whole by its own key (local ADR 0050 §6).
+        Assert.Equal(EventsFeatures.Events, BacklogMcpTools.Events.FeatureKey);
         // open_window has no flag (local ADR 0043 §7): a surface's own flag hides it in the catalog.
         Assert.Null(BacklogMcpTools.Windows.FeatureKey);
     }
@@ -175,7 +193,8 @@ public class BacklogMcpToolsTests
     /// sessions off means "Backlog is not where I watch my agents work", which
     /// does not stop at the reads. The usage tool is the third group on it: it reads
     /// the same runs and sessions, apart from the surface so the flow driving a run
-    /// is never handed its measured figures.
+    /// is never handed its measured figures. <c>check_in</c> is the fourth: local ADR 0051
+    /// §6 puts the loop sessions behind the sessions key, with no key of their own.
     /// </para>
     /// <para>
     /// The devbook key is the third, on the same argument: reading a chapter,
@@ -188,9 +207,10 @@ public class BacklogMcpToolsTests
     /// No key crosses a bounded context but one: the Tasks key also gates Progress's
     /// impediment and goal tools, because Progress has no switch of its own — goals are
     /// always on (local ADR 0035 §10) — and the Tasks key cannot be turned off either. The
-    /// keys the groups name are seven: the session request queue's dispatcher tools
-    /// have <c>session-requests</c> to themselves, and the notification tools
-    /// <c>notifications</c>, and the Inbox tools the Inbox pane's <c>inbox-pane</c>.
+    /// keys the groups name are eight: the session request queue's dispatcher tools
+    /// have <c>session-requests</c> to themselves, the notification tools
+    /// <c>notifications</c>, the Inbox tools the Inbox pane's <c>inbox-pane</c>, and the
+    /// Events tool <c>events</c>.
     /// </para>
     /// </summary>
     [Fact]
@@ -205,7 +225,7 @@ public class BacklogMcpToolsTests
             .GroupBy(group => group.FeatureKey!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
 
-        Assert.Equal(7, byKey.Count);
+        Assert.Equal(8, byKey.Count);
 
         // The impediment and goal tools are Progress's, which has no switch of its own:
         // goals are always on, so they ride the Tasks key, which cannot be turned off either.
@@ -214,7 +234,7 @@ public class BacklogMcpToolsTests
             byKey[TasksFeatures.Tasks]);
 
         Assert.Equal(
-            [BacklogMcpTools.Sessions, BacklogMcpTools.Surface, BacklogMcpTools.Usage],
+            [BacklogMcpTools.Sessions, BacklogMcpTools.Surface, BacklogMcpTools.Usage, BacklogMcpTools.Schedules, BacklogMcpTools.Loops],
             byKey[SessionFeatures.Sessions]);
 
         // The devbook's three: the chapters and notes, the subjects' workflow
@@ -314,6 +334,8 @@ public class BacklogMcpToolsTests
             DevbookTools.ResolveAnnotation,
             DevbookTools.CaptureNote,
             InboxTools.ArchiveInboxItem,
+            InboxTools.CaptureToInbox,
+            EventTools.AddKnowledgeEvent,
             DecisionTools.SetState,
             DecisionTools.PostNote,
             DecisionTools.ResolveNote,
@@ -343,6 +365,7 @@ public class BacklogMcpToolsTests
             SessionRequestTools.MarkSessionRequest,
             SessionRequestTools.ClaimDelivery,
             SessionRequestTools.MarkDelivery,
+            ScheduleTools.ReportScheduleRun,
             NotificationTools.Notify,
             NotificationTools.Ask,
             NotificationTools.GetAnswer,
@@ -351,7 +374,8 @@ public class BacklogMcpToolsTests
             AccessTools.RequestAccess,
             GrantTools.GrantAgent,
             GrantTools.EditAgentScopes,
-            GrantTools.RevokeAgent
+            GrantTools.RevokeAgent,
+            LoopTools.CheckIn
         ];
 
         string[] destructive = [GoalTools.DeleteGoal, GrantTools.RevokeAgent];
@@ -385,7 +409,8 @@ public class BacklogMcpToolsTests
             GoalTools.DetachFromGoal,
             ImpedimentTools.LinkToImpediment,
             ImpedimentTools.UnlinkFromImpediment,
-            NotificationTools.GetAnswer
+            NotificationTools.GetAnswer,
+            LoopTools.CheckIn
         ];
 
         var seen = new List<string>();
@@ -439,7 +464,9 @@ public class BacklogMcpToolsTests
     /// reference tools resolve what an entry points at the same way — a page the
     /// database does not hold is read through <c>PrepareContentAsync</c>, which
     /// fetches it for a branch snapshot. <c>list_goals</c> answers each goal's progress,
-    /// which reads the state of every pull request it counts from GitHub. Every other tool here
+    /// which reads the state of every pull request it counts from GitHub, and
+    /// <c>read_iterations</c> reads the same pull requests for its goals, its finished
+    /// items and what its impediments hold back. Every other tool here
     /// reads this machine and nothing else — the SQLite backlog, the roadmap
     /// store, the annotation store, the session files — and the replicated
     /// session source "reads a store and never the network".
@@ -458,7 +485,8 @@ public class BacklogMcpToolsTests
             DevbookTools.ReadKnowledgeChapter,
             TrackerTools.SetDevbookReferences,
             TrackerTools.ListDevbookReferences,
-            GoalTools.ListGoals
+            GoalTools.ListGoals,
+            GoalTools.ReadIterations
         ];
 
         foreach (var group in BacklogMcpTools.Groups)
@@ -522,6 +550,68 @@ public class BacklogMcpToolsTests
         features.SetEnabled(TasksFeatures.Tasks, enabled: false);
 
         Assert.True(BacklogMcpTools.IsExposed(RoadmapTools.GetRoadmap, features));
+    }
+
+    /// <summary>
+    /// The Events tool answers to the <c>events</c> key alone (local ADR 0050 §6): off, it is
+    /// absent from <c>tools/list</c> and a call to it is refused as an unknown tool, in any
+    /// case, while every other group stays; on, it is listed and callable again.
+    /// </summary>
+    [Fact]
+    public void The_events_tool_follows_the_events_switch_and_nothing_else()
+    {
+        var features = Everything();
+
+        features.SetEnabled(EventsFeatures.Events, enabled: false);
+
+        Assert.False(BacklogMcpTools.IsExposed(EventTools.AddKnowledgeEvent, features));
+        Assert.False(BacklogMcpTools.IsCallable(EventTools.AddKnowledgeEvent, features));
+        Assert.False(BacklogMcpTools.IsCallable("ADD_KNOWLEDGE_EVENT", features));
+        Assert.All(
+            BacklogMcpTools.ToolNames.Where(name => name != EventTools.AddKnowledgeEvent),
+            name => Assert.True(BacklogMcpTools.IsExposed(name, features)));
+
+        features.SetEnabled(EventsFeatures.Events, enabled: true);
+
+        Assert.True(BacklogMcpTools.IsExposed(EventTools.AddKnowledgeEvent, features));
+        Assert.True(BacklogMcpTools.IsCallable(EventTools.AddKnowledgeEvent, features));
+    }
+
+    /// <summary>
+    /// Every tool that writes says how the pages showing what it changed hear of it
+    /// (<see cref="McpRefreshMap"/>). Read off the attributes rather than off a list, so a new
+    /// write tool fails here until somebody writes down which notice refreshes its pages — or
+    /// that none does yet, and why.
+    /// </summary>
+    [Fact]
+    public void Every_write_tool_names_the_notice_that_refreshes_its_pages()
+    {
+        var writes = BacklogMcpTools.Groups
+            .SelectMany(group => group.ToolType.GetMethods())
+            .Select(method => method.GetCustomAttribute<McpServerToolAttribute>())
+            .Where(tool => tool is { ReadOnly: false })
+            .Select(tool => tool!.Name!)
+            .ToList();
+
+        Assert.NotEmpty(writes);
+        Assert.All(writes, name => Assert.True(
+            McpRefreshMap.Notices.TryGetValue(name, out var notice) && !string.IsNullOrWhiteSpace(notice),
+            $"{name} writes, and the refresh map does not say which notice refreshes its pages."));
+
+        // And nothing else: a read in the map, or a tool renamed away, is an entry nobody reads.
+        Assert.Equal([.. writes.Order()], [.. McpRefreshMap.Notices.Keys.Order()]);
+    }
+
+    /// <summary>The surface's run writes do not refresh the Sessions pane yet: its list is read
+    /// on request (<c>.devbook/domain/sessions/features.md#re-read-on-request</c>), and making it
+    /// live is a change of its own. The map says so rather than leaving them out.</summary>
+    [Fact]
+    public void The_surface_run_writes_are_declared_as_not_refreshed_yet()
+    {
+        Assert.All(
+            [SurfaceTools.StartRun, SurfaceTools.RecordPrompt, SurfaceTools.SetRunContext, SurfaceTools.UpdateStage, SurfaceTools.FinishRun],
+            name => Assert.Equal(McpRefreshMap.SessionsNotRefreshedYet, McpRefreshMap.Notices[name]));
+        Assert.Equal(McpRefreshMap.EventsPaneChanged, McpRefreshMap.Notices[EventTools.AddKnowledgeEvent]);
     }
 
     /// <summary>A name this library does not publish is left alone: a host may

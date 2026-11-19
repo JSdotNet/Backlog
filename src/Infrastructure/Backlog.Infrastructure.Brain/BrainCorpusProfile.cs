@@ -26,6 +26,11 @@ public sealed class BrainCorpusProfile : DevbookCorpusProfile
 
     public override bool ReadsCrossCorpusLinks => true;
 
+    /// <summary>The lists a note names its links in, read in either list style:
+    /// the link writer keeps a block list one (local ADR 0052 §1), so the index
+    /// reads it back — <c>BLOCK_LIST_FIELDS</c> in <c>tools/devbook/brain.mjs</c>.</summary>
+    public override IReadOnlyCollection<string> BlockListFields { get; } = ["repos", "tasks", "roadmap"];
+
     /// <summary>The areas <see cref="BrainConventions.Read"/> resolves, in tab
     /// order, of those that are folders on disk — the set the pane's tabs show and
     /// <c>tools/devbook/brain.mjs</c> reads.</summary>
@@ -43,7 +48,10 @@ public sealed class BrainCorpusProfile : DevbookCorpusProfile
     /// A note's <c>para</c> — its folder unless the block names one, and then the
     /// block's, so a block naming an empty one gets none rather than the folder; a
     /// heading carries one only when its block says so — and the <c>repos</c> and
-    /// <c>tasks</c> it names.
+    /// <c>tasks</c> it names — and, on a file, the <c>review</c> date its top block
+    /// names (local ADR 0054 §6), kept as written: whether it reads as a date is
+    /// <see cref="BrainReviewDateReader"/>'s question, which reports one that does
+    /// not as a warning, so the build never refuses it.
     /// </summary>
     public override void ApplyNodeFields(IDevbookNodeFields node, string? folder)
     {
@@ -56,6 +64,11 @@ public sealed class BrainCorpusProfile : DevbookCorpusProfile
         {
             var values = node.List(name);
             if (values.Count > 0) node.AddAttribute(name, values);
+        }
+
+        if (node.IsFile && node.Scalar(BrainReviewDate.Field) is { Length: > 0 } review)
+        {
+            node.AddAttribute(BrainReviewDate.Field, [review]);
         }
     }
 }

@@ -26,7 +26,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
     [Theory]
     [InlineData(DevbookSourceKind.LocalFolder)]
     [InlineData(DevbookSourceKind.Branch)]
-    public void A_pick_in_the_domain_panel_states_the_direction_in_the_map_and_writes_no_file(DevbookSourceKind source)
+    public async Task A_pick_in_the_domain_panel_states_the_direction_in_the_map_and_writes_no_file(DevbookSourceKind source)
     {
         using var harness = DomainHarness(source, out var directions, out var file);
         var before = File.ReadAllBytes(file);
@@ -35,7 +35,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll(Pad)));
 
         // The pad's left key states pull.
-        component.Find($"{Pad} .sync-pad__key--left").Click();
+        await component.ClickAsync($"{Pad} .sync-pad__key--left");
 
         component.WaitForAssertion(() =>
         {
@@ -47,7 +47,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
     }
 
     [Fact]
-    public void Inheriting_again_clears_the_entry()
+    public async Task Inheriting_again_clears_the_entry()
     {
         using var harness = DomainHarness(DevbookSourceKind.LocalFolder, out var directions, out _);
         directions.Set(Alias, ContextMap, "push", "someone");
@@ -56,7 +56,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
         component.WaitForAssertion(() => Assert.Contains("badge--sync-push", component.Find($"{Pad} .sync-pad__value").ClassName, StringComparison.Ordinal));
 
         // The pad's down key states nothing, so the block inherits.
-        component.Find($"{Pad} .sync-pad__key--down").Click();
+        await component.ClickAsync($"{Pad} .sync-pad__key--down");
 
         component.WaitForAssertion(() => Assert.Empty(directions.List(Alias)));
     }
@@ -90,7 +90,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
     }
 
     [Fact]
-    public void A_pick_in_the_design_view_states_the_direction_in_the_map_on_a_branch_and_writes_no_file()
+    public async Task A_pick_in_the_design_view_states_the_direction_in_the_map_on_a_branch_and_writes_no_file()
     {
         var root = TempDir();
         var design = Path.Combine(root, ".design");
@@ -112,7 +112,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll(Pad)));
 
         // The pad's right key states push.
-        component.Find($"{Pad} .sync-pad__key--right").Click();
+        await component.ClickAsync($"{Pad} .sync-pad__key--right");
 
         component.WaitForAssertion(() => Assert.Equal("push", directions.Get(Alias, "design/component-libraries.md")));
         Assert.Equal(before, File.ReadAllBytes(file));

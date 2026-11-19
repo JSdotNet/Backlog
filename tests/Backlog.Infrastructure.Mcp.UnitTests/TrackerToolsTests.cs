@@ -838,6 +838,34 @@ public class TrackerToolsTests
         Assert.DoesNotContain("parser", link.PlanTags);
     }
 
+    /// <summary>A dispatcher reports the Claude desktop app's id (<c>local_…</c>) while the
+    /// session links itself by its transcript id, so the link tells the queue under both,
+    /// or no dispatched request would ever be Linked.</summary>
+    [Fact]
+    public async Task Link_session_also_tells_the_queue_the_sessions_desktop_id()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Run the plan", id: id, importPlanId: "+session-dispatch"));
+        var queue = new RecordingSessionRequestStore();
+        var features = new FakeAppFeatureSettings(SessionFeatures.SessionRequests);
+        var catalog = new AgentSessionCatalog(
+            [Sessions.Session("session-a") with { DesktopSessionId = "local_desktop-a" }],
+            Unreadable: [],
+            Discovered: 1);
+        var tools = new TrackerTools(
+            entries,
+            new FakeRepositoryDirectory([Backlog]),
+            new FakeDevbookReferenceResolver(),
+            sessionRequests: queue,
+            features: features,
+            sessions: new FakeAgentSessionSource(catalog));
+
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "session-a", TestContext.Current.CancellationToken);
+
+        Assert.Equal(["session-a", "local_desktop-a"], queue.Links.Select(link => link.SessionId));
+        Assert.All(queue.Links, link => Assert.Contains("+session-dispatch", link.PlanTags));
+    }
+
     [Fact]
     public async Task Link_session_leaves_the_queue_alone_while_the_flag_is_off()
     {
@@ -1047,6 +1075,8 @@ internal sealed class RecordingSessionRequestStore : ISessionRequestStore
 
     public Task<SessionRequest?> NextAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
+    public Task<SessionRequestOutcome> MoveAsync(Guid id, int toIndex, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
     public Task<SessionRequestOutcome> ClaimAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
     public Task<SessionRequestOutcome> ReleaseAsync(Guid id, string dispatcher, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -1054,4 +1084,8 @@ internal sealed class RecordingSessionRequestStore : ISessionRequestStore
     public Task<SessionRequestOutcome> ReportStartedAsync(Guid id, string dispatcher, string sessionId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
     public Task<SessionRequestOutcome> CancelAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task<bool> IsPausedAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public Task SetPausedAsync(bool paused, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }

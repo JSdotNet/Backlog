@@ -3,12 +3,14 @@
   <!--
     Cross-cutting SQLite adapter: the canonical local store for Backlog
     Management's tasks, for Roadmap Planning's stored plan, for Progress's goals
-    and impediments, and for the Inbox's
-    items, lists and groups. Implements ports declared by those modules; no
-    module may reference this project except through its own port interfaces.
+    and impediments, for the Inbox's items, lists and groups, for Notifications'
+    notifications, and for Events' knowledge events and event series. Implements
+    ports declared by those modules; no module may reference this project except
+    through its own port interfaces.
 
-    Five tables in one file, with an owner each: tasks, roadmap_plan, and the
-    three inbox_* tables. Inherited ADR 0014 puts persistence in the hands of
+    One file, with an owner per table: tasks, roadmap_plan, the progress_*,
+    inbox_* and events_* tables, notifications, and the Sessions context's
+    tables. Inherited ADR 0014 puts persistence in the hands of
     the module that owns the data, so no adapter here reads, writes, or creates
     another's table - what they share is a database file, not a schema.
 
@@ -44,6 +46,10 @@
          Its published INotifications too: the task store is where a task's end is
          noticed, so it closes the notifications about that task. -->
     <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
+    <!-- Events' IKnowledgeEventRepository and IEventSeriesRepository, answered under
+         Events/ by the events_knowledge_events and events_series tables in the same
+         database (local ADR 0050 §2). Same direction. -->
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events\Backlog.Modules.Events.csproj" />
   </ItemGroup>
 
   <ItemGroup>

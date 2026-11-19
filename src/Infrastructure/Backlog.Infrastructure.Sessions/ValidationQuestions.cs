@@ -10,14 +10,18 @@ namespace Backlog.Infrastructure.Sessions;
 
 /// <summary>
 /// The question Sessions asks when a delivery run reaches Personal Validation, titled
-/// "&lt;repository&gt; · &lt;run&gt; · Approve or revise", with the gate's handoff as its body and
-/// the choices Approve, Approve + follow-up, Revise and Reject
+/// "&lt;run&gt; · Approve or revise", with the gate's handoff as its body and the choices
+/// Approve, Approve + follow-up and Revise, and a quiet Dismiss that withdraws the question
+/// and records nothing
 /// (<c>.devbook/domain/notifications/requirements.md#requirement-a-run-at-personal-validation-asks-to-be-approved</c>).
 /// It is about the run, so the run's end closes it, and its answer is recorded on the run
-/// file as the gate decision — the pull request is still opened at the desktop.
+/// file as the gate decision — the desktop session then opens the pull request, or marks
+/// the draft one it already opened ready for review. That pull request is shown first, and a
+/// review link only the desktop can open is left out of the body (<see cref="ReviewLinks"/>):
+/// the phone cannot open it, and the run's own panel at the desktop lists it.
 /// <para>
 /// The run file remembers the question under <c>validationQuestion</c>: the notification's
-/// id, when it was asked, whether it was answered or closed, and whether the gate's current
+/// id, when it was asked, whether it was answered, dismissed or closed, and whether the gate's current
 /// attempt still has to ask (<c>armed</c>). An attempt begins when the gate moves into
 /// progress from another status, or is reported in progress again while the run's approval
 /// is back to pending after a rejection — and only once the earlier question is settled. It
@@ -69,6 +73,8 @@ internal static class ValidationQuestions
         Func<INotifications?>? notifications,
         ILogger logger,
         ISessionRepositoryResolver? repositories = null,
+        Func<ISessionPullRequestStates?>? pullRequests = null,
+        TimeProvider? clock = null,
         CancellationToken cancellationToken = default)
     {
         if (notifications is null || !DeliveryRunStageResolution.IsGate(stageName)) return;
@@ -78,14 +84,27 @@ internal static class ValidationQuestions
             if (notifications() is not { } port) return;
 
             var asked = run[Key] as JsonObject;
-            var settled = asked is null || Flag(asked, "answered") || Flag(asked, "closed");
+            var settled = asked is null || Flag(asked, "answered") || Flag(asked, "closed") || Flag(asked, "dismissed");
 
             if (string.Equals(status, DeliveryStageStatuses.InProgress, StringComparison.Ordinal))
             {
                 var entering = !string.Equals(previousStatus, DeliveryStageStatuses.InProgress, StringComparison.Ordinal);
-                var revised = asked is not null && Flag(asked, "answered") && string.Equals(Decided(run), "pending", StringComparison.Ordinal);
 
-                if (settled && (entering || revised))
+                var pending = string.Equals(Decided(run), "pending", StringComparison.Ordinal);
+                var revised = asked is not null && Flag(asked, "answered") && pending;
+
+                // A dismissed question recorded no decision, so a pending approval alone says
+                // nothing about it. A revise round the desktop decided since the question went
+                // out does — before or after the dismiss, which a phone's outbox may deliver
+                // late: its approval was decided since, and is back to pending.
+                var redecided = asked is not null
+                    && Flag(asked, "dismissed")
+                    && pending
+                    && DecidedAt(run) is { } decidedAt
+                    && Instant(Text(asked, "askedAt")) is { } askedAt
+                    && decidedAt > askedAt;
+
+                if (settled && (entering || revised || redecided))
                 {
                     if (asked is null)
                     {
@@ -100,6 +119,15 @@ internal static class ValidationQuestions
                 var shown = links?.Where(link => !string.IsNullOrWhiteSpace(link.Url)).ToList() ?? [];
 
                 if (asked is null || !Flag(asked, "armed") || (handoff is null && shown.Count == 0)) return;
+
+                // A question about a run whose pull request already merged or closed is moot
+                // before it is asked. The attempt stays armed, so a later report asks once the
+                // pull request reads open again — or reads as nothing.
+                if (await PullRequestsEndedAsync(run, pullRequests, clock ?? TimeProvider.System, logger, runId, cancellationToken).ConfigureAwait(false))
+                {
+                    logger.LogDebug("The run {Run}'s pull request already ended; its validation question is not asked.", runId);
+                    return;
+                }
 
                 var published = await port.PublishAsync(Draft(run, runId, worktree, handoff, shown, repositories), cancellationToken).ConfigureAwait(false);
 
@@ -150,7 +178,7 @@ internal static class ValidationQuestions
     internal static ValidationAnswerStep Decide(JsonObject run, NotificationAnswer answer)
     {
         if (!Waiting(run, answer, out var asked)) return ValidationAnswerStep.Nothing;
-        if (DesktopDecided(run, asked)) return ValidationAnswerStep.Record;
+        if (DesktopDecided(run, asked) || Dismissed(answer)) return ValidationAnswerStep.Record;
 
         if (Chose(answer, SessionNotificationSubjects.ApproveFollowUpChoice)
             && !string.IsNullOrWhiteSpace(answer.Text)
@@ -167,7 +195,7 @@ internal static class ValidationQuestions
     /// the follow-up it filed, and says what happened. Only the answer to the question the
     /// run is waiting on counts, once: a replayed answer, or one to a question the run has
     /// moved past, changes nothing; one the desktop decided first only marks the question
-    /// answered.
+    /// answered; Dismiss writes nothing on the approval and only marks the question dismissed.
     /// </summary>
     internal static ValidationRecord Record(JsonObject run, NotificationAnswer answer, Guid? followUpEntryId = null)
     {
@@ -177,6 +205,18 @@ internal static class ValidationQuestions
         {
             asked["answered"] = true;
             return ValidationRecord.DesktopStands;
+        }
+
+        // Not "answered": that flag means a decision was recorded, and a pending approval
+        // after one reads as a revise round asking again.
+        if (Dismissed(answer))
+        {
+            asked["dismissed"] = true;
+
+            // When it was withdrawn, for whoever reads the run file; re-asking compares the
+            // approval with askedAt instead, because a phone may deliver the dismiss late.
+            asked["dismissedAt"] = Stamp(DateTimeOffset.UtcNow);
+            return ValidationRecord.Dismissed;
         }
 
         if (run["approval"] is not JsonObject approval)
@@ -251,22 +291,34 @@ internal static class ValidationQuestions
         var repository = string.IsNullOrWhiteSpace(sent) ? repositories?.RepositoryOf(worktree) : sent;
         var followUp = GatedEntryOf(run) is not null;
 
+        // The pull request this call passes; else the one the run recorded on any stage —
+        // under delivery 1.35.0 there is none yet, and the copy then says so.
+        var pulls = links.Where(link => ReviewLinks.Classify(link.Url) is ReviewLinkKind.PullRequest).ToList();
+        if (pulls.Count == 0) pulls = [.. RunPullRequests.Of(run).Select(pull => pull.Link)];
+        // The phone opens no loopback or file address, so those stay on the run's own panel.
+        var review = links.Where(link => ReviewLinks.Classify(link.Url) is ReviewLinkKind.Web).ToList();
+
         return new NotificationDraft(
             new NotificationSource(SessionNotificationSubjects.Context, SessionNotificationSubjects.ValidationSourceKey(runId, worktree)),
             new NotificationSubject(SessionNotificationSubjects.Context, SessionNotificationSubjects.Run, runId),
             NotificationKind.Question,
             NotificationSeverity.Info,
-            NotificationText.Glance(repository, title, TitleAsk, MaxTitleLength),
-            "The run reached Personal Validation. Your answer is recorded on the run; the pull request is still opened at the desktop.",
-            Body(title, repository, followUp, handoff, links),
+            // The origin names the repository, so the title does not repeat it.
+            NotificationText.Glance(null, title, TitleAsk, MaxTitleLength),
+            pulls.Count > 0
+                ? "The run reached Personal Validation. Your answer is recorded on the run; approving lets the desktop session mark the pull request ready for review."
+                : "The run reached Personal Validation. Your answer is recorded on the run; the pull request is still opened at the desktop.",
+            Body(handoff, pulls, review),
             new AnswerSpec(
                 [
                     new AnswerChoice(SessionNotificationSubjects.ApproveChoice, "Approve", AnswerChoiceStyle.Primary),
                     .. followUp
                         ? [new AnswerChoice(SessionNotificationSubjects.ApproveFollowUpChoice, "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?")]
                         : Array.Empty<AnswerChoice>(),
+                    // No Reject: that is decided at the desktop. A Reject an earlier build's
+                    // question offered still records (Decision).
                     new AnswerChoice(SessionNotificationSubjects.ReviseChoice, "Revise", TakesText: true, Placeholder: "What should change?"),
-                    new AnswerChoice(SessionNotificationSubjects.RejectChoice, "Reject", AnswerChoiceStyle.Destructive)
+                    new AnswerChoice(SessionNotificationSubjects.DismissChoice, "Dismiss", Quiet: true)
                 ]),
             // The title names the run, so the place is the repository alone and the card does
             // not print the run twice.
@@ -274,42 +326,103 @@ internal static class ValidationQuestions
     }
 
     /// <summary>
-    /// The handoff as Markdown: what the answers do, then the review links (label, address,
-    /// description) and the handoff text — cut to <see cref="MaxBodyBytes"/>, ending with a
-    /// line that says so, when it is longer.
+    /// The handoff as Markdown: the pull request first, where there is one, so it is what a
+    /// phone shows before anything else; then the review links any device can open (label,
+    /// address, description), under a heading only when there is one; and the handoff text, its
+    /// labelled paragraphs laid out as lists (<see cref="HandoffText"/>) — cut to
+    /// <see cref="MaxBodyBytes"/>, ending with a line that says so, when it is longer.
+    /// The title, the summary and the origin already say which run, where, and what an answer
+    /// does, and the buttons name the answers, so the body repeats none of it.
     /// </summary>
-    private static string Body(string title, string? repository, bool followUp, string? handoff, IReadOnlyList<DeliveryStageLink> links)
+    private static string Body(
+        string? handoff,
+        IReadOnlyList<DeliveryStageLink> pulls,
+        IReadOnlyList<DeliveryStageLink> links)
     {
         var body = new StringBuilder();
 
-        body.Append(CultureInfo.InvariantCulture, $"**{title}** reached Personal Validation{(string.IsNullOrWhiteSpace(repository) ? string.Empty : $" in `{repository}`")}.\n\n");
-        body.Append("- **Approve** records the approval on the run.\n");
-        if (followUp) body.Append("- **Approve + follow-up** approves and files your words as a follow-up entry after this one.\n");
-        body.Append("- **Revise** sends it back with your words for another round.\n");
-        body.Append(followUp
-            ? "- **Reject** records a rejection, and the entry is blocked.\n\n"
-            : "- **Reject** records a rejection and ends the run without a revise round.\n\n");
-        body.Append("Opening the pull request still happens at the desktop, in the session that runs it.\n");
+        if (pulls.Count > 0)
+        {
+            body.Append("## Pull request\n\n");
+            foreach (var pull in pulls) AppendLink(body, pull, PullRequestLabel(pull));
+        }
 
         if (links.Count > 0)
         {
-            body.Append("\n## Review links\n\n");
+            if (body.Length > 0) body.Append('\n');
+            body.Append("## Review links\n\n");
 
             foreach (var link in links)
             {
-                var label = string.IsNullOrWhiteSpace(link.Label) ? link.Url : OneLine(link.Label);
-                body.Append(CultureInfo.InvariantCulture, $"- [{label}]({link.Url})");
-                if (!string.IsNullOrWhiteSpace(link.Description)) body.Append(CultureInfo.InvariantCulture, $" — {OneLine(link.Description)}");
-                body.Append('\n');
+                AppendLink(body, link, string.IsNullOrWhiteSpace(link.Label) ? link.Url! : OneLine(link.Label));
             }
         }
 
         if (handoff is not null)
         {
-            body.Append("\n## Handoff\n\n").Append(handoff).Append('\n');
+            if (body.Length > 0) body.Append('\n');
+            body.Append("## Handoff\n\n").Append(HandoffText.Structure(handoff)).Append('\n');
         }
 
         return Fit(body.ToString());
+    }
+
+    /// <summary>One list line: the link and its description.</summary>
+    private static void AppendLink(StringBuilder body, DeliveryStageLink link, string label)
+    {
+        body.Append(CultureInfo.InvariantCulture, $"- [{label}]({link.Url})");
+        if (!string.IsNullOrWhiteSpace(link.Description)) body.Append(CultureInfo.InvariantCulture, $" — {OneLine(link.Description)}");
+        body.Append('\n');
+    }
+
+    private static string PullRequestLabel(DeliveryStageLink pull) =>
+        !string.IsNullOrWhiteSpace(pull.Label) ? OneLine(pull.Label)
+        : ReviewLinks.PullRequestOf(pull.Url) is { } named ? string.Create(CultureInfo.InvariantCulture, $"PR #{named.Number}")
+        : pull.Url!;
+
+    /// <summary>How long the gate waits on the run's pull requests, all of them together. It
+    /// runs inside the run's gate, which other writers wait on, so it is bounded; the reads go
+    /// through Repository Management's cache, so it is usually instant.</summary>
+    internal static readonly TimeSpan PullRequestReadBudget = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Whether every pull request the run recorded reads merged or closed
+    /// (<see cref="RunPullRequests"/>, the set the Sessions probe reads too). False without the
+    /// port, without a recorded pull request, or as soon as one reads open or as nothing, the
+    /// reads together outlast <see cref="PullRequestReadBudget"/>, or one fails: the question
+    /// is then asked as before.
+    /// </summary>
+    private static async Task<bool> PullRequestsEndedAsync(
+        JsonObject run,
+        Func<ISessionPullRequestStates?>? pullRequests,
+        TimeProvider clock,
+        ILogger logger,
+        string runId,
+        CancellationToken cancellationToken)
+    {
+        var recorded = RunPullRequests.Of(run);
+        if (recorded.Count == 0 || pullRequests?.Invoke() is not { } port) return false;
+
+        using var budget = new CancellationTokenSource(PullRequestReadBudget, clock);
+        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, budget.Token);
+
+        try
+        {
+            return await RunPullRequests.EndAsync(recorded, port, bounded.Token).ConfigureAwait(false) is not null;
+        }
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            if (budget.IsCancellationRequested)
+            {
+                logger.LogDebug(exception, "Reading the pull requests of run {Run} outlasted the gate's budget; its validation question is asked.", runId);
+            }
+            else
+            {
+                logger.LogDebug(exception, "Reading the pull requests of run {Run} failed; its validation question is asked.", runId);
+            }
+
+            return false;
+        }
     }
 
     /// <summary>The body as it is when it fits; otherwise cut on a character boundary so
@@ -335,8 +448,12 @@ internal static class ValidationQuestions
         return run[Key] is JsonObject
             && Guid.TryParse(Text(asked, "notificationId"), out var waiting)
             && waiting == answer.NotificationId
-            && !Flag(asked, "answered");
+            && !Flag(asked, "answered")
+            && !Flag(asked, "dismissed");
     }
+
+    private static bool Dismissed(NotificationAnswer answer) =>
+        Chose(answer, SessionNotificationSubjects.DismissChoice);
 
     /// <summary>Decided at the desktop after the question went out: that decision stands.</summary>
     private static bool DesktopDecided(JsonObject run, JsonObject asked) =>
@@ -353,6 +470,9 @@ internal static class ValidationQuestions
 
     private static string? Decided(JsonObject run) =>
         run["approval"] is JsonObject approval ? Text(approval, "personalValidation") : null;
+
+    private static DateTimeOffset? DecidedAt(JsonObject run) =>
+        run["approval"] is JsonObject approval ? Instant(Text(approval, "decidedAt")) : null;
 
     private static string Stamp(DateTimeOffset at) =>
         at.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
@@ -380,9 +500,9 @@ internal enum ValidationAnswerKind
     FileFollowUp
 }
 
-/// <summary>What an answer asks of the run, and the gated entry a follow-up is filed
-/// after.</summary>
-internal sealed record ValidationAnswerStep(ValidationAnswerKind Kind, GatedEntry? Gated = null)
+/// <summary>What an answer asks of the run, the gated entry a follow-up is filed after, and —
+/// once a <see cref="ValidationAnswerKind.Record"/> step was recorded — what recording it did.</summary>
+internal sealed record ValidationAnswerStep(ValidationAnswerKind Kind, GatedEntry? Gated = null, ValidationRecord? Recorded = null)
 {
     internal static readonly ValidationAnswerStep Nothing = new(ValidationAnswerKind.Nothing);
     internal static readonly ValidationAnswerStep Record = new(ValidationAnswerKind.Record);
@@ -399,5 +519,8 @@ internal enum ValidationRecord
     DesktopStands,
 
     /// <summary>The answer is the run's gate decision.</summary>
-    Recorded
+    Recorded,
+
+    /// <summary>Dismissed: the question is withdrawn and no decision is recorded.</summary>
+    Dismissed
 }

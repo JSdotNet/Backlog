@@ -32,11 +32,15 @@ internal static class TaskEntryFields
     /// content, so it goes through the full constructor here and nowhere in
     /// <see cref="ApplyToExisting"/>. Null for every hand-typed entry; the inbox
     /// item's id when the Inbox routed one.
+    /// </para>
+    /// <para>
+    /// <paramref name="id"/> is the caller's, for a task filed under an id it derived; null
+    /// draws a random one, as every hand-typed entry has.
     /// </para></summary>
-    public static TaskItem CreateFrom(EntryTextParser.ParsedEntry parsed, int order, string? sourceInboxId = null)
+    public static TaskItem CreateFrom(EntryTextParser.ParsedEntry parsed, int order, string? sourceInboxId = null, Guid? id = null)
     {
         var entry = new TaskItem(
-            Guid.NewGuid(),
+            id ?? Guid.NewGuid(),
             parsed.Title,
             parsed.Body,
             parsed.Type ?? EntryType.Task,
@@ -140,6 +144,10 @@ internal static class TaskEntryFields
         // that is: Import's update path keeps a block its plan text says nothing
         // about, because the plan is not the person's editor.
         entry.SetBlockedSince(parsed.BlockedSince);
+
+        // Who the task waits on, on the same terms: deleting the `waiting:` token is
+        // how the waiting-for is cleared (.devbook/domain/tasks/domain.md#waiting-for).
+        entry.SetWaitingFor(parsed.WaitingFor);
 
         // Not scheduling, and here anyway. What is attached is a fact about the
         // work like the fields above it — set once, cleared by deleting the

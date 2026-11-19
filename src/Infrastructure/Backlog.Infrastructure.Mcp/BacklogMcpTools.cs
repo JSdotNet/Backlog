@@ -1,4 +1,5 @@
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
@@ -150,6 +151,10 @@ public static class BacklogMcpTools
             // this pane, behind the same key, with no switch of its own.
             DevbookTools.ResolveAnnotation,
             DevbookTools.CaptureNote,
+
+            // The Brain's review dates (local ADR 0054 §6), read-only, behind the
+            // same key as the Brain's other tools.
+            DevbookTools.ListBrainReviews,
         ]);
 
     /// <summary>The sessions tool, behind <c>sessions</c>. Its own group because
@@ -214,6 +219,17 @@ public static class BacklogMcpTools
         [UsageTools.ListRunUsage]);
 
     /// <summary>
+    /// <c>report_schedule_run</c>, a scheduled run's start, skip, finish or failure (local
+    /// ADR 0051 §1), behind <c>sessions</c>: §6 puts the schedules in the Sessions area with
+    /// no flag of their own. A group of its own because its port, the Schedule Register, is
+    /// one no other session tool needs.
+    /// </summary>
+    public static McpToolGroup Schedules { get; } = new(
+        SessionFeatures.Sessions,
+        typeof(ScheduleTools),
+        [ScheduleTools.ReportScheduleRun]);
+
+    /// <summary>
     /// The impediment tools beside <c>set_blocked</c> — raise, move, and link and unlink what
     /// an impediment holds back: Progress's own, so their own group (local ADR 0035 §5).
     /// Behind <c>backlog</c>, the always-on Tasks key, since Progress has no switch of its
@@ -247,7 +263,19 @@ public static class BacklogMcpTools
         ]);
 
     /// <summary>
-    /// The goal tools: read the goals, set, edit and delete one, attach and detach its work.
+    /// <c>check_in</c>, the loop sessions' two-way check-in (local ADR 0051 §3), behind
+    /// <c>sessions</c>: §6 puts every part of the loop sessions behind that key, with no key
+    /// of its own. Not on <see cref="SessionRequests"/>, whose key is off by default: the
+    /// Brain tender checks in with no queue at all.
+    /// </summary>
+    public static McpToolGroup Loops { get; } = new(
+        SessionFeatures.Sessions,
+        typeof(LoopTools),
+        [LoopTools.CheckIn]);
+
+    /// <summary>
+    /// The goal tools: read the goals and the iterations they are read over, set, edit and
+    /// delete one, attach and detach its work.
     /// Progress's own, so their own group, beside <see cref="Impediments"/> rather than in it:
     /// a goal and an impediment are two things a model is told about. Behind <c>backlog</c>,
     /// the always-on Tasks key, for the reason the impediment tools give — Progress has no
@@ -258,6 +286,7 @@ public static class BacklogMcpTools
         typeof(GoalTools),
         [
             GoalTools.ListGoals,
+            GoalTools.ReadIterations,
             GoalTools.CreateGoal,
             GoalTools.UpdateGoal,
             GoalTools.AttachToGoal,
@@ -276,11 +305,22 @@ public static class BacklogMcpTools
         typeof(NotificationTools),
         [NotificationTools.Notify, NotificationTools.Ask, NotificationTools.GetAnswer, NotificationTools.Close]);
 
-    /// <summary>The Inbox's captures, behind the Inbox pane's key.</summary>
+    /// <summary>The Inbox's captures, and capturing into it, behind the Inbox pane's key.</summary>
     public static McpToolGroup Inbox { get; } = new(
         InboxFeatures.Pane,
         typeof(InboxTools),
-        [InboxTools.ListInboxItems, InboxTools.ReadInboxItem, InboxTools.ArchiveInboxItem]);
+        [InboxTools.ListInboxItems, InboxTools.ReadInboxItem, InboxTools.ArchiveInboxItem, InboxTools.CaptureToInbox]);
+
+    /// <summary>
+    /// <c>add_knowledge_event</c>, behind <c>events</c> — the one key Events owns, which
+    /// withdraws the whole area (local ADR 0050 §6). Off, the tool is absent from
+    /// <c>tools/list</c> and a call to it is an unknown tool, as ADR 0012 §7 has every group;
+    /// there is no refusal of its own.
+    /// </summary>
+    public static McpToolGroup Events { get; } = new(
+        EventsFeatures.Events,
+        typeof(EventTools),
+        [EventTools.AddKnowledgeEvent]);
 
     /// <summary>
     /// <c>open_window</c>, which shows the person a registered surface in a window or
@@ -299,7 +339,7 @@ public static class BacklogMcpTools
         [WindowTools.OpenWindow]);
 
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Impediments, Goals, SessionRequests, Notifications, Inbox, Windows, AccessTools.Group, GrantTools.Group];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Schedules, Impediments, Goals, SessionRequests, Loops, Notifications, Inbox, Events, Windows, AccessTools.Group, GrantTools.Group];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>

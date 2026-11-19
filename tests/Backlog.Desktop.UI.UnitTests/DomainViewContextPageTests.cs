@@ -189,8 +189,8 @@ public sealed class DomainViewContextPageTests : IDisposable
         Assert.Equal("Tasks", component.Find("[data-testid='domain-context-page-title']").TextContent);
         Assert.Contains("personal backlog", component.Find("[data-testid='domain-context-page-lead']").TextContent);
         var requirements = component.Find("[data-testid='domain-context-page-proof-requirements']");
-        Assert.Contains("2 requirements", requirements.TextContent);
-        Assert.Contains("1 of 2 name a test", requirements.TextContent);
+        Assert.Contains("2 promises", requirements.TextContent);
+        Assert.Contains("1 of 2 linked to a test", requirements.TextContent);
         Assert.Single(component.FindAll("[data-testid='domain-context-page-lens']"), lens => lens.TextContent.Contains("Requirements", StringComparison.Ordinal));
         var flag = component.Find("[data-testid='domain-context-page-switch']");
         Assert.Equal("github-integration", flag.GetAttribute("data-key"));
@@ -235,7 +235,7 @@ public sealed class DomainViewContextPageTests : IDisposable
         var events = lenses.Single(lens => lens.GetAttribute("data-reference")!.EndsWith("tasks/model.md#events", StringComparison.Ordinal));
         Assert.Equal(lenses.ToList().IndexOf(model) + 1, lenses.ToList().IndexOf(events));
         Assert.Contains("Events", events.TextContent, StringComparison.Ordinal);
-        Assert.Contains("What is it made of?", model.TextContent, StringComparison.Ordinal);
+        Assert.Contains("What is a task made of?", model.TextContent, StringComparison.Ordinal);
 
         // The anchor travels with it, and the Model page opens on its Events tab
         // (DomainModelTabs.For).
@@ -247,13 +247,15 @@ public sealed class DomainViewContextPageTests : IDisposable
     }
 
     [Theory]
-    [InlineData("core", "draft", "Core · draft")]
-    [InlineData("supporting", "none", "Supporting")]
-    [InlineData(null, "accepted", "accepted")]
-    [InlineData(null, "none", null)]
-    public void The_middle_cards_summary_is_the_subdomain_type_and_the_status(string? kind, string? status, string? summary)
+    [InlineData("core", "module", "draft", "Core · module · draft")]
+    [InlineData("core", "module", "none", "Core · module")]
+    [InlineData("core", null, "draft", "Core · draft")]
+    [InlineData("supporting", "Service", "none", "Supporting · service")]
+    [InlineData(null, null, "accepted", "accepted")]
+    [InlineData(null, null, "none", null)]
+    public void The_middle_cards_summary_is_the_subdomain_type_the_deployment_and_the_status(string? kind, string? deployment, string? status, string? summary)
     {
-        Assert.Equal(summary, DomainViewContextPage.Summary(kind, status));
+        Assert.Equal(summary, DomainViewContextPage.Summary(kind, deployment, status));
     }
 
     [Fact]

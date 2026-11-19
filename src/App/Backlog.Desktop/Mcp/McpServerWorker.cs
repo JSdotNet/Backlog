@@ -684,7 +684,10 @@ public sealed class McpServerWorker : IDisposable
                     TimeProvider.System,
                     context.RequestAborted,
                     questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
-                    sessions: context.RequestServices.GetService<IAgentSessionSource>()).ConfigureAwait(false);
+                    sessions: context.RequestServices.GetService<IAgentSessionSource>(),
+                    sessionId: context.Request.Query["sessionId"].ToString(),
+                    loops: context.RequestServices.GetService<ILoopRegister>(),
+                    contact: context.RequestServices.GetService<DispatcherContact>()).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
             {
@@ -693,11 +696,34 @@ public sealed class McpServerWorker : IDisposable
             }
 
             context.Response.StatusCode = reply.StatusCode;
-            if (reply.Failure is not null) _log.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+            if (reply.Failure is not null && reply.StatusCode == 503) _log.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+            else if (reply.Failure is not null) _log.LogError(reply.Failure, "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.");
             if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (reply.Body.Length == 0) return;
 
             context.Response.ContentType = SessionRequestWaitEndpoint.Reply.ContentType;
+            await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
+        });
+
+        // And the report a scheduled run's hook posts (local ADR 0051 §1), behind the
+        // same guard and bearer token. It answers 404 while the sessions flag is off.
+        app.MapPost(ScheduleRunReportEndpoint.RoutePath, async context =>
+        {
+            var reply = await ScheduleRunReportEndpoint.AcceptAsync(
+                context.Request.Body,
+                context.Request.ContentLength,
+                context.RequestServices.GetRequiredService<IScheduleRegister>(),
+                context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
+                context.RequestServices.GetService<IAgentSessionSource>(),
+                TimeProvider.System,
+                context.RequestAborted).ConfigureAwait(false);
+
+            context.Response.StatusCode = reply.StatusCode;
+            if (reply.Failure is not null) _log.LogError(reply.Failure, "A scheduled run's report could not be recorded; the hook was asked to retry.");
+            if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (reply.Body.Length == 0) return;
+
+            context.Response.ContentType = ScheduleRunReportEndpoint.Reply.ContentType;
             await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
         });
 
@@ -1090,8 +1116,11 @@ public sealed class McpServerWorker : IDisposable
     /// dispatcher tools would carry across anyway but the route must not depend on, and
     /// <see cref="IWaitingQuestionStore"/> and <see cref="IAgentSessionSource"/> beside it
     /// for the answer deliveries the same route hands out, on the same grounds;
-    /// and <see cref="IMcpAuditLog"/>, which the audit call filter resolves per request and
-    /// no tool constructs.
+    /// <see cref="IMcpAuditLog"/>, which the audit call filter resolves per request and
+    /// no tool constructs;
+    /// <see cref="ILoopRegister"/> for the check-in a Manager's wait records (local ADR 0051 §3), and
+    /// <see cref="DispatcherContact"/>, which the route records into and the Tasks pane
+    /// reads, so the two must be the app's one instance.
     /// </para>
     /// <para>
     /// The probe is <see cref="IServiceProviderIsService"/>, which every
@@ -1118,6 +1147,8 @@ public sealed class McpServerWorker : IDisposable
             // Windows Hello for a tasks:admin tool (local ADR 0058 §6), which the step-up filter
             // reads from this container: missing, every such call would be refused unlogged.
             .Append(typeof(Backlog.SharedKernel.IUserConsent))
+            .Append(typeof(ILoopRegister))
+            .Append(typeof(DispatcherContact))
             // The caller of one request, which the listener's own container scopes per request
             // (AddBacklogMcpServer): forwarded from the head it would be one for every call.
             .Where(port => port != typeof(McpCallContext))

@@ -1,7 +1,7 @@
 # ADR 0058: Agents and devices authenticate by grant and key, the owner by GitHub sign-in
 
 ```meta
-date: 2026-11-12
+date: 2026-11-19
 related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/design/settings-pages.md"]
 c4: [backlog.desktop, backlog.cloud]
 c4-touches: [backlog.mobile, github, claude]
@@ -498,6 +498,7 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-19 | Renumbered from 0052 to 0058, with every citation of it. Main took 0052 for the Brain note links and 0053 to 0055 while plan `zero-trust-auth` ran; 0056 and 0057 are held by open branches. Merging main also mapped its new tools — `report_schedule_run` and `check_in` to `runs:write`, `read_iterations` to `tasks:read`, `list_brain_reviews` to `devbook:read`, `capture_to_inbox` to `inbox:capture`, `add_knowledge_event` to `tasks:write` — and its `/schedule-runs` route to `runs:write`. | Two decisions cannot share a number. |
 | 2026-11-18 | Built §2's answer identity: an answer to an agent's question keeps the device the sync service stamped from the poster's token, and the question relay hands it to the hook or the Manager only while that device is in the owner's device list, or is this desktop. An answer from a revoked or unknown device is dropped and audited as a `dropped answer`. | Plan `zero-trust-auth` entry 20, Phase 2. |
 | 2026-11-18 | Built §8's resource server: `/mcp` on the sync service accepts only connector tokens for its own audience and the current client generation, challenges with its RFC 9728 metadata, and serves `capture_to_inbox` under `inbox:capture` alone, writing a capture document to the replica. | Plan `zero-trust-auth` entry 22, Phase 3. |
 | 2026-11-18 | Built §6's step-up: every `tasks:admin` tool, minting a pairing code and revoking a device ask for Windows Hello, and a cancelled or unavailable prompt refuses the act. Refusing a pairing revokes without a prompt. The tool call waits for the desktop prompt instead of using MCP elicitation, and the web harness and the phone ask nothing. | Plan `zero-trust-auth` entry 19, Phase 2. |

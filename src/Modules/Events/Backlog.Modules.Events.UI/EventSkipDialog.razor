@@ -1,0 +1,79 @@
+@*
+    Skip, with a reason (.devbook/domain/events/features.md#deciding): a dialog asking why,
+    because a skipped event keeps its reason. The library Modal keeps every key inside it,
+    so Escape closes the dialog and not the pane behind it. A refused reason — a blank one —
+    keeps the dialog open with the refusal under the field.
+*@
+
+<Modal Open="Open"
+       OpenChanged="OpenChanged"
+       Title="@($"Skip {EventTitle}")"
+       CloseLabel="Cancel skipping"
+       CloseDisabled="_busy"
+       TestId="events-skip-dialog">
+    <ChildContent>
+        <TextArea Label="Why skip it?"
+                  Placeholder="Clashes with the release"
+                  @bind-Value="_reason"
+                  ErrorMessage="@ErrorMessage"
+                  Rows="2"
+                  TestId="events-skip-reason" />
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Ghost"
+                   Disabled="_busy"
+                   TestId="events-skip-cancel"
+                   OnClick="CancelAsync">Cancel</AppButton>
+        <AppButton Variant="ButtonVariant.Primary"
+                   Busy="_busy"
+                   BusyLabel="Skipping"
+                   TestId="events-skip-confirm"
+                   OnClick="SkipAsync">Skip event</AppButton>
+    </Footer>
+</Modal>
+
+@code {
+    private string _reason = string.Empty;
+    private bool _busy;
+    private bool _wasOpen;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The event being skipped, for the dialog's title.</summary>
+    [Parameter]
+    public string EventTitle { get; set; } = string.Empty;
+
+    /// <summary>Why the last reason was refused, in words.</summary>
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>Raised with the reason typed. The host closes the dialog once the skip holds.</summary>
+    [Parameter]
+    public EventCallback<string> OnSkip { get; set; }
+
+    // A dialog opened again starts with no reason in it.
+    protected override void OnParametersSet()
+    {
+        if (Open && !_wasOpen) _reason = string.Empty;
+        _wasOpen = Open;
+    }
+
+    private async Task SkipAsync()
+    {
+        _busy = true;
+        try
+        {
+            await OnSkip.InvokeAsync(_reason);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private Task CancelAsync() => OpenChanged.InvokeAsync(false);
+}

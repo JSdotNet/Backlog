@@ -4,9 +4,21 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Capture\Backlog.Infrastructure.Capture.csproj" />
   </ItemGroup>
 
+  <!-- A clock that can be moved a day, and fires any timer set on it when it is, so a test
+       can show that nothing reads a page until a run is asked for. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
   <!-- Import manifests read from disk, as the adapter reads them. -->
   <ItemGroup>
     <None Update="Fixtures\*.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Event pages as they were saved from the web on 2026-11-10, served to the
+       adapter over the scripted wire so it reads the markup the sites write. -->
+  <ItemGroup>
+    <None Update="Fixtures\EventPages\*.html" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

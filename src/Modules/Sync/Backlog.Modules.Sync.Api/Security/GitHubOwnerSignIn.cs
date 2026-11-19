@@ -85,12 +85,21 @@ internal sealed partial class GitHubOwnerSignIn(
 
     private sealed record UserAnswer([property: JsonPropertyName("id")] long? Id);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "GitHub refused the owner sign-in's code exchange ({Status}, {Error}).")]
-    private static partial void LogExchangeRefused(ILogger logger, int status, string error);
+    // LoggerMessage.Define rather than [LoggerMessage]: this project sees two copies of the
+    // logging source generator (the ASP.NET Core framework's and the 11.0 package's), and each
+    // would implement a [LoggerMessage] partial once.
+    private static readonly Action<ILogger, int, string, Exception?> ExchangeRefused = LoggerMessage.Define<int, string>(
+        LogLevel.Warning, new EventId(1, nameof(ExchangeRefused)), "GitHub refused the owner sign-in's code exchange ({Status}, {Error}).");
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "GitHub refused the signed-in user read ({Status}).")]
-    private static partial void LogUserRefused(ILogger logger, int status);
+    private static readonly Action<ILogger, int, Exception?> UserRefused = LoggerMessage.Define<int>(
+        LogLevel.Warning, new EventId(2, nameof(UserRefused)), "GitHub refused the signed-in user read ({Status}).");
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "GitHub did not answer the owner sign-in.")]
-    private static partial void LogUnreachable(ILogger logger, Exception exception);
+    private static readonly Action<ILogger, Exception?> Unreachable = LoggerMessage.Define(
+        LogLevel.Warning, new EventId(3, nameof(Unreachable)), "GitHub did not answer the owner sign-in.");
+
+    private static void LogExchangeRefused(ILogger logger, int status, string error) => ExchangeRefused(logger, status, error, null);
+
+    private static void LogUserRefused(ILogger logger, int status) => UserRefused(logger, status, null);
+
+    private static void LogUnreachable(ILogger logger, Exception exception) => Unreachable(logger, exception);
 }

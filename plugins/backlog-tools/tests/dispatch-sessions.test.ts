@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 // @ts-ignore -- a plain ES module asset of the skill, without declarations
-import { decide, dispatcherName, isNews, noToken } from '../skills/dispatch-sessions/assets/wait-logic.mjs'
+import { decide, dispatcherName, isNews, noToken, waitRoute } from '../skills/dispatch-sessions/assets/wait-logic.mjs'
 
 // The decisions of the dispatch-sessions wait script. The script itself and the capacity probe
 // spawn processes, which this sandbox cannot: tests/dispatch-sessions-assets.test.mjs runs them
@@ -63,6 +63,13 @@ test('says once that no Manager token could be had, and asks again after the ret
   expect(outcome).toEqual({ line: 'no-token The Backlog token broker refused grant g_m: revoked.', state: 'no-token', waitMs: 30_000 })
   expect(isNews(outcome, 'idle')).toBe(true)
   expect(isNews(outcome, 'no-token')).toBe(false)
+})
+
+test('names the Manager\'s session on the wait, so each wait counts as its check-in', () => {
+  expect(waitRoute('a1b2-c3')).toBe('/session-requests/wait?sessionId=a1b2-c3')
+  expect(waitRoute(' x y&z ')).toBe('/session-requests/wait?sessionId=x%20y%26z')
+  expect(waitRoute('')).toBe('/session-requests/wait')
+  expect(waitRoute(null)).toBe('/session-requests/wait')
 })
 
 test('names the dispatcher after the machine, so a restarted Manager knows its claims', () => {

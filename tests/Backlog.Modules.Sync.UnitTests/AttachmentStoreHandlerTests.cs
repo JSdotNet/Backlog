@@ -155,6 +155,35 @@ public sealed class AttachmentStoreHandlerTests
         Assert.Null(await _store.Find(Scope.OwnerId, fileId, Cancellation));
     }
 
+    /// <summary>A note edit that drops a file releases it once the replica holds the edit
+    /// (local ADR 0049 §6): the desktop removes a meeting recording from its note after the
+    /// transcript is written. A stale edit the replica refuses releases nothing, and a file
+    /// the edit keeps stays.</summary>
+    [Fact]
+    public async Task A_note_edit_that_drops_a_file_releases_that_file_once_it_lands()
+    {
+        var (noteId, recording) = await LiveNoteWithFile();
+        var bytes = Bytes(16, seed: 2);
+        var photoId = Guid.CreateVersion7();
+        await Upload(photoId, bytes, maxBytes: 1_000);
+        var photo = new AttachmentMetadata(photoId, "board.png", "image/png", bytes.Length, Sha256(bytes));
+        var at = _clock.GetUtcNow();
+        await _replica.Upsert(Scope, [NoteChange(noteId, at.AddMinutes(1), null, recording, photo)], Cancellation);
+        var push = new PushTasksCommandHandler(
+            _replica,
+            new CaptureAttachmentRelease(_store, new RecordingLogger()),
+            NullLogger<PushTasksCommandHandler>.Instance);
+
+        // Stale: older than what the replica holds, so it is refused and nothing is released.
+        await push.Handle(new PushTasksCommand(Scope, [NoteChange(noteId, at, null, photo)]), Cancellation);
+        Assert.NotNull(await _store.Find(Scope.OwnerId, recording.Id, Cancellation));
+
+        await push.Handle(new PushTasksCommand(Scope, [NoteChange(noteId, at.AddMinutes(2), null, photo)]), Cancellation);
+
+        Assert.Null(await _store.Find(Scope.OwnerId, recording.Id, Cancellation));
+        Assert.NotNull(await _store.Find(Scope.OwnerId, photoId, Cancellation));
+    }
+
     /// <summary>
     /// The replica writes a batch several documents at once, so a push that
     /// fails on one document can already have written others — here the note's
@@ -212,10 +241,10 @@ public sealed class AttachmentStoreHandlerTests
         return (noteId, file);
     }
 
-    private static TaskChange NoteChange(Guid id, DateTimeOffset at, DateTimeOffset? deletedAt, AttachmentMetadata file) =>
+    private static TaskChange NoteChange(Guid id, DateTimeOffset at, DateTimeOffset? deletedAt, params AttachmentMetadata[] files) =>
         new(id, at, deletedAt, new TaskPayload(
             "Keynote", string.Empty, "note", "draft", "medium", 0, null, at, "mobile", null, null, null, null, null, null, null,
-            null, null, null, [], [], [], [], [], [], Attachments: [file]));
+            null, null, null, [], [], [], [], [], [], Attachments: files));
 
     /// <summary>The delete failing is logged and left to the lifecycle rule;
     /// the acknowledgement succeeds and the tombstone is written.</summary>

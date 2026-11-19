@@ -34,6 +34,13 @@ Two details the record left open are settled in the build. The upload declares
 its digest in an `X-Attachment-Sha256` header, as hex. The metadata field is
 `sizeBytes` on the wire, not `size`.
 
+**Extended 2026-11-18** by §7 of
+`.devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md`:
+the owner desktop uploads a notification's images through the same `PUT`, and a
+viewer fetches them through the same `GET`. The routes, the owner prefix, the cap,
+the allowlist and the 30-day backstop are unchanged; a desktop is an uploader
+beside the phone. Not built yet.
+
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0014 under `.devbook/arc42/adr/guidelines/`, which is about persistence
 boundaries. Every reference below to a local ADR by bare number means the local
@@ -199,6 +206,13 @@ then on; the blob is a courier, not a home.
   catches the uploads whose capture never arrived and the deletes that failed,
   with no reaper to run and nothing in the service to trust — the argument local
   ADR 0005 makes for Cosmos TTL, made again for Storage.
+- **A note edit that drops a file releases it**, added 2026-11-10 by
+  `.devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md`:
+  the service compares the pushed note's files with the copy it already holds and
+  deletes the blob of each file the edit dropped, by the same own-copy rule. It
+  releases only after the push, and only a file the note the replica then holds
+  no longer names, so an edit refused as stale releases nothing. Built in
+  `PushTasksCommand` (PR #1806).
 
 ## Consequences
 

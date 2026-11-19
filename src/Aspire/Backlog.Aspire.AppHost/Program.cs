@@ -10,7 +10,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 // is the emulator, so the sync path builds and runs with no Azure account and no
 // subscription cost.
 //
-// The database and all four containers are declared so the local shape matches
+// The database and all of its containers are declared so the local shape matches
 // the deployed one: one database; `tasks` and `sessions` partitioned on /ownerId;
 // `devices` and `pairingCodes` partitioned on /id, because their one hot read has
 // only the document's own id in hand (see DeviceDocument). The TTLs and the
@@ -37,6 +37,9 @@ cosmosDatabase.AddContainer("annotations", "/ownerId");
 // Devbook subject state — a change proposal's, a decision record's, a debt record's —
 // partitioned on the owner like the other replicas, with no TTL: a state is never deleted.
 cosmosDatabase.AddContainer("devbookSubjects", "/ownerId");
+// Knowledge events and event series (local ADR 0050 §2), partitioned on the owner like the
+// other replicas, with no TTL: an event is never deleted on the feed.
+cosmosDatabase.AddContainer("knowledgeEvents", "/ownerId");
 // Notifications and the replies to them (local ADR 0039), partitioned on the owner like
 // the other replicas. Their TTLs — 30 days after a notification settles, and the reply
 // backstop — are stamped per document and live only in the bicep, as the others do.

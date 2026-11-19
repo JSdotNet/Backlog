@@ -29,7 +29,7 @@ public class InfrastructureGraphTests
     /// </summary>
     internal static readonly (string Project, int ModuleReferences, string Reason)[] WideAdapters =
     [
-        ("Backlog.Infrastructure.FileSystem", 10,
+        ("Backlog.Infrastructure.FileSystem", 12,
             "The workspace folder's stores — feature settings, device identity, transcript caches, devbook "
             + "snapshots, working hours, planning velocity — each answer a different module's port from the "
             + "one folder that knows the workspace root. It is several adapters in one project; splitting "
@@ -39,10 +39,17 @@ public class InfrastructureGraphTests
             + "Management's published surface, for the settled-fact store under Workspace/ that remembers "
             + "its merged pull requests across a restart, the Progress adapter under Progress/ that reads "
             + "goal pull requests through its contract, and the Tasks adapter under Tasks/ that answers the "
-            + "task row's pull-request port through the same contract (local ADR 0042)."),
-        ("Backlog.Infrastructure.Sqlite", 6,
+            + "task row's pull-request port through the same contract (local ADR 0042). The eleventh is "
+            + "Events' published surface, for the Inbox's To Event route under Inbox/, which makes a Spotted "
+            + "knowledge event through IKnowledgeEvents beside the Inbox's other routes, and for the "
+            + "cross-context joins under Events/ that file an event's prep tasks and read its task chips "
+            + "through Tasks' ITaskItems (local ADR 0050 §3). The twelfth is the Calendar's published surface, "
+            + "for the joins under Calendar/ that answer its Plans layer and working-week ports, ICalendarPlans "
+            + "and ICalendarCapacity, over Roadmap's abstractions, and its Events layer port, ICalendarEvents, "
+            + "over Events' read contract (local ADR 0055 §2)."),
+        ("Backlog.Infrastructure.Sqlite", 7,
             "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
-            + "Planning, the Inbox, Sessions, Progress and Notifications — each answering that module's own repository "
+            + "Planning, the Inbox, Sessions, Progress, Notifications and Events — each answering that module's own repository "
             + "port. The tables share a file, not a schema (inherited ADR 0014). The task store also closes the "
             + "notifications about a task that ends, through Notifications' published port it already sees."),
         ("Backlog.Infrastructure.GitHub", 6,
@@ -53,18 +60,27 @@ public class InfrastructureGraphTests
             + "GitHubRegisteredRepositories answer its pull-request source and registry ports, mapping each "
             + "record to the module's status (local ADR 0042). Splitting it by context would mean one "
             + "registry per context."),
-        ("Backlog.Infrastructure.Sync", 8,
+        ("Backlog.Infrastructure.Sync", 9,
             "The sync client carries every synchronised context's records — Tasks, Inbox, Roadmap, Progress, "
-            + "Devbook, Sessions and Notifications — over the Sync module's own contract, so it sees each "
+            + "Devbook, Sessions, Notifications and Events — over the Sync module's own contract, so it sees each "
             + "context's published surface by design. Notifications' surface is also how the pairing client "
-            + "here, which issues the pairing codes a notification can be about, tells Notifications when one ends."),
-        ("Backlog.Infrastructure.Mcp", 8,
+            + "here, which issues the pairing codes a notification can be about, tells Notifications when one ends. "
+            + "Events' surface is the knowledge event exchange's (local ADR 0050 §2): it reads and applies events "
+            + "through IKnowledgeEventReplication and serializes the wire shape the phone reads."),
+        ("Backlog.Infrastructure.Mcp", 9,
             "The MCP server is one adapter: the agent tools over each context's published port, one tool "
             + "group per context behind that context's own key (local ADR 0012 §7) — Tasks, Roadmap, Devbook, "
             + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0039), for the "
             + "impediment tools beside set_blocked, Progress (local ADR 0035), and the Brain (local ADR 0040) "
-            + "for `#brain` and the capture tool, and the Inbox for list_inbox_items, read_inbox_item and "
-            + "archive_inbox_item. It references abstractions only, never a module's implementation.")
+            + "for `#brain` and the capture tool, and the Inbox for list_inbox_items, read_inbox_item, "
+            + "archive_inbox_item and capture_to_inbox, and Events for add_knowledge_event, through the Events pane's "
+            + "own port behind the events key (local ADR 0050 §6, §7). It references abstractions only, never a module's implementation."),
+        ("Backlog.Infrastructure.Brain", 5,
+            "The Brain's adapter project (local ADR 0040 §1): every join that reads or writes the person's "
+            + "notes lives here rather than in folders spread across FileSystem, Devbook and Mcp. Beside the "
+            + "Brain's and Devbook's own ports it answers the Inbox's To Brain target, Events' note-link read "
+            + "(IEventBrainNotes, local ADR 0050) and Roadmap's note read (IRoadmapBrainNotes, local ADR 0053), "
+            + "each over the Brain's folder or database. It references abstractions only.")
     ];
 
     /// <summary>

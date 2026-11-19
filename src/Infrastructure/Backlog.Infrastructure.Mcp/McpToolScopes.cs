@@ -15,10 +15,9 @@ namespace Backlog.Infrastructure.Mcp;
 /// </para>
 /// <para>
 /// No tool requires <see cref="McpScopes.DevbookDecide"/>: approving and accepting are not
-/// served over MCP at all (§7). <see cref="McpScopes.TelemetryWrite"/> and
-/// <see cref="McpScopes.InboxCapture"/> have no tool yet: the first guards a route, the second
-/// is a capture into the Inbox — write-only, so the Inbox's reads and its archive are the
-/// backlog's <c>tasks:read</c> and <c>tasks:write</c>. <see cref="McpScopes.AgentsGrant"/>
+/// served over MCP at all (§7). <see cref="McpScopes.TelemetryWrite"/> has no tool: it guards a
+/// route. <see cref="McpScopes.InboxCapture"/> is <c>capture_to_inbox</c> alone — write-only, so
+/// the Inbox's reads and its archive are the backlog's <c>tasks:read</c> and <c>tasks:write</c>. <see cref="McpScopes.AgentsGrant"/>
 /// guards the granting tools, whose rules the host enforces beyond the scope.
 /// </para>
 /// </summary>
@@ -60,7 +59,7 @@ public static class McpToolScopes
             TrackerTools.FindItem, TrackerTools.ReadItem, TrackerTools.ListDevbookReferences,
             WorkTools.ListEntries, WorkTools.GetPlanItems,
             RoadmapTools.GetRoadmap,
-            GoalTools.ListGoals,
+            GoalTools.ListGoals, GoalTools.ReadIterations,
             InboxTools.ListInboxItems, InboxTools.ReadInboxItem);
 
         Map(McpScopes.TasksWrite,
@@ -70,14 +69,16 @@ public static class McpToolScopes
             ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState,
             ImpedimentTools.LinkToImpediment, ImpedimentTools.UnlinkFromImpediment,
             DevbookTools.CaptureNote,
-            InboxTools.ArchiveInboxItem);
+            InboxTools.ArchiveInboxItem,
+            EventTools.AddKnowledgeEvent);
 
         Map(McpScopes.TasksAdmin, GoalTools.DeleteGoal);
 
         Map(McpScopes.DevbookRead,
             DevbookTools.ListKnowledgeContexts, DevbookTools.ReadKnowledgeChapter, DevbookTools.ListAnnotations,
             DecisionTools.GetState, DecisionTools.ListNotes,
-            SyncDirectionTools.ListSyncDirections);
+            SyncDirectionTools.ListSyncDirections,
+            DevbookTools.ListBrainReviews);
 
         // devbook_set_state is a write because over MCP it sets draft and nothing else (§7).
         Map(McpScopes.DevbookWrite,
@@ -90,7 +91,11 @@ public static class McpToolScopes
             [.. DeliverySurfaceOperations.All,
             TrackerTools.LinkChange, TrackerTools.LinkSession,
             UsageTools.ListRunUsage,
-            SessionTools.ListSessions]);
+            SessionTools.ListSessions,
+            ScheduleTools.ReportScheduleRun, LoopTools.CheckIn]);
+
+        // A capture into the Inbox, write-only: its reads and its archive are the backlog's.
+        Map(McpScopes.InboxCapture, InboxTools.CaptureToInbox);
 
         Map(McpScopes.NotifyAsk,
             NotificationTools.Notify, NotificationTools.Ask, NotificationTools.GetAnswer, NotificationTools.Close);

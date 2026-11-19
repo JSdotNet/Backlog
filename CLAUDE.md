@@ -50,7 +50,7 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its eleven skills, nor its hooks,
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its thirteen skills, nor its hooks,
 changes the paragraph above; the plan-progress band and pane (`hooks/register.tsx`) only read the
 calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
@@ -58,12 +58,14 @@ app, so neither is a flow and neither goes through the gate. `run-plan-item` is
 model-invoked when a plan item is pasted in, but it runs the item's instructions *through*
 the gate — the matching flow — rather than adding an execution path beside it.
 `execute-plan` is user-invoked and changes nothing itself: it hands each prompt
-entry of a plan to a nested session — or, unattended where the host refuses to start one, a
+entry of a plan to a nested session — or, where the host refuses to start one, a
 background sub-agent that parks at the gate — that runs it through `run-plan-item`, so every entry
-still passes the gate and its own Personal Validation — relayed to the person when attended,
-moved onto a draft pull request when unattended.
-`final-check` is user-invoked and changes nothing: run once a plan has landed, it reviews what
-each entry implemented and runs the build and tests, and a fix it finds goes through the gate.
+still passes the gate and its own Personal Validation, moved onto a draft pull request: a run is
+always unattended.
+`final-check` is user-invoked: run once a plan has landed, it reviews what each entry
+implemented against the session's specification and runs the build and tests, and that review
+changes nothing; the gaps the person then accepts are fixed in that session through the gate, so
+it is no flow and adds no path beside it.
 `close-merged` is model-invoked when asked to close the merged items; it only moves the entries
 whose pull request merged into the default branch or a `plan/` branch to Done, so it is no flow.
 `handle-remarks` is model-invoked when asked to handle or answer the Devbook remarks; it answers
@@ -80,10 +82,18 @@ ADR 0038). It also hands each answer the app accepted for a waiting session back
 as a message (local ADR 0041), which runs nothing new. It is no flow and adds no execution path
 beside the gate.
 `tend-brain` is model- or user-invoked and changes only the Brain folder it runs in, outside every
-repository, by the rules that folder carries, plus the Backlog `task` entries it files for the
-follow-ups the person routes there — so it is no flow and never meets the gate.
+repository, by the rules that folder carries, plus the Backlog `task` and `plan` entries it files for the
+follow-ups the person routes there or the app's inbox holds, and the app inbox items it archives
+once their Brain copy exists — so it is no flow and never meets the gate.
 `weekly-cost-analysis` is model-invoked and changes nothing: it reads the `backlog` server's
 `list_run_usage` and ends on a report of what the window's runs cost, so it is no flow.
+`weekly-review` is model- or user-invoked and changes nothing: it reads the Inbox, the Brain and
+the backlog over the `backlog` server and ends on the GTD weekly review checklist (local ADR 0054
+§8) — each line an entry or note and the action to take — so it is no flow.
+`track-goals` is model- or user-invoked, once or under `/loop`, and changes no file: it writes
+only goal attachments through the `backlog` server — and an impediment, a goal, a pull request
+link or a move between goals only on the person's yes (local ADR 0035) — then reports where each goal stands, so it is
+no flow.
 `devbook-sweep` is the target of a repository's local devbook sweep routine, unattended by
 design: it reads each sync unit's direction from the `backlog` MCP server and lands every change
 as a draft pull request a person validates, the way `delivery-schedule`'s scheduled skills do —
@@ -96,7 +106,7 @@ so it is no flow and adds no execution path beside the gate.
 Every flow reports its stages to the bound delivery surfaces — the `delivery-surface-*`
 MCP servers, `mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__*` and
 `mcp__plugin_delivery-surface-dashboard_delivery-surface-dashboard__*`. Skip surface calls
-only when a surface genuinely answers unavailable; do not substitute chat-only tracking
+only when a surface answers unavailable; do not substitute chat-only tracking
 when the tools are present but erroring.
 
 Never skip Personal Validation, and never create a pull request or mark a flow complete
@@ -189,8 +199,9 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   plan pasted back out of the Backlog app, after checking it is still outstanding.
 - `plugins/backlog-tools/skills/execute-plan/SKILL.md` — runs a whole plan by
   running its prompt entries in nested sessions, one worktree and pull request each; user-invoked only.
-- `plugins/backlog-tools/skills/final-check/SKILL.md` — checks a finished plan once, in the
-  session that wrote it: what each entry implemented, and that it all builds; user-invoked only.
+- `plugins/backlog-tools/skills/final-check/SKILL.md` — closes a finished plan once, in the
+  session that wrote it: what each entry implemented, that it all builds, and the accepted gaps
+  fixed through the gate; user-invoked only.
 - `plugins/backlog-tools/skills/import-inbox/SKILL.md` — turns an export from another
   to-do tool into an inbox import manifest (ADR 0017); user-invoked only.
 - `plugins/backlog-tools/skills/handle-remarks/SKILL.md` — handles the reading notes left
@@ -202,8 +213,13 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   accepted to the sessions waiting on them (local ADR 0041); started by the person under `/loop`, no flow.
 - `plugins/backlog-tools/skills/tend-brain/SKILL.md` — tends a person's Brain folder (local
   ADR 0026) by its own root rules, once or under `/loop`; no flow.
+- `plugins/backlog-tools/skills/weekly-review/SKILL.md` — runs the GTD weekly review over the
+  Inbox, the Brain and the backlog and reports what to clarify, chase, plan or drop; no flow.
 - `plugins/backlog-tools/skills/weekly-cost-analysis/SKILL.md` — reports what the delivery runs
   on this machine cost in tokens, across every repository, from `list_run_usage`; no flow.
+- `plugins/backlog-tools/skills/track-goals/SKILL.md` — keeps the goals current: attaches a
+  task or plan whose dependencies, one or more, one goal holds; proposes the rest, pull request
+  links and impediments; and reports each goal's next step, once or under `/loop`; no flow.
 - `plugins/backlog-tools/skills/devbook-sweep/SKILL.md` — levels a devbook and its code in the
   direction Backlog keeps per sync unit, as draft pull requests; the per-repository routine's
   target, no flow.

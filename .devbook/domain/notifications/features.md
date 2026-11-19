@@ -85,15 +85,21 @@ replies there. Every viewer shows which desktop owns the notification
 and whether it is online, because an answer counts only once that desktop accepts
 it.
 
-On the phone this is the Notifications tab in `Backlog.Mobile.UI`. It pulls the
+On the phone this is the Notifications screen in `Backlog.Mobile.UI`, opened from
+the Notifications tab. It pulls the
 feed when it opens and when the app comes back to the front. It also pulls every 30 seconds
-while a reply made there waits for its owner. Each card shows:
+while a reply made there waits for its owner. Those pulls are its refresh, so the
+screen has no refresh button.
+
+The screen is a pager: one item waiting on the person per screen, oldest first, with
+"n / total" and a dot per item. A card's title opens its detail, which shows any
+notification, a settled one included. Each card shows:
 
 - the kind, the severity and the age;
 - the owner desktop's name;
 - whether it is online, an owner offline reading "delivers on wake".
 
-The detail draws the Markdown body, Mermaid included. A question takes choice
+The card draws the Markdown body, Mermaid included. A question takes choice
 buttons, checkboxes for multiple choice, or a plain-text answer. The reply leaves
 through the device outbox as a `notification-reply` entry, so a reply made offline
 is kept. A question that says `answerOn: owner` is read-only there.
@@ -115,12 +121,13 @@ An open alert on the phone offers Dismiss, which sends an
 [Acknowledgement](domain.md#acknowledgement) to the owner desktop through the same
 outbox, as a `notification-reply` entry. Another desktop sends one from its
 centre's Acknowledge. The alert leaves the stack of the device that dismissed it at
-once, and every other device's stack once the owner takes it. It stays in each
-device's list as settled, for as long as answered and closed notifications stay
-there, and reads "Acknowledged on this phone" or "Acknowledged elsewhere".
+once, and every other device's stack once the owner takes it. It stays settled
+for as long as answered and closed notifications stay: in a desktop centre's list,
+and on the phone in its detail. There it reads "Acknowledged on this phone" or
+"Acknowledged elsewhere".
 
-Until the owner takes it, the list reads "Sending" while it is in the outbox, and
-"delivers on wake" while the owner is offline. When the alert closes first, it
+Until the owner takes it, the phone's detail reads "Sending" while it is in the
+outbox, and "delivers on wake" while the owner is offline. When the alert closes first, it
 reads Closed with its reason. When cloud sync refuses the acknowledgement, the
 alert comes back into the stack with the reason.
 
@@ -128,7 +135,8 @@ The phone reads presence off the owner's own pushes. An owner desktop pushes eac
 open question again every 10 minutes, and a phone that has seen no push from it
 for 15 minutes reads it as offline.
 
-Two filters sit over the tab and narrow both its views, the pager and the list:
+Two filters narrow the pager. They sit behind a filter button at the start of the
+pager's row, the only row above the card:
 
 - **From:** the system a notification came from, by the rule the desktop
   centre's From filter keeps: [Origin](domain.md#origin)'s system, else the
@@ -138,12 +146,17 @@ Two filters sit over the tab and narrow both its views, the pager and the list:
   those about no repository. A notification whose repository is not known stays
   under every choice, as it does on the desktop.
 
-Each starts at All, and each option counts what it would keep under the other
-filter. A filter with fewer than two options is not shown. The phone remembers
-both on the device, and **Clear filters** sets both back to All. A filter that
-leaves nothing shows an empty state with **Clear filters**, not "No
-notifications". The filters change only what the tab shows: the waiting count
-counts every open question, and the Android push is sent whatever they hold.
+Each starts at All. Each option counts what waits among what it would keep under
+the other filter, so a settled notification adds nothing and an option may read 0.
+A filter with fewer than two options is not shown. The phone remembers both on the
+device, and **Clear filters** sets both back to All. A filter that leaves nothing
+shows an empty state with **Clear filters**, not "No notifications".
+
+What waits is the kind of item the pager's stack holds: every open question
+without a reply on its way, and every open alert. The filters change only what the
+screen shows. While one narrows the screen, the filter button shows and says that filters
+are on, and wears the number of waiting items they leave out. So a filter never
+hides what waits unseen. The Android push is sent whatever the filters hold.
 
 The phone also hears of a notification without being opened, through an Android
 push. When a notification is published or changes state, the phone gets an
@@ -166,8 +179,8 @@ Anything else covers:
 - an alert;
 - a reply already on its way.
 
-The Personal Validation question offers Approve, Approve + follow-up,
-Revise and Reject. The tray shows it with no actions, and the person taps through to
+The Personal Validation question offers Approve, Approve + follow-up
+and Revise. The tray shows it with no actions, and the person taps through to
 the app.
 
 An action or an inline reply leaves through the same `notification-reply` outbox
@@ -185,29 +198,71 @@ whether a phone showed it.
 
 ```meta
 type: feature
-related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
+related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md, .devbook/domain/sessions/features.md#schedules-and-their-runs, .devbook/domain/sessions/features.md#loop-sessions]
 ```
 
-Three contexts reach the person through notifications. A delivery run that
+Four contexts reach the person through notifications. A delivery run that
 reaches Personal Validation asks to be approved, and the answer is recorded on the
 run; the pull request is still opened at the desktop. A device that redeems a
 pairing code is asked about on the desktop that showed the code, and only there:
 Allow keeps it, Refuse revokes it. A remark left on a Devbook chapter on another
-device raises an alert that links to the chapter.
+device raises an alert that links to the chapter. Sessions raises an alert when a
+schedule or a loop session needs the person.
+
+Sessions publishes its alerts like any other source, so they reach the centre, the
+Windows notification and the phone as every alert does. Local
+[ADR 0051](../../arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)
+decides it. An alert that turning the `sessions` flag off closed is raised again when the flag
+comes back on, as long as its cause still holds.
+
+| Source line | Raised when | Actions |
+| --- | --- | --- |
+| Backlog · &lt;repository&gt; · Schedules | a schedule reads Needs you, Held, Failed or Missed | Open run, Open Schedules |
+| Backlog · Sessions | a loop session reads Stalled, or Not running while work waits | Open Sessions, Acknowledge |
+
+A schedule's alert names its repository, so the centre groups it with that
+repository's other notifications. The actions open the Sessions takeover on this
+desktop only, and the phone offers Dismiss alone.
+
+Each cause raises one alert, and Sessions closes it when the cause clears: the run's
+session is archived, a missed schedule's run starts, or the loop checks in again. A
+Failed alert also closes once a later run of the same schedule finishes Review ready. A
+held schedule's later skipped runs raise nothing more. A schedule that reads Review
+ready shows it on its row and raises no alert
+([Schedules and their runs](../sessions/requirements.md#requirement-a-schedule-that-needs-the-person-raises-one-alert-per-cause)).
 
 The Personal Validation question carries the gate's handoff as its body, so the
 person can review the run from the phone. The handoff is what the stage reports
 for the person: its review links, what to check, the acceptance criteria and the
-paths of the evidence. It travels as text, and no image is attached. The question
-is asked on the first report of the stage that carries links or handoff text.
-A gate that has only gone in progress has nothing to show yet.
+paths of the evidence. A link only the desktop can open — the running app on
+`localhost`, a `file:` path — is left out, since the phone cannot follow it; the
+run's own panel lists it. The question is asked on the first report of the stage
+that carries links or handoff text. A gate that has only gone in progress has
+nothing to show yet.
+
+The run's screenshots come with it. The body opens with up to six of them, taken
+from every stage's scenario evidence, newest report first: each a `png`, `jpeg`
+or `webp` file of at most 5 MB, sent as the run captured it. The handoff text
+follows, so cutting a long body to fit never drops an image. Any other evidence
+stays in the run's panel at the desktop. The desktop uploads the images after the
+stage reports and pushes the question once they are up, so the run never waits
+on them. The phone fetches each image it shows; one it cannot fetch, or one more
+than 30 days old, shows its file name instead.
 
 | Answer | Recorded on the run | What follows |
 | --- | --- | --- |
 | Approve | an approval | The flow goes on to the pull request. |
 | Approve + follow-up, with text | an approval, with the person's words as its note and the id of the follow-up entry | Tasks files one [follow-up entry](../tasks/features.md#filing-a-follow-up-after-an-entry) after the gated entry, in the same plan. |
 | Revise, with text | a rejection in the person's words | The flow starts a [revise round](../sessions/domain.md#revise-round). |
-| Reject | a rejection with a fixed note and none of the person's words | `execute-plan` blocks the entry instead of revising it. |
+| Dismiss | nothing | The question is withdrawn on every device, and the gate waits for a decision at the desktop. The next attempt at the gate asks again. |
+| Reject, on a question an earlier build asked | a rejection with a fixed note and none of the person's words | `execute-plan` blocks the entry instead of revising it. |
+
+The question no longer offers Reject: a run that should end is ended at the desktop.
+The body carries the handoff alone. The origin names the repository and the buttons
+name the answers, so the body repeats neither.
+
+Dismiss is for a question that went stale. It is drawn as a small text action
+after the buttons, not as a button of its own.
 
 The run's approval also records which choice answered it, and for Approve +
 follow-up the id of the follow-up entry. `get_run` returns both, so an

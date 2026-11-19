@@ -1,8 +1,8 @@
 # ADR 0038: Backlog queues session requests and a Manager session dispatches them
 
 ```meta
-date: 2026-11-02
-related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/domain/sessions/context.md#session-requests", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/sessions/domain.md#session-request", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/tasks/features.md#copy-as-a-runnable-paste", ".devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts"]
+date: 2026-11-18
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/domain/sessions/context.md#session-requests", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/sessions/domain.md#session-request", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/tasks/features.md#copy-as-a-runnable-paste", ".devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts", ".devbook/design/interaction-guidelines.md#drag-and-drop-reordering"]
 ```
 
 A click on an entry in the desktop app creates a **session request**: a Backlog record
@@ -21,8 +21,8 @@ sits behind the flag `session-requests`, off by default.
 Accepted, 2026-11-02, at the Personal Validation gate of the flow-spec run
 `run-mvzp51dk-5wwl1p`, which made the second amendment. Proposed 2026-10-22 by the
 flow-spec run `run-mviose3i-v0k24o` that drafted it, the `record-decision` item of the
-`session-dispatch` plan, run unattended. Amended on 2026-10-27 and 2026-11-02
-([History](#history)).
+`session-dispatch` plan, run unattended. Amended on 2026-10-27, 2026-11-02, 2026-11-11
+and 2026-11-18 ([History](#history)).
 
 Built and merged in PR #1491 on 2026-10-26: the request record and its queue table, the
 wait route, the dispatcher tools, the Start session and Start plan session actions, and
@@ -104,8 +104,8 @@ Validation question a run asks
 ([Asking from the contexts](../../domain/notifications/requirements.md#asking-from-the-contexts))
 can be answered **Approve + follow-up** on any paired device. That answer files one
 ready prompt entry in the gated entry's plan and repository, `after:` the gated entry
-([Tasks](../../domain/tasks/features.md#filing-a-follow-up-after-an-entry)). An attended `execute-plan` orchestrator then
-dispatches it like any ready entry. The answer never creates a session request, so
+([Tasks](../../domain/tasks/features.md#filing-a-follow-up-after-an-entry)). An `execute-plan` session running that plan
+re-reads the plan after each entry lands and dispatches it like any ready entry. The answer never creates a session request, so
 only a click still creates one. The accepted trust is that a paired device already
 approves the gate, so it may also queue the next step behind it. `run-plan-item` still
 treats the follow-up's text as an item to check.
@@ -117,12 +117,18 @@ treats the follow-up's text as an item to check.
 
 | Kind | Created on | Brief |
 | --- | --- | --- |
+| 2026-11-18 | §3 amended: the app closes a Requested or Started request once its entry, or every entry of its plan, is Done or Archived, at start and after every task write; `link_session` matches a request under the session's desktop id as well as its transcript id, and `execute-plan` links its own session to one entry of its plan. Built in the same pull request. | No request had ever reached Linked: the dispatcher reports the desktop id and a session links by its transcript id, and a plan's `execute-plan` session never linked at all. Plans the person had finished stayed in the session queue as Started. |
 | Entry request | a prompt entry | `/backlog-tools:run-plan-item entry `<id>`:` |
-| Plan request | a plan's roadmap item | `/backlog-tools:execute-plan +<tag>` |
+| Plan request | a plan's roadmap item | `/backlog-tools:execute-plan +<tag> branch` |
 
 An entry request runs one entry. A plan request starts one session that runs the whole
 plan with its own sub-agents. Because both skills check what has already landed,
 dispatching the same request twice does no harm.
+
+**Amended 2026-11-18: the plan brief names its landing mode.** It ends in `branch`, so a
+dispatched plan lands its entries on the plan's integration branch whatever the skill's
+default becomes. `execute-plan` always runs unattended: it asks the person nothing, and
+each entry parks at its gate as a draft pull request the person validates.
 
 ### 3. Five states, a lease on the claim, no expiry
 
@@ -138,6 +144,9 @@ stateDiagram-v2
   Started --> Linked: the session calls link_session
   Requested --> Cancelled: the person cancels it
   Claimed --> Cancelled: the person cancels it
+  Started --> Cancelled: the person clears it, its session never linked
+  Requested --> Cancelled: its work is finished
+  Started --> Cancelled: its work is finished
   Linked --> [*]
   Cancelled --> [*]
 ```
@@ -151,7 +160,8 @@ stateDiagram-v2
   session id.
 - **Linked.** That session called `link_session` on the entry. A plan request is
   Linked when its session links any entry of the plan.
-- **Cancelled.** The person cancelled it.
+- **Cancelled.** The person cancelled it, or cleared it once Started, or the app closed
+  it because its work is finished.
 
 **Requests never expire.** A request made while no dispatcher runs waits until one
 does, or until the person cancels it. Linked and Cancelled are final.
@@ -170,6 +180,38 @@ the refused report left the request reading Requested, and the next wait handed 
 A second session can still start when another dispatcher claims the request first. The
 refused report then tells the holder so, and the Manager names both sessions.
 
+**Amended 2026-11-18: a paused queue refuses every claim.** The person can pause the
+queue as a whole (§4). While it is paused, a claim on a Requested request, a lapsed one
+included, is refused with "The session queue is paused." and the request stays
+Requested. The check runs in the same immediate transaction as the claim, so a claim
+racing a pause cannot slip through. A pause is a property of the queue, not a sixth
+state: no request changes state when the queue is paused or resumed, and none expires.
+A claim already held is not revoked: its holder's `started` report, the late one
+included, and its `released` are still accepted.
+
+**Amended 2026-11-18: a Started request can be cancelled.** A dispatcher can report a
+session that then never calls `link_session`: it failed to start its brief, or the
+person closed it. Such a request read Started with nothing to end it. The person can now
+cancel a Started request from the session queue, and it is Cancelled like any other.
+Cancelling stops no session. A `link_session` that comes later links nothing, because
+only a Started request is linked. A Claimed request still offers no Cancel in the app,
+because a dispatcher is starting its session right then. Requests still never expire.
+
+**Amended 2026-11-18: a finished request leaves the queue.** The person can finish the
+work a request names without its session: mark the entry Done in the app, or every entry
+of the plan. Such a request read Started, or waited Requested, with nothing left to do.
+The app now closes a Requested or Started request once its entry is Done or Archived, or
+once every entry of its plan is, the plan's entries read as `get_plan_items` reads them.
+It sweeps when it starts and after every local task write, and the request is Cancelled
+as a press of Cancel leaves it. A Claimed request is left to its dispatcher, and a plan
+with no entries is not finished.
+
+**Amended 2026-11-18: a link matches the dispatcher's session id.** A dispatcher reports
+the Claude desktop app's id for the session it started, `local_<guid>`, while a session
+calls `link_session` with its transcript id. `link_session` now matches a request under
+both. The plan's `execute-plan` session links itself to one entry of its plan, because
+its entry sessions link with their own ids.
+
 ### 4. Dispatchers wait on a long poll and act through MCP tools
 
 ```meta
@@ -178,7 +220,7 @@ refused report then tells the holder so, and the Manager names both sessions.
 **The wait is an HTTP route, not a tool.** `GET /session-requests/wait` is mapped on
 the listener ADR 0012 §1 built, beside `/telemetry` and `/v1/logs`, behind the same
 `Origin` check and bearer token. It answers as soon as a request is Requested, with
-that request, oldest first. With none, it holds the call open for up to 50 seconds and
+the one at the head of the queue. With none, it holds the call open for up to 50 seconds and
 answers `204`. A route keeps the MCP transport stateless, as ADR 0012 has it, and lets
 a dispatcher wait in a process that spends no model turn while it waits.
 
@@ -192,6 +234,41 @@ in a pinned Claude Desktop session. It waits on the route, claims each request, 
 started session. It holds no state of its own, so restarting it loses nothing. How
 many sessions it runs at once, and when it holds back for machine load or usage, is
 the skill's own policy and not this record's.
+
+**Amended 2026-11-11: the app notes when a dispatcher last waited.** Each call the wait
+route lets in is recorded as dispatcher contact, in memory on this desktop, and counts
+as now for as long as the call is held. A `404` while the flag is off records nothing.
+The record names no dispatcher and is forgotten on restart, and the Manager still holds
+no state. The Tasks filter bar's session queue lists every open request and warns when
+one waits Requested and no dispatcher has been heard for more than two minutes.
+
+**Amended 2026-11-18: the person can pause the queue.** The session queue offers Pause
+queue and Resume queue. While the queue is paused, the wait route hands out no request:
+with nothing else to hand out it holds the call and answers `204`, as on an empty queue,
+and the call is still dispatcher contact. Answer deliveries of local ADR 0041 are not
+paused, so the route still hands them out and a waiting session still gets its answer.
+`list_session_requests` says whether the queue is paused, and the Manager ends its turn
+while it is rather than try claims it knows are refused. The person can still queue and
+cancel requests. No MCP tool pauses or resumes the queue: like a request, a pause is the
+person's act in the app. The paused state is kept in the app's local database beside the
+requests, survives a restart and is never synced. A database written before the pause
+existed reads as running.
+
+**Amended 2026-11-18: the person orders the queue.** The queue was oldest first. Now
+the person sets the order of the Requested requests, a lapsed claim included, in the
+session queue's popover. Entry and plan requests share that one order, across every
+repository on this machine. A new request joins at the end, and a request the person
+never moved keeps its place by when it was asked. The wait route, `list_session_requests`
+and the Manager take requests in that order. A Claimed or Started request does not move,
+because a dispatcher already acts on it. The order is kept with the requests in the
+app's local database, written in one transaction per move, and does not replicate. Only
+the app reorders: no MCP tool moves a request, for the same reason that only a click
+creates one. Deliveries still come before any request (ADR 0041).
+
+The popover offers Move up, Move down and Move to top, and on a focused row Alt+ArrowUp
+and Alt+ArrowDown, with Alt+Shift+ArrowUp to move it to the top. Drag-and-drop and an undo step are left for later. That departs from the
+design guidelines'
+[reordering rules](../../design/interaction-guidelines.md#drag-and-drop-reordering).
 
 A direct launch from the app, the way it starts Copilot CLI, is left for later. It
 would be a second dispatcher for the same request, and neither the request nor the
@@ -223,7 +300,11 @@ Positive:
 Negative:
 
 - **Someone has to start the Manager and keep it running.** Requests made while none
-  runs wait, which may start work later than the person expected.
+  runs wait, which may start work later than the person expected. Since the
+  2026-11-11 amendment, the session queue says so when none is heard and names the
+  command that starts one.
+- **A paused queue starts nothing until the person resumes it**, however long that
+  takes. The trigger and a callout in the popover say the queue is paused.
 - **A request started late runs late.** A request made days ago starts when a
   dispatcher next runs. `run-plan-item` exits when the entry is already done.
 - **The clone folder may need opening in Claude Desktop once**, so it is trusted
@@ -264,6 +345,11 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-18 | §2 amended: the plan brief is `/backlog-tools:execute-plan +<tag> branch`, and `execute-plan` always runs unattended, with no attended mode, gate relay or per-entry landing; §1 now says the plan's `execute-plan` session dispatches a follow-up entry. Built in PR #1846. | A dispatched plan session stopped on questions nobody answers, and a dispatched plan lands its entries on the plan's integration branch. |
+| 2026-11-18 | §3 amended: the person can cancel a Started request, so a request whose session never called `link_session` leaves the queue. It stops no session, and a later `link_session` links nothing. Requests still never expire. Built in the same pull request. | Started rows whose session never linked sat in the session queue for days with nothing to clear them. |
+| 2026-11-18 | §3 and §4 amended: the person can pause and resume the queue in the app. While it is paused, every claim is refused inside its transaction and the wait route hands out no request, while answer deliveries keep flowing, held claims still report and release, and requests can still be queued and cancelled. `list_session_requests` carries `paused`, and no MCP tool pauses or resumes. The state is a machine-local single-row table in the app's database. Built in the same pull request. | A person wants to stop new sessions from starting without cancelling every request or stopping the Manager. |
+| 2026-11-18 | §4 amended: the person orders the Requested requests in the session queue, one order for entry and plan requests, new requests last; the wait route, `list_session_requests` and the Manager take them in that order, not oldest first. No MCP tool reorders. | The person wants the request they put first to be the one the Manager starts next. |
+| 2026-11-11 | §4 amended: the app records dispatcher contact from the wait route, in memory, and the Tasks filter bar's session queue warns when none has come for two minutes while a request waits Requested. Built in PR #1799. | Requests waited unseen with no Manager running, and nothing said so. |
 | 2026-11-02 | §3 amended: a lapsed lease returns the request to Requested for every other dispatcher, while the holder's late `started` report still counts until another dispatcher claims it. | `start_session` can outlast the lease, and the refused report let one Manager dispatch its own request twice. |
 | 2026-11-02 | Accepted at the gate of `run-mvzp51dk-5wwl1p`. Status: built and merged in PR #1491 on 2026-10-26. | The Status still said the plan's later items would build it, and the person accepted the record. |
 | 2026-10-27 | §1 amended: an Approve + follow-up answer to a Personal Validation question, from any paired device, files one ready prompt entry `after:` the gated entry in the same plan and repository, which an attended `execute-plan` dispatches; it never creates a session request. | A paired device already approves the gate, so it may queue the next step; only a click still starts a session. |

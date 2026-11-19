@@ -87,5 +87,7 @@ public sealed class RoadmapPlanTagSessionRequests : IPlanTagSessionRequests
                 PlanSessionRequestState.Started => EntrySessionRequestState.Started,
                 _ => EntrySessionRequestState.Requested
             },
-            request.Repository);
+            request.Repository,
+            request.RequestedAt,
+            request.QueuePosition);
 }

@@ -116,43 +116,67 @@ public sealed class FilterBarLayoutTests
     }
 
     /// <summary>
-    /// The tags group takes the middle of the bar, and is the only group that takes
-    /// any of it.
+    /// The tag strip takes a full-width row of its own, after every other group,
+    /// with More or Fewer at that row's end.
     /// <para>
-    /// It shared the middle with an area group until that group was removed, and it
-    /// is the one whose length has no ceiling: an entry wears any number of tags and
-    /// every distinct one gets a chip. The scopes are pinned and status sits against
-    /// the right edge, so there is nothing left to share the slack with — which is
-    /// also why the group's own chips are never collapsed to buy room. It leaves the
-    /// bar whole instead, one step down.
+    /// It used to take the middle of the first row with a zero basis, so it got only
+    /// what the scopes, Source, Type and the statuses left: at mid widths one chip
+    /// sliced through its name and then More. It is the group whose length has no
+    /// ceiling — an entry wears any number of tags and every distinct one gets a chip
+    /// — so it is the one given a row, collapsed or expanded. The row is a layout
+    /// wrapper, so the strip inside stays the element components.js measures and More
+    /// stays its sibling.
     /// </para>
     /// <para>
-    /// A zero basis rather than <c>auto</c>: the slack is what the other groups leave,
-    /// not a width it competes for. At <c>auto</c> a long pile shrank the statuses
-    /// too and clipped them through a chip's name; what the strip cannot fit now is
-    /// the More toggle's to reach.
-    /// And the bar wraps, where a pile at <c>auto</c> would claim a row of its own and
-    /// push the statuses onto a third.
+    /// Collapsed it is still one line of whole chips: the strip's <c>max-height</c>
+    /// is one chip, so a chip that does not fit drops out of view whole.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_tags_group_takes_the_middle_of_the_bar()
+    public void The_tag_strip_takes_a_row_of_its_own_under_every_other_group()
     {
         var css = Css();
 
+        var row = Block(css, ".filter-bar__tags {");
+        Assert.Contains("flex: 1 0 100%;", row, StringComparison.Ordinal);
+        Assert.Contains("order: 1;", row, StringComparison.Ordinal);
+
+        // The order is the row's alone: nothing else on the bar sets one, and the
+        // expanded strip no longer needs to, since its row is already its own.
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(BarRules(css), @"(?m)^\s*order:"));
+        Assert.DoesNotContain("order:", Block(css, ".filter-group--tags--expanded {"), StringComparison.Ordinal);
+
+        // Inside the row the strip takes everything but the toggle's width, and the
+        // toggle keeps its own.
         var tags = Block(css, ".filter-group--tags {");
-
         Assert.Contains("flex: 1 1 0;", tags, StringComparison.Ordinal);
+        Assert.Contains("max-height: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));", tags, StringComparison.Ordinal);
+        Assert.Contains("flex: 0 0 auto;", Block(css, ".chip--more {"), StringComparison.Ordinal);
 
-        // Nothing else grows into it: the scopes hold their room, status only shrinks.
+        var pane = NormalizeLineEndings(File.ReadAllText(RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor")));
+        var rowAt = pane.IndexOf("<div class=\"filter-bar__tags\"", StringComparison.Ordinal);
+        Assert.True(rowAt >= 0, "The tag strip sits in its row wrapper.");
+        Assert.InRange(pane.IndexOf("<div id=\"tag-filter-strip\"", StringComparison.Ordinal), rowAt, int.MaxValue);
+        Assert.InRange(pane.IndexOf("TestId=\"tag-filter-more\"", StringComparison.Ordinal), rowAt, int.MaxValue);
+
+        // Last in the markup as well as on screen, so the tab order runs the way
+        // the rows read: the first row's statuses before the tags under them.
+        Assert.True(
+            pane.IndexOf("<div class=\"filter-group filter-group--status\"", StringComparison.Ordinal) < rowAt,
+            "The tag row follows the statuses in the markup.");
+
+        // The first row is the other groups': the scopes hold their room, and
+        // status only shrinks.
         Assert.Contains("flex: 0 0 auto;", Block(css, ".filter-group--scope {"), StringComparison.Ordinal);
         // Status never grows, and shrinks only when it is alone on a row narrower
-        // than itself — the bar wraps and the pile has a zero basis, so nothing on
-        // its row can squeeze it. Shrunk, it wraps its chips rather than clipping
-        // them: a clipped status chip is a filter the reader cannot press.
+        // than itself — the bar wraps and the tags are on a row of their own, so
+        // nothing on its row can squeeze it. Shrunk, it wraps its chips rather than
+        // clipping them: a clipped status chip is a filter the reader cannot press.
+        // Its auto margin still carries it to the right edge of the first row.
         var status = Block(css, ".filter-group--status {");
         Assert.Contains("flex: 0 1 auto;", status, StringComparison.Ordinal);
         Assert.Contains("flex-wrap: wrap;", status, StringComparison.Ordinal);
+        Assert.Contains("margin-left: auto;", status, StringComparison.Ordinal);
 
         // And the tag chips are never collapsed one by one to buy width — the group
         // grows and shrinks whole. The one rule that does reach a single chip is not
@@ -164,8 +188,9 @@ public sealed class FilterBarLayoutTests
     }
 
     /// <summary>
-    /// Below 38rem the tag group leaves the bar while nothing is picked, and it is
-    /// the only group allowed to leave at all.
+    /// At 48rem the tag row leaves the bar while nothing is picked, and it is the
+    /// only group allowed to leave at all — Source and Type fold into the Filter
+    /// menu there, which keeps them on the bar.
     /// <para>
     /// Every other group is the whole of its own question — there is nowhere else to
     /// pick a status, My Day or Ready in a plan, so hiding one would take the answer with it.
@@ -176,9 +201,10 @@ public sealed class FilterBarLayoutTests
     /// That stopped being enough when the selection became a set. A row's tag now
     /// adds and removes only itself rather than putting every row back, and
     /// "Untagged" is on no row at all — so a selection could outlive every control
-    /// that could undo it. Hence the pair of rules: the group goes while the
+    /// that could undo it. Hence the pair of rules: the row goes while the
     /// selection is empty, and comes back narrowed to the pressed chips once it is
-    /// not. <c>TagFilterTests</c> pins the modifier this hangs on.
+    /// not. <c>TagFilterTests</c> pins the modifier this hangs on. The rule hides the
+    /// row rather than the strip, so no empty full-width row is left holding a gap.
     /// </para>
     /// <para>
     /// The narrower steps must still say nothing about the group. A rule that fired
@@ -193,7 +219,7 @@ public sealed class FilterBarLayoutTests
         var tags = Block(css, TagStep);
 
         Assert.Contains(
-            ".filter-group--tags:not(.filter-group--tags--picked) {",
+            ".filter-bar__tags:not(:has(.filter-group--tags--picked)) {",
             tags,
             StringComparison.Ordinal);
 
@@ -273,16 +299,19 @@ public sealed class FilterBarLayoutTests
     }
 
     /// <summary>
-    /// The open-work summary keeps its room and never leaves the bar.
+    /// The open-work summary keeps its room, and no stylesheet step hides it.
     /// <para>
-    /// It is the only place the total is said, so no step may hide the group; the
-    /// tag pile leaves before it does, and at that same step it drops its detail
-    /// half and keeps "N open" at its own step, and below 47rem keeps only the
-    /// number. It never shrinks and it comes after the status strip, so when the
-    /// bar runs out of room it is the summary that wraps onto the next row — the
-    /// strip's position does not depend on it at all, and no step collapses the
-    /// strip on its behalf. At the narrowest step, where status gives up its auto
-    /// margin, the summary takes one so it still holds the right edge.
+    /// It is the only place the total is said, so no step may hide the group: below
+    /// 60rem it drops its detail half, and below 47rem the bar's copy keeps only the
+    /// number. It never shrinks and it comes after the status strip, so when the bar
+    /// runs out of room it is the summary that wraps onto the next row — the strip's
+    /// position does not depend on it at all, and no step collapses the strip on its
+    /// behalf. At the narrowest step, where status gives up its auto margin, the
+    /// summary takes one so it still holds the right edge.
+    /// </para>
+    /// <para>
+    /// In the list on a narrow column it leaves the bar for the New entry row, which
+    /// is a render and not a step — <c>OpenWorkSummaryTests</c> pins that move.
     /// </para>
     /// </summary>
     [Fact]
@@ -319,6 +348,24 @@ public sealed class FilterBarLayoutTests
         Assert.Contains("margin-left: auto;", Block(Block(css, TightenStep), ".filter-group--summary {"), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The narrow column is one width, said twice: the 48rem container step the
+    /// stylesheet keys the tag row on, and <c>TasksPane.ListNarrowRem</c>, at which
+    /// components.js tells the pane to fold Source and Type into the Filter menu and
+    /// move the summary beside New entry. A container query cannot move an element
+    /// between parents, so the second half is rendered; the two numbers must not
+    /// drift apart, or the bar would fold at one width and drop its tags at another.
+    /// </summary>
+    [Fact]
+    public void The_pane_folds_at_the_same_width_the_tag_row_leaves()
+    {
+        var pane = NormalizeLineEndings(File.ReadAllText(RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor")));
+
+        Assert.Contains("internal const int ListNarrowRem = 48;", pane, StringComparison.Ordinal);
+        Assert.Contains(".filter-bar__tags", Block(Css(), TagStep), StringComparison.Ordinal);
+        Assert.Contains("backlogWidthWatch.watch", pane, StringComparison.Ordinal);
+    }
+
     /// <summary>The rule that genuinely is about the window stays a media query: below
     /// 60rem the whole split stops being one, because neither half of it is readable
     /// at half of that.</summary>
@@ -330,6 +377,18 @@ public sealed class FilterBarLayoutTests
         Assert.Contains(".backlog-split {", stack, StringComparison.Ordinal);
         Assert.Contains("flex-direction: column;", stack, StringComparison.Ordinal);
     }
+
+    /// <summary>The filter bar's own section of the sheet, from its heading to the
+    /// next one.</summary>
+    private static string BarRules(string css)
+    {
+        var start = css.IndexOf("/* --- Repository scope and filter bar", StringComparison.Ordinal);
+        var end = css.IndexOf("/* --- ", start + 1, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start, "The filter bar has its own section in app.css.");
+        return css[start..end];
+    }
+
+    private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal);
 
     private static string Css() => File.ReadAllText(
         RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");

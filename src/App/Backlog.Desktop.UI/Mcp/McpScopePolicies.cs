@@ -104,7 +104,8 @@ public static class McpScopePolicies
     /// <summary>
     /// The policy a request to <paramref name="path"/> must pass on the listener: the OTLP logs
     /// route <see cref="McpScopes.TelemetryWrite"/>, the hook telemetry route
-    /// <see cref="McpScopes.RunsWrite"/>, the wait route <see cref="McpScopes.SessionsDispatch"/>,
+    /// <see cref="McpScopes.RunsWrite"/>, the schedule-run report route
+    /// <see cref="McpScopes.RunsWrite"/> too, the wait route <see cref="McpScopes.SessionsDispatch"/>,
     /// the hook script <see cref="McpScopes.NotifyAsk"/>, <c>/mcp</c> <see cref="Caller"/>, and
     /// any other path <see cref="Fallback"/>. A path matches itself or its trailing-slash
     /// spelling, without regard to case, as ASP.NET routes it.
@@ -118,6 +119,7 @@ public static class McpScopePolicies
         if (Is(McpLoopbackGuard.McpPath)) return Caller;
         if (Is(ClaudeCodeLogsEndpoint.RoutePath)) return PolicyName(McpScopes.TelemetryWrite);
         if (Is(BacklogTelemetryEndpoint.RoutePath)) return PolicyName(McpScopes.RunsWrite);
+        if (Is(ScheduleRunReportEndpoint.RoutePath)) return PolicyName(McpScopes.RunsWrite);
         if (Is(SessionRequestWaitEndpoint.RoutePath)) return PolicyName(McpScopes.SessionsDispatch);
         if (Is(AskBacklogHook.RoutePath)) return PolicyName(McpScopes.NotifyAsk);
 
