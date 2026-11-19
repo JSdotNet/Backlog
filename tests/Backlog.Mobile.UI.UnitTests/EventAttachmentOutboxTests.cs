@@ -93,20 +93,20 @@ public sealed class EventAttachmentOutboxTests
     public async Task The_note_waits_on_the_event_it_was_last_attached_to_until_the_request_leaves_the_phone()
     {
         var (outbox, attachments, network) = Attachments();
-        Assert.Null(attachments.PendingEventFor(NoteId));
+        Assert.Null(attachments.PendingFor(NoteId)?.EventId);
 
         await attachments.AttachAsync(EventId, NoteId, "Keynote", Cancellation);
         var second = await attachments.AttachAsync(OtherEventId, NoteId, "Keynote", Cancellation);
 
-        Assert.Equal(OtherEventId, attachments.PendingEventFor(NoteId));
-        Assert.Null(attachments.PendingEventFor(Guid.NewGuid()));
+        Assert.Equal(OtherEventId, attachments.PendingFor(NoteId)?.EventId);
+        Assert.Null(attachments.PendingFor(Guid.NewGuid())?.EventId);
         Assert.Equal(2, outbox.Entries.Count);
 
         network.Online = true;
         await outbox.ResumeAsync(Cancellation);
 
         Assert.Empty(outbox.Entries);
-        Assert.Null(attachments.PendingEventFor(NoteId));
+        Assert.Null(attachments.PendingFor(NoteId)?.EventId);
         Assert.NotEqual(Guid.Empty, second);
     }
 

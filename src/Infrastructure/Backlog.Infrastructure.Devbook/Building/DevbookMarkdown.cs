@@ -287,11 +287,6 @@ internal static partial class DevbookMarkdown
             _ => [Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty]
         };
 
-    /// <summary>A metadata value as the single string a column holds, or
-    /// <see langword="null"/> for a list: a list in a scalar column is a
-    /// malformed block, and the checker is what reports it.</summary>
-    public static string? AsScalar(object? value) => value as string;
-
     /// <summary>Lower-case hexadecimal SHA-256 of <paramref name="text"/>'s UTF-8
     /// bytes, as <c>createHash('sha256').update(text, 'utf8')</c> gives it.</summary>
     public static string Sha256(string text) =>

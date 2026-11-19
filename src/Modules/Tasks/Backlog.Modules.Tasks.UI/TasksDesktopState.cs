@@ -1485,10 +1485,6 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     public IReadOnlyDictionary<string, LinkedSession> SessionStates { get; private set; } =
         new Dictionary<string, LinkedSession>(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The last known state of one linked session, or null when none is
-    /// known.</summary>
-    public LinkedSessionState? SessionStateOf(string sessionId) => SessionOf(sessionId)?.State;
-
     /// <summary>What was last read of one linked session — its state, and whether the
     /// desktop app archived it — or null when nothing is known.</summary>
     public LinkedSession? SessionOf(string sessionId) =>
@@ -2915,25 +2911,6 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     }
 
     // --- Sub-items -------------------------------------------------------
-
-    /// <summary>Toggles a rendered checklist item directly from read mode. This
-    /// is a discrete edit, so it persists immediately rather than waiting for the
-    /// text debounce.</summary>
-    public async Task ToggleTaskItemAsync(EntryRow row, int taskIndex)
-    {
-        if (row.IsReadOnly) return;
-
-        var rewritten = EntryTextParser.ToggleChecklistItem(row.RawText, taskIndex);
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
-
-        CancelDebounce(row);
-        row.RawText = rewritten;
-
-        await SaveRowAsync(row, isFlush: true);
-
-        ApplyFilter();
-        Changed?.Invoke();
-    }
 
     public async Task ChangeTypeAsync(EntryRow row, EntryType type) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithType(row.RawText, type));

@@ -17,7 +17,7 @@ public sealed class PictureDownscalerTests
     [Fact]
     public void The_fixture_carries_a_phone_s_exif_to_begin_with()
     {
-        var tags = ExifOrientation.ReadTags(Fixture);
+        var tags = ExifTags.Read(Fixture);
 
         Assert.Equal(6, tags[ExifOrientation.Tag]);
         Assert.True(tags.Count > 1, "The fixture should carry more than the orientation, or the test proves nothing.");
@@ -43,7 +43,7 @@ public sealed class PictureDownscalerTests
         using var source = new MemoryStream(Fixture);
         var output = PictureDownscaler.Downscale(source)!;
 
-        var tags = ExifOrientation.ReadTags(output);
+        var tags = ExifTags.Read(output);
         Assert.Equal([ExifOrientation.Tag], tags.Keys);
         Assert.Equal(6, tags[ExifOrientation.Tag]);
 
@@ -67,7 +67,7 @@ public sealed class PictureDownscalerTests
         using var codec = SKCodec.Create(new MemoryStream(output));
         Assert.Equal(SKEncodedImageFormat.Jpeg, codec.EncodedFormat);
         Assert.Equal((400, 300), (codec.Info.Width, codec.Info.Height));
-        Assert.Empty(ExifOrientation.ReadTags(output));
+        Assert.Empty(ExifTags.Read(output));
     }
 
     [Fact]

@@ -1208,37 +1208,6 @@ public static class EntryTextParser
     public static string GetSubItemTitle(string raw, int subItemIndex) =>
         SubItemTitleOf(GetSubItemText(raw, subItemIndex));
 
-    /// <summary>One sub-item's title and notes, as <see cref="GetSubItemTitle"/>
-    /// and <see cref="GetSubItemNote"/> read them.</summary>
-    public sealed record SubItemTitleAndNote(string Title, string Note);
-
-    /// <summary>
-    /// Every sub-item's title and notes, in the order <see cref="LocateSubItems"/>
-    /// finds them — the nth item is exactly what <see cref="GetSubItemTitle"/> and
-    /// <see cref="GetSubItemNote"/> return for index n.
-    /// <para>
-    /// One pass over the text rather than two per sub-item: each per-index call
-    /// locates every sub-item again to find its one, which a list of steps redrawn
-    /// on every keystroke pays for once per step.
-    /// </para>
-    /// </summary>
-    public static IReadOnlyList<SubItemTitleAndNote> GetSubItemTitlesAndNotes(string raw)
-    {
-        var normalized = Normalize(raw);
-        var lines = normalized.Split('\n');
-        var spans = LocateSubItemDetails(normalized);
-
-        var steps = new List<SubItemTitleAndNote>(spans.Count);
-        foreach (var located in spans)
-        {
-            var span = located.Span;
-            var text = string.Join('\n', lines.Skip(span.Start).Take(span.End - span.Start));
-            steps.Add(new SubItemTitleAndNote(SubItemTitleOf(text), SubItemNoteOf(text)));
-        }
-
-        return steps;
-    }
-
     /// <summary>The title of one sub-item's text as <see cref="GetSubItemText"/>
     /// cuts it out.</summary>
     private static string SubItemTitleOf(string text)
@@ -1252,29 +1221,6 @@ public static class EntryTextParser
         var box = CheckboxPrefixRegex.Match(title);
 
         return box.Success ? title[box.Length..].Trim() : title;
-    }
-
-    /// <summary>Renames one sub-item, keeping its heading level and its checkbox
-    /// marker. Neither is anything the rename asked about: a step does not change
-    /// depth or come undone because somebody fixed a typo in its name.</summary>
-    public static string WithSubItemTitle(string raw, int subItemIndex, string title)
-    {
-        var text = GetSubItemText(raw, subItemIndex);
-        if (text.Length == 0) return raw;
-
-        var lines = Normalize(text).Split('\n').ToList();
-        var heading = HeadingRegex.Match(lines[0].TrimStart());
-        if (!heading.Success) return raw;
-
-        var marker = HeadingCheckboxMarkerRegex.Match(lines[0]);
-        var hashes = heading.Groups[1].Value;
-        var renamed = (title ?? string.Empty).Trim();
-
-        lines[0] = marker.Success
-            ? $"{hashes} [{marker.Groups["marker"].Value}] {renamed}"
-            : $"{hashes} {renamed}";
-
-        return ReplaceSubItemText(raw, subItemIndex, string.Join('\n', lines));
     }
 
     /// <summary>One sub-item's notes: what is written under its heading, past its
@@ -1294,60 +1240,6 @@ public static class EntryTextParser
         return start < 0 || start >= lines.Count
             ? string.Empty
             : string.Join('\n', lines.Skip(start)).Trim('\n');
-    }
-
-    /// <summary>Writes one sub-item's notes back, keeping its heading and its own
-    /// metadata line. The bargain <see cref="WithNote"/> makes about the entry,
-    /// one level down.</summary>
-    public static string WithSubItemNote(string raw, int subItemIndex, string note)
-    {
-        var text = GetSubItemText(raw, subItemIndex);
-        if (text.Length == 0) return raw;
-
-        var lines = Normalize(text).Split('\n').ToList();
-        var start = NoteStartLine(lines);
-
-        var head = start < 0 ? lines : lines.Take(start).ToList();
-        while (head.Count > 0 && string.IsNullOrWhiteSpace(head[^1])) head.RemoveAt(head.Count - 1);
-
-        var body = Normalize(note ?? string.Empty).Trim('\n');
-
-        // One newline, not the blank line the entry's note gets. A sub-item chapter
-        // is written `## Heading` then its notes on the next line — that is what
-        // MoveSubItem rebuilds and what every entry in the store already holds — and
-        // inserting a blank line here would be exactly the "gratuitous whitespace
-        // churn" .devbook/design/content-editing.md#round-trip-fidelity rules out, on every
-        // step of every entry somebody edited the notes of.
-        var replacement = body.Length == 0
-            ? string.Join('\n', head)
-            : string.Join('\n', head) + "\n" + body;
-
-        return ReplaceSubItemText(raw, subItemIndex, replacement);
-    }
-
-    /// <summary>
-    /// Adds a step at the end of the entry, as a <c>##</c> chapter.
-    /// <para>
-    /// At the end because that is where the reader just looked: the add row sits
-    /// under the last step, and a step that appeared above the ones already there
-    /// would be a step nobody saw arrive. At level two because nesting one under
-    /// another is a move, and moving it is a gesture the list already offers.
-    /// </para>
-    /// <para>
-    /// An empty title adds nothing. There is no such thing as a step with no name,
-    /// and a bare <c>##</c> would leave a chapter the reader cannot see, select or
-    /// delete.
-    /// </para>
-    /// </summary>
-    public static string AppendSubItem(string raw, string title)
-    {
-        var trimmed = (title ?? string.Empty).Trim();
-        if (trimmed.Length == 0) return raw;
-
-        var normalized = Normalize(raw).TrimEnd('\n');
-        var heading = "## " + trimmed;
-
-        return normalized.Length == 0 ? heading : normalized + "\n\n" + heading;
     }
 
     /// <summary>Where an entry's sub-items begin, or -1 when it has none to
@@ -2075,13 +1967,6 @@ public static class EntryTextParser
     public static string WithEffort(string raw, int? effort) =>
         RewriteMetaLine(raw, effort: effort, updateEffort: true);
 
-    /// <summary>Records which reading of the body the reader asked for, or clears
-    /// the token. Clearing is expressible for the same reason it is on every other
-    /// named token: "no preference" and "prefers the steps" are different facts,
-    /// and only one of them should survive into an entry nobody chose for.</summary>
-    public static string WithView(string raw, EntryView? view) =>
-        RewriteMetaLine(raw, view: view, updateView: true);
-
     /// <summary>Writes the attached place on to the metadata line, or clears it.
     /// Detaching and attaching nothing are the same gesture, for the reason every
     /// other field here gives: an unset field carries no token rather than an
@@ -2125,8 +2010,6 @@ public static class EntryTextParser
 
     public static IReadOnlyList<string> ParseTagsInput(string tags) =>
         NormalizeTags(Regex.Split(tags ?? string.Empty, @"[\s,]+"));
-
-    public static string FormatTagsInput(IEnumerable<string> tags) => string.Join(" ", NormalizeTags(tags));
 
     /// <summary>Whether a stored tag names a person. The sigil is kept in the
     /// stored value — <c>["@bob", "deploy"]</c> — precisely so that an existing

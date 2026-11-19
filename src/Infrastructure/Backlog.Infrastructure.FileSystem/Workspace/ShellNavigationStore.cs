@@ -512,19 +512,6 @@ public sealed class ShellNavigationStore
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    /// <summary>Replaces both iteration choices in one save, so a first choice of two weeks
-    /// writes its length and its start together. Kept for the files an earlier build wrote
-    /// and the tests that write one; the app no longer calls it (local ADR 0036, §5).</summary>
-    public void SetGoalsIteration(string length, DateOnly? twoWeekStart)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(length);
-        if (length == GoalsIterationLength && twoWeekStart == GoalsTwoWeekStart) return;
-
-        GoalsIterationLength = length;
-        GoalsTwoWeekStart = twoWeekStart;
-        Save();
-    }
-
     public void SetShowArchivedRepositories(bool shown)
     {
         if (shown == ShowArchivedRepositories) return;

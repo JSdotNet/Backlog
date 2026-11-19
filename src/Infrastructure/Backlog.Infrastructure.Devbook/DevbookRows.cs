@@ -47,10 +47,6 @@ public sealed record DevbookTaskLinkRow(string NotePath, string Value, string? N
 /// file it is in and the file's title.</summary>
 public sealed record DevbookReviewDateRow(string NotePath, string Value, string? NoteTitle);
 
-/// <summary>One row of <c>node_attribute</c> — a list-valued field of a
-/// <c>meta</c> block flattened to one row per value.</summary>
-public sealed record DevbookNodeAttributeRow(string NodeId, string Name, string Value);
-
 /// <summary>
 /// One row of <c>outline_entry</c>: a line of the resolved reading outline, with
 /// the authored order already applied.

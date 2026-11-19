@@ -146,33 +146,14 @@ public sealed class RoadmapTimelineTests
     }
 
     [Theory]
-    [InlineData(0, 0, 1.375, 0.625)]
-    [InlineData(1, 2.75, 4.125, 3.375)]
-    [InlineData(2, 5.5, 6.875, 6.125)]
-    public void Rows_stack_by_their_index_and_a_bar_is_centred_in_the_row_it_sits_on(
-        int index, double top, double centre, double barTop)
+    [InlineData(0, 0, 1.375)]
+    [InlineData(1, 2.75, 4.125)]
+    [InlineData(2, 5.5, 6.875)]
+    public void Rows_stack_by_their_index(int index, double top, double centre)
     {
         Assert.Equal(top, DayPerRem.RowTop(index));
         Assert.Equal(centre, DayPerRem.RowCenter(index));
-
-        // The gap above the bar equals the gap below it: that spare height is
-        // the gutter the dependency arrows are routed through.
-        Assert.Equal(barTop, DayPerRem.BarTop(index));
-        Assert.Equal(barTop - top, top + DayPerRem.RowHeightRem - (barTop + DayPerRem.BarHeightRem));
     }
-
-    [Theory]
-    [InlineData(0, 0)]
-    [InlineData(3.4, 0)]
-    [InlineData(3.5, 1)]
-    [InlineData(7, 1)]
-    [InlineData(10.4, 1)]
-    [InlineData(10.5, 2)]
-    [InlineData(-3.4, 0)]
-    [InlineData(-3.5, -1)]
-    [InlineData(-10.5, -2)]
-    public void A_drag_counts_in_whole_weeks_and_rounds_to_the_nearest(double deltaRem, int expected) =>
-        Assert.Equal(expected, DayPerRem.WeekStepsFor(deltaRem));
 
     [Fact]
     public void Positions_are_written_with_a_dot_on_a_machine_that_writes_commas()

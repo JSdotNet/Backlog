@@ -26,11 +26,4 @@ public static class BrainSetup
     /// like every other link to the settings screen, so it resolves against the
     /// host's base address.</summary>
     public const string SettingsHref = "settings/storage#" + CardId;
-
-    /// <summary>The chip's name for the settings as they stand.</summary>
-    public static string ChipLabel(IBrainSettings settings)
-    {
-        ArgumentNullException.ThrowIfNull(settings);
-        return settings.IsSet ? Label : SetUpLabel;
-    }
 }

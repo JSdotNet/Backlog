@@ -1822,40 +1822,6 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
 
-    /// <summary>
-    /// Editing one step touches that chapter and nothing around it.
-    /// <para>
-    /// The desktop edits a step in the body's markdown now, so this holds the
-    /// parser's own step rewrites to it, a level down: both end in a
-    /// <c>ReplaceSubItemText</c> against the same index, and an edit that reached
-    /// the wrong chapter would overwrite a neighbour with no error anywhere.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public async Task Editing_a_sub_item_updates_only_that_chapter()
-    {
-        var harness = Build("JSdotNet/Backlog");
-        var row = await WriteEntryAsync(harness.State,
-            "# Parent\n" +
-            "`task` `*medium` `!draft` `repo:backlog`\n\n" +
-            "## First\n" +
-            "Keep this.\n\n" +
-            "### Target\n" +
-            "Old target notes.\n\n" +
-            "## Last\n" +
-            "Keep last.\n");
-
-        var text = EntryTextParser.WithSubItemTitle(row.RawText, 1, "Updated target");
-        text = EntryTextParser.WithSubItemNote(text, 1, "New target notes.");
-
-        Assert.Contains("## First\nKeep this.", text);
-        // Same line break the chapter already had. Writing notes back must not
-        // introduce a blank line the author did not type.
-        Assert.Contains("### Updated target\nNew target notes.", text);
-        Assert.DoesNotContain("Old target notes.", text);
-        Assert.Contains("## Last\nKeep last.", text);
-    }
-
     [Fact]
     public async Task Editing_parent_entry_updates_only_the_parent_chapter()
     {

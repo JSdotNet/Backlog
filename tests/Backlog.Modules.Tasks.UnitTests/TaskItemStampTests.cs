@@ -121,7 +121,6 @@ public sealed class TaskItemStampTests
         [nameof(TaskItem.ToggleSubItem)] = task => task.ToggleSubItem(FirstSubItem(task)),
         [nameof(TaskItem.SetSubItemStatus)] = task => task.SetSubItemStatus(FirstSubItem(task), SubItemStatus.Done),
         [nameof(TaskItem.UpdateSubItem)] = task => task.UpdateSubItem(FirstSubItem(task), "Retitled", null),
-        [nameof(TaskItem.ReorderSubItem)] = task => task.ReorderSubItem(FirstSubItem(task), 0),
     };
 
     /// <summary>The mutations that must leave the stamp where it is, each for its

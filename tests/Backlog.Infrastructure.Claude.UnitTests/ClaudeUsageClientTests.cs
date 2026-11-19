@@ -10,6 +10,13 @@ public class ClaudeUsageClientTests
 {
     private static JsonElement Parse(string json) => JsonDocument.Parse(json).RootElement.Clone();
 
+    /// <summary>The last <paramref name="days"/> days ending now.</summary>
+    private static ClaudeUsageWindow LastDays(int days)
+    {
+        var end = DateTimeOffset.UtcNow;
+        return new ClaudeUsageWindow(end.AddDays(-days), end);
+    }
+
     [Fact]
     public void A_usage_bucket_keeps_cached_and_uncached_input_apart()
     {
@@ -245,7 +252,7 @@ public class ClaudeUsageClientTests
         var transport = new StubTransport(available: true, response: """{ "data": [], "has_more": false }""");
         var client = new ClaudeUsageClient(transport, settings);
 
-        await client.GetCostAsync(settings.Current.Accounts[0], ClaudeUsageWindow.LastDays(7), TestContext.Current.CancellationToken);
+        await client.GetCostAsync(settings.Current.Accounts[0], LastDays(7), TestContext.Current.CancellationToken);
 
         Assert.Contains("bucket_width=1d", Assert.Single(transport.Paths), StringComparison.Ordinal);
     }
@@ -273,7 +280,7 @@ public class ClaudeUsageClientTests
 
         var client = new ClaudeUsageClient(transport, settings);
 
-        var report = await client.GetMessageUsageAsync(settings.Current.Accounts[0], ClaudeUsageWindow.LastDays(2), cancellationToken: TestContext.Current.CancellationToken);
+        var report = await client.GetMessageUsageAsync(settings.Current.Accounts[0], LastDays(2), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, report.Buckets.Count);
         Assert.Equal(30, report.Totals.InputTokens);
@@ -296,7 +303,7 @@ public class ClaudeUsageClientTests
         var transport = new StubTransport(available: true, response: """{ "data": [], "has_more": false }""");
         var client = new ClaudeUsageClient(transport, settings);
 
-        await client.GetCostAsync(settings.Current.Accounts[1], ClaudeUsageWindow.LastDays(7), TestContext.Current.CancellationToken);
+        await client.GetCostAsync(settings.Current.Accounts[1], LastDays(7), TestContext.Current.CancellationToken);
 
         var path = Assert.Single(transport.Paths);
         Assert.Contains("workspace_ids[]=wrkspc_second", path, StringComparison.Ordinal);
