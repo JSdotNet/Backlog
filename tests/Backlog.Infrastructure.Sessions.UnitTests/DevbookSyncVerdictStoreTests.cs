@@ -11,10 +11,8 @@ public sealed class DevbookSyncVerdictStoreTests : IDisposable
 {
     private const string Repository = "JSdotNet/Backlog";
 
-    private readonly string _home = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-sync-verdict-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-sync-verdict-tests");
+    private string _home => _temp.Path;
 
     [Fact]
     public async Task A_later_run_replaces_the_chapters_it_names_and_leaves_the_rest()
@@ -132,8 +130,5 @@ public sealed class DevbookSyncVerdictStoreTests : IDisposable
             RecordedAt: DateTimeOffset.UtcNow,
             RunId: runId);
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

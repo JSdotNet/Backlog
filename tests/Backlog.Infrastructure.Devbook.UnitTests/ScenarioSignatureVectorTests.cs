@@ -67,19 +67,13 @@ public sealed class ScenarioSignatureVectorTests
     [Fact]
     public void A_data_set_folder_hashes_its_files_and_a_missing_one_reads_as_missing()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-scenario-data", Guid.NewGuid().ToString("N"));
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(root, "seed"));
-            File.WriteAllText(Path.Combine(root, "seed", "items.csv"), "id,title\r\n1,Login\r\n");
+        using var temp = new TemporaryDirectory("backlog-scenario-data");
+        var root = temp.Path;
+        Directory.CreateDirectory(Path.Combine(root, "seed"));
+        File.WriteAllText(Path.Combine(root, "seed", "items.csv"), "id,title\r\n1,Login\r\n");
 
-            Assert.Equal("56653236", ScenarioSignature.HashDataSet(root));
-            Assert.Equal(ScenarioSignature.MissingData, ScenarioSignature.HashDataSet(Path.Combine(root, "absent")));
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal("56653236", ScenarioSignature.HashDataSet(root));
+        Assert.Equal(ScenarioSignature.MissingData, ScenarioSignature.HashDataSet(Path.Combine(root, "absent")));
     }
 
     /// <summary>A data entry that is not a plain folder name is hashed as missing, so

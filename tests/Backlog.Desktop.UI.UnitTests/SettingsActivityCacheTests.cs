@@ -108,7 +108,8 @@ public sealed class SettingsActivityCacheTests
 
     private static SettingsRenderContext RenderSettings()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-activity-cache-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-activity-cache-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -143,7 +144,7 @@ public sealed class SettingsActivityCacheTests
         var listings = new RecordingListingCache();
         context.Services.AddSingleton<IActivityListingCache>(listings);
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), cache, listings);
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), cache, listings);
     }
 
     /// <summary>The listing port beside the detail one, recording the same thing.</summary>
@@ -177,7 +178,7 @@ public sealed class SettingsActivityCacheTests
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         RecordingDetailCache Cache,
@@ -186,14 +187,7 @@ public sealed class SettingsActivityCacheTests
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

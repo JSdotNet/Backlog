@@ -150,7 +150,8 @@ public sealed class SettingsRepositoryColourTests
 
     internal static SettingsRenderContext RenderSettings(ILocalGitRepositoryService? localGit = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-colour-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-colour-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -180,26 +181,21 @@ public sealed class SettingsRepositoryColourTests
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), githubSettings);
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), githubSettings);
     }
 
     internal sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         GitHubSettingsStore GitHub) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

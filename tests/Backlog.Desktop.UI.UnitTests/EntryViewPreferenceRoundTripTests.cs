@@ -33,7 +33,7 @@ public sealed class EntryViewPreferenceRoundTripTests : IDisposable
         "## Warm the cache\n" +
         "So the first request is not the slow one.\n";
 
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
     private readonly List<TasksDesktopState> _states = [];
 
     [Fact]
@@ -106,9 +106,9 @@ public sealed class EntryViewPreferenceRoundTripTests : IDisposable
 
     private string TempRoot()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-entry-view", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
-        return root;
+        var temp = new TemporaryDirectory("backlog-entry-view");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     private TasksDesktopState State(string root)
@@ -130,10 +130,10 @@ public sealed class EntryViewPreferenceRoundTripTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(temp.Path);
+            temp.Dispose();
         }
     }
 }

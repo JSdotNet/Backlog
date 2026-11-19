@@ -9,9 +9,9 @@ namespace Backlog.Aspire.ServiceDefaults.UnitTests;
 /// </summary>
 public sealed class DevelopmentWorkspaceTests : IDisposable
 {
-    private readonly DirectoryInfo _temp = Directory.CreateTempSubdirectory("backlog-workspace-");
+    private readonly TemporaryDirectory _temp = new("backlog-workspace");
 
-    public void Dispose() => _temp.Delete(recursive: true);
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void A_clone_is_named_by_its_folder_and_its_branch()
@@ -34,10 +34,10 @@ public sealed class DevelopmentWorkspaceTests : IDisposable
     [Fact]
     public void A_worktree_reads_the_head_its_git_file_points_at()
     {
-        var common = Directory.CreateDirectory(Path.Combine(_temp.FullName, "shared", "worktrees", "feature"));
+        var common = Directory.CreateDirectory(Path.Combine(_temp.Path, "shared", "worktrees", "feature"));
         File.WriteAllText(Path.Combine(common.FullName, "HEAD"), "ref: refs/heads/feature/titles\n");
 
-        var checkout = Directory.CreateDirectory(Path.Combine(_temp.FullName, "feature")).FullName;
+        var checkout = Directory.CreateDirectory(Path.Combine(_temp.Path, "feature")).FullName;
         File.WriteAllText(Path.Combine(checkout, ".git"), $"gitdir: {common.FullName}\n");
 
         Assert.Equal("feature (feature/titles)", DevelopmentWorkspace.Describe(checkout));
@@ -65,7 +65,7 @@ public sealed class DevelopmentWorkspaceTests : IDisposable
     [Fact]
     public void A_folder_with_no_checkout_above_it_has_no_marker()
     {
-        var installed = Directory.CreateDirectory(Path.Combine(_temp.FullName, "Program Files", "Backlog")).FullName;
+        var installed = Directory.CreateDirectory(Path.Combine(_temp.Path, "Program Files", "Backlog")).FullName;
 
         Assert.Null(DevelopmentWorkspace.Describe(installed));
     }
@@ -73,7 +73,7 @@ public sealed class DevelopmentWorkspaceTests : IDisposable
     [Fact]
     public void An_unreadable_head_still_names_the_folder()
     {
-        var checkout = Directory.CreateDirectory(Path.Combine(_temp.FullName, "Backlog")).FullName;
+        var checkout = Directory.CreateDirectory(Path.Combine(_temp.Path, "Backlog")).FullName;
         Directory.CreateDirectory(Path.Combine(checkout, ".git"));
 
         Assert.Equal("Backlog", DevelopmentWorkspace.Describe(checkout));
@@ -143,8 +143,8 @@ public sealed class DevelopmentWorkspaceTests : IDisposable
     [Fact]
     public void A_worktree_git_folder_without_a_commondir_names_no_main_checkout()
     {
-        var common = Directory.CreateDirectory(Path.Combine(_temp.FullName, "shared", "worktrees", "feature"));
-        var checkout = Directory.CreateDirectory(Path.Combine(_temp.FullName, "feature")).FullName;
+        var common = Directory.CreateDirectory(Path.Combine(_temp.Path, "shared", "worktrees", "feature"));
+        var checkout = Directory.CreateDirectory(Path.Combine(_temp.Path, "feature")).FullName;
         File.WriteAllText(Path.Combine(checkout, ".git"), $"gitdir: {common.FullName}\n");
 
         Assert.Null(DevelopmentWorkspace.MainCheckoutOf(checkout));
@@ -160,7 +160,7 @@ public sealed class DevelopmentWorkspaceTests : IDisposable
 
     private string Clone(string folderName, string head)
     {
-        var checkout = Directory.CreateDirectory(Path.Combine(_temp.FullName, folderName)).FullName;
+        var checkout = Directory.CreateDirectory(Path.Combine(_temp.Path, folderName)).FullName;
         var git = Directory.CreateDirectory(Path.Combine(checkout, ".git")).FullName;
         var content = head.StartsWith("refs/", StringComparison.Ordinal) ? $"ref: {head}\n" : $"{head}\n";
         File.WriteAllText(Path.Combine(git, "HEAD"), content);

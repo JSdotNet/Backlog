@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookRatingWriteRulesTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Theory]
     [InlineData(".tech/", "tech", "shared.md")]
@@ -222,9 +222,9 @@ public sealed class DevbookRatingWriteRulesTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+            temp.Dispose();
         }
     }
 
@@ -250,9 +250,10 @@ public sealed class DevbookRatingWriteRulesTests : IDisposable
     /// <summary>A file written byte for byte, line endings included.</summary>
     private (string Root, string Path) WriteVerbatim(string area, string file, string content)
     {
-        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "devbook-rating-rules-tests", Guid.NewGuid().ToString("N"), area);
+        var temp = new TemporaryDirectory("devbook-rating-rules-tests");
+        _temps.Add(temp);
+        var root = temp.Combine(area);
         Directory.CreateDirectory(root);
-        _roots.Add(System.IO.Path.GetDirectoryName(root)!);
 
         var path = System.IO.Path.Combine(root, file);
         File.WriteAllText(path, content);

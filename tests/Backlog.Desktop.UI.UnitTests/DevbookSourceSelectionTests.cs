@@ -10,20 +10,16 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookSourceSelectionTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "devbook-source-selection-tests-" + Guid.NewGuid().ToString("N"));
-
-    public DevbookSourceSelectionTests() => Directory.CreateDirectory(_root);
+    private readonly TemporaryDirectory _temp = new("devbook-source-selection-tests");
 
     private GitHubSettingsStore Settings(bool withClone = false)
     {
-        var store = new GitHubSettingsStore(Path.Combine(_root, "github.json"), () => Path.Combine(_root, "workspace"));
+        var store = new GitHubSettingsStore(_temp.Combine("github.json"), () => _temp.Combine("workspace"));
         Assert.Null(store.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")]));
 
         if (withClone)
         {
-            var clone = Path.Combine(_root, "clone");
+            var clone = _temp.Combine("clone");
             Directory.CreateDirectory(clone);
             Assert.Null(store.SetCloneDirectory("backlog", clone));
         }
@@ -736,14 +732,5 @@ public sealed class DevbookSourceSelectionTests : IDisposable
         public int GetHashCode(DevbookSourceRow? obj) => 0;
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

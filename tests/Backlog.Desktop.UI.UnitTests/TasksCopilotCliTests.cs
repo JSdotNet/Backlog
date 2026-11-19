@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class TasksCopilotCliTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
     public void Dispose()
@@ -20,10 +20,10 @@ public sealed class TasksCopilotCliTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(dir.Path);
+            dir.Dispose();
         }
     }
 
@@ -86,8 +86,9 @@ public sealed class TasksCopilotCliTests : IDisposable
 
     private Harness Build(ICopilotCliLauncher launcher)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-copilot-flow", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("backlog-copilot-flow");
+        _tempDirs.Add(temp);
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "settings"));
         Assert.Null(store.TryUseRoot(root));

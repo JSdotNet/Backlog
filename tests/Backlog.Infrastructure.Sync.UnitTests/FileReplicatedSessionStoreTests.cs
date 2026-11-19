@@ -204,25 +204,18 @@ public sealed class FileReplicatedSessionStoreTests
     [Fact]
     public void Records_survive_a_restart()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+        using var temp = new TemporaryDirectory("backlog-replicated");
+        var path = temp.Combine("replicated-sessions.json");
 
-        try
-        {
-            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
-            store.Save([SessionRecords.Entry(Laptop, sessionId: "one", machineName: "Kitchen laptop")]);
+        var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+        store.Save([SessionRecords.Entry(Laptop, sessionId: "one", machineName: "Kitchen laptop")]);
 
-            var reopened = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
-            var kept = Assert.Single(reopened.Current.Entries);
+        var reopened = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+        var kept = Assert.Single(reopened.Current.Entries);
 
-            Assert.Equal("one", kept.Record.SessionId);
-            Assert.Equal("Kitchen laptop", kept.Record.MachineName);
-            Assert.Equal(Laptop, kept.MachineId);
-        }
-        finally
-        {
-            var folder = Path.GetDirectoryName(path);
-            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
-        }
+        Assert.Equal("one", kept.Record.SessionId);
+        Assert.Equal("Kitchen laptop", kept.Record.MachineName);
+        Assert.Equal(Laptop, kept.MachineId);
     }
 
     /// <summary>
@@ -234,35 +227,28 @@ public sealed class FileReplicatedSessionStoreTests
     [Fact]
     public void Intervals_survive_a_restart_and_null_stays_null()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+        using var temp = new TemporaryDirectory("backlog-replicated");
+        var path = temp.Combine("replicated-sessions.json");
 
-        try
-        {
-            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
-            store.Save(
-            [
-                SessionRecords.Entry(Laptop, sessionId: "measured", runs: [new(Noon.AddMinutes(-10), Noon)], waits: [], humanTurns: [Noon.AddMinutes(-10)]),
-                SessionRecords.Entry(Laptop, sessionId: "unmeasured")
-            ]);
+        var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+        store.Save(
+        [
+            SessionRecords.Entry(Laptop, sessionId: "measured", runs: [new(Noon.AddMinutes(-10), Noon)], waits: [], humanTurns: [Noon.AddMinutes(-10)]),
+            SessionRecords.Entry(Laptop, sessionId: "unmeasured")
+        ]);
 
-            var reopened = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+        var reopened = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
 
-            var measured = reopened.Current.Entries.Single(entry => entry.Record.SessionId == "measured").Record;
-            Assert.Equal([new ActivityInterval(Noon.AddMinutes(-10), Noon)], measured.Runs);
-            Assert.NotNull(measured.Waits);
-            Assert.Empty(measured.Waits);
-            Assert.Equal([Noon.AddMinutes(-10)], measured.HumanTurns);
+        var measured = reopened.Current.Entries.Single(entry => entry.Record.SessionId == "measured").Record;
+        Assert.Equal([new ActivityInterval(Noon.AddMinutes(-10), Noon)], measured.Runs);
+        Assert.NotNull(measured.Waits);
+        Assert.Empty(measured.Waits);
+        Assert.Equal([Noon.AddMinutes(-10)], measured.HumanTurns);
 
-            var unmeasured = reopened.Current.Entries.Single(entry => entry.Record.SessionId == "unmeasured").Record;
-            Assert.Null(unmeasured.Runs);
-            Assert.Null(unmeasured.Waits);
-            Assert.Null(unmeasured.HumanTurns);
-        }
-        finally
-        {
-            var folder = Path.GetDirectoryName(path);
-            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
-        }
+        var unmeasured = reopened.Current.Entries.Single(entry => entry.Record.SessionId == "unmeasured").Record;
+        Assert.Null(unmeasured.Runs);
+        Assert.Null(unmeasured.Waits);
+        Assert.Null(unmeasured.HumanTurns);
     }
 
     /// <summary>
@@ -275,32 +261,24 @@ public sealed class FileReplicatedSessionStoreTests
     [Fact]
     public void A_file_from_before_the_intervals_existed_loads_with_null_lists()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+        using var temp = new TemporaryDirectory("backlog-replicated");
+        var path = temp.Combine("replicated-sessions.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(
-                path,
-                """
-                {"entries":[{"record":{"sessionId":"old","agentKind":"claude","machineName":"Laptop",
-                "repositoryAlias":"backlog","branch":"main","startedAt":null,
-                "lastActivityAt":"2026-09-07T12:00:00+00:00","turnCount":3,"durationSeconds":0},
-                "machineId":"33333333-3333-3333-3333-333333333333","serverTimestamp":1}],"dropped":0}
-                """);
+        File.WriteAllText(
+            path,
+            """
+            {"entries":[{"record":{"sessionId":"old","agentKind":"claude","machineName":"Laptop",
+            "repositoryAlias":"backlog","branch":"main","startedAt":null,
+            "lastActivityAt":"2026-09-07T12:00:00+00:00","turnCount":3,"durationSeconds":0},
+            "machineId":"33333333-3333-3333-3333-333333333333","serverTimestamp":1}],"dropped":0}
+            """);
 
-            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+        var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
 
-            var kept = Assert.Single(store.Current.Entries);
-            Assert.Equal("old", kept.Record.SessionId);
-            Assert.Null(kept.Record.Runs);
-            Assert.Null(kept.Record.Waits);
-        }
-        finally
-        {
-            var folder = Path.GetDirectoryName(path);
-            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
-        }
+        var kept = Assert.Single(store.Current.Entries);
+        Assert.Equal("old", kept.Record.SessionId);
+        Assert.Null(kept.Record.Runs);
+        Assert.Null(kept.Record.Waits);
     }
 
     /// <summary>
@@ -313,26 +291,19 @@ public sealed class FileReplicatedSessionStoreTests
     [Fact]
     public void A_failed_save_leaves_the_previous_file_and_the_held_set_as_they_were()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+        using var temp = new TemporaryDirectory("backlog-replicated");
+        var path = temp.Combine("replicated-sessions.json");
 
-        try
-        {
-            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
-            store.Save([SessionRecords.Entry(Laptop, sessionId: "one")]);
+        var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+        store.Save([SessionRecords.Entry(Laptop, sessionId: "one")]);
 
-            Directory.CreateDirectory(path + ".tmp");
+        Directory.CreateDirectory(path + ".tmp");
 
-            var failure = Record.Exception(() => store.Save([SessionRecords.Entry(Laptop, sessionId: "two")]));
+        var failure = Record.Exception(() => store.Save([SessionRecords.Entry(Laptop, sessionId: "two")]));
 
-            Assert.True(failure is IOException or UnauthorizedAccessException, $"Expected an I/O failure, got {failure?.GetType().Name ?? "none"}.");
-            Assert.Equal(["one"], store.Current.Entries.Select(entry => entry.Record.SessionId));
-            Assert.Equal(["one"], new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon)).Current.Entries.Select(entry => entry.Record.SessionId));
-        }
-        finally
-        {
-            var folder = Path.GetDirectoryName(path);
-            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
-        }
+        Assert.True(failure is IOException or UnauthorizedAccessException, $"Expected an I/O failure, got {failure?.GetType().Name ?? "none"}.");
+        Assert.Equal(["one"], store.Current.Entries.Select(entry => entry.Record.SessionId));
+        Assert.Equal(["one"], new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon)).Current.Entries.Select(entry => entry.Record.SessionId));
     }
 
     /// <summary>
@@ -342,24 +313,16 @@ public sealed class FileReplicatedSessionStoreTests
     [Fact]
     public void A_sibling_left_by_an_interrupted_save_does_not_stop_the_next()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+        using var temp = new TemporaryDirectory("backlog-replicated");
+        var path = temp.Combine("replicated-sessions.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path + ".tmp", "{ \"entries\": [ cut off");
+        File.WriteAllText(path + ".tmp", "{ \"entries\": [ cut off");
 
-            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
-            store.Save([SessionRecords.Entry(Laptop, sessionId: "one")]);
+        var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+        store.Save([SessionRecords.Entry(Laptop, sessionId: "one")]);
 
-            Assert.Equal(["one"], new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon)).Current.Entries.Select(entry => entry.Record.SessionId));
-            Assert.False(File.Exists(path + ".tmp"));
-        }
-        finally
-        {
-            var folder = Path.GetDirectoryName(path);
-            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
-        }
+        Assert.Equal(["one"], new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon)).Current.Entries.Select(entry => entry.Record.SessionId));
+        Assert.False(File.Exists(path + ".tmp"));
     }
 
     /// <summary>
@@ -373,29 +336,20 @@ public sealed class FileReplicatedSessionStoreTests
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+        using var temp = new TemporaryDirectory("backlog-replicated");
+        var path = temp.Combine("replicated-sessions.json");
 
-        try
-        {
-            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
-            store.Save([SessionRecords.Entry(Laptop, sessionId: "one")]);
+        var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+        store.Save([SessionRecords.Entry(Laptop, sessionId: "one")]);
 
-            File.SetAttributes(path, FileAttributes.ReadOnly);
+        File.SetAttributes(path, FileAttributes.ReadOnly);
 
-            var failure = Record.Exception(() => store.Save([SessionRecords.Entry(Laptop, sessionId: "two")]));
+        var failure = Record.Exception(() => store.Save([SessionRecords.Entry(Laptop, sessionId: "two")]));
 
-            Assert.True(failure is IOException or UnauthorizedAccessException, $"Expected an I/O failure, got {failure?.GetType().Name ?? "none"}.");
-            Assert.Equal(["one"], store.Current.Entries.Select(entry => entry.Record.SessionId));
-            Assert.Equal(["one"], new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon)).Current.Entries.Select(entry => entry.Record.SessionId));
-            Assert.False(File.Exists(path + ".tmp"));
-        }
-        finally
-        {
-            if (File.Exists(path)) File.SetAttributes(path, FileAttributes.Normal);
-
-            var folder = Path.GetDirectoryName(path);
-            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
-        }
+        Assert.True(failure is IOException or UnauthorizedAccessException, $"Expected an I/O failure, got {failure?.GetType().Name ?? "none"}.");
+        Assert.Equal(["one"], store.Current.Entries.Select(entry => entry.Record.SessionId));
+        Assert.Equal(["one"], new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon)).Current.Entries.Select(entry => entry.Record.SessionId));
+        Assert.False(File.Exists(path + ".tmp"));
     }
 
     /// <summary>
@@ -407,21 +361,13 @@ public sealed class FileReplicatedSessionStoreTests
     [Fact]
     public void An_unreadable_file_reads_as_nothing_held()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+        using var temp = new TemporaryDirectory("backlog-replicated");
+        var path = temp.Combine("replicated-sessions.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, "{ this is not json");
+        File.WriteAllText(path, "{ this is not json");
 
-            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
+        var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
 
-            Assert.Empty(store.Current.Entries);
-        }
-        finally
-        {
-            var folder = Path.GetDirectoryName(path);
-            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
-        }
+        Assert.Empty(store.Current.Entries);
     }
 }

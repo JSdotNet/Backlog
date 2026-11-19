@@ -27,8 +27,7 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
 {
     private static readonly Guid Owner = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(), "my-day-preferences-sync-devices-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("my-day-preferences-sync-devices");
 
     private readonly FakeTaskReplica _replica = new();
 
@@ -41,9 +40,7 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 
     /// <summary>Verification 1: A turns the switch off and syncs; B, whose list is open
@@ -124,7 +121,7 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
     }
 
     private DesktopDevice Device(string name) =>
-        new(Path.Combine(_root, name), _replica, DeviceIds.GetOrAdd(name, _ => Guid.NewGuid()));
+        new(_temp.Combine(name), _replica, DeviceIds.GetOrAdd(name, _ => Guid.NewGuid()));
 
     private System.Collections.Concurrent.ConcurrentDictionary<string, Guid> DeviceIds { get; } = new();
 

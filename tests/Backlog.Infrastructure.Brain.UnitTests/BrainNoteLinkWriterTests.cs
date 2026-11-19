@@ -13,23 +13,11 @@ public sealed class BrainNoteLinkWriterTests : IDisposable
 {
     private const string TaskId = "7b908425-4208-497e-a978-d3c5b3faa597";
 
-    private readonly string _brain = Path.Combine(Path.GetTempPath(), "brain-link-writer-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("brain-link-writer-tests");
 
-    public BrainNoteLinkWriterTests() => Directory.CreateDirectory(_brain);
+    public void Dispose() => _temp.Dispose();
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_brain, recursive: true);
-        }
-        catch (IOException)
-        {
-            // Left for the OS to clear.
-        }
-    }
-
-    private BrainNoteLinkWriter Writer() => new(new BrainFolderSource(() => _brain));
+    private BrainNoteLinkWriter Writer() => new(new BrainFolderSource(() => _temp.Path));
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -40,7 +28,7 @@ public sealed class BrainNoteLinkWriterTests : IDisposable
 
     private string Note(string relativePath, string text, string eol, bool bom = false)
     {
-        var path = Path.Combine([_brain, .. relativePath.Split('/')]);
+        var path = _temp.Combine(relativePath.Split('/'));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var bytes = Encoding.UTF8.GetBytes(Eol(text, eol));
         File.WriteAllBytes(path, bom ? [0xEF, 0xBB, 0xBF, .. bytes] : bytes);
@@ -269,7 +257,7 @@ public sealed class BrainNoteLinkWriterTests : IDisposable
         var writes = await Task.WhenAll(Enumerable.Range(0, 20).Select(i => Task.Run(
             () => i % 2 == 0
                 ? writer.AppendTaskAsync("projects/sync.md", $"t{i}", Ct)
-                : new BrainNoteLinkWriter(new BrainFolderSource(() => _brain)).AppendRoadmapTagAsync("projects/sync.md", $"+r{i}", Ct),
+                : new BrainNoteLinkWriter(new BrainFolderSource(() => _temp.Path)).AppendRoadmapTagAsync("projects/sync.md", $"+r{i}", Ct),
             Ct)));
 
         Assert.All(writes, w => Assert.Equal(BrainLinkOutcome.Appended, w.Outcome));
@@ -372,7 +360,7 @@ public sealed class BrainNoteLinkWriterTests : IDisposable
     [Fact]
     public async Task A_file_that_is_not_utf8_is_refused()
     {
-        var path = Path.Combine(_brain, "note.md");
+        var path = _temp.Combine("note.md");
         byte[] bytes = [.. Encoding.ASCII.GetBytes("# Caf"), 0xE9, .. Encoding.ASCII.GetBytes("\n\n```meta\ntype: note\n```\n")];
         File.WriteAllBytes(path, bytes);
 
@@ -410,7 +398,7 @@ public sealed class BrainNoteLinkWriterTests : IDisposable
     public async Task A_path_that_names_no_note_in_the_brain_is_refused(string notePath)
     {
         var note = Note("projects/sync.md", Flow, "\n");
-        File.WriteAllText(Path.Combine(_brain, "projects", "sync.txt"), Flow);
+        File.WriteAllText(_temp.Combine("projects", "sync.txt"), Flow);
         var before = File.ReadAllBytes(note);
 
         var write = await Writer().AppendTaskAsync(notePath, TaskId, Ct);
@@ -420,7 +408,7 @@ public sealed class BrainNoteLinkWriterTests : IDisposable
         Assert.Equal(BrainLinkOutcome.Refused, move.Outcome);
         Assert.False(string.IsNullOrWhiteSpace(write.Error));
         Assert.Equal(before, File.ReadAllBytes(note));
-        Assert.Equal(Flow, File.ReadAllText(Path.Combine(_brain, "projects", "sync.txt")));
+        Assert.Equal(Flow, File.ReadAllText(_temp.Combine("projects", "sync.txt")));
     }
 
     [Fact]
@@ -440,7 +428,7 @@ public sealed class BrainNoteLinkWriterTests : IDisposable
     public async Task The_archive_move_keeps_the_file_s_bytes(string eol)
     {
         var path = Note("projects/client/sync.md", Block, eol, bom: true);
-        Directory.CreateDirectory(Path.Combine(_brain, "archive"));
+        Directory.CreateDirectory(_temp.Combine("archive"));
         var before = File.ReadAllBytes(path);
 
         var write = await Writer().ArchiveAsync("projects/client/sync.md", Ct);
@@ -448,25 +436,25 @@ public sealed class BrainNoteLinkWriterTests : IDisposable
         Assert.Equal(BrainLinkOutcome.Moved, write.Outcome);
         Assert.Equal("archive/client/sync.md", write.RelativePath);
         Assert.False(File.Exists(path));
-        Assert.Equal(before, File.ReadAllBytes(Path.Combine(_brain, "archive", "client", "sync.md")));
+        Assert.Equal(before, File.ReadAllBytes(_temp.Combine("archive", "client", "sync.md")));
     }
 
     [Fact]
     public async Task The_archive_is_the_area_the_conventions_name_so()
     {
-        File.WriteAllText(Path.Combine(_brain, "CONVENTIONS.md"), "## Areas\n\n| Area | Folder |\n|---|---|\n| Projects | work |\n| Archive | done |\n");
+        File.WriteAllText(_temp.Combine("CONVENTIONS.md"), "## Areas\n\n| Area | Folder |\n|---|---|\n| Projects | work |\n| Archive | done |\n");
         Note("work/sync.md", Flow, "\n");
 
         var write = await Writer().ArchiveAsync("work/sync.md", Ct);
 
         Assert.Equal("done/sync.md", write.RelativePath);
-        Assert.True(File.Exists(Path.Combine(_brain, "done", "sync.md")));
+        Assert.True(File.Exists(_temp.Combine("done", "sync.md")));
     }
 
     [Fact]
     public async Task A_brain_without_an_archive_area_is_refused()
     {
-        File.WriteAllText(Path.Combine(_brain, "CONVENTIONS.md"), "## Areas\n\n| Area | Folder |\n|---|---|\n| Projects | projects |\n");
+        File.WriteAllText(_temp.Combine("CONVENTIONS.md"), "## Areas\n\n| Area | Folder |\n|---|---|\n| Projects | projects |\n");
         var path = Note("projects/sync.md", Flow, "\n");
 
         var write = await Writer().ArchiveAsync("projects/sync.md", Ct);
@@ -506,7 +494,7 @@ public sealed class BrainNoteLinkWriterTests : IDisposable
     public async Task A_write_tells_the_source_its_content_changed_and_a_present_value_does_not()
     {
         Note("projects/sync.md", Flow, "\n");
-        var source = new BrainFolderSource(() => _brain);
+        var source = new BrainFolderSource(() => _temp.Path);
         var changes = 0;
         source.Changed += () => changes++;
         var writer = new BrainNoteLinkWriter(source);

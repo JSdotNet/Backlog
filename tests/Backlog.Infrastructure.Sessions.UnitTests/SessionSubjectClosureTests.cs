@@ -17,7 +17,8 @@ public sealed class SessionSubjectClosureTests : IDisposable
     private static readonly DateTimeOffset Noon = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
     private static readonly string[] Stages = ["Update Base", "Implement", "Summary"];
 
-    private readonly string _home = Path.Combine(Path.GetTempPath(), "backlog-subject-closure-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-subject-closure-tests");
+    private string _home => _temp.Path;
     private readonly RecordingNotifications _notifications = new RecordingNotifications();
 
     [Theory]
@@ -385,8 +386,5 @@ public sealed class SessionSubjectClosureTests : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

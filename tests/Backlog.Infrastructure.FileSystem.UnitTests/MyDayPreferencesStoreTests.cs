@@ -17,9 +17,9 @@ public sealed class MyDayPreferencesStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Morning = new(2026, 10, 15, 8, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "my-day-preferences-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("my-day-preferences-tests");
+
+    private string _root => _temp.Combine("data");
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -28,16 +28,7 @@ public sealed class MyDayPreferencesStoreTests : IDisposable
     private MyDayPreferencesStore Store(string device = "a", TimeProvider? time = null) =>
         new(FileOf(device), time ?? new FakeTimeProvider(Morning));
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static MyDayPreferencesCopyDto Copy(bool clearsOvernight, DateTimeOffset at, string extra = "") =>
         new($$"""{"updatedAt":"{{at:O}}","clearsOvernight":{{(clearsOvernight ? "true" : "false")}}{{extra}}}""", at);

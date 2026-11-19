@@ -19,7 +19,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DomainViewFeaturesPageTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
 
@@ -348,10 +348,11 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
 
     private Harness CreateHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-domain-view-features-page", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-domain-view-features-page");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts and what joins them.\n");
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "context.md"), Context);
@@ -404,10 +405,9 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            temp.Dispose();
         }
     }
 

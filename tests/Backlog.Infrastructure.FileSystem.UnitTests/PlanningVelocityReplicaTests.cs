@@ -19,9 +19,9 @@ public sealed class PlanningVelocityReplicaTests : IDisposable
 {
     private static readonly DateTimeOffset Morning = new(2026, 9, 29, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "planning-velocity-replica-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("planning-velocity-replica-tests");
+
+    private string _root => _temp.Combine("data");
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -30,16 +30,7 @@ public sealed class PlanningVelocityReplicaTests : IDisposable
     private PlanningVelocitySettingsStore Store(string device = "a", TimeProvider? time = null) =>
         new(FileOf(device), time);
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void The_file_holds_the_pace_document()

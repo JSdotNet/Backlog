@@ -15,10 +15,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class DeviceIdentityStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-device-identity-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-device-identity-tests");
+
+    private string _root => _temp.Combine("data");
 
     private string IdentityPath => Path.Combine(_root, "device.json");
 
@@ -331,15 +330,5 @@ public sealed class DeviceIdentityStoreTests : IDisposable
         public string? Name { get; init; }
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-        {
-            // A temp folder that will not delete is not a test failure.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

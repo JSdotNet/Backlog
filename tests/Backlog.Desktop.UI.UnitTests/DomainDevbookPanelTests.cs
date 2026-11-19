@@ -28,7 +28,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
     private const string ContextMapWithDiagram =
         "# Context Map\n\n```meta\nstatus: draft\n```\n\nOriginal prose.\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\n## Boundaries\n\nWhat divides the contexts.\n";
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>
     /// A pull announces the folder change off the renderer's thread, and the
@@ -801,10 +801,9 @@ public sealed class DomainDevbookPanelTests : IDisposable
     /// </summary>
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            temp.Dispose();
         }
     }
 
@@ -1469,9 +1468,10 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
     private Harness CreateHarness(StubGitFileHistory? history = null, bool diagramChapter = false, IDevbookAnnotationStore? annotations = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-tests", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-domain-panel-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain"));
-        _roots.Add(root);
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), diagramChapter ? ContextMapWithDiagram : ContextMap);
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));

@@ -11,20 +11,14 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class DuplicateAliasTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "duplicate-alias-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("duplicate-alias-tests");
 
-    private string WorkspaceRoot => Path.Combine(_root, "workspace");
+    private string WorkspaceRoot => _temp.Combine("workspace");
 
     private GitHubSettingsStore Store() =>
-        new(Path.Combine(_root, "local", "github.json"), () => WorkspaceRoot);
+        new(_temp.Combine("local", "github.json"), () => WorkspaceRoot);
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private void WriteRegistry(string json)
     {

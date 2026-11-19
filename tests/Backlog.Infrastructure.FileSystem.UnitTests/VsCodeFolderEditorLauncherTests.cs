@@ -32,7 +32,7 @@ public sealed class VsCodeFolderEditorLauncherTests : IDisposable
     private static readonly string ToolsShim = Path.Combine(ToolsShimDirectory, "code.cmd");
     private static readonly string ToolsExecutable = Path.Combine(ToolsInstall, "Code.exe");
 
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
 
     // The regression this class exists for: a bare "code.cmd" starts cmd.exe with
     // %0 = "code.cmd" and no directory, so the shim's own "%~dp0..\Code.exe"
@@ -298,9 +298,9 @@ public sealed class VsCodeFolderEditorLauncherTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            dir.Dispose();
         }
     }
 
@@ -324,9 +324,8 @@ public sealed class VsCodeFolderEditorLauncherTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "vscode-launcher-tests", Guid.NewGuid().ToString("n"));
-        Directory.CreateDirectory(path);
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("vscode-launcher-tests");
+        _tempDirs.Add(temp);
+        return temp.Path;
     }
 }

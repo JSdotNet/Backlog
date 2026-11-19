@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class LocalGitCloneStatusTests : IDisposable
 {
-    private readonly List<string> _directories = [];
+    private readonly List<TemporaryDirectory> _directories = [];
     private readonly List<IReadOnlyList<string>> _launches = [];
     private readonly List<IReadOnlyList<string>> _probes = [];
     private readonly GitHubRepositoryRef _repository = new("backlog", "JSdotNet", "Backlog");
@@ -354,10 +354,9 @@ public sealed class LocalGitCloneStatusTests : IDisposable
 
     private string NewDirectory()
     {
-        var directory = Path.Combine(Path.GetTempPath(), "backlog-clone-status-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        var directory = new TemporaryDirectory("backlog-clone-status");
         _directories.Add(directory);
-        return directory;
+        return directory.Path;
     }
 
     private string NewRepository()
@@ -398,16 +397,9 @@ public sealed class LocalGitCloneStatusTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var directory in _directories.OrderByDescending(path => path.Length).Where(Directory.Exists))
+        foreach (var directory in _directories)
         {
-            // git writes loose objects read-only and Directory.Delete refuses
-            // those, so the attribute comes off before the recursive delete.
-            foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
-            {
-                try { File.SetAttributes(file, FileAttributes.Normal); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-            }
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            directory.Dispose();
         }
     }
 }

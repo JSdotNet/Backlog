@@ -80,7 +80,7 @@ public sealed class C4ChapterViewsTests : IDisposable
         "## Container View\n\nThe deployable split.\n\n```mermaid\n" + fence + "\n```\n\n" +
         "## Desktop App\n\nThe desktop's components.\n";
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     // ---- the views a chapter documents ----------------------------------------
 
@@ -287,8 +287,9 @@ public sealed class C4ChapterViewsTests : IDisposable
         string? references = Documented,
         bool writeWorkspace = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-c4-chapter-" + Guid.NewGuid().ToString("N"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-c4-chapter");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         var arc42 = Path.Combine(root, ".arc42");
         var c4 = Path.Combine(arc42, C4DevbookStore.ReferenceDirectory);
@@ -350,16 +351,6 @@ public sealed class C4ChapterViewsTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots)
-        {
-            try
-            {
-                if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temp folder that will not delete is not a test failure.
-            }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

@@ -86,7 +86,7 @@ public sealed class DevbookOpenAnnotationTests : IDisposable
         ````
         """;
 
-    private readonly string _root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "backlog-open-annotations", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-open-annotations");
 
     [Fact]
     public void Each_open_note_counts_on_the_chapter_row_it_addresses()
@@ -124,12 +124,12 @@ public sealed class DevbookOpenAnnotationTests : IDisposable
         // tools/devbook/build-database.mjs counts nothing with a generator that
         // has no annotation index, and the builder matches it: a review note is
         // a thread in the app's own store (local ADR 0044), not a fence.
-        var file = System.IO.Path.Combine(_root, Path.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        var file = _temp.Combine(Path.Replace('/', System.IO.Path.DirectorySeparatorChar));
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file)!);
         File.WriteAllText(file, Markdown);
-        var target = System.IO.Path.Combine(_root, "out", "devbook.db");
+        var target = _temp.Combine("out", "devbook.db");
 
-        Assert.True(DevbookDatabaseBuilder.Build(_root, target, TestContext.Current.CancellationToken));
+        Assert.True(DevbookDatabaseBuilder.Build(_temp.Path, target, TestContext.Current.CancellationToken));
 
         using var database = DevbookDatabase.TryOpen(target);
         Assert.NotNull(database);
@@ -141,13 +141,6 @@ public sealed class DevbookOpenAnnotationTests : IDisposable
     public void Dispose()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
-        {
-            // A temp folder that outlives the run is not a test failure.
-        }
+        _temp.Dispose();
     }
 }

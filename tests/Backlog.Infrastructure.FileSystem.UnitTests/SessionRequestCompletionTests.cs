@@ -21,7 +21,9 @@ public sealed class SessionRequestCompletionTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 11, 18, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-session-request-completion", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-session-request-completion");
+
+    private string _root => _temp.Combine("data");
     private readonly FakeTimeProvider _clock = new(Noon);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -29,7 +31,7 @@ public sealed class SessionRequestCompletionTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
+        _temp.Dispose();
     }
 
     private SqliteSessionRequestStore Store() => new(_root, _clock);

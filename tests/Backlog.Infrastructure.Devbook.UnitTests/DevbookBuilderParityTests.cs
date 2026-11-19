@@ -25,16 +25,14 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// </summary>
 public class DevbookBuilderParityTests : IDisposable
 {
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-devbook-parity", Guid.NewGuid().ToString("N"));
-
-    public DevbookBuilderParityTests() => Directory.CreateDirectory(_scratch);
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-parity");
 
     [Fact]
     public void The_app_builds_the_same_database_as_the_node_writer()
     {
         var repository = RepositoryRoot.Root.FullName;
-        var fromNode = Path.Combine(_scratch, "node.db");
-        var fromApp = Path.Combine(_scratch, "app.db");
+        var fromNode = _temp.Combine("node.db");
+        var fromApp = _temp.Combine("app.db");
 
         RunNodeWriter(repository, fromNode);
         Assert.True(DevbookDatabaseBuilder.Build(repository, fromApp, TestContext.Current.CancellationToken));
@@ -67,7 +65,7 @@ public class DevbookBuilderParityTests : IDisposable
     [Fact]
     public void The_app_matches_the_node_writer_on_the_convention_s_edge_cases()
     {
-        var fixture = Path.Combine(_scratch, "fixture");
+        var fixture = _temp.Combine("fixture");
         foreach (var (path, text) in EdgeCases)
         {
             var file = Path.Combine(fixture, path.Replace('/', Path.DirectorySeparatorChar));
@@ -75,8 +73,8 @@ public class DevbookBuilderParityTests : IDisposable
             File.WriteAllText(file, text);
         }
 
-        var fromNode = Path.Combine(_scratch, "fixture-node.db");
-        var fromApp = Path.Combine(_scratch, "fixture-app.db");
+        var fromNode = _temp.Combine("fixture-node.db");
+        var fromApp = _temp.Combine("fixture-app.db");
 
         RunNodeWriter(fixture, fromNode, generator: Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "_tools", "devbook-meta"));
         Assert.True(DevbookDatabaseBuilder.Build(fixture, fromApp, TestContext.Current.CancellationToken));
@@ -216,7 +214,7 @@ public class DevbookBuilderParityTests : IDisposable
     [Fact]
     public void The_app_matches_the_node_writer_on_a_brain()
     {
-        var brain = Path.Combine(_scratch, "brain");
+        var brain = _temp.Combine("brain");
         foreach (var (path, text) in BrainCases)
         {
             var file = Path.Combine(brain, path.Replace('/', Path.DirectorySeparatorChar));
@@ -224,8 +222,8 @@ public class DevbookBuilderParityTests : IDisposable
             File.WriteAllText(file, text);
         }
 
-        var fromNode = Path.Combine(_scratch, "brain-node.db");
-        var fromApp = Path.Combine(_scratch, "brain-app.db");
+        var fromNode = _temp.Combine("brain-node.db");
+        var fromApp = _temp.Combine("brain-app.db");
 
         RunNodeWriter(brain, fromNode, generator: Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "_tools", "devbook-meta"), brain: true);
         Assert.True(DevbookDatabaseBuilder.Build(brain, fromApp, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
@@ -858,15 +856,5 @@ public class DevbookBuilderParityTests : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_scratch, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // A temp folder that outlives the run is not a test failure.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

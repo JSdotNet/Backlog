@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Copilot.UnitTests;
 /// </summary>
 public sealed class ProcessCopilotCliLauncherTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
 
     // The regression this class exists for: the launcher checked the returned
     // Process for null and dropped it, so every launch held a process handle until
@@ -129,16 +129,15 @@ public sealed class ProcessCopilotCliLauncherTests : IDisposable
     {
         foreach (var dir in _tempDirs)
         {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            dir.Dispose();
         }
     }
 
     private string CreateTempDir()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "backlog-copilot-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = new TemporaryDirectory("backlog-copilot");
         _tempDirs.Add(dir);
-        return dir;
+        return dir.Path;
     }
 
     /// <summary>Process.Dispose never raises Component.Disposed, so the only way to

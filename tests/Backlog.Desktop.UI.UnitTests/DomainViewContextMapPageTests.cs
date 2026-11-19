@@ -17,7 +17,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DomainViewContextMapPageTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>The page reads the folder off the renderer's thread, and under the
     /// whole solution's concurrent run one second was not always enough.</summary>
@@ -271,10 +271,11 @@ public sealed class DomainViewContextMapPageTests : IDisposable
     /// model.md, and the map a Published languages table Tasks and Sync own.</param>
     private Harness CreateHarness(string? cloneDirectory = null, bool withModel = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-domain-view-context-map-page", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-domain-view-context-map-page");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
         Directory.CreateDirectory(Path.Combine(root, ".domain", "sync"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), withModel ? ContextMap + Languages : ContextMap);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "context.md"), TasksContext);
@@ -328,10 +329,9 @@ public sealed class DomainViewContextMapPageTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            temp.Dispose();
         }
     }
 

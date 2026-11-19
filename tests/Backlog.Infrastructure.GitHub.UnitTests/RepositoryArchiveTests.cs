@@ -24,13 +24,11 @@ public sealed class RepositoryArchiveTests : IDisposable
     private const string RegistryUnreadable =
         "The repository registry couldn't be read, so repositories can't be changed right now.";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "repository-archive-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("repository-archive-tests");
 
-    private string WorkspaceRoot(string device = "a") => Path.Combine(_root, device, "workspace");
+    private string WorkspaceRoot(string device = "a") => _temp.Combine(device, "workspace");
 
-    private string LocalPath(string device = "a") => Path.Combine(_root, device, "local", "github.json");
+    private string LocalPath(string device = "a") => _temp.Combine(device, "local", "github.json");
 
     private GitHubSettingsStore Store(string device = "a") => new(LocalPath(device), () => WorkspaceRoot(device));
 
@@ -43,11 +41,7 @@ public sealed class RepositoryArchiveTests : IDisposable
         return store;
     }
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static JsonNode RegistryRow(GitHubSettingsStore store, string id) =>
         JsonNode.Parse(File.ReadAllText(store.RegistryPath))!["repositories"]!.AsArray()
@@ -128,7 +122,7 @@ public sealed class RepositoryArchiveTests : IDisposable
     public void Archiving_and_unarchiving_change_nothing_but_the_flag()
     {
         var store = Configured();
-        var clone = Path.Combine(_root, "clone");
+        var clone = _temp.Combine("clone");
         Assert.Null(store.SetRepositoryColour("almanac", 4));
         Assert.Null(store.SetRepositoryToken("almanac", "ghp_secret"));
         Assert.Null(store.SetCloneDirectory("almanac", clone));
@@ -296,7 +290,7 @@ public sealed class RepositoryArchiveTests : IDisposable
         Assert.Null(store.SetRepositoryArchived("almanac", archived: true));
 
         Assert.Null(store.SetRepositoryColour("almanac", 2));
-        Assert.Null(store.SetCloneDirectory("almanac", Path.Combine(_root, "clone")));
+        Assert.Null(store.SetCloneDirectory("almanac", _temp.Combine("clone")));
         Assert.Null(store.SetPullRequestLabels("almanac", ["frontend"]));
         Assert.Null(store.SetDevbookSource("almanac", "main", useLocalFolder: false));
         Assert.Null(store.SetRepositoryToken("almanac", "ghp_secret"));

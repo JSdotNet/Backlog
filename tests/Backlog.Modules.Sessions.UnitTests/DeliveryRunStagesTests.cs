@@ -548,23 +548,17 @@ public sealed class DeliveryRunStagesTests
     {
         public static async Task<DeliveryRun> ReadAsync(string name)
         {
-            var home = Path.Combine(Path.GetTempPath(), "backlog-stage-list-tests", Guid.NewGuid().ToString("n"));
+            using var temp = new TemporaryDirectory("backlog-stage-list-tests");
+            var home = temp.Path;
             var folder = Path.Combine(home, "backlog", "fixture-1a2b3c4d", "runs");
 
             Directory.CreateDirectory(folder);
             File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "delivery-runs", name), Path.Combine(folder, name));
 
-            try
-            {
-                var catalog = await new Backlog.Infrastructure.Sessions.LocalDeliveryRunSource(home, "machine", "Machine")
-                    .GetRunsAsync(TestContext.Current.CancellationToken);
+            var catalog = await new Backlog.Infrastructure.Sessions.LocalDeliveryRunSource(home, "machine", "Machine")
+                .GetRunsAsync(TestContext.Current.CancellationToken);
 
-                return Assert.Single(catalog.Runs);
-            }
-            finally
-            {
-                Directory.Delete(home, recursive: true);
-            }
+            return Assert.Single(catalog.Runs);
         }
     }
 }

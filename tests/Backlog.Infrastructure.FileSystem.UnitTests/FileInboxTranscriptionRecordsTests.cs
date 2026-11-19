@@ -10,12 +10,11 @@ public sealed class FileInboxTranscriptionRecordsTests : IDisposable
 {
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
-    private readonly string _folder = Path.Combine(Path.GetTempPath(), $"inbox-records-{Guid.NewGuid():N}");
+    private readonly TemporaryDirectory _temp = new("inbox-records");
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_folder, recursive: true); } catch (DirectoryNotFoundException) { }
-    }
+    private string _folder => _temp.Combine("data");
+
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task A_record_is_found_by_its_sha256_after_a_restart_whatever_its_case()

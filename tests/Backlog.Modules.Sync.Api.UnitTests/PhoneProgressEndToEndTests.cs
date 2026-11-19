@@ -34,14 +34,14 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
     private static readonly DateOnly Due = new(2026, 10, 31);
 
     private readonly SyncServiceFactory _service = new();
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "phone-progress-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("phone-progress");
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
     public void Dispose()
     {
         _service.Dispose();
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 
     /// <summary>The service passes every Progress kind through untouched, beside the tasks, and
@@ -178,7 +178,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         Assert.Empty(devices.Outbox.Entries);
 
         using var restarted = new ProgressViewProjection(
-            new SqliteProgressViewStore(Path.Combine(_root, "phone", "device.db")), devices.Outbox, new CloudSyncClient(devices.Clients[1]), TimeProvider.System);
+            new SqliteProgressViewStore(_temp.Combine("phone", "device.db")), devices.Outbox, new CloudSyncClient(devices.Clients[1]), TimeProvider.System);
         var second = await restarted.MoveImpedimentAsync(impediment.Id, ImpedimentState.Escalated, "account manager", Cancellation);
         Assert.Equal(ImpedimentState.Reported, second!.WasState);
         await devices.Outbox.FlushAsync(Cancellation);
@@ -211,11 +211,11 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         phoneHttp.Bearing(await phoneHttp.DeviceToken((await paired.Content.ReadFromJsonAsync<DeviceRegistrationResponse>(Cancellation))!));
 
         var desktop = new Desktop(
-            Path.Combine(_root, "desktop"),
+            _temp.Combine("desktop"),
             desktopHttp,
             new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential));
 
-        var phoneDatabase = Path.Combine(_root, "phone", "device.db");
+        var phoneDatabase = _temp.Combine("phone", "device.db");
         var sync = new CloudSyncClient(phoneHttp);
         var outbox = new DeviceOutbox(new SqliteDeviceStore(phoneDatabase), [new ImpedimentEditOutboxKind(sync)], TimeProvider.System);
         var progress = new ProgressViewProjection(new SqliteProgressViewStore(phoneDatabase), outbox, sync, TimeProvider.System);

@@ -18,11 +18,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class WorkingHoursSettingsStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "working-hours-settings-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("working-hours-settings-store-tests");
 
-    public WorkingHoursSettingsStoreTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string SettingsFile => Path.Combine(_root, "working-hours.json");
 
@@ -619,12 +617,6 @@ public class WorkingHoursSettingsStoreTests : IDisposable
     {
         GC.SuppressFinalize(this);
 
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 }

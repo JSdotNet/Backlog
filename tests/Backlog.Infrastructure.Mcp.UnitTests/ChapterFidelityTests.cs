@@ -78,20 +78,20 @@ public sealed class ChapterFidelityTests : IDisposable
 
     private static readonly TasksRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
 
-    private readonly DirectoryInfo _root = Directory.CreateTempSubdirectory("backlog-mcp-fidelity");
+    private readonly TemporaryDirectory _root = new("backlog-mcp-fidelity");
 
     public ChapterFidelityTests()
     {
-        Directory.CreateDirectory(Path.Combine(_root.FullName, ".arc42", "adr"));
+        Directory.CreateDirectory(Path.Combine(_root.Path, ".arc42", "adr"));
 
         File.WriteAllText(ChapterFile, Chapter);
     }
 
     /// <summary>The chapter on disk. Written as it is, never through a writer
     /// that could normalize it on the way in.</summary>
-    private string ChapterFile => Path.Combine(_root.FullName, ".arc42", "adr", "0012-mcp.md");
+    private string ChapterFile => Path.Combine(_root.Path, ".arc42", "adr", "0012-mcp.md");
 
-    public void Dispose() => _root.Delete(recursive: true);
+    public void Dispose() => _root.Dispose();
 
     /// <summary>
     /// The strongest statement available: with no notes to splice, a review read
@@ -421,7 +421,7 @@ public sealed class ChapterFidelityTests : IDisposable
     private Task<ChapterPayload> Read(bool review, params DevbookAnnotation[] notes)
     {
         var tools = new DevbookTools(
-            new FakeDevbookFolderSource(_root.FullName, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
+            new FakeDevbookFolderSource(_root.Path, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
             new FakeDevbookAnnotationStore(notes),
             new FakeRepositoryDirectory([Backlog]));
 

@@ -18,7 +18,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class GitHubIntegrationMergeTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-merge-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-merge-tests");
 
     private static readonly GitHubPullRequestStatus Pull = new(
         708,
@@ -30,13 +30,7 @@ public sealed class GitHubIntegrationMergeTests : IDisposable
         MergeReady: false,
         GitHubMergeMethod.Squash);
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Enabling_auto_merge_sends_the_pull_requests_node_and_the_repositorys_method()
@@ -200,9 +194,8 @@ public sealed class GitHubIntegrationMergeTests : IDisposable
 
     private GitHubIntegration Integration(RoutingTransport transport)
     {
-        Directory.CreateDirectory(_root);
         return new GitHubIntegration(
-            new GitHubSettingsStore(Path.Combine(_root, "github.json")),
+            new GitHubSettingsStore(_temp.Combine("github.json")),
             new GitHubClient(transport),
             new StubProbe(new GitHubConnection(true, "Connected.")));
     }

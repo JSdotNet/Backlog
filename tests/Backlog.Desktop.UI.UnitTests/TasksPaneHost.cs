@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 internal sealed class TasksPaneHost : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly TemporaryDirectory _temp;
 
     private TasksPaneHost(
         BunitContext context,
@@ -28,7 +28,7 @@ internal sealed class TasksPaneHost : IDisposable
         GitHubIntegration gitHub,
         FakeGitHubClient client,
         MyDayPreferencesStore myDay,
-        string root,
+        TemporaryDirectory temp,
         string storageRoot)
     {
         Context = context;
@@ -39,7 +39,7 @@ internal sealed class TasksPaneHost : IDisposable
         GitHub = gitHub;
         Client = client;
         StorageRoot = storageRoot;
-        _tempDirs.Add(root);
+        _temp = temp;
     }
 
     public BunitContext Context { get; }
@@ -98,7 +98,8 @@ internal sealed class TasksPaneHost : IDisposable
         ILinkedSessionStates? sessionStates = null,
         ITaskChangeSignal? taskWrites = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-pane-host", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-pane-host");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(Path.Combine(root, "local")));
@@ -138,7 +139,7 @@ internal sealed class TasksPaneHost : IDisposable
         context.Services.AddSingleton<IToastChannel>(toasts);
         context.Services.AddSingleton<IMyDayPreferences>(myDay);
 
-        return new TasksPaneHost(context, state, toasts, features, gitHub, client, myDay, root, storageRoot);
+        return new TasksPaneHost(context, state, toasts, features, gitHub, client, myDay, temp, storageRoot);
     }
 
     public IRenderedComponent<TasksPane> Render() => Context.Render<TasksPane>();
@@ -221,11 +222,8 @@ internal sealed class TasksPaneHost : IDisposable
         Context.Dispose();
         State.Dispose();
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
-        {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
-        }
+        TestDatabases.Release(_temp.Path);
+        _temp.Dispose();
     }
 
     /// <summary>A GitHub that answers rather than reaches the network. What it

@@ -319,13 +319,13 @@ public sealed class SettingsSectionRenderingTests
     public void The_inbox_page_draws_its_rule_count_and_follows_it()
     {
         InboxRoutingRulesStore? rules = null;
+        using var temp = new TemporaryDirectory("backlog-settings-badge-tests");
         using var settings = RenderSettings(
             [],
             inboxPane: true,
             services: services =>
             {
-                var root = Path.Combine(Path.GetTempPath(), "backlog-settings-badge-tests", Guid.NewGuid().ToString("n"));
-                rules = new(Path.Combine(root, "inbox-routing-rules.json"));
+                rules = new(temp.Combine("inbox-routing-rules.json"));
                 Assert.Null(rules.SetRules("#bug => JSdotNet/Bugs"));
                 services.AddSingleton<Backlog.Modules.Inbox.Abstractions.Services.IInboxRoutingRules>(rules);
                 services.AddInboxSettings();
@@ -637,7 +637,8 @@ public sealed class SettingsSectionRenderingTests
         bool aiAssistant = false,
         IGitHubConnectionProbe? probe = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-section-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-section-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -669,7 +670,7 @@ public sealed class SettingsSectionRenderingTests
 
         if (navigateTo is not null) context.Services.GetRequiredService<NavigationManager>().NavigateTo(navigateTo);
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>());
+        return new SettingsRenderContext(temp, context, context.Render<Settings>());
     }
 
     /// <summary>Answers "connected" until <see cref="Hold"/> is called, then holds
@@ -696,21 +697,16 @@ public sealed class SettingsSectionRenderingTests
     }
 
     internal sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

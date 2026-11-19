@@ -4,8 +4,12 @@ namespace Backlog.Infrastructure.DevPc.UnitTests;
 
 /// <summary>"Create from this machine": the catalog it writes is the hosts'
 /// own manifests, read back as entries.</summary>
-public class DevToolCatalogSeedTests
+public sealed class DevToolCatalogSeedTests : IDisposable
 {
+    private readonly TemporaryDirectory _temp = new("backlog-tool-tests");
+
+    public void Dispose() => _temp.Dispose();
+
     private const string CopilotConfig = """
         // User settings belong in settings.json.
         {
@@ -288,8 +292,7 @@ public class DevToolCatalogSeedTests
     [Fact]
     public async Task The_seeded_write_refuses_an_existing_catalog_too()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
-        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(_temp.Path, "dev-pc");
         Directory.CreateDirectory(Path.GetDirectoryName(paths.CatalogPath)!);
         await File.WriteAllTextAsync(paths.CatalogPath, "{}", TestContext.Current.CancellationToken);
 
@@ -301,9 +304,9 @@ public class DevToolCatalogSeedTests
 
     /// <summary>A service whose catalog and host manifests are all under one
     /// temporary folder, so nothing reads the machine the test runs on.</summary>
-    private static (DevToolService Service, DevToolConfigurationPaths Paths, string Home) ServiceOverManifests()
+    private (DevToolService Service, DevToolConfigurationPaths Paths, string Home) ServiceOverManifests()
     {
-        var home = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        var home = _temp.Path;
         var manifests = DevToolHostManifestPaths.ForUser(home, Path.Combine(home, "roaming"), Path.Combine(home, "local"));
 
         Write(manifests.CopilotConfig, CopilotConfig);

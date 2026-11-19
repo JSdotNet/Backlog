@@ -312,26 +312,20 @@ public sealed class DecisionToolsTests
     [InlineData(@".devbook\arc42\tdr\0003-paging.md")]
     public void Every_spelling_of_a_record_is_filed_under_the_repositorys_own(string spelled)
     {
-        var root = Directory.CreateTempSubdirectory("decision-tools-").FullName;
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(root, ".devbook", "arc42", "tdr"));
-            File.WriteAllText(Path.Combine(root, ".devbook", "arc42", "tdr", "0003-paging.md"), "# Paging\n");
-            var folders = new FakeDevbookFolderSource(root, new DevbookFolderSetting(".arc42", "Architecture", ".devbook/arc42"));
-            var tools = Tools(out var store, folders: folders);
-            var mine = DevbookSubject.Debt(".devbook/arc42/tdr/0003-paging.md");
+        using var temp = new TemporaryDirectory("decision-tools");
+        var root = temp.Path;
+        Directory.CreateDirectory(Path.Combine(root, ".devbook", "arc42", "tdr"));
+        File.WriteAllText(Path.Combine(root, ".devbook", "arc42", "tdr", "0003-paging.md"), "# Paging\n");
+        var folders = new FakeDevbookFolderSource(root, new DevbookFolderSetting(".arc42", "Architecture", ".devbook/arc42"));
+        var tools = Tools(out var store, folders: folders);
+        var mine = DevbookSubject.Debt(".devbook/arc42/tdr/0003-paging.md");
 
-            tools.SetStateOf(Repository, Debt(".devbook/arc42/tdr/0003-paging.md"), "identified");
-            var answer = tools.SetStateOf(Repository, Debt(spelled), "planned");
+        tools.SetStateOf(Repository, Debt(".devbook/arc42/tdr/0003-paging.md"), "identified");
+        var answer = tools.SetStateOf(Repository, Debt(spelled), "planned");
 
-            Assert.Equal("planned", answer.State);
-            Assert.All(store.Written, written => Assert.Equal(mine, written.Subject));
-            Assert.Equal("planned", tools.GetStateOf(Repository, Debt(".devbook/arc42/tdr/0003-paging.md")).State);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal("planned", answer.State);
+        Assert.All(store.Written, written => Assert.Equal(mine, written.Subject));
+        Assert.Equal("planned", tools.GetStateOf(Repository, Debt(".devbook/arc42/tdr/0003-paging.md")).State);
     }
 
     /// <summary>A decision record keys by the folder's spelling too, its pull
@@ -339,21 +333,15 @@ public sealed class DecisionToolsTests
     [Fact]
     public void A_decision_record_sent_in_the_legacy_layout_is_filed_under_the_repositorys_own()
     {
-        var root = Directory.CreateTempSubdirectory("decision-tools-").FullName;
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(root, ".devbook", "arc42", "adr"));
-            var folders = new FakeDevbookFolderSource(root, new DevbookFolderSetting(".arc42", "Architecture", ".devbook/arc42"));
-            var tools = Tools(out var store, folders: folders);
+        using var temp = new TemporaryDirectory("decision-tools");
+        var root = temp.Path;
+        Directory.CreateDirectory(Path.Combine(root, ".devbook", "arc42", "adr"));
+        var folders = new FakeDevbookFolderSource(root, new DevbookFolderSetting(".arc42", "Architecture", ".devbook/arc42"));
+        var tools = Tools(out var store, folders: folders);
 
-            tools.SetStateOf(Repository, Decision(12, ".arc42/adr/0044-devbook-state-outside-git.md"), "decided");
+        tools.SetStateOf(Repository, Decision(12, ".arc42/adr/0044-devbook-state-outside-git.md"), "decided");
 
-            Assert.Equal(DevbookSubject.Decision(DecisionPath, 12), Assert.Single(store.Written).Subject);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal(DevbookSubject.Decision(DecisionPath, 12), Assert.Single(store.Written).Subject);
     }
 
     /// <summary>A store that answers an archived repository as an outcome reads
@@ -483,30 +471,24 @@ public sealed class DecisionToolsTests
     [Fact]
     public void A_note_posted_at_a_section_is_anchored_to_its_heading()
     {
-        var root = Directory.CreateTempSubdirectory("decision-notes-").FullName;
-        try
-        {
-            const string Chapter = ".devbook/arc42/06-runtime-view.md";
-            Directory.CreateDirectory(Path.Combine(root, ".devbook", "arc42"));
-            File.WriteAllText(
-                Path.Combine(root, ".devbook", "arc42", "06-runtime-view.md"),
-                "# Runtime view\n\nIntro.\n\n## Import on start\n\nThe worker runs once.\n\n## Sync\n\nLater.\n");
-            var folders = new FakeDevbookFolderSource(root, new DevbookFolderSetting(".arc42", "Architecture", ".devbook/arc42"));
-            var tools = Tools(out _, out var notes, folders: folders);
+        using var temp = new TemporaryDirectory("decision-notes");
+        var root = temp.Path;
+        const string Chapter = ".devbook/arc42/06-runtime-view.md";
+        Directory.CreateDirectory(Path.Combine(root, ".devbook", "arc42"));
+        File.WriteAllText(
+            Path.Combine(root, ".devbook", "arc42", "06-runtime-view.md"),
+            "# Runtime view\n\nIntro.\n\n## Import on start\n\nThe worker runs once.\n\n## Sync\n\nLater.\n");
+        var folders = new FakeDevbookFolderSource(root, new DevbookFolderSetting(".arc42", "Architecture", ".devbook/arc42"));
+        var tools = Tools(out _, out var notes, folders: folders);
 
-            var note = tools.PostNoteOn(Repository, Chapter + "#import-on-start", "Once per device?").Note!;
+        var note = tools.PostNoteOn(Repository, Chapter + "#import-on-start", "Once per device?").Note!;
 
-            Assert.Equal(Chapter + "#import-on-start", note.Address);
-            Assert.Equal(2, Assert.Single(notes.All).BlockIndex);
+        Assert.Equal(Chapter + "#import-on-start", note.Address);
+        Assert.Equal(2, Assert.Single(notes.All).BlockIndex);
 
-            Assert.Equal([note.Id], tools.ListNotesOn(Repository, Chapter).Notes.Select(listed => listed.Id));
-            Assert.Equal([note.Id], tools.ListNotesOn(Repository, Chapter + "#import-on-start").Notes.Select(listed => listed.Id));
-            Assert.Empty(tools.ListNotesOn(Repository, Chapter + "#sync").Notes);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal([note.Id], tools.ListNotesOn(Repository, Chapter).Notes.Select(listed => listed.Id));
+        Assert.Equal([note.Id], tools.ListNotesOn(Repository, Chapter + "#import-on-start").Notes.Select(listed => listed.Id));
+        Assert.Empty(tools.ListNotesOn(Repository, Chapter + "#sync").Notes);
     }
 
     /// <summary>A chapter this host cannot read has no headings to find, so the

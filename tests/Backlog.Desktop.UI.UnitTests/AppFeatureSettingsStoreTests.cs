@@ -17,47 +17,34 @@ public sealed class AppFeatureSettingsStoreTests
     [InlineData(true)]
     public void A_pull_requests_choice_stored_before_the_key_moved_still_applies(bool enabled)
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-feature-tests");
+        var path = temp.Combine("features.json");
 
-        try
+        File.WriteAllText(path, JsonSerializer.Serialize(new
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(new
-            {
-                disabledFeatures = enabled ? Array.Empty<string>() : ["pull-requests"],
-                enabledFeatures = enabled ? new[] { "pull-requests" } : []
-            }));
+            disabledFeatures = enabled ? Array.Empty<string>() : ["pull-requests"],
+            enabledFeatures = enabled ? new[] { "pull-requests" } : []
+        }));
 
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+        var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.Equal(enabled, store.IsEnabled(RepositoryManagementFeatures.PullRequests));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal(enabled, store.IsEnabled(RepositoryManagementFeatures.PullRequests));
     }
 
     [Fact]
     public void Disabled_features_survive_a_restart()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-feature-tests");
+        var path = temp.Combine("features.json");
 
-        try
-        {
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
-            store.SetEnabled(TasksFeatures.GitHubIntegration, enabled: false);
-            store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
+        var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+        store.SetEnabled(TasksFeatures.GitHubIntegration, enabled: false);
+        store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
 
-            var restarted = new AppFeatureSettingsStore(AppFeatures.All, path);
+        var restarted = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.False(restarted.IsEnabled(TasksFeatures.GitHubIntegration));
-            Assert.False(restarted.IsEnabled(AppFeatureKeys.CopilotCli));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.False(restarted.IsEnabled(TasksFeatures.GitHubIntegration));
+        Assert.False(restarted.IsEnabled(AppFeatureKeys.CopilotCli));
     }
 
     /// <summary>The settings screen draws two headings, so the catalog is ordered
@@ -162,135 +149,97 @@ public sealed class AppFeatureSettingsStoreTests
     [InlineData(DevbookFeatures.Status)]
     public void A_devbook_viewer_switch_stays_off_until_it_is_asked_for(string key)
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-feature-tests");
+        var path = temp.Combine("features.json");
 
-        try
-        {
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+        var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.False(store.IsEnabled(key));
+        Assert.False(store.IsEnabled(key));
 
-            store.SetEnabled(key, enabled: true);
+        store.SetEnabled(key, enabled: true);
 
-            Assert.True(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(key));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.True(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(key));
     }
 
     [Fact]
     public void Usage_metrics_stays_off_until_it_is_asked_for()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-feature-tests");
+        var path = temp.Combine("features.json");
 
-        try
-        {
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+        var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.False(store.IsEnabled(AppFeatures.UsageMetrics));
+        Assert.False(store.IsEnabled(AppFeatures.UsageMetrics));
 
-            store.SetEnabled(AppFeatures.UsageMetrics, enabled: true);
+        store.SetEnabled(AppFeatures.UsageMetrics, enabled: true);
 
-            Assert.True(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(AppFeatures.UsageMetrics));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.True(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(AppFeatures.UsageMetrics));
     }
 
     [Fact]
     public void Inbox_pane_stays_off_until_it_is_asked_for()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-feature-tests");
+        var path = temp.Combine("features.json");
 
-        try
-        {
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+        var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.False(store.IsEnabled(AppFeatures.InboxPane));
+        Assert.False(store.IsEnabled(AppFeatures.InboxPane));
 
-            store.SetEnabled(AppFeatures.InboxPane, enabled: true);
+        store.SetEnabled(AppFeatures.InboxPane, enabled: true);
 
-            Assert.True(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(AppFeatures.InboxPane));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.True(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(AppFeatures.InboxPane));
     }
 
     [Fact]
     public void An_opt_in_feature_stays_off_for_settings_written_before_it_existed()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-feature-tests");
+        var path = temp.Combine("features.json");
 
-        try
-        {
-            // A file saved by an older build knows nothing about usage metrics;
-            // silence must not read as consent.
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(new { disabledFeatures = Array.Empty<string>() }));
+        // A file saved by an older build knows nothing about usage metrics;
+        // silence must not read as consent.
+        File.WriteAllText(path, JsonSerializer.Serialize(new { disabledFeatures = Array.Empty<string>() }));
 
-            Assert.False(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(AppFeatures.UsageMetrics));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.False(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(AppFeatures.UsageMetrics));
     }
 
     [Fact]
     public void Switching_an_opt_in_feature_back_off_forgets_it_again()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-feature-tests");
+        var path = temp.Combine("features.json");
 
-        try
-        {
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
-            store.SetEnabled(AppFeatures.UsageMetrics, enabled: true);
-            store.SetEnabled(AppFeatures.UsageMetrics, enabled: false);
+        var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+        store.SetEnabled(AppFeatures.UsageMetrics, enabled: true);
+        store.SetEnabled(AppFeatures.UsageMetrics, enabled: false);
 
-            var restarted = new AppFeatureSettingsStore(AppFeatures.All, path);
+        var restarted = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.False(restarted.IsEnabled(AppFeatures.UsageMetrics));
-            Assert.Empty(restarted.Current.EnabledFeatures);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.False(restarted.IsEnabled(AppFeatures.UsageMetrics));
+        Assert.Empty(restarted.Current.EnabledFeatures);
     }
 
     [Fact]
     public void Unknown_keys_are_ignored_when_loaded()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-feature-tests");
+        var path = temp.Combine("features.json");
 
-        try
+        File.WriteAllText(path, JsonSerializer.Serialize(new
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(new
+            disabledFeatures = new[]
             {
-                disabledFeatures = new[]
-                {
-                    TasksFeatures.GitHubIntegration,
-                    "retired-feature",
-                    "updates",
-                    "repositories"
-                }
-            }));
+                TasksFeatures.GitHubIntegration,
+                "retired-feature",
+                "updates",
+                "repositories"
+            }
+        }));
 
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+        var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.Equal([TasksFeatures.GitHubIntegration], store.Current.DisabledFeatures);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal([TasksFeatures.GitHubIntegration], store.Current.DisabledFeatures);
     }
 
     /// <summary>
@@ -302,32 +251,25 @@ public sealed class AppFeatureSettingsStoreTests
     [Fact]
     public void Stored_c4_switch_choices_are_dropped_on_the_next_save()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-feature-tests");
+        var path = temp.Combine("features.json");
 
-        try
+        File.WriteAllText(path, JsonSerializer.Serialize(new
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(new
-            {
-                enabledFeatures = new[] { "c4-diagrams", "c4-zoom", "archify-diagrams", DevbookFeatures.LobesAtlas }
-            }));
+            enabledFeatures = new[] { "c4-diagrams", "c4-zoom", "archify-diagrams", DevbookFeatures.LobesAtlas }
+        }));
 
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+        var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.Equal([DevbookFeatures.LobesAtlas], store.Current.EnabledFeatures);
+        Assert.Equal([DevbookFeatures.LobesAtlas], store.Current.EnabledFeatures);
 
-            store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
+        store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
 
-            var saved = File.ReadAllText(path);
-            Assert.Contains(DevbookFeatures.LobesAtlas, saved);
-            Assert.DoesNotContain("archify-diagrams", saved);
-            Assert.DoesNotContain("c4-diagrams", saved);
-            Assert.DoesNotContain("c4-zoom", saved);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        var saved = File.ReadAllText(path);
+        Assert.Contains(DevbookFeatures.LobesAtlas, saved);
+        Assert.DoesNotContain("archify-diagrams", saved);
+        Assert.DoesNotContain("c4-diagrams", saved);
+        Assert.DoesNotContain("c4-zoom", saved);
     }
 
     /// <summary>
@@ -340,32 +282,25 @@ public sealed class AppFeatureSettingsStoreTests
     [Fact]
     public void Stored_choices_for_retired_switches_are_dropped_on_the_next_save()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-feature-tests");
+        var path = temp.Combine("features.json");
         string[] retired =
             ["roadmap", "repository-devbook", "dashboard", "additional-repositories", "feedback-reporting", "copy-entries", "backlog"];
 
-        try
+        File.WriteAllText(path, JsonSerializer.Serialize(new
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(new
-            {
-                disabledFeatures = retired.Append(TasksFeatures.GitHubIntegration).ToArray()
-            }));
+            disabledFeatures = retired.Append(TasksFeatures.GitHubIntegration).ToArray()
+        }));
 
-            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+        var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.Equal([TasksFeatures.GitHubIntegration], store.Current.DisabledFeatures);
+        Assert.Equal([TasksFeatures.GitHubIntegration], store.Current.DisabledFeatures);
 
-            store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
+        store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
 
-            var saved = JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(path))
-                .GetProperty("disabledFeatures").EnumerateArray().Select(key => key.GetString()).ToList();
-            Assert.Equal([AppFeatureKeys.CopilotCli, TasksFeatures.GitHubIntegration], saved);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        var saved = JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(path))
+            .GetProperty("disabledFeatures").EnumerateArray().Select(key => key.GetString()).ToList();
+        Assert.Equal([AppFeatureKeys.CopilotCli, TasksFeatures.GitHubIntegration], saved);
     }
 
     /// <summary>
@@ -386,16 +321,5 @@ public sealed class AppFeatureSettingsStoreTests
                 WorkspaceSettingsStore.DefaultAppDataFolderName,
                 "features.json"),
             store.SettingsPath);
-    }
-
-    private static string NewSettingsPath() =>
-        Path.Combine(Path.GetTempPath(), "backlog-feature-tests", Guid.NewGuid().ToString("n"), "features.json");
-
-    private static void DeleteSettingsDirectory(string path)
-    {
-        var directory = Path.GetDirectoryName(path);
-        if (directory is null) return;
-
-        try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
     }
 }

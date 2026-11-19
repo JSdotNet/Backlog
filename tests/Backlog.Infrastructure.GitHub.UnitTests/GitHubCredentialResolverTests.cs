@@ -14,9 +14,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class GitHubCredentialResolverTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "github-credential-resolver-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("github-credential-resolver-tests");
 
     // --- The default path -----------------------------------------------------
 
@@ -203,7 +201,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
     [Fact]
     public async Task The_settings_are_read_per_call()
     {
-        var store = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var store = new GitHubSettingsStore(_temp.Combine("github.json"));
         var resolver = new GitHubCredentialResolver(store, new StubGhCliAccountSource());
 
         Assert.False(resolver.HasAnyCredential);
@@ -233,7 +231,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
     [Fact]
     public async Task A_gh_sourced_token_never_reaches_the_settings_file()
     {
-        var store = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var store = new GitHubSettingsStore(_temp.Combine("github.json"));
 
         Assert.Null(store.SetAccounts([new GitHubAccount("j-schepers_innobv")]));
         Assert.Null(store.SetRepositories([new GitHubRepositoryRef("spec", "innovadis-dev", "spec-manager")]));
@@ -264,8 +262,5 @@ public sealed class GitHubCredentialResolverTests : IDisposable
         Repositories = [new GitHubRepositoryRef("backlog", login, "Backlog") { Account = login }]
     };
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

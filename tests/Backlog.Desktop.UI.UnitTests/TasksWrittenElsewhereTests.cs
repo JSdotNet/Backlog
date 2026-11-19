@@ -23,7 +23,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class TasksWrittenElsewhereTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
     [Fact]
@@ -140,8 +140,9 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
     /// process, and a list and use cases per window.</summary>
     private async Task<(TasksDesktopState First, TasksDesktopState Second)> BuildTwoWindowsAsync()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-written-elsewhere", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("backlog-written-elsewhere");
+        _tempDirs.Add(temp);
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "settings"));
         Assert.Null(store.TryUseRoot(root));
@@ -171,8 +172,9 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
 
     private async Task<(TasksDesktopState State, ITaskItems Entries, TaskChangeSignal Signal)> BuildAsync()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-written-elsewhere", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("backlog-written-elsewhere");
+        _tempDirs.Add(temp);
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "settings"));
         Assert.Null(store.TryUseRoot(root));
@@ -210,10 +212,10 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(dir.Path);
+            dir.Dispose();
         }
     }
 }

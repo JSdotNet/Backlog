@@ -38,7 +38,7 @@ The build engine, and the directory-scoped property files that configure it.
 | File | Sets | Why there |
 |---|---|---|
 | `Directory.Build.props` | `net10.0`, `LangVersion`, `Nullable`, `ImplicitUsings`, the product identity, and `$(MauiVersion)` | Every project needs them. |
-| `tests/Directory.Build.props` | The shared runner and coverage package set, `OutputType=Exe`, the `Xunit` using, and the linked `RepositoryRoot.cs` | Every test project runs the same way. |
+| `tests/Directory.Build.props` | The shared runner and coverage package set, `OutputType=Exe`, the `Xunit` using, and the linked `tests/Shared/` helpers `RepositoryRoot.cs`, `Polling.cs` and `TemporaryDirectory.cs` | Every test project runs the same way. |
 | `src/Harness/Directory.Build.props` | The non-publishable flags | An accidental `dotnet publish` of a harness fails loudly. |
 
 Each subtree file re-imports the root one, because MSBuild loads only the nearest.

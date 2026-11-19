@@ -14,7 +14,8 @@ public sealed class RunPullRequestsTests : IDisposable
     private const string Worktree = @"D:\Repos\Backlog\.claude\worktrees\run-pull-requests-4a5b6c";
     private static readonly string[] Stages = ["Implement", "Personal Validation", "Create Pull Request"];
 
-    private readonly string _home = Path.Combine(Path.GetTempPath(), "backlog-run-pull-requests-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-run-pull-requests-tests");
+    private string _home => _temp.Path;
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -97,10 +98,7 @@ public sealed class RunPullRequestsTests : IDisposable
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ending.WaitAsync(TimeSpan.FromSeconds(10), Cancellation));
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     private LocalDeliverySurfaceLifecycle Surface() => new(_home, "machine", "Workshop PC");
 

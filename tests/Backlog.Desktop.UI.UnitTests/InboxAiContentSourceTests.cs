@@ -11,7 +11,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class InboxAiContentSourceTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-ai-content-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-ai-content-tests");
 
     [Fact]
     public async Task A_record_is_the_title_kind_tags_source_and_body()
@@ -77,13 +77,10 @@ public sealed class InboxAiContentSourceTests : IDisposable
 
     private async Task<InboxDesktopState> LoadedStateAsync(FakeInboxItems inbox)
     {
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")));
         await state.InitializeAsync();
         return state;
     }
 
-    public void Dispose()
-    {
-        try { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 }

@@ -5,7 +5,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class DomainDevbookStoreTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task Reports_configuration_needed_when_no_repository_is_configured()
@@ -132,9 +132,9 @@ public sealed class DomainDevbookStoreTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            temp.Dispose();
         }
     }
 
@@ -304,9 +304,9 @@ public sealed class DomainDevbookStoreTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "domain-devbook-tests", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("domain-devbook-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     private static void WriteDomain(string repoRoot)

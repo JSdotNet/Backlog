@@ -12,8 +12,19 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// Playwright pass. A row that keeps its old label after being switched off is
 /// invisible to a build and to every test that stops at the write.</para>
 /// </summary>
-public sealed class HarnessDevToolServiceTests
+public sealed class HarnessDevToolServiceTests : IDisposable
 {
+    private readonly List<TemporaryDirectory> _temps = [];
+
+    public void Dispose()
+    {
+        foreach (var temp in _temps)
+        {
+            TestDatabases.Release(temp.Path);
+            temp.Dispose();
+        }
+    }
+
     /// <summary>The harness reads no host's manifests, so "Create from this
     /// machine" writes the empty catalog there — and says that is what it did,
     /// rather than reporting a seed it never took.</summary>
@@ -576,14 +587,16 @@ public sealed class HarnessDevToolServiceTests
     /// at the real one would write per-PC overrides into somebody's synced
     /// folder.</para>
     /// </summary>
-    private static DevToolService CreateService(string catalog) =>
+    private DevToolService CreateService(string catalog) =>
         CreateServiceWith(catalog).Tools;
 
     /// <summary>The service and the paths it reads, for the tests that have to
     /// assert on the files themselves rather than on a row.</summary>
-    private static (DevToolService Tools, DevToolConfigurationPaths Paths) CreateServiceWith(string catalog)
+    private (DevToolService Tools, DevToolConfigurationPaths Paths) CreateServiceWith(string catalog)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-harness-tool-tests", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-harness-tool-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".tools"));
         File.WriteAllText(
             Path.Combine(root, ".tools", DevToolConfigurationPaths.CatalogFileName),

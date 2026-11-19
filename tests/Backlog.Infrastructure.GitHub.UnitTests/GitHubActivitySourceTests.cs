@@ -16,21 +16,14 @@ public sealed class GitHubActivitySourceTests : IDisposable
     private static readonly DateTimeOffset From = new(2026, 7, 1, 0, 0, 0, TimeSpan.Zero);
     private static readonly DateTimeOffset To = new(2026, 7, 31, 0, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "github-activity-source-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("github-activity-source-tests");
 
-    public GitHubActivitySourceTests() => Directory.CreateDirectory(_root);
-
-    public void Dispose()
-    {
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task A_repository_github_refuses_is_left_out_and_the_report_says_it_is_incomplete()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories(
         [
             new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
@@ -60,7 +53,7 @@ public sealed class GitHubActivitySourceTests : IDisposable
     [Fact]
     public async Task Every_repository_answering_in_full_is_a_complete_report()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")]));
 
         var client = new ScriptedActivityClient
@@ -90,7 +83,7 @@ public sealed class GitHubActivitySourceTests : IDisposable
     [Fact]
     public async Task A_repository_bound_to_a_second_account_is_filtered_to_that_accounts_login()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories(
         [
             new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
@@ -124,7 +117,7 @@ public sealed class GitHubActivitySourceTests : IDisposable
     [Fact]
     public async Task An_archived_repository_is_not_read_and_the_report_stays_complete()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories(
         [
             new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),

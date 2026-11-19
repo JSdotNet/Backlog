@@ -12,7 +12,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookAiContentSourceTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-devbook-ai-content-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-ai-content-tests");
 
     private const string ContextChapter = "# Context and scope\n\nThe system in its surroundings, and the sync service beside it.\n";
     private const string DecisionChapter = "# Decisions\n\nWhy the index is a generated database.\n";
@@ -150,18 +150,18 @@ public sealed class DevbookAiContentSourceTests : IDisposable
 
     private (IDevbookFolderSource Folders, string Alias) Folder()
     {
-        Directory.CreateDirectory(Path.Combine(_root, ".arc42"));
-        File.WriteAllText(Path.Combine(_root, ".arc42", "03-context-and-scope.md"), ContextChapter);
-        File.WriteAllText(Path.Combine(_root, ".arc42", "09-decisions.md"), DecisionChapter);
+        Directory.CreateDirectory(_temp.Combine(".arc42"));
+        File.WriteAllText(_temp.Combine(".arc42", "03-context-and-scope.md"), ContextChapter);
+        File.WriteAllText(_temp.Combine(".arc42", "09-decisions.md"), DecisionChapter);
 
-        var settings = new WorkspaceSettingsStore(Path.Combine(_root, "store"));
-        var gitHub = new GitHubSettingsStore(Path.Combine(_root, "github", "github.json"));
+        var settings = new WorkspaceSettingsStore(_temp.Combine("store"));
+        var gitHub = new GitHubSettingsStore(_temp.Combine("github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog");
         Assert.Empty(errors);
 
         var repository = Assert.Single(repositories) with
         {
-            CloneDirectory = _root,
+            CloneDirectory = _temp.Path,
             DevbookFolders = DevbookFolderSetting.Defaults()
         };
         Assert.Null(gitHub.SetRepositories([repository]));
@@ -169,10 +169,7 @@ public sealed class DevbookAiContentSourceTests : IDisposable
         return (new DevbookFolderSource(gitHub, settings), repository.Alias);
     }
 
-    public void Dispose()
-    {
-        try { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private sealed class StubSearch : IDevbookSearch
     {

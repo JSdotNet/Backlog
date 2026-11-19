@@ -13,18 +13,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class InboxTriageNavigationTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-triage-navigation-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-triage-navigation-tests");
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Up_next_leaves_out_the_rows_already_routed()
@@ -128,7 +119,7 @@ public sealed class InboxTriageNavigationTests : IDisposable
             .Select((row, index) => inbox.Seed(row.Title, status: row.Status, capturedAt: inbox.Now.AddMinutes(rows.Length - index)))
             .ToList();
 
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         var state = new InboxDesktopState(inbox, settings);
         await state.ReloadAsync();
 

@@ -17,7 +17,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class RoadmapAiContentSourceTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-roadmap-ai-content-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-roadmap-ai-content-tests");
 
     [Fact]
     public async Task Milestones_come_first_and_each_record_names_the_dates_and_the_scope()
@@ -143,11 +143,11 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
     }
 
     private IRoadmapPlanning Planning() =>
-        TasksTestHost.PlanningFor(new WorkspaceSettingsStore(Path.Combine(_root, "store")));
+        TasksTestHost.PlanningFor(new WorkspaceSettingsStore(_temp.Combine("store")));
 
     public void Dispose()
     {
-        TestDatabases.Release(_root);
-        try { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); } catch (IOException) { }
+        TestDatabases.Release(_temp.Path);
+        _temp.Dispose();
     }
 }

@@ -15,16 +15,9 @@ public sealed class GitHubDriftIssueSourceTests : IDisposable
 
     private static readonly DashboardRepository Specs = new("specs", "JSdotNet/spec-manager");
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "github-drift-issue-source-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("github-drift-issue-source-tests");
 
-    public GitHubDriftIssueSourceTests() => Directory.CreateDirectory(_root);
-
-    public void Dispose()
-    {
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Each_repository_is_listed_by_the_drift_label_and_sync_failed_is_marked()
@@ -129,7 +122,7 @@ public sealed class GitHubDriftIssueSourceTests : IDisposable
 
     private GitHubSettingsStore Settings()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories(
         [
             new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),

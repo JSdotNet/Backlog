@@ -68,7 +68,7 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         When a change is written.
         """;
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task Selecting_the_design_overview_row_opens_the_whole_folder()
@@ -218,10 +218,11 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
 
     private Harness CreateHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-area-overview", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-area-overview");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".design"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".design", "colors.md"), Colors);
         File.WriteAllText(Path.Combine(root, ".design", "interaction-guidelines.md"), Interaction);
@@ -275,11 +276,7 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private sealed record Harness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable

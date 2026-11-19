@@ -11,7 +11,8 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SqliteSchemaTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "sqlite-schema-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("sqlite-schema-tests");
+    private string _dir => _temp.Path;
 
     private string DatabasePath => Path.Combine(_dir, "backlog.db");
 
@@ -180,7 +181,6 @@ public sealed class SqliteSchemaTests : IDisposable
         // The pool can still hold the file open the instant a test ends.
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_dir)) return;
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

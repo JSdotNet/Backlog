@@ -19,13 +19,11 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public class DevbookSourceSettingsTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "devbook-source-settings-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("devbook-source-settings-tests");
 
-    private string WorkspaceRoot => Path.Combine(_root, "workspace");
+    private string WorkspaceRoot => _temp.Combine("workspace");
 
-    private string LocalPath(string install = "install-1") => Path.Combine(_root, install, "github.json");
+    private string LocalPath(string install = "install-1") => _temp.Combine(install, "github.json");
 
     private GitHubSettingsStore Store(string install = "install-1") => new(LocalPath(install), () => WorkspaceRoot);
 
@@ -33,7 +31,7 @@ public class DevbookSourceSettingsTests : IDisposable
 
     private GitHubSettingsStore Configured(out string clone, string install = "install-1")
     {
-        clone = Path.Combine(_root, "clone");
+        clone = _temp.Combine("clone");
         Directory.CreateDirectory(clone);
 
         var store = Store(install);
@@ -259,14 +257,7 @@ public class DevbookSourceSettingsTests : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-
+        _temp.Dispose();
         GC.SuppressFinalize(this);
     }
 }

@@ -19,7 +19,7 @@ public sealed class ProjectNoteArchiveTests : IDisposable
 {
     private const string NoteText = "# House move\r\n\r\n```meta\r\nroadmap: [house-move]\r\n```\r\n\r\nThe person's words.\n";
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "project-note-archive-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("project-note-archive-tests");
     private readonly WorkspaceSettingsStore _settings;
     private readonly IRoadmapPlanning _planning;
     private readonly ScriptedRollup _rollup = new();
@@ -29,29 +29,19 @@ public sealed class ProjectNoteArchiveTests : IDisposable
 
     public ProjectNoteArchiveTests()
     {
-        _settings = new WorkspaceSettingsStore(Path.Combine(_root, "storage"), Path.Combine(_root, "settings.json"));
+        _settings = new WorkspaceSettingsStore(_temp.Combine("storage"), _temp.Combine("settings.json"));
         _planning = TasksTestHost.PlanningFor(_settings);
-        _store = new ShellNavigationStore(Path.Combine(_root, "shell", "shell-navigation.json"));
+        _store = new ShellNavigationStore(_temp.Combine("shell", "shell-navigation.json"));
         var brain = new BrainFolderSource(() => BrainRoot);
         _notes = new BrainRoadmapProjectNotes(brain, new BrainNoteLinkWriter(brain));
         Directory.CreateDirectory(BrainRoot);
     }
 
-    private string BrainRoot => Path.Combine(_root, "brain");
+    private string BrainRoot => _temp.Combine("brain");
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // Left for the OS to clear.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private RoadmapProjectNoteArchive Archive() => new(_planning, _rollup, _notes, _store);
 
@@ -186,7 +176,7 @@ public sealed class ProjectNoteArchiveTests : IDisposable
         Assert.Equal(["#brain:projects/house.md"], Assert.Single((await _planning.GetPlanAsync(Ct)).Items).Knowledge);
 
         // A restart, the plan reopened and finished again: still never offered twice.
-        var restarted = new ShellNavigationStore(Path.Combine(_root, "shell", "shell-navigation.json"));
+        var restarted = new ShellNavigationStore(_temp.Combine("shell", "shell-navigation.json"));
         _rollup.Set(item.Id, new RoadmapItemRollupDto([Entry(done: false)], [], [BrainNote("projects/house.md")]));
         using var again = new ProjectNoteArchiveOffers(new RoadmapProjectNoteArchive(_planning, _rollup, _notes, restarted), _planning, _toasts);
         await again.StartAsync(Ct);

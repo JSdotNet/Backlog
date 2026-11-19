@@ -16,7 +16,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 [Collection(BrainRootCollection.Name)]
 public sealed class InboxBrainTargetTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "inbox-brain-target-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("inbox-brain-target-tests");
+
+    private string _root => _temp.Combine("data");
 
     private string? _setting;
 
@@ -270,14 +272,5 @@ public sealed class InboxBrainTargetTests : IDisposable
     public void A_host_without_a_brain_says_there_is_none_up_front() =>
         Assert.Equal(InboxErrors.NoBrainHere, new NoBrainTarget().UnavailableReason);
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

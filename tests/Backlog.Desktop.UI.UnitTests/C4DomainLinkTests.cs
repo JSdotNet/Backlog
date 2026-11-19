@@ -63,7 +63,7 @@ public sealed class C4DomainLinkTests : IDisposable
         }
         """;
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task A_domain_chapter_offers_the_C4_views_that_document_it()
@@ -136,8 +136,9 @@ public sealed class C4DomainLinkTests : IDisposable
 
     private Harness CreateHarness(string references, bool registerStore = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-c4-domain-" + Guid.NewGuid().ToString("N"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-c4-domain");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         Directory.CreateDirectory(Path.Combine(root, ".domain"));
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), ContextMap);
@@ -206,16 +207,6 @@ public sealed class C4DomainLinkTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots)
-        {
-            try
-            {
-                if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temp folder that will not delete is not a test failure.
-            }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

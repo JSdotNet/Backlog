@@ -172,7 +172,8 @@ public sealed class SettingsBrainFolderTests
         string? navigateTo = null,
         bool composeBrain = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-brain-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-brain-tests");
+        var root = temp.Path;
 
         var storeAppData = Path.Combine(root, "store");
         var store = new WorkspaceSettingsStore(storeAppData, Path.Combine(storeAppData, "settings.json"), _ => null);
@@ -223,7 +224,7 @@ public sealed class SettingsBrainFolderTests
         // The router hands the page in the address to the screen as its PageId;
         // a test renderer routes nothing, so the address is handed over here.
         var pageId = navigateTo is null ? null : new Uri(new Uri("http://localhost/"), navigateTo).AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1);
-        return new SettingsRenderContext(root, brain, context, context.Render<Settings>(parameters => parameters.Add(settings => settings.PageId, pageId)));
+        return new SettingsRenderContext(temp, brain, context, context.Render<Settings>(parameters => parameters.Add(settings => settings.PageId, pageId)));
     }
 
     private sealed class FixedPicker : IBrainFolderPicker
@@ -235,22 +236,17 @@ public sealed class SettingsBrainFolderTests
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BrainSettingsStore Brain,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

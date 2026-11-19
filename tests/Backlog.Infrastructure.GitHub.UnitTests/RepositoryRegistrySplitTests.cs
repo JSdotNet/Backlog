@@ -28,13 +28,11 @@ public class RepositoryRegistrySplitTests : IDisposable
 
     private const string SaveFailed = "Changed, but the choice couldn't be saved for next time.";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "repository-registry-split-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("repository-registry-split-tests");
 
-    private string WorkspaceRoot => Path.Combine(_root, "workspace");
+    private string WorkspaceRoot => _temp.Combine("workspace");
 
-    private string LocalPath(string install = "install-1") => Path.Combine(_root, install, "github.json");
+    private string LocalPath(string install = "install-1") => _temp.Combine(install, "github.json");
 
     private GitHubSettingsStore Store(string install = "install-1", TimeProvider? clock = null) =>
         new(LocalPath(install), () => WorkspaceRoot, clock);
@@ -50,7 +48,7 @@ public class RepositoryRegistrySplitTests : IDisposable
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
         Assert.Null(store.SetRepositoryColour("backlog", 3));
         Assert.Null(store.SetRepositoryToken("backlog", "ghp_secret"));
-        Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
+        Assert.Null(store.SetCloneDirectory("backlog", _temp.Combine("clone")));
 
         var registry = File.ReadAllText(store.RegistryPath);
         Assert.Contains("\"id\": \"JSdotNet/Backlog\"", registry, StringComparison.Ordinal);
@@ -86,7 +84,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     [Fact]
     public void A_clone_directory_survives_the_alias_being_renamed()
     {
-        var clone = Path.Combine(_root, "clone");
+        var clone = _temp.Combine("clone");
 
         var store = Store();
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
@@ -117,7 +115,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     [Fact]
     public void Renaming_a_repository_carries_everything_and_records_the_move()
     {
-        var clone = Path.Combine(_root, "clone");
+        var clone = _temp.Combine("clone");
         var clock = new FakeTimeProvider(new DateTimeOffset(2026, 9, 18, 10, 0, 0, TimeSpan.Zero));
 
         var store = Store(clock: clock);
@@ -200,7 +198,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     [Fact]
     public void A_rename_onto_a_configured_repository_merges_into_it()
     {
-        var clone = Path.Combine(_root, "finance");
+        var clone = _temp.Combine("finance");
 
         var store = Store();
         Assert.Null(store.SetRepositories(
@@ -324,7 +322,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     {
         var store = Store();
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
-        Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
+        Assert.Null(store.SetCloneDirectory("backlog", _temp.Combine("clone")));
 
         var (repositories, errors) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog-renamed");
         Assert.Empty(errors);
@@ -343,8 +341,8 @@ public class RepositoryRegistrySplitTests : IDisposable
     [Fact]
     public void Swapping_two_aliases_relabels_and_each_row_keeps_its_own_clone()
     {
-        var backlogClone = Path.Combine(_root, "backlog");
-        var docsClone = Path.Combine(_root, "docs");
+        var backlogClone = _temp.Combine("backlog");
+        var docsClone = _temp.Combine("docs");
 
         var store = Store();
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("docs", "Docs")]));
@@ -589,7 +587,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     [Fact]
     public void Moving_the_workspace_root_reloads_the_registry()
     {
-        var root = Path.Combine(_root, "workspace-one");
+        var root = _temp.Combine("workspace-one");
         var store = new GitHubSettingsStore(LocalPath(), () => root);
 
         // Deliberately nothing machine-local, so this install has no overlay row
@@ -597,7 +595,7 @@ public class RepositoryRegistrySplitTests : IDisposable
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
         Assert.Equal(["backlog"], store.Current.Repositories.Select(r => r.Alias));
 
-        var moved = Path.Combine(_root, "workspace-two");
+        var moved = _temp.Combine("workspace-two");
         Directory.CreateDirectory(Path.Combine(moved, "config"));
         File.WriteAllText(
             Path.Combine(moved, "config", "repos.json"),
@@ -634,7 +632,7 @@ public class RepositoryRegistrySplitTests : IDisposable
 
     public void Dispose()
     {
+        _temp.Dispose();
         GC.SuppressFinalize(this);
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
     }
 }

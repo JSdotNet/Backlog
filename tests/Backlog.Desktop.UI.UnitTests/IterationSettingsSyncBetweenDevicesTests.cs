@@ -34,8 +34,7 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
     private static readonly DateOnly Monday19 = new(2026, 10, 19);
     private static readonly DateOnly Wednesday21 = new(2026, 10, 21);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(), "iteration-settings-sync-devices-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("iteration-settings-sync-devices");
 
     private readonly FakeTaskReplica _replica = new();
 
@@ -44,9 +43,7 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 
     /// <summary>Verification 1, the owner's report: A chooses two weeks — from the Monday
@@ -182,7 +179,7 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
     }
 
     private DesktopDevice Device(string name, (string Length, DateOnly? Start)? legacy = null) =>
-        new(Path.Combine(_root, name), _replica, _deviceIds.GetOrAdd(name, _ => Guid.NewGuid()), legacy);
+        new(_temp.Combine(name), _replica, _deviceIds.GetOrAdd(name, _ => Guid.NewGuid()), legacy);
 
     /// <summary>
     /// One desktop: its own iteration settings — seeded at the floor stamp

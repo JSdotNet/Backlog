@@ -16,7 +16,8 @@ public sealed class SqliteKnowledgeEventReplicaStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "knowledge-event-replica-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("knowledge-event-replica-tests");
+    private string _dir => _temp.Path;
     private readonly FakeTimeProvider _clock = new(Noon);
     private readonly SqliteKnowledgeEventRepository _events;
     private readonly SqliteEventSeriesRepository _series;
@@ -209,7 +210,6 @@ public sealed class SqliteKnowledgeEventReplicaStoreTests : IDisposable
     {
         SqliteDatabaseFile.ReleasePool(SqliteTaskRepository.DatabasePathFor(_dir));
 
-        if (!Directory.Exists(_dir)) return;
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

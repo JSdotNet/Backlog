@@ -264,7 +264,8 @@ public sealed class DevbookPaneBranchReviewTests
     /// the branch, so the source can be switched to it.</param>
     private static Harness CreateHarness(bool local = false, bool withClone = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-review-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-review-tests");
+        var root = temp.Path;
         var clone = Path.Combine(root, "clone");
         Write(clone, ".arc42/01-introduction-and-goals.md", "# Introduction\n");
 
@@ -340,7 +341,7 @@ public sealed class DevbookPaneBranchReviewTests
         context.Services.AddSingleton<DevbookFolderOpenService>();
         context.Services.AddSingleton<DevbookChapterWriter>();
 
-        return new Harness(root, context, repository.Alias, comparison, gitHubSettings, catalog);
+        return new Harness(temp, context, repository.Alias, comparison, gitHubSettings, catalog);
     }
 
     private static void Write(string root, string relativePath, string content)
@@ -351,7 +352,7 @@ public sealed class DevbookPaneBranchReviewTests
     }
 
     private sealed record Harness(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext Context,
         string RepositoryAlias,
         StubBranchComparison Comparison,
@@ -364,14 +365,7 @@ public sealed class DevbookPaneBranchReviewTests
         public async ValueTask DisposeAsync()
         {
             await Context.DisposeAsync();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

@@ -33,8 +33,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
 {
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
-    private readonly string _appData = Path.Combine(
-        Path.GetTempPath(), "backlog-surface-window-pages", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-surface-window-pages");
 
     private ServiceProvider? _provider;
 
@@ -479,17 +478,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     public void Dispose()
     {
         _provider?.Dispose();
-
-        try
-        {
-            Directory.Delete(_appData, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
+        _temp.Dispose();
     }
 
     /// <summary>Presses until the page's circuit answers: a press before it is
@@ -509,7 +498,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     [SupportedOSPlatform("windows")]
     private async Task<Listener> StartAsync()
     {
-        var services = MauiDesktopCompositionTests.MauiShapedServices(_appData);
+        var services = MauiDesktopCompositionTests.MauiShapedServices(_temp.Path);
         services.AddSingleton(new ShellSurface("probe", "Probe", ShellSurfaceGroup.Takeover, 900, typeof(ProbeSurface), QueryKeys: ["keep"]));
         services.AddSingleton(new ShellSurface("probe-target", "Probe target", ShellSurfaceGroup.Takeover, 901, typeof(ProbeTargetSurface)));
         services.AddSingleton<ProbeSingleton>();

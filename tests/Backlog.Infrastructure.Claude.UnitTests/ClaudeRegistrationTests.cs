@@ -9,8 +9,12 @@ namespace Backlog.Infrastructure.Claude.UnitTests;
 /// spend cache over them, each once. The settings file and the cache folder are
 /// the host's to say, because each host keeps them somewhere different.
 /// </summary>
-public sealed class ClaudeRegistrationTests
+public sealed class ClaudeRegistrationTests : IDisposable
 {
+    private readonly TemporaryDirectory _temp = new("backlog-claude-registration");
+
+    public void Dispose() => _temp.Dispose();
+
     [Fact]
     public void The_settings_store_is_the_one_the_host_names()
     {
@@ -55,6 +59,5 @@ public sealed class ClaudeRegistrationTests
         Assert.NotNull(provider.GetRequiredService<IClaudeCodeUsageCache>());
     }
 
-    private static string TempPath(string name) =>
-        Path.Combine(Path.GetTempPath(), "backlog-claude-registration", Guid.NewGuid().ToString("N"), name);
+    private string TempPath(string name) => _temp.Combine(Guid.NewGuid().ToString("N"), name);
 }

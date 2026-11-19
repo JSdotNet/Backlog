@@ -321,7 +321,8 @@ public sealed class SettingsStorageMoveTests
     /// that finds nothing, for the reason SettingsStorageCopyTests gives.</summary>
     private static SettingsRenderContext RenderSettings(IBrainFolderPicker? picker = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-storage-move-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-storage-move-tests");
+        var root = temp.Path;
 
         var storeAppData = Path.Combine(root, "store");
         var store = new WorkspaceSettingsStore(
@@ -353,7 +354,7 @@ public sealed class SettingsStorageMoveTests
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         if (picker is not null) context.Services.AddSingleton(picker);
 
-        return new SettingsRenderContext(root, store, context, context.Render<Settings>());
+        return new SettingsRenderContext(temp, store, context, context.Render<Settings>());
     }
 
     private sealed class FixedPicker : IBrainFolderPicker
@@ -365,11 +366,13 @@ public sealed class SettingsStorageMoveTests
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         WorkspaceSettingsStore Store,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
@@ -378,13 +381,7 @@ public sealed class SettingsStorageMoveTests
             // databases, and a pooled handle is a folder Windows will not delete.
             SqliteConnection.ClearAllPools();
 
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

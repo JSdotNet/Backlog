@@ -34,15 +34,9 @@ public sealed class PullRequestsPaneTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-pull-requests-pane-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-pull-requests-pane-tests");
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>No close of its own (interaction-guidelines.md#shell-header, "A surface
     /// draws no close of its own"): the Pull requests option, Escape, or the OS close of
@@ -2795,7 +2789,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         bool toasts = true,
         PullRequestPinsStore? pins = null)
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, Guid.NewGuid().ToString("n"), "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine(Guid.NewGuid().ToString("n"), "github.json"));
         var (parsed, errors) = GitHubSettings.ParseText(repositories);
         Assert.Empty(errors);
         Assert.Null(settings.SetRepositories(parsed));
@@ -2828,7 +2822,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     /// <summary>A pins store of the test's own, in its temp folder.</summary>
     private PullRequestPinsStore Pins(params (string Repository, int Number)[] pinned)
     {
-        var store = new PullRequestPinsStore(Path.Combine(_root, Guid.NewGuid().ToString("n"), "pull-request-pins.json"));
+        var store = new PullRequestPinsStore(_temp.Combine(Guid.NewGuid().ToString("n"), "pull-request-pins.json"));
         foreach (var (repository, number) in pinned) store.Pin(repository, number);
         return store;
     }

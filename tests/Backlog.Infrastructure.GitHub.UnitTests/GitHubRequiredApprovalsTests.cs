@@ -16,15 +16,9 @@ public sealed class GitHubRequiredApprovalsTests : IDisposable
     private static readonly GitHubRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
     private static readonly DateTimeOffset Now = new(2026, 10, 17, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-required-approvals-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-required-approvals-tests");
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -189,9 +183,8 @@ public sealed class GitHubRequiredApprovalsTests : IDisposable
 
     private GitHubIntegration Integration(IGitHubTransport transport, TimeProvider? clock = null)
     {
-        Directory.CreateDirectory(_root);
         return new GitHubIntegration(
-            new GitHubSettingsStore(Path.Combine(_root, "github.json")),
+            new GitHubSettingsStore(_temp.Combine("github.json")),
             new GitHubClient(transport), new StubProbe(new GitHubConnection(true, "Connected.")), time: clock ?? new FakeTimeProvider(Now));
     }
 

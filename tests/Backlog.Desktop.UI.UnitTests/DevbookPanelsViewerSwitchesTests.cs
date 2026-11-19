@@ -19,7 +19,7 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
 {
     private const string Alias = "backlog";
 
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     public static TheoryData<string> Panels => ["domain", "design", "instructions", "arc42"];
 
@@ -219,23 +219,16 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "devbook-panels-viewer-switches-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("devbook-panels-viewer-switches");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     public void Dispose()
     {
-        foreach (var dir in _tempDirs)
+        foreach (var temp in _temps)
         {
-            try
-            {
-                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            temp.Dispose();
         }
     }
 

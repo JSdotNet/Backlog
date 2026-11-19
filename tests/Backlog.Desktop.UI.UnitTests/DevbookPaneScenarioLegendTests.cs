@@ -26,7 +26,7 @@ public sealed class DevbookPaneScenarioLegendTests : IDisposable
         - **Given** an empty cart
         """;
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task A_repository_with_a_scenario_page_shows_the_four_dots_under_the_tree()
@@ -65,9 +65,10 @@ public sealed class DevbookPaneScenarioLegendTests : IDisposable
 
     private Harness CreateHarness(bool withScenarioPage)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-legend", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-legend");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "orders"));
-        _roots.Add(root);
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts.\n");
         if (withScenarioPage) File.WriteAllText(Path.Combine(root, ".domain", "orders", "scenarios.md"), ScenarioPage);
 
@@ -113,11 +114,7 @@ public sealed class DevbookPaneScenarioLegendTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private sealed record Harness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable

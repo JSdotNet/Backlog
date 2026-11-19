@@ -1104,7 +1104,8 @@ public sealed class SettingsDevicesTests
         Dictionary<string, string>? environment = null,
         bool registerSection = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devices-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-devices-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -1260,7 +1261,7 @@ public sealed class SettingsDevicesTests
 
         var component = testContext.Render<Settings>();
         return new SettingsRenderContext(
-            root, testContext, component, credentials, service, http, syncState, tokens, tokenServices, syncSettings, pairingClientsResolved)
+            temp, testContext, component, credentials, service, http, syncState, tokens, tokenServices, syncSettings, pairingClientsResolved)
         {
             SessionSyncState = sessionSyncState
         };
@@ -1272,7 +1273,7 @@ public sealed class SettingsDevicesTests
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         InMemoryDeviceCredentialStore Credentials,
@@ -1292,14 +1293,7 @@ public sealed class SettingsDevicesTests
             Http.Dispose();
             Tokens?.Dispose();
             TokenServices?.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 

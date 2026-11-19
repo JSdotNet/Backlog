@@ -137,7 +137,8 @@ public sealed class HomeDevbookPaneTests
 
     private static Harness CreateHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-home-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-home-tests");
+        var root = temp.Path;
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -236,7 +237,7 @@ public sealed class HomeDevbookPaneTests
         // module, the same terms as the Tasks state above.
         _ = InboxTestHost.AddInboxState(context.Services);
 
-        return new Harness(root, context);
+        return new Harness(temp, context);
     }
 
     /// <summary>
@@ -273,7 +274,7 @@ public sealed class HomeDevbookPaneTests
         File.WriteAllText(path, content);
     }
 
-    private sealed record Harness(string Root, BunitContext Context) : IAsyncDisposable
+    private sealed record Harness(TemporaryDirectory Temp, BunitContext Context) : IAsyncDisposable
     {
         /// <summary>
         /// Awaited disposal, because the editing surface this harness renders
@@ -286,15 +287,8 @@ public sealed class HomeDevbookPaneTests
         public async ValueTask DisposeAsync()
         {
             await Context.DisposeAsync();
-            TestDatabases.Release(Root);
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-            }
+            TestDatabases.Release(Temp.Path);
+            Temp.Dispose();
         }
     }
 }

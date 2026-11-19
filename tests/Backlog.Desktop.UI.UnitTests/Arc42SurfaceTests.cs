@@ -19,7 +19,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class Arc42SurfaceTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     private const string ChapterPath = ".arc42/05-building-block-view.md";
 
@@ -600,8 +600,9 @@ public sealed class Arc42SurfaceTests : IDisposable
 
     private Harness CreateHarness(string references = References, bool embed = false, IDevbookSubjectStateStore? subjects = null, bool? status = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-surface-tests", Guid.NewGuid().ToString("N"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-arc42-surface-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         var arc42 = Path.Combine(root, ".arc42");
         Directory.CreateDirectory(Path.Combine(arc42, "adr", "guidelines"));
@@ -689,10 +690,6 @@ public sealed class Arc42SurfaceTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

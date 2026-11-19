@@ -27,17 +27,11 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
 
     private static readonly DateTimeOffset Morning = new(2026, 10, 5, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "github-settings-replication-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("github-settings-replication-tests");
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     // --- Verification 1: a binding travels -------------------------------------
 
@@ -124,7 +118,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
 
         Assert.Null(a.Store.SetRepositories(Parse(SpecManager)));
         Assert.Null(a.Store.SetRepositoryToken("spec-manager", "ghp_repository_secret"));
-        Assert.Null(a.Store.SetCloneDirectory("spec-manager", Path.Combine(_root, "clone")));
+        Assert.Null(a.Store.SetCloneDirectory("spec-manager", _temp.Combine("clone")));
 
         var copy = await a.Replication.ReadAsync(GitHubReplicaDocument.Registry, Cancellation);
 
@@ -226,7 +220,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
 
         // B knows something of its own about the repository, which is exactly what
         // used to carry a row back into a registry that no longer has it.
-        Assert.Null(b.Store.SetCloneDirectory("spec-manager", Path.Combine(_root, "b-clone")));
+        Assert.Null(b.Store.SetCloneDirectory("spec-manager", _temp.Combine("b-clone")));
 
         a.Clock.Advance(TimeSpan.FromMinutes(5));
         b.Clock.Advance(TimeSpan.FromMinutes(5));
@@ -250,7 +244,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
 
         Assert.Null(a.Store.SetRepositories(Parse("JSdotNet/Old")));
         await Carry(a, b, GitHubReplicaDocument.Registry);
-        var clone = Path.Combine(_root, "b-clone");
+        var clone = _temp.Combine("b-clone");
         Assert.Null(b.Store.SetCloneDirectory("old", clone));
 
         a.Clock.Advance(TimeSpan.FromMinutes(5));
@@ -278,7 +272,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
 
         Assert.Null(a.Store.SetRepositories(Parse("JSdotNet/Backlog", "JSdotNet/Almanac")));
         await Carry(a, b, GitHubReplicaDocument.Registry);
-        var clone = Path.Combine(_root, "b-clone");
+        var clone = _temp.Combine("b-clone");
         Assert.Null(b.Store.SetCloneDirectory("almanac", clone));
 
         a.Clock.Advance(TimeSpan.FromMinutes(5));
@@ -420,8 +414,8 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         Assert.Null(a.Store.SetRepositories(Parse(SpecManager)));
         await Carry(a, b, GitHubReplicaDocument.Registry);
 
-        var clone = Path.Combine(_root, "b-clone");
-        var folder = Path.Combine(_root, "b-docs");
+        var clone = _temp.Combine("b-clone");
+        var folder = _temp.Combine("b-docs");
         Assert.Null(b.Store.SetCloneDirectory("spec-manager", clone));
         Assert.Null(b.Store.SetRepositoryToken("spec-manager", "ghp_b_repository"));
         Assert.Null(b.Store.SetDevbookSource("spec-manager", null, useLocalFolder: true));
@@ -530,7 +524,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         Assert.Null(a.Store.SetAccountCredential(Work, GitHubCredentialKind.PersonalAccessToken, "ghp_pasted"));
         Assert.Null(a.Store.SetAccountCredential(Work, GitHubCredentialKind.PersonalAccessToken, "ghp_pasted_again"));
         Assert.Null(a.Store.SetRepositoryToken("spec-manager", "ghp_repository"));
-        Assert.Null(a.Store.SetCloneDirectory("spec-manager", Path.Combine(_root, "clone")));
+        Assert.Null(a.Store.SetCloneDirectory("spec-manager", _temp.Combine("clone")));
         Assert.Null(a.Store.SetShowRepositoryColours(true));
         Assert.Null(a.Store.SetApiEndpoint("https://ghe.example/api/v3"));
 
@@ -592,7 +586,7 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
     [Fact]
     public async Task Files_written_before_the_stamps_are_stamped_once_from_their_last_write_time()
     {
-        var device = Path.Combine(_root, "legacy");
+        var device = _temp.Combine("legacy");
         var registryPath = Path.Combine(device, "workspace", "config", "repos.json");
         var localPath = Path.Combine(device, "local", "github.json");
         Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
@@ -635,8 +629,8 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
     {
         var clock = new FakeTimeProvider(Morning);
         var store = new GitHubSettingsStore(
-            Path.Combine(_root, name, "local", "github.json"),
-            () => Path.Combine(_root, name, "workspace"),
+            _temp.Combine(name, "local", "github.json"),
+            () => _temp.Combine(name, "workspace"),
             clock);
 
         return new DeviceUnderTest(store, new GitHubSettingsReplication(store), clock);

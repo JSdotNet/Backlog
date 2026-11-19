@@ -472,11 +472,11 @@ internal sealed class DevbookWorkspace : IDisposable
 {
     public const string Alias = "backlog";
 
-    private readonly string _root;
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-refresh-tests");
 
-    private DevbookWorkspace(string root)
+    private DevbookWorkspace()
     {
-        _root = root;
+        var root = _temp.Path;
         RepositoryPath = WriteRepository(Path.Combine(root, "alpha"), "Alpha");
         SecondRepositoryPath = WriteRepository(Path.Combine(root, "beta"), "Beta");
 
@@ -509,8 +509,7 @@ internal sealed class DevbookWorkspace : IDisposable
 
     public DevbookFolderSource Folders { get; }
 
-    public static DevbookWorkspace Create() =>
-        new(Path.Combine(Path.GetTempPath(), "backlog-devbook-refresh-tests", Guid.NewGuid().ToString("n")));
+    public static DevbookWorkspace Create() => new();
 
     /// <summary>Moves the configured devbook folders, which is what a user
     /// changing the clone directory in Settings does.</summary>
@@ -563,16 +562,7 @@ internal sealed class DevbookWorkspace : IDisposable
         return context;
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static string WriteRepository(string path, string name)
     {

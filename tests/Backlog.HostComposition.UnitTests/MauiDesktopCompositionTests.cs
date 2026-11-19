@@ -50,22 +50,9 @@ namespace Backlog.HostComposition.UnitTests;
 /// </summary>
 public sealed class MauiDesktopCompositionTests : IDisposable
 {
-    private readonly string _appData = Path.Combine(
-        Path.GetTempPath(), "backlog-maui-composition", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-maui-composition");
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_appData, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>
     /// Every registration the head makes can be constructed. This is the check that
@@ -369,7 +356,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             .SetLength(Backlog.Modules.Progress.Abstractions.IterationLength.TwoWeeks, new DateOnly(2026, 10, 21));
 
         Assert.Equal(new IterationChoice("two-weeks", new DateOnly(2026, 10, 19)), store.Choice);
-        Assert.Equal(Path.Combine(_appData, IterationSettingsStore.FileName), store.SettingsPath);
+        Assert.Equal(_temp.Combine(IterationSettingsStore.FileName), store.SettingsPath);
     }
 
     /// <summary>
@@ -437,7 +424,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         // still applies it.
         var store = provider.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.IHeldAttachmentRequestStore>();
         Assert.Equal(change.Id, Assert.Single(store.ReadAll()).Id);
-        Assert.True(File.Exists(Path.Combine(_appData, "held-attachment-requests.json")));
+        Assert.True(File.Exists(_temp.Combine("held-attachment-requests.json")));
 
         Assert.Null(features.SetEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events, true));
         var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync([record], ct);
@@ -557,7 +544,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.IsType<DevbookFolderSource>(provider.GetRequiredService<IDevbookFolderSource>());
         Assert.Single(provider.GetServices<IDevbookFolderSource>());
 
-        var folder = Path.Combine(_appData, "Brain");
+        var folder = _temp.Combine("Brain");
         Assert.Null(provider.GetRequiredService<IBrainSettings>().TrySetBrainFolder(folder));
         Assert.Equal(folder, brain.BrainRoot);
 
@@ -584,7 +571,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         });
 
     [SupportedOSPlatform("windows")]
-    private IServiceCollection BuildMauiShapedServices() => MauiShapedServices(_appData);
+    private IServiceCollection BuildMauiShapedServices() => MauiShapedServices(_temp.Path);
 
     /// <summary>The MAUI head's container as <c>MauiProgram</c> composes it, every
     /// per-user file under <paramref name="appData"/>; shared with

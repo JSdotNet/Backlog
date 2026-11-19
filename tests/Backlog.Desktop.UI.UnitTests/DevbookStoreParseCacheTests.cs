@@ -20,7 +20,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookStoreParseCacheTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-devbook-cache-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-cache-tests");
 
     /// <summary>The store the arc42 panel reads through. It is disposed with its
     /// tab and asks again on the way back, which is the load this exists for.</summary>
@@ -96,25 +96,22 @@ public sealed class DevbookStoreParseCacheTests : IDisposable
     /// test root — the composition the technology panel tests already use.</summary>
     private DevbookFolderSource Source()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
         Assert.Null(settings.SetRepositories(repositories));
-        settings.SetCloneDirectory("backlog", _root);
+        settings.SetCloneDirectory("backlog", _temp.Path);
 
         return new DevbookFolderSource(settings);
     }
 
     private string Write(string relativePath, string content)
     {
-        var fullPath = Path.Combine(_root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        var fullPath = _temp.Combine(relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         File.WriteAllText(fullPath, content);
         return fullPath;
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

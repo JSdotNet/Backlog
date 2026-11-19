@@ -25,9 +25,7 @@ public sealed class AccountBindingTests : IDisposable
     private const string RegistryUnreadable =
         "The repository registry couldn't be read, so repositories can't be changed right now.";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "account-binding-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("account-binding-tests");
 
     // --- The highest-value test in the change ---------------------------------
 
@@ -97,7 +95,7 @@ public sealed class AccountBindingTests : IDisposable
         Assert.Null(store.SetRepositoryAccount("backlog", "JSdotNet"));
 
         Assert.Null(store.SetRepositoryColour("backlog", 4));
-        Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
+        Assert.Null(store.SetCloneDirectory("backlog", _temp.Combine("clone")));
         Assert.Null(store.SetRepositoryToken("backlog", "ghp_repository"));
         Assert.Null(store.SetApiEndpoint("https://ghe.example.internal/api/v3"));
         Assert.Null(store.SetShowRepositoryColours(true));
@@ -470,9 +468,9 @@ public sealed class AccountBindingTests : IDisposable
 
     // --- Helpers --------------------------------------------------------------
 
-    private string WorkspaceRoot => Path.Combine(_root, "workspace");
+    private string WorkspaceRoot => _temp.Combine("workspace");
 
-    private string LocalPath(string install = "install-1") => Path.Combine(_root, install, "github.json");
+    private string LocalPath(string install = "install-1") => _temp.Combine(install, "github.json");
 
     private GitHubSettingsStore Store(string install = "install-1") => new(LocalPath(install), () => WorkspaceRoot);
 
@@ -498,8 +496,5 @@ public sealed class AccountBindingTests : IDisposable
         File.WriteAllText(path, json);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

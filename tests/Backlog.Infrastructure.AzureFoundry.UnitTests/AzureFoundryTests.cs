@@ -11,18 +11,9 @@ namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
 
 public sealed class AzureFoundrySettingsStoreTests : IDisposable
 {
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-settings");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void Settings_are_normalized_and_survive_restart()
@@ -215,28 +206,14 @@ public sealed class AzureFoundrySettingsStoreTests : IDisposable
         Assert.Equal("chat", settings.Deployment);
     }
 
-    private string NewSettingsPath()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-settings", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        return path;
-    }
+    private string NewSettingsPath() => _temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json");
 }
 
 public sealed class AzureFoundryChatClientTests : IDisposable
 {
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-client");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Missing_settings_are_reported_before_http_request()
@@ -645,12 +622,7 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         return new AzureFoundryChatClient(new HttpClient(handler), settings);
     }
 
-    private string NewSettingsPath()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-client", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        return path;
-    }
+    private string NewSettingsPath() => _temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json");
 }
 
 /// <summary>
@@ -662,18 +634,9 @@ public sealed class AzureFoundryChatClientTests : IDisposable
 /// </summary>
 public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
 {
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-drafter");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void Unconfigured_settings_read_as_unavailable_with_a_reason_that_points_at_settings()
@@ -843,12 +806,7 @@ public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
         return settings;
     }
 
-    private string NewSettingsPath()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-drafter", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        return path;
-    }
+    private string NewSettingsPath() => _temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json");
 
     // Differs from StubAzureFoundryChatClient: answers plan drafts, or the failure it was given.
     private sealed class StubChatClient : IAzureFoundryChatClient
@@ -913,18 +871,9 @@ public sealed class AzureFoundryLocalTestServiceTests
 /// </summary>
 public sealed class AzureFoundryEmbeddingsClientTests : IDisposable
 {
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-embeddings");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Missing_settings_are_reported_before_any_http_request()
@@ -1026,12 +975,7 @@ public sealed class AzureFoundryEmbeddingsClientTests : IDisposable
         return new AzureFoundryEmbeddingsClient(new HttpClient(handler), settings);
     }
 
-    private string NewSettingsPath()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-embeddings", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        return path;
-    }
+    private string NewSettingsPath() => _temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json");
 
     private sealed class CountingHandler(Func<HttpRequestMessage, HttpResponseMessage>? respond = null) : HttpMessageHandler
     {

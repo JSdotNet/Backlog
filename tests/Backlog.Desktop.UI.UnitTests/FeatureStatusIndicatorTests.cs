@@ -161,14 +161,15 @@ public sealed class FeatureStatusIndicatorTests
 
     private static FeatureStore NewFeatureStore()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-feature-status-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-feature-status-tests");
 
-        return new FeatureStore(root, new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json")));
+        return new FeatureStore(temp, new AppFeatureSettingsStore(AppFeatures.All, temp.Combine("features.json")));
     }
 
     internal static SettingsRenderContext RenderSettings(Action<AppFeatureSettingsStore>? configureFeatures = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-feature-status-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-feature-status-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -195,34 +196,25 @@ public sealed class FeatureStatusIndicatorTests
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>());
+        return new SettingsRenderContext(temp, context, context.Render<Settings>());
     }
 
-    private sealed record FeatureStore(string Root, AppFeatureSettingsStore Store) : IDisposable
+    private sealed record FeatureStore(TemporaryDirectory Temp, AppFeatureSettingsStore Store) : IDisposable
     {
-        public void Dispose() => DeleteRoot(Root);
+        public void Dispose() => Temp.Dispose();
     }
 
     internal sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteRoot(Root);
-        }
-    }
-
-    private static void DeleteRoot(string root)
-    {
-        try
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-        catch (IOException)
-        {
+            Temp.Dispose();
         }
     }
 }

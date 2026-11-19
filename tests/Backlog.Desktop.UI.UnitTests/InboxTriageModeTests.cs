@@ -863,8 +863,11 @@ public sealed class InboxTriageModeTests
 
     private sealed class Harness : IDisposable
     {
-        private Harness(BunitContext context, FakeInboxItems inbox, GitHubSettingsStore settings)
+        private readonly TemporaryDirectory _temp;
+
+        private Harness(TemporaryDirectory temp, BunitContext context, FakeInboxItems inbox, GitHubSettingsStore settings)
         {
+            _temp = temp;
             Context = context;
             Inbox = inbox;
             Settings = settings;
@@ -880,11 +883,11 @@ public sealed class InboxTriageModeTests
 
         public static Harness Create(bool repositories = false, bool colours = false)
         {
+            var temp = new TemporaryDirectory("backlog-inbox-triage-mode-tests");
             var context = new BunitContext();
             context.JSInterop.Mode = JSRuntimeMode.Loose;
 
-            var settings = new GitHubSettingsStore(
-                Path.Combine(Path.GetTempPath(), "backlog-inbox-triage-mode-tests", Guid.NewGuid().ToString("n"), "github.json"));
+            var settings = new GitHubSettingsStore(temp.Combine("github.json"));
             if (repositories)
             {
                 Assert.Null(settings.SetRepositories([new GitHubRepositoryRef("web", "acme", "web"), new GitHubRepositoryRef("sync", "acme", "sync")]));
@@ -896,7 +899,7 @@ public sealed class InboxTriageModeTests
             TasksTestHost.AddToastChannel(context.Services);
             var inbox = InboxTestHost.AddInboxState(context.Services);
 
-            return new Harness(context, inbox, settings);
+            return new Harness(temp, context, inbox, settings);
         }
 
         public IReadOnlyList<InboxItemDto> SeedNewestFirst(params string[] titles) =>
@@ -921,6 +924,10 @@ public sealed class InboxTriageModeTests
             return pane;
         }
 
-        public void Dispose() => Context.Dispose();
+        public void Dispose()
+        {
+            Context.Dispose();
+            _temp.Dispose();
+        }
     }
 }

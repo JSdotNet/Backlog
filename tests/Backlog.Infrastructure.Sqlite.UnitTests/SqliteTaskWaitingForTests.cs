@@ -13,12 +13,13 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SqliteTaskWaitingForTests : IDisposable
 {
+    private readonly TemporaryDirectory _temp = new("backlog-sqlite-tests");
     private readonly string _root;
     private readonly SqliteTaskRepository _repository;
 
     public SqliteTaskWaitingForTests()
     {
-        _root = Path.Combine(Path.GetTempPath(), "backlog-sqlite-tests", Guid.NewGuid().ToString("n"));
+        _root = _temp.Path;
         _repository = new SqliteTaskRepository(_root);
     }
 
@@ -112,12 +113,6 @@ public sealed class SqliteTaskWaitingForTests : IDisposable
     public void Dispose()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 }

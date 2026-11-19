@@ -370,7 +370,8 @@ public sealed class DashboardSettingsTests
 
     private static SectionRenderContext RenderSection(string? usageResetFile = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-dashboard-settings-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-dashboard-settings-tests");
+        var root = temp.Path;
         var usageResetPath = Path.Combine(root, "usage-reset", "usage-reset.json");
 
         if (usageResetFile is not null)
@@ -387,12 +388,13 @@ public sealed class DashboardSettingsTests
         context.Services.AddSingleton<IUsageResetSettings>(usageReset);
         context.Services.AddSingleton<ISpendBudgetSettings>(spendBudgets);
 
-        return new SectionRenderContext(root, context, context.Render<DashboardSettings>(), usageReset, spendBudgets);
+        return new SectionRenderContext(temp, context, context.Render<DashboardSettings>(), usageReset, spendBudgets);
     }
 
     private static SettingsRenderContext RenderSettings()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-dashboard-settings-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-dashboard-settings-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -425,22 +427,11 @@ public sealed class DashboardSettingsTests
         context.Services.AddInboxSettings();
         context.Services.AddDashboardSettings();
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), usageReset);
-    }
-
-    private static void DeleteQuietly(string root)
-    {
-        try
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), usageReset);
     }
 
     private sealed record SectionRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<DashboardSettings> Component,
         UsageResetSettingsStore UsageReset,
@@ -449,12 +440,12 @@ public sealed class DashboardSettingsTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         UsageResetSettingsStore UsageReset) : IDisposable
@@ -462,7 +453,7 @@ public sealed class DashboardSettingsTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 }

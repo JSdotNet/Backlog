@@ -32,7 +32,7 @@ public sealed class DevbookImportWorkerTests : IDisposable
     private readonly StubFolderSource _folders = new(DevbookFolderSetting.Defaults());
     private readonly List<GitHubRepositoryRef> _repositories = [new(Alias, "JSdotNet", "Shop")];
     private readonly List<DevbookImportWorker> _workers = [];
-    private readonly List<string> _temporary = [];
+    private readonly List<TemporaryDirectory> _temporary = [];
 
     public DevbookImportWorkerTests()
     {
@@ -276,11 +276,12 @@ public sealed class DevbookImportWorkerTests : IDisposable
     /// record still <c>identified</c>.</summary>
     private string StaleTree()
     {
-        var root = Path.Combine(Path.GetTempPath(), "devbook-import-stale-" + Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("devbook-import-stale");
+        _temporary.Add(temp);
+        var root = temp.Path;
         var debt = Path.Combine(root, ".devbook", "arc42", "tdr");
         Directory.CreateDirectory(debt);
         File.WriteAllText(Path.Combine(debt, "0001-paging.md"), "# TDR 0001: Orders are not paged\n\n```meta\nstatus: identified\n```\n");
-        _temporary.Add(root);
 
         return root;
     }
@@ -289,17 +290,7 @@ public sealed class DevbookImportWorkerTests : IDisposable
     {
         foreach (var worker in _workers) worker.Dispose();
 
-        foreach (var root in _temporary)
-        {
-            try
-            {
-                Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temp folder left behind is not a test failure.
-            }
-        }
+        foreach (var temp in _temporary) temp.Dispose();
     }
 
     /// <summary>The default branch: a head, an index on disk that may lag it, and

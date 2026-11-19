@@ -39,7 +39,7 @@ public sealed class TasksSaveStateBandTests : IDisposable
     private const string PlanEntry = "# Imported plans on the roadmap\n`plan` `+roadmap-imported-plans`\n";
 
     private readonly FakeTimeProvider _clock = new();
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
     [Fact]
@@ -108,8 +108,9 @@ public sealed class TasksSaveStateBandTests : IDisposable
     [Fact]
     public async Task An_import_whose_repository_could_not_be_registered_says_why()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-save-band", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("backlog-save-band");
+        _tempDirs.Add(temp);
+        var root = temp.Path;
         var registry = Path.Combine(root, "github", GitHubSettingsStore.RegistryFolderName, "repos.json");
         Directory.CreateDirectory(Path.GetDirectoryName(registry)!);
         File.WriteAllText(registry, "{ this is not a registry");
@@ -329,8 +330,9 @@ public sealed class TasksSaveStateBandTests : IDisposable
         IToastChannel? toasts = null,
         IRepositoryDirectory? repositories = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-save-band", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("backlog-save-band");
+        _tempDirs.Add(temp);
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "settings"));
         Assert.Null(store.TryUseRoot(root));
@@ -371,10 +373,10 @@ public sealed class TasksSaveStateBandTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(dir.Path);
+            dir.Dispose();
         }
     }
 

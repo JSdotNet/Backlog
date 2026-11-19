@@ -25,21 +25,15 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 [SupportedOSPlatform("windows")]
 public sealed class GitHubCredentialsAtRestTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "github-credentials-at-rest-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("github-credentials-at-rest-tests");
 
-    private string WorkspaceRoot => Path.Combine(_root, "workspace");
+    private string WorkspaceRoot => _temp.Combine("workspace");
 
-    private string LocalPath => Path.Combine(_root, "install-1", "github.json");
+    private string LocalPath => _temp.Combine("install-1", "github.json");
 
     private GitHubSettingsStore Store(TimeProvider? clock = null) => new(LocalPath, () => WorkspaceRoot, clock);
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void An_account_token_is_not_in_the_file_and_a_restart_reads_it_back()
@@ -66,7 +60,7 @@ public sealed class GitHubCredentialsAtRestTests : IDisposable
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        var clone = Path.Combine(_root, "clone");
+        var clone = _temp.Combine("clone");
 
         var store = Store();
         Assert.Null(store.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")]));

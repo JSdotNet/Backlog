@@ -19,7 +19,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookMenuDomainUnitsTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>The files of Fincent's <c>.devbook/domain/financieel/</c>, by name
     /// as they stand (read from <c>D:\Repos\Fincent</c>, never edited), with the
@@ -406,19 +406,15 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "devbook-menu-domain-units-tests", Guid.NewGuid().ToString("n"));
-        Directory.CreateDirectory(path);
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("devbook-menu-domain-units-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
-        {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

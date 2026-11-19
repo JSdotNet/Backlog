@@ -15,7 +15,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 [Collection(BrainRootCollection.Name)]
 public sealed class BrainNoteWriterTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "brain-note-writer-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("brain-note-writer-tests");
+
+    private string _root => _temp.Combine("data");
 
     private string? _setting;
 
@@ -366,14 +368,5 @@ public sealed class BrainNoteWriterTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(Brain, "_inbox")));
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

@@ -22,9 +22,9 @@ public class DevbookAnnotationStoreTests : IDisposable
     private const string Repository = "JSdotNet/Backlog";
     private const string Chapter = ".domain/devbook/features.md";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "devbook-annotation-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("devbook-annotation-store-tests");
+
+    private string _root => _temp.Path;
 
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 9, 16, 9, 0, 0, TimeSpan.Zero));
 
@@ -34,8 +34,6 @@ public class DevbookAnnotationStoreTests : IDisposable
     private const string Decision = ".arc42/adr/0001-decision.md";
 
     private const string RelocatedDecision = "docs/arch/adr/0001-decision.md";
-
-    public DevbookAnnotationStoreTests() => Directory.CreateDirectory(_root);
 
     /// <param name="folders">Where this machine has each devbook folder
     /// pointed. Omitted — which is what every test predating the canonical
@@ -736,14 +734,5 @@ public class DevbookAnnotationStoreTests : IDisposable
         Assert.Empty(store.ListChangedSince(_time.GetUtcNow().AddDays(-1)));
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

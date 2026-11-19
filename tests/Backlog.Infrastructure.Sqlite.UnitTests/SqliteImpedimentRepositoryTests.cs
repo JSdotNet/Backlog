@@ -19,14 +19,16 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
 {
     private static readonly DateOnly Wed14 = new(2026, 10, 14);
 
+    private readonly TemporaryDirectory _temp = new("impediment-tests");
+    private readonly TemporaryDirectory _otherTemp = new("impediment-tests");
     private readonly string _dir;
     private readonly string _other;
     private readonly SqliteImpedimentRepository _repository;
 
     public SqliteImpedimentRepositoryTests()
     {
-        _dir = Path.Combine(Path.GetTempPath(), "impediment-tests-" + Guid.NewGuid().ToString("N"));
-        _other = Path.Combine(Path.GetTempPath(), "impediment-tests-" + Guid.NewGuid().ToString("N"));
+        _dir = _temp.Path;
+        _other = _otherTemp.Path;
         _repository = new SqliteImpedimentRepository(_dir);
     }
 
@@ -380,10 +382,7 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        foreach (var dir in new[] { _dir, _other })
-        {
-            if (!Directory.Exists(dir)) continue;
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-        }
+        _temp.Dispose();
+        _otherTemp.Dispose();
     }
 }

@@ -977,51 +977,36 @@ public sealed class SessionsPaneRunTests
     [Fact]
     public void A_run_two_surfaces_reported_is_one_line_under_its_session()
     {
-        var home = Path.Combine(Path.GetTempPath(), "backlog-sessions-pane-tests", Guid.NewGuid().ToString("n"));
+        using var temp = new TemporaryDirectory("backlog-sessions-pane-tests");
+        var home = temp.Path;
 
-        try
+        GivenRun(home, "delivery-surface-dashboard", "run-mujuq9gz-xn8tz3", Noon.AddMinutes(-60), "in_progress");
+        GivenRun(home, "backlog", "run-mujuq9av-zxl8tg", Noon.AddMinutes(-60).AddMilliseconds(-220), "in_progress");
+
+        using var context = new BunitContext();
+        context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource([Live]));
+        context.Services.AddSingleton<IDeliveryRunSource>(new LocalDeliveryRunSource(home, Live.EnvironmentId, Live.Environment));
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
         {
-            GivenRun(home, "delivery-surface-dashboard", "run-mujuq9gz-xn8tz3", Noon.AddMinutes(-60), "in_progress");
-            GivenRun(home, "backlog", "run-mujuq9av-zxl8tg", Noon.AddMinutes(-60).AddMilliseconds(-220), "in_progress");
+            var row = Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
 
-            using var context = new BunitContext();
-            context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource([Live]));
-            context.Services.AddSingleton<IDeliveryRunSource>(new LocalDeliveryRunSource(home, Live.EnvironmentId, Live.Environment));
+            Assert.Contains("keen-bose-667825", row.TextContent);
 
-            var pane = context.Render<SessionsPane>();
+            // One line, not two: the dashboard's file is the record.
+            var line = Assert.Single(pane.FindAll("[data-testid='sessions-run']"));
 
-            pane.WaitForAssertion(() =>
-            {
-                var row = Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
+            Assert.Equal("run-mujuq9gz-xn8tz3", line.GetAttribute("data-run-id"));
 
-                Assert.Contains("keen-bose-667825", row.TextContent);
+            // And the run details say who reported it, after the run's own identity.
+            var surfaces = line.QuerySelector("[data-testid='sessions-run-surfaces']");
 
-                // One line, not two: the dashboard's file is the record.
-                var line = Assert.Single(pane.FindAll("[data-testid='sessions-run']"));
-
-                Assert.Equal("run-mujuq9gz-xn8tz3", line.GetAttribute("data-run-id"));
-
-                // And the run details say who reported it, after the run's own identity.
-                var surfaces = line.QuerySelector("[data-testid='sessions-run-surfaces']");
-
-                Assert.NotNull(surfaces);
-                Assert.Equal("Reported to 2 surfaces: delivery-surface-dashboard, backlog", surfaces!.TextContent.Trim());
-                Assert.Equal("Surfaces", surfaces.PreviousElementSibling!.TextContent.Trim());
-            });
-        }
-        finally
-        {
-            try
-            {
-                if (Directory.Exists(home)) Directory.Delete(home, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-        }
+            Assert.NotNull(surfaces);
+            Assert.Equal("Reported to 2 surfaces: delivery-surface-dashboard, backlog", surfaces!.TextContent.Trim());
+            Assert.Equal("Surfaces", surfaces.PreviousElementSibling!.TextContent.Trim());
+        });
     }
 
     /// <summary>One surface's file of a run the <see cref="Live"/> session drove,

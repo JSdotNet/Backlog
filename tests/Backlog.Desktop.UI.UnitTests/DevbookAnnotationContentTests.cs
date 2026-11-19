@@ -21,7 +21,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookAnnotationContentTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-devbook-annotation-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-annotation-tests");
 
     private static IReadOnlyList<string> RuleExamples { get; } =
     [.. Regex.Matches(
@@ -78,8 +78,7 @@ public sealed class DevbookAnnotationContentTests : IDisposable
     [Fact]
     public void The_design_reader_keeps_a_note_whole_and_its_section_draws_it_as_a_review_note()
     {
-        Directory.CreateDirectory(_root);
-        var path = Path.Combine(_root, "color-scheme.md");
+        var path = _temp.Combine("color-scheme.md");
         File.WriteAllText(path, $"""
 # Color scheme
 
@@ -94,7 +93,7 @@ Every surface takes one of these.
 The next passage.
 """);
 
-        var section = Assert.Single(DocumentDevbookParser.ParseFile(_root, path).Sections);
+        var section = Assert.Single(DocumentDevbookParser.ParseFile(_temp.Path, path).Sections);
 
         Assert.Equal(2, section.Blocks.OfType<DocumentDevbookCode>().Count(code => code.Language == "annotation"));
         Assert.DoesNotContain(
@@ -243,17 +242,17 @@ var kept = true;
 
     private void WriteContextMap(string markdown)
     {
-        Directory.CreateDirectory(Path.Combine(_root, ".domain"));
-        File.WriteAllText(Path.Combine(_root, ".domain", "context-map.md"), markdown);
+        Directory.CreateDirectory(_temp.Combine(".domain"));
+        File.WriteAllText(_temp.Combine(".domain", "context-map.md"), markdown);
     }
 
     private DomainDevbookView LoadDomain()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github", "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
         settings.SetRepositories(repositories);
-        settings.SetCloneDirectory("backlog", _root);
+        settings.SetCloneDirectory("backlog", _temp.Path);
 
         using var store = new DomainDevbookStore(new DevbookFolderSource(settings));
         var view = store.LoadAsync("backlog", TestContext.Current.CancellationToken).GetAwaiter().GetResult();
@@ -263,17 +262,17 @@ var kept = true;
 
     private (IDevbookFolderSource Folders, string Alias) Folder(string chapter)
     {
-        Directory.CreateDirectory(Path.Combine(_root, ".arc42"));
-        File.WriteAllText(Path.Combine(_root, ".arc42", "03-context-and-scope.md"), chapter);
+        Directory.CreateDirectory(_temp.Combine(".arc42"));
+        File.WriteAllText(_temp.Combine(".arc42", "03-context-and-scope.md"), chapter);
 
-        var settings = new WorkspaceSettingsStore(Path.Combine(_root, "store"));
-        var gitHub = new GitHubSettingsStore(Path.Combine(_root, "github", "github.json"));
+        var settings = new WorkspaceSettingsStore(_temp.Combine("store"));
+        var gitHub = new GitHubSettingsStore(_temp.Combine("github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog");
         Assert.Empty(errors);
 
         var repository = Assert.Single(repositories) with
         {
-            CloneDirectory = _root,
+            CloneDirectory = _temp.Path,
             DevbookFolders = DevbookFolderSetting.Defaults()
         };
         Assert.Null(gitHub.SetRepositories([repository]));
@@ -281,10 +280,7 @@ var kept = true;
         return (new DevbookFolderSource(gitHub, settings), repository.Alias);
     }
 
-    public void Dispose()
-    {
-        try { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>An index with nothing in it, so the body is the open chapter
     /// alone.</summary>

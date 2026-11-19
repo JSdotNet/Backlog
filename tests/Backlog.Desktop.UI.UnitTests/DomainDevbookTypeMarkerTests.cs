@@ -35,7 +35,7 @@ public sealed class DomainDevbookTypeMarkerTests : IDisposable
 {
     private const string DocumentPath = ".domain/inbox/model.md";
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>The context map a `.domain` folder has to have before the store
     /// will read it at all. Deliberately plain: the document under test is the one
@@ -405,9 +405,10 @@ public sealed class DomainDevbookTypeMarkerTests : IDisposable
     /// </summary>
     private OpenHarness CreateOpenHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-domain-type-marker-open", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-domain-type-marker-open");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "inbox"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), ContextMapFile);
         File.WriteAllText(Path.Combine(root, ".domain", "inbox", "domain.md"), DomainFile);
@@ -444,9 +445,10 @@ public sealed class DomainDevbookTypeMarkerTests : IDisposable
 
     private Harness CreateCardHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-domain-type-marker-tests", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-domain-type-marker-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(root);
-        _roots.Add(root);
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
@@ -472,10 +474,9 @@ public sealed class DomainDevbookTypeMarkerTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            temp.Dispose();
         }
     }
 

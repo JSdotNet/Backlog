@@ -20,18 +20,9 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     private static readonly Guid TaskId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid ListId = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-triage");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     // --- Availability -------------------------------------------------------------
 
@@ -421,12 +412,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
         ["acme/web", "acme/api"],
         [new InboxTriageListDto(ListId, "Reading")]);
 
-    private string NewSettingsPath()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-triage", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        return path;
-    }
+    private string NewSettingsPath() => _temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json");
 
     private sealed class StubTriageClient : IAzureFoundryTriageClient
     {

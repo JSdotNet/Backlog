@@ -9,16 +9,13 @@ namespace Backlog.Mobile.UI.UnitTests;
 /// </summary>
 public sealed class SqliteDeviceStoreTests : IDisposable
 {
-    private readonly string _directory = Path.Combine(Path.GetTempPath(), "backlog-mobile-store-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-mobile-store");
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
-    private string DatabasePath => Path.Combine(_directory, "nested", "mobile-outbox.db");
+    private string DatabasePath => _temp.Combine("nested", "mobile-outbox.db");
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task The_outbox_comes_back_in_the_order_it_was_written_after_a_reopen()

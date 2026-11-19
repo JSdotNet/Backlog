@@ -1071,7 +1071,8 @@ public sealed class SettingsAiUsageTests
         IUsageReadStatus? reads = null,
         TimeProvider? clock = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -1110,11 +1111,11 @@ public sealed class SettingsAiUsageTests
         testContext.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 
         var component = testContext.Render<Settings>();
-        return new SettingsRenderContext(root, testContext, component, claude, azureFoundry, github);
+        return new SettingsRenderContext(temp, testContext, component, claude, azureFoundry, github);
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         ClaudeSettingsStore ClaudeStore,
@@ -1124,14 +1125,7 @@ public sealed class SettingsAiUsageTests
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

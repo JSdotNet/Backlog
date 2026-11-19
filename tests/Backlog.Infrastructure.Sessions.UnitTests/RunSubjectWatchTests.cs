@@ -18,7 +18,8 @@ public sealed class RunSubjectWatchTests : IDisposable
     private static readonly DateTimeOffset Noon = new(2026, 11, 5, 12, 0, 0, TimeSpan.Zero);
     private static readonly string[] Stages = ["Implement", "Personal Validation", "Create Pull Request"];
 
-    private readonly string _home = Path.Combine(Path.GetTempPath(), "backlog-run-subject-watch-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-run-subject-watch-tests");
+    private string _home => _temp.Path;
     private readonly RecordingNotifications _notifications = new();
     private readonly FakeTimeProvider _clock = new(Noon);
     private readonly SwitchablePullRequests _pulls = new();
@@ -141,10 +142,7 @@ public sealed class RunSubjectWatchTests : IDisposable
         Assert.Empty(_notifications.Closed);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     private RunSubjectWatch Watch(OpenQuestions open) =>
         new(() => open, Probe(), () => _notifications, _clock);
