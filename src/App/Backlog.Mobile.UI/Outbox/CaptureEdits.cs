@@ -139,10 +139,10 @@ public sealed class CaptureEdits(DeviceOutbox outbox, TalkNoteFiles files)
     private Task RequeueIfSetAsideAsync(OutboxEntry rewritten, CancellationToken cancellationToken) =>
         rewritten.IsParked ? outbox.RequeueAsync(rewritten.Id, cancellationToken) : Task.CompletedTask;
 
-    private static bool IsCapture(OutboxEntry entry) =>
+    internal static bool IsCapture(OutboxEntry entry) =>
         entry.Kind is CaptureOutboxKind.Token or TalkNoteOutboxKind.Token;
 
-    private static string Reworded(OutboxEntry entry, string title, string? bodyMd)
+    internal static string Reworded(OutboxEntry entry, string title, string? bodyMd)
     {
         if (entry.Kind == TalkNoteOutboxKind.Token)
         {
@@ -170,7 +170,7 @@ public sealed class CaptureEdits(DeviceOutbox outbox, TalkNoteFiles files)
         _ => false,
     };
 
-    private static CaptureEdit? ReadEdit(OutboxEntry entry)
+    internal static CaptureEdit? ReadEdit(OutboxEntry entry)
     {
         try
         {

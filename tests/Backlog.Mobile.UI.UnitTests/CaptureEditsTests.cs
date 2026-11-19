@@ -158,6 +158,93 @@ public sealed class CaptureEditsTests : IDisposable
         Assert.Equal(new CaptureEdit(capture, "Reworded again", null), CaptureEditOutboxKind.Read(kind.Delivered.Single()));
     }
 
+    /// <summary>
+    /// The person rewords a capture while it is being sent, so the edit waits behind
+    /// it — and then the service refuses the capture. Sent on its own, the edit would
+    /// find nothing (404) and read as "already dealt with" while the capture stayed
+    /// set aside with its old words. Instead the edit's words go into the capture,
+    /// the edit is dropped unsent, and retrying the capture sends the new words.
+    /// </summary>
+    [Fact]
+    public async Task An_edit_waiting_behind_a_capture_the_service_refuses_is_folded_into_it()
+    {
+        var captures = new GatedRefusingOnceKind();
+        var editKind = new RecordingKind(CaptureEditOutboxKind.Token);
+        using var outbox = new DeviceOutbox(new InMemoryDeviceStore(), [captures, editKind], _clock, folds: [new CaptureEditFold()]);
+        var capture = CaptureOutboxKind.Create("A title the service refuses");
+        var id = capture.Id!.Value;
+        await outbox.EnqueueAsync(CaptureOutboxKind.Token, id, CaptureOutboxKind.Write(capture), Cancellation);
+        Assert.Equal(id, outbox.Sending);
+
+        await new CaptureEdits(outbox, _files).EditAsync(id, "A shorter title", "Thursday.", Cancellation);
+        Assert.Equal([CaptureOutboxKind.Token, CaptureEditOutboxKind.Token], outbox.Entries.Select(entry => entry.Kind));
+
+        captures.Release();
+        await outbox.FlushAsync(Cancellation);
+        await outbox.WhenIdleAsync();
+
+        var setAside = Assert.Single(outbox.Entries);
+        Assert.Equal(id, setAside.Id);
+        Assert.True(setAside.Refused);
+        Assert.Equal("A shorter title", CaptureOutboxKind.Read(setAside).Title);
+        Assert.Equal("Thursday.", CaptureOutboxKind.Read(setAside).BodyMd);
+        Assert.Empty(editKind.Sent);
+
+        await outbox.RetryAsync(id, Cancellation);
+
+        Assert.Empty(outbox.Entries);
+        var sent = CaptureOutboxKind.Read(captures.Delivered.Single());
+        Assert.Equal("A shorter title", sent.Title);
+        Assert.Equal("Thursday.", sent.BodyMd);
+        Assert.Empty(editKind.Sent);
+    }
+
+    /// <summary>The same when the edit was already in line as the pass reached the
+    /// capture — a phone restarted with both waiting — and for a talk note, whose
+    /// uploads are kept.</summary>
+    [Fact]
+    public async Task An_edit_already_behind_a_talk_note_the_service_refuses_is_folded_into_it()
+    {
+        var file = new AttachmentMetadata(Guid.CreateVersion7(), "note.m4a", "audio/mp4", 10, new string('a', 64));
+        var id = Guid.CreateVersion7();
+        var payload = new TalkNotePayload(new CaptureRequest("Standup", CaptureOutboxKind.Source, id, Attachments: [file]), [file.Id]);
+        var store = new InMemoryDeviceStore();
+        await store.AddAsync(new OutboxEntry(id, TalkNoteOutboxKind.Token, TalkNoteOutboxKind.Write(payload), 0, null, Start), Cancellation);
+        await store.AddAsync(Entry(CaptureEditOutboxKind.Token, CaptureEditOutboxKind.Write(new CaptureEdit(id, "First words", null))) with { CreatedAt = Start.AddSeconds(1) }, Cancellation);
+        await store.AddAsync(Entry(CaptureEditOutboxKind.Token, CaptureEditOutboxKind.Write(new CaptureEdit(id, "Standup notes", "Three points."))) with { CreatedAt = Start.AddSeconds(2) }, Cancellation);
+        var talkNotes = new RefusingOnceKind(TalkNoteOutboxKind.Token);
+        var editKind = new RecordingKind(CaptureEditOutboxKind.Token);
+        using var outbox = new DeviceOutbox(store, [talkNotes, editKind], _clock, folds: [new CaptureEditFold()]);
+
+        await outbox.FlushAsync(Cancellation);
+
+        var setAside = Assert.Single(outbox.Entries);
+        Assert.True(setAside.Refused);
+        var folded = TalkNoteOutboxKind.Read(setAside);
+        Assert.Equal("Standup notes", folded.Capture.Title);
+        Assert.Equal("Three points.", folded.Capture.BodyMd);
+        Assert.Equal([file.Id], folded.Uploaded);
+        Assert.Single(store.ReadOutbox());
+        Assert.Empty(editKind.Sent);
+    }
+
+    /// <summary>An edit of another capture, behind a refused one, is left alone.</summary>
+    [Fact]
+    public async Task An_edit_of_another_capture_is_not_folded()
+    {
+        var store = new InMemoryDeviceStore();
+        var id = Guid.CreateVersion7();
+        await store.AddAsync(new OutboxEntry(id, CaptureOutboxKind.Token, CaptureOutboxKind.Write(CaptureOutboxKind.Create("Refused") with { Id = id }), 0, null, Start), Cancellation);
+        await store.AddAsync(Entry(CaptureEditOutboxKind.Token, CaptureEditOutboxKind.Write(new CaptureEdit(Guid.CreateVersion7(), "Other", null))) with { CreatedAt = Start.AddSeconds(1) }, Cancellation);
+        var editKind = new RecordingKind(CaptureEditOutboxKind.Token);
+        using var outbox = new DeviceOutbox(store, [new RefusingOnceKind(CaptureOutboxKind.Token), editKind], _clock, folds: [new CaptureEditFold()]);
+
+        await outbox.FlushAsync(Cancellation);
+
+        Assert.Equal("Refused", CaptureOutboxKind.Read(Assert.Single(outbox.Entries)).Title);
+        Assert.Equal("Other", CaptureEditOutboxKind.Read(Assert.Single(editKind.Sent)).Title);
+    }
+
     [Fact]
     public async Task A_blank_title_is_not_an_edit()
     {
@@ -285,6 +372,7 @@ public sealed class CaptureEditsTests : IDisposable
         Assert.Contains(CaptureEditOutboxKind.Token, kinds);
         Assert.Contains(CaptureWithdrawOutboxKind.Token, kinds);
         Assert.NotNull(provider.GetRequiredService<CaptureEdits>());
+        Assert.Contains(provider.GetServices<IOutboxFold>(), fold => fold is CaptureEditFold);
         Assert.Same(provider.GetRequiredService<CaptureDealtWithNotices>(), provider.GetRequiredService<CaptureDealtWithNotices>());
     }
 
@@ -337,6 +425,48 @@ public sealed class CaptureEditsTests : IDisposable
 
             Delivered.Add(entry);
             return Task.FromResult(OutboxDelivery.Delivered);
+        }
+    }
+
+    /// <summary>Delivers everything it is sent, and keeps it.</summary>
+    private sealed class RecordingKind(string token) : IOutboxKind
+    {
+        public string Kind => token;
+
+        public List<OutboxEntry> Sent { get; } = [];
+
+        public Task<OutboxDelivery> SendAsync(OutboxEntry entry, CancellationToken cancellationToken)
+        {
+            Sent.Add(entry);
+            return Task.FromResult(OutboxDelivery.Delivered);
+        }
+    }
+
+    /// <summary>The capture kind caught on its way out until released, refusing
+    /// that first attempt and delivering every later one.</summary>
+    private sealed class GatedRefusingOnceKind : IOutboxKind
+    {
+        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private bool _refused;
+
+        public string Kind => CaptureOutboxKind.Token;
+
+        public List<OutboxEntry> Delivered { get; } = [];
+
+        public void Release() => _gate.TrySetResult();
+
+        public async Task<OutboxDelivery> SendAsync(OutboxEntry entry, CancellationToken cancellationToken)
+        {
+            await _gate.Task.WaitAsync(cancellationToken);
+
+            if (!_refused)
+            {
+                _refused = true;
+                return OutboxDelivery.Refused("Too long.");
+            }
+
+            Delivered.Add(entry);
+            return OutboxDelivery.Delivered;
         }
     }
 
