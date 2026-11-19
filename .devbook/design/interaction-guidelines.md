@@ -1055,7 +1055,7 @@ neither shares the window with the view. See local ADR 0022, amendments of
 
 ```meta
 related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/events/features.md#events-on-the-phone"]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_shows_its_glyph_alone_and_is_still_named_by_its_word, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_is_lit_on_its_route_like_any_other, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_without_a_glyph_falls_back_to_its_word, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_shows_once_the_phone_holds_a_notification, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_is_lit_on_the_notifications_screen_and_its_details, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_shows_before_notes_once_the_phone_holds_an_event, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_follows_notifications_when_both_are_held]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_shows_its_glyph_alone_and_is_still_named_by_its_word, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_is_lit_on_its_route_like_any_other, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_without_a_glyph_falls_back_to_its_word, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_shows_once_the_phone_holds_a_notification, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_is_lit_on_the_notifications_screen_and_its_details, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_shows_last_once_the_phone_holds_an_event, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_follows_notifications_when_both_are_held, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_bar_holds_five_tabs_when_stand_up_notifications_and_events_are_all_held]
 ```
 
 The phone's shell has no header navigation. Its destinations are a row of tabs
@@ -1076,8 +1076,8 @@ are the phone's views, so they lead with a glyph as the desktop's views do
 
 | Rule | Requirement |
 |---|---|
-| Five at most | The bar MUST hold no more than five tabs. A sixth destination goes to the app bar or into a page. One state breaks this today; see the known gap below. |
-| Every word whole | Each shown word MUST fit its column whole at `font-size-sm`, in the lit tab's weight, on a 360px screen. The six-tab known gap below breaks this too. |
+| Five at most | The bar MUST hold no more than five tabs. A sixth destination goes to the app bar or into a page. |
+| Every word whole | Each shown word MUST fit its column whole at `font-size-sm`, in the lit tab's weight, on a 360px screen. |
 | Every tab or none | Each tab MUST lead with a decorative glyph, or none may. |
 | Glyph above the word | The glyph sits above the tab's word, at `icon-md` (20px), in the word's ink. |
 | The word is the name | The glyph MUST be hidden from assistive technology, so each tab is announced by its word. |
@@ -1087,16 +1087,13 @@ are the phone's views, so they lead with a glyph as the desktop's views do
 
 - **Five at most:** Material 3's navigation bar and Apple's tab bar both stop at
   five. At 360px five tabs leave each word 68px, and six leave 56px, where
-  Stand-up no longer fits.
-  - Known gap: a phone that holds a stand-up, a notification and an event draws
-    six tabs. At 360px Stand-up then no longer fits its column, and the ellipsis
-    cuts it. This breaks **Five at most** and **Every word whole**, and it is
-    accepted until tabs are merged, which is follow-up work of its own.
+  Stand-up no longer fits. A phone that holds a stand-up, a notification and an
+  event draws the five: Today, Inbox, Notifications, Stand-up and Events.
 - **Every word whole:** a word MUST NOT be shortened or set smaller to fit, because
   `font-size-sm` is the floor. Notifications fits no column of a bar of more than
   four tabs, which is why its tab is icon-only. The ellipsis in `app.css` stays as
   the guard for a larger text scale. It keeps the name and cuts only the ink, and
-  no layout may rely on it, the six-tab known gap above aside.
+  no layout may rely on it.
 - **Every tab or none:** one tab with a picture beside tabs without reads as the
   one that is different. The glyphs are a sun for Today (the My Day glyph), an
   inbox tray for Inbox and a target (Lucide `target`) for Stand-up. Notifications
@@ -1126,11 +1123,13 @@ related: [".devbook/design/interaction-guidelines.md#phone-tab-bar", ".devbook/d
 ```
 
 ```text
-[ All | Captures | Notes | Meetings ]        [+] -> Note | Meeting
+[ All | Captures | Notes | Meetings ]
  (c) Buy filters          <- kind mark leads every row
  (n) Release plan
  (m) Weekly sync
-[ quick one-line field ...................... ]   -> a capture
+[ quick one-line field ...................... ] [+]
+   words in the field: + or Enter -> a capture
+   field empty:        +          -> Note | Meeting
 ```
 
 The phone Inbox is one list of every Inbox Item the phone holds. It shows the
@@ -1143,8 +1142,9 @@ desktop.
 | One filter, fused | The kind filter MUST be one fused group of four chips: All, Captures, Notes, Meetings. |
 | Exactly one on | Exactly one chip is pressed; All is the default. |
 | Every row is marked | Every row MUST lead its metadata line with its kind mark, on every filter. |
-| The `+` menu makes notes and meetings | The `+` button MUST open a menu of two items: **Note** and **Meeting**. |
-| Captures are not in the menu | A capture comes from the quick one-line field or a share from another app, never from `+`. |
+| One `+` | The page MUST have one `+` button, beside the quick one-line field. |
+| `+` follows the field | With words in the field, `+` and Enter MUST add them as a capture. With the field empty, `+` MUST open a menu of two items: **Note** and **Meeting**. |
+| Captures are not in the menu | A capture comes from the quick one-line field or a share from another app, never from the menu. |
 | A meeting starts recording | **Meeting** MUST open a new meeting that is already recording. |
 | `/notes` is the Notes filter | The `/notes` route MUST open the Inbox with the Notes chip pressed. |
 
@@ -1158,9 +1158,14 @@ desktop.
 - **Every row is marked:** the mark follows `#task-rows`. The glyph stands
   alone, and its word is the tooltip and a visually-hidden span. A mark
   that showed only on All would leave the reader unsure what a filtered list holds.
-- **The `+` menu makes notes and meetings:** the trigger is an icon button named
-  **New**, with its glyph hidden. Two items earn a menu under
-  `#action-density-and-overflow`, which forbids only a menu of one.
+- **One `+`:** two `+` buttons on one screen would leave the reader guessing
+  which adds what, so the field's own button carries both jobs.
+- **`+` follows the field:** the button's name says what a press does now:
+  **Add to inbox** with words in the field, **New** with it empty. Only the
+  empty field's button announces a menu (`aria-haspopup="menu"`). Its glyph is
+  hidden. Enter adds the words once, never a second time on the same keypress.
+  Two items earn a menu under `#action-density-and-overflow`, which forbids
+  only a menu of one.
 - **A meeting starts recording:** the person meets the recording controls at
   once and does not press record a second time.
 

@@ -9,7 +9,7 @@ namespace Backlog.Mobile.WebHarness;
 /// <summary>
 /// Knowledge events for the browser harness to show without a desktop that has its events
 /// feature on: a series and five events — two coming up, one with no dates yet, one that is over
-/// and one Skipped — dated from today, so the Events tab, its list, the detail and the Notes tab's
+/// and one Skipped — dated from today, so the Events tab, its list, the detail and the note editor's
 /// attach picker always have something in them (<c>.devbook/domain/events/requirements.md#events-on-the-phone</c>).
 /// <para>
 /// Written straight into the phone's event view as the feed carries them, and only while it holds

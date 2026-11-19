@@ -59,7 +59,7 @@ public sealed class NotificationScreenTests
         var app = host.Open("");
 
         app.WaitForAssertion(() => Assert.Contains("Notifications", Tabs(app)));
-        Assert.Equal(["Today", "Inbox", "Notifications", "Notes"], Tabs(app));
+        Assert.Equal(["Today", "Inbox", "Notifications"], Tabs(app));
 
         var tab = app.Find("[data-testid='tab-bar-notifications']");
         Assert.Equal("notifications", tab.GetAttribute("href"));
@@ -86,7 +86,7 @@ public sealed class NotificationScreenTests
         var app = host.Open("");
 
         app.WaitForAssertion(() => Assert.True(service.Pulls > 0));
-        Assert.Equal(["Today", "Inbox", "Notes"], Tabs(app));
+        Assert.Equal(["Today", "Inbox"], Tabs(app));
         Assert.Empty(app.FindAll("[data-testid='tab-bar-notifications']"));
     }
 
@@ -95,7 +95,7 @@ public sealed class NotificationScreenTests
     {
         var (host, service, _) = Phone();
         using var disposing = host;
-        var app = host.Open("notes");
+        var app = host.Open("inbox");
         app.WaitForAssertion(() => Assert.True(service.Pulls > 0));
         Assert.Empty(app.FindAll("[data-testid='tab-bar-notifications']"));
 
@@ -103,8 +103,8 @@ public sealed class NotificationScreenTests
         PullAgain(host);
 
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='tab-bar-notifications']")));
-        Assert.EndsWith("/notes", host.Navigation.Uri, StringComparison.Ordinal);
-        Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-notes']").ClassList);
+        Assert.EndsWith("/inbox", host.Navigation.Uri, StringComparison.Ordinal);
+        Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-inbox']").ClassList);
         Assert.DoesNotContain("tab-bar__tab--active", app.Find("[data-testid='tab-bar-notifications']").ClassList);
     }
 

@@ -68,7 +68,10 @@ public static class NoteReplicaDocuments
             ProjectionRefs: [],
             Attachments: note.Attachments is { Count: > 0 } files
                 ? [.. files.Select(file => new AttachmentMetadata(file.Id, file.Name, file.ContentType, file.SizeBytes, file.Sha256))]
-                : null));
+                : null,
+            // A plain note names no kind, so its document reads as it did before
+            // meetings existed; a meeting names its own beside the note type.
+            NoteKind: string.Equals(note.Kind, NoteType, StringComparison.Ordinal) ? null : note.Kind));
     }
 
     /// <summary>The note a pulled document carries, as the Inbox takes it. A
@@ -89,6 +92,7 @@ public static class NoteReplicaDocuments
             change.Task.Tags,
             change.Task.Attachments is { Count: > 0 } files
                 ? [.. files.Select(file => new InboxCaptureAttachmentDto(file.Id, file.Name, file.ContentType, file.SizeBytes, file.Sha256))]
-                : null);
+                : null,
+            string.IsNullOrWhiteSpace(change.Task.NoteKind) ? NoteType : change.Task.NoteKind);
     }
 }

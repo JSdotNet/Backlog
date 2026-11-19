@@ -10624,6 +10624,12 @@ select.field__input {
     box-shadow: var(--shadow-lg);
 }
 
+/* AlignEnd: the x the host passed is the menu's end edge, the opening button's
+   right, so a menu from a button at the window's end opens inward. */
+.context-menu--end {
+    transform: translateX(-100%);
+}
+
 /* PopoverButton: a trigger with a small panel of the host's controls under it
    (over it with OpenUpward), lined up with the trigger's start edge, or with its
    end edge (AlignEnd) so it opens inward from the end of a row. The
@@ -20770,6 +20776,10 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-size: var(--font-size-xs);
 }
 
+.capture-row__kind {
+    display: inline-flex;
+}
+
 .capture-row__state {
     flex: none;
 }
@@ -25622,6 +25632,18 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-weight: var(--font-weight-semibold);
     line-height: var(--line-height-tight);
     overflow-wrap: anywhere;
+}
+
+.note-row__meta {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+}
+
+.note-row__kind {
+    display: inline-flex;
 }
 
 .note-row__when {

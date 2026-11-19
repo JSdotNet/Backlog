@@ -1,30 +1,45 @@
 @page "/inbox"
-@using Backlog.Mobile.UI.Services
+@using Backlog.Mobile.UI.Notes
 @inject CloudSyncClient Sync
 @inject DeviceOutbox Outbox
 @inject IDeviceStore Store
+@inject NoteViewProjection Notes
 @inject CaptureDraft Draft
 @inject SyncStatusTracker Status
 @inject AppLifecycle Lifecycle
 @inject TimeProvider Clock
 @inject SharedContentCapture SharedCapture
+@inject NavigationManager Navigation
 @inject IJSRuntime Js
 @implements IAsyncDisposable
 
 <PageTitle>Inbox</PageTitle>
 
 @*
-    The phone's Inbox: the captures this phone made, each with where it stands
-    on its way to the desktop, until the desktop takes it in. A row opens the
-    whole capture and offers nothing else — no Today, Later, To note or delete:
+    The phone Inbox (.devbook/design/interaction-guidelines.md#phone-inbox): one list of
+    the captures this phone made, each with where it stands on its way to the desktop
+    until the desktop takes it in, and every note and meeting the phone holds, which
+    stay. Every row leads its metadata line with its kind's mark. A capture row opens
+    the whole capture and offers nothing else — no Today, Later, To note or delete:
     triage stays on the desktop (.devbook/domain/inbox/features.md#triage-stays-on-the-desktop).
-    Dictation, notes and photos are the capture sheet's; this field is the
-    quick one-liner.
+    A note or meeting row opens it in the note editor.
+
+    The kind chips — All, Captures, Notes, Meetings — are one fused group with exactly
+    one pressed, and one tab stop the arrows move (data-roving-buttons). The page has
+    one +, beside the quick field: with words in the field it adds them as a capture,
+    as Enter does; with the field empty it is New, a menu of Note and Meeting. Note
+    opens an empty editor, Meeting a new meeting already recording. /notes opens this
+    page on the Notes chip (?kind=notes).
 *@
+
+@{
+    // Read once per render: each read walks the outbox and copies the notes.
+    var (everything, shown) = Lists();
+}
 
 <header class="inbox-heading">
     <div class="inbox-heading__titles">
-        <span class="inbox-heading__lede" data-testid="inbox-count">@CountLabel</span>
+        <span class="inbox-heading__lede" data-testid="inbox-count">@CountLabel(shown.Count)</span>
         @* The tab bar names the page on screen; the heading is kept for screen readers. *@
         <h1 class="sr-only">Inbox</h1>
     </div>
@@ -40,16 +55,37 @@
     </IconButton>
 </header>
 
+<div class="inbox-kinds">
+    <ButtonGroup CssClass="inbox-kinds__chips" AriaLabel="Kind" TestId="inbox-kinds" data-roving-buttons>
+        @foreach (var chip in Chips)
+        {
+            <ToggleButton Pressed="@(_filter == chip.Filter)"
+                          PressedChanged="_ => Choose(chip.Filter)"
+                          CssClass="inbox-kinds__chip"
+                          tabindex="@(_firstStop == chip.Filter ? "0" : "-1")"
+                          TestId="@($"inbox-kind-{chip.Slug}")">@chip.Label</ToggleButton>
+        }
+    </ButtonGroup>
+</div>
+
+@* The one + on the page. With words in the field it adds them as a capture, as
+   Enter does; with the field empty it is New, a menu of Note and Meeting. Its
+   name follows what it will do, and only the menu mode says it opens a menu. *@
 <div class="capture">
     <TextField @bind-Value="Draft.Text" AriaLabel="Add to inbox" Placeholder="Add to inbox…"
-               CssClass="capture__field" TestId="capture-field" />
-    <IconButton AriaLabel="Add to inbox" Title="Add to inbox" Disabled="@string.IsNullOrWhiteSpace(Draft.Text)"
-                OnClick="CaptureAsync" CssClass="capture__add" TestId="capture-submit">
+               CssClass="capture__field" TestId="capture-field" @onkeydown="OnFieldKeyDownAsync" />
+    <IconButton AriaLabel="@PlusLabel" Title="@PlusLabel" OnClick="OnPlusAsync"
+                CssClass="capture__add" TestId="capture-submit" id="@PlusId"
+                aria-haspopup="@(HasDraft ? null : "menu")"
+                aria-expanded="@(HasDraft ? null : _newMenuOpen ? "true" : "false")">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4"
              stroke-linecap="round" aria-hidden="true" focusable="false">
             <path d="M12 5v14M5 12h14" />
         </svg>
     </IconButton>
+    <ContextMenu Open="_newMenuOpen" OpenChanged="open => _newMenuOpen = open"
+                 X="@_newMenuX" Y="@_newMenuY" AlignEnd="true" Items="@NewItems" AriaLabel="New"
+                 TestId="inbox-new-menu" OnItemSelected="OnNewChosen" />
 </div>
 
 @if (SharedCapture.Status is { } shareStatus)
@@ -66,29 +102,69 @@
        saw, and a capture made now is kept and sent later. *@
     <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="inbox-pull-notice" />
 }
+else if (_notesNotice is not null)
+{
+    <Alert Message="@_notesNotice" Role="status" BaseClass="capture__notice" TestId="notes-pull-notice" />
+}
 
-<section class="inbox" @ref="_listElement" aria-label="Captures">
-    @if (_items is null && Rows.Count == 0)
+@if (everything.Count > 0)
+{
+    <SearchBox Value="@_query" ValueChanged="OnSearch" Placeholder="Search the inbox" AriaLabel="Search the inbox"
+               DebounceMilliseconds="0" CssClass="inbox__search" TestId="inbox-search" />
+}
+
+<section class="inbox" @ref="_listElement" aria-label="Inbox items">
+    @if (_items is null && everything.Count == 0)
     {
         <Spinner Label="Loading the inbox" />
     }
-    else if (Rows.Count == 0)
+    else if (shown.Count == 0 && !string.IsNullOrWhiteSpace(_query))
     {
-        <EmptyState Title="Inbox clear" Description="Everything has a place." TestId="inbox-empty" />
+        <EmptyState Title="Nothing matches"
+                    Description="@($"Nothing in a title or a body says “{_query.Trim()}”.")"
+                    TestId="inbox-no-match" />
+    }
+    else if (shown.Count == 0)
+    {
+        @switch (_filter)
+        {
+            case PhoneInboxFilter.Notes:
+                <EmptyState Title="No notes yet"
+                            Description="Write one with Note in the + menu. Notes you take on the desktop show here too."
+                            TestId="notes-empty" />
+                break;
+            case PhoneInboxFilter.Meetings:
+                <EmptyState Title="No meetings yet"
+                            Description="Start one with Meeting in the + menu: it opens already recording."
+                            TestId="meetings-empty" />
+                break;
+            default:
+                <EmptyState Title="Inbox clear" Description="Everything has a place." TestId="inbox-empty" />
+                break;
+        }
     }
     else
     {
         <ul class="inbox__list" data-testid="inbox-list">
-            @foreach (var row in Rows)
+            @foreach (var row in shown)
             {
-                var item = row.Item;
+                <li @key="row.Id">
+                    @if (row.Capture is { } capture)
+                    {
+                        var item = capture.Item;
 
-                <li @key="item.Id">
-                    <CaptureRow Title="@item.Title" Kind="@CaptureKindGuess.Of(item.Title, item.BodyMd)"
-                                Time="@Ago(item.CapturedAt)" Preview="@PreviewLine(item.BodyMd)"
-                                State="StateOf(row)" StuckReason="@row.Pending?.LastError"
-                                Id="@RowId(item.Id)" OnOpen="() => Open(row)"
-                                OnRetry="() => RetryAsync(item.Id)" TestId="inbox-row" />
+                        <CaptureRow Title="@item.Title" Kind="@CaptureKindGuess.Of(item.Title, item.BodyMd)"
+                                    Time="@Ago(item.CapturedAt)" Preview="@PreviewLine(item.BodyMd)"
+                                    State="StateOf(capture)" StuckReason="@capture.Pending?.LastError"
+                                    Id="@RowId(item.Id)" OnOpen="() => Open(capture)"
+                                    OnRetry="() => RetryAsync(item.Id)" TestId="inbox-row" />
+                    }
+                    else if (row.Note is { } note)
+                    {
+                        <NoteRow Title="@note.Title" Kind="@(note.IsMeeting ? "meeting" : "note")"
+                                 When="@When(note)" Snippet="@NoteSnippet.Of(note.Body, note.Title)"
+                                 Href="@($"notes/{note.Id}")" TestId="note-row" />
+                    }
                 </li>
             }
         </ul>
@@ -100,26 +176,26 @@
              Title="@_selected?.Item.Title" AriaLabel="Capture" CloseLabel="Close capture"
              RestoreFocusToId="@(_selected is null ? null : RowId(_selected.Item.Id))"
              CssClass="inbox-sheet" TestId="inbox-sheet">
-    @if (_selected is { Item: var shown })
+    @if (_selected is { Item: var shownItem })
     {
-        @if (!string.IsNullOrWhiteSpace(shown.BodyMd))
+        @if (!string.IsNullOrWhiteSpace(shownItem.BodyMd))
         {
             <div class="inbox-sheet__body" data-testid="inbox-sheet-body">
-                <MarkdownView Blocks="@MarkdownPreview.ParseDocument(shown.BodyMd)" Source="@shown.BodyMd" />
+                <MarkdownView Blocks="@MarkdownPreview.ParseDocument(shownItem.BodyMd)" Source="@shownItem.BodyMd" />
             </div>
         }
 
         <dl class="inbox-sheet__facts">
             <dt>Source</dt>
-            <dd data-testid="inbox-sheet-source">@(string.IsNullOrWhiteSpace(shown.Source) ? "—" : shown.Source)</dd>
+            <dd data-testid="inbox-sheet-source">@(string.IsNullOrWhiteSpace(shownItem.Source) ? "—" : shownItem.Source)</dd>
 
-            @if (!string.IsNullOrWhiteSpace(shown.Person))
+            @if (!string.IsNullOrWhiteSpace(shownItem.Person))
             {
                 <dt>Person</dt>
-                <dd data-testid="inbox-sheet-person">@("@" + shown.Person)</dd>
+                <dd data-testid="inbox-sheet-person">@("@" + shownItem.Person)</dd>
             }
 
-            @if (shown.Tags is { Count: > 0 } tags)
+            @if (shownItem.Tags is { Count: > 0 } tags)
             {
                 <dt>Tags</dt>
                 <dd class="inbox-sheet__tags" data-testid="inbox-sheet-tags">
@@ -142,9 +218,49 @@
 </DetailSheet>
 
 @code {
-    /// <summary>One line of the list: what the service has, or a capture still in
-    /// the outbox — in which case <see cref="Pending"/> is its entry.</summary>
-    private sealed record Row(InboxItem Item, OutboxEntry? Pending);
+    /// <summary>One kind chip: the filter it sets, its slug in the test id and the
+    /// <c>?kind=</c> address, and its word.</summary>
+    private sealed record Chip(PhoneInboxFilter Filter, string Slug, string Label);
+
+    private static readonly IReadOnlyList<Chip> Chips =
+    [
+        new(PhoneInboxFilter.All, "all", "All"),
+        new(PhoneInboxFilter.Captures, "captures", "Captures"),
+        new(PhoneInboxFilter.Notes, "notes", "Notes"),
+        new(PhoneInboxFilter.Meetings, "meetings", "Meetings")
+    ];
+
+    /// <summary>The + menu: two items, which earn a menu where one would not
+    /// (interaction-guidelines.md#action-density-and-overflow).</summary>
+    private static readonly IReadOnlyList<MenuItem> NewItems =
+    [
+        new("note", "Note"),
+        new("meeting", "Meeting")
+    ];
+
+    /// <summary>The address of a new meeting: the note editor, told to open a meeting
+    /// already recording.</summary>
+    public const string NewMeetingRoute = "notes/new?kind=meeting";
+
+    /// <summary>The chip <c>?kind=</c> presses when the page opens — <c>notes</c> from the
+    /// old <c>/notes</c> address. Read only when it changes, so a chip pressed since
+    /// is not undone by a redraw.</summary>
+    [SupplyParameterFromQuery(Name = "kind")]
+    public string? KindQuery { get; set; }
+
+    private string? _appliedKindQuery;
+    private PhoneInboxFilter _filter = PhoneInboxFilter.All;
+
+    /// <summary>The chip that holds the group's tab stop when the page is first drawn,
+    /// written the same on every render after: components.js moves the stop on the
+    /// arrows, and a re-render that wrote the pressed chip's stop instead would leave
+    /// the group with two (accessibility.md#roving-button-groups).</summary>
+    private PhoneInboxFilter? _firstStop;
+    private string _query = string.Empty;
+
+    private bool _newMenuOpen;
+    private double _newMenuX;
+    private double _newMenuY;
 
     /// <summary>The last list the service answered with — this device's cached
     /// copy until the first pull of this visit lands. Null only when the phone
@@ -153,9 +269,10 @@
 
     private DateTimeOffset? _pulledAt;
     private string? _pullNotice;
+    private string? _notesNotice;
     private bool _refreshing;
     private bool _refreshAgain;
-    private Row? _selected;
+    private PhoneCaptureRow? _selected;
 
     /// <summary>
     /// Captures the outbox has delivered that no pull asked for since, each with
@@ -172,54 +289,57 @@
     private IJSObjectReference? _pullGesture;
     private DotNetObjectReference<Inbox>? _self;
 
+    /// <summary>Every row before the chips and the search narrow them, and the rows on
+    /// screen: the chip pressed, then the words searched for. Both from one read of the
+    /// captures and the notes.</summary>
+    private (IReadOnlyList<PhoneInboxRow> Everything, IReadOnlyList<PhoneInboxRow> Shown) Lists()
+    {
+        var captures = Captures;
+        var notes = Notes.Notes();
+
+        return (PhoneInboxList.Of(captures, notes, PhoneInboxFilter.All), PhoneInboxList.Of(captures, notes, _filter, _query));
+    }
+
     /// <summary>
-    /// What the outbox still holds, above what the service has sent back — one
-    /// list, newest first, so a capture made a moment ago is at the top whether or
-    /// not it has left the phone. A capture the service has but the outbox has
-    /// not yet heard back about is shown once, as the outbox's. One the outbox
-    /// has delivered is shown as delivered, whether or not a pull has brought it
-    /// back yet.
+    /// What the outbox still holds, above what the service has sent back. A capture
+    /// the service has but the outbox has not yet heard back about is shown once, as
+    /// the outbox's. One the outbox has delivered is shown as delivered, whether or
+    /// not a pull has brought it back yet.
     /// </summary>
-    private IReadOnlyList<Row> Rows
+    private IReadOnlyList<PhoneCaptureRow> Captures
     {
         get
         {
             var pending = Outbox.Entries
                 .Where(IsCapture)
-                .Select(entry => new Row(ItemOf(entry), entry))
+                .Select(entry => new PhoneCaptureRow(ItemOf(entry), entry))
                 .ToList();
 
             var shown = pending.Select(row => row.Item.Id).ToHashSet();
-            var pulled = (_items ?? []).Where(IsThisPhones).Where(item => shown.Add(item.Id)).Select(item => new Row(item, null)).ToList();
-            var delivered = _delivered.Values.Where(sent => shown.Add(sent.Item.Id)).Select(sent => new Row(sent.Item, null));
+            var pulled = (_items ?? []).Where(IsThisPhones).Where(item => shown.Add(item.Id)).Select(item => new PhoneCaptureRow(item, null)).ToList();
+            var delivered = _delivered.Values.Where(sent => shown.Add(sent.Item.Id)).Select(sent => new PhoneCaptureRow(sent.Item, null));
 
-            return
-            [
-                .. pending
-                    .Concat(pulled)
-                    .Concat(delivered)
-                    .OrderByDescending(row => row.Item.CapturedAt)
-            ];
+            return [.. pending.Concat(pulled).Concat(delivered)];
         }
     }
 
     /// <summary>
     /// The service answers with every capture the desktop has not taken in yet,
-    /// from wherever it came. The tab is the phone's own captures, so a pulled
+    /// from wherever it came. The Inbox lists the phone's own captures, so a pulled
     /// one is listed when it came from the phone channel.
     /// </summary>
     private static bool IsThisPhones(InboxItem item) =>
         string.Equals(item.Source, CaptureOutboxKind.Source, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>"3 items to sort", "1 item to sort", "Nothing to sort".</summary>
-    private string CountLabel => Rows.Count switch
+    private static string CountLabel(int count) => count switch
     {
         0 => "Nothing to sort",
         1 => "1 item to sort",
         var n => $"{n} items to sort"
     };
 
-    private static CaptureSyncState StateOf(Row row) => row.Pending switch
+    private static CaptureSyncState StateOf(PhoneCaptureRow row) => row.Pending switch
     {
         null => CaptureSyncState.Sent,
         { IsParked: true } => CaptureSyncState.Stuck,
@@ -241,9 +361,9 @@
     }
 
     /// <summary>
-    /// The cached list is drawn before the service is asked anything. A replica
-    /// still warming up, or no signal at all, then costs a status line rather than
-    /// a blank screen.
+    /// The cached list and the notes the phone holds are drawn before the service
+    /// is asked anything. A replica still warming up, or no signal at all, then
+    /// costs a status line rather than a blank screen.
     /// <para>
     /// The device is paired by the time this runs: the layout draws the pairing
     /// gate instead of any page until it is.
@@ -254,6 +374,7 @@
         SharedCapture.Changed += OnShareStatusChanged;
         Outbox.Changed += OnOutboxChanged;
         Outbox.Delivered += OnDelivered;
+        Notes.Changed += OnNotesChanged;
         Lifecycle.Resumed += OnResumed;
 
         if (Store.ReadInbox() is { } cached)
@@ -265,11 +386,24 @@
         return RefreshAsync();
     }
 
+    protected override void OnParametersSet()
+    {
+        if (!string.Equals(KindQuery, _appliedKindQuery, StringComparison.Ordinal))
+        {
+            _appliedKindQuery = KindQuery;
+            _filter = Chips.FirstOrDefault(chip => string.Equals(chip.Slug, KindQuery, StringComparison.OrdinalIgnoreCase))?.Filter
+                ?? PhoneInboxFilter.All;
+        }
+
+        _firstStop ??= _filter;
+    }
+
     public async ValueTask DisposeAsync()
     {
         SharedCapture.Changed -= OnShareStatusChanged;
         Outbox.Changed -= OnOutboxChanged;
         Outbox.Delivered -= OnDelivered;
+        Notes.Changed -= OnNotesChanged;
         Lifecycle.Resumed -= OnResumed;
 
         try
@@ -287,6 +421,68 @@
         }
 
         _self?.Dispose();
+    }
+
+    /// <summary>Exactly one chip is pressed: a press on the pressed one leaves it on.</summary>
+    private void Choose(PhoneInboxFilter filter) => _filter = filter;
+
+    private void OnSearch(string query) => _query = query ?? string.Empty;
+
+    /// <summary>Whether the quick field holds words: the + then adds them.</summary>
+    private bool HasDraft => !string.IsNullOrWhiteSpace(Draft.Text);
+
+    private string PlusLabel => HasDraft ? "Add to inbox" : "New";
+
+    /// <summary>The + button's id, which the menu is anchored to.</summary>
+    private const string PlusId = "inbox-plus";
+
+    /// <summary>
+    /// Adds the words as a capture, or with none opens New under the +, its end edge
+    /// on the button's (ContextMenu.AlignEnd), so the menu opens inward from the
+    /// window's right edge. Anchored to the button for a tap and a key alike: a key's
+    /// click has no pointer, and a tap's point would put the menu's corner under the
+    /// finger. The pointer stands in only when the page cannot say where the + is.
+    /// </summary>
+    private async Task OnPlusAsync(MouseEventArgs e)
+    {
+        if (HasDraft)
+        {
+            await CaptureAsync();
+            return;
+        }
+
+        (_newMenuX, _newMenuY) = (e.ClientX, e.ClientY);
+
+        try
+        {
+            if (await Js.InvokeAsync<double[]?>("backlogAnchorBelow", PlusId, true) is [var x, var y])
+            {
+                (_newMenuX, _newMenuY) = (x, y);
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // No browser to ask: the pointer's position stands.
+        }
+
+        _newMenuOpen = true;
+    }
+
+    /// <summary>
+    /// Enter adds the words, once. The field binds on input, not on change, so the
+    /// change event Enter also raises commits nothing; and the capture clears the
+    /// draft, so a second Enter on the same words finds nothing to add.
+    /// </summary>
+    private Task OnFieldKeyDownAsync(KeyboardEventArgs e) =>
+        e is { Key: "Enter", ShiftKey: false, AltKey: false, CtrlKey: false, MetaKey: false, Repeat: false }
+            ? CaptureAsync()
+            : Task.CompletedTask;
+
+    /// <summary>Note opens an empty editor; Meeting opens a new meeting already recording.</summary>
+    private void OnNewChosen(MenuItem item)
+    {
+        _newMenuOpen = false;
+        Navigation.NavigateTo(item.Id == "meeting" ? NewMeetingRoute : "notes/new");
     }
 
     /// <summary>The share itself is already in the outbox, and its row arrives
@@ -329,8 +525,12 @@
 
     private void OnOutboxChanged() => _ = InvokeAsync(StateHasChanged);
 
+    // Raised off the render thread by a pull or a write.
+    private void OnNotesChanged() => _ = InvokeAsync(StateHasChanged);
+
     /// <summary>The service has the capture now: the row stops saying it is
-    /// waiting at once, and the list the service answers with next replaces it.</summary>
+    /// waiting at once, and the list the service answers with next replaces it.
+    /// A note delivered is pulled back, so the row carries the replica's copy.</summary>
     private void OnDelivered(OutboxEntry entry) => _ = InvokeAsync(() =>
     {
         if (IsCapture(entry)) _delivered[entry.Id] = (ItemOf(entry), ++_deliveries);
@@ -339,10 +539,11 @@
     });
 
     /// <summary>
-    /// Pulls the inbox and keeps it as this device's cached copy. A failure keeps
-    /// whatever is on screen and says why in one line: a replica still warming up
-    /// (503 <c>sync.replica_unavailable</c>) is a wait, anything else is a network
-    /// the phone cannot reach — and neither is a reason to blank the list.
+    /// Pulls the inbox and the notes. The inbox is kept as this device's cached
+    /// copy. A failure keeps whatever is on screen and says why in one line: a
+    /// replica still warming up (503 <c>sync.replica_unavailable</c>) is a wait,
+    /// anything else is a network the phone cannot reach — and neither is a reason
+    /// to blank the list.
     /// <para>
     /// A refresh asked for while one is out runs once that one answers, never
     /// instead of it: the pull in flight may have been read before the capture
@@ -365,6 +566,7 @@
             {
                 _refreshAgain = false;
                 await PullAsync();
+                await PullNotesAsync();
             }
             while (_refreshAgain);
         }
@@ -407,6 +609,24 @@
         }
     }
 
+    /// <summary>Pulls the notes and meetings changed since the last pull. A failure
+    /// keeps them on screen as the phone last saw them, and says so.</summary>
+    private async Task PullNotesAsync()
+    {
+        try
+        {
+            await Notes.PullAsync();
+            _notesNotice = null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var reason = SyncPullFailure.Reason(ex);
+
+            _notesNotice = $"{reason} Showing notes as this phone last saw them. Notes written here are kept and sent when it answers.";
+            if (SyncPullFailure.IsUnreachable(ex)) Status.RecordUnreachable();
+        }
+    }
+
     private string PullNotice(Exception failure)
     {
         var reason = SyncPullFailure.Reason(failure);
@@ -437,7 +657,7 @@
 
     private Task RetryAsync(Guid id) => Outbox.RetryAsync(id);
 
-    private void Open(Row row) => _selected = row;
+    private void Open(PhoneCaptureRow row) => _selected = row;
 
     private void OnSheetOpenChanged(bool open)
     {
@@ -445,6 +665,11 @@
     }
 
     private string Ago(DateTimeOffset at) => SyncStatusLine.Relative(Clock.GetUtcNow() - at);
+
+    private string When(NoteViewRow note) =>
+        NoteTimeLabel.For(
+            TimeZoneInfo.ConvertTime(note.UpdatedAt, Clock.LocalTimeZone),
+            Clock.GetLocalNow());
 
     private static string RowId(Guid id) => $"inbox-row-{id:N}";
 

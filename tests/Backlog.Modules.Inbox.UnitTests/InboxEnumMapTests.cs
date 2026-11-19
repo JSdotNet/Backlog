@@ -30,7 +30,8 @@ public sealed class InboxEnumMapTests
         { ContentKind.Code, "code" },
         { ContentKind.Voice, "voice" },
         { ContentKind.ClaudeArtifact, "claude-artifact" },
-        { ContentKind.Note, "note" }
+        { ContentKind.Note, "note" },
+        { ContentKind.Meeting, "meeting" }
     };
 
     public static TheoryData<RoutingDomain, string> Domains => new()
@@ -107,6 +108,17 @@ public sealed class InboxEnumMapTests
     [InlineData("WEBSITE")]
     public void A_capture_sources_slug_is_a_known_channel_in_any_spelling(string token) =>
         Assert.Equal(token.Trim().ToLowerInvariant(), InboxEnumMap.NormalizeChannel(token));
+
+    /// <summary>A note and a meeting are the kinds that travel as a note document
+    /// (.devbook/domain/inbox/domain.md#meeting); every other kind travels as a capture.</summary>
+    [Theory]
+    [InlineData("note", true)]
+    [InlineData("meeting", true)]
+    [InlineData("text", false)]
+    [InlineData("voice", false)]
+    [InlineData(null, false)]
+    public void Only_a_note_and_a_meeting_ride_as_note_documents(string? token, bool travelsAsNote) =>
+        Assert.Equal(travelsAsNote, InboxEnumMap.IsNoteKind(token));
 
     [Fact]
     public void An_unknown_status_or_routing_domain_throws()
