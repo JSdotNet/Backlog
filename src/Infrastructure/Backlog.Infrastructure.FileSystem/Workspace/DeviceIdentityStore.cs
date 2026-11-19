@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -95,11 +96,7 @@ public sealed class DeviceIdentityStore : IDeviceIdentitySource
     /// <summary>The per-user location: <c>device.json</c> in the same app-data folder
     /// <see cref="WorkspaceSettingsStore"/> puts the workspace pointer in.</summary>
     public DeviceIdentityStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                WorkspaceSettingsStore.DefaultAppDataFolderName,
-                "device.json"))
+        : this(AppDataPaths.Head("device.json"))
     {
     }
 

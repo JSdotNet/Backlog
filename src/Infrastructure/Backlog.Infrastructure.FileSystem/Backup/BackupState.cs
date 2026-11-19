@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -76,26 +77,18 @@ public sealed class FileBackupStateStore : IBackupStateStore
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly string _path;
+    private readonly JsonFileStore<BackupState> _file;
 
     public FileBackupStateStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        _file = new JsonFileStore<BackupState>(path, JsonOptions);
 
-        _path = path;
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        Current = Read();
+        Current = _file.Load() ?? BackupState.None;
     }
 
     public BackupState Current { get; private set; }
 
-    public string StorePath => _path;
+    public string StorePath => _file.Path;
 
     /// <summary>Adopts, then writes. The other order — the one the sync stores
     /// use — exists so a failed write leaves a watermark alone; here the value
@@ -107,28 +100,8 @@ public sealed class FileBackupStateStore : IBackupStateStore
 
         Current = state;
 
-        try
-        {
-            File.WriteAllText(_path, JsonSerializer.Serialize(state, JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // The next start will count from the run before this one and may
-            // take one backup the schedule did not owe. That is the whole cost.
-        }
-    }
-
-    private BackupState Read()
-    {
-        try
-        {
-            if (!File.Exists(_path)) return BackupState.None;
-
-            return JsonSerializer.Deserialize<BackupState>(File.ReadAllText(_path), JsonOptions) ?? BackupState.None;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            return BackupState.None;
-        }
+        // A refused write: the next start will count from the run before this one
+        // and may take one backup the schedule did not owe. That is the whole cost.
+        _file.TrySave(state);
     }
 }

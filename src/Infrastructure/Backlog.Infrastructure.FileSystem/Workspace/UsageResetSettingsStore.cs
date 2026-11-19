@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -33,7 +34,7 @@ public sealed class UsageResetSettingsStore : IUsageResetSettings
 
     private static readonly string[] TimeFormats = ["HH:mm", "HH:mm:ss"];
 
-    private readonly string _path;
+    private readonly JsonFileStore<ResetsFileDto> _file;
 
     private readonly Lock _gate = new();
 
@@ -42,26 +43,13 @@ public sealed class UsageResetSettingsStore : IUsageResetSettings
     private volatile State _state;
 
     public UsageResetSettingsStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "usage-reset.json"))
+        : this(AppDataPaths.Shared("usage-reset.json"))
     {
     }
 
     public UsageResetSettingsStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        _path = path;
-
-        var directory = Path.GetDirectoryName(path);
-
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _file = new JsonFileStore<ResetsFileDto>(path, JsonOptions);
 
         _state = Read();
     }
@@ -75,7 +63,7 @@ public sealed class UsageResetSettingsStore : IUsageResetSettings
     /// <summary>What is in force, or null when nothing has been configured.</summary>
     public UsageWeekReset? Current => Selected?.Reset;
 
-    public string SettingsPath => _path;
+    public string SettingsPath => _file.Path;
 
     public (string? Id, string? Error) Add(string name, DayOfWeek day, TimeOnly time)
     {
@@ -214,45 +202,36 @@ public sealed class UsageResetSettingsStore : IUsageResetSettings
     {
         _state = state;
 
-        try
-        {
-            if (state.Resets.Count == 0)
+        var saved = _file.TrySave(state.Resets.Count == 0
+            ? null
+            : new ResetsFileDto
             {
-                if (File.Exists(_path)) File.Delete(_path);
-            }
-            else
-            {
-                File.WriteAllText(_path, JsonSerializer.Serialize(new ResetsFileDto
-                {
-                    Resets =
-                    [
-                        .. state.Resets.Select(reset => new ResetDto
-                        {
-                            Id = reset.Id,
-                            Name = reset.Name,
-                            Day = reset.Reset.Day.ToString(),
-                            Time = reset.Reset.Time.ToString("HH:mm", CultureInfo.InvariantCulture)
-                        })
-                    ],
-                    Selected = state.Selected?.Id
-                }, JsonOptions));
-            }
+                Resets =
+                [
+                    .. state.Resets.Select(reset => new ResetDto
+                    {
+                        Id = reset.Id,
+                        Name = reset.Name,
+                        Day = reset.Reset.Day.ToString(),
+                        Time = reset.Reset.Time.ToString("HH:mm", CultureInfo.InvariantCulture)
+                    })
+                ],
+                Selected = state.Selected?.Id
+            });
 
-            return null;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return SaveFailed;
-        }
+        return saved ? null : SaveFailed;
     }
 
+    /// <summary>Read as a document rather than through <see cref="_file"/>: every name
+    /// is matched ignoring case and each entry is read on its own, so one bad hand edit
+    /// costs that entry and not the list.</summary>
     private State Read()
     {
         try
         {
-            if (!File.Exists(_path)) return State.Empty;
+            if (!File.Exists(_file.Path)) return State.Empty;
 
-            using var document = JsonDocument.Parse(File.ReadAllText(_path));
+            using var document = JsonDocument.Parse(File.ReadAllText(_file.Path));
             var root = document.RootElement;
 
             if (root.ValueKind != JsonValueKind.Object) return State.Empty;

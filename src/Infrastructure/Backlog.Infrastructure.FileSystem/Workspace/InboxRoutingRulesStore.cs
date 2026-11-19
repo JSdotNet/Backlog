@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -23,14 +24,10 @@ public sealed class InboxRoutingRulesStore : IInboxRoutingRules
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly string _path;
+    private readonly JsonFileStore<InboxRoutingRulesDto> _file;
 
     public InboxRoutingRulesStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "inbox-routing-rules.json"))
+        : this(AppDataPaths.Shared("inbox-routing-rules.json"))
     {
     }
 
@@ -38,15 +35,7 @@ public sealed class InboxRoutingRulesStore : IInboxRoutingRules
     /// or for the web harness, which keeps its settings beside its content root.</summary>
     public InboxRoutingRulesStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        _path = path;
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _file = new JsonFileStore<InboxRoutingRulesDto>(path, JsonOptions);
 
         Current = Read();
     }
@@ -55,7 +44,7 @@ public sealed class InboxRoutingRulesStore : IInboxRoutingRules
 
     public IReadOnlyList<InboxRoutingRule> Current { get; private set; }
 
-    public string SettingsPath => _path;
+    public string SettingsPath => _file.Path;
 
     public string? SetRules(string? text)
     {
@@ -66,18 +55,12 @@ public sealed class InboxRoutingRulesStore : IInboxRoutingRules
 
         Current = rules;
 
-        string? saveError = null;
-        try
+        var saved = _file.TrySave(new InboxRoutingRulesDto
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(new InboxRoutingRulesDto
-            {
-                Rules = [.. rules.Select(rule => new InboxRoutingRuleDto { Pattern = rule.Pattern, Repository = rule.Repository })]
-            }, JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            saveError = "Changed, but the routing rules couldn't be saved for next time.";
-        }
+            Rules = [.. rules.Select(rule => new InboxRoutingRuleDto { Pattern = rule.Pattern, Repository = rule.Repository })]
+        });
+
+        var saveError = saved ? null : "Changed, but the routing rules couldn't be saved for next time.";
 
         Changed?.Invoke();
         return saveError;
@@ -85,30 +68,20 @@ public sealed class InboxRoutingRulesStore : IInboxRoutingRules
 
     private IReadOnlyList<InboxRoutingRule> Read()
     {
-        try
-        {
-            if (!File.Exists(_path)) return [];
+        // A corrupt or unreachable file must never stop the app from opening:
+        // no rules is what an absent file means too.
+        if (_file.Load() is not { } dto) return [];
 
-            var dto = JsonSerializer.Deserialize<InboxRoutingRulesDto>(File.ReadAllText(_path), JsonOptions);
-            if (dto is null) return [];
-
-            // Read back through the same grammar the field is held to, one rule at
-            // a time, so a line somebody broke by hand drops that rule rather than
-            // every rule in the file.
-            return
-            [
-                .. dto.Rules
-                    .Select(rule => InboxRoutingRule.Parse($"{rule.Pattern} {InboxRoutingRule.Arrow} {rule.Repository}").Rules)
-                    .SelectMany(parsed => parsed)
-                    .Distinct()
-            ];
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            // A corrupt or unreachable file must never stop the app from opening:
-            // no rules is what an absent file means too.
-            return [];
-        }
+        // Read back through the same grammar the field is held to, one rule at
+        // a time, so a line somebody broke by hand drops that rule rather than
+        // every rule in the file.
+        return
+        [
+            .. dto.Rules
+                .Select(rule => InboxRoutingRule.Parse($"{rule.Pattern} {InboxRoutingRule.Arrow} {rule.Repository}").Rules)
+                .SelectMany(parsed => parsed)
+                .Distinct()
+        ];
     }
 
     private sealed class InboxRoutingRulesDto

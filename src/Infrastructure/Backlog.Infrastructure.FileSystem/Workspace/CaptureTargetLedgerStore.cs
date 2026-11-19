@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Capture.Abstractions;
 using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -29,16 +30,12 @@ public sealed class CaptureTargetLedgerStore : ICaptureTargetLedger
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly string _path;
+    private readonly JsonFileStore<LedgerDto> _file;
     private readonly object _gate = new();
     private readonly Dictionary<(CaptureSourceKind Kind, string Target), HashSet<Guid>> _targets;
 
     public CaptureTargetLedgerStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "capture-targets.json"))
+        : this(AppDataPaths.Shared("capture-targets.json"))
     {
     }
 
@@ -46,15 +43,7 @@ public sealed class CaptureTargetLedgerStore : ICaptureTargetLedger
     /// for the reason <see cref="CaptureSourcesSettingsStore(string)"/> does.</summary>
     public CaptureTargetLedgerStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        _path = path;
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _file = new JsonFileStore<LedgerDto>(path, JsonOptions);
 
         _targets = Read();
     }
@@ -86,54 +75,36 @@ public sealed class CaptureTargetLedgerStore : ICaptureTargetLedger
     private static (CaptureSourceKind, string) Key(CaptureSourceKind kind, string target) =>
         (kind, target.Trim());
 
-    private void Save()
-    {
-        try
+    // A refused write is kept for this session; only its surviving a restart is lost.
+    private void Save() =>
+        _file.TrySave(new LedgerDto
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(new LedgerDto
+            Targets = [.. _targets.Select(pair => new TargetDto
             {
-                Targets = [.. _targets.Select(pair => new TargetDto
-                {
-                    Kind = CaptureSourceKinds.Slug(pair.Key.Kind),
-                    Target = pair.Key.Target,
-                    PassedOver = [.. pair.Value]
-                })]
-            }, JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Kept for this session; only its surviving a restart is lost.
-        }
-    }
+                Kind = CaptureSourceKinds.Slug(pair.Key.Kind),
+                Target = pair.Key.Target,
+                PassedOver = [.. pair.Value]
+            })]
+        });
 
     private Dictionary<(CaptureSourceKind Kind, string Target), HashSet<Guid>> Read()
     {
         var targets = new Dictionary<(CaptureSourceKind Kind, string Target), HashSet<Guid>>();
 
-        try
+        // A corrupt or unreachable ledger must never stop the app from opening.
+        // What it costs is a first look at every target again.
+        if (_file.Load() is not { } dto) return targets;
+
+        foreach (var target in dto.Targets)
         {
-            if (!File.Exists(_path)) return targets;
+            // A kind nobody can read is dropped rather than guessed at.
+            if (!CaptureSourceKinds.TryParse(target.Kind, out var kind)) continue;
+            if (string.IsNullOrWhiteSpace(target.Target)) continue;
 
-            var dto = JsonSerializer.Deserialize<LedgerDto>(File.ReadAllText(_path), JsonOptions);
-            if (dto is null) return targets;
-
-            foreach (var target in dto.Targets)
-            {
-                // A kind nobody can read is dropped rather than guessed at.
-                if (!CaptureSourceKinds.TryParse(target.Kind, out var kind)) continue;
-                if (string.IsNullOrWhiteSpace(target.Target)) continue;
-
-                targets[Key(kind, target.Target)] = [.. target.PassedOver];
-            }
-
-            return targets;
+            targets[Key(kind, target.Target)] = [.. target.PassedOver];
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            // A corrupt or unreachable ledger must never stop the app from
-            // opening. What it costs is a first look at every target again.
-            return [];
-        }
+
+        return targets;
     }
 
     private sealed class LedgerDto

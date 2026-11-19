@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -37,10 +38,7 @@ internal sealed class StampedJsonFile
 
     /// <summary>The per-user location of a file named <paramref name="fileName"/>.</summary>
     public static string DefaultPath(string fileName) =>
-        System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog",
-            fileName);
+        AppDataPaths.Shared(fileName);
 
     public string Path { get; }
 
