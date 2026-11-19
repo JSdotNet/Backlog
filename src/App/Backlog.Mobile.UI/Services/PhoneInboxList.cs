@@ -24,8 +24,14 @@ public enum PhoneInboxKind
 }
 
 /// <summary>One of this phone's captures: what the service has, or a capture still in
-/// the outbox — in which case <paramref name="Pending"/> is its entry.</summary>
-public sealed record PhoneCaptureRow(InboxItem Item, OutboxEntry? Pending);
+/// the outbox — in which case <paramref name="Pending"/> is its entry — with the phone's
+/// own edits laid over it. <paramref name="Change"/> is the newest edit or Delete of it
+/// still on its way.</summary>
+public sealed record PhoneCaptureRow(InboxItem Item, OutboxEntry? Pending, OutboxEntry? Change = null)
+{
+    /// <summary>What the row is waiting for: the capture itself, else a change to it.</summary>
+    public OutboxEntry? Waiting => Pending ?? Change;
+}
 
 /// <summary>One row of the phone Inbox: a capture or a note row, never both.</summary>
 public sealed record PhoneInboxRow

@@ -26,7 +26,7 @@ Optional cloud sync carries this state between a person's devices. Every kind ri
 | State | Travels as | Reconciled by | Decision |
 |---|---|---|---|
 | Task aggregate | a task document in the `tasks` container | [last-write-wins](12-glossary.md#terms), whole document ([Task Sync](#task-sync)) | local ADR 0005 |
-| Phone capture | kind `capture` in `tasks` | the desktop takes it into the Inbox and acknowledges it by tombstone | local ADR 0009 |
+| Phone capture | kind `capture` in `tasks` | the desktop takes it into the Inbox and acknowledges it by tombstone; a tombstone beats a live copy whatever the stamps | local ADR 0009 |
 | Note | kind `note` in `tasks` | the later edit wins, in both directions | local ADR 0025 |
 | Roadmap plan | kind `roadmap-plan` in `tasks` | last-write-wins on `roadmap_plan.updated_at` | local ADR 0018 |
 | Planning pace and working week | kind `planning-pace` in `tasks`, with a `workingWeek` key | last-write-wins | local ADRs 0018 and 0019 |

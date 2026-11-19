@@ -111,11 +111,13 @@ public sealed class TaskReplicaMergeCaptureTests
     }
 
     /// <summary>A capture the Inbox took is in the log as received; one it took
-    /// back is there too, marked withdrawn; one it already knew is not, because
+    /// back is there too, marked withdrawn; one whose rewording it took, marked
+    /// edited; one it already knew is not, because
     /// nothing changed here and the log is a record of what did.</summary>
     [Theory]
     [InlineData(InboxIntakeOutcome.Received, null)]
     [InlineData(InboxIntakeOutcome.Withdrawn, "withdrawn")]
+    [InlineData(InboxIntakeOutcome.Updated, "edited")]
     public async Task A_capture_the_inbox_wrote_is_recorded_as_received(InboxIntakeOutcome answer, string? note)
     {
         var inbox = new RecordingInboxIntake { Answer = answer };

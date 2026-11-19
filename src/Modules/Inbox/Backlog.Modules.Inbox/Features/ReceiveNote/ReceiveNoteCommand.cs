@@ -110,7 +110,7 @@ public sealed class ReceiveNoteCommandHandler(
                         note.Id,
                         string.IsNullOrWhiteSpace(note.Title) ? deleted?.Title ?? "Note" : note.Title,
                         note.CapturedAt,
-                        now > note.UpdatedAt ? now : note.UpdatedAt.AddTicks(1),
+                        InboxStamps.After(now, note.UpdatedAt),
                         InboxEnumMap.NoteKind),
                     cancellationToken).ConfigureAwait(false);
             }

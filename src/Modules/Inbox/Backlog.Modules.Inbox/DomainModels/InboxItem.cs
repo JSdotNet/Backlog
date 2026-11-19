@@ -118,11 +118,13 @@ public sealed class InboxItem
     public Guid Id { get; }
 
     /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/> and <see cref="ContentKind.Meeting"/>,
-    /// whose title the person may change with <see cref="EditNote"/>.</summary>
+    /// whose title the person may change with <see cref="EditNote"/> — except that
+    /// the phone may reword an open replica capture it still offers
+    /// (<see cref="ApplyCaptureEdit"/>).</summary>
     public string Title { get; private set; }
 
     /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/> and <see cref="ContentKind.Meeting"/>,
-    /// as <see cref="Title"/> is.</summary>
+    /// as <see cref="Title"/> is, with the same exception.</summary>
     public string BodyMd { get; private set; }
 
     /// <summary>Invariant: preserved unchanged from capture.</summary>
@@ -210,14 +212,18 @@ public sealed class InboxItem
     public bool DuplicateOfTask { get; private set; }
 
     /// <summary>
-    /// The note's own last-write-wins stamp: when its title, body or files last
-    /// changed, or when it was archived or deleted. It is the <c>updated_at</c> a
-    /// note document carries on the task feed
-    /// (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>). Kept apart from
-    /// <see cref="UpdatedAt"/>, which every mutator restamps (filing, tagging, a
-    /// file arriving): a note pushed for such a change would carry a stamp later
-    /// than an edit the phone made meanwhile, and overwrite it with the old text.
-    /// Kept on every item; only a note's is read.
+    /// When the item's title or body last changed, as the replica orders versions —
+    /// the stamp a phone's copy is compared against. For a note it is the note's own
+    /// last-write-wins stamp, moved by an edit, a file change, an archive or a
+    /// delete: the <c>updated_at</c> a note document carries on the task feed
+    /// (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>). For a replica
+    /// capture it is the stamp of the copy last taken, on the service's clock, which
+    /// <see cref="ApplyCaptureEdit"/> compares a phone's rewording against.
+    /// Kept apart from <see cref="UpdatedAt"/>, which every mutator restamps
+    /// (filing, tagging, a file arriving): a stamp moved by such a change would hide
+    /// a phone edit made before it, or push a note over the phone's later text. So
+    /// no mutator but those named here may move it. Kept on every item; a note's
+    /// and a replica capture's are read.
     /// </summary>
     public DateTimeOffset EditedAt { get; private set; }
 
@@ -843,6 +849,44 @@ public sealed class InboxItem
     }
 
     /// <summary>
+    /// Takes the phone's rewording of a capture it still offers, pulled from the
+    /// replica, when it is the later copy: its stamp after <see cref="EditedAt"/>.
+    /// Answers whether it changed anything: a later copy with the same words —
+    /// the service restamped it without a rewording, a retried push, a file added —
+    /// changes nothing and answers false, so no edit is reported that the person
+    /// never made.
+    /// <para>
+    /// Only the title and body move. What the capture was —
+    /// <see cref="CapturedAt"/>, <see cref="SourceUrl"/> — never changes, and what
+    /// this desktop set on the item — kind, tags, list — is the desktop's, so the
+    /// phone's copy does not reach it. Only while the item is open and replica
+    /// backed: a decided item has had its decision, and its tombstone settles the
+    /// phone's copy on the replica; an item with no replica behind it has no phone
+    /// that could have edited it. The stamp is the service's, and this desktop
+    /// pushes nothing back, so nothing is owed.
+    /// </para>
+    /// <para>
+    /// A note or a meeting is refused: each syncs both ways through <see cref="ApplyNote"/>.
+    /// </para>
+    /// </summary>
+    public bool ApplyCaptureEdit(string title, string? bodyMd, DateTimeOffset editedAt)
+    {
+        if (IsNote) throw new InvalidInboxTransitionException(Status, "edited as a capture");
+        if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Title is required.", nameof(title));
+        if (!ReplicaBacked || !IsOpen || editedAt <= EditedAt) return false;
+
+        var collapsed = Collapse(title);
+        var body = bodyMd?.Trim() ?? string.Empty;
+        if (collapsed == Title && body == BodyMd) return false;
+
+        Title = collapsed;
+        BodyMd = body;
+        EditedAt = editedAt;
+        Touch();
+        return true;
+    }
+
+    /// <summary>
     /// The phone edited a note this desktop has already archived. The archive
     /// stands, because a note stops syncing when the desktop archives it, so its
     /// tombstone is owed again, stamped now and so later than the phone's edit.
@@ -868,10 +912,11 @@ public sealed class InboxItem
         Touch();
     }
 
-    /// <summary>Stamps a note that arrived from the phone with the phone's own
-    /// stamp rather than the moment it landed here, so the copy is pushed back
-    /// under the stamp the replica already holds. Called once, right after
-    /// <see cref="FromCapture"/>.</summary>
+    /// <summary>Stamps an item that arrived from the replica — a note, or a phone
+    /// capture — with its document's stamp rather than the moment it landed here:
+    /// a note's copy is then pushed back under the stamp the replica already holds,
+    /// and a capture's later rewording is compared on the same clock. Called once,
+    /// right after <see cref="FromCapture"/>.</summary>
     public void StampEdited(DateTimeOffset editedAt) => EditedAt = editedAt;
 
     /// <summary>The outbox drained: the replica has the tombstone.</summary>
@@ -987,7 +1032,7 @@ public sealed class InboxItem
     /// behind the phone's would otherwise stamp the edit, or the archive's
     /// tombstone, older than what the replica holds, and the replica would refuse it.
     /// </summary>
-    private DateTimeOffset NextEdit(DateTimeOffset now) => now > EditedAt ? now : EditedAt.AddTicks(1);
+    private DateTimeOffset NextEdit(DateTimeOffset now) => InboxStamps.After(now, EditedAt);
 
     /// <summary>A title is one line: runs of whitespace collapse to a space.</summary>
     private static string Collapse(string title) =>

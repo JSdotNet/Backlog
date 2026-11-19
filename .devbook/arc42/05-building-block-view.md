@@ -537,7 +537,7 @@ The sheet talks to `IAppUpdateService`, shared with the desktop in `Backlog.UI.C
 
 The tabs are:
 
-- **Inbox:** one list of the phone's own captures the desktop has not taken in, each marked waiting in the outbox or sent, and every note and meeting in `note_view`, newest first and searched on the phone. Each row shows its content kind's mark, and chips filter the list to All, Captures, Notes or Meetings. The quick one-line field makes a capture; the **+** menu makes a note, or a meeting already recording. No row triages; triage stays on the desktop.
+- **Inbox:** one list of the phone's own captures the desktop has not decided, each marked waiting in the outbox or sent, and every note and meeting in `note_view`, newest first and searched on the phone. Each row shows its content kind's mark, and chips filter the list to All, Captures, Notes or Meetings. The quick one-line field makes a capture; the **+** menu makes a note, or a meeting already recording. An opened capture can be edited or deleted. No row triages; triage stays on the desktop.
 - **Notifications:** shown after Inbox once the phone holds a notification, as an icon-only tab: the bell shows, and the word is its hidden name. It shows the notifications the paired desktops published, as a list, a detail and a swipe pager. A question is answered there, each answer box dictatable through the speech transcriber. The reply leaves through the outbox as `notification-reply`.
 - **Note editor** (`/notes/new`, `/notes/{id}`) is no tab; an Inbox row opens it. A note or meeting has a title, a dictated Markdown body, and attached pictures and files. It saves a second after typing stops and is sent as outbox kind `note`. While the phone holds a knowledge event, its Event section attaches it to one, sent as outbox kind `event-attachment-request`. `/notes` has no list of its own: it opens the Inbox filtered to notes.
 - **Events:** shown once the phone holds a knowledge event. It lists the upcoming events in `event_view`, soonest first, and opens a detail that edits nothing. A Talk note the phone holds opens from it, and a Brain note shows its title only (local ADR 0050).
@@ -555,7 +555,7 @@ The local SQLite file holds no canonical task data. It holds:
 - `note_view`, a fold of the `note` documents on the same feed, notes and meetings both, with its own cursor;
 - `event_view`, a fold of the `knowledgeEvents` feed, with its cursor in `event_cursor`.
 
-Everything the phone sends leaves through the outbox, oldest first, with backoff and a park after five attempts. The entry's kind (`capture`, `note`, `task` or `event-attachment-request`) decides how it is sent; `talk-note` only drains an entry an earlier build left queued.
+Everything the phone sends leaves through the outbox, oldest first, with backoff and a park after five attempts. The entry's kind (`capture`, `capture-edit`, `capture-withdraw`, `note`, `task` or `event-attachment-request`) decides how it is sent; `talk-note` only drains an entry an earlier build left queued.
 
 A note's files, and a leftover talk note's, wait in `talk-notes/outbox/`, the attachment upload queue. Each file is uploaded before the document that names it and checkpointed into the entry, so a retry never sends one twice. A note document then goes to `POST /api/sync/tasks`, a leftover talk note's capture to `POST /api/sync/inbox`. An attachment request takes the task route too, as `.devbook/arc42/06-runtime-view.md#talk-note-attach` shows. See `.devbook/arc42/06-runtime-view.md#mobile-note-sync`, `.devbook/arc42/06-runtime-view.md#talk-note-upload`, `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push` and `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md`.
 
@@ -701,7 +701,9 @@ Captures have no container of their own. A capture is a document kind in the
 `tasks` container, and the module writes it through `ITaskReplica` (local ADR
 0009). A device posts a capture to `/api/sync/inbox`, the desktop lists the
 owner's waiting captures from the same route, and it acknowledges one with
-`POST /api/sync/inbox/{id}/ack`. The session, annotation and inbox routes sit
+`POST /api/sync/inbox/{id}/ack`. The phone rewords a waiting capture with
+`PUT /api/sync/inbox/{id}` (the EditCapture slice), and withdraws one through
+the acknowledgement route. The session, annotation and inbox routes sit
 behind the same paired-device authorization, owner-scope and replica-fault
 filters as every other sync route.
 

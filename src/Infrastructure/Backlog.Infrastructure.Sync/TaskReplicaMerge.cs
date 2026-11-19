@@ -646,7 +646,7 @@ public sealed class TaskReplicaMerge(
                 return ApplyOutcome.Unreadable;
             }
 
-            // Received and Withdrawn wrote something; AlreadyKnown and Ignored
+            // Received, Withdrawn and Updated wrote something; AlreadyKnown and Ignored
             // are the capture's echo or replay, and a replayed page writes
             // nothing — the same idempotency the task path keeps below.
             switch (outcome)
@@ -659,6 +659,12 @@ public sealed class TaskReplicaMerge(
                 case InboxIntakeOutcome.Withdrawn:
                     Moved(
                         moved, SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title, "withdrawn");
+                    return ApplyOutcome.Written;
+
+                // The phone reworded a capture still open here.
+                case InboxIntakeOutcome.Updated:
+                    Moved(
+                        moved, SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title, "edited");
                     return ApplyOutcome.Written;
 
                 default:

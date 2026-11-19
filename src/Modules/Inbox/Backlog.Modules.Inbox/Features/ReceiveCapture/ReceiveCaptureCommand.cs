@@ -22,9 +22,12 @@ public sealed record ReceiveCaptureCommand(InboxCaptureDto Capture);
 /// with the same answers, and the replica-only cases simply never arise for
 /// them because a feed sends no tombstones.
 /// <para>
-/// The four outcomes are the four combinations of "known here" and "withdrawn
-/// there". An unknown live capture becomes an item with the capture's own id.
-/// A known one arriving live again is a replay or an echo and changes nothing.
+/// Four of the outcomes are the four combinations of "known here" and "withdrawn
+/// there"; the fifth, <see cref="InboxIntakeOutcome.Updated"/>, is a known one
+/// that changed. An unknown live capture becomes an item with the capture's own id.
+/// A known one arriving live again is a replay or an echo and changes nothing
+/// — unless it is the phone's later rewording of an item still open here, whose
+/// title and body the item takes (<see cref="InboxItem.ApplyCaptureEdit"/>).
 /// A tombstone for an item still open here — unprocessed or deferred — is the
 /// phone saying it dismissed the thought, or another desktop saying it dealt
 /// with it, and the item is archived to match; <em>without</em> the outbox
@@ -111,9 +114,23 @@ public sealed class ReceiveCaptureCommandHandler(
         // capture. A replay is known already; the phone withdrawing it itself
         // leaves nothing to tell it, so the acknowledgement goes too.
         if (existing is null
-            && await items.GetDeletedCaptureAsync(capture.Id, cancellationToken).ConfigureAwait(false) is not null)
+            && await items.GetDeletedCaptureAsync(capture.Id, cancellationToken).ConfigureAwait(false) is { } deleted)
         {
-            if (!withdrawn) return InboxIntakeOutcome.AlreadyKnown;
+            if (!withdrawn)
+            {
+                // The phone reworded it before it heard of the deletion: the
+                // tombstone is owed again under a stamp after that copy, as a
+                // deleted note's is, so the copy cannot outlast the deletion.
+                if (capture.UpdatedAt >= deleted.DeletedAt)
+                {
+                    var now = clock.GetUtcNow();
+                    await items.RememberDeletedCaptureAsync(
+                        deleted with { DeletedAt = InboxStamps.After(now, capture.UpdatedAt) },
+                        cancellationToken).ConfigureAwait(false);
+                }
+
+                return InboxIntakeOutcome.AlreadyKnown;
+            }
 
             await items.ForgetDeletedCaptureAsync(capture.Id, cancellationToken).ConfigureAwait(false);
             return InboxIntakeOutcome.Withdrawn;
@@ -158,6 +175,11 @@ public sealed class ReceiveCaptureCommandHandler(
                 bodyMd,
                 capture.ReplicaBacked);
 
+            // A replica capture's text is versioned on the service's clock, so
+            // the phone's first edit is compared against the document's stamp
+            // rather than the moment this desktop heard of it.
+            if (capture.ReplicaBacked) item.StampEdited(capture.UpdatedAt);
+
             item.RecordAttachments(attachments);
             item.LoadEventFacts(EventFactsOf(capture.Event));
 
@@ -199,15 +221,22 @@ public sealed class ReceiveCaptureCommandHandler(
 
         if (!withdrawn)
         {
-            // A replay, or an item made before this build read files: record
-            // what it lacks and fetch what was never tried. Still AlreadyKnown —
-            // the capture changed nothing this machine had decided.
+            // The phone reworded a capture still open here: the later copy's
+            // title and body. Anything else — a replay, an echo, a copy of an
+            // item already decided, whose tombstone the replica takes over any
+            // live copy — leaves the item as it is.
+            var edited = !existing.IsNote
+                && !string.IsNullOrWhiteSpace(capture.Title)
+                && existing.ApplyCaptureEdit(capture.Title, capture.BodyMd, capture.UpdatedAt);
+
+            // An item made before this build read files: record what it lacks
+            // and fetch what was never tried.
             var added = existing.RecordAttachments(AttachmentsOf(capture));
             var fetched = await FetchWaitingAsync(existing, cancellationToken).ConfigureAwait(false);
 
-            if (added > 0 || fetched) await items.SaveAsync(existing, cancellationToken).ConfigureAwait(false);
+            if (edited || added > 0 || fetched) await items.SaveAsync(existing, cancellationToken).ConfigureAwait(false);
 
-            return InboxIntakeOutcome.AlreadyKnown;
+            return edited ? InboxIntakeOutcome.Updated : InboxIntakeOutcome.AlreadyKnown;
         }
 
         // Open is what a tombstone can still close: unprocessed or deferred.

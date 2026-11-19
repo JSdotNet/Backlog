@@ -11,6 +11,8 @@
 @inject SharedContentCapture SharedCapture
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
+@inject CaptureEdits Edits
+@inject CaptureDealtWithNotices DealtWith
 @implements IAsyncDisposable
 
 <PageTitle>Inbox</PageTitle>
@@ -20,9 +22,14 @@
     the captures this phone made, each with where it stands on its way to the desktop
     until the desktop takes it in, and every note and meeting the phone holds, which
     stay. Every row leads its metadata line with its kind's mark. A capture row opens
-    the whole capture and offers nothing else — no Today, Later, To note or delete:
-    triage stays on the desktop (.devbook/domain/inbox/features.md#triage-stays-on-the-desktop).
-    A note or meeting row opens it in the note editor.
+    the whole capture, where its title and notes can be reworded — saved on its own
+    once typing stops, as a note is — and the capture deleted. Both are the phone's
+    own words about its own thought, not a decision: deleting takes it off this phone
+    and archives it on the desktop, and the phone still offers no route, defer, accept
+    or archive — triage stays on the desktop
+    (.devbook/domain/inbox/features.md#triage-stays-on-the-desktop). A change the
+    desktop beat is answered with one calm line rather than lost. A note or meeting
+    row opens it in the note editor.
 
     The kind chips — All, Captures, Notes, Meetings — are one fused group with exactly
     one pressed, and one tab stop the arrows move (data-roving-buttons). The page has
@@ -33,8 +40,12 @@
 *@
 
 @{
-    // Read once per render: each read walks the outbox and copies the notes.
+    // Read once per render: each read walks the outbox, lays the phone's own edits
+    // over the captures, and copies the notes. The open sheet and a Delete's focus
+    // read the same copies.
+    _captures = null;
     var (everything, shown) = Lists();
+    _shownRows = shown;
 }
 
 <header class="inbox-heading">
@@ -72,7 +83,7 @@
    Enter does; with the field empty it is New, a menu of Note and Meeting. Its
    name follows what it will do, and only the menu mode says it opens a menu. *@
 <div class="capture">
-    <TextField @bind-Value="Draft.Text" AriaLabel="Add to inbox" Placeholder="Add to inbox…"
+    <TextField @bind-Value="Draft.Text" AriaLabel="Add to inbox" Placeholder="Add to inbox…" Id="@CaptureFieldId"
                CssClass="capture__field" TestId="capture-field" @onkeydown="OnFieldKeyDownAsync" />
     <IconButton AriaLabel="@PlusLabel" Title="@PlusLabel" OnClick="OnPlusAsync"
                 CssClass="capture__add" TestId="capture-submit" id="@PlusId"
@@ -105,6 +116,15 @@
 else if (_notesNotice is not null)
 {
     <Alert Message="@_notesNotice" Role="status" BaseClass="capture__notice" TestId="notes-pull-notice" />
+}
+
+@if (DealtWith.Captures.Count > 0)
+{
+    @* Conflict handling (interaction-guidelines.md): the desktop decided the
+       capture before the phone's change reached it. Nothing to retry — the
+       desktop's decision stands — but the change is not dropped without a word. *@
+    <Alert Message="@DealtWithLine" Role="status" BaseClass="capture__notice"
+           ActionLabel="OK" OnAction="DealtWith.Clear" TestId="inbox-dealt-with" />
 }
 
 @if (everything.Count > 0)
@@ -155,9 +175,9 @@ else if (_notesNotice is not null)
 
                         <CaptureRow Title="@item.Title" Kind="@CaptureKindGuess.Of(item.Title, item.BodyMd)"
                                     Time="@Ago(item.CapturedAt)" Preview="@PreviewLine(item.BodyMd)"
-                                    State="StateOf(capture)" StuckReason="@capture.Pending?.LastError"
+                                    State="StateOf(capture)" StuckReason="@capture.Waiting?.LastError"
                                     Id="@RowId(item.Id)" OnOpen="() => Open(capture)"
-                                    OnRetry="() => RetryAsync(item.Id)" TestId="inbox-row" />
+                                    OnRetry="() => RetryAsync(capture)" TestId="inbox-row" />
                     }
                     else if (row.Note is { } note)
                     {
@@ -173,51 +193,86 @@ else if (_notesNotice is not null)
 
 <DetailSheet Open="_selected is not null" OpenChanged="OnSheetOpenChanged"
              Kicker="@(_selected is null ? null : $"Captured {Ago(_selected.Item.CapturedAt)}")"
-             Title="@_selected?.Item.Title" AriaLabel="Capture" CloseLabel="Close capture"
+             Title="@SelectedRow?.Item.Title" AriaLabel="Capture" CloseLabel="Close capture"
              RestoreFocusToId="@(_selected is null ? null : RowId(_selected.Item.Id))"
+             Dismissible="@(!_confirmingDelete)" BeforeClose="CanCloseSheetAsync"
              CssClass="inbox-sheet" TestId="inbox-sheet">
-    @if (_selected is { Item: var shownItem })
-    {
-        @if (!string.IsNullOrWhiteSpace(shownItem.BodyMd))
+    <ChildContent>
+        @if (SelectedRow is { Item: var shownItem } selectedRow)
         {
-            <div class="inbox-sheet__body" data-testid="inbox-sheet-body">
-                <MarkdownView Blocks="@MarkdownPreview.ParseDocument(shownItem.BodyMd)" Source="@shownItem.BodyMd" />
+            @* The capture's own words, editable as a note's are and saved the same
+               way: once typing stops, and when the field or the sheet is left. *@
+            <div class="inbox-sheet__editor">
+                <TextField Value="@_editTitle" ValueChanged="OnEditTitleChanged" Label="Title"
+                           @onblur="FlushAsync" TestId="inbox-sheet-title" />
+                <TextArea Value="@_editNotes" ValueChanged="OnEditNotesChanged" Label="Notes"
+                          Placeholder="Add notes — Markdown works" Rows="6"
+                          @onblur="FlushAsync" TestId="inbox-sheet-notes" />
+                <SaveIndicator State="_saveState" SavedText="@(selectedRow.Waiting is null ? "Saved" : "Waiting to sync")"
+                               FailedText="Not saved" CssClass="inbox-sheet__save" TestId="inbox-sheet-saved" />
+
+                @if (_saveState == SaveState.Failed)
+                {
+                    @* Kept on screen, and the sheet with it, as the Notes editor keeps a
+                       failed save: closing now would lose the words without a word. *@
+                    <Alert Message="@_saveFailure" ActionLabel="@(_titleMissing ? null : "Try again")"
+                           OnAction="FlushAsync" TestId="inbox-sheet-unsaved" />
+                    <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" OnClick="DiscardEdit"
+                               TestId="inbox-sheet-discard">Discard changes</AppButton>
+                }
             </div>
+
+            <dl class="inbox-sheet__facts">
+                <dt>Source</dt>
+                <dd data-testid="inbox-sheet-source">@(string.IsNullOrWhiteSpace(shownItem.Source) ? "—" : shownItem.Source)</dd>
+
+                @if (!string.IsNullOrWhiteSpace(shownItem.Person))
+                {
+                    <dt>Person</dt>
+                    <dd data-testid="inbox-sheet-person">@("@" + shownItem.Person)</dd>
+                }
+
+                @if (shownItem.Tags is { Count: > 0 } tags)
+                {
+                    <dt>Tags</dt>
+                    <dd class="inbox-sheet__tags" data-testid="inbox-sheet-tags">
+                        @foreach (var tag in tags)
+                        {
+                            <TagChip Text="@tag.TrimStart('#')" />
+                        }
+                    </dd>
+                }
+
+                @if (selectedRow.Waiting is { } pending)
+                {
+                    <dt>Sync</dt>
+                    <dd data-testid="inbox-sheet-sync">
+                        @(pending.IsParked ? $"Waiting — {pending.LastError}" : "Waiting to be sent")
+                    </dd>
+                }
+            </dl>
         }
-
-        <dl class="inbox-sheet__facts">
-            <dt>Source</dt>
-            <dd data-testid="inbox-sheet-source">@(string.IsNullOrWhiteSpace(shownItem.Source) ? "—" : shownItem.Source)</dd>
-
-            @if (!string.IsNullOrWhiteSpace(shownItem.Person))
-            {
-                <dt>Person</dt>
-                <dd data-testid="inbox-sheet-person">@("@" + shownItem.Person)</dd>
-            }
-
-            @if (shownItem.Tags is { Count: > 0 } tags)
-            {
-                <dt>Tags</dt>
-                <dd class="inbox-sheet__tags" data-testid="inbox-sheet-tags">
-                    @foreach (var tag in tags)
-                    {
-                        <TagChip Text="@tag.TrimStart('#')" />
-                    }
-                </dd>
-            }
-
-            @if (_selected.Pending is { } pending)
-            {
-                <dt>Sync</dt>
-                <dd data-testid="inbox-sheet-sync">
-                    @(pending.IsParked ? $"Waiting — {pending.LastError}" : "Waiting to be sent")
-                </dd>
-            }
-        </dl>
-    }
+    </ChildContent>
+    <Footer>
+        @if (_selected is not null)
+        {
+            <AppButton Variant="ButtonVariant.Danger" OnClick="AskToDelete" TestId="inbox-sheet-delete">Delete</AppButton>
+        }
+    </Footer>
 </DetailSheet>
 
+<ConfirmDialog Open="_confirmingDelete" OpenChanged="open => _confirmingDelete = open"
+               Title="Delete this capture?"
+               Message="Removes it from this phone and archives it on the desktop."
+               ConfirmText="Delete" Destructive="true"
+               OnConfirm="DeleteAsync"
+               TestId="inbox-delete-confirm" ConfirmTestId="inbox-delete-confirm-yes" CancelTestId="inbox-delete-confirm-no" />
+
 @code {
+    /// <summary>How long typing in the sheet has to stop for before the edit is
+    /// kept — the Notes editor's wait (<see cref="NotePage.SaveDelay"/>).</summary>
+    public static TimeSpan SaveDelay => NotePage.SaveDelay;
+
     /// <summary>One kind chip: the filter it sets, its slug in the test id and the
     /// <c>?kind=</c> address, and its word.</summary>
     private sealed record Chip(PhoneInboxFilter Filter, string Slug, string Label);
@@ -284,6 +339,47 @@ else if (_notesNotice is not null)
     private readonly Dictionary<Guid, (InboxItem Item, long Delivery)> _delivered = [];
     private long _deliveries;
 
+    /// <summary>
+    /// Edits and Deletes the outbox has delivered that no pull asked for since,
+    /// with the delivery's number, kept for the reason <see cref="_delivered"/> is:
+    /// until a pull that began after them answers, the list the phone holds is
+    /// older than they are, and without them a reworded row would read its old
+    /// words and a deleted one would come back.
+    /// </summary>
+    private readonly List<(OutboxEntry Entry, long Delivery)> _settled = [];
+
+    /// <summary>The sheet's fields: the capture's title and notes as the person is
+    /// writing them.</summary>
+    private string _editTitle = string.Empty;
+    private string _editNotes = string.Empty;
+    private bool _dirty;
+    private ITimer? _debounce;
+    private SaveState _saveState = SaveState.Idle;
+    private string _saveFailure = "Couldn't keep the change.";
+    private bool _titleMissing;
+    private bool _confirmingDelete;
+    private bool _disposed;
+
+    /// <summary>One save at a time, as the Notes editor's: a blur during a save
+    /// waits for it rather than starting a second against the same outbox, and a
+    /// Delete waits for it so the edit is in the outbox before the Delete looks.</summary>
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
+
+    /// <summary>Moves on whenever the sheet turns to another capture or deletes
+    /// this one, so a save that finishes for the capture before leaves this one's
+    /// state alone.</summary>
+    private int _generation;
+
+    /// <summary>Where the focus goes after a Delete: the capture row that took the
+    /// deleted one's place, or the capture field when none is left.</summary>
+    private string? _focusAfterDelete;
+
+    /// <summary>This render's captures, overlays laid on, and the rows it drew.</summary>
+    private IReadOnlyList<PhoneCaptureRow>? _captures;
+    private IReadOnlyList<PhoneInboxRow> _shownRows = [];
+
+    private const string CaptureFieldId = "inbox-capture-field";
+
     private ElementReference _listElement;
     private IJSObjectReference? _pullModule;
     private IJSObjectReference? _pullGesture;
@@ -306,22 +402,49 @@ else if (_notesNotice is not null)
     /// the outbox's. One the outbox has delivered is shown as delivered, whether or
     /// not a pull has brought it back yet.
     /// </summary>
-    private IReadOnlyList<PhoneCaptureRow> Captures
+    /// <para>
+    /// The phone's own edits and Deletes are laid over every capture
+    /// (<see cref="CaptureEdits.Overlay"/>): a reworded capture reads its new words
+    /// at once and a deleted one leaves the list at once, whether or not the change
+    /// has reached the service — and, until a pull catches up, after it has.
+    /// </para>
+    private IReadOnlyList<PhoneCaptureRow> Captures => _captures ??= BuildCaptures();
+
+    private IReadOnlyList<PhoneCaptureRow> BuildCaptures()
     {
-        get
-        {
-            var pending = Outbox.Entries
-                .Where(IsCapture)
-                .Select(entry => new PhoneCaptureRow(ItemOf(entry), entry))
-                .ToList();
+        var outbox = Outbox.Entries;
+        IReadOnlyList<OutboxEntry> changes = [.. _settled.Select(settled => settled.Entry), .. outbox];
 
-            var shown = pending.Select(row => row.Item.Id).ToHashSet();
-            var pulled = (_items ?? []).Where(IsThisPhones).Where(item => shown.Add(item.Id)).Select(item => new PhoneCaptureRow(item, null)).ToList();
-            var delivered = _delivered.Values.Where(sent => shown.Add(sent.Item.Id)).Select(sent => new PhoneCaptureRow(sent.Item, null));
+        var pending = outbox
+            .Where(IsCapture)
+            .Select(entry => new PhoneCaptureRow(ItemOf(entry), entry))
+            .ToList();
 
-            return [.. pending.Concat(pulled).Concat(delivered)];
-        }
+        var shown = pending.Select(row => row.Item.Id).ToHashSet();
+        var pulled = (_items ?? []).Where(IsThisPhones).Where(item => shown.Add(item.Id)).Select(item => new PhoneCaptureRow(item, null)).ToList();
+        var delivered = _delivered.Values.Where(sent => shown.Add(sent.Item.Id)).Select(sent => new PhoneCaptureRow(sent.Item, null));
+
+        return
+        [
+            .. pending
+                .Concat(pulled)
+                .Concat(delivered)
+                .Select(row => CaptureEdits.Overlay(row.Item, changes) is { } item
+                    ? row with { Item = item, Change = CaptureEdits.WaitingChange(item.Id, outbox) }
+                    : null)
+                .OfType<PhoneCaptureRow>()
+        ];
     }
+
+    /// <summary>The open capture as the list now has it — reworded — or the row it
+    /// was opened from when the list no longer holds it.</summary>
+    private PhoneCaptureRow? SelectedRow => _selected is { } selected
+        ? Captures.FirstOrDefault(row => row.Item.Id == selected.Item.Id) ?? selected
+        : null;
+
+    private string DealtWithLine => DealtWith.Captures.Count == 1
+        ? "The desktop had already dealt with that capture, so the change wasn't needed."
+        : $"The desktop had already dealt with {DealtWith.Captures.Count} of these captures, so the changes weren't needed.";
 
     /// <summary>
     /// The service answers with every capture the desktop has not taken in yet,
@@ -339,7 +462,7 @@ else if (_notesNotice is not null)
         var n => $"{n} items to sort"
     };
 
-    private static CaptureSyncState StateOf(PhoneCaptureRow row) => row.Pending switch
+    private static CaptureSyncState StateOf(PhoneCaptureRow row) => row.Waiting switch
     {
         null => CaptureSyncState.Sent,
         { IsParked: true } => CaptureSyncState.Stuck,
@@ -376,6 +499,8 @@ else if (_notesNotice is not null)
         Outbox.Delivered += OnDelivered;
         Notes.Changed += OnNotesChanged;
         Lifecycle.Resumed += OnResumed;
+        Lifecycle.Paused += OnPaused;
+        DealtWith.Changed += OnDealtWithChanged;
 
         if (Store.ReadInbox() is { } cached)
         {
@@ -405,6 +530,24 @@ else if (_notesNotice is not null)
         Outbox.Delivered -= OnDelivered;
         Notes.Changed -= OnNotesChanged;
         Lifecycle.Resumed -= OnResumed;
+        Lifecycle.Paused -= OnPaused;
+        DealtWith.Changed -= OnDealtWithChanged;
+
+        // An edit typed just before leaving is still the person's: the wait is cut
+        // short and it is kept, as the Notes editor keeps one.
+        _disposed = true;
+        _debounce?.Dispose();
+        _debounce = null;
+
+        // Leaving the page is a way out the sheet's close does not guard. A blank
+        // title cannot be kept, but the notes typed with it can: under the title the
+        // capture last had, so nothing typed is dropped on the way out.
+        if (_dirty && _editTitle.Trim().Length == 0 && _selected is { } leaving)
+        {
+            _editTitle = (SelectedRow ?? leaving).Item.Title;
+        }
+
+        if (_dirty) await SaveAsync();
 
         try
         {
@@ -497,6 +640,22 @@ else if (_notesNotice is not null)
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_focusAfterDelete is { } target)
+        {
+            _focusAfterDelete = null;
+
+            try
+            {
+                // Only a focus that is lost: the sheet and the dialog both hand it
+                // back to what they were opened from, and after a Delete neither is
+                // there to take it.
+                await Js.InvokeVoidAsync("backlogFocusIfLost", target, ".inbox-sheet");
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+            {
+            }
+        }
+
         if (!firstRender) return;
 
         await AttachPullGestureAsync();
@@ -534,8 +693,19 @@ else if (_notesNotice is not null)
     private void OnDelivered(OutboxEntry entry) => _ = InvokeAsync(() =>
     {
         if (IsCapture(entry)) _delivered[entry.Id] = (ItemOf(entry), ++_deliveries);
+        if (IsChange(entry)) _settled.Add((entry, ++_deliveries));
         StateHasChanged();
         return RefreshAsync();
+    });
+
+    /// <summary>The desktop had already dealt with a capture this phone changed.
+    /// When it is the one open in the sheet, nothing is left on this phone to save
+    /// — any further edit would be answered the same — so the sheet closes and the
+    /// calm line above the list says why, rather than an old header over "Saved".</summary>
+    private void OnDealtWithChanged() => _ = InvokeAsync(() =>
+    {
+        if (_selected is { } open && DealtWith.Captures.Contains(open.Item.Id)) Release();
+        StateHasChanged();
     });
 
     /// <summary>
@@ -598,6 +768,8 @@ else if (_notesNotice is not null)
                 if (sent.Delivery <= asked) _delivered.Remove(id);
             }
 
+            _settled.RemoveAll(settled => settled.Delivery <= asked);
+
             await Store.SaveInboxAsync(new CachedInbox(items, now));
             Status.RecordSynced();
         }
@@ -655,13 +827,219 @@ else if (_notesNotice is not null)
         SharedCapture.ClearStatus();
     }
 
-    private Task RetryAsync(Guid id) => Outbox.RetryAsync(id);
+    private Task RetryAsync(PhoneCaptureRow row) => row.Waiting is { } waiting ? Outbox.RetryAsync(waiting.Id) : Task.CompletedTask;
 
-    private void Open(PhoneCaptureRow row) => _selected = row;
+    private static bool IsChange(OutboxEntry entry) =>
+        entry.Kind is CaptureEditOutboxKind.Token or CaptureWithdrawOutboxKind.Token;
+
+    private void Open(PhoneCaptureRow row)
+    {
+        _generation++;
+        _debounce?.Dispose();
+        _debounce = null;
+        _titleMissing = false;
+        _selected = row;
+        _editTitle = row.Item.Title;
+        _editNotes = row.Item.BodyMd ?? string.Empty;
+        _dirty = false;
+        _saveState = SaveState.Idle;
+    }
+
+    /// <summary>
+    /// Asked before the sheet closes, however it is closed: what was typed is kept
+    /// first, and the sheet stays open — with the reason, and a way to try again or
+    /// discard — when it could not be, so no edit is lost with the sheet.
+    /// </summary>
+    private async Task<bool> CanCloseSheetAsync()
+    {
+        // A save already writing — the field's blur fires before the close — has
+        // cleared the dirty mark before it knows whether it kept anything. Waited for
+        // first, so a failure of that save is seen here and keeps the sheet open.
+        await _saveGate.WaitAsync();
+        _saveGate.Release();
+
+        await FlushAsync();
+        return !_dirty;
+    }
 
     private void OnSheetOpenChanged(bool open)
     {
         if (!open) _selected = null;
+    }
+
+    /// <summary>The person gives up the edit that could not be kept, which is the
+    /// way out they asked for: the sheet closes, and the capture keeps the words it
+    /// had.</summary>
+    private void DiscardEdit() => Release();
+
+    /// <summary>Lets the open capture go with nothing left to keep: the wait and the
+    /// unsaved mark are dropped, the generation moves on so a save still finishing
+    /// for it leaves the next sheet alone, and the sheet closes.</summary>
+    private void Release()
+    {
+        _debounce?.Dispose();
+        _debounce = null;
+        _generation++;
+        _dirty = false;
+        _titleMissing = false;
+        _saveState = SaveState.Idle;
+        _selected = null;
+    }
+
+    private void OnEditTitleChanged(string value)
+    {
+        _editTitle = value ?? string.Empty;
+        ScheduleSave();
+    }
+
+    private void OnEditNotesChanged(string value)
+    {
+        _editNotes = value ?? string.Empty;
+        ScheduleSave();
+    }
+
+    /// <summary>Restarts the wait on every keystroke: the edit is kept once typing
+    /// has stopped for <see cref="SaveDelay"/>, as the Notes editor's is.</summary>
+    private void ScheduleSave()
+    {
+        _dirty = true;
+        _saveState = SaveState.Saving;
+        if (_disposed) return;
+
+        _debounce?.Dispose();
+        _debounce = Clock.CreateTimer(_ => _ = InvokeAsync(SaveAsync), null, SaveDelay, Timeout.InfiniteTimeSpan);
+    }
+
+    /// <summary>The app is going to the background, where the OS may end it before
+    /// the wait is up: the edit is kept now.</summary>
+    private void OnPaused()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(FlushAsync);
+    }
+
+    private Task FlushAsync()
+    {
+        if (!_dirty) return Task.CompletedTask;
+
+        _debounce?.Dispose();
+        _debounce = null;
+        return SaveAsync();
+    }
+
+    /// <summary>
+    /// Keeps the edit as it stands, through the outbox: rewritten where the capture
+    /// still waits, queued behind it otherwise (<see cref="CaptureEdits"/>). A
+    /// capture cannot be without a title, so a blank one is not kept and the sheet
+    /// says so; the capture keeps its last title until one is typed.
+    /// </summary>
+    private async Task SaveAsync()
+    {
+        await _saveGate.WaitAsync();
+        var generation = _generation;
+
+        try
+        {
+            if (!_dirty || _selected is not { } selected) return;
+
+            var title = _editTitle.Trim();
+            if (title.Length == 0)
+            {
+                // Still dirty: the words are kept here until there is a title, and
+                // the sheet will not close on them.
+                _titleMissing = true;
+                _saveFailure = "A capture needs a title. Type one to keep these changes, or discard them.";
+                _saveState = SaveState.Failed;
+                return;
+            }
+
+            _dirty = false;
+            var notes = string.IsNullOrWhiteSpace(_editNotes) ? null : _editNotes.Trim();
+
+            try
+            {
+                await Edits.EditAsync(selected.Item.Id, title, notes);
+
+                if (generation == _generation)
+                {
+                    _titleMissing = false;
+                    _saveState = _dirty ? SaveState.Saving : SaveState.Saved;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                if (generation == _generation)
+                {
+                    _dirty = true;
+                    _titleMissing = false;
+                    _saveFailure = $"Couldn't keep the change: {ex.Message}";
+                    _saveState = SaveState.Failed;
+                }
+            }
+        }
+        finally
+        {
+            _saveGate.Release();
+            if (!_disposed) StateHasChanged();
+        }
+    }
+
+    private void AskToDelete() => _confirmingDelete = true;
+
+    /// <summary>
+    /// Deletes the open capture: out of the outbox if it has not left, otherwise a
+    /// Delete queued for the service, which the desktop reads as the capture
+    /// dismissed and archives. The row leaves the list at once either way, and
+    /// anything still being typed goes with it.
+    /// </summary>
+    private async Task DeleteAsync()
+    {
+        if (_selected is not { } selected) return;
+
+        _debounce?.Dispose();
+        _debounce = null;
+
+        // A save already under way finishes first, so its edit is in the outbox when
+        // the Delete looks — and is dropped with the capture, not sent after it.
+        await _saveGate.WaitAsync();
+
+        try
+        {
+            var next = FocusAfterDelete(selected.Item.Id);
+
+            await Edits.WithdrawAsync(selected.Item.Id);
+
+            // Only now: had the Delete failed, the words typed would still be the
+            // person's, and kept when the sheet closes.
+            _generation++;
+            _dirty = false;
+            _titleMissing = false;
+            _saveState = SaveState.Idle;
+            _confirmingDelete = false;
+            _selected = null;
+            _focusAfterDelete = next;
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
+    }
+
+    /// <summary>The capture row that will stand nearest where <paramref name="deleted"/>
+    /// stood on screen — the next one down, else the one above — or the capture field
+    /// when no capture row is left. A note or meeting row between is passed over: its
+    /// row is a link to the editor, with no id of its own to take the focus.</summary>
+    private string FocusAfterDelete(Guid deleted)
+    {
+        var rows = _shownRows;
+        var index = rows.ToList().FindIndex(row => row.Id == deleted);
+        if (index < 0) return CaptureFieldId;
+
+        var next = rows.Skip(index + 1).FirstOrDefault(row => row.Capture is not null)
+            ?? rows.Take(index).LastOrDefault(row => row.Capture is not null);
+
+        return next is null ? CaptureFieldId : RowId(next.Id);
     }
 
     private string Ago(DateTimeOffset at) => SyncStatusLine.Relative(Clock.GetUtcNow() - at);
