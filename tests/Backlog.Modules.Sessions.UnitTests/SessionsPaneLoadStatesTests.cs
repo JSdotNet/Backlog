@@ -169,9 +169,10 @@ public sealed class SessionsPaneLoadStatesTests
 
         // The keeper answers on the pool and the pane asks for its read back on the
         // dispatcher, which no render reports while the Refresh is held — so wait for
-        // the keeper, then give the continuation its turn before the Refresh lands.
+        // the keeper, then for its continuation to have queued a read behind the held
+        // Refresh, which no markup shows either.
         Assert.True(SpinWait.SpinUntil(() => keeper.Everything > 0, TimeSpan.FromSeconds(5)));
-        Thread.Sleep(200);
+        Assert.True(SpinWait.SpinUntil(() => ReadQueued(pane.Instance), TimeSpan.FromSeconds(5)));
         Assert.Equal(2, sessions.Reads);
 
         gate.SetResult();
@@ -211,6 +212,13 @@ public sealed class SessionsPaneLoadStatesTests
             Assert.Null(update.GetAttribute("aria-disabled"));
         });
     }
+
+    /// <summary>Whether the pane has a read queued behind the one in flight — its
+    /// private <c>_readAgain</c>, the one trace the queued read leaves before it runs.</summary>
+    private static bool ReadQueued(SessionsPane pane) =>
+        (bool)(typeof(SessionsPane).GetField("_readAgain", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("SessionsPane no longer has a _readAgain field; this wait needs the queued-read flag it renamed."))
+            .GetValue(pane)!;
 
     private static BunitContext Context(IAgentSessionSource sessions, IDeliveryRunSource runs)
     {

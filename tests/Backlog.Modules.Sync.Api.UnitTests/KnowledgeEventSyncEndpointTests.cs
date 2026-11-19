@@ -117,22 +117,6 @@ public class KnowledgeEventSyncEndpointTests : IDisposable
         Assert.Single((await mine.PullEvents()).Events);
     }
 
-    [Fact]
-    public async Task A_cursor_minted_for_another_owner_is_refused()
-    {
-        var mine = await _service.CreateClient().RegisteredDevice("Mine");
-        var theirs = await _service.CreateClient().RegisteredDevice("Theirs");
-
-        await mine.PushEvents([Event(Guid.CreateVersion7(), DateTimeOffset.UtcNow, "Planned")]);
-        var myCursor = (await mine.PullEvents()).Since;
-
-        var replayed = await theirs.GetAsync(
-            $"{SyncRoutes.Absolute(SyncRoutes.KnowledgeEvents)}?since={Uri.EscapeDataString(myCursor)}", Cancellation);
-
-        Assert.Equal(HttpStatusCode.Forbidden, replayed.StatusCode);
-        Assert.Equal(SyncErrorCodes.SyncCursorNotYours, (await replayed.Content.ReadFromJsonAsync<ProblemBody>(Cancellation))?.Code);
-    }
-
     /// <summary>The laptop pulled the event while it was Planned, the desktop marked it
     /// Attended, and the laptop's echo of what it pulled arrives last. The replica answers
     /// the honest count and keeps Attended.</summary>

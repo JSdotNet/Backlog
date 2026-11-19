@@ -32,8 +32,14 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 /// re-send a tombstone, that a null cursor really does read the feed from the
 /// beginning - so a seam between the two would have tested neither.</para>
 /// </summary>
-public sealed class TaskSyncWorkerTests
+public sealed class TaskSyncWorkerTests : CredentialGatedSyncWorkerTests
 {
+    private protected override IGateFixture CreateUnpaired() => Fixture.Create(featureOn: true, paired: false);
+
+    private protected override TimeSpan FirstCycleDelay => TaskSyncWorker.FirstCycleDelay;
+
+    private protected override DeviceCredential PairedCredential => Paired;
+
     private static readonly DateTimeOffset Noon = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
 
     private static readonly DeviceCredential Paired = new(
@@ -82,26 +88,6 @@ public sealed class TaskSyncWorkerTests
 
         _ = fixture.Features.SetEnabled(SyncFeatures.Sync, false);
         fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
-
-        Assert.Equal(1, fixture.SessionsResolved);
-    }
-
-    /// <summary>An unpaired device has no owner to replicate under, so there is
-    /// nothing a cycle could ask for. Pairing one starts the loop without a
-    /// restart, for the reason switching the feature on does.</summary>
-    [Fact]
-    public async Task No_cycle_runs_until_a_device_credential_is_stored()
-    {
-        using var fixture = Fixture.Create(featureOn: true, paired: false);
-
-        fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
-
-        Assert.Equal(0, fixture.SessionsResolved);
-
-        var first = fixture.NextCycle();
-        fixture.Credentials.Save(Paired);
-        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
-        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, fixture.SessionsResolved);
     }
@@ -1333,7 +1319,7 @@ public sealed class TaskSyncWorkerTests
     /// "one cycle ran, not two" is written at all.
     /// </para>
     /// </summary>
-    private sealed class Fixture : IDisposable
+    private sealed class Fixture : IGateFixture
     {
         /// <summary>How long a test waits for work it has already caused before
         /// calling it a hang. Generous, because it is a bound and not a

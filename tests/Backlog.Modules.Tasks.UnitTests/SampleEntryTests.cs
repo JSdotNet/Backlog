@@ -1,7 +1,8 @@
-using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.SharedKernel.Markdown;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Tasks.UnitTests;
 
 /// <summary>
 /// The files in <c>samples/entries</c> are documentation, and documentation
@@ -203,18 +204,5 @@ public sealed class SampleEntryTests
         Assert.Null(parsed.Priority);
         Assert.Null(parsed.Status);
         Assert.Contains("retention curve", parsed.Body);
-    }
-
-    [Fact]
-    public void A_sample_written_without_a_heading_gains_one_when_it_is_saved()
-    {
-        var raw = Read("prose-only.md");
-
-        var normalized = TasksDesktopState.EnsureTitleHeading(raw);
-
-        Assert.StartsWith("# Ask whether the trial length", normalized);
-        Assert.Equal(
-            EntryTextParser.Parse(raw).Title,
-            EntryTextParser.Parse(normalized).Title);
     }
 }

@@ -1,5 +1,6 @@
+using Backlog.Modules.Tasks.Abstractions;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.Tasks.UnitTests;
 
 /// <summary>
 /// Re-ranking a sub-item is a rewrite of the entry's own text — that is the only
