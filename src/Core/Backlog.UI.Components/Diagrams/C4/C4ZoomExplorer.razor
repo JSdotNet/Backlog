@@ -61,16 +61,6 @@
     }
     else if (Surface)
     {
-        @* The surface's top row, as the design's header carries it: the overlay switch,
-           offered while the picture is up — a document or the Code level draws no
-           cards to put records on. *@
-        @if (RecordsFor is not null && Document is null && _codeFor is null)
-        {
-            <div class="c4-zoom-explorer__top" data-testid="c4-zoom-top">
-                @OverlaySwitch
-            </div>
-        }
-
         <C4ZoomBar State="@BarState" OnStep="OpenStepAsync" OnAlso="OpenAlsoAsync" TestId="c4-zoom-bar" />
 
         <div class="@SurfaceClass" data-testid="c4-zoom-surface">
@@ -173,7 +163,11 @@
             @if (Surface)
             {
                 @* The surface's view heading: its title, where it is read from and
-                   what documents it, and the − / Fit / + that size the picture. *@
+                   what documents it, then the overlay switch and the − / Fit / + that
+                   size the picture. The switch sits here rather than in a row of its
+                   own over the zoom bar, so the picture keeps that row's height; it
+                   goes with the picture, as a document or the Code level draws no
+                   cards to put records on. *@
                 <div class="c4-zoom-explorer__heading">
                     <h2 class="c4-zoom-explorer__title c4-zoom-explorer__title--surface" data-testid="c4-zoom-title">@C4Exploration.Label(Workspace, _view)</h2>
                     <p class="c4-zoom-explorer__key" data-testid="c4-zoom-key-line">
@@ -185,7 +179,14 @@
                     </p>
                 </div>
 
-                <C4ZoomScale @bind-Index="_scaleIndex" CssClass="c4-zoom-explorer__scale" />
+                <div class="c4-zoom-explorer__tools" data-testid="c4-zoom-tools">
+                    @if (RecordsFor is not null)
+                    {
+                        @OverlaySwitch
+                    }
+
+                    <C4ZoomScale @bind-Index="_scaleIndex" CssClass="c4-zoom-explorer__scale" />
+                </div>
             }
             else
             {
@@ -195,7 +196,7 @@
 
             @* The overlay switch: which records the cards carry. Offered only by a
                host with records to count, as the inspector's record sections are. On
-               the surface it is the top row's, not the view heading's. *@
+               the surface it sits beside the − / Fit / + above. *@
             @if (RecordsFor is not null && !Surface)
             {
                 @OverlaySwitch

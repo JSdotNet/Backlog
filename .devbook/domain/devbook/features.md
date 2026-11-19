@@ -533,18 +533,18 @@ shows a hint, which the reader can dismiss, naming the ways to move.
 
 **The surface.** It has four parts:
 
-- the zoom bar across the top, always there, under a top row holding the overlay
-  switch
+- the zoom bar across the top, always there
 - a left navigation, headed by a find field for elements, chapters, ADRs and TDRs,
   then the C4 views as a tree, the chapters that document the open view, and the
   decision and debt records with their counts
-- the open view, or a chapter or record opened in its place
+- the open view, headed by its title with the overlay switch and the − / Fit / +
+  beside it, or a chapter or record opened in its place
 - a right panel: the inspector, a summary of the open view while nothing is
   selected, or the panel that goes with the open chapter or record
 
 A press on the zoom bar while a chapter or record is open returns to the view. The
-top row is hidden while a chapter, a record or the Code level is open, because none
-of them draws cards to put records on.
+overlay switch is hidden while a chapter, a record or the Code level is open, because
+none of them draws cards to put records on.
 
 **With nothing selected**, the right panel sums up the open view:
 

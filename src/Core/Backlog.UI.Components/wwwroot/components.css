@@ -19485,14 +19485,40 @@ select.field__input {
     font-size: var(--font-size-xs);
 }
 
-/* The surface's top row: the overlay switch, at the end, as the design's header
-   carries it. */
-.c4-zoom-explorer__top {
+/* The surface's view heading ends on its tools: the overlay switch, then the
+   − / Fit / +. The switch used to be a row of its own over the zoom bar; here it
+   costs the picture no height. Its choices come down to the scale buttons' size. */
+.c4-zoom-explorer__tools {
     display: flex;
+    flex: 0 1 auto;
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
     gap: var(--spacing-sm);
+    margin-left: auto;
+}
+
+.c4-zoom-explorer__tools > .c4-zoom-explorer__overlay {
+    margin-left: 0;
+    padding: 2px;
+}
+
+.c4-zoom-explorer__tools .c4-zoom-explorer__overlay-choice {
+    min-height: 26px;
+}
+
+/* Under the picture, one line: the legend at the start and a problem notice at the
+   end, wrapping only when the column is too narrow for both. */
+.c4-zoom-explorer__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-2xs) var(--spacing-md);
+}
+
+.c4-zoom-explorer__foot > .app-error-message {
+    padding: 2px var(--spacing-sm);
 }
 
 @media (max-width: 60rem) {
@@ -30737,7 +30763,7 @@ button.domain-field-rules[aria-expanded="true"] {
 .c4-zoom-explorer__surface {
     display: grid;
     flex: 1 1 auto;
-    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr) minmax(16rem, 20rem);
+    grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr) minmax(15rem, 18rem);
     grid-template-rows: minmax(0, 1fr);
     gap: var(--spacing-md);
     align-items: stretch;
@@ -30749,7 +30775,7 @@ button.domain-field-rules[aria-expanded="true"] {
    level's type panel is its own right-hand column, so the explorer draws no aside. */
 .c4-zoom-explorer__surface--document,
 .c4-zoom-explorer__surface--code {
-    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+    grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr);
 }
 
 .c4-zoom-explorer__nav {

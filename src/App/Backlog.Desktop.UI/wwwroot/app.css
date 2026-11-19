@@ -12595,7 +12595,7 @@ a.pull-request-detail-checks__name:hover {
 .arc42-surface__chapters {
     display: grid;
     flex: 1 1 auto;
-    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+    grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     gap: var(--spacing-md);
     align-items: stretch;
@@ -12898,6 +12898,9 @@ a.pull-request-detail-checks__name:hover {
    must not leave the pane, and the picture with it, short of the section's foot. */
 .devbook-stack__section > .devbook-pane--arc42:has(> .arc42-surface) {
     height: 100%;
+    /* A tighter edge than the other panes: the surface's columns carry their own
+       borders, so the pane's padding is only distance the picture gives up. */
+    padding: var(--spacing-sm);
 }
 
 .devbook-stack__section > .devbook-pane--arc42 > .arc42-surface {
@@ -12917,7 +12920,7 @@ a.pull-request-detail-checks__name:hover {
 
 .arc42-surface .arc42-devbook-layout--record {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 18rem);
     align-items: stretch;
 }
 
