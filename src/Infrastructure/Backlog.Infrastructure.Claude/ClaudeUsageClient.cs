@@ -388,21 +388,3 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
         };
     }
 }
-
-/// <summary>Stands in when Claude usage support is not registered in a build.</summary>
-public sealed class UnavailableClaudeUsageClient : IClaudeUsageClient
-{
-    private const string Message = "Claude usage reporting is not registered in this build.";
-
-    public Task<ClaudeUsageAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(new ClaudeUsageAvailability(false, Message));
-
-    public Task<ClaudeUsageReport> GetMessageUsageAsync(ClaudeAccount account, ClaudeUsageWindow window, ClaudeUsageBucket bucket = ClaudeUsageBucket.Day, CancellationToken cancellationToken = default) =>
-        throw new ClaudeNotConfiguredException(Message);
-
-    public Task<ClaudeCostReport> GetCostAsync(ClaudeAccount account, ClaudeUsageWindow window, CancellationToken cancellationToken = default) =>
-        throw new ClaudeNotConfiguredException(Message);
-
-    public Task<ClaudeCodeReport> GetClaudeCodeUsageAsync(ClaudeAccount account, DateOnly date, CancellationToken cancellationToken = default) =>
-        throw new ClaudeNotConfiguredException(Message);
-}

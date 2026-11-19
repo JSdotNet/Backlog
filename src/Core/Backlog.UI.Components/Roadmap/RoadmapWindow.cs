@@ -78,14 +78,8 @@ public sealed record RoadmapWindow
     /// so it is always safe to divide by.</summary>
     public int TotalDays => End.DayNumber - Start.DayNumber + 1;
 
-    /// <summary>How far into the window a date falls, 0 at the first day and 1
-    /// at the day after the last. Not clamped: a caller asking where an
-    /// out-of-window date would go gets the honest answer, and the timeline
-    /// decides separately whether to draw it.</summary>
-    public double FractionAt(DateOnly date) =>
-        (date.DayNumber - Start.DayNumber) / (double)TotalDays;
-
-    /// <summary>The inverse: which day sits at a fraction of the window.</summary>
+    /// <summary>Which day sits at a fraction of the window, 0 being the first day
+    /// and 1 the day after the last.</summary>
     public DateOnly DateAt(double fraction) =>
         Start.AddDays((int)Math.Round(fraction * TotalDays, MidpointRounding.AwayFromZero));
 

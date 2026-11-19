@@ -55,10 +55,6 @@ public sealed class EventNoteAttachments(DeviceOutbox outbox, TimeProvider clock
         return request.RequestId;
     }
 
-    /// <summary>The event the note was last attached to on this phone while that request still
-    /// waits in the outbox, parked or not; null when none waits.</summary>
-    public Guid? PendingEventFor(Guid noteId) => PendingFor(noteId)?.EventId;
-
     /// <summary>The note's latest attachment request still on the phone, with the outbox entry
     /// carrying it — whose <see cref="OutboxEntry.IsParked"/>, <see cref="OutboxEntry.Refused"/>
     /// and <see cref="OutboxEntry.LastError"/> say why it has not left; null when none waits.</summary>

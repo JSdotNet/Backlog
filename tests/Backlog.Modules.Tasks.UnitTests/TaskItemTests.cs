@@ -179,22 +179,6 @@ public class TaskItemSubItemTests
     }
 
     [Fact]
-    public void ReorderSubItem_MovesAndReindexes()
-    {
-        var entry = NewEntry();
-        var a = entry.AddSubItem("a");
-        var b = entry.AddSubItem("b");
-        var c = entry.AddSubItem("c");
-
-        entry.ReorderSubItem(c.Id, 0);
-
-        Assert.Equal(0, c.Order);
-        Assert.Equal(1, a.Order);
-        Assert.Equal(2, b.Order);
-        Assert.Equal(new[] { c.Id, a.Id, b.Id }, entry.SubItems.Select(s => s.Id));
-    }
-
-    [Fact]
     public void ParentProgress_ReflectsSubItemCompletion()
     {
         var entry = NewEntry();

@@ -2,8 +2,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
-using Backlog.Modules.Devbook.Abstractions;
-
 namespace Backlog.Infrastructure.Devbook.Fingerprints;
 
 /// <summary>One file of a change's <c>devbook-delta/</c>, by the devbook file it
@@ -37,10 +35,6 @@ public sealed record DevbookChangeDelta(string Target, string Markdown);
 /// </summary>
 public static partial class DevbookFingerprint
 {
-    private const string ChangesRoot = "openspec/changes/";
-    private const string DeltaFolder = "devbook-delta";
-    private const string DevbookPrefix = ".devbook/";
-
     /// <summary>The value of a canonical text: <c>sha256:</c> and the first eight
     /// lowercase hex characters of SHA-256 over its UTF-8.</summary>
     public static string Of(string canonicalText)
@@ -124,78 +118,6 @@ public static partial class DevbookFingerprint
 
         return string.Join('\n', parts);
     }
-
-    /// <summary>The devbook file a path under a change's <c>devbook-delta/</c>
-    /// targets — <c>openspec/changes/&lt;name&gt;/devbook-delta/a/b.md</c> is
-    /// <c>.devbook/a/b.md</c> — or null for any other path.</summary>
-    public static string? DeltaTarget(string changePath)
-    {
-        ArgumentNullException.ThrowIfNull(changePath);
-
-        var normalized = changePath.Replace('\\', '/');
-        if (!normalized.StartsWith(ChangesRoot, StringComparison.Ordinal)) return null;
-
-        var segments = normalized[ChangesRoot.Length..].Split('/');
-        if (segments.Length < 3 || segments[0].Length == 0 || segments[0] == "archive" || segments[1] != DeltaFolder) return null;
-
-        return DevbookPrefix + string.Join('/', segments[2..]);
-    }
-
-    /// <summary>
-    /// The fingerprint of the change folder <c>openspec/changes/&lt;name&gt;/</c> in
-    /// a repository on disk: its <c>proposal.md</c> and every <c>*.md</c> and demo
-    /// under <c>devbook-delta/</c>, at any depth. Null when the folder has no
-    /// proposal — there is no change to decide.
-    /// </summary>
-    /// <exception cref="ArgumentException"><paramref name="changeName"/> is no
-    /// folder name under <c>openspec/changes/</c>
-    /// (<see cref="DevbookSubject.IsProposalName"/>): nothing outside the change's
-    /// own folder is read.</exception>
-    public static string? ReadChange(string repositoryRoot, string changeName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(changeName);
-
-        if (!DevbookSubject.IsProposalName(changeName))
-        {
-            throw new ArgumentException(
-                "A change is read by its folder name under openspec/changes/: no path, no '..', not 'archive'.",
-                nameof(changeName));
-        }
-
-        var folder = Path.Combine([repositoryRoot, .. ChangesRoot.TrimEnd('/').Split('/'), changeName]);
-        var proposal = Path.Combine(folder, "proposal.md");
-        if (!File.Exists(proposal)) return null;
-
-        var deltaRoot = Path.Combine(folder, DeltaFolder);
-        var deltas = new List<DevbookChangeDelta>();
-
-        if (Directory.Exists(deltaRoot))
-        {
-            foreach (var file in Directory.EnumerateFiles(deltaRoot, "*", SearchOption.AllDirectories))
-            {
-                var relative = Path.GetRelativePath(deltaRoot, file).Replace('\\', '/');
-                if (!relative.EndsWith(".md", StringComparison.Ordinal) && !IsDemoPath(relative)) continue;
-
-                deltas.Add(new DevbookChangeDelta(DevbookPrefix + relative, ReadAsDevbookReads(file)));
-            }
-        }
-
-        return Change(ReadAsDevbookReads(proposal), deltas);
-    }
-
-    /// <summary>
-    /// A file's text as devbook's <c>readFile(path, "utf8")</c> gives it: UTF-8,
-    /// with a byte order mark kept as U+FEFF.
-    /// <para>
-    /// <see cref="File.ReadAllText(string)"/> strips the mark, and that is not a
-    /// neutral difference: the first line then starts with <c>#</c> where devbook's
-    /// starts with U+FEFF, so this side reads a heading devbook does not, hashes
-    /// other text, and an approval recorded at <c>chapter-hash.mjs</c>' value reads
-    /// as lapsed here.
-    /// </para>
-    /// </summary>
-    private static string ReadAsDevbookReads(string path) => Encoding.UTF8.GetString(File.ReadAllBytes(path));
 
     /// <summary>The block's text, or, when it folds in a demo, its value then each
     /// demo's path and text. <c>chapterFingerprintText</c> in

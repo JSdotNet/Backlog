@@ -297,7 +297,7 @@ public sealed class GitHubSettingsTests
             var store = new GitHubSettingsStore(path);
             var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog");
             store.SetRepositories(repositories);
-            store.SetToken("ghp_example");
+            store.SetRepositoryToken("backlog", "ghp_example");
 
             var reopened = new GitHubSettingsStore(path);
             var repository = Assert.Single(reopened.Current.Repositories);

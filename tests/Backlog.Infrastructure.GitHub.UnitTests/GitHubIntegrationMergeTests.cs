@@ -52,26 +52,6 @@ public sealed class GitHubIntegrationMergeTests : IDisposable
     }
 
     [Fact]
-    public async Task Reading_a_status_goes_to_the_repository_the_link_names()
-    {
-        var transport = new RoutingTransport().Returns(
-            "graphql",
-            """
-            { "data": { "repository": {
-                "mergeCommitAllowed": true, "squashMergeAllowed": false, "rebaseMergeAllowed": false,
-                "pullRequest": { "id": "PR_x", "number": 12, "state": "OPEN", "isDraft": false,
-                                 "mergeStateStatus": "CLEAN", "autoMergeRequest": null,
-                                 "commits": { "nodes": [] } } } } }
-            """);
-
-        var status = await Integration(transport).ReadPullRequestStatusAsync("octo/demo", 12, TestContext.Current.CancellationToken);
-
-        Assert.Equal("graphql#octo/demo", Assert.Single(transport.Paths));
-        Assert.Equal("octo/demo", status.RepositoryFullName);
-        Assert.True(status.MergeReady);
-    }
-
-    [Fact]
     public async Task Auto_merge_turned_off_for_the_repository_says_which_switch_to_turn_on()
     {
         var refused = await RefusedAsync(

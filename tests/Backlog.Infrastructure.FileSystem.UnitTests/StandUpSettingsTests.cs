@@ -32,24 +32,6 @@ public sealed class StandUpSettingsTests : IDisposable
 
     private static readonly DateOnly Wednesday21 = new(2026, 10, 21);
 
-    [Fact]
-    public void The_store_keeps_the_length_and_start_across_a_restart()
-    {
-        var store = new ShellNavigationStore(ShellPath);
-        Assert.Null(store.GoalsIterationLength);
-        Assert.Null(store.GoalsTwoWeekStart);
-
-        store.SetGoalsIteration("two-weeks", new DateOnly(2026, 10, 5));
-        store.Flush();
-
-        var reopened = new ShellNavigationStore(ShellPath);
-        Assert.Equal("two-weeks", reopened.GoalsIterationLength);
-        Assert.Equal(new DateOnly(2026, 10, 5), reopened.GoalsTwoWeekStart);
-        var file = File.ReadAllText(ShellPath);
-        Assert.Contains("\"goalsIterationLength\": \"two-weeks\"", file, StringComparison.Ordinal);
-        Assert.Contains("\"goalsTwoWeekStart\": \"2026-10-05\"", file, StringComparison.Ordinal);
-    }
-
     /// <summary>The setting's stored values are the spec's (<c>context.md#iteration-length</c>),
     /// never the member names: choosing 2 weeks writes <c>two-weeks</c> and reads back as 2 weeks.</summary>
     [Theory]
@@ -105,6 +87,20 @@ public sealed class StandUpSettingsTests : IDisposable
         var file = File.ReadAllText(ShellPath);
         Assert.DoesNotContain("goalsIterationLength", file, StringComparison.Ordinal);
         Assert.DoesNotContain("goalsTwoWeekStart", file, StringComparison.Ordinal);
+    }
+
+    /// <summary>The length and start an earlier build wrote to the shell navigation file
+    /// still read, so the iteration settings can be seeded from them.</summary>
+    [Fact]
+    public void A_stored_length_and_start_read_back()
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(ShellPath, """{ "goalsIterationLength": "two-weeks", "goalsTwoWeekStart": "2026-10-05" }""");
+
+        var store = new ShellNavigationStore(ShellPath);
+
+        Assert.Equal("two-weeks", store.GoalsIterationLength);
+        Assert.Equal(new DateOnly(2026, 10, 5), store.GoalsTwoWeekStart);
     }
 
     [Fact]

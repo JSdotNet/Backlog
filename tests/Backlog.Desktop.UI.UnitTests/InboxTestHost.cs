@@ -25,6 +25,16 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 internal static class InboxTestHost
 {
+    /// <summary>The bulk bar's Move to backlog taken to the end: the press, and
+    /// Confirm on the "Before you route" panel when the press opened one — what a
+    /// person does to route the picked items as one batch.</summary>
+    public static async Task<InboxBulkOutcome> RouteSelectionToBacklogAsync(this InboxDesktopState state)
+    {
+        var outcome = await state.BeginBulkRouteAsync();
+
+        return state.RouteDraft is null ? outcome : await state.ConfirmRouteAsync();
+    }
+
     /// <summary>Registers the state and the fake behind it. The fake is
     /// registered as itself too, so a test can seed it and read it back.</summary>
     public static FakeInboxItems AddInboxState(IServiceCollection services, FakeInboxItems? inbox = null)

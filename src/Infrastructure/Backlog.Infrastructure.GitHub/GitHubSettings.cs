@@ -929,12 +929,6 @@ public sealed partial class GitHubSettingsStore
         });
     }
 
-    public string? SetToken(string? token)
-    {
-        var repository = Current.Repositories.FirstOrDefault();
-        return repository is null ? null : SetRepositoryToken(repository.Alias, token);
-    }
-
     public string? SetApiEndpoint(string? apiEndpoint) =>
         Save(new GitHubSettings
         {

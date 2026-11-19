@@ -334,7 +334,7 @@ public sealed class InboxUndoTests : IDisposable
         await state.ReloadAsync();
         state.TogglePicked(a.Id, true, range: false);
         state.TogglePicked(b.Id, true, range: false);
-        await state.BulkRouteToBacklogAsync();
+        await state.RouteSelectionToBacklogAsync();
         Assert.NotNull(inbox.Find(a.Id)!.Routing);
         Assert.NotNull(inbox.Find(b.Id)!.Routing);
         Assert.Equal(2, state.DecisionCount(InboxDecisionKind.MoveToBacklog));
@@ -455,7 +455,7 @@ public sealed class InboxUndoTests : IDisposable
         var c = inbox.Seed("C", capturedAt: inbox.Now.AddMinutes(1));
         await state.ReloadAsync();
         foreach (var id in new[] { a.Id, b.Id, c.Id }) state.TogglePicked(id, true, range: false);
-        await state.BulkRouteToBacklogAsync();
+        await state.RouteSelectionToBacklogAsync();
         var group = Assert.IsType<InboxGroupUndoStep>(state.UndoHistory.Latest);
         var members = group.Steps.Select(step => Assert.IsType<InboxRouteUndoStep>(step).ItemId).ToList();
         var (refused, thrown, landed) = (members[0], members[1], members[2]);

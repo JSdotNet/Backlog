@@ -186,12 +186,6 @@ public sealed class EntryRowLayoutTests
     }
 
     [Fact]
-    public void Tag_input_values_display_plain_tag_names_for_datalist_selection()
-    {
-        Assert.Equal("desktop qa-new-tag", EntryTextParser.FormatTagsInput(["desktop", "qa-new-tag"]));
-    }
-
-    [Fact]
     public void Metadata_tag_preview_excludes_body_tags()
     {
         var row = new EntryRow
@@ -258,23 +252,22 @@ public sealed class EntryRowLayoutTests
 
         Assert.Equal(2, row.PreviewSubItems.Count);
         Assert.Equal(2, row.PreviewSubItems[0].Level);
-        Assert.Equal(EntryStatus.Ready, row.PreviewSubItems[0].EntryMetadata()?.Status);
+        Assert.Equal(EntryStatus.Ready, (row.PreviewSubItems[0].Metadata?.Value as EntryMarkdownMetadata)?.Status);
         Assert.Equal(["parent"], row.PreviewSubItems[0].MetadataTags);
         Assert.Equal(3, row.PreviewSubItems[1].Level);
-        Assert.Equal(EntryStatus.Done, row.PreviewSubItems[1].EntryMetadata()?.Status);
+        Assert.Equal(EntryStatus.Done, (row.PreviewSubItems[1].Metadata?.Value as EntryMarkdownMetadata)?.Status);
         Assert.Equal("repo", row.PreviewSubItems[1].Area);
         Assert.Equal(["child"], row.PreviewSubItems[1].MetadataTags);
     }
 
     /// <summary>
-    /// One step's notes are that step's, and writing them leaves its siblings alone.
+    /// One step's notes and title are that step's, read by its index.
     /// <para>
     /// This is what is left of "collapse state is tracked per sub-item". Which steps
     /// a reader has unfolded is the shared task row's own business now — it dies with
     /// the view, and the row holds it. What still has to be per sub-item, and is a
-    /// fact about the markdown rather than about a view, is the text: the pane hands
-    /// each step's notes to its own editor by index, and an edit that reached the
-    /// wrong chapter would silently overwrite a neighbour.
+    /// fact about the markdown rather than about a view, is the text, addressed by
+    /// index.
     /// </para>
     /// </summary>
     [Fact]
@@ -289,11 +282,6 @@ public sealed class EntryRowLayoutTests
 
         Assert.Equal("Notes one.", EntryTextParser.GetSubItemNote(raw, 0));
         Assert.Equal("Notes two.", EntryTextParser.GetSubItemNote(raw, 1));
-
-        var rewritten = EntryTextParser.WithSubItemNote(raw, 0, "Rewritten one.");
-
-        Assert.Equal("Rewritten one.", EntryTextParser.GetSubItemNote(rewritten, 0));
-        Assert.Equal("Notes two.", EntryTextParser.GetSubItemNote(rewritten, 1));
-        Assert.Equal("First", EntryTextParser.GetSubItemTitle(rewritten, 0));
+        Assert.Equal("First", EntryTextParser.GetSubItemTitle(raw, 0));
     }
 }

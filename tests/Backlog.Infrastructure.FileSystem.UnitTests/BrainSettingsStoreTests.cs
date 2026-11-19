@@ -155,19 +155,6 @@ public sealed class BrainSettingsStoreTests : IDisposable
         Assert.Null(Store().BrainFolder);
     }
 
-    [Fact]
-    public void The_chip_reads_set_up_your_brain_until_a_folder_is_set()
-    {
-        var store = Store();
-
-        Assert.Equal("Set up your Brain", BrainSetup.ChipLabel(store));
-
-        _ = store.TrySetBrainFolder(Path.Combine(_root, "Brain"));
-
-        Assert.Equal("Brain", BrainSetup.ChipLabel(store));
-        Assert.Equal("settings/storage#brain-folder", BrainSetup.SettingsHref);
-    }
-
     public void Dispose()
     {
         try

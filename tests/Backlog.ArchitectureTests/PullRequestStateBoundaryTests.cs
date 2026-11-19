@@ -13,7 +13,7 @@ public sealed class PullRequestStateBoundaryTests
 {
     /// <summary>
     /// Every pull-request member of <c>GitHubIntegration</c>: the open, pinned and merged
-    /// lists, the reads by number (REST and the status query), the merge, auto-merge on
+    /// lists, the read by number, the merge, auto-merge on
     /// and off, update branch, ready for review and re-run. A module screen reads and
     /// acts on a pull request through its own module's port, which an adapter answers
     /// out of Repository Management's contract, never through these (local ADR 0042 §4).
@@ -24,7 +24,6 @@ public sealed class PullRequestStateBoundaryTests
         "ListPinnedPullRequestsAsync",
         "ListMergedPullRequestsAsync",
         "ReadPullRequestAsync",
-        "ReadPullRequestStatusAsync",
         "MergePullRequestAsync",
         "EnableAutoMergeAsync",
         "DisableAutoMergeAsync",
@@ -142,7 +141,7 @@ public sealed class PullRequestStateBoundaryTests
     [Theory]
     [InlineData("ActOnPullRequestAsync(row, pr, _gitHub.MergePullRequestAsync, \"Couldn't merge.\");", true)]
     [InlineData("Func<GitHubPullRequestStatus, Task> merge = gitHub.EnableAutoMergeAsync;", true)]
-    [InlineData("return await _gitHub.ReadPullRequestStatusAsync(pr.Repository, pr.Number);", true)]
+    [InlineData("return await _gitHub.ReadPullRequestAsync(pr.Repository, pr.Number);", true)]
     [InlineData("var pinned = await client.ListPullRequestsAsync(repository, numbers);", true)]
     [InlineData("acts.Add(client.RerunFailedJobsAsync);", true)]
     [InlineData("<button @onclick=\"() => GitHub.UpdateBranchAsync(pull)\">", true)]

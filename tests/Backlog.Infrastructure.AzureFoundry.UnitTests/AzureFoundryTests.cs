@@ -1015,17 +1015,6 @@ public sealed class AzureFoundryEmbeddingsClientTests : IDisposable
             TestContext.Current.CancellationToken));
     }
 
-    [Fact]
-    public async Task The_unavailable_client_says_so_rather_than_pretending()
-    {
-        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
-            new UnavailableAzureFoundryEmbeddingsClient().EmbedAsync(
-                new AzureFoundryEmbeddingRequest("text-embedding-3-small", ["a chapter"]),
-                TestContext.Current.CancellationToken));
-
-        Assert.Contains("not registered", ex.Message);
-    }
-
     private static HttpResponseMessage Json(string payload) =>
         new(HttpStatusCode.OK) { Content = new StringContent(payload, Encoding.UTF8, "application/json") };
 

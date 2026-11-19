@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -210,7 +211,7 @@ public class StatusReadingTests
         // A dead-end status would strand guided lifecycle callers with no next step.
         foreach (var status in Enum.GetValues<EntryStatus>())
         {
-            Assert.NotEmpty(TaskItem.NextStatusesFrom(status));
+            Assert.NotEmpty(EntryStatusFlow.NextFrom(status));
         }
     }
 }

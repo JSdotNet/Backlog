@@ -298,8 +298,8 @@ public class EffortWindowTests
     {
         var week = ShortFriday; // 38 hours: 34 of them Monday to Thursday
 
-        Assert.Equal(Start.AddDays(3), EffortWindow.EndAfter(Start, TimeSpan.FromHours(34), week));
-        Assert.Equal(Start.AddDays(4), EffortWindow.EndAfter(Start, TimeSpan.FromHours(35), week));
+        Assert.Equal(Start.AddDays(3), week.LastDayOf(Start, TimeSpan.FromHours(34)));
+        Assert.Equal(Start.AddDays(4), week.LastDayOf(Start, TimeSpan.FromHours(35)));
 
         // The same through the pace: 34 points at 38 a week need 34 hours.
         Assert.Equal(Start.AddDays(3), EffortWindow.EndFrom(Start, 34, 38m, week));
