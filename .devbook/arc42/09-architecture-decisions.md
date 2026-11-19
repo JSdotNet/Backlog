@@ -118,7 +118,7 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0031 — GitHub calls resolve their account per repository, and a token taken from the GitHub CLI is never stored](adr/0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md)
 - [ADR 0032 — The My Day preferences ride the task feed as one whole document, and the phone folds it](adr/0032-my-day-preferences-ride-the-task-feed.md)
 - [ADR 0033 — The Dashboard sends its figures to Foundry, whichever part was pressed](adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md)
-- [ADR 0034 — Archify renders are generated on demand into app storage, not committed](adr/0034-archify-renders-are-generated-on-demand-not-committed.md)
+- [ADR 0034 — Archify renders are generated on demand into app storage, not committed](adr/0034-archify-renders-are-generated-on-demand-not-committed.md) (superseded by ADR 0057)
 - [ADR 0035 — Goals and impediments replace sprints](adr/0035-goals-and-impediments-replace-sprints.md) (§2, §8 and §9 amended by ADR 0037; §7's GitHub edge amended by ADR 0042)
 - [ADR 0037 — A session attaches to a goal as its own item](adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)
 - [ADR 0038 — Backlog queues session requests and a Manager session dispatches them](adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
@@ -134,3 +134,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0053 — A plan or a task may reference a Brain note](adr/0053-a-plan-or-a-task-may-reference-a-brain-note.md) (proposed; amends ADR 0027 §6)
 - [ADR 0054 — Clarify outcomes follow GTD, and each item has one home](adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md) (proposed; amends ADR 0026 §2 and §3)
 - [ADR 0055 — Calendar is a surface of its own that reads layers](adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md) (proposed, Tasks, Plans and Events layers built)
+- [ADR 0057 — Archify is retired, and Mermaid draws every chapter diagram](adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md) (proposed; supersedes ADR 0034)

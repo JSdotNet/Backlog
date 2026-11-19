@@ -317,12 +317,12 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
   outside every repository, so nothing about it is committed or needs ignoring,
   and a repository the app reads is left as it was found. It is per path, so two
   worktrees of one repository, and a branch snapshot, each get their own.
-- **The authored half stays text.** The hand-written Archify specifications and
-  the Structurizr C4 workspace are committed and reviewed in diffs. The workspace is
-  `workspace.dsl` in the arc42 folder, with any files it includes from its `c4/` folder.
+- **The authored half stays text.** The Structurizr C4 workspace is committed and
+  reviewed in diffs. It is `workspace.dsl` in the arc42 folder, with any files it
+  includes from its `c4/` folder.
   Only what a generator produces goes into the database.
-  - The rendered Archify pages are not committed at all. The app draws them on demand
-    from the specifications into `_archify-renders/` beside `_databases/` (local ADR 0034).
+  - Diagrams are mermaid fences in the chapters. Archify is retired (local ADR 0057),
+    so no specification or rendered page sits beside them.
   - The reading order is not authored either. Both writers derive it the way the
     devbook generator does, from `index: root`, the folder's convention root and the
     numbers in filenames (local ADR 0016).
