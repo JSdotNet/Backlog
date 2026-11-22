@@ -159,7 +159,7 @@ In-memory hosting of an ASP.NET Core app under test.
 ```meta
 rating: adopted
 type: package
-version: "10.11.0"
+version: "11.0.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```
 
