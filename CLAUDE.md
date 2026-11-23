@@ -46,7 +46,9 @@ Routing (which category maps to which flow) comes from the `delivery` plugin's
 the source of the gate and `.agents/rules/context-loading.md` as the detail.
 
 This repository ships no repo-native `flow-*` skill; every flow comes from the `delivery`
-plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devbook`.
+plugin. It, `delivery-schedule` and `devbook` are installed at user scope from the
+`jsdotnet-devbook` marketplace `.claude/settings.json` declares; their hooks pick the repository
+up from its `.devbook/` markers, so no project-scope `enabledPlugins` list is committed.
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
