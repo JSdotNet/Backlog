@@ -774,6 +774,35 @@ public sealed class InboxPaneTests
     }
 
     [Fact]
+    public async Task A_recording_that_failed_to_transcribe_three_times_says_why_and_retry_sends_it_again()
+    {
+        using var harness = Harness.Create();
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: true, LastError: null)
+        {
+            TranscriptionFailure = new Backlog.Modules.Inbox.Abstractions.Services.InboxTranscriptionFailureDto(
+                new string('a', 64), 3, "The deployment was not found.", DateTimeOffset.UnixEpoch),
+        };
+        var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile", bodyMd: "Agenda.");
+        harness.Inbox.SeedAttachments(item.Id, recording);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        var notice = pane.Find($"[data-testid='inbox-attachment-transcription-error-{recording.Id:N}']");
+        Assert.Equal("Transcription failed: The deployment was not found.", notice.TextContent.Trim());
+        Assert.Equal("status", notice.GetAttribute("role"));
+
+        await pane.Find($"[data-testid='inbox-attachment-transcription-retry-{recording.Id:N}']").ClickAsync(new());
+
+        Assert.Equal([recording.Id], harness.Inbox.RetriedTranscriptions);
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-transcription-error-{recording.Id:N}']"));
+            Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-transcription-retry-{recording.Id:N}']"));
+        });
+    }
+
+    [Fact]
     public async Task A_recording_not_downloaded_yet_keeps_its_waiting_row_and_no_player()
     {
         using var harness = Harness.Create();

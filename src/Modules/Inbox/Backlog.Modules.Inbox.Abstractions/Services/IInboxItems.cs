@@ -334,6 +334,13 @@ public interface IInboxItems
     /// answered, so the row shows the new reason.</summary>
     Task<Result> RetryAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default);
 
+    /// <summary>Retry on a recording row whose transcription failed three times (local
+    /// ADR 0049 §6): clears the file's failure record and queues the note, so the
+    /// recording is sent again. Refused with <c>inbox.transcription.unavailable</c> on a
+    /// host that transcribes nothing.</summary>
+    Task<Result> RetryTranscriptionAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result.Failure(InboxErrors.TranscriptionUnavailable));
+
     /// <summary>The bytes of one downloaded file — what a thumbnail is drawn
     /// from. Fails with <c>inbox.attachment.not_downloaded</c> for a file that
     /// is not on this machine.</summary>

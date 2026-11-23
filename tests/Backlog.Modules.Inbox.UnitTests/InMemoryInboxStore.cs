@@ -33,11 +33,14 @@ internal sealed class InMemoryInboxStore : IInboxItemRepository, IInboxOrganizer
     /// test makes the store fail part way through a batch.</summary>
     public int? FailOnSave { get; set; }
 
+    /// <summary>What that save throws; a full disk unless a test says otherwise.</summary>
+    public Exception? SaveFailure { get; set; }
+
     private int _saves;
 
     public Task SaveAsync(InboxItem item, CancellationToken cancellationToken = default)
     {
-        if (++_saves == FailOnSave) throw new IOException("The disk is full.");
+        if (++_saves == FailOnSave) throw SaveFailure ?? new IOException("The disk is full.");
 
         ItemWrites.Add(item.Id);
         Items[item.Id] = item;
