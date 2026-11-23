@@ -18,7 +18,8 @@ name: Auto-merge
 # workflows on the base branch, so auto-merge is enabled with the
 # AUTO_MERGE_TOKEN secret (a fine-grained token with Contents and Pull requests
 # read/write) when the repository has one, and with GITHUB_TOKEN when it does
-# not.
+# not. GitHub's "Automatically delete head branches" skips a GITHUB_TOKEN merge,
+# so without the secret branch-cleanup.yml deletes the merged head branches.
 
 on:
   pull_request:
